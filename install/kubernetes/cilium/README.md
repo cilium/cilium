@@ -1,6 +1,6 @@
 # cilium
 
-![Version: 1.8.90](https://img.shields.io/badge/Version-1.8.90-informational?style=flat-square) ![AppVersion: 1.8.90](https://img.shields.io/badge/AppVersion-1.8.90-informational?style=flat-square)
+![Version: 1.9.90](https://img.shields.io/badge/Version-1.9.90-informational?style=flat-square) ![AppVersion: 1.9.90](https://img.shields.io/badge/AppVersion-1.9.90-informational?style=flat-square)
 
 Helm chart for Cilium
 
