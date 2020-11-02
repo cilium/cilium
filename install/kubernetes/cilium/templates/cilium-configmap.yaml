@@ -237,8 +237,9 @@ data:
   # use these values for IPv6 connections.
   #
   # If these values are modified, then during the next Cilium startup the
-  # tracking of ongoing connections may be disrupted. This may lead to brief
-  # policy drops or a change in loadbalancing decisions for a connection.
+  # tracking of ongoing connections may be disrupted. As a result, reply
+  # packets may be dropped and the load-balancing decisions for established
+  # connections may change.
   #
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
   # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
@@ -279,9 +280,8 @@ data:
   #
   # If this value is modified, then during the next Cilium startup the restore
   # of existing endpoints and tracking of ongoing connections may be disrupted.
-  # This may lead to policy drops or a change in loadbalancing decisions for a
-  # connection for some time. Endpoints may need to be recreated to restore
-  # connectivity.
+  # As a result, reply packets may be dropped and the load-balancing decisions
+  # for established connections may change.
   #
   # If this option is set to "false" during an upgrade from 1.3 or earlier to
   # 1.4 or later, then it may cause one-time disruptions during the upgrade.
