@@ -153,14 +153,10 @@ Setup Helm repository:
 
 Next, render Cilium manifest:
 
-.. note::
-
-   Version ``1.8-dev`` has bug fixes for OpenShift, those fixes will get included in 1.8.5.
-
 .. parsed-literal::
 
    helm template cilium/cilium \\
-      --version 1.8-dev  \\
+      --version 1.8.5 \\
       --namespace cilium \\
       --set config.ipam=cluster-pool \\
       --set global.cni.binPath=/var/lib/cni/bin \\
