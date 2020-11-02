@@ -1448,7 +1448,8 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(
 					len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
 				).To(BeNumerically(">=", count),
-					"Monitor output does not show traffic as denied")
+					"Monitor output does not show traffic as denied: %s\n%s", policyVerdictDenyRegex,
+					monitor.CombineOutput().Bytes())
 			})
 
 			It("connectivity is restored after importing ingress policy", func() {
@@ -1479,7 +1480,8 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(
 					len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
 				).To(BeNumerically(">=", count),
-					"Monitor output does not show traffic as allowed")
+					"Monitor output does not show traffic as allowed: %s\n%s", policyVerdictAllowRegex,
+					monitor.CombineOutput().Bytes())
 			})
 
 			Context("With host policy", func() {
@@ -1527,7 +1529,8 @@ var _ = Describe("K8sPolicyTest", func() {
 					Expect(
 						len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
 					).To(BeNumerically(">=", count),
-						"Monitor output does not show traffic as denied: %s", policyVerdictDenyRegex)
+						"Monitor output does not show traffic as denied: %s\n%s", policyVerdictDenyRegex,
+						monitor.CombineOutput().Bytes())
 				})
 
 				It("Connectivity is restored after importing ingress policy", func() {
@@ -1558,7 +1561,8 @@ var _ = Describe("K8sPolicyTest", func() {
 					Expect(
 						len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
 					).To(BeNumerically(">=", count),
-						"Monitor output does not show traffic as denied: %s", policyVerdictDenyRegex)
+						"Monitor output does not show traffic as denied: %s\n%s", policyVerdictDenyRegex,
+						monitor.CombineOutput().Bytes())
 
 					By("Removing the fromCIDR+toPorts ingress host policy")
 					// This is to ensure this policy is always removed before the default-deny one.
