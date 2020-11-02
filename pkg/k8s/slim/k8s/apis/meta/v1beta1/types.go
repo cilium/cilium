@@ -20,22 +20,6 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-// Table is a tabular representation of a set of API resources. The server transforms the
-// object into a set of preferred columns for quickly reviewing the objects.
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +protobuf=false
-// +deepequal-gen=false
-type Table = v1.Table
-
-// TableColumnDefinition contains information about a column returned in the Table.
-// +protobuf=false
-type TableColumnDefinition = v1.TableColumnDefinition
-
-// TableRow is an individual row in a table.
-// +protobuf=false
-// +deepequal-gen=false
-type TableRow = v1.TableRow
-
 // PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients
 // to get access to a particular ObjectMeta schema without knowing the details of the version.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

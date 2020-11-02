@@ -34,7 +34,6 @@ func Kind(kind string) schema.GroupKind {
 // AddMetaToScheme registers base meta types into schemas.
 func AddMetaToScheme(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Table{},
 		&PartialObjectMetadata{},
 		&PartialObjectMetadataList{},
 	)
