@@ -556,8 +556,8 @@ Scheduling of new workloads:
   identity allocation which requires interaction with the kvstore. If a
   workload can be scheduled due to re-using a known security identity, then
   state propagation of the endpoint details to other nodes will still depend on
-  the kvstore and thus policy drops may be observed as other nodes in the
-  cluster will not be aware of the new workload.
+  the kvstore and thus packets drops due to policy enforcement may be observed
+  as other nodes in the cluster will not be aware of the new workload.
 
 Multi cluster:
   All state propagation between clusters depends on the kvstore.
