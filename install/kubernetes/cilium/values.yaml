@@ -617,7 +617,7 @@ hubble:
     backend:
       image:
         repository: docker.io/cilium/hubble-ui-backend
-        tag: v0.7.2
+        tag: v0.7.3
         pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -632,7 +632,7 @@ hubble:
     frontend:
       image:
         repository: docker.io/cilium/hubble-ui
-        tag: v0.7.2
+        tag: v0.7.3
         pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
