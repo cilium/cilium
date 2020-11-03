@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
@@ -741,7 +744,7 @@ func (n *Node) syncToAPIServer() (err error) {
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
 		if node.Spec.IPAM.PreAllocate == 0 {
-			node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+			adjustPreAllocateIfNeeded(node)
 		}
 
 		origNode, node, err = n.update(origNode, node, retry, false)
@@ -815,4 +818,32 @@ func (n *Node) update(
 	}
 
 	return origNode, node, err
+}
+
+// adjustPreAllocateIfNeeded adjusts IPAM values depending on the instance
+// type. This is needed when the instance type is on the smaller side which
+// requires us to lower the PreAllocate value and include eth0 as an ENI device
+// because the instance type does not allow for additional ENIs to be attached
+// (hence limited).
+//
+// For now, this function is only needed in ENI IPAM mode. In the future, this
+// may also be needed for Azure IPAM as well.
+func adjustPreAllocateIfNeeded(node *v2.CiliumNode) {
+	if option.Config.IPAM != ipamOption.IPAMENI {
+		return
+	}
+
+	// Auto set the PreAllocate to the default value and we'll determine if we
+	// need to adjust it below.
+	node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+
+	if lim, ok := limits.Get(node.Spec.ENI.InstanceType); ok {
+		max := lim.Adapters * lim.IPv4
+		if node.Spec.IPAM.PreAllocate > max {
+			node.Spec.IPAM.PreAllocate = max
+
+			var i int = 0
+			node.Spec.ENI.FirstInterfaceIndex = &i // Include eth0
+		}
+	}
 }
