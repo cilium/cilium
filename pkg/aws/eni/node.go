@@ -103,7 +103,7 @@ func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 // getLimitsLocked is the same function as getLimits, but assumes the n.mutex
 // is read locked.
 func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
-	return limits.GetLimits(n.k8sObj.Spec.ENI.InstanceType)
+	return limits.Get(n.k8sObj.Spec.ENI.InstanceType)
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.

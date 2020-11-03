@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,44 +17,54 @@
 package limits
 
 import (
+	"testing"
+
 	"github.com/cilium/cilium/operator/option"
 
 	"gopkg.in/check.v1"
 )
 
-func (e *ENISuite) TestGetLimits(c *check.C) {
+func Test(t *testing.T) {
+	check.TestingT(t)
+}
+
+type ENILimitsSuite struct{}
+
+var _ = check.Suite(&ENILimitsSuite{})
+
+func (e *ENILimitsSuite) TestGet(c *check.C) {
 	option.Config.AWSInstanceLimitMapping = map[string]string{"a2.custom2": "4,5,6"}
 
-	_, ok := GetLimits("unknown")
+	_, ok := Get("unknown")
 	c.Assert(ok, check.Equals, false)
 
-	l, ok := GetLimits("m3.large")
+	l, ok := Get("m3.large")
 	c.Assert(ok, check.Equals, true)
 	c.Assert(l.Adapters, check.Not(check.Equals), 0)
 	c.Assert(l.IPv4, check.Not(check.Equals), 0)
 
 	UpdateFromUserDefinedMappings(option.Config.AWSInstanceLimitMapping)
-	l, ok = GetLimits("a2.custom2")
+	l, ok = Get("a2.custom2")
 	c.Assert(ok, check.Equals, true)
 	c.Assert(l.Adapters, check.Equals, 4)
 	c.Assert(l.IPv4, check.Equals, 5)
 	c.Assert(l.IPv6, check.Equals, 6)
 }
 
-func (e *ENISuite) TestUpdateLimitsFromUserDefinedMappings(c *check.C) {
+func (e *ENILimitsSuite) TestUpdateFromUserDefinedMappings(c *check.C) {
 	m1 := map[string]string{"a1.medium": "2,4,100"}
 
-	err := UpdateLimitsFromUserDefinedMappings(m1)
+	err := UpdateFromUserDefinedMappings(m1)
 	c.Assert(err, check.Equals, nil)
 
-	limit, ok := GetLimits("a1.medium")
+	limit, ok := Get("a1.medium")
 	c.Assert(ok, check.Equals, true)
 	c.Assert(limit.Adapters, check.Equals, 2)
 	c.Assert(limit.IPv4, check.Equals, 4)
 	c.Assert(limit.IPv6, check.Equals, 100)
 }
 
-func (e *ENISuite) TestParseLimitString(c *check.C) {
+func (e *ENILimitsSuite) TestParseLimitString(c *check.C) {
 	limitString1 := "4,5 ,6"
 	limitString2 := "4,5,a"
 	limitString3 := "4,5"

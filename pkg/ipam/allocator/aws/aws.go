@@ -45,11 +45,11 @@ type AllocatorAWS struct{}
 
 // Init sets up ENI limits based on given options
 func (*AllocatorAWS) Init() error {
-	if err := limits.UpdateLimitsFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
+	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
 	}
 	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateLimitsFromEC2API(context.TODO()); err != nil {
+		if err := limits.UpdateFromEC2API(context.TODO()); err != nil {
 			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
 		}
 	}
