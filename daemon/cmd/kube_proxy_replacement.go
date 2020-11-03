@@ -236,9 +236,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			fallthrough
 		case option.Config.Tunnel != option.TunnelDisabled:
 			fallthrough
-		// TODO: add multi-dev support
-		case len(option.Config.Devices) > 1:
-			fallthrough
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.Masquerade && !option.Config.EnableBPFMasquerade:
 			option.Config.EnableHostLegacyRouting = true
