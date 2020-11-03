@@ -550,15 +550,43 @@ maximum number of nesting calls respectively allowed call frames is ``8``.
 A caller can pass pointers (e.g. to the caller's stack frame) down to the
 callee, but never vice versa.
 
-BPF to BPF calls are currently incompatible with the use of BPF tail calls,
-since the latter requires to reuse the current stack setup as-is, whereas
-the former adds additional stack frames and thus changes the expected layout
-for tail calls.
-
 BPF JIT compilers emit separate images for each function body and later fix
 up the function call addresses in the image in a final JIT pass. This has
 proven to require minimal changes to the JITs in that they can treat BPF to
 BPF calls as conventional BPF helper calls.
+
+Up to kernel 5.9, BPF tail calls and BPF subprograms excluded each other. BPF
+programs that utilized tail calls couldn't take the benefit of reducing program
+image size and faster load times. Linux kernel 5.10 finally allows users to bring
+the best of two worlds and adds the ability to combine the BPF subprograms with
+tail calls.
+
+This improvement comes with some restrictions, though. Mixing these two features
+can cause a kernel stack overflow. To get an idea of what might happen, see the
+picture below that illustrates the mix of bpf2bpf calls and tail calls:
+
+.. image:: images/bpf_tailcall_subprograms.png
+    :align: center
+
+Tail calls, before the actual jump to the target program, will unwind only its
+current stack frame. As we can see in the example above, if a tail call occurs
+from within the sub-function, the function's (func1) stack frame will be
+present on the stack when a program execution is at func2. Once the final
+function (func3) function terminates, all the previous stack frames will be
+unwinded and control will get back to the caller of BPF program caller.
+
+The kernel introduced additional logic for detecting this feature combination.
+There is a limit on the stack size throughout the whole call chain down to 256
+bytes per subprogram (note that if the verifier detects the bpf2bpf call, then
+the main function is treated as a sub-function as well). In total, with this
+restriction, the BPF program's call chain can consume at most 8KB of stack
+space. This limit comes from the 256 bytes per stack frame multiplied by the
+tail call count limit(32). Without this, the BPF programs will operate on
+512-byte stack size, yielding the 16KB size in total for the maximum count of
+tail calls that would overflow the stack on some architectures.
+
+One more thing to mention is that this feature combination is currently
+supported only on the x86-64 architecture.
 
 JIT
 ---
