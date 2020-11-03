@@ -357,6 +357,14 @@ Annotations:
   install --set ipv4.enabled=true``. The following section calls out specific
   values where the prefix cannot be simply dropped followed by a full
   table of old and new Helm values.
+* On Linux kernel v5.10 and above, running the agent with BPF kube-proxy replacement
+  under direct routing operation as well as BPF-based masquerading will bypass
+  subsystems like netfilter/iptables in the host namespace in order to significantly
+  improve throughput and latency for the BPF datapath given routing is not performed
+  in the host stack but directly in BPF instead. To opt-out from this behavior,
+  the Helm option ``bpf.hostRouting=true`` can be used. If the underlying kernel
+  does not implement the needed BPF features, then the agent will fallback and rely
+  on host routing automatically.
 
 .. _1.9_helm_options:
 
