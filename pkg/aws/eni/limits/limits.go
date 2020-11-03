@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package eni
+package limits
 
 import (
 	"context"
@@ -313,8 +313,8 @@ var limits = map[string]ipamTypes.Limits{
 	"z1d.metal":     {Adapters: 15, IPv4: 50, IPv6: 50},
 }
 
-// getLimits returns the instance limits of a particular instance type
-func getLimits(instanceType string) (limit ipamTypes.Limits, ok bool) {
+// GetLimits returns the instance limits of a particular instance type.
+func GetLimits(instanceType string) (limit ipamTypes.Limits, ok bool) {
 	limitsMutex.RLock()
 	limit, ok = limits[instanceType]
 	limitsMutex.RUnlock()
