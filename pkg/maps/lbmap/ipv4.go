@@ -73,6 +73,15 @@ var (
 	).WithCache()
 )
 
+// The compile-time check for whether the structs implement the interfaces
+var _ RevNatKey = (*RevNat4Key)(nil)
+var _ RevNatValue = (*RevNat4Value)(nil)
+var _ ServiceKey = (*Service4Key)(nil)
+var _ ServiceValue = (*Service4Value)(nil)
+var _ BackendKey = (*Backend4Key)(nil)
+var _ BackendValue = (*Backend4Value)(nil)
+var _ Backend = (*Backend4)(nil)
+
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type RevNat4Key struct {

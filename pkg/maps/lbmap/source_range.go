@@ -43,6 +43,10 @@ type SourceRangeKey interface {
 	ToHost() SourceRangeKey
 }
 
+// The compile-time check for whether the structs implement the interface
+var _ SourceRangeKey = (*SourceRangeKey4)(nil)
+var _ SourceRangeKey = (*SourceRangeKey6)(nil)
+
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SourceRangeKey4 struct {
