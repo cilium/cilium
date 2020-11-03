@@ -222,6 +222,12 @@ bpf:
   # TODO: Add documentation
   #masquerade: true
 
+  # hostRouting defines whether direct routing mode should route traffic via
+  # host stack (true) or directly and more efficiently out of BPF (false) if
+  # the kernel supports it. The latter has the implication that it will also
+  # bypass netfilter in the host namespace.
+  #hostRouting: true
+
   # tproxy enables the use of eBPF-based TPROXY to reduce reliance on iptables
   # rules for implementing Layer 7 policy.
   # tproxy: true
