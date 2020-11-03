@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -102,7 +103,7 @@ func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 // getLimitsLocked is the same function as getLimits, but assumes the n.mutex
 // is read locked.
 func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
-	return getLimits(n.k8sObj.Spec.ENI.InstanceType)
+	return limits.GetLimits(n.k8sObj.Spec.ENI.InstanceType)
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
