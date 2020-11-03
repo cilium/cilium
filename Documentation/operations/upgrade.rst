@@ -192,6 +192,30 @@ version which was installed in this cluster. Valid options are:
    `1.9_helm_options` to determine the 1.9 equivalent options for options you
    previously specified when initially installing Cilium.
 
+   For example, an 1.8 installation with the following options:
+
+   .. code-block:: txt
+
+      --namespace=kube-system \\
+      --set global.k8sServiceHost=API_SERVER_IP \\
+      --set global.k8sServicePort=API_SERVER_PORT \\
+      --set config.ipam=kubernetes \\
+      --set global.kubeProxyReplacement=strict
+
+
+   Can be upgraded using the options below:
+
+   .. code-block:: txt
+
+      --namespace=kube-system \\
+      --set upgradeCompatibility=1.8 \\
+      --set k8sServiceHost=API_SERVER_IP \\
+      --set k8sServicePort=API_SERVER_PORT \\
+      --set ipam.mode=kubernetes \\
+      --set kubeProxyReplacement=strict
+
+
+
    Instead of using ``--set``, you can also save the values relative to your
    deployment in a YAML file and use it to regenerate the YAML for the latest
    Cilium version. Running any of the previous commands will overwrite
@@ -601,6 +625,10 @@ Full list of updated Helm values:
 | global.ipvlan.enabled                        | ipvlan.enabled                             |
 +----------------------------------------------+--------------------------------------------+
 | global.ipvlan.masterDevice                   | ipvlan.masterDevice                        |
++----------------------------------------------+--------------------------------------------+
+| global.k8sServiceHost                        | k8sServiceHost                             |
++----------------------------------------------+--------------------------------------------+
+| global.k8sServicePort                        | k8sServicePort                             |
 +----------------------------------------------+--------------------------------------------+
 | global.k8s.requireIPv4PodCIDR                | k8s.requireIPv4PodCIDR                     |
 +----------------------------------------------+--------------------------------------------+
