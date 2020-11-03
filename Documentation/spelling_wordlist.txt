@@ -712,6 +712,8 @@ runtime
 runtimes
 sNodes
 sService
+sServiceHost
+sServicePort
 sa
 sandboxing
 scalability
