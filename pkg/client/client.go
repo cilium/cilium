@@ -256,6 +256,8 @@ type StatusDetails struct {
 	BPFMapDetails bool
 	// KubeProxyReplacementDetails causes BPF kube-proxy details to be printed by FormatStatusResponse.
 	KubeProxyReplacementDetails bool
+	// ClockSourceDetails causes BPF time-keeping internals to be printed by FormatStatusResponse.
+	ClockSourceDetails bool
 }
 
 var (
@@ -271,6 +273,7 @@ var (
 		AllClusters:                 true,
 		BPFMapDetails:               true,
 		KubeProxyReplacementDetails: true,
+		ClockSourceDetails:          true,
 	}
 )
 
@@ -415,6 +418,15 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			status = "IPTables"
 		}
 		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
+	}
+
+	if sd.ClockSourceDetails && sr.ClockSource != nil {
+		status := sr.ClockSource.Mode
+		if sr.ClockSource.Mode == models.ClockSourceModeJiffies {
+			status = fmt.Sprintf("%s\t[%d Hz]",
+				sr.ClockSource.Mode, sr.ClockSource.Hertz)
+		}
+		fmt.Fprintf(w, "Clock Source for BPF:\t%s\n", status)
 	}
 
 	if sr.Controllers != nil {

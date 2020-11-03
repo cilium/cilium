@@ -170,6 +170,15 @@ func (d *Daemon) getHostRoutingStatus() *models.HostRouting {
 	return s
 }
 
+func (d *Daemon) getClockSourceStatus() *models.ClockSource {
+	s := &models.ClockSource{Mode: models.ClockSourceModeKtime}
+	if option.Config.ClockSource == option.ClockSourceJiffies {
+		s.Mode = models.ClockSourceModeJiffies
+		s.Hertz = int64(option.Config.KernelHz)
+	}
+	return s
+}
+
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	var mode string
 	switch option.Config.KubeProxyReplacement {
@@ -875,6 +884,7 @@ func (d *Daemon) startStatusCollector() {
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()
+	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
