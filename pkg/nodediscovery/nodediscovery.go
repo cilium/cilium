@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
@@ -365,8 +366,15 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
 		}
 
+		// It is important to determine the interface index here because this
+		// function (mutateNodeResource) will be called when the agent is first
+		// coming up and is initializing the IPAM layer (CRD allocator in this
+		// case). Later on, the Operator will adjust this value based on the
+		// PreAllocate value, so to ensure that the agent and the Operator are
+		// not conflicting with each other, we must have similar logic to
+		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = vpcID
-		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
+		nodeResource.Spec.ENI.FirstInterfaceIndex = determineFirstInterfaceIndex(instanceType)
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -430,4 +438,36 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 			}
 		}
 	}
+}
+
+// determineFirstInterfaceIndex determines the appropriate default interface
+// index for the ENI IPAM mode. The interface index is stored inside the
+// CiliumNode resource. It specifies which device offset (ENI) to start
+// assigning IPs to. It is important to seed the CiliumNode resource with the
+// appropriate value, otherwise pods will fail to come up because they won't
+// have an IP assigned, because the instance limits (depending on the instance
+// type) have a maximum threshold. See
+// Documentation/concepts/networking/ipam/eni.rst for more details on this
+// value.
+//
+// This value is also ensured to stay in place using similar logic in
+// adjustPreAllocateIfNeeded(), inside
+// github.com/cilium/cilium/pkg/ipam.(*Node).syncToAPIServer().
+func determineFirstInterfaceIndex(instanceType string) *int {
+	if option.Config.IPAM != ipamOption.IPAMENI {
+		return nil
+	}
+
+	// Fallback to default value if we determine below that the instance limits
+	// do not require us to adjust the interface index.
+	idx := defaults.ENIFirstInterfaceIndex
+
+	if l, ok := limits.Get(instanceType); ok {
+		max := l.Adapters * l.IPv4
+		if defaults.IPAMPreAllocation > max {
+			idx = 0 // Include eth0
+		}
+	}
+
+	return &idx
 }
