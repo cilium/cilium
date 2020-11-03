@@ -24,6 +24,7 @@ import (
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/endpoints"
 	"github.com/cilium/cilium/pkg/aws/eni"
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
@@ -44,11 +45,11 @@ type AllocatorAWS struct{}
 
 // Init sets up ENI limits based on given options
 func (*AllocatorAWS) Init() error {
-	if err := eni.UpdateLimitsFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
+	if err := limits.UpdateLimitsFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
 	}
 	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
+		if err := limits.UpdateLimitsFromEC2API(context.TODO()); err != nil {
 			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
 		}
 	}
