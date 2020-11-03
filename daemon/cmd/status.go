@@ -130,7 +130,7 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	}
 
 	if option.Config.EnableIPv4 {
-		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDR().String()
+		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
 	}
 
 	if option.Config.EnableBPFMasquerade {

@@ -325,6 +325,12 @@ func GetIPv6() net.IP {
 	return ipv6Address
 }
 
+// GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
+// any traffic that is being forwarded from the host into the Cilium cluster.
+func GetHostMasqueradeIPv6() net.IP {
+	return ipv6Address
+}
+
 // GetIPv6Router returns the IPv6 address of the node
 func GetIPv6Router() net.IP {
 	return ipv6RouterAddress
