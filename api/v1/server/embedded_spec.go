@@ -1502,6 +1502,24 @@ func init() {
         }
       }
     },
+    "ClockSource": {
+      "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "hertz": {
+          "description": "Kernel Hz",
+          "type": "integer"
+        },
+        "mode": {
+          "description": "Datapath clock source",
+          "type": "string",
+          "enum": [
+            "ktime",
+            "jiffies"
+          ]
+        }
+      }
+    },
     "ClusterMeshStatus": {
       "description": "Status of ClusterMesh\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -3442,6 +3460,10 @@ func init() {
           "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
           "type": "integer"
         },
+        "clock-source": {
+          "description": "Status of clock source",
+          "$ref": "#/definitions/ClockSource"
+        },
         "cluster": {
           "description": "Status of cluster",
           "$ref": "#/definitions/ClusterStatus"
@@ -5320,6 +5342,24 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "ClockSource": {
+      "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "hertz": {
+          "description": "Kernel Hz",
+          "type": "integer"
+        },
+        "mode": {
+          "description": "Datapath clock source",
+          "type": "string",
+          "enum": [
+            "ktime",
+            "jiffies"
+          ]
         }
       }
     },
@@ -7564,6 +7604,10 @@ func init() {
         "client-id": {
           "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
           "type": "integer"
+        },
+        "clock-source": {
+          "description": "Status of clock source",
+          "$ref": "#/definitions/ClockSource"
         },
         "cluster": {
           "description": "Status of cluster",
