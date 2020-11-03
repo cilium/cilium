@@ -37,6 +37,7 @@
 #include "lib/encap.h"
 #include "lib/eps.h"
 #include "lib/nat.h"
+#include "lib/fib.h"
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
@@ -327,12 +328,9 @@ ct_recreate6:
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
-	if (is_defined(ENABLE_REDIRECT_FAST)) {
-		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
-		if (unlikely(ret != CTX_ACT_OK))
-			return ret;
-		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, NULL, 0, 0);
-	}
+	if (is_defined(ENABLE_REDIRECT_FAST))
+		return redirect_direct_v6(ctx, l3_off, ip6);
+
 	goto pass_to_stack;
 
 #ifdef ENABLE_ROUTING
@@ -703,12 +701,9 @@ ct_recreate4:
 			return ret;
 	}
 #endif
-	if (is_defined(ENABLE_REDIRECT_FAST)) {
-		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
-		if (unlikely(ret != CTX_ACT_OK))
-			return ret;
-		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, NULL, 0, 0);
-	}
+	if (is_defined(ENABLE_REDIRECT_FAST))
+		return redirect_direct_v4(ctx, l3_off, ip4);
+
 	goto pass_to_stack;
 
 #ifdef ENABLE_ROUTING
