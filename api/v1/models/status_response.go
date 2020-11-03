@@ -37,6 +37,9 @@ type StatusResponse struct {
 	//
 	ClientID int64 `json:"client-id,omitempty"`
 
+	// Status of clock source
+	ClockSource *ClockSource `json:"clock-source,omitempty"`
+
 	// Status of cluster
 	Cluster *ClusterStatus `json:"cluster,omitempty"`
 
@@ -93,6 +96,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateCilium(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateClockSource(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -204,6 +211,24 @@ func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
 		if err := m.Cilium.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateClockSource(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ClockSource) { // not required
+		return nil
+	}
+
+	if m.ClockSource != nil {
+		if err := m.ClockSource.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("clock-source")
 			}
 			return err
 		}
