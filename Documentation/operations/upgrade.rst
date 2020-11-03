@@ -309,6 +309,11 @@ Annotations:
 -----------------
 
 * Cilium has bumped the minimal Kubernetes version supported to v1.12.0.
+* Provided value to set the size of Hubble's buffer for flows is no longer
+  rounded up to the next power of 2 minus 1 when it is a power of 2
+  (for example: 2048 -> 4095). If you changed the default for
+  ``hubble.flowBufferSize`` to be a power of 2 value, the actual buffer
+  capacity will be halved after the upgrade.
 * Connections between Hubble server and Hubble Relay instances is now secured
   via mutual TLS (mTLS) by default. Users who have opted to enable Hubble Relay
   in v1.8 (a beta feature) will experience disruptions of the Hubble Relay
