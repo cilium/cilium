@@ -382,6 +382,7 @@ fromEndpoints
 fromEntities
 frontend
 fs
+func
 functionalities
 fwmark
 gRPC
@@ -804,6 +805,7 @@ unix
 unmanaged
 untriaged
 untrusted
+unwinded
 uplink
 uprobes
 upstreamed
