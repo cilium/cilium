@@ -1630,6 +1630,9 @@ definitions:
       host-routing:
         description: Status of host routing
         "$ref": "#/definitions/HostRouting"
+      clock-source:
+        description: Status of clock source
+        "$ref": "#/definitions/ClockSource"
       stale:
         description: List of stale information in the status
         type: object
@@ -2500,6 +2503,22 @@ definitions:
       snat-exclusion-cidr:
         description: Any packet sent to IP addr belonging to CIDR will not be SNAT'd
         type: string
+  ClockSource:
+    description: |-
+      Status of BPF clock source
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      mode:
+        description: Datapath clock source
+        type: string
+        enum:
+        - ktime
+        - jiffies
+      hertz:
+        description: Kernel Hz
+        type: integer
   HostRouting:
     description: |-
       Status of host routing
