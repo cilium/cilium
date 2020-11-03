@@ -1,6 +1,6 @@
 # cilium
 
-![Version: 1.9.0-rc2](https://img.shields.io/badge/Version-1.9.0--rc2-informational?style=flat-square) ![AppVersion: 1.9.0-rc2](https://img.shields.io/badge/AppVersion-1.9.0--rc2-informational?style=flat-square)
+![Version: 1.9.0-rc3](https://img.shields.io/badge/Version-1.9.0--rc3-informational?style=flat-square) ![AppVersion: 1.9.0-rc3](https://img.shields.io/badge/AppVersion-1.9.0--rc3-informational?style=flat-square)
 
 Helm chart for Cilium
 
@@ -42,7 +42,7 @@ Helm chart for Cilium
 | clustermesh.apiserver.etcd.image.tag | string | `"v3.4.13"` |  |
 | clustermesh.apiserver.image.pullPolicy | string | `"IfNotPresent"` |  |
 | clustermesh.apiserver.image.repository | string | `"docker.io/cilium/clustermesh-apiserver"` |  |
-| clustermesh.apiserver.image.tag | string | `"v1.9.0-rc2"` |  |
+| clustermesh.apiserver.image.tag | string | `"v1.9.0-rc3"` |  |
 | clustermesh.apiserver.nodeSelector | object | `{}` |  |
 | clustermesh.apiserver.podAnnotations | object | `{}` |  |
 | clustermesh.apiserver.replicas | int | `1` |  |
@@ -141,7 +141,7 @@ Helm chart for Cilium
 | hubble.relay.enabled | bool | `false` |  |
 | hubble.relay.image.pullPolicy | string | `"IfNotPresent"` |  |
 | hubble.relay.image.repository | string | `"docker.io/cilium/hubble-relay"` |  |
-| hubble.relay.image.tag | string | `"v1.9.0-rc2"` |  |
+| hubble.relay.image.tag | string | `"v1.9.0-rc3"` |  |
 | hubble.relay.listenHost | string | `""` |  |
 | hubble.relay.listenPort | string | `"4245"` |  |
 | hubble.relay.nodeSelector | object | `{}` |  |
@@ -196,7 +196,7 @@ Helm chart for Cilium
 | identityAllocationMode | string | `"crd"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"docker.io/cilium/cilium"` |  |
-| image.tag | string | `"v1.9.0-rc2"` |  |
+| image.tag | string | `"v1.9.0-rc3"` |  |
 | imagePullSecrets | string | `nil` |  |
 | installIptablesRules | bool | `true` |  |
 | ipMasqAgent.enabled | bool | `false` |  |
@@ -263,7 +263,7 @@ Helm chart for Cilium
 | operator.identityHeartbeatTimeout | string | `"30m0s"` |  |
 | operator.image.pullPolicy | string | `"IfNotPresent"` |  |
 | operator.image.repository | string | `"docker.io/cilium/operator"` |  |
-| operator.image.tag | string | `"v1.9.0-rc2"` |  |
+| operator.image.tag | string | `"v1.9.0-rc3"` |  |
 | operator.nodeSelector | object | `{}` |  |
 | operator.podAnnotations | object | `{}` |  |
 | operator.podDisruptionBudget.enabled | bool | `false` |  |
@@ -293,7 +293,7 @@ Helm chart for Cilium
 | preflight.extraInitContainers | list | `[]` |  |
 | preflight.image.pullPolicy | string | `"IfNotPresent"` |  |
 | preflight.image.repository | string | `"docker.io/cilium/cilium"` |  |
-| preflight.image.tag | string | `"v1.9.0-rc2"` |  |
+| preflight.image.tag | string | `"v1.9.0-rc3"` |  |
 | preflight.nodeSelector | object | `{}` |  |
 | preflight.podAnnotations | object | `{}` |  |
 | preflight.podDisruptionBudget.enabled | bool | `true` |  |

@@ -926,7 +926,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.9.0-rc2
+        image: docker.io/cilium/cilium:v1.9.0-rc3
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -997,7 +997,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.9.0-rc2
+        image: docker.io/cilium/cilium:v1.9.0-rc3
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -1145,7 +1145,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: docker.io/cilium/operator-generic:v1.9.0-rc2
+        image: docker.io/cilium/operator-generic:v1.9.0-rc3
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
@@ -1266,7 +1266,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: docker.io/cilium/clustermesh-apiserver:v1.9.0-rc2
+        image: docker.io/cilium/clustermesh-apiserver:v1.9.0-rc3
         imagePullPolicy: IfNotPresent
         command:
           - /usr/bin/clustermesh-apiserver
@@ -1356,7 +1356,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: docker.io/cilium/hubble-relay:v1.9.0-rc2
+          image: docker.io/cilium/hubble-relay:v1.9.0-rc3
           imagePullPolicy: IfNotPresent
           command:
             - hubble-relay

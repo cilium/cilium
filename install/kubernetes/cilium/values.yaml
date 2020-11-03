@@ -63,7 +63,7 @@ name: cilium
 ##
 image:
   repository: docker.io/cilium/cilium
-  tag: v1.9.0-rc2
+  tag: v1.9.0-rc3
   pullPolicy: IfNotPresent
 
 affinity:
@@ -531,7 +531,7 @@ hubble:
 
     image:
       repository: docker.io/cilium/hubble-relay
-      tag: v1.9.0-rc2
+      tag: v1.9.0-rc3
       pullPolicy: IfNotPresent
 
     # Specifies the resources for the hubble-relay pods
@@ -1035,7 +1035,7 @@ operator:
 
   image:
     repository: docker.io/cilium/operator
-    tag: v1.9.0-rc2
+    tag: v1.9.0-rc3
     pullPolicy: IfNotPresent
 
   ## Number of replicas to run for the cilium-operator deployment
@@ -1249,7 +1249,7 @@ preflight:
 
   image:
     repository: docker.io/cilium/cilium
-    tag: v1.9.0-rc2
+    tag: v1.9.0-rc3
     pullPolicy: IfNotPresent
 
   ## preflightt priorityClassName
@@ -1363,7 +1363,7 @@ clustermesh:
   apiserver:
     image:
       repository: docker.io/cilium/clustermesh-apiserver
-      tag: v1.9.0-rc2
+      tag: v1.9.0-rc3
       pullPolicy: IfNotPresent
 
     etcd:
