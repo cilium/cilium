@@ -230,6 +230,10 @@ data:
   bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
 {{- end }}
 
+{{- if hasKey .Values.bpf "hostRouting" }}
+  enable-host-legacy-routing: {{ .Values.bpf.hostRouting | quote }}
+{{- end }}
+
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
