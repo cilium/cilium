@@ -85,7 +85,7 @@ pods is the same number of Cilium pods running.
 
 .. code-block:: shell-session
 
-    $ kubectl get daemonset -n kube-system | grep cilium
+    $ kubectl get daemonset -n kube-system | sed -n '1p;/cilium/p'
     NAME                      DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
     cilium                    2         2         2       2            2           <none>          1h20m
     cilium-pre-flight-check   2         2         2       2            2           <none>          7m15s
