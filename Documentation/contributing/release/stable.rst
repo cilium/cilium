@@ -169,6 +169,12 @@ Reference steps for the template
    **Note**, the DockerHub UI will not allow you to modify the ``stable`` tag
    directly. You will need to delete it, and then create a new, updated one.
 
+#. Check if all docker images are available before announcing the release:
+
+   ::
+
+      make -C install/kubernetes/ check-docker-images
+
 #. Update the following external tools and guides to point to the released
    Cilium version. This step is only required on a new minor release like going
    from ``1.8`` to ``1.9``.

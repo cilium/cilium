@@ -55,4 +55,17 @@ update-versions:
 clean:
 	$(RM) $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
-.phony: all clean update-versions
+docs:
+	$(QUIET)$(HELM_DOCS)
+
+check-docker-images:
+	$(QUIET)\
+         HUBBLE_PROXY_VERSION=$(HUBBLE_PROXY_VERSION) \
+         HUBBLE_UI_VERSION=$(HUBBLE_UI_VERSION) \
+         MANAGED_ETCD_VERSION=$(MANAGED_ETCD_VERSION) \
+         ETCD_VERSION=$(ETCD_VERSION) \
+         NODEINIT_VERSION=$(NODEINIT_VERSION) \
+         CERTGEN_VERSION=`echo $(CERTGEN_VERSION) | egrep -o '^.*@' | sed 's/@//'` \
+         ../../contrib/release/check-docker-images.sh "v$(VERSION)"
+
+.PHONY: all check-docker-images clean docs experimental-install lint quick-install update-versions

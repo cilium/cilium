@@ -42,6 +42,8 @@ assignees: ''
   - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
   - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
   - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds)
+  - Check if all docker images are available before announcing the release
+    `make -C install/kubernetes/ check-docker-images`
 - [ ] Create helm charts artifacts in [Cilium charts] repository using
       [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y` branch
       & push to repository
