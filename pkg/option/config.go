@@ -2033,6 +2033,11 @@ type DaemonConfig struct {
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
 	CRDWaitTimeout time.Duration
+
+	// NeedsRelaxVerifier enables the relax_verifier() helper which is used
+	// to introduce state pruning points for the verifier in the datapath
+	// program.
+	NeedsRelaxVerifier bool
 }
 
 var (
