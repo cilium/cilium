@@ -27,6 +27,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -77,7 +78,7 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	// results in the actual flow capacity of 2.
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log, observeroption.WithMaxFlows(1))
+	s, err := NewLocalServer(pp, log, observeroption.WithMaxFlows(container.Capacity1))
 	require.NoError(t, err)
 	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
@@ -107,7 +108,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, log,
-		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
 	require.NoError(t, err)
@@ -147,7 +148,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, log,
-		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
 	require.NoError(t, err)
@@ -261,7 +262,7 @@ func TestHooks(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, log,
-		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMaxFlows(container.Capacity15),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithCiliumDaemon(ciliumDaemon),
 		observeroption.WithOnServerInitFunc(onServerInit),
@@ -320,7 +321,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, log,
-		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
 	)
@@ -383,7 +384,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, log,
-		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
 		observeroption.WithOnGetFlowsFunc(onGetFlows),
