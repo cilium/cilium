@@ -1236,6 +1236,10 @@ func initEnv(cmd *cobra.Command) {
 			option.EgressMultiHomeIPRuleCompat,
 		)
 	}
+
+	if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+		option.Config.NeedsRelaxVerifier = true
+	}
 }
 
 func (d *Daemon) initKVStore() {
