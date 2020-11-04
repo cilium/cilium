@@ -80,12 +80,16 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			hint:          "See https://golangci-lint.run/usage/install/#local-installation.",
 		},
 		&binaryCheck{
-			name:       "docker",
-			ifNotFound: checkError,
+			name:          "docker",
+			ifNotFound:    checkError,
+			versionArgs:   []string{"--version"},
+			versionRegexp: regexp.MustCompile(`Docker version (\d+\.\d+\.\d+)`),
 		},
 		&binaryCheck{
-			name:       "docker-compose",
-			ifNotFound: checkWarning,
+			name:          "docker-compose",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"--version"},
+			versionRegexp: regexp.MustCompile(`docker-compose version (\d+\.\d+\.\d+)`),
 		},
 		&binaryCheck{
 			name:          "vagrant",
@@ -98,6 +102,13 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			name:           "virtualbox",
 			alternateNames: []string{"VirtualBox"},
 			ifNotFound:     checkWarning,
+		},
+		&binaryCheck{
+			name:           "vboxheadless",
+			alternateNames: []string{"VBoxHeadless"},
+			ifNotFound:     checkWarning,
+			versionArgs:    []string{"--version"},
+			versionRegexp:  regexp.MustCompile(`Oracle VM VirtualBox Headless Interface (\d+\.\d+\.\d+\S*)`),
 		},
 		&binaryCheck{
 			name:          "pip3",
