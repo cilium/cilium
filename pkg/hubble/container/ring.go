@@ -122,8 +122,9 @@ type Ring struct {
 
 // NewRing creates a ring buffer where n specifies the capacity.
 func NewRing(n Capacity) *Ring {
+	// n.Cap() should already be a mask of one's but let's ensure it is
 	mask := math.GetMask(math.MSB(uint64(n.Cap())))
-	dataLen := uint64(mask + 1)
+	dataLen := uint64(mask + 1) // one unreadable slot is reserved writing
 	cycleExp := uint8(math.MSB(mask+1)) - 1
 	// half cycle is (^uint64(0)/dataLen)/2 == (^uint64(0)>>cycleExp)>>1
 	halfCycle := (^uint64(0) >> cycleExp) >> 1
@@ -162,14 +163,14 @@ func (r *Ring) dataStoreAtomic(dataIdx uint64, e *v1.Event) {
 func (r *Ring) Len() uint64 {
 	write := atomic.LoadUint64(&r.write)
 	if write >= r.dataLen {
-		return r.dataLen
+		return r.Cap()
 	}
 	return write
 }
 
 // Cap returns the total capacity of the ring buffer, similar to builtin `cap()`.
 func (r *Ring) Cap() uint64 {
-	return r.dataLen
+	return r.dataLen - 1 // one slot is reserved for writing and never readable
 }
 
 // Write writes the given event into the ring buffer in the next available

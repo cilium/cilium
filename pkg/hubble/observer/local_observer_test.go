@@ -74,9 +74,6 @@ func TestNewLocalServer(t *testing.T) {
 }
 
 func TestLocalObserverServer_ServerStatus(t *testing.T) {
-	// (glibsm): This test is really confusing. `observeroption.WithMaxFlows(1)`
-	// results in the actual flow capacity of 2.
-
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, log, observeroption.WithMaxFlows(container.Capacity1))
 	require.NoError(t, err)
@@ -84,7 +81,7 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), res.SeenFlows)
 	assert.Equal(t, uint64(0), res.NumFlows)
-	assert.Equal(t, uint64(2), res.MaxFlows)
+	assert.Equal(t, uint64(1), res.MaxFlows)
 }
 
 func TestLocalObserverServer_GetFlows(t *testing.T) {

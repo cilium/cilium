@@ -27,6 +27,7 @@ import (
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.uber.org/goleak"
@@ -134,6 +135,36 @@ func TestNewCapacity(t *testing.T) {
 			c, err := NewCapacity(n)
 			assert.Nil(t, c)
 			assert.NotNil(t, err)
+		})
+	}
+}
+
+func TestNewRing(t *testing.T) {
+	for i := 1; i <= 16; i++ {
+		n := (1 << i) - 1
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			r := NewRing(capacity(n))
+			require.NotNil(t, r)
+			assert.Equal(t, uint64(0), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+			// fill half the buffer
+			for j := 0; j < n/2; j++ {
+				r.Write(&v1.Event{})
+			}
+			assert.Equal(t, uint64(n/2), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+			// fill the buffer to max capacity
+			for j := 0; j <= n/2; j++ {
+				r.Write(&v1.Event{})
+			}
+			assert.Equal(t, uint64(n), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+			// write more events
+			for j := 0; j < n; j++ {
+				r.Write(&v1.Event{})
+			}
+			assert.Equal(t, uint64(n), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
 		})
 	}
 }
