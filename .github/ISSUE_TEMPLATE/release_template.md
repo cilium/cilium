@@ -49,6 +49,8 @@ assignees: ''
   - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds)
   - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds)
   - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds)
+  - Check if all docker images are available before announcing the release
+    `make -C install/kubernetes/ check-docker-images`
 - [ ] Create helm charts artifacts in [Cilium charts] repository using
       [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y` branch
       & push to repository
