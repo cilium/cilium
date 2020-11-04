@@ -120,28 +120,16 @@ type Ring struct {
 	notifyCh chan struct{}
 }
 
-// NewRing creates a ring buffer. For efficiency, the internal
-// buffer length will be a bitmask of ones + 1. The most significant bit
-// position of this bitmask will be same position of the most significant bit
-// position of 'n'.
-// E.g.:
-//  NewRing(254) -> internal buffer length: 256
-//  NewRing(255) -> internal buffer length: 256
-//  NewRing(256) -> internal buffer length: 512
-func NewRing(n int) *Ring {
-	msb := math.MSB(uint64(n))
-	if msb == 64 {
-		// we don't want to overflow dataLen below
-		return nil
-	}
-	l := math.GetMask(msb)
-	dataLen := uint64(l + 1)
-	cycleExp := uint8(math.MSB(l+1)) - 1
+// NewRing creates a ring buffer where n specifies the capacity.
+func NewRing(n Capacity) *Ring {
+	mask := math.GetMask(math.MSB(uint64(n.Cap())))
+	dataLen := uint64(mask + 1)
+	cycleExp := uint8(math.MSB(mask+1)) - 1
 	// half cycle is (^uint64(0)/dataLen)/2 == (^uint64(0)>>cycleExp)>>1
 	halfCycle := (^uint64(0) >> cycleExp) >> 1
 
 	return &Ring{
-		mask:      l,
+		mask:      mask,
 		cycleExp:  cycleExp,
 		cycleMask: ^uint64(0) >> cycleExp,
 		halfCycle: halfCycle,

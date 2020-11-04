@@ -34,7 +34,7 @@ import (
 
 func BenchmarkRingWrite(b *testing.B) {
 	entry := &v1.Event{}
-	s := NewRing(b.N)
+	s := NewRing(capacity(b.N))
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -44,7 +44,7 @@ func BenchmarkRingWrite(b *testing.B) {
 
 func BenchmarkRingRead(b *testing.B) {
 	entry := &v1.Event{}
-	s := NewRing(b.N)
+	s := NewRing(capacity(b.N))
 	a := make([]*v1.Event, b.N, b.N)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -524,7 +524,7 @@ func TestRing_LastWrite(t *testing.T) {
 }
 
 func TestRingFunctionalityInParallel(t *testing.T) {
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -569,7 +569,7 @@ func TestRingFunctionalityInParallel(t *testing.T) {
 }
 
 func TestRingFunctionalitySerialized(t *testing.T) {
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -614,7 +614,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -672,7 +672,8 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	r := NewRing(0xf)
+
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -755,7 +756,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}

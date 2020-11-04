@@ -31,7 +31,7 @@ import (
 )
 
 func TestRingReader_Previous(t *testing.T) {
-	ring := NewRing(15)
+	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
 		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
 	}
@@ -108,7 +108,7 @@ func TestRingReader_Previous(t *testing.T) {
 }
 
 func TestRingReader_Next(t *testing.T) {
-	ring := NewRing(15)
+	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
 		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
 	}
@@ -185,7 +185,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	ring := NewRing(15)
+	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
 		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
 	}
@@ -256,7 +256,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 }
 
 func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
-	ring := NewRing(15)
+	ring := NewRing(Capacity15)
 	reader := NewRingReader(ring, ring.LastWriteParallel())
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan *v1.Event)
