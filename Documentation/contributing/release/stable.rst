@@ -215,7 +215,15 @@ If you intent to release a new feature release, see the
 #. Update the ``stable`` tags for ``cilium``, ``cilium-operator``, and
    ``cilium-docker-plugin`` on DockerHub.
 
-#. Update the external tools and guides to point to the released Cilium version:
+#. Check if all docker images are available before announcing the release:
+
+   ::
+
+      make -C install/kubernetes/ check-docker-images
+
+#. Update the following external tools and guides to point to the released
+   Cilium version. This step is only required on a new minor release like going
+   from ``1.8`` to ``1.9``.
 
     * `kubeadm <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_
     * `kops <https://github.com/kubernetes/kops/>`_
