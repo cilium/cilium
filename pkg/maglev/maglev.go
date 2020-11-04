@@ -60,15 +60,14 @@ func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
 	return offset, skip
 }
 
-func getPermutation(backends []string, m uint64) [][]uint64 {
-	perm := make([][]uint64, len(backends))
+func getPermutation(backends []string, m uint64) []uint64 {
+	perm := make([]uint64, len(backends)*int(m))
 
 	for i, backend := range backends {
 		offset, skip := getOffsetAndSkip(backend, m)
-		perm[i] = make([]uint64, m)
-		perm[i][0] = offset % m
+		perm[i*int(m)] = offset % m
 		for j := uint64(1); j < m; j++ {
-			perm[i][j] = (perm[i][j-1] + skip) % m
+			perm[i*int(m)+int(j)] = (perm[i*int(m)+int(j-1)] + skip) % m
 		}
 	}
 
@@ -94,10 +93,10 @@ func GetLookupTable(backends []string, m uint64) []int {
 
 	for n := uint64(0); n < m; n++ {
 		i := int(n) % l
-		c := perm[i][next[i]]
+		c := perm[i*int(m)+next[i]]
 		for entry[c] >= 0 {
 			next[i] += 1
-			c = perm[i][next[i]]
+			c = perm[i*int(m)+next[i]]
 		}
 		entry[c] = i
 		next[i] += 1
