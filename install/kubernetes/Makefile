@@ -45,7 +45,7 @@ HELM_DOCS_SHA := "12f065115654c9a1d6819b938487d327f1fdb5c32bdc2a5c74afef22ed68f5
 HELM_DOCS_IMAGE := "docker.io/jnorwood/helm-docs:$(HELM_DOCS_VERSION)@sha256:$(HELM_DOCS_SHA)"
 HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 
-all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
+all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) docs
 
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
@@ -96,4 +96,4 @@ clean:
 docs:
 	$(QUIET)$(HELM_DOCS)
 
-.PHONY: all clean update-versions lint quick-install experimental-install docs
+.PHONY: all clean docs experimental-install lint quick-install update-versions
