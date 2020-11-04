@@ -20,11 +20,13 @@ import (
 	"container/list"
 	"container/ring"
 	"context"
+	"fmt"
 	"io"
 	"reflect"
 	"testing"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.uber.org/goleak"
@@ -86,6 +88,54 @@ func BenchmarkTimeLibRingRead(b *testing.B) {
 		a[i], _ = e.(*v1.Event)
 		i++
 	})
+}
+
+func TestNewCapacity(t *testing.T) {
+	// check all valid values according to the doc string
+	// ie: value of n MUST satisfy n=2^i -1 for i = [1, 16]
+	for i := 1; i <= 16; i++ {
+		n := (1 << i) - 1
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			c, err := NewCapacity(n)
+			assert.NoError(t, err)
+			assert.Equal(t, capacity(n), c)
+		})
+	}
+	// validate CapacityN constants
+	capacityN := []capacity{
+		Capacity1,
+		Capacity3,
+		Capacity7,
+		Capacity15,
+		Capacity31,
+		Capacity63,
+		Capacity127,
+		Capacity255,
+		Capacity511,
+		Capacity1023,
+		Capacity2047,
+		Capacity4095,
+		Capacity8191,
+		Capacity16383,
+		Capacity32767,
+		Capacity65535,
+	}
+	for _, n := range capacityN {
+		t.Run(fmt.Sprintf("n=Capacity%d", n.AsInt()), func(t *testing.T) {
+			c, err := NewCapacity(n.AsInt())
+			assert.NoError(t, err)
+			assert.Equal(t, n, c)
+		})
+	}
+
+	// test invalid values
+	for _, n := range []int{-127, -10, 0, 2, 128, 131071} {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			c, err := NewCapacity(n)
+			assert.Nil(t, c)
+			assert.NotNil(t, err)
+		})
+	}
 }
 
 func TestRing_Read(t *testing.T) {

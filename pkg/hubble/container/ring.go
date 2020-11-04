@@ -17,6 +17,7 @@ package container
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"unsafe"
@@ -30,6 +31,67 @@ var (
 	// ErrInvalidRead indicates that the requested position can no longer be read.
 	ErrInvalidRead = errors.New("read position is no longer valid")
 )
+
+// Capacity is the interface that wraps Cap.
+type Capacity interface {
+	// Cap returns the actual capacity.
+	Cap() capacity
+	// AsInt returns the actual capacity as an int.
+	AsInt() int
+}
+
+// capacity implements Capacity.
+type capacity uint16
+
+// Cap returns the actual capacity.
+func (c capacity) Cap() capacity {
+	return c
+}
+
+// AsInt returns the actual capacity as an int.
+func (c capacity) AsInt() int {
+	return int(c)
+}
+
+// CapacityN represent possible buffer capacities for Ring where N is the
+// actual capacity.
+const (
+	Capacity1 capacity = 1<<(iota+1) - 1
+	Capacity3
+	Capacity7
+	Capacity15
+	Capacity31
+	Capacity63
+	Capacity127
+	Capacity255
+	Capacity511
+	Capacity1023
+	Capacity2047
+	Capacity4095
+	Capacity8191
+	Capacity16383
+	Capacity32767
+	Capacity65535
+)
+
+// NewCapacity creates a new Capacity from n.
+// The value of n MUST satisfy n=2^i -1 for i = [1, 16]; ie:
+//
+//     1, 3, 7, ..., 2047, 4095, ..., 65535
+//
+// Constants CapacityN represent all possible values of n and are valid
+// Capacity that can be provided to NewRing.
+func NewCapacity(n int) (Capacity, error) {
+	switch {
+	case n > int(^capacity(0)):
+		return nil, fmt.Errorf("invalid capacity: too large: %d", n)
+	case n > 0:
+		if n&(n+1) == 0 {
+			return capacity(n), nil
+		}
+	}
+	return nil, fmt.Errorf("invalid capacity: %d", n)
+}
 
 // Ring is a ring buffer that stores *v1.Event
 type Ring struct {
