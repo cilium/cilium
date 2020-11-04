@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package watchers
 
 import (
 	"context"
@@ -43,7 +43,7 @@ import (
 )
 
 var (
-	k8sSvcCache = k8s.NewServiceCache(nil)
+	K8sSvcCache = k8s.NewServiceCache(nil)
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
@@ -81,7 +81,7 @@ func k8sServiceHandler() {
 		}
 	}
 	for {
-		event, ok := <-k8sSvcCache.Events
+		event, ok := <-K8sSvcCache.Events
 		if !ok {
 			return
 		}
@@ -90,7 +90,8 @@ func k8sServiceHandler() {
 	}
 }
 
-func startSynchronizingServices() {
+// StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
+func StartSynchronizingServices() {
 	log.Info("Starting to synchronize k8s services to kvstore...")
 
 	serviceOptsModifier, err := utils.GetServiceListOptionsModifier()
@@ -132,7 +133,7 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
 					log.Debugf("Received service addition %+v", k8sSvc)
-					k8sSvcCache.UpdateService(k8sSvc, swgSvcs)
+					K8sSvcCache.UpdateService(k8sSvc, swgSvcs)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -144,7 +145,7 @@ func startSynchronizingServices() {
 						}
 
 						log.Debugf("Received service update %+v", newk8sSvc)
-						k8sSvcCache.UpdateService(newk8sSvc, swgSvcs)
+						K8sSvcCache.UpdateService(newk8sSvc, swgSvcs)
 					}
 				}
 			},
@@ -155,7 +156,7 @@ func startSynchronizingServices() {
 					return
 				}
 				log.Debugf("Received service deletion %+v", k8sSvc)
-				k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
+				K8sSvcCache.DeleteService(k8sSvc, swgSvcs)
 			},
 		},
 		nil,
@@ -217,7 +218,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sEP := k8s.ObjToV1Endpoints(obj); k8sEP != nil {
-					k8sSvcCache.UpdateEndpoints(k8sEP, swgEps)
+					K8sSvcCache.UpdateEndpoints(k8sEP, swgEps)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -227,7 +228,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 						if oldk8sEP.DeepEqual(newk8sEP) {
 							return
 						}
-						k8sSvcCache.UpdateEndpoints(newk8sEP, swgEps)
+						K8sSvcCache.UpdateEndpoints(newk8sEP, swgEps)
 					}
 				}
 			},
@@ -237,7 +238,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 				if k8sEP == nil {
 					return
 				}
-				k8sSvcCache.DeleteEndpoints(k8sEP, swgEps)
+				K8sSvcCache.DeleteEndpoints(k8sEP, swgEps)
 			},
 		},
 		nil,
@@ -265,7 +266,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				})
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
-					k8sSvcCache.UpdateEndpointSlices(k8sEP, swgEps)
+					K8sSvcCache.UpdateEndpointSlices(k8sEP, swgEps)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -275,7 +276,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 						if oldk8sEP.DeepEqual(newk8sEP) {
 							return
 						}
-						k8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)
+						K8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)
 					}
 				}
 			},
@@ -285,7 +286,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				if k8sEP == nil {
 					return
 				}
-				k8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
+				K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 			},
 		},
 		nil,
@@ -304,19 +305,27 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 	return nil, false
 }
 
-// serviceGetter is a wrapper for 2 k8sCaches, its intention is for
+// ServiceGetter is a wrapper for 2 k8sCaches, its intention is for
 // `shortCutK8sCache` to be used until `k8sSvcCacheSynced` is closed, for which
 // `k8sCache` is started to be used.
-type serviceGetter struct {
+type ServiceGetter struct {
 	shortCutK8sCache k8s.ServiceIPGetter
 	k8sCache         k8s.ServiceIPGetter
+}
+
+// NewServiceGetter returns a new ServiceGetter holding 2 k8sCaches
+func NewServiceGetter(sc *k8s.ServiceCache) *ServiceGetter {
+	return &ServiceGetter{
+		shortCutK8sCache: sc,
+		k8sCache:         &K8sSvcCache,
+	}
 }
 
 // GetServiceIP returns the result of GetServiceIP for `s.shortCutK8sCache`
 // until `k8sSvcCacheSynced` is closed. This is helpful as we can have a
 // shortcut of `s.k8sCache` since we can pre-populate `s.shortCutK8sCache` with
 // the entries that we need until `s.k8sCache` is synchronized with kubernetes.
-func (s *serviceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalancer.L3n4Addr {
+func (s *ServiceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalancer.L3n4Addr {
 	select {
 	case <-k8sSvcCacheSynced:
 		return s.k8sCache.GetServiceIP(svcID)
