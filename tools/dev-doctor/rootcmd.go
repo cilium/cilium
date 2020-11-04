@@ -95,8 +95,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			minVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
 		},
 		&binaryCheck{
-			name:       "virtualbox",
-			ifNotFound: checkWarning,
+			name:           "virtualbox",
+			alternateNames: []string{"VirtualBox"},
+			ifNotFound:     checkWarning,
 		},
 		&binaryCheck{
 			name:          "pip3",

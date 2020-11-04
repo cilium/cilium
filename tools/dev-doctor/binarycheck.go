@@ -26,12 +26,13 @@ import (
 // A binaryCheck checks that a binary called name is installed and optionally at
 // least version minVersion.
 type binaryCheck struct {
-	name          string
-	ifNotFound    checkResult
-	versionArgs   []string
-	versionRegexp *regexp.Regexp
-	minVersion    *semver.Version
-	hint          string
+	name           string
+	alternateNames []string
+	ifNotFound     checkResult
+	versionArgs    []string
+	versionRegexp  *regexp.Regexp
+	minVersion     *semver.Version
+	hint           string
 }
 
 func (c *binaryCheck) Name() string {
@@ -39,12 +40,19 @@ func (c *binaryCheck) Name() string {
 }
 
 func (c *binaryCheck) Run() (checkResult, string) {
-	path, err := exec.LookPath(c.name)
-	switch {
-	case errors.Is(err, exec.ErrNotFound):
+	var path string
+	for _, name := range append([]string{c.name}, c.alternateNames...) {
+		var err error
+		path, err = exec.LookPath(name)
+		switch {
+		case errors.Is(err, exec.ErrNotFound):
+			continue
+		case err != nil:
+			return checkFailed, err.Error()
+		}
+	}
+	if path == "" {
 		return c.ifNotFound, fmt.Sprintf("%s not found in $PATH", c.name)
-	case err != nil:
-		return checkFailed, err.Error()
 	}
 
 	if c.versionArgs == nil {
