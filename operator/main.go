@@ -25,6 +25,7 @@ import (
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -339,7 +340,7 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	if kvstoreEnabled() {
 		if operatorOption.Config.SyncK8sServices {
-			startSynchronizingServices()
+			operatorWatchers.StartSynchronizingServices()
 		}
 
 		var goopts *kvstore.ExtraOptions
@@ -356,7 +357,7 @@ func onOperatorStartLeading(ctx context.Context) {
 				if isETCDOperator {
 					scopedLog.Infof("%s running with service synchronization: automatic etcd service translation enabled", binaryName)
 
-					svcGetter := k8s.ServiceIPGetter(&k8sSvcCache)
+					svcGetter := k8s.ServiceIPGetter(&operatorWatchers.K8sSvcCache)
 
 					name, namespace, err := kvstore.SplitK8sServiceURL(svcURL)
 					if err != nil {
@@ -387,10 +388,7 @@ func onOperatorStartLeading(ctx context.Context) {
 								scopedLog.Warnf("BUG: invalid k8s service: %s", slimSvcObj)
 							}
 							sc.UpdateService(slimSvc, nil)
-							svcGetter = &serviceGetter{
-								shortCutK8sCache: &sc,
-								k8sCache:         &k8sSvcCache,
-							}
+							svcGetter = operatorWatchers.NewServiceGetter(&sc)
 						case errors.IsNotFound(err):
 							scopedLog.Error("Service not found in k8s")
 						default:
