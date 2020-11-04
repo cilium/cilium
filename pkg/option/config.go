@@ -806,7 +806,11 @@ const (
 	HubbleTLSClientCAFiles = "hubble-tls-client-ca-files"
 
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
+	// Deprecated: please, use HubbleEventBufferCapacity instead.
 	HubbleFlowBufferSize = "hubble-flow-buffer-size"
+
+	// HubbleEventBufferCapacity specifies the capacity of Hubble events buffer.
+	HubbleEventBufferCapacity = "hubble-event-buffer-capacity"
 
 	// HubbleEventQueueSize specifies the buffer size of the channel to receive monitor events.
 	HubbleEventQueueSize = "hubble-event-queue-size"
@@ -1072,6 +1076,7 @@ var HelpFlagSections = []FlagsSection{
 			HubbleTLSKeyFile,
 			HubbleTLSClientCAFiles,
 			HubbleFlowBufferSize,
+			HubbleEventBufferCapacity,
 			HubbleEventQueueSize,
 			HubbleMetricsServer,
 			HubbleMetrics,
@@ -1953,7 +1958,11 @@ type DaemonConfig struct {
 	HubbleTLSClientCAFiles []string
 
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
+	// Deprecated: please, use HubbleEventBufferCapacity instead.
 	HubbleFlowBufferSize int
+
+	// HubbleEventBufferCapacity specifies the capacity of Hubble events buffer.
+	HubbleEventBufferCapacity int
 
 	// HubbleEventQueueSize specifies the buffer size of the channel to receive monitor events.
 	HubbleEventQueueSize int
@@ -2726,6 +2735,7 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleTLSKeyFile = viper.GetString(HubbleTLSKeyFile)
 	c.HubbleTLSClientCAFiles = viper.GetStringSlice(HubbleTLSClientCAFiles)
 	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
+	c.HubbleEventBufferCapacity = viper.GetInt(HubbleEventBufferCapacity)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
 	if c.HubbleEventQueueSize == 0 {
 		c.HubbleEventQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())

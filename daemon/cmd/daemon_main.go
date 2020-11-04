@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
@@ -844,8 +845,12 @@ func init() {
 	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
 	option.BindEnv(option.HubbleTLSClientCAFiles)
 
-	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
+	flags.Int(option.HubbleFlowBufferSize, 0, "Maximum number of flows in Hubble's buffer.")
+	flags.MarkDeprecated(option.HubbleFlowBufferSize, fmt.Sprintf("Use %s instead.", option.HubbleEventBufferCapacity))
 	option.BindEnv(option.HubbleFlowBufferSize)
+
+	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows.AsInt(), "Capacity of Hubble events buffer. The provided value must be on less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
+	option.BindEnv(option.HubbleEventBufferCapacity)
 
 	flags.Int(option.HubbleEventQueueSize, 0, "Buffer size of the channel to receive monitor events.")
 	option.BindEnv(option.HubbleEventQueueSize)
