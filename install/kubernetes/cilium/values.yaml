@@ -437,12 +437,15 @@ hubble:
   # Enable Hubble (true by default).
   enabled: true
 
-  # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
-  # the queue size is set to the default monitor queue size.
+  # Buffer size of the channel Hubble uses to receive monitor events. If this
+  # value is not set, the queue size is set to the default monitor queue size.
   # eventQueueSize: ""
 
-  # Number of recent flows for Hubble to cache. Defaults to 4096.
-  # flowBufferSize: ""
+  # Number of recent flows for Hubble to cache. Defaults to 4095.
+  # Possible values are:
+  #   1, 3, 7, 15, 31, 63, 127, 255, 511, 1023,
+  #   2047, 4095, 8191, 16383, 32767, 65535
+  # eventBufferCapacity: "4095"
 
   # Hubble metrics configuration.
   # See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics
