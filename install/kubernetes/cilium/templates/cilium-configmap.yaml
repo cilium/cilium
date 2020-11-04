@@ -573,8 +573,12 @@ data:
   hubble-event-queue-size: {{ .Values.hubble.eventQueueSize | quote }}
 {{- end }}
 {{- if hasKey .Values.hubble "flowBufferSize" }}
-  # Size of the buffer to store recent flows.
+  # DEPRECATED: this block should be removed in 1.11
   hubble-flow-buffer-size: {{ .Values.hubble.flowBufferSize | quote }}
+{{- end }}
+{{- if hasKey .Values.hubble "eventBufferCapacity" }}
+  # Capacity of the buffer to store recent events.
+  hubble-event-buffer-capacity: {{ .Values.hubble.eventBufferCapacity | quote }}
 {{- end }}
 {{- if .Values.hubble.metrics.enabled }}
   # Address to expose Hubble metrics (e.g. ":7070"). Metrics server will be disabled if this
