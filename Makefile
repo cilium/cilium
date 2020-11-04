@@ -4,6 +4,7 @@
 all: precheck build postcheck
 	@echo "Build finished."
 
+debug: export NOOPT=1
 debug: export NOSTRIP=1
 debug: all
 
