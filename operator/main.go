@@ -170,7 +170,7 @@ func init() {
 	flags.Duration(option.IdentityGCRateInterval, time.Minute,
 		"Interval used for rate limiting the GC of security identities")
 	option.BindEnv(option.IdentityGCRateInterval)
-	flags.Int64(option.IdentityGCRateLimit, 250,
+	flags.Int64(option.IdentityGCRateLimit, 2500,
 		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", option.IdentityGCRateInterval))
 	option.BindEnv(option.IdentityGCRateLimit)
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
