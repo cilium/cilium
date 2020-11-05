@@ -1246,7 +1246,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 		args          args
 		nodeCIDRs     *nodeCIDRs
 		wantAllocated bool
-		wantErr       bool
+		wantErr       error
 	}{
 		{
 			name: "test-1 - should not allocate anything because the node had previously allocated CIDRs",
@@ -1278,7 +1278,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 				v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 			},
 			wantAllocated: false,
-			wantErr:       false,
+			wantErr:       nil,
 		},
 		{
 			name: "test-2 - should allocate both CIDRs",
@@ -1336,7 +1336,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 				v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 			},
 			wantAllocated: true,
-			wantErr:       false,
+			wantErr:       nil,
 		},
 		{
 			name: "test-3 - the v6 allocator is full!",
@@ -1387,7 +1387,25 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 				nodeName: "node-1",
 			},
 			wantAllocated: false,
-			wantErr:       true,
+			wantErr:       &ErrAllocatorFull{},
+		},
+		{
+			name: "test-4 - no allocators!",
+			testSetup: func() *fields {
+				return &fields{
+					v4ClusterCIDRs: []CIDRAllocator{},
+					nodes:          map[string]*nodeCIDRs{},
+				}
+			},
+			args: args{
+				nodeName: "node-1",
+			},
+			wantAllocated: false,
+			wantErr: ErrNoAllocators{
+				name: "node-1",
+				v4:   "[]",
+				v6:   "[]",
+			},
 		},
 	}
 
@@ -1399,8 +1417,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 			nodes:            tt.fields.nodes,
 		}
 		nodeCIDRs, gotAllocated, err := n.allocateNext(tt.args.nodeName)
-		gotErr := err != nil
-		c.Assert(gotErr, checker.Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
+		c.Assert(err, checker.DeepEquals, tt.wantErr, Commentf("Test Name: %s", tt.name))
 		c.Assert(nodeCIDRs, checker.DeepEquals, tt.nodeCIDRs, Commentf("Test Name: %s", tt.name))
 		c.Assert(gotAllocated, checker.Equals, tt.wantAllocated, Commentf("Test Name: %s", tt.name))
 
