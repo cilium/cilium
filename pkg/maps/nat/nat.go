@@ -102,8 +102,20 @@ func NewMap(name string, v4 bool, entries int) *Map {
 	}
 }
 
-// DumpEntries iterates through Map m and writes the values of the
-// nat entries in m to a string.
+func (m *Map) Delete(k bpf.MapKey) error {
+	return (&m.Map).Delete(k)
+}
+
+func (m *Map) DumpStats() *bpf.DumpStats {
+	return bpf.NewDumpStats(&m.Map)
+}
+
+func (m *Map) DumpReliablyWithCallback(cb bpf.DumpCallback, stats *bpf.DumpStats) error {
+	return (&m.Map).DumpReliablyWithCallback(cb, stats)
+}
+
+// DumpEntries iterates through Map m and writes the values of the nat entries
+// in m to a string.
 func (m *Map) DumpEntries() (string, error) {
 	var buffer bytes.Buffer
 
