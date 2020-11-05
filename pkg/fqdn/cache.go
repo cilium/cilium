@@ -775,9 +775,34 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
+	// a name is alive if at least one of the IPs that resolve to it are alive
+	var aliveNames map[string]struct{} = map[string]struct{}{}
+	for _, z := range zombies.deletes {
+		if zombies.isAlive(z) {
+			for _, name := range z.Names {
+				aliveNames[name] = struct{}{}
+			}
+		}
+	}
+
+	// a zombie is not dead if it's alive or its name is alive
+	isZombieNotDead := func(zombie *DNSZombieMapping) bool {
+		if zombies.isAlive(zombie) {
+			return true
+		}
+
+		for _, name := range zombie.Names {
+			if _, ok := aliveNames[name]; ok {
+				return true
+			}
+		}
+
+		return false
+	}
+
 	// Collect zombies we can delete
 	for _, zombie := range zombies.deletes {
-		if zombies.isAlive(zombie) {
+		if isZombieNotDead(zombie) {
 			alive = append(alive, zombie.DeepCopy())
 		} else {
 			// Emit the actual object here since we will no longer update it
