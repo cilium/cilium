@@ -1,4 +1,4 @@
-{{- if (or .Values.externalWorkloads.enabled (not (eq .Values.cluster.name "default"))) }}
+{{- if (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
