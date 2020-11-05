@@ -243,7 +243,7 @@ func init() {
 		"Interval used for rate limiting the GC of security identities")
 	option.BindEnv(operatorOption.IdentityGCRateInterval)
 
-	flags.Int(operatorOption.IdentityGCRateLimit, 250,
+	flags.Int(operatorOption.IdentityGCRateLimit, 2500,
 		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", operatorOption.IdentityGCRateInterval))
 	option.BindEnv(operatorOption.IdentityGCRateLimit)
 
