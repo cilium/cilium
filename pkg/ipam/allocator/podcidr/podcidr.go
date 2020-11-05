@@ -173,6 +173,7 @@ type NodesPodCIDRManager struct {
 
 type CIDRAllocator interface {
 	fmt.Stringer
+
 	Occupy(cidr *net.IPNet) error
 	AllocateNext() (*net.IPNet, error)
 	Release(cidr *net.IPNet) error
@@ -866,20 +867,21 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 }
 
 func getCIDRAllocatorsInfo(cidrAllocators []CIDRAllocator, netTypes string) string {
-	var cidrAllocatorsInfo bytes.Buffer
-	cidrAllocatorsLength := len(cidrAllocators)
-	if cidrAllocatorsLength == 0 {
+	var buf bytes.Buffer
+
+	length := len(cidrAllocators)
+	if length == 0 {
 		return "[]"
 	}
 
 	for index, cidrAllocator := range cidrAllocators {
-		cidrAllocatorsInfo.WriteString(fmt.Sprintf("%s", cidrAllocator.String()))
-		if index < cidrAllocatorsLength-1 {
-			cidrAllocatorsInfo.WriteString(fmt.Sprintf(", "))
+		buf.WriteString(fmt.Sprintf("%s", cidrAllocator.String()))
+		if index < length-1 {
+			buf.WriteString(", ")
 		}
 	}
 
-	return fmt.Sprintf("[%s]", cidrAllocatorsInfo.String())
+	return fmt.Sprintf("[%s]", buf.String())
 }
 
 // allocateFirstFreeCIDR allocates the first CIDR available from the slice of
