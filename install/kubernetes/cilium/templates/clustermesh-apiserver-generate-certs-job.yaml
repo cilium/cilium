@@ -1,4 +1,4 @@
-{{- if and (or .Values.externalWorkloads.enabled (not (eq .Values.cluster.name "default"))) (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") }}
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") }}
 apiVersion: batch/v1
 kind: Job
 metadata:
