@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type NatKey interface {
@@ -36,6 +37,9 @@ type NatKey interface {
 
 	// GetFlags flags containing the direction of the TupleKey.
 	GetFlags() uint8
+
+	// GetNextHeader returns the proto of the NatKey
+	GetNextHeader() u8proto.U8proto
 }
 
 // NatKey4 is needed to provide NatEntry type to Lookup values
@@ -73,6 +77,10 @@ func (k *NatKey4) ToHost() NatKey {
 // GetKeyPtr returns the unsafe.Pointer for k.
 func (k *NatKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
+func (k *NatKey4) GetNextHeader() u8proto.U8proto {
+	return k.NextHeader
+}
+
 // NatKey6 is needed to provide NatEntry type to Lookup values
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -107,3 +115,7 @@ func (k *NatKey6) ToHost() NatKey {
 
 // GetKeyPtr returns the unsafe.Pointer for k.
 func (k *NatKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+func (k *NatKey6) GetNextHeader() u8proto.U8proto {
+	return k.NextHeader
+}
