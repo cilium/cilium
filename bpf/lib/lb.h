@@ -318,7 +318,8 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 
 			if (unlikely(ipv4_is_fragment(ip4))) {
 				ret = ipv4_handle_fragment(ctx, ip4, l4_off,
-							   &ports);
+							   &ports,
+							   NULL);
 				if (IS_ERR(ret))
 					return ret;
 				*port = ports.dport;

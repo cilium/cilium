@@ -451,7 +451,8 @@ static __always_inline void ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
-						    struct ipv4_ct_tuple *tuple)
+						    struct ipv4_ct_tuple *tuple,
+						    bool *has_l4_header __maybe_unused)
 {
 #ifdef ENABLE_IPV4_FRAGMENTS
 	void *data, *data_end;
@@ -465,7 +466,8 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 
 	if (unlikely(ipv4_is_fragment(ip4)))
 		return ipv4_handle_fragment(ctx, ip4, off,
-					    (struct ipv4_frag_l4ports *)&tuple->dport);
+					    (struct ipv4_frag_l4ports *)&tuple->dport,
+					    has_l4_header);
 #endif
 	/* load sport + dport into tuple */
 	return ctx_load_bytes(ctx, off, &tuple->dport, 4);
@@ -487,7 +489,8 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
-	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
+	bool is_tcp = tuple->nexthdr == IPPROTO_TCP,
+	     has_l4_header = true;
 	union tcp_flags tcp_flags = { .value = 0 };
 
 	/* The tuple is created in reverse order initially to find a
@@ -544,22 +547,24 @@ static __always_inline int ct_lookup4(const void *map,
 		break;
 
 	case IPPROTO_TCP:
-		if (1) {
+		if (ipv4_ct_extract_l4_ports(ctx, off, tuple,
+					     &has_l4_header) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		action = ACTION_CREATE;
+
+		if (has_l4_header) {
 			if (ctx_load_bytes(ctx, off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
 				action = ACTION_CLOSE;
-			else
-				action = ACTION_CREATE;
 		}
 
-		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
-			return DROP_CT_INVALID_HDR;
 		break;
 
 	case IPPROTO_UDP:
-		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
+		if (ipv4_ct_extract_l4_ports(ctx, off, tuple, NULL) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		action = ACTION_CREATE;
