@@ -182,10 +182,17 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				alive, dead := ep.DNSZombies.GC()
 
 				// Alive zombie need to be added to the global cache as name->IP
-				// entries. We accumulate the names into namesToClean to ensure that
-				// the original full DNS lookup (name -> many IPs) is expired and only
-				// the active connections (name->single IP) are re-added.
-				// Note: Other DNS lookups may also use an active IP. This is fine.
+				// entries.
+				//
+				// NB: The following  comment is _no longer true_ (see
+				// DNSZombies.GC()).  We keep it to maintain the original intention
+				// of the code for future reference:
+				//    We accumulate the names into namesToClean to ensure that the
+				//    original full DNS lookup (name -> many IPs) is expired and
+				//    only the active connections (name->single IP) are re-added.
+				//    Note: Other DNS lookups may also use an active IP. This is
+				//    fine.
+				//
 				lookupTime := time.Now()
 				for _, zombie := range alive {
 					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
