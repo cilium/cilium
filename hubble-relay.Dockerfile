@@ -35,5 +35,6 @@ LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium/hubble-relay/hubble-relay /usr/bin/hubble-relay
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
+COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
 ENTRYPOINT ["/usr/bin/hubble-relay"]
 CMD ["serve"]

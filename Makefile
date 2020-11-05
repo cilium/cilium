@@ -576,6 +576,9 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
+licenses-all:
+	find ./vendor/ -name LICENSE -exec echo -e "\nName: {}\nLicense: \n\n" \; -exec cat {} \; > LICENSE.all
+
 update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
 update-golang-dockerfiles:
