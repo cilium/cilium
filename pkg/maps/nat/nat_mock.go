@@ -48,7 +48,7 @@ func (m *NatMockMap) Path() (string, error) {
 // DumpEntries iterates through Map m and writes the values of the ct entries
 // in m to a string.
 func (m *NatMockMap) DumpEntries() (string, error) {
-	return doDumpEntries(m)
+	return DoDumpEntries(m)
 }
 
 // DumpWithCallback runs the callback on each entry of the mock map.
