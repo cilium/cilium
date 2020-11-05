@@ -7,16 +7,6 @@ on:
       - master
 
 jobs:
-  checkpatch:
-    name: checkpatch
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Run checkpatch.pl
-        uses: docker://cilium/cilium-checkpatch:5b099019bf0db775b33b3f32cd5ecea55dd15f21
   coccicheck:
     name: coccicheck
     runs-on: ubuntu-latest
