@@ -686,8 +686,16 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	return err
 }
 
-// syncToAPIServer is called to synchronize the node content with the custom
-// resource in the apiserver.
+// syncToAPIServer synchronizes the contents of the CiliumNode resource
+// [(*Node).resource)] with the K8s apiserver. This operation occurs on an
+// interval to refresh the CiliumNode resource.
+//
+// For Azure and ENI IPAM modes, this function serves two purposes: (1) as the
+// entry point to initialize the CiliumNode resource and (2) to keep the
+// resource up-to-date with K8s.
+//
+// To initialize, or seed, the CiliumNode resource, the PreAllocate field is
+// populated with a default value and then is adjusted as necessary.
 func (n *Node) syncToAPIServer() (err error) {
 	scopedLog := n.logger()
 	scopedLog.Debug("Refreshing node")
