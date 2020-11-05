@@ -1275,6 +1275,22 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return err
 }
 
+// WaitForSinglePod waits up until timeout seconds have elapsed for all pods in the
+// specified namespace that match the provided JSONPath filter to have their
+// containterStatuses equal to "ready". Returns true if all pods achieve
+// the aforementioned desired state within timeout seconds. Returns false and
+// an error if the command failed or the timeout was exceeded.
+func (kub *Kubectl) WaitForSinglePod(namespace, filter string, timeout time.Duration) error {
+	ginkgoext.By("WaitforPods(namespace=%q, filter=%q)", namespace, filter)
+	err := kub.waitForSinglePod(checkReady, namespace, filter, timeout)
+	ginkgoext.By("WaitforPods(namespace=%q, filter=%q) => %v", namespace, filter, err)
+	if err != nil {
+		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s %s", KubectlCmd, namespace, filter))
+		ginkgoext.By(desc.GetDebugMessage())
+	}
+	return err
+}
+
 // checkPodStatusFunc returns true if the pod is in the desired state, or false
 // otherwise.
 type checkPodStatusFunc func(v1.Pod) bool
@@ -1377,6 +1393,29 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		}
 
 		return currScheduled >= required
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
+		&TimeoutConfig{Timeout: timeout})
+}
+
+func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace string, filter string, timeout time.Duration) error {
+	body := func() bool {
+		pod := v1.Pod{}
+		err := kub.GetPods(namespace, filter).Unmarshal(&pod)
+		if err != nil {
+			kub.Logger().Infof("Error while getting Pod: %s", err)
+			return false
+		}
+
+		// Count the pod as running when all conditions are true:
+		//  - It is scheduled via Phase == v1.PodRunning
+		//  - It is not scheduled for deletion when DeletionTimestamp is set
+		//  - All containers in the pod have passed the liveness check via
+		//  containerStatuses.Ready
+		return checkReady(pod)
 	}
 
 	return WithTimeout(
