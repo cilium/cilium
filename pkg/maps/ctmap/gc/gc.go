@@ -49,6 +49,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		var wakeup = make(chan signal.SignalData)
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
+		triggeredBySignal := false
 		for {
 			var (
 				maxDeleteRatio float64
@@ -87,14 +88,14 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 			}
 
 			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints, emitEntryCB))
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, triggeredBySignal, createGCFilter(initialScan, restoredEndpoints, emitEntryCB))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				runGC(e, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
 			}
 
 			// Mark the CT GC as over in each EP DNSZombies instance
@@ -111,9 +112,11 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				signal.MuteChannel(signal.SignalWakeGC)
 			}
 
+			triggeredBySignal = false
 			signal.UnmuteChannel(signal.SignalWakeGC)
 			select {
 			case x := <-wakeup:
+				triggeredBySignal = true
 				ipv4 = false
 				ipv6 = false
 				if x == signal.SignalProtoV4 {
@@ -154,7 +157,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
+func runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
 	var maps []*ctmap.Map
 
 	if e == nil {
@@ -195,6 +198,17 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 				logfields.Path: path,
 				"count":        deleted,
 			}).Debug("Deleted filtered entries from map")
+		}
+
+		if triggeredBySignal {
+			stats := ctmap.PurgeOrphanNATEntries(m)
+			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
+				log.WithFields(logrus.Fields{
+					"ingressDeleted": stats.IngressDeleted,
+					"egressDeleted":  stats.EgressDeleted,
+					"ingressAlive":   stats.IngressAlive,
+				}).Info("Deleted orphan SNAT entries from map")
+			}
 		}
 	}
 
