@@ -81,6 +81,27 @@ func (e *ErrCIDRAllocated) Error() string {
 	return fmt.Sprintf("requested CIDR (%s) is already allocated", e.cidr)
 }
 
+// ErrNoAllocators is an error that returned if no allocators are available to
+// allocate a CIDR. This can often be a configuration problem.
+type ErrNoAllocators struct {
+	// name is the name of the node.
+	name string
+	// v4 and v6 are strings retrieved from getCIDRAllocatorsInfo() for v4 and
+	// v6 CIDRs respectively.
+	v4, v6 string
+}
+
+// Error returns the human-readable error for the ErrNoAllocators.
+func (e ErrNoAllocators) Error() string {
+	return fmt.Sprintf(
+		"Unable to allocate node CIDR for node %s. IPAMInfo: {IPv4: %s, IPv6: %s}. "+
+			"Please check that your configuration is correct.",
+		e.name,
+		e.v4,
+		e.v6,
+	)
+}
+
 // parsePodCIDRs will return the v4 and v6 CIDRs found in the podCIDRs.
 // Returns an error in case one of the CIDRs are not valid.
 func parsePodCIDRs(podCIDRs []string) (*nodeCIDRs, error) {
@@ -853,11 +874,11 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 	}
 
 	if nCIDRs == nil {
-		err = fmt.Errorf("Unable to allocate node CIDR for node %s. IPAMInfo: {IPv4: %s, IPv6: %s}. Please check that your configuration is correct",
-			nodeName,
-			getCIDRAllocatorsInfo(n.v4CIDRAllocators, v4AllocatorType),
-			getCIDRAllocatorsInfo(n.v6CIDRAllocators, v6AllocatorType))
-		return nil, false, err
+		return nil, false, ErrNoAllocators{
+			name: nodeName,
+			v4:   getCIDRAllocatorsInfo(n.v4CIDRAllocators, v4AllocatorType),
+			v6:   getCIDRAllocatorsInfo(n.v6CIDRAllocators, v6AllocatorType),
+		}
 	}
 
 	n.nodes[nodeName] = nCIDRs
