@@ -885,6 +885,18 @@ proxy:
 # remoteNodeIdentity enables use of the remote node identity
 remoteNodeIdentity: true
 
+# resourceQuotas enables resource quotas for priority classes used in the cluster
+resourceQuotas:
+  enabled: false
+  cilium:
+    hard:
+      # 5k nodes * 2 DaemonSets (Cilium and cilium node init)
+      pods: "10k"
+  operator:
+    hard:
+      # 15 "clusterwide" Cilium Operator pods for HA
+      pods: "15"
+
 # Need to document default
 ##################
 #sessionAffinity: false
