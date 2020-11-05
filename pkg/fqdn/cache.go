@@ -257,13 +257,12 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []str
 		if entries, exists := c.forward[name]; exists {
 			affectedNames = append(affectedNames, name)
 			for ip, entry := range c.removeExpired(entries, c.lastCleanup, time.Time{}) {
-				affectedNames = append(affectedNames, name)
 				removed[ip] = append(removed[ip], entry)
 			}
 		}
 	}
 
-	return KeepUniqueNames(affectedNames), removed
+	return affectedNames, removed
 }
 
 // cleanupOverLimitEntries returns the names that has reached the max number of
