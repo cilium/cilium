@@ -127,8 +127,11 @@ ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off,
 static __always_inline int
 ipv4_handle_fragment(struct __ctx_buff *ctx,
 		     const struct iphdr *ip4, int l4_off,
-		     struct ipv4_frag_l4ports *ports)
+		     struct ipv4_frag_l4ports *ports,
+		     bool *has_l4_header)
 {
+	bool not_first_fragment;
+
 	struct ipv4_frag_id frag_id = {
 		.daddr = ip4->daddr,
 		.saddr = ip4->saddr,
@@ -137,7 +140,11 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 		.pad = 0,
 	};
 
-	if (likely(ipv4_is_not_first_fragment(ip4)))
+	not_first_fragment = ipv4_is_not_first_fragment(ip4);
+	if (has_l4_header)
+		*has_l4_header = !not_first_fragment;
+
+	if (likely(not_first_fragment))
 		return ipv4_frag_get_l4ports(&frag_id, ports);
 
 	/* First logical fragment for this datagram (not necessarily the first
