@@ -51,6 +51,8 @@ const (
 	initArgIPv6NodeIP
 	initArgMode
 	initArgDevices
+	initArgHostDev1
+	initArgHostDev2
 	initArgXDPDevice
 	initArgXDPMode
 	initArgMTU
@@ -272,6 +274,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgEncryptInterface] = "<nil>"
 	}
 
+	devices := make([]netlink.Link, 0, len(option.Config.Devices))
 	if len(option.Config.Devices) != 0 {
 		for _, device := range option.Config.Devices {
 			_, err := netlink.LinkByName(device)
@@ -287,16 +290,18 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgDevices] = "<nil>"
 	}
 
+	var mode baseDeviceMode
 	switch {
 	case option.Config.IsFlannelMasterDeviceSet():
-		args[initArgMode] = "flannel"
+		mode = flannelMode
 	case option.Config.Tunnel != option.TunnelDisabled:
-		args[initArgMode] = option.Config.Tunnel
+		mode = baseDeviceMode(option.Config.Tunnel)
 	case option.Config.DatapathMode == datapathOption.DatapathModeIpvlan:
-		args[initArgMode] = "ipvlan"
+		mode = ipvlanMode
 	default:
-		args[initArgMode] = "direct"
+		mode = directMode
 	}
+	args[initArgMode] = string(mode)
 
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
@@ -358,6 +363,16 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	sysctl.ApplySettings(sysSettings)
 
+	// Datapath initialization
+	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
+	if err != nil {
+		return err
+	}
+	args[initArgHostDev1] = hostDev1.Attrs().Name
+	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	// "Legacy" datapath inizialization with the init.sh script
+	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
 	for i, arg := range args {
 		if arg == "" {
 			log.Warningf("empty argument passed to bpf/init.sh at position %d", i)
