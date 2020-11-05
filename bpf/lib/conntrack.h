@@ -609,6 +609,7 @@ static __always_inline int ct_lookup4(const void *map,
 		}
 		break;
 
+	// test
 	case IPPROTO_TCP:
 		if (1) {
 			if (ctx_load_bytes(ctx, off + 12, &tcp_flags, 2) < 0)
