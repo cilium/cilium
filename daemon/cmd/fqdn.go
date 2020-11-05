@@ -538,15 +538,16 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Port:         uint16(serverPort),
 				}
 			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
-				secID := d.identityAllocator.LookupIdentityByID(d.ctx, serverSecID.ID)
 				// TODO: handle IPv6
 				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
 					IPv4: serverIP,
 					// IPv6:         serverEP.GetIPv6Address(),
-					Labels:       secID.Labels.GetModel(),
-					LabelsSHA256: secID.GetLabelsSHA256(),
-					Identity:     uint64(serverSecID.ID.Uint32()),
-					Port:         uint16(serverPort),
+					Identity: uint64(serverSecID.ID.Uint32()),
+					Port:     uint16(serverPort),
+				}
+				if secID := d.identityAllocator.LookupIdentityByID(d.ctx, serverSecID.ID); secID != nil {
+					lr.LogRecord.DestinationEndpoint.Labels = secID.Labels.GetModel()
+					lr.LogRecord.DestinationEndpoint.LabelsSHA256 = secID.GetLabelsSHA256()
 				}
 			}
 		},
