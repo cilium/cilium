@@ -1370,8 +1370,11 @@ enableCriticalPriorityClass: true
 # AArch64 as the images do not currently ship a version of Envoy.
 #disableEnvoyVersionCheck: false
 
-# clustermesh-apiserver is created if externalWorkloads are enabled or if cluster.name != "default".
+# clustermesh-apiserver is created if externalWorkloads are enabled or clustermesh.useAPIServer is not false
 clustermesh:
+  # Deploy clustermesh-apiserver for clustermesh
+  useAPIServer: false
+
   apiserver:
     image:
       repository: quay.io/cilium/clustermesh-apiserver

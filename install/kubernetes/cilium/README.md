@@ -66,6 +66,7 @@ Helm chart for Cilium
 | clustermesh.apiserver.tolerations | list | `[]` |  |
 | clustermesh.apiserver.updateStrategy.rollingUpdate.maxUnavailable | int | `1` |  |
 | clustermesh.apiserver.updateStrategy.type | string | `"RollingUpdate"` |  |
+| clustermesh.useAPIServer | bool | `false` |  |
 | cni.binPath | string | `"/opt/cni/bin"` |  |
 | cni.chainingMode | string | `"none"` |  |
 | cni.confFileMountPath | string | `"/tmp/cni-configuration"` |  |
