@@ -5,7 +5,7 @@ ARG BASE_IMAGE=scratch
 FROM docker.io/library/golang:1.15.4 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
-ADD . /go/src/github.com/cilium/cilium 
+ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
 ARG NOSTRIP
 ARG LOCKDEBUG
@@ -38,4 +38,5 @@ COPY --from=builder /go/src/github.com/cilium/cilium/clustermesh-apiserver/etcd-
 COPY --from=builder /go/src/github.com/cilium/cilium/clustermesh-apiserver/clustermesh-apiserver /usr/bin/clustermesh-apiserver
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
+COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
 ENTRYPOINT ["/usr/bin/clustermesh-apiserver"]
