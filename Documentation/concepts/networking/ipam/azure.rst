@@ -12,7 +12,7 @@ Azure IPAM (beta)
 
 The Azure IPAM allocator is specific to Cilium deployments running in the Azure
 cloud and performs IP allocation based on `Azure Private IP addresses
-<https://docs.microsoft.com/en-us/azure/virtual-network/virtual-network-ip-addresses-overview-arm#private-ip-addresses>`__.
+<https://docs.microsoft.com/en-us/azure/virtual-network/private-ip-addresses>`__.
 
 The architecture ensures that only a single operator communicates with the
 Azure API to avoid rate-limiting issues in large clusters. A pre-allocation
