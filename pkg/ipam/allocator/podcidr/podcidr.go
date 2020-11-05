@@ -849,9 +849,10 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		}
 	}()
 
-	var v4CIDR, v6CIDR *net.IPNet
-
-	nCIDRs := &nodeCIDRs{}
+	var (
+		cidrs          nodeCIDRs
+		v4CIDR, v6CIDR *net.IPNet
+	)
 
 	// Only allocate a v4 CIDR if the v4CIDR allocator is available
 	if len(n.v4CIDRAllocators) != 0 {
@@ -859,21 +860,25 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		if err != nil {
 			return nil, false, err
 		}
-		revertStack.Push(revertFunc)
+
 		log.WithField("CIDR", v4CIDR).Debug("v4 allocated CIDR")
-		nCIDRs.v4PodCIDRs = []*net.IPNet{v4CIDR}
+		cidrs.v4PodCIDRs = []*net.IPNet{v4CIDR}
+
+		revertStack.Push(revertFunc)
 	}
 	if len(n.v6CIDRAllocators) != 0 {
 		revertFunc, v6CIDR, err = allocateFirstFreeCIDR(n.v6CIDRAllocators)
 		if err != nil {
 			return nil, false, err
 		}
-		revertStack.Push(revertFunc)
+
 		log.WithField("CIDR", v6CIDR).Debug("v6 allocated CIDR")
-		nCIDRs.v6PodCIDRs = []*net.IPNet{v6CIDR}
+		cidrs.v6PodCIDRs = []*net.IPNet{v6CIDR}
+
+		revertStack.Push(revertFunc)
 	}
 
-	if nCIDRs == nil {
+	if cidrs.v4PodCIDRs == nil && cidrs.v6PodCIDRs == nil {
 		return nil, false, ErrNoAllocators{
 			name: nodeName,
 			v4:   getCIDRAllocatorsInfo(n.v4CIDRAllocators, v4AllocatorType),
@@ -881,10 +886,9 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		}
 	}
 
-	n.nodes[nodeName] = nCIDRs
+	n.nodes[nodeName] = &cidrs
 
-	return nCIDRs, true, nil
-
+	return &cidrs, true, nil
 }
 
 func getCIDRAllocatorsInfo(cidrAllocators []CIDRAllocator, netTypes string) string {
