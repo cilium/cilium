@@ -16,6 +16,7 @@ package ctmap
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -34,8 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -103,6 +106,10 @@ type NatMap interface {
 	Open() error
 	Close() error
 	DeleteMapping(key tuple.TupleKey) error
+	DumpWithCallback(bpf.DumpCallback) error
+	DumpReliablyWithCallback(bpf.DumpCallback, *bpf.DumpStats) error
+	Delete(bpf.MapKey) error
+	DumpStats() *bpf.DumpStats
 }
 
 type mapAttributes struct {
@@ -508,6 +515,83 @@ func GC(m *Map, filter *GCFilter) int {
 	}
 
 	return doGC(m, filter)
+}
+
+// PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
+// orphan if it does not have a corresponding CT entry.
+//
+// This can happen when the CT entry is removed by the LRU eviction which
+// happens when the CT map becomes full.
+//
+// PurgeOrphanNATEntries() is triggered by the datapath via the GC signaling
+// mechanism. When the datapath SNAT fails to find free mapping after
+// SNAT_SIGNAL_THRES attempts, it sends the signal via the perf ring buffer.
+// The consumer of the buffer invokes the function.
+//
+// The SNAT is being used for the following cases:
+// 1. By NodePort BPF on an intermediate node before fwd'ing request from outside
+//     to a destination node.
+// 2. A packet from local endpoint sent to outside (BPF-masq).
+// 3. A packet from a host local application (i.e. running in the host netns)
+//    This is needed to prevent SNAT from hijacking such connections.
+// 4. By DSR on a backend node to SNAT responses with service IP+port before
+//    sending to a client.
+//
+// In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
+// CT GC to remove corresponding SNAT entries. In the case of 4, will create
+// CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
+//
+// The function only handles 1-3 cases, the 4. case is TODO(brb).
+func PurgeOrphanNATEntries(ctMap *Map) *NatGCStats {
+	if option.Config.NodePortMode == option.NodePortModeDSR ||
+		option.Config.NodePortMode == option.NodePortModeHybrid {
+		return nil
+	}
+
+	natMap := mapInfo[ctMap.mapType].natMap
+	if natMap == nil {
+		return nil
+	}
+
+	isCTMapTCP := ctMap.mapType == mapTypeIPv4TCPLocal ||
+		ctMap.mapType == mapTypeIPv6TCPLocal ||
+		ctMap.mapType == mapTypeIPv4TCPGlobal ||
+		ctMap.mapType == mapTypeIPv6TCPGlobal
+	stats := newNatGCStats(natMap)
+
+	cb := func(key bpf.MapKey, value bpf.MapValue) {
+		natKey := key.(nat.NatKey)
+		natVal := value.(nat.NatEntry)
+
+		// In opposite to the CT maps, TCP and UDP entries are stored in the same
+		// SNAT map. Therefore, to avoid a case when the given ctMap does not
+		// store entries of the given natKey.NextHeader proto, we should return
+		// early. Otherwise, the natKey entries will be removed, which is wrong.
+		if (natKey.GetNextHeader() == u8proto.TCP) != isCTMapTCP {
+			return
+		}
+
+		if natKey.GetFlags()&tuple.TUPLE_F_IN == 1 { // natKey is r(everse)tuple
+			ctKey := egressCTKeyFromIngressNatKeyAndVal(natKey, natVal)
+			if _, err := ctMap.Lookup(ctKey); errors.Is(err, unix.ENOENT) {
+				// No CT entry is found, so delete SNAT for both original and
+				// reverse flows
+				oNatKey := oNatKeyFromReverse(natKey, natVal)
+				if err := natMap.Delete(oNatKey); err == nil {
+					stats.EgressDeleted += 1
+				}
+				if err := natMap.Delete(natKey); err == nil {
+					stats.IngressDeleted += 1
+				}
+			} else {
+				stats.IngressAlive += 1
+			}
+		}
+	}
+
+	natMap.DumpReliablyWithCallback(cb, stats.DumpStats)
+
+	return &stats
 }
 
 // Flush runs garbage collection for map m with the name mapType, deleting all
