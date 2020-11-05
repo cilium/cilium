@@ -706,37 +706,15 @@ func (n *Node) syncToAPIServer() (err error) {
 	// Two attempts are made in case the local resource is outdated. If the
 	// second attempt fails as well we are likely under heavy contention,
 	// fall back to the controller based background interval to retry.
-	var updatedNode *v2.CiliumNode
 	for retry := 0; retry < 2; retry++ {
 		if node.Status.IPAM.Used == nil {
 			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
 
-		var updateErr error
 		n.ops.PopulateStatusFields(node)
-		updatedNode, updateErr = n.manager.k8sAPI.UpdateStatus(origNode, node)
-		if updatedNode != nil && updatedNode.Name != "" {
-			node = updatedNode.DeepCopy()
-			if updateErr == nil {
-				break
-			}
-		} else if updateErr != nil {
-			scopedLog.WithError(updateErr).WithFields(logrus.Fields{
-				logfields.Attempt: retry,
-			}).Warning("Failed to update CiliumNode status")
 
-			node, err = n.manager.k8sAPI.Get(node.Name)
-			if err != nil {
-				break
-			} else {
-				// Propagate the error in case we exit the loop without
-				// succeeding in updating the status.
-				err = updateErr
-			}
-			node = node.DeepCopy()
-			origNode = node.DeepCopy()
-		} else /* updateErr == nil */ {
-			err = updateErr
+		origNode, node, err = n.update(origNode, node, retry, true)
+		if err == nil {
 			break
 		}
 	}
@@ -758,20 +736,8 @@ func (n *Node) syncToAPIServer() (err error) {
 			node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
 		}
 
-		updatedNode, err = n.manager.k8sAPI.Update(origNode, node)
-		if updatedNode != nil && updatedNode.Name != "" {
-			node = updatedNode.DeepCopy()
-			if err == nil {
-				break
-			}
-		} else if err != nil {
-			node, err = n.manager.k8sAPI.Get(node.Name)
-			if err != nil {
-				break
-			}
-			node = node.DeepCopy()
-			origNode = node.DeepCopy()
-		} else {
+		origNode, node, err = n.update(origNode, node, retry, false)
+		if err == nil {
 			break
 		}
 	}
@@ -781,4 +747,64 @@ func (n *Node) syncToAPIServer() (err error) {
 	}
 
 	return err
+}
+
+// update is a helper function for syncToAPIServer(). This function updates the
+// CiliumNode resource spec or status depending on `status`. The resource is
+// updated from `origNode` to `node`.
+//
+// Note, the return values of this function are important to keep (instead of
+// returning nil CiliumNode's in the case of an error) because this function is
+// called in a loop to retry in the case of a failure. If we change `node` to
+// return nil in the case of an error, then we may attempt to update the
+// CiliumNode to nil on the next run.
+func (n *Node) update(
+	origNode, node *v2.CiliumNode,
+	attempts int,
+	status bool,
+) (*v2.CiliumNode, *v2.CiliumNode, error) {
+	scopedLog := n.logger()
+
+	var (
+		updatedNode    *v2.CiliumNode
+		updateErr, err error
+	)
+
+	if status {
+		updatedNode, updateErr = n.manager.k8sAPI.UpdateStatus(origNode, node)
+	} else {
+		updatedNode, updateErr = n.manager.k8sAPI.Update(origNode, node)
+	}
+
+	if updatedNode != nil && updatedNode.Name != "" {
+		node = updatedNode.DeepCopy()
+		if updateErr == nil {
+			return origNode, node, nil
+		}
+	} else if updateErr != nil {
+		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
+			logfields.Attempt: attempts,
+		}).Warning("Failed to update CiliumNode spec")
+
+		node, err = n.manager.k8sAPI.Get(node.Name)
+		if err != nil {
+			return origNode, node, err
+		}
+
+		// Propagate the error in the case that we are on our last attempt and
+		// we never succeeded in updating the resource.
+		//
+		// Also, propagate the reference to the nodes in the case we've
+		// succeeded in updating the CiliumNode status. The reason is because
+		// the subsequent run will be to update the CiliumNode spec and we need
+		// to ensure we have the most up-to-date CiliumNode references before
+		// doing that operation, hence the deep copies.
+		err = updateErr
+		node = node.DeepCopy()
+		origNode = node.DeepCopy()
+	} else /* updateErr == nil */ {
+		err = updateErr
+	}
+
+	return origNode, node, err
 }
