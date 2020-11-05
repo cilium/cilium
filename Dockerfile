@@ -61,6 +61,7 @@ COPY --from=hubble /usr/bin/hubble /usr/bin/hubble
 COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 COPY --from=builder /go/src/github.com/cilium/cilium/contrib/packaging/docker/init-container.sh /init-container.sh
+COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
 WORKDIR /home/cilium
 RUN groupadd -f cilium \
     && /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble \

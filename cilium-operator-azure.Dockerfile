@@ -38,5 +38,6 @@ LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium/operator/cilium-operator-azure /usr/bin/cilium-operator-azure
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
+COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
 WORKDIR /
 CMD ["/usr/bin/cilium-operator-azure"]
