@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build privileged_tests
+// +build !privileged_tests
 
 package cmd
 
@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"path"
 	"sort"
-	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
@@ -29,8 +28,6 @@ import (
 
 	. "gopkg.in/check.v1"
 )
-
-func Test(t *testing.T) { TestingT(t) }
 
 type CMDHelpersSuite struct{}
 
