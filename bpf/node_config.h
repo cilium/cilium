@@ -118,7 +118,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifndef SKIP_DEBUG
 #define LB_DEBUG
 #endif
-#define POLICY_VERDICT_NOTIFY
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
