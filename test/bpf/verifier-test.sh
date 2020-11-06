@@ -232,6 +232,14 @@ function load_cg {
 }
 
 function load_xdp {
+	# The verifier compares the type of the BPF program that created each
+	# pinned map to the type of the new program that is trying to use those
+	# maps. It errors if the two types (original map creator vs. map user)
+	# don't match.
+	# Since previous loaded programs are of TC type, we need to remove all maps
+	# before creating them again from XDP programs.
+	clean_maps
+
 	if $IPROUTE2 link set dev ${DEV} xdpgeneric off 2>/dev/null; then
 		for p in ${XDP_PROGS}; do
 			load_prog_dev "$IPROUTE2 link set" "xdpgeneric" ${p}
