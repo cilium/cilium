@@ -103,6 +103,11 @@ section for the full list of available metrics and their options.
 The port of the Hubble metrics can be configured with the
 ``global.hubble.metrics.port`` Helm value.
 
+.. Note::
+
+    L7 metrics such as HTTP, are only emitted for pods that enable
+    :ref:`Layer 7 Protocol Visibility <proxy_visibility>`.
+
 When deployed with a non-empty ``global.hubble.metrics.enabled`` Helm value, the
 Cilium chart will create a Kubernetes headless service named ``hubble-metrics``
 with the ``prometheus.io/scrape:'true'`` annotation set:
