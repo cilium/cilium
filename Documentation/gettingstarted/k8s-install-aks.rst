@@ -23,8 +23,13 @@ and clustermesh.
 Prerequisites
 =============
 
-Ensure that you have the `Azure Cloud CLI 
-<https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_ installed.
+Ensure that you have the `Azure Cloud CLI
+<https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
+installed and log in to Azure with:
+
+.. code:: bash
+
+    az login
 
 To verify, confirm that the following command displays the set of available
 Kubernetes versions.
