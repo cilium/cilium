@@ -295,6 +295,7 @@ crd
 crdWaitTimeout
 createtopic
 cri
+cronJob
 crt
 crypto
 cryptographic
@@ -424,6 +425,7 @@ hostFirewall
 hostNetwork
 hostPort
 hostServices
+hostname
 hostonlyif
 hostonlyifs
 hostport

@@ -28,6 +28,7 @@ Installation
    k8s-install-managed
    k8s-installers
    cni-chaining
+   external-workloads
 
 Network Policy Security Tutorials
 ---------------------------------
