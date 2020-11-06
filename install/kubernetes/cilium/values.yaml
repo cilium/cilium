@@ -85,7 +85,7 @@ global:
   imagePullSecrets:
     # - name: "image-pull-secret"
   # registry is the address of the registry and organization for all container images
-  registry: docker.io/cilium
+  registry: quay.io/cilium
 
   # tag is the container image tag to use
   tag: v1.8.5
