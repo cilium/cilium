@@ -11,3 +11,4 @@
 #endif
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
+#define CALLS_MAP test_cilium_calls_65535
