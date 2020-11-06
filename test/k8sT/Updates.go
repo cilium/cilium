@@ -245,13 +245,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, "", newImageVersion, "")
 
 		By("Cleaning Cilium state (%s)", oldImageVersion)
-		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "cilium", oldImageVersion, "docker.io/cilium")
+		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "cilium", oldImageVersion, "quay.io/cilium")
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
 
 		opts := map[string]string{
 			"global.tag":      oldImageVersion,
-			"global.registry": "docker.io/cilium",
+			"global.registry": "quay.io/cilium",
 			"agent.image":     "cilium",
 			"operator.image":  "operator",
 		}
