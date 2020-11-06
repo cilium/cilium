@@ -62,7 +62,7 @@ name: cilium
 ## agent container image
 ##
 image:
-  repository: docker.io/cilium/cilium
+  repository: quay.io/cilium/cilium
   tag: latest
   pullPolicy: Always
 
@@ -426,7 +426,7 @@ hostServices:
 certgen:
   # certgen image used in the job pod spec
   image:
-    repository: docker.io/cilium/certgen
+    repository: quay.io/cilium/certgen
     tag: v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
     pullPolicy: Always
   # Seconds after which the completed job pod will be deleted
@@ -530,7 +530,7 @@ hubble:
     enabled: false
 
     image:
-      repository: docker.io/cilium/hubble-relay
+      repository: quay.io/cilium/hubble-relay
       tag: latest
       pullPolicy: Always
 
@@ -616,7 +616,7 @@ hubble:
 
     backend:
       image:
-        repository: docker.io/cilium/hubble-ui-backend
+        repository: quay.io/cilium/hubble-ui-backend
         tag: latest
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
@@ -631,7 +631,7 @@ hubble:
 
     frontend:
       image:
-        repository: docker.io/cilium/hubble-ui
+        repository: quay.io/cilium/hubble-ui
         tag: latest
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
@@ -936,7 +936,7 @@ etcd:
   enabled: false
 
   image:
-    repository: docker.io/cilium/cilium-etcd-operator
+    repository: quay.io/cilium/cilium-etcd-operator
     tag: v2.0.7
     pullPolicy: Always
 
@@ -1046,7 +1046,7 @@ operator:
   enabled: true
 
   image:
-    repository: docker.io/cilium/operator
+    repository: quay.io/cilium/operator
     tag: latest
     pullPolicy: Always
 
@@ -1171,7 +1171,7 @@ nodeinit:
   enabled: false
 
   image:
-    repository: docker.io/cilium/startup-script
+    repository: quay.io/cilium/startup-script
     tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
     pullPolicy: Always
 
@@ -1260,7 +1260,7 @@ preflight:
   enabled: false
 
   image:
-    repository: docker.io/cilium/cilium
+    repository: quay.io/cilium/cilium
     tag: latest
     pullPolicy: Always
 
@@ -1374,7 +1374,7 @@ enableCriticalPriorityClass: true
 clustermesh:
   apiserver:
     image:
-      repository: docker.io/cilium/clustermesh-apiserver
+      repository: quay.io/cilium/clustermesh-apiserver
       tag: latest
       pullPolicy: Always
 

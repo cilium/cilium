@@ -16,7 +16,7 @@ jobs:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --namespace=test-clusters --image=cilium/cilium-test-dev:${{ steps.vars.outputs.sha_short }} "/usr/local/bin/cilium-test-gke.sh" "docker.io/cilium/cilium:latest" "docker.io/cilium/operator-generic:latest" "docker.io/cilium/hubble-relay:latest" "NightlyPolicyStress"
+          args: --namespace=test-clusters --image=cilium/cilium-test-dev:${{ steps.vars.outputs.sha_short }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium:latest" "quay.io/cilium/operator-generic:latest" "quay.io/cilium/hubble-relay:latest" "NightlyPolicyStress"
   baseline-test:
     name: Start performance test
     runs-on: ubuntu-20.04

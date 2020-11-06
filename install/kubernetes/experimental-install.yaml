@@ -926,7 +926,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:latest
+        image: quay.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
           postStart:
@@ -997,7 +997,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:latest
+        image: quay.io/cilium/cilium:latest
         imagePullPolicy: Always
         name: clean-cilium-state
         securityContext:
@@ -1145,7 +1145,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: docker.io/cilium/operator-generic:latest
+        image: quay.io/cilium/operator-generic:latest
         imagePullPolicy: Always
         name: cilium-operator
         livenessProbe:
@@ -1266,7 +1266,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: docker.io/cilium/clustermesh-apiserver:latest
+        image: quay.io/cilium/clustermesh-apiserver:latest
         imagePullPolicy: Always
         command:
           - /usr/bin/clustermesh-apiserver
@@ -1356,7 +1356,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: docker.io/cilium/hubble-relay:latest
+          image: quay.io/cilium/hubble-relay:latest
           imagePullPolicy: Always
           command:
             - hubble-relay
@@ -1436,7 +1436,7 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: frontend
-          image: "docker.io/cilium/hubble-ui:latest"
+          image: "quay.io/cilium/hubble-ui:latest"
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -1444,7 +1444,7 @@ spec:
           resources:
             {}
         - name: backend
-          image: "docker.io/cilium/hubble-ui-backend:latest"
+          image: "quay.io/cilium/hubble-ui-backend:latest"
           imagePullPolicy: Always
           env:
             - name: EVENTS_SERVER_PORT
@@ -1499,7 +1499,7 @@ spec:
       serviceAccountName: clustermesh-apiserver-generate-certs
       containers:
         - name: certgen
-          image: docker.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
+          image: quay.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
           imagePullPolicy: Always
           command:
             - "/usr/bin/cilium-certgen"
@@ -1533,7 +1533,7 @@ spec:
       serviceAccountName: hubble-generate-certs
       containers:
         - name: certgen
-          image: docker.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
+          image: quay.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
           imagePullPolicy: Always
           command:
             - "/usr/bin/cilium-certgen"
@@ -1578,7 +1578,7 @@ spec:
           serviceAccountName: hubble-generate-certs
           containers:
             - name: certgen
-              image: docker.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
+              image: quay.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
               imagePullPolicy: Always
               command:
                 - "/usr/bin/cilium-certgen"
