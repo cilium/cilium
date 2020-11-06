@@ -236,6 +236,9 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			fallthrough
 		case option.Config.Tunnel != option.TunnelDisabled:
 			fallthrough
+		// Needs host stack for packet handling.
+		case option.Config.EnableEndpointRoutes || option.Config.EnableIPSec:
+			fallthrough
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.Masquerade && !option.Config.EnableBPFMasquerade:
 			option.Config.EnableHostLegacyRouting = true
