@@ -33,7 +33,7 @@ preflight:
 # global groups all configuration options that have effect on all sub-charts
 global:
   # registry is the address of the registry and orgnization for all container images
-  registry: docker.io/cilium
+  registry: quay.io/cilium
 
   # tag is the container image tag to use
   tag: v1.7.11
