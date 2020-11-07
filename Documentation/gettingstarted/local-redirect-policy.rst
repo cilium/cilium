@@ -18,7 +18,7 @@ The CiliumLocalRedirectPolicy is configured as a ``CustomResourceDefinition``.
 There are two types of Local Redirect Policies supported. When traffic for a
 Kubernetes service needs to be redirected, use the `ServiceMatcher` type. The
 service needs to be of type ``clusterIP``.
-When traffic matching IP address and layer port/protocol, that doesn't belong to
+When traffic matching IP address and port/protocol, that doesn't belong to
 any Kubernetes service, needs to be redirected, use the `AddressMatcher` type.
 
 The policies can be gated by Kubernetes Role-based access control (RBAC)
