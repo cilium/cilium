@@ -27,6 +27,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -736,9 +737,12 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Upsert service entries into BPF maps
-	backends := make(map[string]uint16, len(svc.backends))
+	backends := make(map[string]*maglev.BackendPoint, len(svc.backends))
 	for _, b := range svc.backends {
-		backends[b.String()] = uint16(b.ID)
+		backends[b.String()] = &maglev.BackendPoint{ID: uint16(b.ID), Weight: b.Weight}
+		if backends[b.String()].Weight == 0 {
+			backends[b.String()].Weight = 1
+		}
 	}
 
 	p := &lbmap.UpsertServiceParams{

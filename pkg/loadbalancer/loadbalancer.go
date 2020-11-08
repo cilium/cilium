@@ -197,6 +197,8 @@ type ID uint32
 type Backend struct {
 	// ID of the backend
 	ID BackendID
+	// Weight of backend
+	Weight uint32
 	// Node hosting this backend. This is used to determine backends local to
 	// a node.
 	NodeName string

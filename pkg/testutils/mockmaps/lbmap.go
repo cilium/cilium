@@ -43,8 +43,8 @@ func NewLBMockMap() *LBMockMap {
 
 func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	backendsList := make([]lb.Backend, 0, len(p.Backends))
-	for name, backendID := range p.Backends {
-		b, found := m.BackendByID[backendID]
+	for name, backend := range p.Backends {
+		b, found := m.BackendByID[backend.ID]
 		if !found {
 			return fmt.Errorf("Backend %s (%d) not found", name, p.ID)
 		}

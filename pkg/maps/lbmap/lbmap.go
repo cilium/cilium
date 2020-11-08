@@ -17,7 +17,6 @@ package lbmap
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -64,7 +63,7 @@ type UpsertServiceParams struct {
 	ID                        uint16
 	IP                        net.IP
 	Port                      uint16
-	Backends                  map[string]uint16
+	Backends                  map[string]*maglev.BackendPoint
 	PrevBackendCount          int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
@@ -100,14 +99,15 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if p.UseMaglev && len(p.Backends) != 0 {
-		if err := lbmap.UpsertMaglevLookupTable(p.ID, p.Backends, p.IPv6); err != nil {
+		maglev.GetLookupTable(p.Backends, lbmap.maglevTableSize, lbmap.maglevBackendIDsBuffer)
+		if err := updateMaglevTable(p.IPv6, p.ID, lbmap.maglevBackendIDsBuffer); err != nil {
 			return err
 		}
 	}
 
 	backendIDs := make([]uint16, 0, len(p.Backends))
 	for _, id := range p.Backends {
-		backendIDs = append(backendIDs, id)
+		backendIDs = append(backendIDs, id.ID)
 	}
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
@@ -146,30 +146,6 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 				logfields.BackendSlot: svcKey.GetBackendSlot(),
 			}).WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
-	}
-
-	return nil
-}
-
-// UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
-// inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
-	backendNames := make([]string, 0, len(backends))
-	for name := range backends {
-		backendNames = append(backendNames, name)
-	}
-	// Maglev algorithm might produce different lookup table for the same
-	// set of backends listed in a different order. To avoid that sort
-	// backends by name, as the names are the same on all nodes (in opposite
-	// to backend IDs which are node-local).
-	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
-	for i, pos := range table {
-		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
-	}
-
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
-		return err
 	}
 
 	return nil
