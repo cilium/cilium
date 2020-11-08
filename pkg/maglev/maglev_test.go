@@ -135,10 +135,13 @@ func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
 	backendCount := 1000
 	m := uint64(131071)
 
+<<<<<<< HEAD
 	if err := Init(DefaultHashSeed, m); err != nil {
 		c.Fatal(err)
 	}
 
+=======
+>>>>>>> service: support weighted backend points for maglev hash
 	backends := make(map[string]*BackendPoint, backendCount)
 	for i := 0; i < backendCount; i++ {
 		name := fmt.Sprintf("backend-%d", i)

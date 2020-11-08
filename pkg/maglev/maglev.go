@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"runtime"
+	"sort"
 	"sync"
 	"sort"
 
@@ -120,6 +121,10 @@ func GetLookupTable(backends map[string]*BackendPoint, m uint64, maglevBackendID
 	for name := range backends {
 		backendNames = append(backendNames, name)
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> service: support weighted backend points for maglev hash
 	// Maglev algorithm might produce different lookup table for the same
 	// set of backends listed in a different order. To avoid that sort
 	// backends by name, as the names are the same on all nodes (in opposite
