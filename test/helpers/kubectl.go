@@ -294,6 +294,27 @@ func (kub *Kubectl) LabelNodes() {
 	}
 }
 
+// AddRegistryCredentials adds a registry credentials secret into the
+// cluster
+func (kub *Kubectl) AddRegistryCredentials(cred string, registry string) error {
+	if len(cred) == 0 || cred == ":" {
+		return nil
+	}
+	if kub.ExecShort(fmt.Sprintf("%s get secret regcred", KubectlCmd)).WasSuccessful() {
+		return nil
+	}
+	up := strings.SplitN(cred, ":", 2)
+	if len(up) != 2 {
+		return fmt.Errorf("registry credentials had an invalid format")
+	}
+
+	cmd := fmt.Sprintf("%s secret docker-registry regcred --docker-server=%s --docker-username=%s --docker-password=%s", KubectlCmd, registry, up[0], up[1])
+	if !kub.ExecShort(cmd).WasSuccessful() {
+		return fmt.Errorf("unable to create registry credentials")
+	}
+	return nil
+}
+
 // CepGet returns the endpoint model for the given pod name in the specified
 // namespaces. If the pod is not present it returns nil
 func (kub *Kubectl) CepGet(namespace string, pod string) *cnpv2.EndpointStatus {
@@ -1374,6 +1395,11 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			options[k] = v
 		}
 	}
+
+	if len(config.CiliumTestConfig.RegistryCredentials) > 0 {
+		options["imagePullSecrets[0].name"] = config.RegistrySecretName
+	}
+
 	return nil
 }
 
