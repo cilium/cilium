@@ -401,6 +401,27 @@ func (kub *Kubectl) DaemonSetIsReady(namespace, daemonset string) (int, error) {
 	return int(d.Status.DesiredNumberScheduled), nil
 }
 
+// AddRegistryCredentials adds a registry credentials secret into the
+// cluster
+func (kub *Kubectl) AddRegistryCredentials(cred string, registry string) error {
+	if len(cred) == 0 || cred == ":" {
+		return nil
+	}
+	if kub.ExecShort(fmt.Sprintf("%s get secret regcred", KubectlCmd)).WasSuccessful() {
+		return nil
+	}
+	up := strings.SplitN(cred, ":", 2)
+	if len(up) != 2 {
+		return fmt.Errorf("registry credentials had an invalid format")
+	}
+
+	cmd := fmt.Sprintf("%s secret docker-registry regcred --docker-server=%s --docker-username=%s --docker-password=%s", KubectlCmd, registry, up[0], up[1])
+	if !kub.ExecShort(cmd).WasSuccessful() {
+		return fmt.Errorf("unable to create registry credentials")
+	}
+	return nil
+}
+
 // WaitForCiliumReadiness waits for the Cilium DaemonSet to become ready.
 // Readiness is achieved when all Cilium pods which are desired to run on a
 // node are in ready state.
@@ -571,6 +592,10 @@ func (kub *Kubectl) PrepareCluster() {
 	ginkgoext.By("Labelling nodes")
 	if err = kub.labelNodes(); err != nil {
 		ginkgoext.Failf("unable label nodes: %s", err)
+	}
+	err = kub.AddRegistryCredentials(config.CiliumTestConfig.RegistryCredentials, config.RegistryDomain)
+	if err != nil {
+		ginkgoext.Failf("unable to add registry credentials to cluster: %s", err)
 	}
 }
 
@@ -2304,6 +2329,10 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 		devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
 		addIfNotOverwritten(options, "devices", devices)
+	}
+
+	if len(config.CiliumTestConfig.RegistryCredentials) > 0 {
+		options["imagePullSecrets[0].name"] = config.RegistrySecretName
 	}
 
 	return nil

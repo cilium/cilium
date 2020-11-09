@@ -21,6 +21,11 @@ import (
 	"time"
 )
 
+const (
+	RegistryDomain     = "docker.io"
+	RegistrySecretName = "regcred"
+)
+
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
 	Reprovision bool
@@ -43,6 +48,7 @@ type CiliumTestConfigType struct {
 	ProvisionK8s        bool
 	Timeout             time.Duration
 	Kubeconfig          string
+	RegistryCredentials string
 	Benchmarks          bool
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
@@ -90,6 +96,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies timeout for test run")
 	flagset.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
+	flagset.StringVar(&c.RegistryCredentials, "cilium.registryCredentials", "",
+		"Registry credentials to be used to download images")
 	flagset.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
 		"Specifies benchmark tests should be run which may increase test time")
 	flagset.BoolVar(&c.Multinode, "cilium.multinode", true,
