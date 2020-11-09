@@ -13,6 +13,10 @@ spec:
       labels:
         k8s-app: hubble-ui
     spec:
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 6 }}
+{{- end }}
       {{- if .Values.securityContext.enabled }}
       securityContext:
         runAsUser: 1001

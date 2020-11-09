@@ -82,6 +82,8 @@ hubble-relay:
 
 # global groups all configuration options that have effect on all sub-charts
 global:
+  imagePullSecrets:
+    # - name: "image-pull-secret"
   # registry is the address of the registry and organization for all container images
   registry: docker.io/cilium
 

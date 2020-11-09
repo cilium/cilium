@@ -41,6 +41,10 @@ spec:
       affinity:
 {{ toYaml .Values.global.affinity | indent 8 }}
 {{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 6 }}
+{{- end }}
       containers:
 {{- if .Values.sleepAfterInit }}
       - command: [ "/bin/bash", "-c", "--" ]

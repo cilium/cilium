@@ -23,6 +23,10 @@ spec:
 {{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")}}
       priorityClassName: system-node-critical
 {{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 6 }}
+{{- end }}
       containers:
         - name: node-init
 {{- if contains "/" .Values.image }}
