@@ -724,7 +724,7 @@ func (n *Node) syncToAPIServer() (err error) {
 
 		n.ops.PopulateStatusFields(node)
 
-		origNode, node, err = n.update(origNode, node, retry, true)
+		err = n.update(origNode, node, retry, true)
 		if err == nil {
 			break
 		}
@@ -747,7 +747,7 @@ func (n *Node) syncToAPIServer() (err error) {
 			adjustPreAllocateIfNeeded(node)
 		}
 
-		origNode, node, err = n.update(origNode, node, retry, false)
+		err = n.update(origNode, node, retry, false)
 		if err == nil {
 			break
 		}
@@ -764,16 +764,15 @@ func (n *Node) syncToAPIServer() (err error) {
 // CiliumNode resource spec or status depending on `status`. The resource is
 // updated from `origNode` to `node`.
 //
-// Note, the return values of this function are important to keep (instead of
-// returning nil CiliumNode's in the case of an error) because this function is
-// called in a loop to retry in the case of a failure. If we change `node` to
-// return nil in the case of an error, then we may attempt to update the
-// CiliumNode to nil on the next run.
-func (n *Node) update(
-	origNode, node *v2.CiliumNode,
-	attempts int,
-	status bool,
-) (*v2.CiliumNode, *v2.CiliumNode, error) {
+// Note that the `origNode` and `node` pointers will have their underlying
+// values modified in this function! The following is an outline of when
+// `origNode` and `node` pointers are updated:
+//  * `node` is updated when we succeed in updating to update the resource to
+//     the apiserver.
+//  * `origNode` and `node` are updated when we fail to update the resource,
+//     but we succeed in retrieving the latest version of it from the
+//     apiserver.
+func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) error {
 	scopedLog := n.logger()
 
 	var (
@@ -788,18 +787,19 @@ func (n *Node) update(
 	}
 
 	if updatedNode != nil && updatedNode.Name != "" {
-		node = updatedNode.DeepCopy()
+		*node = *updatedNode
 		if updateErr == nil {
-			return origNode, node, nil
+			return nil
 		}
 	} else if updateErr != nil {
 		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
 			logfields.Attempt: attempts,
 		}).Warning("Failed to update CiliumNode spec")
 
-		node, err = n.manager.k8sAPI.Get(node.Name)
+		var newNode *v2.CiliumNode
+		newNode, err = n.manager.k8sAPI.Get(node.Name)
 		if err != nil {
-			return origNode, node, err
+			return err
 		}
 
 		// Propagate the error in the case that we are on our last attempt and
@@ -811,13 +811,13 @@ func (n *Node) update(
 		// to ensure we have the most up-to-date CiliumNode references before
 		// doing that operation, hence the deep copies.
 		err = updateErr
-		node = node.DeepCopy()
-		origNode = node.DeepCopy()
+		*node = *newNode
+		*origNode = *node
 	} else /* updateErr == nil */ {
 		err = updateErr
 	}
 
-	return origNode, node, err
+	return err
 }
 
 // adjustPreAllocateIfNeeded adjusts IPAM values depending on the instance
