@@ -70,7 +70,7 @@ var _ = Describe("K8sVerifier", func() {
 		kubectl.DeleteResource("pod", "test-verifier")
 	})
 
-	SkipItIf(helpers.RunsOnNetNextOr419Kernel, "Runs the kernel verifier against Cilium's BPF datapath", func() {
+	It("Runs the kernel verifier against Cilium's BPF datapath", func() {
 		By("Building BPF objects from the tree")
 		kernel := "49"
 		switch {
@@ -84,6 +84,19 @@ var _ = Describe("K8sVerifier", func() {
 		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C /cilium/tools/maptool/")
 		res.ExpectSuccess("Expected compilation of maptool to succeed")
+
+		if helpers.RunsOn419Kernel() {
+			// On 4.19, we need to remove global data sections before loading
+			// those programs. The libbpf version used in our bpftool (which
+			// loads these two programs), rejects global data.
+			By("Remove global data section")
+			for _, prog := range []string{"bpf/sockops/bpf_sockops.o", "bpf/sockops/bpf_redir.o"} {
+				cmd := "llvm-objcopy --remove-section=.debug_info --remove-section=.BTF --remove-section=.data /cilium/%s /cilium/%s"
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName,
+					fmt.Sprintf(cmd, prog, prog))
+				res.ExpectSuccess(fmt.Sprintf("Expected deletion of object file sections from %s to succeed.", prog))
+			}
+		}
 
 		By("Running the verifier test script")
 		cmd = fmt.Sprintf("/cilium/test/%s", script)
