@@ -577,7 +577,7 @@ minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
 licenses-all:
-	find ./vendor/ -name LICENSE -exec echo -e "\nName: {}\nLicense: \n\n" \; -exec cat {} \; > LICENSE.all || ( rm -f LICENSE.all ; false )
+	@go run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
 
 update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
