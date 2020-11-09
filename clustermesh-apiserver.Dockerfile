@@ -11,6 +11,8 @@ ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
 RUN make RACE=${RACE} NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG}
+WORKDIR /go/src/github.com/cilium/cilium
+RUN make licenses-all
 
 # CGO_ENABLED=0 GOOS=linux go build
 
