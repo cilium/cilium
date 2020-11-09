@@ -106,4 +106,4 @@ check-docker-images:
          CERTGEN_VERSION=`echo $(CERTGEN_VERSION) | egrep -o '^.*@' | sed 's/@//'` \
          ../../contrib/release/check-docker-images.sh "v$(VERSION)"
 
-.PHONY: all clean docs experimental-install lint quick-install update-versions
+.PHONY: all check-docker-images clean docs experimental-install lint quick-install update-versions
