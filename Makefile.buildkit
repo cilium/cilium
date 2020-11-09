@@ -46,7 +46,7 @@ _build/%ockerfile.dockerignore: $(GIT_IGNORE_FILES) Makefile.buildkit
 _build/%ockerfile: %ockerfile _build/%ockerfile.dockerignore force
 	@-mkdir -p $(dir $@)
 	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
-	@-grep "^FROM " $@ | cut -d ' ' -f2 | grep -v -e "scratch" -e "[$$_{}]" | xargs -P4 -n1 docker pull
+	@-grep "^FROM " $@ | cut -d ' ' -f2 | grep -v -e "scratch" -e "[\$$_{}]" | xargs -P4 -n1 docker pull
 
 #
 # Optionally make a shallow clone of the repo to explicitly exclude
