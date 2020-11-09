@@ -1,5 +1,6 @@
 #
 # Cilium build-time base image (image created from this file is used to build Cilium)
+FROM docker.io/cilium/cilium-llvm:33c302266cecc264febfca95129ce8dad9397c81 as cilium-llvm
 
 FROM quay.io/cilium/cilium-runtime:2021-02-03-v1.8@sha256:44c7e985ba0317726ae6960c3211456d9c076677cbad39439fcc16c81cdc813c
 LABEL maintainer="maintainer@cilium.io"
@@ -32,6 +33,11 @@ RUN apt-get update && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+#
+# Retrieve llvm-objcopy binary
+#
+COPY --from=cilium-llvm /bin/llvm-objcopy /bin/
 
 #
 # Install Go
