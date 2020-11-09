@@ -19,6 +19,11 @@ import (
 	"time"
 )
 
+const (
+	RegistryDomain     = "docker.io"
+	RegistrySecretName = "regcred"
+)
+
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
 	Reprovision bool
@@ -38,6 +43,7 @@ type CiliumTestConfigType struct {
 	Timeout             time.Duration
 	Kubeconfig          string
 	Registry            string
+	RegistryCredentials string
 	Benchmarks          bool
 }
 
@@ -72,6 +78,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flag.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
 	flag.StringVar(&c.Registry, "cilium.registry", "k8s1:5000", "docker registry hostname for Cilium image")
+	flag.StringVar(&c.RegistryCredentials, "cilium.registryCredentials", "",
+		"Registry credentials to be used to download images")
 	flag.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
 		"Specifies benchmark tests should be run which may increase test time")
 }
