@@ -35,6 +35,10 @@ spec:
           command: ["/bin/echo"]
           args:
           - "hello"
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 6 }}
+{{- end }}
       containers:
 {{- if contains "/" .Values.image }}
         - image: "{{ .Values.image }}"

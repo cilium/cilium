@@ -27,6 +27,10 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       serviceAccount: hubble-relay
       serviceAccountName: hubble-relay
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 6 }}
+{{- end }}
       containers:
         - name: hubble-relay
 {{- if contains "/" .Values.image.repository }}

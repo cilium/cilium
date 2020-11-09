@@ -13,6 +13,8 @@ TEST_ARTIFACTS += ./test.test
 
 GINKGO = $(QUIET) ginkgo
 
+REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
+
 all: build
 
 build:
@@ -27,13 +29,13 @@ build:
 test: run k8s
 
 run:
-	ginkgo --focus "Runtime" -v -- --cilium.provision=$(provision)
+	ginkgo --focus "Runtime" -v -- --cilium.provision=$(provision) --cilium.registryCredenitals=$(REGISTRY_CREDENTIALS)
 
 k8s:
-	ginkgo --focus "K8s" -v -- --cilium.provision=$(provision)
+	ginkgo --focus "K8s" -v -- --cilium.provision=$(provision) --cilium.registryCredenitals=$(REGISTRY_CREDENTIALS)
 
 nightly:
-	ginkgo --focus "Nightly" -v -- --cilium.provision=$(provision)
+	ginkgo --focus "Nightly" -v -- --cilium.provision=$(provision) --cilium.registryCredenitals=$(REGISTRY_CREDENTIALS)
 
 clean:
 	@$(ECHO_CLEAN)

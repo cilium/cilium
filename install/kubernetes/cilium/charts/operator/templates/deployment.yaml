@@ -50,6 +50,10 @@ spec:
                 - operator
             topologyKey: "kubernetes.io/hostname"
 {{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 6 }}
+{{- end }}
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map
