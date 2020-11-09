@@ -23,7 +23,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2020-11-09@sha256:401d3bc1464c1daf54f4205aea936cb3fb90f0ae00c03e2146ebf2a9d23d5651 as builder
+FROM quay.io/cilium/cilium-builder:2020-11-09-v1.9@sha256:401d3bc1464c1daf54f4205aea936cb3fb90f0ae00c03e2146ebf2a9d23d5651 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
