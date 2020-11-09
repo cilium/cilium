@@ -8,7 +8,7 @@ ARG TESTER_IMAGE=docker.io/cilium/image-tester:70724309b859786e0a347605e407c5261
 ARG GOLANG_IMAGE=docker.io/library/golang:1.15.5@sha256:7ca7ffe692fa0fb6a142d4bdf5c28b6d7b3e32dc9a25eea9596ae1935135d7eb
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:8bce67040cd0ae39e0beb55bcb976a824d9966d2ac8d2e4bf6119b45505cee64
 
-ARG CILIUM_LLVM_IMAGE=docker.io/cilium/cilium-llvm:3355296c86c669ca92077e37bd5901d41c8142b9
+ARG CILIUM_LLVM_IMAGE=docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac
 ARG CILIUM_BPFTOOL_IMAGE=docker.io/cilium/cilium-bpftool:fbb2e86339609f6755f53fcefd2257e4beea4423
 ARG CILIUM_IPROUTE2_IMAGE=docker.io/cilium/cilium-iproute2:44d4c6ebc57b78af0f1080ef52da2bae2605a439
 
