@@ -14,6 +14,8 @@ ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
 RUN make RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG cilium-operator
+WORKDIR /go/src/github.com/cilium/cilium
+RUN make licenses-all
 
 FROM docker.io/library/alpine:3.12.0 as certs
 ARG CILIUM_SHA=""
