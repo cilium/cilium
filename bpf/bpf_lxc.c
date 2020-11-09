@@ -7,6 +7,8 @@
 #include <ep_config.h>
 #include <node_config.h>
 
+#include <bpf/verifier.h>
+
 #include <linux/icmpv6.h>
 
 #define EVENT_SOURCE LXC_ID
@@ -1152,6 +1154,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
 	 */
+	relax_verifier();
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
 	    !tc_index_skip_egress_proxy(ctx)) {
 		/* This is a reply, the proxy port does not need to be embedded

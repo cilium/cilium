@@ -7,6 +7,8 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
+#include <bpf/verifier.h>
+
 #include "common.h"
 #include "utils.h"
 #include "ipv4.h"
@@ -206,6 +208,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 {
 	struct ct_entry *entry;
 	int reopen;
+
+	relax_verifier();
 
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
@@ -665,6 +669,8 @@ static __always_inline int ct_lookup4(const void *map,
 		}
 		goto out;
 	}
+
+	relax_verifier();
 
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {
