@@ -576,7 +576,7 @@ minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
 licenses-all:
-	find ./vendor/ -name LICENSE -exec echo -e "\nName: {}\nLicense: \n\n" \; -exec cat {} \; > LICENSE.all
+	find ./vendor/ -name LICENSE -exec echo -e "\nName: {}\nLicense: \n\n" \; -exec cat {} \; > LICENSE.all || ( rm -f LICENSE.all ; false )
 
 update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
@@ -603,5 +603,5 @@ update-images-go-version:
 	$(QUIET) $(MAKE) -C images update-golang-image
 	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
 
-.PHONY: force generate-api generate-health-api install build-context-update clean-build clean clean-container veryclean
+.PHONY: build-context-update clean-build clean clean-container force generate-api generate-health-api install licenses-all veryclean
 force :;
