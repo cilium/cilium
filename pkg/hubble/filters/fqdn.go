@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -32,38 +31,10 @@ func destinationFQDN(ev *v1.Event) []string {
 	return ev.GetFlow().GetDestinationNames()
 }
 
-var (
-	fqdnFilterAllowedChars  = "[-a-zA-Z0-9_.]*"
-	fqdnFilterIsValidFilter = regexp.MustCompile("^[-a-zA-Z0-9_.*]+$")
-)
-
-func parseFQDNFilter(pattern string) (*regexp.Regexp, error) {
-	pattern = strings.ToLower(pattern)
-	pattern = strings.TrimSpace(pattern)
-	pattern = strings.TrimSuffix(pattern, ".")
-
-	if !fqdnFilterIsValidFilter.MatchString(pattern) {
-		return nil, fmt.Errorf(`only alphanumeric ASCII characters, the hyphen "-", "." and "*" are allowed: %s`,
-			pattern)
-	}
-
-	// "." becomes a literal .
-	pattern = strings.Replace(pattern, ".", "[.]", -1)
-
-	// "*" becomes a zero or more of the allowed characters
-	pattern = strings.Replace(pattern, "*", fqdnFilterAllowedChars, -1)
-
-	return regexp.Compile("^" + pattern + "$")
-}
-
 func filterByFQDNs(fqdnPatterns []string, getFQDNs func(*v1.Event) []string) (FilterFunc, error) {
-	matchPatterns := make([]*regexp.Regexp, 0, len(fqdnPatterns))
-	for _, pattern := range fqdnPatterns {
-		re, err := parseFQDNFilter(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("invalid FQDN in filter: %s", err)
-		}
-		matchPatterns = append(matchPatterns, re)
+	fqdnRegexp, err := compileFQDNPattern(fqdnPatterns)
+	if err != nil {
+		return nil, err
 	}
 
 	return func(ev *v1.Event) bool {
@@ -73,10 +44,8 @@ func filterByFQDNs(fqdnPatterns []string, getFQDNs func(*v1.Event) []string) (Fi
 		}
 
 		for _, name := range names {
-			for _, re := range matchPatterns {
-				if re.MatchString(name) {
-					return true
-				}
+			if fqdnRegexp.MatchString(name) {
+				return true
 			}
 		}
 
