@@ -3,7 +3,7 @@
 # development environmennt
 FROM quay.io/cilium/cilium-envoy:63de0bd958d05d82e2396125dcf6286d92464c56 as cilium-envoy
 
-FROM quay.io/cilium/cilium-runtime:2020-10-20@sha256:5478b2cca987592a80a9a8834e8e91f6f8bb3f8c37aff386fbd2dd05b36c5091
+FROM quay.io/cilium/cilium-runtime:2020-11-09-v1.9@sha256:deece66b8bb3a856fcf5afd3de86834a0bc3b13ba867b76212a161ea9c11ffa4
 LABEL maintainer="maintainer@cilium.io"
 RUN apt-get update && apt-get install make -y
 WORKDIR /go/src/github.com/cilium/cilium
