@@ -222,23 +222,23 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
 
-	ctMapName := MapNameAny4Global + "_test"
-	setupMapInfo(mapTypeIPv4AnyGlobal, ctMapName,
+	ctMapAnyName := MapNameAny4Global + "_test"
+	setupMapInfo(mapTypeIPv4AnyGlobal, ctMapAnyName,
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		100, natMap)
-	ctMap := newMap(ctMapName, mapTypeIPv4AnyGlobal)
-	_, err = ctMap.OpenOrCreate()
+	ctMapAny := newMap(ctMapAnyName, mapTypeIPv4AnyGlobal)
+	_, err = ctMapAny.OpenOrCreate()
 	c.Assert(err, IsNil)
-	defer ctMap.Map.Unpin()
+	defer ctMapAny.Map.Unpin()
 
-	ctTCPMapName := MapNameTCP4Global + "_test"
-	setupMapInfo(mapTypeIPv4TCPGlobal, ctTCPMapName,
+	ctMapTCPName := MapNameTCP4Global + "_test"
+	setupMapInfo(mapTypeIPv4TCPGlobal, ctMapTCPName,
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		100, natMap)
-	ctTCPMap := newMap(ctTCPMapName, mapTypeIPv4TCPGlobal)
-	_, err = ctTCPMap.OpenOrCreate()
+	ctMapTCP := newMap(ctMapTCPName, mapTypeIPv4TCPGlobal)
+	_, err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)
-	defer ctTCPMap.Map.Unpin()
+	defer ctMapTCP.Map.Unpin()
 
 	// Create the following entries and check that SNAT entries are NOT GC-ed
 	// (as we have the CT entry which they belong to):
@@ -278,7 +278,7 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 		TxBytes:   216,
 		Lifetime:  37459,
 	}
-	err = bpf.UpdateElement(ctMap.Map.GetFd(), unsafe.Pointer(ctKey),
+	err = bpf.UpdateElement(ctMapAny.Map.GetFd(), unsafe.Pointer(ctKey),
 		unsafe.Pointer(ctVal), 0)
 	c.Assert(err, IsNil)
 
@@ -325,28 +325,7 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 		unsafe.Pointer(natVal), 0)
 	c.Assert(err, IsNil)
 
-	ctKeyTCP := &CtKey4Global{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
-				DestAddr:   types.IPv4{10, 23, 32, 45},
-				SourceAddr: types.IPv4{10, 23, 53, 48},
-				SourcePort: 0x50d6,
-				DestPort:   0x1821,
-				NextHeader: u8proto.TCP,
-				Flags:      tuple.TUPLE_F_OUT,
-			},
-		},
-	}
-	err = bpf.UpdateElement(ctTCPMap.Map.GetFd(), unsafe.Pointer(ctKeyTCP),
-		unsafe.Pointer(ctVal), 0)
-	c.Assert(err, IsNil)
-
-	// UDP SNAT entries should not be removed when the TCP CT map is given
-	stats := PurgeOrphanNATEntries(ctTCPMap)
-	c.Assert(stats.IngressDeleted, Equals, uint32(0))
-	c.Assert(stats.EgressDeleted, Equals, uint32(0))
-
-	stats = PurgeOrphanNATEntries(ctMap)
+	stats := PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressAlive, Equals, uint32(1))
 	c.Assert(stats.IngressDeleted, Equals, uint32(0))
 	c.Assert(stats.EgressDeleted, Equals, uint32(0))
@@ -357,9 +336,9 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 2)
 
 	// Now remove the CT entry which should remove both NAT entries
-	err = bpf.DeleteElement(ctMap.Map.GetFd(), unsafe.Pointer(ctKey))
+	err = bpf.DeleteElement(ctMapAny.Map.GetFd(), unsafe.Pointer(ctKey))
 	c.Assert(err, IsNil)
-	stats = PurgeOrphanNATEntries(ctMap)
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressDeleted, Equals, uint32(1))
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
 	c.Assert(stats.EgressDeleted, Equals, uint32(1))
@@ -374,7 +353,7 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 		unsafe.Pointer(natVal), 0)
 	c.Assert(err, IsNil)
 
-	stats = PurgeOrphanNATEntries(ctMap)
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressDeleted, Equals, uint32(1))
 	c.Assert(stats.EgressDeleted, Equals, uint32(0))
 	buf = make(map[string][]string)
