@@ -409,9 +409,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 				status = "BPF"
 			}
 			if sr.KubeProxyReplacement != nil {
+				// When BPF Masquerading is enabled we don't do any masquerading for IPv6
+				// traffic so no SNAT Exclusion IPv6 CIDR is listed in status output.
 				status += fmt.Sprintf("\t[%s]\t%s",
 					strings.Join(sr.KubeProxyReplacement.Devices, ", "),
-					sr.Masquerading.SnatExclusionCidr)
+					sr.Masquerading.SnatExclusionCidrV4)
 			}
 
 		} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
