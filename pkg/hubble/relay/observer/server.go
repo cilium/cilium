@@ -20,6 +20,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
+	"github.com/cilium/cilium/pkg/hubble/build"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -223,6 +224,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		close(statuses)
 	}()
 	resp := &observerpb.ServerStatusResponse{
+		Version: build.RelayVersion.String(),
 		NumConnectedNodes: &wrappers.UInt32Value{
 			Value: numConnectedNodes,
 		},
