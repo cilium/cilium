@@ -384,6 +384,7 @@ func TestServerStatus(t *testing.T) {
 			ocb: fakeObserverClientBuilder{},
 			want: want{
 				resp: &observerpb.ServerStatusResponse{
+					Version:             "hubble-relay",
 					NumFlows:            0,
 					MaxFlows:            0,
 					SeenFlows:           0,
@@ -459,6 +460,7 @@ func TestServerStatus(t *testing.T) {
 			},
 			want: want{
 				resp: &observerpb.ServerStatusResponse{
+					Version:             "hubble-relay",
 					NumFlows:            3333,
 					MaxFlows:            3333,
 					SeenFlows:           3333,
@@ -524,6 +526,7 @@ func TestServerStatus(t *testing.T) {
 			},
 			want: want{
 				resp: &observerpb.ServerStatusResponse{
+					Version:             "hubble-relay",
 					NumFlows:            1111,
 					MaxFlows:            1111,
 					SeenFlows:           1111,
@@ -583,6 +586,7 @@ func TestServerStatus(t *testing.T) {
 			},
 			want: want{
 				resp: &observerpb.ServerStatusResponse{
+					Version:             "hubble-relay",
 					NumFlows:            0,
 					MaxFlows:            0,
 					SeenFlows:           0,
