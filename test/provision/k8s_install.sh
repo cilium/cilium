@@ -2,6 +2,10 @@
 
 set -e
 
+if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then
+    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_LOGIN}" --password-stdin
+fi
+
 HOST=$(hostname)
 export HELM_VERSION="3.3.4"
 export TOKEN="258062.5d84c017c9b2796c"
