@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run checkpatch.pl
-        uses: docker://cilium/cilium-checkpatch:5b099019bf0db775b33b3f32cd5ecea55dd15f21
+        uses: docker://cilium/cilium-checkpatch:f5443bb156d5ac4110ede4b501d6a2cf356d3202
   coccicheck:
     name: coccicheck
     runs-on: ubuntu-latest
