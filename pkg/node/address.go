@@ -37,6 +37,7 @@ var (
 
 type addresses struct {
 	ipv4Loopback      net.IP
+	ipv6Loopback      net.IP
 	ipv4Address       net.IP
 	ipv4RouterAddress net.IP
 	ipv4NodePortAddrs map[string]net.IP // iface name => ip addr
@@ -258,10 +259,24 @@ func GetIPv4Loopback() net.IP {
 	return clone(addrs.ipv4Loopback)
 }
 
+// GetIPv6Loopback returns the loopback IPv6 address of this node.
+func GetIPv6Loopback() net.IP {
+	addrsMu.RLock()
+	defer addrsMu.RUnlock()
+	return clone(addrs.ipv6Loopback)
+}
+
 // SetIPv4Loopback sets the loopback IPv4 address of this node.
 func SetIPv4Loopback(ip net.IP) {
 	addrsMu.Lock()
 	addrs.ipv4Loopback = clone(ip)
+	addrsMu.Unlock()
+}
+
+// SetIPv6Loopback sets the loopback IPv6 address of this node.
+func SetIPv6Loopback(ip net.IP) {
+	addrsMu.Lock()
+	addrs.ipv6Loopback = clone(ip)
 	addrsMu.Unlock()
 }
 

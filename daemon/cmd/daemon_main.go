@@ -717,6 +717,9 @@ func initializeFlags() {
 	flags.String(option.LoopbackIPv4, defaults.LoopbackIPv4, "IPv4 address for service loopback SNAT")
 	option.BindEnv(option.LoopbackIPv4)
 
+	flags.String(option.LoopbackIPv6, defaults.LoopbackIPv6, "IPv6 address for service loopback SNAT")
+	option.BindEnv(option.LoopbackIPv6)
+
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(option.EnableIPv4Masquerade)
 

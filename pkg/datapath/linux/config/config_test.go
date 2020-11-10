@@ -52,11 +52,13 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4Router(ipv4DummyAddr)
 	node.SetIPv4Loopback(ipv4DummyAddr)
+	node.SetIPv6Loopback(ipv6DummyAddr)
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
 	node.SetInternalIPv4Router(nil)
 	node.SetIPv4Loopback(nil)
+	node.SetIPv6Loopback(nil)
 }
 
 type badWriter struct{}
