@@ -612,3 +612,19 @@ func SkipRaceDetectorEnabled() bool {
 	race := os.Getenv("RACE")
 	return race == "1" || race == "true"
 }
+
+// DualStackSupported returns whether the current environment has DualStack IPv6
+// enabled or not for the cluster.
+func DualStackSupported() bool {
+	k8sVersion := GetCurrentK8SEnv()
+	switch k8sVersion {
+	// Add kubernetes versions for which we add dual stack support.
+	case "1.18", "1.19":
+		// We only have DualStack enabled in Vagrant test env.
+		if GetCurrentIntegration() == "" {
+			return true
+		}
+	}
+
+	return false
+}
