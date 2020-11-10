@@ -8,7 +8,7 @@ HUBBLE_UI_VERSION := "v0.7.3"
 MANAGED_ETCD_VERSION := "v2.0.7"
 ETCD_VERSION := "v3.4.13"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
-CERTGEN_VERSION := "v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e"
+CERTGEN_VERSION := "v0.1.3"
 
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
 EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
@@ -101,7 +101,7 @@ check-docker-images:
          MANAGED_ETCD_VERSION=$(MANAGED_ETCD_VERSION) \
          ETCD_VERSION=$(ETCD_VERSION) \
          NODEINIT_VERSION=$(NODEINIT_VERSION) \
-         CERTGEN_VERSION=`echo $(CERTGEN_VERSION) | egrep -o '^.*@' | sed 's/@//'` \
+         CERTGEN_VERSION=$(CERTGEN_VERSION) \
          ../../contrib/release/check-docker-images.sh "v$(VERSION)"
 
 .PHONY: all check-docker-images clean docs experimental-install lint quick-install update-versions
