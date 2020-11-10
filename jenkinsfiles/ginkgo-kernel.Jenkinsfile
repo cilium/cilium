@@ -125,6 +125,13 @@ pipeline {
                }
             }
         }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                }
+            }
+        }
         stage('Make Cilium images') {
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
@@ -192,9 +199,11 @@ pipeline {
                     )}"""
             }
             steps {
-                retry(3) {
-                    dir("${TESTDIR}") {
-                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    retry(3) {
+                        dir("${TESTDIR}") {
+                            sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                        }
                     }
                 }
             }

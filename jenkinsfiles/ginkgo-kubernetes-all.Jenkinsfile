@@ -85,6 +85,13 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                }
+            }
+        }
         stage('Make Cilium images') {
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
@@ -137,10 +144,12 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                timeout(time: 20, unit: 'MINUTES'){
+                                    dir("${TESTDIR}") {
+                                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                                    }
                                 }
                             }
                         }
@@ -164,10 +173,12 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                timeout(time: 20, unit: 'MINUTES'){
+                                    dir("${TESTDIR}") {
+                                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                                    }
                                 }
                             }
                         }
@@ -268,10 +279,12 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                timeout(time: 20, unit: 'MINUTES'){
+                                    dir("${TESTDIR}") {
+                                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                                    }
                                 }
                             }
                         }
@@ -295,10 +308,12 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                timeout(time: 20, unit: 'MINUTES'){
+                                    dir("${TESTDIR}") {
+                                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                                    }
                                 }
                             }
                         }
@@ -398,10 +413,12 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                timeout(time: 20, unit: 'MINUTES'){
+                                    dir("${TESTDIR}") {
+                                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                                    }
                                 }
                             }
                         }
@@ -425,10 +442,12 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                timeout(time: 20, unit: 'MINUTES'){
+                                    dir("${TESTDIR}") {
+                                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                                    }
                                 }
                             }
                         }
