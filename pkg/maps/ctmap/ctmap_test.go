@@ -86,3 +86,25 @@ func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
 	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxLRUInterval)
 	c.Assert(calculateInterval(bpf.MapTypeHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxInterval)
 }
+
+func (t *CTMapTestSuite) TestFilterMapsByProto(c *C) {
+	maps := []*Map{
+		newMap("tcp4", mapTypeIPv4TCPGlobal),
+		newMap("any4", mapTypeIPv4AnyGlobal),
+		newMap("tcp6", mapTypeIPv6TCPGlobal),
+		newMap("any6", mapTypeIPv6AnyGlobal),
+	}
+
+	ctMapTCP, ctMapAny := FilterMapsByProto(maps, CTMapIPv4)
+	c.Assert(ctMapTCP.mapType, Equals, mapTypeIPv4TCPGlobal)
+	c.Assert(ctMapAny.mapType, Equals, mapTypeIPv4AnyGlobal)
+
+	ctMapTCP, ctMapAny = FilterMapsByProto(maps, CTMapIPv6)
+	c.Assert(ctMapTCP.mapType, Equals, mapTypeIPv6TCPGlobal)
+	c.Assert(ctMapAny.mapType, Equals, mapTypeIPv6AnyGlobal)
+
+	maps = maps[0:2] // remove ipv6 maps
+	ctMapTCP, ctMapAny = FilterMapsByProto(maps, CTMapIPv6)
+	c.Assert(ctMapTCP, IsNil)
+	c.Assert(ctMapAny, IsNil)
+}
