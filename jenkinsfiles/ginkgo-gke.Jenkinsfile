@@ -63,6 +63,13 @@ pipeline {
                 }
             }
         }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                }
+            }
+        }
         stage('Make Cilium images and prepare gke cluster') {
             parallel {
                 stage('Make Cilium images') {
