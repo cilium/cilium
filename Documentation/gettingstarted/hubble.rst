@@ -109,6 +109,23 @@ Relay and Hubble's graphical UI.
                   --set hubble.relay.enabled=true \\
                   --set hubble.ui.enabled=true
 
+    .. group-tab:: Install Hubble into an existing Cilium deployment
+
+        .. include:: k8s-install-download-release.rst
+
+        Deploy Hubble with the following Helm command:
+
+            .. parsed-literal::
+
+               helm install cilium |CHART_RELEASE| \\
+                  --namespace kube-system \\
+                  --set agent=false \\
+                  --set operator.enabled=false \\
+                  --set hubble.enabled=true \\
+                  --set hubble.listenAddress=":4244" \\
+                  --set hubble.relay.enabled=true \\
+                  --set hubble.ui.enabled=true
+
 Validate the Installation
 =========================
 
