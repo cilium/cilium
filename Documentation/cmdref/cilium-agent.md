@@ -149,6 +149,7 @@ cilium-agent [flags]
       --ipv6-node string                                     IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                             List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                                    Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
+      --ipv6-service-loopback-address string                 IPv6 address for service loopback SNAT (default "dead:beef:dead:beef:dead:beef:dead:beef")
       --ipv6-service-range string                            Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --ipvlan-master-device string                          Device facing external network acting as ipvlan master (default "undefined")
       --join-cluster                                         Join a Cilium cluster via kvstore registration
