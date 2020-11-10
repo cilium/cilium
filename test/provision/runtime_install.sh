@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then
+    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_LOGIN}" --password-stdin
+fi
+
 HOST=$(hostname)
 PROVISIONSRC="/tmp/provision"
 

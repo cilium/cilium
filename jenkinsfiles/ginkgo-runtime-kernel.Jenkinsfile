@@ -106,6 +106,13 @@ pipeline {
                 }
             }
         }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                }
+            }
+        }
         stage ("Copy code and boot vms"){
             options {
                 timeout(time: 30, unit: 'MINUTES')
@@ -120,11 +127,13 @@ pipeline {
             steps {
                 sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                 sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                retry(3) {
-                    timeout(time: 30, unit: 'MINUTES'){
-                        dir("${TESTDIR}") {
-                            sh 'vagrant destroy runtime --force'
-                            sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    retry(3) {
+                        timeout(time: 30, unit: 'MINUTES'){
+                            dir("${TESTDIR}") {
+                                sh 'vagrant destroy runtime --force'
+                                sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
+                            }
                         }
                     }
                 }
