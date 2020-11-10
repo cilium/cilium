@@ -508,32 +508,26 @@ func GC(m *Map, filter *GCFilter) int {
 // CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
 //
 // The function only handles 1-3 cases, the 4. case is TODO(brb).
-func PurgeOrphanNATEntries(ctMap *Map) *NatGCStats {
+func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	if option.Config.NodePortMode == "dsr" {
 		return nil
 	}
 
-	natMap := mapInfo[ctMap.mapType].natMap
+	// Both CT maps should point to the same natMap, so use the first one
+	// to determine natMap
+	natMap := mapInfo[ctMapTCP.mapType].natMap
 	if natMap == nil {
 		return nil
 	}
 
-	isCTMapTCP := ctMap.mapType == mapTypeIPv4TCPLocal ||
-		ctMap.mapType == mapTypeIPv6TCPLocal ||
-		ctMap.mapType == mapTypeIPv4TCPGlobal ||
-		ctMap.mapType == mapTypeIPv6TCPGlobal
 	stats := newNatGCStats(natMap)
-
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		natKey := key.(nat.NatKey)
 		natVal := value.(nat.NatEntry)
 
-		// In opposite to the CT maps, TCP and UDP entries are stored in the same
-		// SNAT map. Therefore, to avoid a case when the given ctMap does not
-		// store entries of the given natKey.NextHeader proto, we should return
-		// early. Otherwise, the natKey entries will be removed, which is wrong.
-		if (natKey.GetNextHeader() == u8proto.TCP) != isCTMapTCP {
-			return
+		ctMap := ctMapAny
+		if natKey.GetNextHeader() == u8proto.TCP {
+			ctMap = ctMapTCP
 		}
 
 		if natKey.GetFlags()&tuple.TUPLE_F_IN == 1 { // natKey is r(everse)tuple
