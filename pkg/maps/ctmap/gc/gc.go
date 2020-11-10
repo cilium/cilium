@@ -199,14 +199,26 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctm
 				"count":        deleted,
 			}).Debug("Deleted filtered entries from map")
 		}
+	}
 
-		if triggeredBySignal {
-			stats := ctmap.PurgeOrphanNATEntries(m)
+	if e == nil && triggeredBySignal {
+		vsns := []ctmap.CTMapIPVersion{}
+		if ipv4 {
+			vsns = append(vsns, ctmap.CTMapIPv4)
+		}
+		if ipv6 {
+			vsns = append(vsns, ctmap.CTMapIPv6)
+		}
+
+		for _, vsn := range vsns {
+			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
+			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
 				log.WithFields(logrus.Fields{
 					"ingressDeleted": stats.IngressDeleted,
 					"egressDeleted":  stats.EgressDeleted,
 					"ingressAlive":   stats.IngressAlive,
+					"ctMapIPVersion": vsn,
 				}).Info("Deleted orphan SNAT entries from map")
 			}
 		}
