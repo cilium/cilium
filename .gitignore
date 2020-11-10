@@ -85,6 +85,7 @@ test/gke/registry-adder.yaml
 # generated from make targets
 *.ok
 *.build_all
+LICENSE.all
 
 # Temporary files that allow build containers/VMs work without git
 # Not to be ignored by docker.
