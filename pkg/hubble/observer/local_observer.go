@@ -27,6 +27,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
@@ -198,6 +199,7 @@ func (s *LocalObserverServer) ServerStatus(
 	ctx context.Context, req *observerpb.ServerStatusRequest,
 ) (*observerpb.ServerStatusResponse, error) {
 	return &observerpb.ServerStatusResponse{
+		Version:   build.ServerVersion.String(),
 		MaxFlows:  s.GetRingBuffer().Cap(),
 		NumFlows:  s.GetRingBuffer().Len(),
 		SeenFlows: atomic.LoadUint64(&s.numObservedFlows),
