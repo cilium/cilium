@@ -29,6 +29,9 @@ service Observer {
     // GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
     rpc GetFlows(GetFlowsRequest) returns (stream GetFlowsResponse) {}
 
+    // GetNodes returns information about nodes in a cluster.
+    rpc GetNodes(GetNodesRequest) returns (GetNodesResponse) {}
+
     // ServerStatus returns some details about the running hubble server.
     rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse) {}
 }
@@ -118,4 +121,51 @@ message GetFlowsResponse {
     string node_name = 1000;
     // Timestamp at which this event was observed.
     google.protobuf.Timestamp time = 1001;
+}
+
+
+message GetNodesRequest {}
+
+// GetNodesResponse contains the list of nodes.
+message GetNodesResponse {
+    // Nodes is an exhaustive list of nodes.
+    repeated Node nodes = 1;
+}
+
+// Node represents a cluster node.
+message Node {
+    // Name is the name of the node.
+    string name = 1;
+    // Version is the version of Cilium/Hubble as reported by the node.
+    string version = 2;
+
+    // Address is the network address of the API endpoint.
+    string address = 3;
+
+    // State represents the known state of the node.
+    relay.NodeState state = 4;
+
+    // TLS reports TLS related information.
+    TLS tls = 5;
+
+    // UptimeNS is the uptime of this instance in nanoseconds
+    uint64 uptime_ns = 6;
+
+    // number of currently captured flows
+    uint64 num_flows = 7;
+
+    // maximum capacity of the ring buffer
+    uint64 max_flows = 8;
+
+    // total amount of flows observed since the observer was started
+    uint64 seen_flows = 9;
+}
+
+// TLS represents TLS information.
+message TLS {
+    // Enabled reports whether TLS is enabled or not.
+    bool enabled = 1;
+    // ServerName is the TLS server name that can be used as part of the TLS
+    // cert validation process.
+    string server_name = 2;
 }
