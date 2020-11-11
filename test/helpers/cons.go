@@ -142,7 +142,8 @@ const (
 	StateTerminating = "Terminating"
 	StateRunning     = "Running"
 
-	PingCount = 5
+	PingCount   = 5
+	PingTimeout = 5
 
 	// CurlConnectTimeout is the timeout for the connect() call that curl
 	// invokes
