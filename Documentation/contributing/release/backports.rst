@@ -66,8 +66,10 @@ One-time Setup
       $ git config --global user.email johndoe@example.com
 
 #. Make sure you have a GitHub developer access token with the ``public_repos``
-   scope available. For details, see `contrib/backporting/README.md
-   <https://github.com/cilium/cilium/blob/master/contrib/backporting/README.md>`_
+   scope available. You can do this directly from
+   https://github.com/settings/tokens or by opening GitHub and then navigating
+   to: User Profile -> Settings -> Developer Settings -> Personal access token
+   -> Generate new token.
 
 #. This guide makes use of several tools to automate the backporting process.
    The basics require ``bash`` and ``git``, but to automate interactions with
@@ -213,7 +215,7 @@ Via GitHub Web Interface
    backport PRs later.
 
 #. Mark all PRs you backported with the backport pending label
-   ``backport-pending/X.Y`` and clear the ``needs-backport/vX.Y`` label. This
+   ``backport-pending/X.Y`` and clear the ``needs-backport/X.Y`` label. This
    can be done with the command printed out at the bottom of the output from
    the ``start-backport`` script above (``GITHUB_TOKEN`` needs to be set for
    this to work).
