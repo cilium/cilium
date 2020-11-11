@@ -58,6 +58,14 @@ func Ping6(endpoint string) string {
 	return fmt.Sprintf("ping6 -c %d %s", PingCount, endpoint)
 }
 
+func Ping6WithID(endpoint string, icmpID uint16) string {
+	return fmt.Sprintf("xping -6 -W %d -c %d -x %d %s", PingTimeout, PingCount, icmpID, endpoint)
+}
+
+func PingWithID(endpoint string, icmpID uint16) string {
+	return fmt.Sprintf("xping -W %d -c %d -x %d %s", PingTimeout, PingCount, icmpID, endpoint)
+}
+
 // Wrk runs a standard wrk test for http
 func Wrk(endpoint string) string {
 	return fmt.Sprintf("wrk -t2 -c100 -d30s -R2000 http://%s", endpoint)
