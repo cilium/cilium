@@ -2,8 +2,6 @@
 /* Copyright (C) 2018-2020 Authors of Cilium */
 
 #include "lib/ipv6.h"
-
-#define SKIP_UNDEF_LPM_LOOKUP_FN
 #include "lib/maps.h"
 
 static void test_ipv6_addr_clear_suffix(void)
