@@ -203,6 +203,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
 								logfields.Port:                  port,
 								logfields.EndpointLabelSelector: cs,
 								logfields.Limit:                 p.maxIPsPerRestoredRule,
+								"totalRules":                    len(p.LookupIPsBySecID(nid)),
 							}).Warning("Too many IPs for a rule, skipping the rest")
 							break Loop
 						}
