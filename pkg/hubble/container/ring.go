@@ -90,7 +90,7 @@ func NewCapacity(n int) (Capacity, error) {
 			return capacity(n), nil
 		}
 	}
-	return nil, fmt.Errorf("invalid capacity: %d", n)
+	return nil, fmt.Errorf("invalid capacity: must be one less than an integer power of two: %d", n)
 }
 
 // Ring is a ring buffer that stores *v1.Event
