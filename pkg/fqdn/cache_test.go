@@ -880,3 +880,33 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 		"3.3.3.3": {"test.com"},
 	})
 }
+
+func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+
+	alive := zombies.DumpAlive()
+	c.Assert(alive, HasLen, 0)
+
+	zombies.Upsert(now, "1.1.1.1", "test.com")
+	zombies.Upsert(now, "2.2.2.2", "example.com")
+	zombies.Upsert(now, "3.3.3.3", "example.org")
+
+	alive = zombies.DumpAlive()
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"example.com"},
+		"3.3.3.3": {"example.org"},
+	})
+
+	now = now.Add(time.Second)
+	zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
+	zombies.MarkAlive(now, net.ParseIP("2.2.2.2"))
+	zombies.SetCTGCTime(now)
+
+	alive = zombies.DumpAlive()
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"example.com"},
+	})
+}
