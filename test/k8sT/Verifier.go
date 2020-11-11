@@ -16,6 +16,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -42,6 +43,24 @@ const (
 var _ = Describe("K8sVerifier", func() {
 	var kubectl *helpers.Kubectl
 
+	collectObjectFiles := func() {
+		testPath, err := helpers.CreateReportDirectory()
+		if err != nil {
+			GinkgoPrint(fmt.Sprintf("Cannot create test results directory %s", testPath))
+			return
+		}
+		res := kubectl.Exec("kubectl exec test-verifier -- ls bpf/")
+		for _, file := range strings.Split(strings.TrimSuffix(res.Stdout(), "\n"), "\n") {
+			if strings.HasSuffix(file, ".o") {
+				cmd := fmt.Sprintf("kubectl cp %s:bpf/%s \"%s/%s\"", podName, file, testPath, file)
+				res = kubectl.Exec(cmd)
+				if !res.WasSuccessful() {
+					GinkgoPrint(fmt.Sprintf("Failed to cp BPF object file: %s\n%s", cmd, res.Stderr()))
+				}
+			}
+		}
+	}
+
 	BeforeAll(func() {
 		SkipIfIntegration(helpers.CIIntegrationGKE)
 
@@ -64,13 +83,16 @@ var _ = Describe("K8sVerifier", func() {
 	AfterFailed(func() {
 		res := kubectl.Exec("kubectl describe pod")
 		GinkgoPrint(res.CombineOutput().String())
+
+		By("Collecting bpf_*.o artifacts")
+		collectObjectFiles()
 	})
 
 	AfterAll(func() {
 		kubectl.DeleteResource("pod", podName)
 	})
 
-	SkipItIf(helpers.RunsOnNetNextOr419Kernel, "Runs the kernel verifier against Cilium's BPF datapath", func() {
+	It("Runs the kernel verifier against the BPF datapath", func() {
 		By("Building BPF objects from the tree")
 		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf V=0")
 		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
