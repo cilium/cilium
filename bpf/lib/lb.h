@@ -318,15 +318,12 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 		if (ip4) {
 			struct ipv4_frag_l4ports ports = { };
 
-			if (unlikely(ipv4_is_fragment(ip4))) {
-				ret = ipv4_handle_fragment(ctx, ip4, l4_off,
-							   dir, &ports,
-							   NULL);
-				if (IS_ERR(ret))
-					return ret;
-				*port = ports.dport;
-				break;
-			}
+			ret = ipv4_handle_fragmentation(ctx, ip4, l4_off,
+							dir, &ports, NULL);
+			if (IS_ERR(ret))
+				return ret;
+			*port = ports.dport;
+			break;
 		}
 #endif
 		/* Port offsets for UDP and TCP are the same */
