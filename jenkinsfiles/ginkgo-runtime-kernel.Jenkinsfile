@@ -9,6 +9,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         VM_MEMORY = "8192"
         VM_CPUS = "4"
+        NFS = "0"
         GINKGO_TIMEOUT="150m"
         DEFAULT_KERNEL="""${sh(
             returnStdout: true,
