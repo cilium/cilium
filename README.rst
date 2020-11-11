@@ -26,7 +26,7 @@ Cilium versions. Older Cilium stable versions from major releases prior to that
 are considered EOL.
 
 For upgrades to new major releases please consult the `Cilium Upgrade Guide
-<https://docs.cilium.io/en/stable/install/upgrade/>`_.
+<https://docs.cilium.io/en/stable/operations/upgrade/>`_.
 
 Listed below are the actively maintained release branches along with their latest
 minor release, corresponding image pull tags and their release notes:
@@ -282,7 +282,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _`Installing Cilium`: http://docs.cilium.io/en/stable/gettingstarted/#installation
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
 .. _Contributing: http://docs.cilium.io/en/stable/contributing/development/
-.. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
+.. _Prerequisites: http://docs.cilium.io/en/stable/operations/system_requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
