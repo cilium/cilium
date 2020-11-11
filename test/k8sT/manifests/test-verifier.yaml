@@ -6,6 +6,7 @@ spec:
   containers:
   - name: cilium-builder
     image: quay.io/cilium/test-verifier:0f6647c542b71e89f310e437570b6d05dd9351bb@sha256:b21ee37daf5b533cc8457060800ac679c5b7bf48cc6f5070584cd59213fabc43
+    workingDir: /cilium
     command: ["sleep"]
     args:
       - "1000h"
