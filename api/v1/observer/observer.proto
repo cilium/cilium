@@ -65,6 +65,9 @@ message ServerStatusResponse {
     // list of nodes that are unavailable
     // This list may not be exhaustive.
     repeated string unavailable_nodes = 7;
+
+    // Version is the version of Cilium/Hubble.
+    string version = 8;
 }
 
 message GetFlowsRequest {
