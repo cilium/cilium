@@ -120,7 +120,7 @@ cilium-agent [flags]
       --http-retry-count uint                                Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                              Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --hubble-disable-tls                                   Allow Hubble server to run on the given listen address without TLS.
-      --hubble-event-buffer-capacity int                     Capacity of Hubble events buffer. The provided value must be on less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
+      --hubble-event-buffer-capacity int                     Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                          Buffer size of the channel to receive monitor events.
       --hubble-listen-address string                         An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                               List of Hubble metrics to enable.
