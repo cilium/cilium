@@ -956,14 +956,22 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 	return nil
 }
 
-// DumpAlive returns copies of still-alive zombies
-func (zombies *DNSZombieMappings) DumpAlive() (alive []*DNSZombieMapping) {
+// CIDRMatcherFunc is a function passed to (*DNSZombieMappings).DumpAlive,
+// called on each zombie to determine whether it should be returned.
+type CIDRMatcherFunc func(ip net.IP) bool
+
+// DumpAlive returns copies of still-alive zombies matching cidrMatcher.
+func (zombies *DNSZombieMappings) DumpAlive(cidrMatcher CIDRMatcherFunc) (alive []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
-	var aliveNames map[string]struct{} = zombies.getAliveNames()
+	aliveNames := zombies.getAliveNames()
 	for _, zombie := range zombies.deletes {
 		if !zombies.isZombieAlive(zombie, aliveNames) {
+			continue
+		}
+		// only proceed if zombie is alive and the IP matches the CIDR selector
+		if cidrMatcher != nil && !cidrMatcher(zombie.IP) {
 			continue
 		}
 

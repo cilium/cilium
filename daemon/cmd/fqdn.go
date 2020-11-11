@@ -727,12 +727,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 			})
 		}
 
-		for _, delete := range ep.DNSZombies.DumpAlive() {
-			// only proceed if any IP matches the cidr selector
-			if !cidrMatcher(delete.IP) {
-				continue
-			}
-
+		for _, delete := range ep.DNSZombies.DumpAlive(cidrMatcher) {
 			for _, name := range delete.Names {
 				if !nameMatcher(name) {
 					continue
