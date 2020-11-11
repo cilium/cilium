@@ -15,7 +15,9 @@
 package helpers
 
 import (
+	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -161,4 +163,13 @@ func PythonBind(addr string, port uint16, proto string) string {
 	return fmt.Sprintf(
 		`/usr/bin/python3 -c 'import socket; socket.socket(%s).bind((%q, %d))`,
 		strings.Join(opts, ", "), addr, port)
+}
+
+// GetBPFPacketsCount returns the number of packets for a given drop reason and
+// direction by parsing BPF metrics.
+func GetBPFPacketsCount(kubectl *Kubectl, pod, reason, direction string) (int, error) {
+	cmd := fmt.Sprintf("cilium bpf metrics list | awk '/%s *%s/ {print $4}'", reason, direction)
+	res := kubectl.CiliumExecMustSucceed(context.TODO(), pod, cmd)
+
+	return strconv.Atoi(strings.TrimSpace(res.Stdout()))
 }

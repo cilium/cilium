@@ -451,6 +451,7 @@ static __always_inline void ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
+						    int dir __maybe_unused,
 						    struct ipv4_ct_tuple *tuple,
 						    bool *has_l4_header __maybe_unused)
 {
@@ -465,7 +466,7 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 		return DROP_CT_INVALID_HDR;
 
 	if (unlikely(ipv4_is_fragment(ip4)))
-		return ipv4_handle_fragment(ctx, ip4, off,
+		return ipv4_handle_fragment(ctx, ip4, off, dir,
 					    (struct ipv4_frag_l4ports *)&tuple->dport,
 					    has_l4_header);
 #endif
@@ -550,7 +551,7 @@ static __always_inline int ct_lookup4(const void *map,
 		break;
 
 	case IPPROTO_TCP:
-		err = ipv4_ct_extract_l4_ports(ctx, off, tuple, &has_l4_header);
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, &has_l4_header);
 		if (err < 0)
 			return err;
 
@@ -566,7 +567,7 @@ static __always_inline int ct_lookup4(const void *map,
 		break;
 
 	case IPPROTO_UDP:
-		err = ipv4_ct_extract_l4_ports(ctx, off, tuple, NULL);
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
 			return err;
 
