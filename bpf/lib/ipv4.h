@@ -108,32 +108,13 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 }
 
 static __always_inline int
-ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off, int dir,
-			    const struct ipv4_frag_id *frag_id,
-			    struct ipv4_frag_l4ports *ports)
+ipv4_handle_fragmentation(struct __ctx_buff *ctx,
+			  const struct iphdr *ip4, int l4_off, int dir,
+			  struct ipv4_frag_l4ports *ports,
+			  bool *has_l4_header)
 {
 	int ret;
-
-	ret = ctx_load_bytes(ctx, l4_off, ports, 4);
-	if (ret < 0)
-		return ret;
-
-	if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports, BPF_ANY))
-		update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET_UPDATE);
-
-	/* Do not return an error if map update failed, as nothing prevents us
-	 * to process the current packet normally.
-	 */
-	return 0;
-}
-
-static __always_inline int
-ipv4_handle_fragment(struct __ctx_buff *ctx,
-		     const struct iphdr *ip4, int l4_off, int dir,
-		     struct ipv4_frag_l4ports *ports,
-		     bool *has_l4_header)
-{
-	bool not_first_fragment;
+	bool is_fragment, not_first_fragment;
 
 	struct ipv4_frag_id frag_id = {
 		.daddr = ip4->daddr,
@@ -143,20 +124,37 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 		.pad = 0,
 	};
 
-	update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET);
+	is_fragment = ipv4_is_fragment(ip4);
 
-	not_first_fragment = ipv4_is_not_first_fragment(ip4);
-	if (has_l4_header)
-		*has_l4_header = !not_first_fragment;
+	if (unlikely(is_fragment)) {
+		update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET);
 
-	if (likely(not_first_fragment))
-		return ipv4_frag_get_l4ports(&frag_id, ports);
+		not_first_fragment = ipv4_is_not_first_fragment(ip4);
+		if (has_l4_header)
+			*has_l4_header = !not_first_fragment;
 
-	/* First logical fragment for this datagram (not necessarily the first
-	 * we receive). Fragment has L4 header, we can retrieve L4 ports and
-	 * create an entry in datagrams map.
-	 */
-	return ipv4_frag_register_datagram(ctx, l4_off, dir, &frag_id, ports);
+		if (likely(not_first_fragment))
+			return ipv4_frag_get_l4ports(&frag_id, ports);
+	}
+
+	/* load sport + dport into tuple */
+	ret = ctx_load_bytes(ctx, l4_off, ports, 4);
+	if (ret < 0)
+		return ret;
+
+	if (unlikely(is_fragment)) {
+		/* First logical fragment for this datagram (not necessarily the first
+		 * we receive). Fragment has L4 header, create an entry in datagrams map.
+		 */
+		if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, ports, BPF_ANY))
+			update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET_UPDATE);
+
+		/* Do not return an error if map update failed, as nothing prevents us
+		 * to process the current packet normally.
+		 */
+	}
+
+	return 0;
 }
 #endif
 
