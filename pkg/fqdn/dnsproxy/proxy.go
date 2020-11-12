@@ -125,6 +125,10 @@ type DNSProxy struct {
 	// this mutex protects variables below this point
 	lock.Mutex
 
+	// usedServers is the set of DNS servers that have been allowed and used successfully.
+	// This is used to limit the number of IPs we store for restored DNS rules.
+	usedServers map[string]struct{}
+
 	// allowed tracks all allowed L7 DNS rules by endpointID, destination port,
 	// and L3 Selector. All must match for a query to be allowed.
 	//
@@ -195,6 +199,13 @@ func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
 				for _, nid := range cs.GetSelections() {
 					nidIPs := p.LookupIPsBySecID(nid)
 					for _, ip := range nidIPs {
+						// Skip IPs that are allowed but have never been used,
+						// but only if at least one server has been used so far.
+						if len(p.usedServers) > 0 {
+							if _, used := p.usedServers[ip]; !used {
+								continue
+							}
+						}
 						IPs[ip] = struct{}{}
 						count++
 						if count > p.maxIPsPerRestoredDNSRule {
@@ -373,6 +384,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		LookupIPsBySecID:         lookupIPsFunc,
 		NotifyOnDNSMsg:           notifyFunc,
 		lookupTargetDNSServer:    lookupTargetDNSServer,
+		usedServers:              make(map[string]struct{}),
 		allowed:                  make(perEPAllow),
 		restored:                 make(perEPRestored),
 		restoredEPs:              make(restoredEPs),
@@ -623,6 +635,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
 		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, &stat)
+	} else {
+		p.Lock()
+		// Add the server to the set of used DNS servers. This set is never GCd, but is limited by set
+		// of DNS server IPs that are allowed by a policy and for which successful response was received.
+		p.usedServers[targetServerIP.String()] = struct{}{}
+		p.Unlock()
 	}
 }
 

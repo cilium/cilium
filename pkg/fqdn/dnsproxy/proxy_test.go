@@ -655,6 +655,27 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	restored3 := s.proxy.GetRules(uint16(epID3)).Sort()
 	c.Assert(restored3, checker.DeepEquals, expected3)
 
+	// Test with limited set of allowed IPs
+	s.proxy.usedServers = map[string]struct{}{"127.0.0.2": {}}
+
+	expected1b := restore.DNSRules{
+		53: restore.IPRules{{
+			IPs: map[string]struct{}{},
+			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID1][53][cachedDstID1Selector]},
+		}, {
+			IPs: map[string]struct{}{"127.0.0.2": {}},
+			Re:  restore.RuleRegex{Regexp: s.proxy.allowed[epID1][53][cachedDstID2Selector]},
+		}}.Sort(),
+		54: restore.IPRules{{
+			Re: restore.RuleRegex{Regexp: s.proxy.allowed[epID1][54][cachedWildcardSelector]},
+		}},
+	}
+	restored1b := s.proxy.GetRules(uint16(epID1)).Sort()
+	c.Assert(restored1b, checker.DeepEquals, expected1b)
+
+	// unlimited again
+	s.proxy.usedServers = nil
+
 	s.proxy.UpdateAllowed(epID1, 53, nil)
 	s.proxy.UpdateAllowed(epID1, 54, nil)
 	_, exists := s.proxy.allowed[epID1]
