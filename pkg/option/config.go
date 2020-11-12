@@ -380,6 +380,10 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
 
+	// ToFQDNMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored ToFQDN rules
+	ToFQDNsMaxIPsPerRestoredRule = "tofqdns-max-ips-per-restored-rule"
+
 	// ToFQDNsMaxDeferredConnectionDeletes defines the maximum number of IPs to
 	// retain for expired DNS lookups with still-active connections"
 	ToFQDNsMaxDeferredConnectionDeletes = "tofqdns-max-deferred-connection-deletes"
@@ -863,6 +867,7 @@ var HelpFlagSections = []FlagsSection{
 			ToFQDNsEnablePoller,
 			ToFQDNsEnablePollerEvents,
 			ToFQDNsMaxIPsPerHost,
+			ToFQDNsMaxIPsPerRestoredRule,
 			ToFQDNsMinTTL,
 			ToFQDNsPreCache,
 			ToFQDNsProxyPort,
@@ -1572,6 +1577,10 @@ type DaemonConfig struct {
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
 
+	// ToFQDNMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored ToFQDN rules
+	ToFQDNsMaxIPsPerRestoredRule int
+
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
 	// expired DNS lookups with still-active connections
 	ToFQDNsMaxDeferredConnectionDeletes int
@@ -1936,6 +1945,7 @@ var (
 		EnableL7Proxy:                defaults.EnableL7Proxy,
 		EndpointStatus:               make(map[string]struct{}),
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
+		ToFQDNsMaxIPsPerRestoredRule: defaults.ToFQDNsMaxIPsPerRestoredRule,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
 		IPAllocationTimeout:          defaults.IPAllocationTimeout,
@@ -2452,6 +2462,7 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
 	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
+	c.ToFQDNsMaxIPsPerRestoredRule = viper.GetInt(ToFQDNsMaxIPsPerRestoredRule)
 	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
 	} else {
