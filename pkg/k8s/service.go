@@ -117,9 +117,14 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
 		}
 	}
+	lbSrcRanges := make([]string, 0, len(svc.Spec.LoadBalancerSourceRanges))
+	for _, cidrString := range svc.Spec.LoadBalancerSourceRanges {
+		cidrStringTrimmed := strings.TrimSpace(cidrString)
+		lbSrcRanges = append(lbSrcRanges, cidrStringTrimmed)
+	}
 
 	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs,
-		svc.Spec.LoadBalancerSourceRanges, headless, trafficPolicy,
+		lbSrcRanges, headless, trafficPolicy,
 		uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector,
 		svc.GetNamespace(), svcType)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
