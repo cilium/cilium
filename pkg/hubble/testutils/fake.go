@@ -56,6 +56,7 @@ func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 // observerpb.ObserverClient interface.
 type FakeObserverClient struct {
 	OnGetFlows     func(ctx context.Context, in *observerpb.GetFlowsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error)
+	OnGetNodes     func(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error)
 	OnServerStatus func(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error)
 }
 
@@ -65,6 +66,14 @@ func (c *FakeObserverClient) GetFlows(ctx context.Context, in *observerpb.GetFlo
 		return c.OnGetFlows(ctx, in, opts...)
 	}
 	panic("OnGetFlows not set")
+}
+
+// GetNodes implements observerpb.ObserverClient.GetNodes.
+func (c *FakeObserverClient) GetNodes(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error) {
+	if c.OnGetNodes != nil {
+		return c.OnGetNodes(ctx, in, opts...)
+	}
+	panic("OnGetNodes not set")
 }
 
 // ServerStatus implements observerpb.ObserverClient.ServerStatus.

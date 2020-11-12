@@ -593,6 +593,273 @@ func (*GetFlowsResponse_NodeStatus) isGetFlowsResponse_ResponseTypes() {}
 
 func (*GetFlowsResponse_LostEvents) isGetFlowsResponse_ResponseTypes() {}
 
+type GetNodesRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *GetNodesRequest) Reset() {
+	*x = GetNodesRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetNodesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodesRequest) ProtoMessage() {}
+
+func (x *GetNodesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodesRequest.ProtoReflect.Descriptor instead.
+func (*GetNodesRequest) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{4}
+}
+
+// GetNodesResponse contains the list of nodes.
+type GetNodesResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Nodes is an exhaustive list of nodes.
+	Nodes []*Node `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
+}
+
+func (x *GetNodesResponse) Reset() {
+	*x = GetNodesResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetNodesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodesResponse) ProtoMessage() {}
+
+func (x *GetNodesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodesResponse.ProtoReflect.Descriptor instead.
+func (*GetNodesResponse) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetNodesResponse) GetNodes() []*Node {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+// Node represents a cluster node.
+type Node struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name is the name of the node.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Version is the version of Cilium/Hubble as reported by the node.
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// Address is the network address of the API endpoint.
+	Address string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	// State represents the known state of the node.
+	State relay.NodeState `protobuf:"varint,4,opt,name=state,proto3,enum=relay.NodeState" json:"state,omitempty"`
+	// TLS reports TLS related information.
+	Tls *TLS `protobuf:"bytes,5,opt,name=tls,proto3" json:"tls,omitempty"`
+	// UptimeNS is the uptime of this instance in nanoseconds
+	UptimeNs uint64 `protobuf:"varint,6,opt,name=uptime_ns,json=uptimeNs,proto3" json:"uptime_ns,omitempty"`
+	// number of currently captured flows
+	NumFlows uint64 `protobuf:"varint,7,opt,name=num_flows,json=numFlows,proto3" json:"num_flows,omitempty"`
+	// maximum capacity of the ring buffer
+	MaxFlows uint64 `protobuf:"varint,8,opt,name=max_flows,json=maxFlows,proto3" json:"max_flows,omitempty"`
+	// total amount of flows observed since the observer was started
+	SeenFlows uint64 `protobuf:"varint,9,opt,name=seen_flows,json=seenFlows,proto3" json:"seen_flows,omitempty"`
+}
+
+func (x *Node) Reset() {
+	*x = Node{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Node) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Node) ProtoMessage() {}
+
+func (x *Node) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Node.ProtoReflect.Descriptor instead.
+func (*Node) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Node) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Node) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *Node) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Node) GetState() relay.NodeState {
+	if x != nil {
+		return x.State
+	}
+	return relay.NodeState_UNKNOWN_NODE_STATE
+}
+
+func (x *Node) GetTls() *TLS {
+	if x != nil {
+		return x.Tls
+	}
+	return nil
+}
+
+func (x *Node) GetUptimeNs() uint64 {
+	if x != nil {
+		return x.UptimeNs
+	}
+	return 0
+}
+
+func (x *Node) GetNumFlows() uint64 {
+	if x != nil {
+		return x.NumFlows
+	}
+	return 0
+}
+
+func (x *Node) GetMaxFlows() uint64 {
+	if x != nil {
+		return x.MaxFlows
+	}
+	return 0
+}
+
+func (x *Node) GetSeenFlows() uint64 {
+	if x != nil {
+		return x.SeenFlows
+	}
+	return 0
+}
+
+// TLS represents TLS information.
+type TLS struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Enabled reports whether TLS is enabled or not.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// ServerName is the TLS server name that can be used as part of the TLS
+	// cert validation process.
+	ServerName string `protobuf:"bytes,2,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
+}
+
+func (x *TLS) Reset() {
+	*x = TLS{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_observer_observer_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TLS) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TLS) ProtoMessage() {}
+
+func (x *TLS) ProtoReflect() protoreflect.Message {
+	mi := &file_observer_observer_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TLS.ProtoReflect.Descriptor instead.
+func (*TLS) Descriptor() ([]byte, []int) {
+	return file_observer_observer_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *TLS) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *TLS) GetServerName() string {
+	if x != nil {
+		return x.ServerName
+	}
+	return ""
+}
+
 var File_observer_observer_proto protoreflect.FileDescriptor
 
 var file_observer_observer_proto_rawDesc = []byte{
@@ -662,21 +929,51 @@ var file_observer_observer_proto_rawDesc = []byte{
 	0xe9, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
 	0x6d, 0x70, 0x52, 0x04, 0x74, 0x69, 0x6d, 0x65, 0x42, 0x10, 0x0a, 0x0e, 0x72, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x32, 0xa2, 0x01, 0x0a, 0x08, 0x4f,
-	0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x45, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x46, 0x6c,
-	0x6f, 0x77, 0x73, 0x12, 0x19, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47,
-	0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a,
-	0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f,
-	0x77, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x4f,
-	0x0a, 0x0c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1d,
-	0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
-	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e,
-	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53,
-	0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42,
-	0x2a, 0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x69,
-	0x6c, 0x69, 0x75, 0x6d, 0x2f, 0x63, 0x69, 0x6c, 0x69, 0x75, 0x6d, 0x2f, 0x61, 0x70, 0x69, 0x2f,
-	0x76, 0x31, 0x2f, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x50, 0x02, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x22, 0x11, 0x0a, 0x0f, 0x47, 0x65,
+	0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x38, 0x0a,
+	0x10, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x24, 0x0a, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x0e, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x4e, 0x6f, 0x64, 0x65,
+	0x52, 0x05, 0x6e, 0x6f, 0x64, 0x65, 0x73, 0x22, 0x8d, 0x02, 0x0a, 0x04, 0x4e, 0x6f, 0x64, 0x65,
+	0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04,
+	0x6e, 0x61, 0x6d, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x18,
+	0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x26, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74,
+	0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x10, 0x2e, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x2e,
+	0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65,
+	0x12, 0x1f, 0x0a, 0x03, 0x74, 0x6c, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e,
+	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x54, 0x4c, 0x53, 0x52, 0x03, 0x74, 0x6c,
+	0x73, 0x12, 0x1b, 0x0a, 0x09, 0x75, 0x70, 0x74, 0x69, 0x6d, 0x65, 0x5f, 0x6e, 0x73, 0x18, 0x06,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x75, 0x70, 0x74, 0x69, 0x6d, 0x65, 0x4e, 0x73, 0x12, 0x1b,
+	0x0a, 0x09, 0x6e, 0x75, 0x6d, 0x5f, 0x66, 0x6c, 0x6f, 0x77, 0x73, 0x18, 0x07, 0x20, 0x01, 0x28,
+	0x04, 0x52, 0x08, 0x6e, 0x75, 0x6d, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x12, 0x1b, 0x0a, 0x09, 0x6d,
+	0x61, 0x78, 0x5f, 0x66, 0x6c, 0x6f, 0x77, 0x73, 0x18, 0x08, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08,
+	0x6d, 0x61, 0x78, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x65, 0x65, 0x6e,
+	0x5f, 0x66, 0x6c, 0x6f, 0x77, 0x73, 0x18, 0x09, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x73, 0x65,
+	0x65, 0x6e, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x22, 0x40, 0x0a, 0x03, 0x54, 0x4c, 0x53, 0x12, 0x18,
+	0x0a, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52,
+	0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x12, 0x1f, 0x0a, 0x0b, 0x73, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x32, 0xe7, 0x01, 0x0a, 0x08, 0x4f, 0x62,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x45, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f,
+	0x77, 0x73, 0x12, 0x19, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65,
+	0x74, 0x46, 0x6c, 0x6f, 0x77, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e,
+	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x6c, 0x6f, 0x77,
+	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x43, 0x0a,
+	0x08, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x12, 0x19, 0x2e, 0x6f, 0x62, 0x73, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e,
+	0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x00, 0x12, 0x4f, 0x0a, 0x0c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x12, 0x1d, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x1e, 0x2e, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x00, 0x42, 0x2a, 0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x63, 0x69, 0x6c, 0x69, 0x75, 0x6d, 0x2f, 0x63, 0x69, 0x6c, 0x69, 0x75, 0x6d, 0x2f,
+	0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x50,
+	0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -691,39 +988,49 @@ func file_observer_observer_proto_rawDescGZIP() []byte {
 	return file_observer_observer_proto_rawDescData
 }
 
-var file_observer_observer_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_observer_observer_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_observer_observer_proto_goTypes = []interface{}{
 	(*ServerStatusRequest)(nil),   // 0: observer.ServerStatusRequest
 	(*ServerStatusResponse)(nil),  // 1: observer.ServerStatusResponse
 	(*GetFlowsRequest)(nil),       // 2: observer.GetFlowsRequest
 	(*GetFlowsResponse)(nil),      // 3: observer.GetFlowsResponse
-	(*wrappers.UInt32Value)(nil),  // 4: google.protobuf.UInt32Value
-	(*flow.FlowFilter)(nil),       // 5: flow.FlowFilter
-	(*timestamp.Timestamp)(nil),   // 6: google.protobuf.Timestamp
-	(*flow.Flow)(nil),             // 7: flow.Flow
-	(*relay.NodeStatusEvent)(nil), // 8: relay.NodeStatusEvent
-	(*flow.LostEvent)(nil),        // 9: flow.LostEvent
+	(*GetNodesRequest)(nil),       // 4: observer.GetNodesRequest
+	(*GetNodesResponse)(nil),      // 5: observer.GetNodesResponse
+	(*Node)(nil),                  // 6: observer.Node
+	(*TLS)(nil),                   // 7: observer.TLS
+	(*wrappers.UInt32Value)(nil),  // 8: google.protobuf.UInt32Value
+	(*flow.FlowFilter)(nil),       // 9: flow.FlowFilter
+	(*timestamp.Timestamp)(nil),   // 10: google.protobuf.Timestamp
+	(*flow.Flow)(nil),             // 11: flow.Flow
+	(*relay.NodeStatusEvent)(nil), // 12: relay.NodeStatusEvent
+	(*flow.LostEvent)(nil),        // 13: flow.LostEvent
+	(relay.NodeState)(0),          // 14: relay.NodeState
 }
 var file_observer_observer_proto_depIdxs = []int32{
-	4,  // 0: observer.ServerStatusResponse.num_connected_nodes:type_name -> google.protobuf.UInt32Value
-	4,  // 1: observer.ServerStatusResponse.num_unavailable_nodes:type_name -> google.protobuf.UInt32Value
-	5,  // 2: observer.GetFlowsRequest.blacklist:type_name -> flow.FlowFilter
-	5,  // 3: observer.GetFlowsRequest.whitelist:type_name -> flow.FlowFilter
-	6,  // 4: observer.GetFlowsRequest.since:type_name -> google.protobuf.Timestamp
-	6,  // 5: observer.GetFlowsRequest.until:type_name -> google.protobuf.Timestamp
-	7,  // 6: observer.GetFlowsResponse.flow:type_name -> flow.Flow
-	8,  // 7: observer.GetFlowsResponse.node_status:type_name -> relay.NodeStatusEvent
-	9,  // 8: observer.GetFlowsResponse.lost_events:type_name -> flow.LostEvent
-	6,  // 9: observer.GetFlowsResponse.time:type_name -> google.protobuf.Timestamp
-	2,  // 10: observer.Observer.GetFlows:input_type -> observer.GetFlowsRequest
-	0,  // 11: observer.Observer.ServerStatus:input_type -> observer.ServerStatusRequest
-	3,  // 12: observer.Observer.GetFlows:output_type -> observer.GetFlowsResponse
-	1,  // 13: observer.Observer.ServerStatus:output_type -> observer.ServerStatusResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	8,  // 0: observer.ServerStatusResponse.num_connected_nodes:type_name -> google.protobuf.UInt32Value
+	8,  // 1: observer.ServerStatusResponse.num_unavailable_nodes:type_name -> google.protobuf.UInt32Value
+	9,  // 2: observer.GetFlowsRequest.blacklist:type_name -> flow.FlowFilter
+	9,  // 3: observer.GetFlowsRequest.whitelist:type_name -> flow.FlowFilter
+	10, // 4: observer.GetFlowsRequest.since:type_name -> google.protobuf.Timestamp
+	10, // 5: observer.GetFlowsRequest.until:type_name -> google.protobuf.Timestamp
+	11, // 6: observer.GetFlowsResponse.flow:type_name -> flow.Flow
+	12, // 7: observer.GetFlowsResponse.node_status:type_name -> relay.NodeStatusEvent
+	13, // 8: observer.GetFlowsResponse.lost_events:type_name -> flow.LostEvent
+	10, // 9: observer.GetFlowsResponse.time:type_name -> google.protobuf.Timestamp
+	6,  // 10: observer.GetNodesResponse.nodes:type_name -> observer.Node
+	14, // 11: observer.Node.state:type_name -> relay.NodeState
+	7,  // 12: observer.Node.tls:type_name -> observer.TLS
+	2,  // 13: observer.Observer.GetFlows:input_type -> observer.GetFlowsRequest
+	4,  // 14: observer.Observer.GetNodes:input_type -> observer.GetNodesRequest
+	0,  // 15: observer.Observer.ServerStatus:input_type -> observer.ServerStatusRequest
+	3,  // 16: observer.Observer.GetFlows:output_type -> observer.GetFlowsResponse
+	5,  // 17: observer.Observer.GetNodes:output_type -> observer.GetNodesResponse
+	1,  // 18: observer.Observer.ServerStatus:output_type -> observer.ServerStatusResponse
+	16, // [16:19] is the sub-list for method output_type
+	13, // [13:16] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_observer_observer_proto_init() }
@@ -780,6 +1087,54 @@ func file_observer_observer_proto_init() {
 				return nil
 			}
 		}
+		file_observer_observer_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetNodesRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetNodesResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Node); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_observer_observer_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TLS); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_observer_observer_proto_msgTypes[3].OneofWrappers = []interface{}{
 		(*GetFlowsResponse_Flow)(nil),
@@ -792,7 +1147,7 @@ func file_observer_observer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_observer_observer_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

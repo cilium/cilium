@@ -26,7 +26,9 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -167,6 +169,11 @@ sortedFlowsLoop:
 		}
 	}
 	return g.Wait()
+}
+
+// GetNodes implements observerpb.ObserverClient.GetNodes.
+func (s *Server) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) (*observerpb.GetNodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetNodes not implemented")
 }
 
 // ServerStatus implements observerpb.ObserverServer.ServerStatus by aggregating
