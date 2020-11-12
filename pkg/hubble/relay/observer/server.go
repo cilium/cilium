@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -78,7 +79,13 @@ func NewServer(peers PeerListReporter, options ...Option) (*Server, error) {
 // GetFlows implements observerpb.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
 func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Observer_GetFlowsServer) error {
-	ctx, cancel := context.WithCancel(stream.Context())
+	ctx := stream.Context()
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	}
+	ctx, cancel := context.WithCancel(ctx)
+
 	defer cancel()
 
 	peers := s.peers.List()
@@ -168,6 +175,10 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		cancel context.CancelFunc
 		g      *errgroup.Group
 	)
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	}
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
 	g, ctx = errgroup.WithContext(ctx)
