@@ -362,6 +362,10 @@ const (
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
+	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored DNS rules
+	DNSMaxIPsPerRestoredRule = "dns-max-ips-per-restored-rule"
+
 	// ToFQDNsMinTTL is the minimum time, in seconds, to use DNS data for toFQDNs policies.
 	ToFQDNsMinTTL = "tofqdns-min-ttl"
 
@@ -377,10 +381,6 @@ const (
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
-
-	// ToFQDNMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored ToFQDN rules
-	ToFQDNsMaxIPsPerRestoredRule = "tofqdns-max-ips-per-restored-rule"
 
 	// ToFQDNsMaxDeferredConnectionDeletes defines the maximum number of IPs to
 	// retain for expired DNS lookups with still-active connections"
@@ -1211,6 +1211,10 @@ type DaemonConfig struct {
 	CMDRefDir              string
 	ToFQDNsMinTTL          int
 
+	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored DNS rules
+	DNSMaxIPsPerRestoredRule int
+
 	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
 	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
 	// is 0 a random port will be assigned, and can be obtained from
@@ -1227,10 +1231,6 @@ type DaemonConfig struct {
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
-
-	// ToFQDNMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored ToFQDN rules
-	ToFQDNsMaxIPsPerRestoredRule int
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
 	// expired DNS lookups with still-active connections
@@ -1552,8 +1552,8 @@ var (
 		EnableIPv6:                   defaults.EnableIPv6,
 		EnableL7Proxy:                defaults.EnableL7Proxy,
 		EndpointStatus:               make(map[string]struct{}),
+		DNSMaxIPsPerRestoredRule:     defaults.DNSMaxIPsPerRestoredRule,
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
-		ToFQDNsMaxIPsPerRestoredRule: defaults.ToFQDNsMaxIPsPerRestoredRule,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
 		IPAllocationTimeout:          defaults.IPAllocationTimeout,
@@ -2056,8 +2056,8 @@ func (c *DaemonConfig) Populate() {
 	// avoids confusion about dropped connections.
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
 	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
+	c.DNSMaxIPsPerRestoredRule = viper.GetInt(DNSMaxIPsPerRestoredRule)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
-	c.ToFQDNsMaxIPsPerRestoredRule = viper.GetInt(ToFQDNsMaxIPsPerRestoredRule)
 	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
 	} else {
