@@ -94,6 +94,10 @@ const (
 	// DefaultMapPrefix is the default prefix for all BPF maps.
 	DefaultMapPrefix = "tc/globals"
 
+	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored DNS rules.
+	DNSMaxIPsPerRestoredRule = 1000
+
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This or ToFQDNsMinTTLPoller is used in DaemonConfig.Populate
 	ToFQDNsMinTTL = 3600 // 1 hour in seconds
@@ -106,10 +110,6 @@ const (
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = 50
-
-	// ToFQDNsMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
-	// for each FQDN selector in endpoint's restored ToFQDN rules.
-	ToFQDNsMaxIPsPerRestoredRule = 1000
 
 	// ToFQDNsMaxDeferredConnectionDeletes Maximum number of IPs to retain for
 	// expired DNS lookups with still-active connections

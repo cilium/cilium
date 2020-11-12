@@ -430,6 +430,9 @@ const (
 	// Limit is a numerical limit that has been exceeded
 	Limit = "limit"
 
+	// Count is a measure being compared to the Limit
+	Count = "count"
+
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
 

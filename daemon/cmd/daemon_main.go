@@ -753,8 +753,8 @@ func init() {
 	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
 	option.BindEnv(option.ToFQDNsMaxIPsPerHost)
 
-	flags.Int(option.ToFQDNsMaxIPsPerRestoredRule, defaults.ToFQDNsMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored rule")
-	option.BindEnv(option.ToFQDNsMaxIPsPerRestoredRule)
+	flags.Int(option.DNSMaxIPsPerRestoredRule, defaults.DNSMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored DNS rule")
+	option.BindEnv(option.DNSMaxIPsPerRestoredRule)
 
 	flags.Int(option.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxDeferredConnectionDeletes, "Maximum number of IPs to retain for expired DNS lookups with still-active connections")
 	option.BindEnv(option.ToFQDNsMaxDeferredConnectionDeletes)
