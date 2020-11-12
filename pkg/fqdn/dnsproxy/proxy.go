@@ -119,9 +119,9 @@ type DNSProxy struct {
 	// helpers.go but is modified during testing.
 	lookupTargetDNSServer func(w dns.ResponseWriter) (serverIP net.IP, serverPort uint16, addrStr string, err error)
 
-	// maxIPsPerRestoredRule is the maximum number of IPs to maintain for each
-	// restored ToFQDNs rule.
-	maxIPsPerRestoredRule int
+	// maxIPsPerRestoredDNSRule is the maximum number of IPs to maintain for each
+	// restored DNS rule.
+	maxIPsPerRestoredDNSRule int
 
 	// this mutex protects variables below this point
 	lock.Mutex
@@ -194,17 +194,18 @@ func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
 				count := 0
 			Loop:
 				for _, nid := range cs.GetSelections() {
-					for _, ip := range p.LookupIPsBySecID(nid) {
+					nidIPs := p.LookupIPsBySecID(nid)
+					for _, ip := range nidIPs {
 						IPs[ip] = struct{}{}
 						count++
-						if count > p.maxIPsPerRestoredRule {
+						if count > p.maxIPsPerRestoredDNSRule {
 							log.WithFields(logrus.Fields{
 								logfields.EndpointID:            endpointID,
 								logfields.Port:                  port,
 								logfields.EndpointLabelSelector: cs,
-								logfields.Limit:                 p.maxIPsPerRestoredRule,
-								"totalRules":                    len(p.LookupIPsBySecID(nid)),
-							}).Warning("Too many IPs for a rule, skipping the rest")
+								logfields.Limit:                 p.maxIPsPerRestoredDNSRule,
+								logfields.Count:                 len(nidIPs),
+							}).Warning("Too many IPs for a DNS rule, skipping the rest")
 							break Loop
 						}
 					}
@@ -358,7 +359,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -377,7 +378,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restored:                 make(perEPRestored),
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
-		maxIPsPerRestoredRule:    maxRestoreIPs,
+		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
