@@ -444,6 +444,9 @@ const (
 	// performed
 	Reason = "reason"
 
+	// Limit is a numerical limit that has been exceeded
+	Limit = "limit"
+
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
 
