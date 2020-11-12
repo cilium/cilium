@@ -1,4 +1,4 @@
-{{- if and (.Values.agent) (not .Values.preflight.enabled) (.Values.prometheus.enabled) (.Values.prometheus.serviceMonitor.enabled) }}
+{{- if and (.Values.agent) (not .Values.preflight.enabled) (.Values.prometheus.enabled) (.Values.prometheus.serviceMonitor.enabled) (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -22,7 +22,7 @@ spec:
     honorLabels: true
     path: /metrics
 {{- end }}
-{{- if and .Values.hubble.metrics.enabled (.Values.hubble.metrics.serviceMonitor.enabled) }}
+{{- if and .Values.hubble.metrics.enabled (.Values.hubble.metrics.serviceMonitor.enabled) (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
