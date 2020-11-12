@@ -57,6 +57,7 @@ cilium-agent [flags]
       --disable-conntrack                             Disable connection tracking
       --disable-endpoint-crd                          Disable use of CiliumEndpoint CRD
       --disable-iptables-feeder-rules strings         Chains to ignore when installing feeder rules.
+      --dns-max-ips-per-restored-rule int             Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --egress-masquerade-interfaces string           Limit egress masquerading to interface selector
       --enable-api-rate-limit                         Enables the use of the API rate limiting configuration
       --enable-auto-protect-node-port-range           Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
@@ -189,7 +190,6 @@ cilium-agent [flags]
       --tofqdns-enable-dns-compression                Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-endpoint-max-ip-per-hostname int      Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
       --tofqdns-max-deferred-connection-deletes int   Maximum number of IPs to retain for expired DNS lookups with still-active connections (default 10000)
-      --tofqdns-max-ips-per-restored-rule int         Maximum number of IPs to maintain for each restored rule (default 1000)
       --tofqdns-min-ttl int                           The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 )
       --tofqdns-pre-cache string                      DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                        Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
