@@ -193,7 +193,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
-	proxy, err := StartDNSProxy("", 0, true, // any address, any port, enable compression
+	proxy, err := StartDNSProxy("", 0, true, 1000, // any address, any port, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
 			if s.restoring {
