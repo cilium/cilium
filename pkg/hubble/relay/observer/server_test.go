@@ -38,7 +38,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/status"
 )
 
 func TestGetFlows(t *testing.T) {
@@ -344,6 +346,485 @@ func TestGetFlows(t *testing.T) {
 			if diff := cmp.Diff(tt.want.statusEvents, got.statusEvents, cmpopts.IgnoreUnexported(relaypb.NodeStatusEvent{})); diff != "" {
 				t.Errorf("StatusEvents mismatch (-want +got):\n%s", diff)
 			}
+			out := buf.String()
+			for _, msg := range tt.want.log {
+				assert.Contains(t, out, msg)
+			}
+		})
+	}
+}
+
+func TestGetNodes(t *testing.T) {
+	type want struct {
+		resp *observerpb.GetNodesResponse
+		err  error
+		log  []string
+	}
+	tests := []struct {
+		name string
+		plr  PeerListReporter
+		ocb  observerClientBuilder
+		req  *observerpb.GetNodesRequest
+		want want
+	}{
+		{
+			name: "1 peer without address",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name:    "noip",
+								Address: nil,
+							},
+							Conn: nil,
+						},
+					}
+				},
+				OnReportOffline: func(_ string) {},
+			},
+			ocb: fakeObserverClientBuilder{},
+			want: want{
+				resp: &observerpb.GetNodesResponse{
+					Nodes: []*observerpb.Node{
+						{
+							Name:    "noip",
+							Version: "",
+							Address: "",
+							State:   relaypb.NodeState_NODE_UNAVAILABLE,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						},
+					},
+				},
+				log: []string{
+					`level=info msg="No connection to peer noip, skipping" address="<nil>"`,
+				},
+			},
+		}, {
+			name: "2 connected peers",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name: "one",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.1"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						}, {
+							Peer: peerTypes.Peer{
+								Name: "two",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.2"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						},
+					}
+				},
+			},
+			ocb: fakeObserverClientBuilder{
+				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
+					return &testutils.FakeObserverClient{
+						OnServerStatus: func(_ context.Context, in *observerpb.ServerStatusRequest, _ ...grpc.CallOption) (*observerpb.ServerStatusResponse, error) {
+							switch p.Name {
+							case "one":
+								return &observerpb.ServerStatusResponse{
+									UptimeNs:  123456,
+									Version:   "cilium v1.9.0",
+									MaxFlows:  4095,
+									NumFlows:  4095,
+									SeenFlows: 11000,
+								}, nil
+							case "two":
+								return &observerpb.ServerStatusResponse{
+									UptimeNs:  555555,
+									Version:   "cilium v1.9.0",
+									MaxFlows:  2047,
+									NumFlows:  2020,
+									SeenFlows: 12000,
+								}, nil
+							default:
+								return nil, io.EOF
+							}
+						},
+					}
+				},
+			},
+			want: want{
+				resp: &observerpb.GetNodesResponse{
+					Nodes: []*observerpb.Node{
+						{
+							Name:      "one",
+							Version:   "cilium v1.9.0",
+							Address:   "192.0.2.1:4244",
+							State:     relaypb.NodeState_NODE_CONNECTED,
+							UptimeNs:  123456,
+							MaxFlows:  4095,
+							NumFlows:  4095,
+							SeenFlows: 11000,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						}, {
+							Name:      "two",
+							Version:   "cilium v1.9.0",
+							Address:   "192.0.2.2:4244",
+							State:     relaypb.NodeState_NODE_CONNECTED,
+							UptimeNs:  555555,
+							MaxFlows:  2047,
+							NumFlows:  2020,
+							SeenFlows: 12000,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "2 connected peers with TLS",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name: "one",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.1"),
+									Port: defaults.ServerPort,
+								},
+								TLSEnabled:    true,
+								TLSServerName: "one.default.hubble-grpc.cilium.io",
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						}, {
+							Peer: peerTypes.Peer{
+								Name: "two",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.2"),
+									Port: defaults.ServerPort,
+								},
+								TLSEnabled:    true,
+								TLSServerName: "two.default.hubble-grpc.cilium.io",
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						},
+					}
+				},
+			},
+			ocb: fakeObserverClientBuilder{
+				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
+					return &testutils.FakeObserverClient{
+						OnServerStatus: func(_ context.Context, in *observerpb.ServerStatusRequest, _ ...grpc.CallOption) (*observerpb.ServerStatusResponse, error) {
+							switch p.Name {
+							case "one":
+								return &observerpb.ServerStatusResponse{
+									UptimeNs:  123456,
+									Version:   "cilium v1.9.0",
+									MaxFlows:  4095,
+									NumFlows:  4095,
+									SeenFlows: 11000,
+								}, nil
+							case "two":
+								return &observerpb.ServerStatusResponse{
+									UptimeNs:  555555,
+									Version:   "cilium v1.9.0",
+									MaxFlows:  2047,
+									NumFlows:  2020,
+									SeenFlows: 12000,
+								}, nil
+							default:
+								return nil, io.EOF
+							}
+						},
+					}
+				},
+			},
+			want: want{
+				resp: &observerpb.GetNodesResponse{
+					Nodes: []*observerpb.Node{
+						{
+							Name:      "one",
+							Version:   "cilium v1.9.0",
+							Address:   "192.0.2.1:4244",
+							State:     relaypb.NodeState_NODE_CONNECTED,
+							UptimeNs:  123456,
+							MaxFlows:  4095,
+							NumFlows:  4095,
+							SeenFlows: 11000,
+							Tls: &observerpb.TLS{
+								Enabled:    true,
+								ServerName: "one.default.hubble-grpc.cilium.io",
+							},
+						}, {
+							Name:      "two",
+							Version:   "cilium v1.9.0",
+							Address:   "192.0.2.2:4244",
+							State:     relaypb.NodeState_NODE_CONNECTED,
+							UptimeNs:  555555,
+							MaxFlows:  2047,
+							NumFlows:  2020,
+							SeenFlows: 12000,
+							Tls: &observerpb.TLS{
+								Enabled:    true,
+								ServerName: "two.default.hubble-grpc.cilium.io",
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "1 connected peer, 1 unreachable peer",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name: "one",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.1"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						}, {
+							Peer: peerTypes.Peer{
+								Name: "two",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.2"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.TransientFailure
+								},
+							},
+						},
+					}
+				},
+				OnReportOffline: func(_ string) {},
+			},
+			ocb: fakeObserverClientBuilder{
+				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
+					return &testutils.FakeObserverClient{
+						OnServerStatus: func(_ context.Context, in *observerpb.ServerStatusRequest, _ ...grpc.CallOption) (*observerpb.ServerStatusResponse, error) {
+							switch p.Name {
+							case "one":
+								return &observerpb.ServerStatusResponse{
+									UptimeNs:  123456,
+									Version:   "cilium v1.9.0",
+									MaxFlows:  4095,
+									NumFlows:  4095,
+									SeenFlows: 11000,
+								}, nil
+							default:
+								return nil, io.EOF
+							}
+						},
+					}
+				},
+			},
+			want: want{
+				resp: &observerpb.GetNodesResponse{
+					Nodes: []*observerpb.Node{
+						{
+							Name:      "one",
+							Version:   "cilium v1.9.0",
+							Address:   "192.0.2.1:4244",
+							State:     relaypb.NodeState_NODE_CONNECTED,
+							UptimeNs:  123456,
+							MaxFlows:  4095,
+							NumFlows:  4095,
+							SeenFlows: 11000,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						}, {
+							Name:     "two",
+							Version:  "",
+							Address:  "192.0.2.2:4244",
+							State:    relaypb.NodeState_NODE_UNAVAILABLE,
+							UptimeNs: 0,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						},
+					},
+				},
+				log: []string{
+					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+				},
+			},
+		}, {
+			name: "1 connected peer, 1 unreachable peer, 1 peer with error",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name: "one",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.1"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						}, {
+							Peer: peerTypes.Peer{
+								Name: "two",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.2"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.TransientFailure
+								},
+							},
+						}, {
+							Peer: peerTypes.Peer{
+								Name: "three",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.3"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						},
+					}
+				},
+				OnReportOffline: func(_ string) {},
+			},
+			ocb: fakeObserverClientBuilder{
+				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
+					return &testutils.FakeObserverClient{
+						OnServerStatus: func(_ context.Context, in *observerpb.ServerStatusRequest, _ ...grpc.CallOption) (*observerpb.ServerStatusResponse, error) {
+							switch p.Name {
+							case "one":
+								return &observerpb.ServerStatusResponse{
+									UptimeNs:  123456,
+									Version:   "cilium v1.9.0",
+									MaxFlows:  4095,
+									NumFlows:  4095,
+									SeenFlows: 11000,
+								}, nil
+							case "three":
+								return nil, status.Errorf(codes.Unimplemented, "ServerStatus not implemented")
+							default:
+								return nil, io.EOF
+							}
+						},
+					}
+				},
+			},
+			want: want{
+				resp: &observerpb.GetNodesResponse{
+					Nodes: []*observerpb.Node{
+						{
+							Name:      "one",
+							Version:   "cilium v1.9.0",
+							Address:   "192.0.2.1:4244",
+							UptimeNs:  123456,
+							MaxFlows:  4095,
+							NumFlows:  4095,
+							SeenFlows: 11000,
+							State:     relaypb.NodeState_NODE_CONNECTED,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						}, {
+							Name:    "two",
+							Version: "",
+							Address: "192.0.2.2:4244",
+							State:   relaypb.NodeState_NODE_UNAVAILABLE,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						}, {
+							Name:    "three",
+							Version: "",
+							Address: "192.0.2.3:4244",
+							State:   relaypb.NodeState_NODE_ERROR,
+							Tls: &observerpb.TLS{
+								Enabled:    false,
+								ServerName: "",
+							},
+						},
+					},
+				},
+				log: []string{
+					`level=info msg="No connection to peer two, skipping" address="192.0.2.2:4244"`,
+					`level=warning msg="Failed to retrieve server status" error="rpc error: code = Unimplemented desc = ServerStatus not implemented" peer=three`,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			formatter := &logrus.TextFormatter{
+				DisableColors:    true,
+				DisableTimestamp: true,
+			}
+			logger := logrus.New()
+			logger.SetOutput(&buf)
+			logger.SetFormatter(formatter)
+			logger.SetLevel(logrus.DebugLevel)
+
+			srv, err := NewServer(
+				tt.plr,
+				WithLogger(logger),
+				withObserverClientBuilder(tt.ocb),
+			)
+			assert.NoError(t, err)
+			got, err := srv.GetNodes(context.Background(), tt.req)
+			assert.Equal(t, tt.want.err, err)
+			assert.Equal(t, tt.want.resp, got)
 			out := buf.String()
 			for _, msg := range tt.want.log {
 				assert.Contains(t, out, msg)

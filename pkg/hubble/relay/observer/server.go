@@ -26,9 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -104,7 +102,6 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 	var connectedNodes, unavailableNodes []string
 
 	for _, p := range peers {
-		p := p
 		if !isAvailable(p.Conn) {
 			s.opts.log.WithField("address", p.Address).Infof(
 				"No connection to peer %s, skipping", p.Name,
@@ -114,6 +111,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 			continue
 		}
 		connectedNodes = append(connectedNodes, p.Name)
+		p := p
 		g.Go(func() error {
 			// retrieveFlowsFromPeer returns blocks until the peer finishes
 			// the request by closing the connection, an error occurs,
@@ -173,7 +171,61 @@ sortedFlowsLoop:
 
 // GetNodes implements observerpb.ObserverClient.GetNodes.
 func (s *Server) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) (*observerpb.GetNodesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "GetNodes not implemented")
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+
+	peers := s.peers.List()
+	nodes := make([]*observerpb.Node, 0, len(peers))
+	for _, p := range peers {
+		n := &observerpb.Node{
+			Name: p.Name,
+			Tls: &observerpb.TLS{
+				Enabled:    p.TLSEnabled,
+				ServerName: p.TLSServerName,
+			},
+		}
+		if p.Address != nil {
+			n.Address = p.Address.String()
+		}
+		nodes = append(nodes, n)
+		if !isAvailable(p.Conn) {
+			n.State = relaypb.NodeState_NODE_UNAVAILABLE
+			s.opts.log.WithField("address", p.Address).Infof(
+				"No connection to peer %s, skipping", p.Name,
+			)
+			s.peers.ReportOffline(p.Name)
+			continue
+		}
+		n.State = relaypb.NodeState_NODE_CONNECTED
+		p := p
+		g.Go(func() error {
+			n := n
+			client := s.opts.ocb.observerClient(&p)
+			status, err := client.ServerStatus(ctx, &observerpb.ServerStatusRequest{})
+			if err != nil {
+				n.State = relaypb.NodeState_NODE_ERROR
+				s.opts.log.WithFields(logrus.Fields{
+					"error": err,
+					"peer":  p,
+				}).Warning("Failed to retrieve server status")
+				return nil
+			}
+			n.Version = status.GetVersion()
+			n.UptimeNs = status.GetUptimeNs()
+			n.MaxFlows = status.GetMaxFlows()
+			n.NumFlows = status.GetNumFlows()
+			n.SeenFlows = status.GetSeenFlows()
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return &observerpb.GetNodesResponse{Nodes: nodes}, nil
 }
 
 // ServerStatus implements observerpb.ObserverServer.ServerStatus by aggregating
@@ -196,7 +248,6 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	var unavailableNodes []string
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
-		p := p
 		if !isAvailable(p.Conn) {
 			numUnavailableNodes++
 			s.opts.log.WithField("address", p.Address).Infof(
@@ -209,6 +260,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			continue
 		}
 		numConnectedNodes++
+		p := p
 		g.Go(func() error {
 			client := s.opts.ocb.observerClient(&p)
 			status, err := client.ServerStatus(ctx, req)
