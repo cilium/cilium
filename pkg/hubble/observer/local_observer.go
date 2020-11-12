@@ -39,6 +39,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // DefaultOptions to include in the server. Other packages may extend this
@@ -205,6 +207,11 @@ func (s *LocalObserverServer) ServerStatus(
 		SeenFlows: atomic.LoadUint64(&s.numObservedFlows),
 		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
 	}, nil
+}
+
+// GetNodes implements observerpb.ObserverClient.GetNodes.
+func (s *LocalObserverServer) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) (*observerpb.GetNodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetNodes not implemented")
 }
 
 // GetFlows implements the proto method for client requests.

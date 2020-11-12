@@ -19,6 +19,8 @@ const _ = grpc.SupportPackageIsVersion6
 type ObserverClient interface {
 	// GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
 	GetFlows(ctx context.Context, in *GetFlowsRequest, opts ...grpc.CallOption) (Observer_GetFlowsClient, error)
+	// GetNodes returns information about nodes in a cluster.
+	GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (*GetNodesResponse, error)
 	// ServerStatus returns some details about the running hubble server.
 	ServerStatus(ctx context.Context, in *ServerStatusRequest, opts ...grpc.CallOption) (*ServerStatusResponse, error)
 }
@@ -63,6 +65,15 @@ func (x *observerGetFlowsClient) Recv() (*GetFlowsResponse, error) {
 	return m, nil
 }
 
+func (c *observerClient) GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (*GetNodesResponse, error) {
+	out := new(GetNodesResponse)
+	err := c.cc.Invoke(ctx, "/observer.Observer/GetNodes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *observerClient) ServerStatus(ctx context.Context, in *ServerStatusRequest, opts ...grpc.CallOption) (*ServerStatusResponse, error) {
 	out := new(ServerStatusResponse)
 	err := c.cc.Invoke(ctx, "/observer.Observer/ServerStatus", in, out, opts...)
@@ -78,6 +89,8 @@ func (c *observerClient) ServerStatus(ctx context.Context, in *ServerStatusReque
 type ObserverServer interface {
 	// GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
 	GetFlows(*GetFlowsRequest, Observer_GetFlowsServer) error
+	// GetNodes returns information about nodes in a cluster.
+	GetNodes(context.Context, *GetNodesRequest) (*GetNodesResponse, error)
 	// ServerStatus returns some details about the running hubble server.
 	ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error)
 }
@@ -88,6 +101,9 @@ type UnimplementedObserverServer struct {
 
 func (*UnimplementedObserverServer) GetFlows(*GetFlowsRequest, Observer_GetFlowsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetFlows not implemented")
+}
+func (*UnimplementedObserverServer) GetNodes(context.Context, *GetNodesRequest) (*GetNodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNodes not implemented")
 }
 func (*UnimplementedObserverServer) ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServerStatus not implemented")
@@ -118,6 +134,24 @@ func (x *observerGetFlowsServer) Send(m *GetFlowsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Observer_GetNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNodesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObserverServer).GetNodes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/observer.Observer/GetNodes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObserverServer).GetNodes(ctx, req.(*GetNodesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Observer_ServerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ServerStatusRequest)
 	if err := dec(in); err != nil {
@@ -140,6 +174,10 @@ var _Observer_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "observer.Observer",
 	HandlerType: (*ObserverServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetNodes",
+			Handler:    _Observer_GetNodes_Handler,
+		},
 		{
 			MethodName: "ServerStatus",
 			Handler:    _Observer_ServerStatus_Handler,
