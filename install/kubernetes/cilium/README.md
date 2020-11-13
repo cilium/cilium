@@ -59,7 +59,7 @@ contributors across the globe, there is almost always someone available to help.
 | azure.enabled | bool | `false` | Enable Azure integration |
 | bandwidthManager | bool | `true` | Optimize TCP and UDP workloads and enable rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
 | bpf.clockProbe | bool | `false` |  |
-| bpf.lbMapMax | int | `65536` | Configure the maximum number of entries in the TCP connection tracking table. ctTcpMax: 524288 -- Configure the maximum number of entries for the non-TCP connection tracking table. ctAnyMax: 262144 -- Configure the maximum number of service entries in the load balancer maps. |
+| bpf.lbMapMax | int | `65536` | Configure the maximum number of entries in the TCP connection tracking table. ctTcpMax: '524288' -- Configure the maximum number of entries for the non-TCP connection tracking table. ctAnyMax: '262144' -- Configure the maximum number of service entries in the load balancer maps. |
 | bpf.monitorAggregation | string | `"medium"` | Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/v1.9/concepts/ebpf/maps/#ebpf-maps -- Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum |
 | bpf.monitorFlags | string | `"all"` | Configure which TCP flags trigger notifications when seen for the first time in a connection. |
 | bpf.monitorInterval | string | `"5s"` | Configure the typical time between monitor notifications for active connections. |
