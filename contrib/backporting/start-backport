@@ -18,6 +18,8 @@ source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
 source $TOOL_LIB_PATH/gitlib.sh
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
+require_linux
+
 # Validate command-line
 common::argc_validate 1
 
