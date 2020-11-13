@@ -88,7 +88,7 @@ func getClangVersion(filePath string) (go_version.Version, error) {
 	if err != nil {
 		log.WithError(err).Fatal("clang version: NOT OK")
 	}
-	res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(verOut))
+	res := regexp.MustCompile(`(clang version )([^ ]*)\n`).FindStringSubmatch(string(verOut))
 	if len(res) != 3 {
 		log.Fatalf("clang version: NOT OK: unable to get clang's version "+
 			"from: %q", string(verOut))
