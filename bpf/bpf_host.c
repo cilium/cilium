@@ -66,6 +66,16 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 
 	return CTX_ACT_OK;
 }
+
+#define SECCTX_FROM_IPCACHE_OK	2
+#ifndef SECCTX_FROM_IPCACHE
+# define SECCTX_FROM_IPCACHE	0
+#endif
+
+static __always_inline bool identity_from_ipcache_ok(void)
+{
+	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;
+}
 #endif
 
 #ifdef ENABLE_IPV6
@@ -144,15 +154,10 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 
 	if (from_host)
 		src_id = srcid_from_ipcache;
-#ifdef ENABLE_SECCTX_FROM_IPCACHE
-	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity. E.g.
-	 * used in ipvlan master device's datapath on ingress.
-	 */
-	else if (src_id == WORLD_ID && !identity_is_reserved(srcid_from_ipcache))
+	else if (src_id == WORLD_ID &&
+		 identity_from_ipcache_ok() &&
+		 !identity_is_reserved(srcid_from_ipcache))
 		src_id = srcid_from_ipcache;
-#endif
-
 	return src_id;
 }
 
@@ -410,15 +415,12 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 
 	if (from_host)
 		src_id = srcid_from_ipcache;
-#ifdef ENABLE_SECCTX_FROM_IPCACHE
 	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity. E.g.
-	 * used in ipvlan master device's datapath on ingress.
+	 * from the ipcache instead, then use the ipcache identity.
 	 */
-	else if (!identity_is_reserved(srcid_from_ipcache))
+	else if (identity_from_ipcache_ok() &&
+		 !identity_is_reserved(srcid_from_ipcache))
 		src_id = srcid_from_ipcache;
-#endif
-
 	return src_id;
 }
 
