@@ -57,6 +57,11 @@ const (
 	dirEgress  = "egress"
 )
 
+const (
+	SecctxFromIpcacheDisabled = iota + 1
+	SecctxFromIpcacheEnabled
+)
+
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
 
 // Loader is a wrapper structure around operations related to compiling,
@@ -154,6 +159,13 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	ifIndex, err := link.GetIfIndex(ifName)
 	if err != nil {
 		return err
+	}
+
+	if !option.Config.EnableHostLegacyRouting ||
+		option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+		opts["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheEnabled)
+	} else {
+		opts["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheDisabled)
 	}
 
 	if option.Config.EnableNodePort && nodePortIPv4Addrs != nil && nodePortIPv6Addrs != nil {
