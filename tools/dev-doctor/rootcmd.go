@@ -151,6 +151,13 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 				ifSuccessMessage: "pygithub installed",
 				hint:             `Run "pip3 install --user PyGithub".`,
 			},
+			&binaryCheck{
+				name:          "hub",
+				ifNotFound:    checkError,
+				versionArgs:   []string{"--version"},
+				versionRegexp: regexp.MustCompile(`hub\s+version\s+(\d+.\d+\.\d+)`),
+				minVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
+			},
 			&envVarCheck{
 				name:            "GITHUB_TOKEN",
 				ifNotSetOrEmpty: checkInfo,
