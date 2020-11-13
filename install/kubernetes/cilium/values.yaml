@@ -792,8 +792,10 @@ localRedirectPolicy: false
 # labels: ""
 
 # logOptions allows you to define logging options. eg:
-# logOptions:
-#   format: json
+# logOptions: |
+#   {
+#     "format": "json"
+#   }
 
 # logSytemLoad enables logging of system load
 logSystemLoad: false
