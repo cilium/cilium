@@ -3,6 +3,8 @@ set -e
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
+require_linux
+
 cleanup () {
   if [ -n "$TMPF" ]; then
     rm $TMPF

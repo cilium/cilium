@@ -27,3 +27,10 @@ get_remote () {
   fi
   echo "$remote"
 }
+
+require_linux() {
+  if [ "$(uname)" != "Linux" ]; then
+      echo "$0: Linux required"
+      exit 1
+  fi
+}

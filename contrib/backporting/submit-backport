@@ -18,6 +18,8 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source $DIR/../release/lib/common.sh
 source $DIR/common.sh
 
+require_linux
+
 BRANCH="${1:-}"
 if [ "$BRANCH" = "" ]; then
     BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\.[0-9]\).*/\1/')
