@@ -156,7 +156,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CT_REPORT_FLAGS"] = fmt.Sprintf("%#04x", int64(option.Config.MonitorAggregationFlags))
 
 	if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-		cDefinesMap["ENABLE_SECCTX_FROM_IPCACHE"] = "1"
 		cDefinesMap["ENABLE_EXTRA_HOST_DEV"] = "1"
 	}
 
@@ -511,7 +510,8 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			placeholderIPv4 := []byte{1, 1, 1, 1}
 			fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
 		}
-
+		// Dummy value to avoid being optimized when 0
+		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 		fmt.Fprint(fw, defineUint32("HOST_EP_ID", uint32(e.GetID())))
 	} else {
 		// We want to ensure that the template BPF program always has "LXC_IP"
