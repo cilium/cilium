@@ -1918,6 +1918,11 @@ type DaemonConfig struct {
 
 	// EnableAPIRateLimit enables the use of API rate limiting.
 	EnableAPIRateLimit bool
+
+	// NeedsRelaxVerifier enables the relax_verifier() helper which is used
+	// to introduce state pruning points for the verifier in the datapath
+	// program.
+	NeedsRelaxVerifier bool
 }
 
 var (

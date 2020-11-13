@@ -1203,6 +1203,10 @@ func initEnv(cmd *cobra.Command) {
 			}
 		}
 	}
+
+	if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+		option.Config.NeedsRelaxVerifier = true
+	}
 }
 
 func (d *Daemon) initKVStore() {
