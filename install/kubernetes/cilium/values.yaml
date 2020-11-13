@@ -193,11 +193,11 @@ bpf:
 
   # -- Configure the maximum number of entries in the TCP connection tracking
   # table.
-  # ctTcpMax: 524288
+  # ctTcpMax: '524288'
 
   # -- Configure the maximum number of entries for the non-TCP connection
   # tracking table.
-  # ctAnyMax: 262144
+  # ctAnyMax: '262144'
 
   # -- Configure the maximum number of service entries in the
   # load balancer maps.
