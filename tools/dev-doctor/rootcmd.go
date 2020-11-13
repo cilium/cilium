@@ -30,10 +30,14 @@ var rootCmd = &cobra.Command{
 	Run:   rootCmdRun,
 }
 
-var nfsFirewallChecks *bool
+var (
+	backportingChecks *bool
+	nfsFirewallChecks *bool
+)
 
 func init() {
 	flags := rootCmd.Flags()
+	backportingChecks = flags.Bool("backporting", false, "run backporting checks")
 	nfsFirewallChecks = flags.Bool("nfs-firewall", false, "run extra NFS firewall checks, requires root privileges")
 }
 
@@ -119,6 +123,34 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		dockerGroupCheck{},
 	}
 
+	if *backportingChecks {
+		checks = append(checks,
+			&binaryCheck{
+				name:       "jq",
+				ifNotFound: checkError,
+			},
+			&binaryCheck{
+				name:          "python3",
+				ifNotFound:    checkError,
+				versionArgs:   []string{"--version"},
+				versionRegexp: regexp.MustCompile(`Python\s+(\d+.\d+\.\d+)`),
+				minVersion:    &semver.Version{Major: 3, Minor: 6, Patch: 0},
+			},
+			&commandCheck{
+				name:             "pygithub",
+				command:          "python3",
+				args:             []string{"-c", "from github import Github"},
+				ifFailure:        checkWarning,
+				ifSuccessMessage: "pygithub installed",
+				hint:             `Run "pip3 install --user PyGithub".`,
+			},
+			&envVarCheck{
+				name:            "GITHUB_TOKEN",
+				ifNotSetOrEmpty: checkInfo,
+			},
+		)
+	}
+
 	if *nfsFirewallChecks {
 		checks = append(checks,
 			etcNFSConfCheck{},
@@ -165,6 +197,9 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 	if worstResult > checkOK {
 		fmt.Println()
 		fmt.Println("See https://docs.cilium.io/en/latest/contributing/development/dev_setup/.")
+		if *backportingChecks {
+			fmt.Println("See https://docs.cilium.io/en/latest/contributing/release/backports/.")
+		}
 	}
 
 	if worstResult > checkWarning {
