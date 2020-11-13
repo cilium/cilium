@@ -28,7 +28,7 @@ RUN update-alternatives \
 #
 # Go-based tools for runtime image
 #
-FROM docker.io/library/golang:1.14.11 as gops
+FROM docker.io/library/golang:1.14.12 as gops
 WORKDIR /tmp
 RUN go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \

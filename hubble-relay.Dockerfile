@@ -1,6 +1,6 @@
 # (first line comment needed for DOCKER_BUILDKIT use)
 #
-FROM docker.io/library/golang:1.14.11 as builder
+FROM docker.io/library/golang:1.14.12 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 ADD . /go/src/github.com/cilium/cilium
@@ -13,7 +13,7 @@ ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 RUN apk --update add ca-certificates
 
-FROM docker.io/library/golang:1.14.11 as gops
+FROM docker.io/library/golang:1.14.12 as gops
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 RUN go get -d github.com/google/gops && \
