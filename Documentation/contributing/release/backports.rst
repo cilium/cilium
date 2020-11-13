@@ -91,6 +91,12 @@ One-time Setup
    | `Github hub CLI <https://github.com/github/hub>`_            | No        | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
 
+   Verify your machine is correctly configured by running
+
+   .. code-block:: bash
+
+      $ go run ./tools/dev-doctor --backporting
+
 Preparation
 ~~~~~~~~~~~
 
