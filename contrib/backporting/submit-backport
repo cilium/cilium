@@ -24,6 +24,7 @@ if ! hub help | grep -q "api"; then
     exit 1
 fi
 
+require_linux
 
 BRANCH="${1:-}"
 if [ "$BRANCH" = "" ]; then
