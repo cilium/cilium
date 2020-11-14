@@ -61,7 +61,7 @@ spec:
               port: grpc
 {{- with .Values.hubble.relay.resources }}
           resources:
-            {{- toYaml . | trim | nindent 10 }}
+            {{- toYaml . | trim | nindent 12 }}
 {{- end }}
           volumeMounts:
           - mountPath: {{ dir .Values.hubble.socketPath }}

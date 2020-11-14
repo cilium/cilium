@@ -538,7 +538,7 @@ hubble:
       pullPolicy: Always
 
     # Specifies the resources for the hubble-relay pods
-    # resources: {}
+    resources: {}
 
     # Number of replicas run for the hubble-relay deployment.
     replicas: 1
@@ -550,16 +550,6 @@ hubble:
     ## Annotations to be added to hubble-relay pods
     ##
     podAnnotations: {}
-
-    # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
-    #     resources:
-    #       limits:
-    #         cpu: 1000m
-    #         memory: 1024M
-    #       requests:
-    #         cpu: 100m
-    #         memory: 64Mi
-    resources: {}
 
     ## Node tolerations for pod assignment on nodes with taints
     ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
