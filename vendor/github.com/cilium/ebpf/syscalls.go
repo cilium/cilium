@@ -367,7 +367,7 @@ func bpfGetObjectInfoByFD(fd *internal.FD, info unsafe.Pointer, size uintptr) er
 	}
 	_, err = internal.BPF(internal.BPF_OBJ_GET_INFO_BY_FD, unsafe.Pointer(&attr), unsafe.Sizeof(attr))
 	if err != nil {
-		return fmt.Errorf("fd %d: %w", fd, err)
+		return fmt.Errorf("fd %v: %w", fd, err)
 	}
 	return nil
 }
