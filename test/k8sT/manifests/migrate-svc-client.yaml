@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: server
-        image: docker.io/cilium/migrate-svc-test:v0.0.1
+        image: docker.io/cilium/migrate-svc-test:v0.0.2
         imagePullPolicy: IfNotPresent
         command: [ "/client", "migrate-svc.default.svc.cluster.local.:8000" ]
