@@ -223,6 +223,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->ifindex = entry->ifindex;
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
+			/* See the ct_create4 comments re the rx_bytes hack */
 			if (dir == CT_SERVICE)
 				ct_state->backend_id = entry->rx_bytes;
 		}
