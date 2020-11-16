@@ -1,7 +1,7 @@
 #
 # Cilium build-time base image (image created from this file is used to build Cilium)
 
-FROM quay.io/cilium/cilium-runtime:2021-01-20-v1.8@sha256:b1a90e3dc41307f62b1860d89db910b0a707ba0d31aa930ec06c83f47d09c4cb
+FROM quay.io/cilium/cilium-runtime:2021-02-03-v1.8@sha256:44c7e985ba0317726ae6960c3211456d9c076677cbad39439fcc16c81cdc813c
 LABEL maintainer="maintainer@cilium.io"
 ARG ARCH=amd64
 WORKDIR /go/src/github.com/cilium/cilium
