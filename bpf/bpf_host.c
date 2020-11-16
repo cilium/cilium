@@ -388,16 +388,19 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
 				 * have a source IP of the host. It will only
-				 * actually be from the host if
-				 * "srcid_from_proxy" (passed into this
-				 * function) reports the src as the host. So we
-				 * can ignore the ipcache if it reports the
-				 * source as HOST_ID.
+				 * actually be from the host if "srcid_from_proxy"
+				 * (passed into this function) reports the src as
+				 * the host. So we can ignore the ipcache if it
+				 * reports the source as HOST_ID.
 				 */
 #ifndef ENABLE_EXTRA_HOST_DEV
-				if (from_host && *sec_label != HOST_ID)
-#endif
+				if (*sec_label != HOST_ID)
 					srcid_from_ipcache = *sec_label;
+#else
+				if ((*sec_label != HOST_ID &&
+				     !from_host) || from_host)
+					srcid_from_ipcache = *sec_label;
+#endif /* ENABLE_EXTRA_HOST_DEV */
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
