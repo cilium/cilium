@@ -1829,6 +1829,9 @@ var _ = Describe("K8sServicesTest", func() {
 								// prime number which is greater than 100 * |backends_count|
 								// is 251.
 								"maglev.tableSize": "251",
+								// Support for host firewall + Maglev is currently broken,
+								// see #14047 for details.
+								"hostFirewall": "false",
 							})
 
 							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
@@ -1956,6 +1959,9 @@ var _ = Describe("K8sServicesTest", func() {
 								// prime number which is greater than 100 * |backends_count|
 								// is 251.
 								"maglev.tableSize": "251",
+								// Support for host firewall + Maglev is currently broken,
+								// see #14047 for details.
+								"hostFirewall": "false",
 							})
 
 							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
@@ -2123,6 +2129,9 @@ var _ = Describe("K8sServicesTest", func() {
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
+						// Support for host firewall + Maglev is currently broken,
+						// see #14047 for details.
+						"hostFirewall": "false",
 					})
 					testNodePortExternal(false, false)
 				})
@@ -2148,6 +2157,9 @@ var _ = Describe("K8sServicesTest", func() {
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
+						// Support for host firewall + Maglev is currently broken,
+						// see #14047 for details.
+						"hostFirewall": "false",
 					})
 					testNodePortExternal(true, false)
 				})
@@ -2173,6 +2185,9 @@ var _ = Describe("K8sServicesTest", func() {
 						"tunnel":                    "disabled",
 						"autoDirectNodeRoutes":      "true",
 						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
+						// Support for host firewall + Maglev is currently broken,
+						// see #14047 for details.
+						"hostFirewall": "false",
 					})
 					testNodePortExternal(true, true)
 				})
