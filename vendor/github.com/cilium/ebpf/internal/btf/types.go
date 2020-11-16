@@ -23,6 +23,8 @@ type Type interface {
 	// Make a copy of the type, without copying Type members.
 	copy() Type
 
+	// Enumerate all nested Types. Repeated calls must visit nested
+	// types in the same order.
 	walk(*copyStack)
 }
 
@@ -43,13 +45,26 @@ func (v *Void) size() uint32    { return 0 }
 func (v *Void) copy() Type      { return (*Void)(nil) }
 func (v *Void) walk(*copyStack) {}
 
+type IntEncoding byte
+
+const (
+	Signed IntEncoding = 1 << iota
+	Char
+	Bool
+)
+
 // Int is an integer of a given length.
 type Int struct {
 	TypeID
 	Name
 
 	// The size of the integer in bytes.
-	Size uint32
+	Size     uint32
+	Encoding IntEncoding
+	// Offset is the starting bit offset. Currently always 0.
+	// See https://www.kernel.org/doc/html/latest/bpf/btf.html#btf-kind-int
+	Offset uint32
+	Bits   byte
 }
 
 func (i *Int) size() uint32    { return i.Size }
@@ -109,6 +124,10 @@ func (s *Struct) copy() Type {
 	return &cpy
 }
 
+func (s *Struct) members() []Member {
+	return s.Members
+}
+
 // Union is a compound type where members occupy the same memory.
 type Union struct {
 	TypeID
@@ -133,25 +152,51 @@ func (u *Union) copy() Type {
 	return &cpy
 }
 
+func (u *Union) members() []Member {
+	return u.Members
+}
+
+type composite interface {
+	members() []Member
+}
+
+var (
+	_ composite = (*Struct)(nil)
+	_ composite = (*Union)(nil)
+)
+
 // Member is part of a Struct or Union.
 //
 // It is not a valid Type.
 type Member struct {
 	Name
-	Type   Type
-	Offset uint32
+	Type Type
+	// Offset is the bit offset of this member
+	Offset       uint32
+	BitfieldSize uint32
 }
 
 // Enum lists possible values.
 type Enum struct {
 	TypeID
 	Name
+	Values []EnumValue
+}
+
+// EnumValue is part of an Enum
+//
+// Is is not a valid Type
+type EnumValue struct {
+	Name
+	Value int32
 }
 
 func (e *Enum) size() uint32    { return 4 }
 func (e *Enum) walk(*copyStack) {}
 func (e *Enum) copy() Type {
 	cpy := *e
+	cpy.Values = make([]EnumValue, len(e.Values))
+	copy(cpy.Values, e.Values)
 	return &cpy
 }
 
@@ -180,36 +225,39 @@ func (td *Typedef) copy() Type {
 	return &cpy
 }
 
-// Volatile is a modifier.
+// Volatile is a qualifier.
 type Volatile struct {
 	TypeID
 	Type Type
 }
 
+func (v *Volatile) qualify() Type      { return v.Type }
 func (v *Volatile) walk(cs *copyStack) { cs.push(&v.Type) }
 func (v *Volatile) copy() Type {
 	cpy := *v
 	return &cpy
 }
 
-// Const is a modifier.
+// Const is a qualifier.
 type Const struct {
 	TypeID
 	Type Type
 }
 
+func (c *Const) qualify() Type      { return c.Type }
 func (c *Const) walk(cs *copyStack) { cs.push(&c.Type) }
 func (c *Const) copy() Type {
 	cpy := *c
 	return &cpy
 }
 
-// Restrict is a modifier.
+// Restrict is a qualifier.
 type Restrict struct {
 	TypeID
 	Type Type
 }
 
+func (r *Restrict) qualify() Type      { return r.Type }
 func (r *Restrict) walk(cs *copyStack) { cs.push(&r.Type) }
 func (r *Restrict) copy() Type {
 	cpy := *r
@@ -233,13 +281,26 @@ func (f *Func) copy() Type {
 type FuncProto struct {
 	TypeID
 	Return Type
-	// Parameters not supported yet
+	Params []FuncParam
 }
 
-func (fp *FuncProto) walk(cs *copyStack) { cs.push(&fp.Return) }
+func (fp *FuncProto) walk(cs *copyStack) {
+	cs.push(&fp.Return)
+	for _, m := range fp.Params {
+		cs.push(&m.Type)
+	}
+}
+
 func (fp *FuncProto) copy() Type {
 	cpy := *fp
+	cpy.Params = make([]FuncParam, len(fp.Params))
+	copy(cpy.Params, fp.Params)
 	return &cpy
+}
+
+type FuncParam struct {
+	Name
+	Type Type
 }
 
 // Var is a global variable.
@@ -298,6 +359,16 @@ var (
 	_ sizer = (*Datasec)(nil)
 )
 
+type qualifier interface {
+	qualify() Type
+}
+
+var (
+	_ qualifier = (*Const)(nil)
+	_ qualifier = (*Restrict)(nil)
+	_ qualifier = (*Volatile)(nil)
+)
+
 // Sizeof returns the size of a type in bytes.
 //
 // Returns an error if the size can't be computed.
@@ -326,14 +397,9 @@ func Sizeof(typ Type) (int, error) {
 		case *Typedef:
 			typ = v.Type
 			continue
-		case *Volatile:
-			typ = v.Type
-			continue
-		case *Const:
-			typ = v.Type
-			continue
-		case *Restrict:
-			typ = v.Type
+
+		case qualifier:
+			typ = v.qualify()
 			continue
 
 		default:
@@ -383,7 +449,7 @@ func copyType(typ Type) Type {
 }
 
 // copyStack keeps track of pointers to types which still
-// need to be copied.
+// need to be visited.
 type copyStack []*Type
 
 // push adds a type to the stack.
@@ -427,7 +493,7 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 		fixups = append(fixups, fixupDef{id, expectedKind, typ})
 	}
 
-	convertMembers := func(raw []btfMember) ([]Member, error) {
+	convertMembers := func(raw []btfMember, kindFlag bool) ([]Member, error) {
 		// NB: The fixup below relies on pre-allocating this array to
 		// work, since otherwise append might re-allocate members.
 		members := make([]Member, 0, len(raw))
@@ -436,10 +502,15 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 			if err != nil {
 				return nil, fmt.Errorf("can't get name for member %d: %w", i, err)
 			}
-			members = append(members, Member{
+			m := Member{
 				Name:   name,
 				Offset: btfMember.Offset,
-			})
+			}
+			if kindFlag {
+				m.BitfieldSize = btfMember.Offset >> 24
+				m.Offset &= 0xffffff
+			}
+			members = append(members, m)
 		}
 		for i := range members {
 			fixup(raw[i].Type, kindUnknown, &members[i].Type)
@@ -466,7 +537,8 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 
 		switch raw.Kind() {
 		case kindInt:
-			typ = &Int{id, name, raw.Size()}
+			encoding, offset, bits := intEncoding(*raw.data.(*uint32))
+			typ = &Int{id, name, raw.Size(), encoding, offset, bits}
 
 		case kindPointer:
 			ptr := &Pointer{id, nil}
@@ -483,21 +555,33 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 			typ = arr
 
 		case kindStruct:
-			members, err := convertMembers(raw.data.([]btfMember))
+			members, err := convertMembers(raw.data.([]btfMember), raw.KindFlag())
 			if err != nil {
 				return nil, fmt.Errorf("struct %s (id %d): %w", name, id, err)
 			}
 			typ = &Struct{id, name, raw.Size(), members}
 
 		case kindUnion:
-			members, err := convertMembers(raw.data.([]btfMember))
+			members, err := convertMembers(raw.data.([]btfMember), raw.KindFlag())
 			if err != nil {
 				return nil, fmt.Errorf("union %s (id %d): %w", name, id, err)
 			}
 			typ = &Union{id, name, raw.Size(), members}
 
 		case kindEnum:
-			typ = &Enum{id, name}
+			rawvals := raw.data.([]btfEnum)
+			vals := make([]EnumValue, 0, len(rawvals))
+			for i, btfVal := range rawvals {
+				name, err := rawStrings.LookupName(btfVal.NameOff)
+				if err != nil {
+					return nil, fmt.Errorf("can't get name for enum value %d: %s", i, err)
+				}
+				vals = append(vals, EnumValue{
+					Name:  name,
+					Value: btfVal.Val,
+				})
+			}
+			typ = &Enum{id, name, vals}
 
 		case kindForward:
 			typ = &Fwd{id, name}
@@ -528,7 +612,22 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 			typ = fn
 
 		case kindFuncProto:
-			fp := &FuncProto{id, nil}
+			rawparams := raw.data.([]btfParam)
+			params := make([]FuncParam, 0, len(rawparams))
+			for i, param := range rawparams {
+				name, err := rawStrings.LookupName(param.NameOff)
+				if err != nil {
+					return nil, fmt.Errorf("can't get name for func proto parameter %d: %s", i, err)
+				}
+				params = append(params, FuncParam{
+					Name: name,
+				})
+			}
+			for i := range params {
+				fixup(rawparams[i].Type, kindUnknown, &params[i].Type)
+			}
+
+			fp := &FuncProto{id, nil, params}
 			fixup(raw.Type(), kindUnknown, &fp.Return)
 			typ = fp
 

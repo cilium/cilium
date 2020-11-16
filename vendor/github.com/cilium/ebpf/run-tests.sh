@@ -21,7 +21,9 @@ if [[ "${1:-}" = "--in-vm" ]]; then
   fi
 
   echo Running tests...
-  /usr/local/bin/go test -coverprofile="$1/coverage.txt" -covermode=atomic -v -elfs "$elfs" ./...
+  # TestLibBPFCompat runs separately to pass the "-elfs" flag only for it: https://github.com/cilium/ebpf/pull/119
+  go test -v -run TestLibBPFCompat -elfs "$elfs"
+  go test -v ./...
   touch "$1/success"
   exit 0
 fi
@@ -66,11 +68,12 @@ fi
 
 echo Testing on "${kernel_version}"
 $sudo virtme-run --kimg "${tmp_dir}/${kernel}" --memory 512M --pwd \
+  --rw \
   --rwdir=/run/input="${input}" \
   --rwdir=/run/output="${output}" \
   --rodir=/run/go-path="$(go env GOPATH)" \
   --rwdir=/run/go-cache="$(go env GOCACHE)" \
-  --script-sh "$(realpath "$0") --in-vm /run/output" \
+  --script-sh "PATH=\"$PATH\" $(realpath "$0") --in-vm /run/output" \
   --qemu-opts -smp 2 # need at least two CPUs for some tests
 
 if [[ ! -e "${output}/success" ]]; then
@@ -78,11 +81,11 @@ if [[ ! -e "${output}/success" ]]; then
   exit 1
 else
   echo "Test successful on ${kernel_version}"
-  if [[ -v CODECOV_TOKEN ]]; then
-    curl --fail -s https://codecov.io/bash > "${tmp_dir}/codecov.sh"
-    chmod +x "${tmp_dir}/codecov.sh"
-    "${tmp_dir}/codecov.sh" -f "${output}/coverage.txt"
-  fi
+#  if [[ -v CODECOV_TOKEN ]]; then
+#    curl --fail -s https://codecov.io/bash > "${tmp_dir}/codecov.sh"
+#    chmod +x "${tmp_dir}/codecov.sh"
+#    "${tmp_dir}/codecov.sh" -f "${output}/coverage.txt"
+#  fi
 fi
 
 $sudo rm -r "${input}"

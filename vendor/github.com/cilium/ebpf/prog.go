@@ -208,8 +208,15 @@ func convertProgramSpec(spec *ProgramSpec, handle *btf.Handle) (*bpfProgLoadAttr
 		return nil, fmt.Errorf("can't load %s program on %s", spec.ByteOrder, internal.NativeEndian)
 	}
 
+	insns := make(asm.Instructions, len(spec.Instructions))
+	copy(insns, spec.Instructions)
+
+	if err := fixupJumpsAndCalls(insns); err != nil {
+		return nil, err
+	}
+
 	buf := bytes.NewBuffer(make([]byte, 0, len(spec.Instructions)*asm.InstructionSize))
-	err := spec.Instructions.Marshal(buf, internal.NativeEndian)
+	err := insns.Marshal(buf, internal.NativeEndian)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +276,14 @@ func (p *Program) String() string {
 	return fmt.Sprintf("%s#%v", p.abi.Type, p.fd)
 }
 
-// ABI gets the ABI of the Program
+// Type returns the underlying type of the program.
+func (p *Program) Type() ProgramType {
+	return p.abi.Type
+}
+
+// ABI gets the ABI of the Program.
+//
+// Deprecated: use Type instead.
 func (p *Program) ABI() ProgramABI {
 	return p.abi
 }
@@ -595,12 +609,16 @@ func (p *Program) ID() (ProgramID, error) {
 	return ProgramID(info.id), nil
 }
 
-func resolveBTFType(name string, progType ProgramType, attachType AttachType) (btf.Type, error) {
+func findKernelType(name string, typ btf.Type) error {
 	kernel, err := btf.LoadKernelSpec()
 	if err != nil {
-		return nil, fmt.Errorf("can't resolve BTF type %s: %w", name, err)
+		return fmt.Errorf("can't load kernel spec: %w", err)
 	}
 
+	return kernel.FindType(name, typ)
+}
+
+func resolveBTFType(name string, progType ProgramType, attachType AttachType) (btf.Type, error) {
 	type match struct {
 		p ProgramType
 		a AttachType
@@ -610,7 +628,7 @@ func resolveBTFType(name string, progType ProgramType, attachType AttachType) (b
 	switch target {
 	case match{Tracing, AttachTraceIter}:
 		var target btf.Func
-		if err := kernel.FindType("bpf_iter_"+name, &target); err != nil {
+		if err := findKernelType("bpf_iter_"+name, &target); err != nil {
 			return nil, fmt.Errorf("can't resolve BTF for iterator %s: %w", name, err)
 		}
 

@@ -482,6 +482,7 @@ func mapSpecFromBTF(spec *btf.Spec, name string) (*MapSpec, error) {
 
 	var (
 		mapType, flags, maxEntries uint32
+		pinType                    PinType
 	)
 	for _, member := range btfMapMembers {
 		switch member.Name {
@@ -529,9 +530,7 @@ func mapSpecFromBTF(spec *btf.Spec, name string) (*MapSpec, error) {
 				return nil, fmt.Errorf("can't get pinning: %w", err)
 			}
 
-			if pinning != 0 {
-				return nil, fmt.Errorf("'pinning' attribute not supported: %w", ErrNotSupported)
-			}
+			pinType = PinType(pinning)
 
 		case "key", "value":
 		default:
@@ -540,12 +539,14 @@ func mapSpecFromBTF(spec *btf.Spec, name string) (*MapSpec, error) {
 	}
 
 	return &MapSpec{
+		Name:       SanitizeName(name, -1),
 		Type:       MapType(mapType),
 		KeySize:    keySize,
 		ValueSize:  valueSize,
 		MaxEntries: maxEntries,
 		Flags:      flags,
 		BTF:        btfMap,
+		Pinning:    pinType,
 	}, nil
 }
 
@@ -636,6 +637,7 @@ func getProgType(sectionName string) (ProgramType, AttachType, string) {
 		"lirc_mode2":            {LircMode2, AttachLircMode2},
 		"flow_dissector":        {FlowDissector, AttachFlowDissector},
 		"iter/":                 {Tracing, AttachTraceIter},
+		"sk_lookup/":            {SkLookup, AttachSkLookup},
 
 		"cgroup_skb/ingress": {CGroupSKB, AttachCGroupInetIngress},
 		"cgroup_skb/egress":  {CGroupSKB, AttachCGroupInetEgress},
