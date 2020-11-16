@@ -15,8 +15,6 @@
 package connector
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"runtime"
 	"unsafe"
@@ -24,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -35,56 +34,26 @@ import (
 // TODO: We cannot include bpf package here due to CGO_ENABLED=0,
 // but we should refactor common bits into a pure golang package.
 
-type bpfAttrProg struct {
-	ProgType    uint32
-	InsnCnt     uint32
-	Insns       uintptr
-	License     uintptr
-	LogLevel    uint32
-	LogSize     uint32
-	LogBuf      uintptr
-	KernVersion uint32
-	Flags       uint32
-	Name        [16]byte
-}
-
-func getEntryProgInstructions(fd int) ([]byte, error) {
-	insnsProg := asm.Instructions{
+func getEntryProgInstructions(fd int) asm.Instructions {
+	return asm.Instructions{
 		asm.LoadMapPtr(asm.R2, fd),
 		asm.Mov.Imm(asm.R3, 0),
 		asm.FnTailCall.Call(),
 		asm.Mov.Imm(asm.R0, 0),
 		asm.Return(),
 	}
-	var buf bytes.Buffer
-	if err := insnsProg.Marshal(&buf, binary.LittleEndian); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
 
 func loadEntryProg(mapFd int) (int, error) {
-	insns, err := getEntryProgInstructions(mapFd)
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type:         ebpf.SchedCLS,
+		Instructions: getEntryProgInstructions(mapFd),
+		License:      "ASL2",
+	})
 	if err != nil {
 		return 0, err
 	}
-	license := []byte{'A', 'S', 'L', '2', '\x00'}
-	bpfAttr := bpfAttrProg{
-		ProgType: 3,
-		InsnCnt:  uint32(len(insns) / 8),
-		Insns:    uintptr(unsafe.Pointer(&insns[0])),
-		License:  uintptr(unsafe.Pointer(&license[0])),
-	}
-	fd, _, errno := unix.Syscall(unix.SYS_BPF, 5, /* BPF_PROG_LOAD */
-		uintptr(unsafe.Pointer(&bpfAttr)),
-		unsafe.Sizeof(bpfAttr))
-	runtime.KeepAlive(&insns)
-	runtime.KeepAlive(&license)
-	runtime.KeepAlive(&bpfAttr)
-	if errno != 0 {
-		return 0, errno
-	}
-	return int(fd), nil
+	return prog.FD(), nil
 }
 
 type bpfAttrMap struct {
