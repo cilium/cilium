@@ -162,7 +162,7 @@ func LookupElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct ui
 	}
 
 	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to lookup element in map with file descriptor %d: %s", fd, err)
+		return fmt.Errorf("Unable to lookup element in map with file descriptor %d: %w", fd, err)
 	}
 
 	return nil
