@@ -85,3 +85,6 @@ test/gke/registry-adder.yaml
 
 # In GIT but ignored for docker
 hack/
+
+# be forgiving to users that run add_vagrant_box.sh without -t
+*.box
