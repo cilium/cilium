@@ -21,11 +21,11 @@ import (
 	"strconv"
 	"strings"
 
+	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
@@ -345,11 +345,10 @@ func UpdateFromUserDefinedMappings(m map[string]string) (err error) {
 // UpdateFromEC2API updates limits from the EC2 API via calling
 // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html.
 func UpdateFromEC2API(ctx context.Context) error {
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := ec2shim.NewConfig()
 	if err != nil {
-		return fmt.Errorf("unable to load AWS configuration: %s", err)
+		return err
 	}
-
 	ec2Client := ec2.New(cfg)
 
 	instanceTypeInfos := []ec2.InstanceTypeInfo{}

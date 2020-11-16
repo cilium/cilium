@@ -22,7 +22,6 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
-	"github.com/cilium/cilium/pkg/aws/endpoints"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -31,11 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-aws")
@@ -67,25 +62,10 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocato
 
 	log.Info("Starting ENI allocator...")
 
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := ec2shim.NewConfig()
 	if err != nil {
-		return nil, fmt.Errorf("unable to load AWS configuration: %w", err)
+		return nil, err
 	}
-
-	log.Info("Retrieving own metadata from EC2 metadata server...")
-	metadataClient := ec2metadata.New(cfg)
-	instance, err := metadataClient.GetInstanceIdentityDocument(context.TODO())
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve instance identity document: %w", err)
-	}
-
-	log.WithFields(logrus.Fields{
-		"instance": instance.InstanceID,
-		"region":   instance.Region,
-	}).Info("Connected to EC2 metadata server")
-
-	cfg.Region = instance.Region
-	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
 
 	if operatorOption.Config.EnableMetrics {
 		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)
