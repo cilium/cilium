@@ -45,9 +45,9 @@ type bpfAttrProg struct {
 	Name        [16]byte
 }
 
-func loadEntryProg(mapFd int) (int, error) {
-	tmp := (*[4]byte)(unsafe.Pointer(&mapFd))
-	insns := []byte{
+func getEntryProgInstructions(fd int) []byte {
+	tmp := (*[4]byte)(unsafe.Pointer(&fd))
+	return []byte{
 		0x18, 0x12, 0x00, 0x00, tmp[0], tmp[1], tmp[2], tmp[3],
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -55,6 +55,10 @@ func loadEntryProg(mapFd int) (int, error) {
 		0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
+}
+
+func loadEntryProg(mapFd int) (int, error) {
+	insns := getEntryProgInstructions(mapFd)
 	license := []byte{'A', 'S', 'L', '2', '\x00'}
 	bpfAttr := bpfAttrProg{
 		ProgType: 3,
