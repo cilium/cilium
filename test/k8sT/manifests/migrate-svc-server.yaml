@@ -25,6 +25,6 @@ spec:
     spec:
       containers:
       - name: server
-        image: docker.io/cilium/migrate-svc-test:v0.0.1
+        image: docker.io/cilium/migrate-svc-test:v0.0.2
         imagePullPolicy: IfNotPresent
         command: [ "/server", "8000" ]
