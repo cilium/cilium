@@ -49,7 +49,6 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -292,7 +291,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 
 	case datapathOption.DatapathModeIpvlan:
-		mapFD, err := connector.CreateAndSetupIpvlanSlave("",
+		m, err := connector.CreateAndSetupIpvlanSlave("",
 			epIfaceName, netNS, mtuConfig.GetDeviceMTU(),
 			option.Config.Ipvlan.MasterDeviceIndex,
 			option.Config.Ipvlan.OperationMode, info)
@@ -303,8 +302,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			}
 			return nil, err
 		}
-		defer unix.Close(mapFD)
-
+		defer m.Close()
 	}
 
 	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address); err != nil {

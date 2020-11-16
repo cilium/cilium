@@ -45,6 +45,7 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
+	"github.com/cilium/ebpf"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -410,8 +411,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		ipvlanConf := *conf.IpvlanConfiguration
 		index := int(ipvlanConf.MasterDeviceIndex)
 
-		var mapFD int
-		mapFD, err = connector.CreateAndSetupIpvlanSlave(
+		var m *ebpf.Map
+		m, err = connector.CreateAndSetupIpvlanSlave(
 			ep.ContainerID, args.IfName, netNs,
 			int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep,
 		)
@@ -419,7 +420,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			err = fmt.Errorf("unable to setup ipvlan datapath: %s", err)
 			return
 		}
-		defer unix.Close(mapFD)
+		defer m.Close()
 	}
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
