@@ -57,7 +57,7 @@ x << rule.x;
 p << rule.p;
 @@
 
-print "* file %s: variable %s on line %s should be declared constant" % (p[0].file, x, p[0].line)
+print("* file %s: variable %s on line %s should be declared constant" % (p[0].file, x, p[0].line))
 cnt += 1
 
 
@@ -65,8 +65,8 @@ cnt += 1
 @@
 
 if cnt > 0:
-  print """Use the following command to fix the above issues:
+  print("""Use the following command to fix the above issues:
 docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace                \\
     -it docker.io/cilium/coccicheck spatch --sp-file contrib/coccinelle/const.cocci \\
     --include-headers --very-quiet --in-place bpf/\n
-"""
+""")
