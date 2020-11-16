@@ -18,6 +18,7 @@ package connector
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 	"unsafe"
@@ -35,13 +36,14 @@ func TestEntryProgInstructions(t *testing.T) {
 		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 
-	prog, err := getEntryProgInstructions(mapFD)
-	if err != nil {
+	prog := getEntryProgInstructions(mapFD)
+	var buf bytes.Buffer
+	if err := prog.Marshal(&buf, binary.LittleEndian); err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(prog, immProg) {
+	if insnsProg := buf.Bytes(); !bytes.Equal(insnsProg, immProg) {
 		t.Errorf("Marshalled entry program does not match immediate encoding:\ngot:\n%s\nwant:\n%s",
-			hex.Dump(prog), hex.Dump(immProg))
+			hex.Dump(insnsProg), hex.Dump(immProg))
 	}
 }
