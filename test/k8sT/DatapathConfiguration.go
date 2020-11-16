@@ -258,6 +258,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                 "vxlan",
 				"endpointRoutes.enabled": "true",
+				"hostFirewall":           "false",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
@@ -305,6 +306,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"tunnel":                 "disabled",
 				"k8s.requireIPv4PodCIDR": "true",
 				"endpointRoutes.enabled": "true",
+				"hostFirewall":           "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
