@@ -15,6 +15,8 @@
 package connector
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"unsafe"
@@ -22,8 +24,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/cilium/ebpf/asm"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 
 	"golang.org/x/sys/unix"
@@ -45,20 +48,26 @@ type bpfAttrProg struct {
 	Name        [16]byte
 }
 
-func getEntryProgInstructions(fd int) []byte {
-	tmp := (*[4]byte)(unsafe.Pointer(&fd))
-	return []byte{
-		0x18, 0x12, 0x00, 0x00, tmp[0], tmp[1], tmp[2], tmp[3],
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x85, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
-		0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+func getEntryProgInstructions(fd int) ([]byte, error) {
+	insnsProg := asm.Instructions{
+		asm.LoadMapPtr(asm.R2, fd),
+		asm.Mov.Imm(asm.R3, 0),
+		asm.FnTailCall.Call(),
+		asm.Mov.Imm(asm.R0, 0),
+		asm.Return(),
 	}
+	var buf bytes.Buffer
+	if err := insnsProg.Marshal(&buf, binary.LittleEndian); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func loadEntryProg(mapFd int) (int, error) {
-	insns := getEntryProgInstructions(mapFd)
+	insns, err := getEntryProgInstructions(mapFd)
+	if err != nil {
+		return 0, err
+	}
 	license := []byte{'A', 'S', 'L', '2', '\x00'}
 	bpfAttr := bpfAttrProg{
 		ProgType: 3,
