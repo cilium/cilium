@@ -29,13 +29,13 @@ build:
 test: run k8s
 
 run:
-	ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredenitals=$(REGISTRY_CREDENTIALS)
+	ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 k8s:
-	ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredenitals=$(REGISTRY_CREDENTIALS)
+	ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 nightly:
-	ginkgo --focus "Nightly" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredenitals=$(REGISTRY_CREDENTIALS)
+	ginkgo --focus "Nightly" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 clean:
 	@$(ECHO_CLEAN)
