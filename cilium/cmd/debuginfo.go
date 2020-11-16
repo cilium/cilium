@@ -337,18 +337,18 @@ func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPat
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error unmarshaling binary: %s\n", err)
 	}
-	jsonBytes, err := command.DumpJSONToSlice(db, jsonPath)
+	jsonStr, err := command.DumpJSONToString(db, jsonPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error printing JSON: %s\n", err)
 	}
 
 	if path == "" {
-		fmt.Println(string(jsonBytes[:]))
+		fmt.Println(jsonStr)
 		return
 	}
 
 	fileName := fileName(path, suffix)
-	writeFile(jsonBytes, fileName)
+	writeFile([]byte(jsonStr), fileName)
 
 	fmt.Printf("%s output at %s\n", jsonpathOutput, fileName)
 	return
