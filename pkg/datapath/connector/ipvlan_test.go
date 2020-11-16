@@ -35,7 +35,11 @@ func TestEntryProgInstructions(t *testing.T) {
 		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 
-	prog := getEntryProgInstructions(mapFD)
+	prog, err := getEntryProgInstructions(mapFD)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if !bytes.Equal(prog, immProg) {
 		t.Errorf("Marshalled entry program does not match immediate encoding:\ngot:\n%s\nwant:\n%s",
 			hex.Dump(prog), hex.Dump(immProg))
