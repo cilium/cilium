@@ -16,8 +16,6 @@ package connector
 
 import (
 	"fmt"
-	"runtime"
-	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -31,9 +29,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// TODO: We cannot include bpf package here due to CGO_ENABLED=0,
-// but we should refactor common bits into a pure golang package.
-
 func getEntryProgInstructions(fd int) asm.Instructions {
 	return asm.Instructions{
 		asm.LoadMapPtr(asm.R2, fd),
@@ -44,88 +39,13 @@ func getEntryProgInstructions(fd int) asm.Instructions {
 	}
 }
 
-func loadEntryProg(mapFd int) (int, error) {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Type:         ebpf.SchedCLS,
-		Instructions: getEntryProgInstructions(mapFd),
-		License:      "ASL2",
-	})
-	if err != nil {
-		return 0, err
-	}
-	return prog.FD(), nil
-}
-
-type bpfAttrMap struct {
-	MapType    uint32
-	SizeKey    uint32
-	SizeValue  uint32
-	MaxEntries uint32
-	Flags      uint32
-}
-
-type bpfMapInfo struct {
-	MapType    uint32
-	MapID      uint32
-	SizeKey    uint32
-	SizeValue  uint32
-	MaxEntries uint32
-	Flags      uint32
-}
-
-type bpfAttrObjInfo struct {
-	Fd      uint32
-	InfoLen uint32
-	Info    uint64
-}
-
-func createTailCallMap() (int, int, error) {
-	bpfAttr := bpfAttrMap{
-		MapType:    3,
-		SizeKey:    4,
-		SizeValue:  4,
-		MaxEntries: 1,
-		Flags:      0,
-	}
-	fd, _, errno := unix.Syscall(unix.SYS_BPF, 0, /* BPF_MAP_CREATE */
-		uintptr(unsafe.Pointer(&bpfAttr)),
-		unsafe.Sizeof(bpfAttr))
-	runtime.KeepAlive(&bpfAttr)
-	if int(fd) < 0 || errno != 0 {
-		return 0, 0, errno
-	}
-
-	info := bpfMapInfo{}
-	bpfAttrInfo := bpfAttrObjInfo{
-		Fd:      uint32(fd),
-		InfoLen: uint32(unsafe.Sizeof(info)),
-		Info:    uint64(uintptr(unsafe.Pointer(&info))),
-	}
-	bpfAttr2 := struct {
-		info bpfAttrObjInfo
-	}{
-		info: bpfAttrInfo,
-	}
-	ret, _, errno := unix.Syscall(unix.SYS_BPF, 15, /* BPF_OBJ_GET_INFO_BY_FD */
-		uintptr(unsafe.Pointer(&bpfAttr2)),
-		unsafe.Sizeof(bpfAttr2))
-	runtime.KeepAlive(&info)
-	runtime.KeepAlive(&bpfAttr2)
-	if ret != 0 || errno != 0 {
-		unix.Close(int(fd))
-		return 0, 0, errno
-	}
-
-	return int(fd), int(info.MapID), nil
-}
-
 // setupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
 // the target netns and attaches a BPF program to it on egress path which
 // then jumps into the tail call map index 0.
 //
-// NB: Do not close the returned mapFd before it has been pinned. Otherwise,
+// NB: Do not close the returned map before it has been pinned. Otherwise,
 // the map will be destroyed.
-func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
+func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.Map, error) {
 	rl := unix.Rlimit{
 		Cur: unix.RLIM_INFINITY,
 		Max: unix.RLIM_INFINITY,
@@ -133,12 +53,17 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, in
 
 	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
-		return 0, 0, fmt.Errorf("Unable to increase rlimit: %s", err)
+		return nil, fmt.Errorf("unable to increase rlimit: %s", err)
 	}
 
-	mapFd, mapId, err := createTailCallMap()
+	m, err := ebpf.NewMap(&ebpf.MapSpec{
+		Type:       ebpf.ProgramArray,
+		KeySize:    4,
+		ValueSize:  4,
+		MaxEntries: 1,
+	})
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to create root BPF map for %q: %s", dstIfName, err)
+		return nil, fmt.Errorf("failed to create root BPF map for %q: %s", dstIfName, err)
 	}
 
 	err = netNs.Do(func(_ ns.NetNS) error {
@@ -169,7 +94,11 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, in
 			return fmt.Errorf("failed to create clsact qdisc on %q: %s", dstIfName, err)
 		}
 
-		progFd, err := loadEntryProg(mapFd)
+		prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+			Type:         ebpf.SchedCLS,
+			Instructions: getEntryProgInstructions(m.FD()),
+			License:      "ASL2",
+		})
 		if err != nil {
 			return fmt.Errorf("failed to load root BPF prog for %q: %s", dstIfName, err)
 		}
@@ -183,22 +112,22 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, in
 		}
 		filter := &netlink.BpfFilter{
 			FilterAttrs:  filterAttrs,
-			Fd:           progFd,
+			Fd:           prog.FD(),
 			Name:         "polEntry",
 			DirectAction: true,
 		}
 		if err = netlink.FilterAdd(filter); err != nil {
-			unix.Close(progFd)
+			prog.Close()
 			return fmt.Errorf("failed to create cls_bpf filter on %q: %s", dstIfName, err)
 		}
 
 		return nil
 	})
 	if err != nil {
-		unix.Close(mapFd)
-		return 0, 0, err
+		m.Close()
+		return nil, err
 	}
-	return mapFd, mapId, nil
+	return m, nil
 }
 
 // CreateIpvlanSlave creates an ipvlan slave in L3 based on the master device.
@@ -285,7 +214,7 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 // CreateAndSetupIpvlanSlave creates an ipvlan slave device for the given
 // master device, moves it to the given network namespace, and finally
 // initializes it (see setupIpvlanInRemoteNs).
-func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mtu int, masterDev int, mode string, ep *models.EndpointChangeRequest) (int, error) {
+func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mtu int, masterDev int, mode string, ep *models.EndpointChangeRequest) (*ebpf.Map, error) {
 	var tmpIfName string
 
 	if id == "" {
@@ -296,19 +225,23 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 
 	_, link, err := createIpvlanSlave(tmpIfName, mtu, masterDev, mode, ep)
 	if err != nil {
-		return 0, fmt.Errorf("createIpvlanSlave has failed: %s", err)
+		return nil, fmt.Errorf("createIpvlanSlave has failed: %w", err)
 	}
 
 	if err = netlink.LinkSetNsFd(*link, int(netNs.Fd())); err != nil {
-		return 0, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
+		return nil, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
 	}
 
-	mapFD, mapID, err := setupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
+	m, err := setupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
 	if err != nil {
-		return 0, fmt.Errorf("unable to setup ipvlan slave in remote netns: %s", err)
+		return nil, fmt.Errorf("unable to setup ipvlan slave in remote netns: %w", err)
 	}
 
+	mapID, err := m.ID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get map ID: %w", err)
+	}
 	ep.DatapathMapID = int64(mapID)
 
-	return mapFD, nil
+	return m, nil
 }
