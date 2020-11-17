@@ -59,8 +59,8 @@ this attribute can also be set via helm option ``--set labels=<values>``.
     ...
 
 
-Upon defining a custom list of labels in the ConfigMap, Cilium will override
-the default list of labels with the list provided. After saving the ConfigMap,
+Upon defining a custom list of labels in the ConfigMap, Cilium add the provided
+list of labels to the default list of labels. After saving the ConfigMap,
 restart the Cilium Agents to pickup the new labels setting.
 
 .. code-block:: bash
