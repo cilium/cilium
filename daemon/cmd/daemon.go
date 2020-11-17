@@ -491,7 +491,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	}
 
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
-	// can be supported or not. This needs to be done before detectNativeDevices()
+	// can be supported or not. This needs to be done before handleNativeDevices()
 	// as BandwidthManager needs these to be available for setup.
 	bandwidth.ProbeBandwidthManager()
 
@@ -500,7 +500,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	detectNativeDevices(isKubeProxyReplacementStrict)
+	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	// Launch the K8s watchers in parallel as we continue to process other
