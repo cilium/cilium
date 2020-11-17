@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"golang.org/x/sys/unix"
@@ -187,7 +188,10 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 		}
 	}()
 
-	log.WithField(logfields.Ipvlan, []string{lxcIfName}).Debug("Created ipvlan slave in L3 mode")
+	log.WithFields(logrus.Fields{
+		logfields.Ipvlan: []string{lxcIfName},
+		"mode":           mode,
+	}).Debugf("Created ipvlan slave")
 
 	err = DisableRpFilter(lxcIfName)
 	if err != nil {
