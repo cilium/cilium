@@ -550,11 +550,29 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		return
 	}
 
-	ciliumIPv4 := newNode.GetNodeIP(false)
+	newNodeIP := newNode.GetNodeIP(false).To4()
+	nextHopIPv4 := make(net.IP, len(newNodeIP))
+	copy(nextHopIPv4, newNodeIP)
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Interface: ifaceName,
-		logfields.IPAddr:    ciliumIPv4,
+		logfields.IPAddr:    nextHopIPv4,
 	})
+
+	routes, err := netlink.RouteGet(nextHopIPv4)
+	if err != nil {
+		scopedLog.WithError(err).Error("Failed to retrieve route for remote node IP")
+		return
+	}
+	for _, route := range routes {
+		if route.Gw != nil {
+			// newNode is in a different L2 subnet, so it must be reachable through
+			// a gateway. Send arping to the gw IP addr instead of newNode IP addr.
+			// NOTE: we currently don't handle multipath, so only one gw can be used.
+			copy(nextHopIPv4, route.Gw)
+			break
+		}
+	}
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
@@ -562,7 +580,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		return
 	}
 
-	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
+	_, err = arping.FindIPInNetworkFromIface(nextHopIPv4, *iface)
 	if err != nil {
 		scopedLog.WithError(err).Error("IP is not L2 reachable")
 		return
@@ -575,7 +593,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	}
 	link := linkAttr.Attrs().Index
 
-	hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface)
+	hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface)
 	if err != nil {
 		scopedLog.WithError(err).Error("arping failed")
 		return
@@ -584,7 +602,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 
 	neigh := netlink.Neigh{
 		LinkIndex:    link,
-		IP:           ciliumIPv4,
+		IP:           nextHopIPv4,
 		HardwareAddr: hwAddr,
 		State:        netlink.NUD_PERMANENT,
 	}
@@ -595,7 +613,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 
 	n.neighByNode[newNode.Identity()] = &neigh
 	if option.Config.NodePortHairpin {
-		neighborsmap.NeighRetire(ciliumIPv4)
+		neighborsmap.NeighRetire(nextHopIPv4)
 	}
 }
 
