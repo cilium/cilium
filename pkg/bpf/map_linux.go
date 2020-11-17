@@ -863,6 +863,10 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
+	if option.Config.MetricsConfig.BPFMapPressure && m.cache != nil {
+		mvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+		metrics.BPFMapPressure.WithLabelValues(m.commonName()).Set(mvalue)
+	}
 	return err
 }
 
@@ -910,6 +914,10 @@ func (m *Map) Delete(key MapKey) error {
 	_, errno := deleteElement(m.fd, key.GetKeyPtr())
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+	}
+	if option.Config.MetricsConfig.BPFMapPressure && m.cache != nil {
+		mvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+		metrics.BPFMapPressure.WithLabelValues(m.commonName()).Set(mvalue)
 	}
 	if errno != 0 {
 		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
@@ -981,6 +989,10 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
+	}
+	if option.Config.MetricsConfig.BPFMapPressure && m.cache != nil {
+		mvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+		metrics.BPFMapPressure.WithLabelValues(m.commonName()).Set(mvalue)
 	}
 	return err
 }
@@ -1070,6 +1082,10 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			if option.Config.MetricsConfig.BPFMapOps {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
+			if option.Config.MetricsConfig.BPFMapPressure && m.cache != nil {
+				mvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+				metrics.BPFMapPressure.WithLabelValues(m.commonName()).Set(mvalue)
+			}
 			if err == nil {
 				e.DesiredAction = OK
 				e.LastError = nil
@@ -1084,6 +1100,10 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
 			if option.Config.MetricsConfig.BPFMapOps {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
+			}
+			if option.Config.MetricsConfig.BPFMapPressure && m.cache != nil {
+				mvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+				metrics.BPFMapPressure.WithLabelValues(m.commonName()).Set(mvalue)
 			}
 			if err == 0 || err == unix.ENOENT {
 				delete(m.cache, k)

@@ -391,6 +391,10 @@ var (
 	// bpf map.
 	BPFMapOps = NoOpCounterVec
 
+	// BPFMapsPressure is the metric to measure the fill percentage of a bpfi
+	// map.
+	BPFMapPressure = NoOpGaugeVec
+
 	// TriggerPolicyUpdateTotal is the metric to count total number of
 	// policy update triggers
 	TriggerPolicyUpdateTotal = NoOpCounterVec
@@ -486,6 +490,7 @@ type Configuration struct {
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
+	BPFMapPressure                          bool
 	TriggerPolicyUpdateTotal                bool
 	TriggerPolicyUpdateFolds                bool
 	TriggerPolicyUpdateCallDuration         bool
@@ -1097,6 +1102,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, BPFMapOps)
 			c.BPFMapOps = true
+
+		case Namespace + "_" + SubsystemBPF + "_map_pressure":
+			BPFMapPressure = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemBPF,
+				Name:      "map_pressure",
+				Help:      "Fill percentage of map, tagged by map name",
+			}, []string{LabelMapName})
+
+			collectors = append(collectors, BPFMapPressure)
+			c.BPFMapPressure = true
 
 		case Namespace + "_" + SubsystemTriggers + "_policy_update_total":
 			TriggerPolicyUpdateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
