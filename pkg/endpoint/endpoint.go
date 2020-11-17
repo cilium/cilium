@@ -147,9 +147,6 @@ type Endpoint struct {
 	// Corresponding BPF map identifier for tail call map of ipvlan datapath
 	datapathMapID int
 
-	// isDatapathMapPinned denotes whether the datapath map has been pinned.
-	isDatapathMapPinned bool
-
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
 	ifName string
@@ -1323,12 +1320,6 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return e.dockerNetworkID
 }
 
-// setDatapathMapIDAndPinMap modifies the endpoint's datapath map ID
-func (e *Endpoint) setDatapathMapIDAndPinMap(id int) error {
-	e.datapathMapID = id
-	return e.pinDatapathMap()
-}
-
 // getState returns the endpoint's state
 // endpoint.Mutex may only be.rlockAlive()ed
 func (e *Endpoint) getState() string {
@@ -2136,13 +2127,7 @@ func (e *Endpoint) pinDatapathMap() error {
 	}
 	defer unix.Close(mapFd)
 
-	err = bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
-
-	if err == nil {
-		e.isDatapathMapPinned = true
-	}
-
-	return err
+	return bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
 }
 
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
