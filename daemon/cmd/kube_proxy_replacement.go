@@ -238,9 +238,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	return
 }
 
-// detectDevicesForNodePortAndHostFirewall tries to detect bpf_host devices
-// (if needed).
-func detectDevicesForNodePortAndHostFirewall(strict bool) {
+// handleNativeDevices tries to detect bpf_host devices (if needed).
+func handleNativeDevices(strict bool) {
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
 		(option.Config.EnableNodePort || option.Config.EnableHostFirewall)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
@@ -263,6 +262,22 @@ func detectDevicesForNodePortAndHostFirewall(strict bool) {
 				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
 			}
 			l.Info("Using auto-derived devices for BPF node port")
+		}
+	} else if option.Config.EnableNodePort { // both --devices and --direct-routing-device are specified by user
+		// Check whether the DirectRoutingDevice (if specified) is
+		// defined within devices and if not, add it.
+		if option.Config.DirectRoutingDevice != "" {
+			directDev := option.Config.DirectRoutingDevice
+			directDevFound := false
+			for _, iface := range option.Config.Devices {
+				if iface == directDev {
+					directDevFound = true
+					break
+				}
+			}
+			if !directDevFound {
+				option.Config.Devices = append(option.Config.Devices, directDev)
+			}
 		}
 	}
 }
