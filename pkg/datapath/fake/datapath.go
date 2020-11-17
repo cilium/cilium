@@ -131,7 +131,3 @@ func (f *fakeLoader) CallsMapPath(id uint16) string {
 func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
-
-func (f *fakeDatapath) SetupIPVLAN(netNS string) (int, int, error) {
-	return 0, 0, nil
-}
