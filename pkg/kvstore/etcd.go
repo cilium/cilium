@@ -1285,6 +1285,7 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 	defer func() { Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key}) }()
 
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
 	opDel := client.OpDelete(key)
 	cmp := lock.Comparator().(client.Cmp)
 	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opDel).Commit()
