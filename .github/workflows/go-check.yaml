@@ -43,7 +43,7 @@ jobs:
           sudo chmod +x bin/protoc && sudo cp bin/protoc /usr/local/bin
       - name: Set GOPATH
         run: |
-          echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+          echo "GOPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
         shell: bash
       - name: Check k8s generated files
         run: |
