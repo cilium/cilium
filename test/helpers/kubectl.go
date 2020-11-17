@@ -1161,11 +1161,16 @@ func (kub *Kubectl) MonitorEndpointStart(pod string, epID int64) (res *CmdRes, c
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
 	backgroundCtx, cancel := context.WithCancel(context.Background())
-	pods, err := kub.GetCiliumPods()
-	if err != nil {
-		return cancel, fmt.Errorf("Cannot retrieve cilium pods: %s", err)
-	}
 	retrieveInfo := func() {
+		pods, err := kub.GetCiliumPods()
+		if err != nil {
+			kub.Logger().Infof("failed to retrieve cilium pods: %s", err)
+			return
+		}
+		if len(pods) == 0 {
+			kub.Logger().Infof("no cilium pods found")
+			return
+		}
 		for _, pod := range pods {
 			for _, cmd := range commands {
 				kub.CiliumExecContext(context.TODO(), pod, cmd)
