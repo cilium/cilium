@@ -806,11 +806,22 @@ following command:
    python cilium-sysdump.zip
 
 You can specify from which nodes to collect the system dumps by passing
-node IP addresses via the ``--nodes`` argument:
+node IP addresses via the ``--nodes`` argument and the duration of the time
+window for collecting logs via the ``--since`` argument (e.g. ``2m``, ``3h``).
 
 .. code:: bash
 
-   python cilium-sysdump.zip --nodes=$NODE1_IP,$NODE2_IP2
+   python cilium-sysdump.zip --nodes $NODE1_IP,$NODE2_IP2 --since $LOG_DURATION
+
+Note that by default ``cilium-sysdump`` will collect logs for the past 30
+minutes and for all the nodes in the cluster.
+
+To make sure the tool collects as much relevant logs as possible, and to reduce
+the time required for this operation, it is advised to:
+
+* set the ``--since`` option to go back in time to when the issues started.
+* set the ``--nodes`` option to pick only a few nodes in case the cluster has
+  many of them.
 
 Use ``--help`` to see more options:
 
