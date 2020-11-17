@@ -45,7 +45,7 @@ var (
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
-	).WithCache()
+	).WithCache().WithPressureMetric()
 )
 
 // MAC is the __u64 representation of a MAC address.

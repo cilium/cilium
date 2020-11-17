@@ -73,7 +73,7 @@ func initSVC(params InitParams) {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 		Backend4Map = bpf.NewMap(Backend4MapName,
 			bpf.MapTypeHash,
 			&Backend4Key{},
@@ -83,7 +83,7 @@ func initSVC(params InitParams) {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 		RevNat4Map = bpf.NewMap(RevNat4MapName,
 			bpf.MapTypeHash,
 			&RevNat4Key{},
@@ -93,7 +93,7 @@ func initSVC(params InitParams) {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 	}
 
 	if params.IPv6 {
@@ -106,7 +106,7 @@ func initSVC(params InitParams) {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 		Backend6Map = bpf.NewMap(Backend6MapName,
 			bpf.MapTypeHash,
 			&Backend6Key{},
@@ -116,7 +116,7 @@ func initSVC(params InitParams) {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 		RevNat6Map = bpf.NewMap(RevNat6MapName,
 			bpf.MapTypeHash,
 			&RevNat6Key{},
@@ -126,7 +126,7 @@ func initSVC(params InitParams) {
 			MaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 	}
 }
 
@@ -469,7 +469,7 @@ func CreateSockRevNat4Map() error {
 		0,
 		0,
 		bpf.ConvertKeyValue,
-	)
+	).WithPressureMetric()
 	_, err := sockRevNat4Map.Create()
 	return err
 }

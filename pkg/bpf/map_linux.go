@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -117,6 +118,11 @@ type Map struct {
 	// DumpParser is a function for parsing keys and values from BPF maps
 	DumpParser DumpParser
 
+	// withValueCache is true when map cache has been enabled
+	withValueCache bool
+
+	// cache as key/value entries when map cache is enabled or as key-only when
+	// pressure metric is enabled
 	cache map[string]*cacheEntry
 
 	// errorResolverLastScheduled is the timestamp when the error resolver
@@ -126,6 +132,9 @@ type Map struct {
 	// outstandingErrors is the number of outsanding errors syncing with
 	// the kernel
 	outstandingErrors int
+
+	// pressureGauge is a metric that tracks the pressure on this map
+	pressureGauge *metrics.GaugeWithThreshold
 }
 
 type NewMapOpts struct {
@@ -163,6 +172,7 @@ func NewMapWithOpts(name string, mapType MapType, mapKey MapKey, keySize int,
 		name:       path.Base(name),
 		DumpParser: dumpParser,
 	}
+
 	return m
 }
 
@@ -214,6 +224,10 @@ func (m *Map) commonName() string {
 	return m.cachedCommonName
 }
 
+func (m *Map) NonPrefixedName() string {
+	return strings.TrimPrefix(m.name, metrics.Namespace+"_")
+}
+
 // scheduleErrorResolver schedules a periodic resolver controller that scans
 // all BPF map caches for unresolved errors and attempts to resolve them. On
 // error of resolution, the controller is-rescheduled in an expedited manner
@@ -245,9 +259,51 @@ func (m *Map) scheduleErrorResolver() {
 // user space in a local cache (map) and will indicate the status of each
 // individual entry.
 func (m *Map) WithCache() *Map {
-	m.cache = map[string]*cacheEntry{}
+	if m.cache == nil {
+		m.cache = map[string]*cacheEntry{}
+	}
+	m.withValueCache = true
 	m.enableSync = true
 	return m
+}
+
+// WithPressureMetricThreshold enables the tracking of a metric that measures
+// the pressure of this map. This metric is only reported if over the
+// threshold.
+func (m *Map) WithPressureMetricThreshold(threshold float64) *Map {
+	// When pressure metric is enabled, we keep track of map keys in cache
+	if m.cache == nil {
+		m.cache = map[string]*cacheEntry{}
+	}
+
+	m.pressureGauge = metrics.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
+
+	return m
+}
+
+// WithPressureMetric enables tracking and reporting of this map pressure with
+// threshold 0.
+func (m *Map) WithPressureMetric() *Map {
+	return m.WithPressureMetricThreshold(0.0)
+}
+
+func (m *Map) updatePressureMetric() {
+	if m.pressureGauge == nil {
+		return
+	}
+
+	// Do a lazy check of MetricsConfig as it is not available at map static
+	// initialization.
+	if !option.Config.MetricsConfig.BPFMapPressure {
+		if !m.withValueCache {
+			m.cache = nil
+		}
+		m.pressureGauge = nil
+		return
+	}
+
+	pvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+	m.pressureGauge.Set(pvalue)
 }
 
 func (m *Map) GetFd() int {
@@ -841,17 +897,23 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 			return
 		}
 
-		desiredAction := OK
-		if err != nil {
-			desiredAction = Insert
-			m.scheduleErrorResolver()
-		}
+		if m.withValueCache {
+			desiredAction := OK
+			if err != nil {
+				desiredAction = Insert
+				m.scheduleErrorResolver()
+			}
 
-		m.cache[key.String()] = &cacheEntry{
-			Key:           key,
-			Value:         value,
-			DesiredAction: desiredAction,
-			LastError:     err,
+			m.cache[key.String()] = &cacheEntry{
+				Key:           key,
+				Value:         value,
+				DesiredAction: desiredAction,
+				LastError:     err,
+			}
+			m.updatePressureMetric()
+		} else if err == nil {
+			m.cache[key.String()] = nil
+			m.updatePressureMetric()
 		}
 	}()
 
@@ -880,6 +942,8 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 	k := key.String()
 	if err == nil {
 		delete(m.cache, k)
+	} else if !m.withValueCache {
+		return
 	} else {
 		entry, ok := m.cache[k]
 		if !ok {
@@ -901,7 +965,12 @@ func (m *Map) Delete(key MapKey) error {
 	defer m.lock.Unlock()
 
 	var err error
-	defer m.deleteCacheEntry(key, err)
+	defer func() {
+		m.deleteCacheEntry(key, err)
+		if err != nil {
+			m.updatePressureMetric()
+		}
+	}()
 
 	if err = m.open(); err != nil {
 		return err
@@ -928,12 +997,13 @@ func (m *Map) scopedLogger() *logrus.Entry {
 func (m *Map) DeleteAll() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	defer m.updatePressureMetric()
 	scopedLog := m.scopedLogger()
 	scopedLog.Debug("deleting all entries in map")
 
 	nextKey := make([]byte, m.KeySize)
 
-	if m.cache != nil {
+	if m.withValueCache {
 		// Mark all entries for deletion, upon successful deletion,
 		// entries will be removed or the LastError will be updated
 		for _, entry := range m.cache {
@@ -1012,7 +1082,7 @@ func (m *Map) GetModel() *models.BPFMap {
 		Path: m.path,
 	}
 
-	if m.cache != nil {
+	if m.withValueCache {
 		mapModel.Cache = make([]*models.BPFMapEntry, len(m.cache))
 		i := 0
 		for k, entry := range m.cache {
@@ -1053,6 +1123,10 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		return nil
 	}
 
+	if err := m.open(); err != nil {
+		return err
+	}
+
 	scopedLogger := m.scopedLogger()
 	scopedLogger.WithField("remaining", m.outstandingErrors).
 		Debug("Starting periodic BPF map error resolver")
@@ -1079,6 +1153,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 				e.LastError = err
 				errors++
 			}
+			m.cache[k] = e
 
 		case Delete:
 			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
@@ -1092,16 +1167,17 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			} else {
 				e.LastError = err
 				errors++
+				m.cache[k] = e
 			}
 		}
-
-		m.cache[k] = e
 
 		// bail out if maximum errors are reached to relax the map lock
 		if errors > maxSyncErrors {
 			break
 		}
 	}
+
+	m.updatePressureMetric()
 
 	scopedLogger.WithFields(logrus.Fields{
 		"remaining": m.outstandingErrors,

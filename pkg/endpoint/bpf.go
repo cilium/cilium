@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -827,6 +828,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 		// Also reset the in-memory state of the realized state as the
 		// BPF map content is guaranteed to be empty right now.
 		e.realizedPolicy.PolicyMapState = make(policy.MapState)
+		e.initPolicyMapPressureMetric()
+		e.updatePolicyMapPressureMetric()
 	}
 
 	// Only generate & populate policy map if a security identity is set up for
@@ -1081,6 +1084,27 @@ func (e *Endpoint) SkipStateClean() {
 	e.unlock()
 }
 
+func (e *Endpoint) initPolicyMapPressureMetric() {
+	if !option.Config.MetricsConfig.BPFMapPressure {
+		return
+	}
+
+	if e.policyMapPressureGauge != nil {
+		return
+	}
+
+	e.policyMapPressureGauge = metrics.NewBPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
+}
+
+func (e *Endpoint) updatePolicyMapPressureMetric() {
+	if e.policyMapPressureGauge == nil {
+		return
+	}
+
+	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MapInfo.MaxEntries)
+	e.policyMapPressureGauge.Set(value)
+}
+
 // The bool pointed by hadProxy, if not nil, will be set to 'true' if
 // the deleted entry had a proxy port assigned to it.  *hadProxy is
 // not otherwise changed (e.g., it is never set to 'false').
@@ -1115,6 +1139,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 
 	// Operation was successful, remove from realized state.
 	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
+	e.updatePolicyMapPressureMetric()
 
 	e.policyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToDelete,
@@ -1150,6 +1175,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 
 	// Operation was successful, add to realized state.
 	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+	e.updatePolicyMapPressureMetric()
 
 	e.policyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToAdd,

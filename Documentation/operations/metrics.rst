@@ -228,6 +228,7 @@ Name                                       Labels                               
 ========================================== ===================================================================== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Duration of eBPF system call performed
 ``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
+``bpf_map_pressure``                       ``map_name``                                                          Map pressure defined as fill-up ratio of the map. Policy maps are exceptionally reported only when ratio is over 0.1.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Max memory used by eBPF programs installed in the system
 ========================================== ===================================================================== ========================================================
