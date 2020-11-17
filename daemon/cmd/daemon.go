@@ -479,7 +479,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	detectDevicesForNodePortAndHostFirewall(isKubeProxyReplacementStrict)
+	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
