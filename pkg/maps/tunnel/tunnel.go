@@ -51,7 +51,7 @@ func NewTunnelMap(name string) *Map {
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
-	).WithCache(),
+	).WithCache().WithPressureMetric(),
 	}
 }
 

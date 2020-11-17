@@ -144,7 +144,7 @@ func newOuterMaglevMap(name string, innerMap *bpf.Map) *bpf.Map {
 		MaxEntries,
 		0, uint32(innerMap.GetFd()),
 		bpf.ConvertKeyValue,
-	)
+	).WithPressureMetric()
 }
 
 func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {

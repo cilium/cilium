@@ -395,7 +395,7 @@ func CreateSockRevNat6Map() error {
 		0,
 		0,
 		bpf.ConvertKeyValue,
-	)
+	).WithPressureMetric()
 	_, err := sockRevNat6Map.Create()
 	return err
 }

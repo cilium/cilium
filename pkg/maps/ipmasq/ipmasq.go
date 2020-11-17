@@ -56,7 +56,7 @@ var IPMasq4Map = bpf.NewMap(
 	MaxEntries,
 	bpf.BPF_F_NO_PREALLOC, 0,
 	bpf.ConvertKeyValue,
-).WithCache()
+).WithCache().WithPressureMetric()
 
 type IPMasqBPFMap struct{}
 

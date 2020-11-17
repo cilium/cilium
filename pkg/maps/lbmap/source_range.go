@@ -159,7 +159,7 @@ func initSourceRange(params InitParams) {
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 	}
 
 	if params.IPv6 {
@@ -171,7 +171,7 @@ func initSourceRange(params InitParams) {
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
-		).WithCache()
+		).WithCache().WithPressureMetric()
 	}
 }
 

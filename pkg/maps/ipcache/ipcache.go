@@ -170,7 +170,7 @@ func NewMap(name string) *Map {
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
-		).WithCache(),
+		).WithCache().WithPressureMetric(),
 		deleteSupport: true,
 	}
 }

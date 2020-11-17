@@ -45,6 +45,10 @@ const (
 	// are allowed. In the datapath, this is represented with the value 0 in the
 	// port field of map elements.
 	AllPorts = uint16(0)
+
+	// PressureMetricThreshold sets the threshold over which map pressure will
+	// be reported for the policy map.
+	PressureMetricThreshold = 0.1
 )
 
 type policyFlag uint8

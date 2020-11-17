@@ -65,7 +65,7 @@ var ThrottleMap = bpf.NewMap(
 	MapSize,
 	bpf.BPF_F_NO_PREALLOC, 0,
 	bpf.ConvertKeyValue,
-).WithCache()
+).WithCache().WithPressureMetric()
 
 func Update(Id uint16, Bps uint64) error {
 	return ThrottleMap.Update(

@@ -48,7 +48,7 @@ func initAffinity(params InitParams) {
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
-	).WithCache()
+	).WithCache().WithPressureMetric()
 
 	if params.IPv4 {
 		Affinity4Map = bpf.NewMap(
