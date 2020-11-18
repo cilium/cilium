@@ -98,6 +98,14 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
+			option.Config.NodePortMode == option.NodePortModeHYBRID &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
+			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
+		}
+
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
 			option.Config.NodePortAlg != option.NodePortAlgMaglev {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
@@ -268,6 +276,16 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			if option.Config.Tunnel != option.TunnelDisabled {
 				log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
+			}
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
+			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+				log.Fatalf("DSR dispatch mode %s only supported for standalone load balancer", option.Config.LoadBalancerDSRDispatch)
+			}
+			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
+				log.Fatalf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
 			}
 		}
 	}

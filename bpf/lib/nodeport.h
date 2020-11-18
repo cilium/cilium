@@ -930,10 +930,32 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 }
 
 # ifdef ENABLE_DSR
-/* Helper function to set the IPv4 option for DSR when a backend is remote.
- * NOTE: Revalidate data after calling the function.
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+/*
+ * Original packet: [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
+ * After DSR IPIP:  [clientIP -> backendIP]                        } IP
+ *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
-static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
+static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
+					 struct iphdr *ip4, __be32 backend_addr)
+{
+	const int l3_off = ETH_HLEN;
+	__be32 sum;
+
+	if (ctx_adjust_room(ctx, sizeof(*ip4), BPF_ADJ_ROOM_NET,
+			    ctx_adjust_room_dsr_flags()))
+		return DROP_INVALID;
+	sum = csum_diff(&ip4->daddr, 4, &backend_addr, 4, 0);
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
+			    &backend_addr, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
+			    0, sum, 0) < 0)
+		return DROP_CSUM_L3;
+	return 0;
+}
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4,
 					__be32 svc_addr, __be32 svc_port)
 {
@@ -980,6 +1002,7 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 
 	return 0;
 }
+#endif /* DSR_ENCAP_MODE */
 
 static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 {
@@ -1051,17 +1074,20 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	__be32 address;
-	__be16 dport;
 	int ret;
-
-	address = ctx_load_meta(ctx, CB_SVC_ADDR_V4);
-	dport = ctx_load_meta(ctx, CB_SVC_PORT);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	ret = set_dsr_opt4(ctx, ip4, address, dport);
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ret = dsr_set_ipip4(ctx, ip4,
+			    ctx_load_meta(ctx, CB_BE_ADDR_V4));
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+	ret = dsr_set_opt4(ctx, ip4,
+			   ctx_load_meta(ctx, CB_SVC_ADDR_V4),
+			   ctx_load_meta(ctx, CB_SVC_PORT));
+#else
+# error "Invalid load balancer DSR encapsulation mode!"
+#endif
 	if (ret != 0)
 		return DROP_INVALID;
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))

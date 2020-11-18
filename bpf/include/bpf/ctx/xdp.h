@@ -215,7 +215,7 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	if (!ret) {
 		data_end = ctx_data_end(ctx);
 		data = ctx_data(ctx);
-		if (len_diff == 8) {
+		if (len_diff == 8 || len_diff == 20) {
 			if (data + move_len_v4 + len_diff <= data_end)
 				__bpf_memmove_fwd(data, data + len_diff,
 						  move_len_v4);
