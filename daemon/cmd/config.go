@@ -58,8 +58,13 @@ func (h *patchConfig) configModify(params PatchConfigParams, resChan chan interf
 	// Track changes to daemon's configuration
 	var changes int
 	var policyEnforcementChanged bool
+	// Copy old configurations for potential reversion
 	oldEnforcementValue := policy.GetPolicyEnabled()
 	oldConfigOpts := option.Config.Opts.DeepCopy()
+	oldEpConfigOpts := make(option.OptionMap, len(om))
+	for k := range om {
+		oldEpConfigOpts[k] = oldConfigOpts.Opts[k]
+	}
 
 	// Only update if value provided for PolicyEnforcement.
 	if enforcement := cfgSpec.PolicyEnforcement; enforcement != "" {
@@ -85,6 +90,7 @@ func (h *patchConfig) configModify(params PatchConfigParams, resChan chan interf
 	}
 
 	changes += option.Config.Opts.ApplyValidated(om, changedOption, d)
+	d.endpointManager.OverrideEndpointOpts(om)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 	option.Config.ConfigPatchMutex.Unlock()
@@ -100,12 +106,16 @@ func (h *patchConfig) configModify(params PatchConfigParams, resChan chan interf
 				policy.SetPolicyEnabled(oldEnforcementValue)
 			}
 			option.Config.Opts = oldConfigOpts
+			d.endpointManager.OverrideEndpointOpts(oldEpConfigOpts)
 			option.Config.ConfigPatchMutex.Unlock()
 			log.Debug("finished reverting agent configuration changes")
 			resChan <- api.Error(PatchConfigFailureCode, msg)
 			return
 		}
-		d.TriggerPolicyUpdates(true, "agent configuration update")
+		// Most agent configuration changes require endpoint datapath regeneration,
+		// trigger datapath regeneration anyway in case we miss the regeneration
+		// due to a future change in BPF code.
+		d.TriggerDatapathRegen(policyEnforcementChanged, "agent configuration update")
 	}
 
 	resChan <- NewPatchConfigOK()
