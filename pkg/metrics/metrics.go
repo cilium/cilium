@@ -315,6 +315,9 @@ var (
 	// ConntrackGCSize the number of entries in the conntrack table
 	ConntrackGCSize = NoOpGaugeVec
 
+	// NatGCSize the number of entries in the nat table
+	NatGCSize = NoOpGaugeVec
+
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
 
@@ -898,6 +901,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ConntrackGCSize)
 			c.ConntrackGCSizeEnabled = true
+
+			NatGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemDatapath,
+				Name:      "nat_gc_entries",
+				Help: "The number of alive and deleted nat entries at the end " +
+					"of a garbage collector run labeled by datapath family.",
+			}, []string{LabelDatapathFamily, LabelDirection, LabelStatus})
+
+			collectors = append(collectors, NatGCSize)
 
 		case Namespace + "_" + SubsystemDatapath + "_conntrack_gc_duration_seconds":
 			ConntrackGCDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
