@@ -30,6 +30,13 @@ HOST_PREFIX=${HOST_PREFIX:-/host}
 BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 
+# .conf/.conflist/.json (undocumented) are read by kubelet/dockershim's CNI implementation.
+# Remove any active Cilium CNI configurations to prevent scheduling Pods during agent
+# downtime. Configs belonging to other CNI implementations have already been renamed
+# to *.cilium_bak during agent startup.
+echo "Removing active Cilium CNI configurations from ${HOST_PREFIX}/etc/cni/net.d..."
+find "${HOST_PREFIX}/etc/cni/net.d" -maxdepth 1 -regextype egrep -regex '\.\/.*cilium.*\.(conf|conflist|json)' -delete
+
 echo "Removing ${CNI_DIR}/bin/cilium-cni..."
 rm -f "${CNI_DIR}/bin/${BIN_NAME}"
 rm -f "${CNI_DIR}/bin/${BIN_NAME}.old"
