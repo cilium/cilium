@@ -1170,6 +1170,9 @@ const (
 	// TunnelGeneve specifies Geneve encapsulation
 	TunnelGeneve = "geneve"
 
+	// TunnelIPIP specifies IPIP (v4v4 or v6v6) encapsulation
+	TunnelIPIP = "ipip"
+
 	// TunnelDisabled specifies to disable encapsulation
 	TunnelDisabled = "disabled"
 )
@@ -1265,7 +1268,7 @@ const (
 
 // GetTunnelModes returns the list of all tunnel modes
 func GetTunnelModes() string {
-	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
+	return fmt.Sprintf("%s, %s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelIPIP, TunnelDisabled)
 }
 
 // getEnvName returns the environment variable to be used for the given option name.
@@ -2280,7 +2283,7 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	switch c.Tunnel {
-	case TunnelVXLAN, TunnelGeneve, "":
+	case TunnelVXLAN, TunnelGeneve, TunnelIPIP, "":
 	case TunnelDisabled:
 		if c.UseSingleClusterRoute {
 			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",

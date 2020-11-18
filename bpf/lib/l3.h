@@ -15,19 +15,19 @@
 #include "csum.h"
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
+static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off __maybe_unused,
 				   const __u8 *smac, const __u8 *dmac,
-				   __u8 direction)
+				   __u8 direction __maybe_unused)
 {
-	int ret;
-
-	ret = ipv6_dec_hoplimit(ctx, l3_off);
-	if (IS_ERR(ret))
-		return ret;
-	if (ret > 0) {
-		/* Hoplimit was reached */
-		return icmp6_send_time_exceeded(ctx, l3_off, direction);
-	}
+	//int ret;
+	//
+	//ret = ipv6_dec_hoplimit(ctx, l3_off);
+	//if (IS_ERR(ret))
+	//	return ret;
+	//if (ret > 0) {
+	//	/* Hoplimit was reached */
+	//	return icmp6_send_time_exceeded(ctx, l3_off, direction);
+	//}
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
 		return DROP_WRITE_ERROR;
@@ -38,14 +38,14 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 }
 #endif /* ENABLE_IPV6 */
 
-static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
+static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off __maybe_unused,
 				   const __u8 *smac, const __u8 *dmac,
-				   struct iphdr *ip4)
+				   struct iphdr *ip4 __maybe_unused)
 {
-	if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
-		/* FIXME: Send ICMP TTL */
-		return DROP_INVALID;
-	}
+	//if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
+	//	/* FIXME: Send ICMP TTL */
+	//	return DROP_INVALID;
+	//}
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
 		return DROP_WRITE_ERROR;
@@ -69,8 +69,10 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	/* This will invalidate the size check */
-	ret = ipv6_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, direction);
+	ret = ipv6_l3(ctx, l3_off,
+		      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&router_mac,
+		      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&lxc_mac,
+		      direction);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
@@ -112,7 +114,10 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	ret = ipv4_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
+	ret = ipv4_l3(ctx, l3_off,
+		      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&router_mac,
+		      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&lxc_mac,
+		      ip4);
 	if (ret != CTX_ACT_OK)
 		return ret;
 

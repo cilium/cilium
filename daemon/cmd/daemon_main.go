@@ -1187,13 +1187,27 @@ func initEnv(cmd *cobra.Command) {
 			option.Config.Ipvlan.OperationMode = connector.OperationModeL3S
 		}
 	case datapathOption.DatapathModeLBOnly:
+		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled &&
+			option.Config.Tunnel != option.TunnelIPIP {
+			log.WithField(logfields.Tunnel, option.Config.Tunnel).
+				Fatal("specified tunnel mode cannot be set in the 'lb-only' datapath mode")
+		}
+		if option.Config.Tunnel == "" {
+			option.Config.Tunnel = option.TunnelDisabled
+		}
+		if option.Config.Tunnel == option.TunnelIPIP &&
+			(option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled ||
+				option.Config.NodePortMode != option.NodePortModeDSR) {
+			log.WithField(logfields.Tunnel, option.Config.Tunnel).
+				Fatal("specified tunnel type can currently only be set with DSR under XDP acceleration")
+		}
+
 		log.Info("Running in LB-only mode")
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
 		option.Config.EnableHostReachableServices = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
-		option.Config.Tunnel = option.TunnelDisabled
 		option.Config.EnableHealthChecking = false
 		option.Config.Masquerade = false
 		option.Config.InstallIptRules = false

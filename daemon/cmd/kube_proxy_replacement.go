@@ -265,7 +265,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			if option.Config.Tunnel != option.TunnelDisabled {
+			if option.Config.Tunnel != option.TunnelDisabled &&
+				option.Config.Tunnel != option.TunnelIPIP {
 				log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 			}

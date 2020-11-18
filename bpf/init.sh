@@ -296,7 +296,13 @@ function bpf_load()
 	SEC=$6
 	CALLS_MAP=$7
 
+	set +e
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
+	set -e
+	if [ -z "$NODE_MAC" ]; then
+		NODE_MAC=00:00:00:00:00:00
+		OPTS="${OPTS} -DNODE_MAC_NONE=1"
+	fi
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
 	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
@@ -439,13 +445,16 @@ setup_proxy_rules
 
 sed -i '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
 sed -i '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
+sed -i '/ENCAP_IPIP/d' $RUNDIR/globals/node_config.h
 if [ "$MODE" = "vxlan" ]; then
 	echo "#define ENCAP_VXLAN 1" >> $RUNDIR/globals/node_config.h
 elif [ "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_GENEVE 1" >> $RUNDIR/globals/node_config.h
+elif [ "$MODE" = "ipip" ]; then
+	echo "#define ENCAP_IPIP 1" >> $RUNDIR/globals/node_config.h
 fi
 
-if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
+if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" -o "$MODE" = "ipip" ]; then
 	ENCAP_DEV="cilium_${MODE}"
 	ip link show $ENCAP_DEV || {
 		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $MODE external || encap_fail
@@ -469,6 +478,7 @@ else
 	# Remove eventual existing encapsulation device from previous run
 	ip link del cilium_vxlan 2> /dev/null || true
 	ip link del cilium_geneve 2> /dev/null || true
+	ip link del cilium_ipip 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ] ; then

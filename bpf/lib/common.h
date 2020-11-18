@@ -102,6 +102,7 @@ union v6addr {
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
 {
+#ifndef NODE_MAC_NONE
 	void *data = ctx_data(ctx);
 	void *data_end = ctx_data_end(ctx);
 	struct ethhdr *eth = data;
@@ -109,6 +110,9 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 	if (data + ETH_HLEN > data_end)
 		return false;
 	*proto = eth->h_proto;
+#else
+	*proto = ctx->protocol;
+#endif /* NODE_MAC_NONE */
 	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
 		return false; /* non-Ethernet II unsupported */
 	return true;
@@ -118,7 +122,8 @@ static __always_inline __maybe_unused bool
 __revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 		       void **l3, const __u32 l3_len, const bool pull)
 {
-	const __u32 tot_len = ETH_HLEN + l3_len;
+	const __u32 mac_len = is_defined(NODE_MAC_NONE) ? 0 : ETH_HLEN;
+	const __u32 tot_len = mac_len + l3_len;
 	void *data_end;
 	void *data;
 
@@ -134,7 +139,7 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	*data_ = data;
 	*data_end_ = data_end;
 
-	*l3 = data + ETH_HLEN;
+	*l3 = data + mac_len;
 	return true;
 }
 

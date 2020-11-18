@@ -121,8 +121,10 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 
-		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, METRIC_INGRESS);
+		ret = ipv6_l3(ctx, ETH_HLEN,
+			      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&router_mac.addr,
+			      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&host_mac.addr,
+			      METRIC_INGRESS);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
@@ -231,8 +233,10 @@ to_host:
 		union macaddr router_mac = NODE_MAC;
 		int ret;
 
-		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, ip4);
+		ret = ipv4_l3(ctx, ETH_HLEN,
+			      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&router_mac.addr,
+			      is_defined(NODE_MAC_NONE) ? NULL : (__u8 *)&host_mac.addr,
+			      ip4);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
