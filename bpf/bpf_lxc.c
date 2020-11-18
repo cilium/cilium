@@ -112,7 +112,8 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, tuple, svc, &ct_state_new);
+					&csum_off, &key, tuple, svc, &ct_state_new,
+					false);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
@@ -495,7 +496,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		if (svc) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr, has_l4_header);
+					ip4->saddr, has_l4_header, false);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;

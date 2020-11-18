@@ -508,22 +508,22 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 /* ctx_{load,store}_meta() usage: */
 enum {
 	CB_SRC_LABEL,
-#define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
+#define	CB_PORT			CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,
-#define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
-#define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
+#define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
 #define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE	/* Alias, non-overlapping */
+#define	CB_ADDR_V6_3		CB_NAT46_STATE	/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT46_STATE	/* Alias, non-overlapping */
 	CB_CT_STATE,
-#define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */

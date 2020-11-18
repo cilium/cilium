@@ -26,6 +26,10 @@
 #ifndef NATIVE_DEV_IFINDEX
 #define NATIVE_DEV_IFINDEX 0
 #endif
+#ifndef DSR_ENCAP_MODE
+#define DSR_ENCAP_MODE 0
+#define DSR_ENCAP_IPIP 2
+#endif
 #if defined(ENABLE_IPV4) && !defined(IPV4_NODEPORT)
 #define IPV4_NODEPORT 0
 #endif
@@ -202,8 +206,37 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 	return ret;
 }
 
-# ifdef ENABLE_DSR
-static __always_inline int set_dsr_ext6(struct __ctx_buff *ctx,
+#ifdef ENABLE_DSR
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
+					 const struct ipv6hdr *ip6,
+					 union v6addr *backend_addr)
+{
+	const int l3_off = ETH_HLEN;
+	struct {
+		__be16 payload_len;
+		__u8 nexthdr;
+		__u8 hop_limit;
+	} tp_new = {
+		.payload_len	= bpf_htons(bpf_ntohs(ip6->payload_len) +
+					    sizeof(*ip6)),
+		.nexthdr	= IPPROTO_IPV6,
+		.hop_limit	= 64,
+	};
+
+	if (ctx_adjust_room(ctx, sizeof(*ip6), BPF_ADJ_ROOM_NET,
+			    ctx_adjust_room_dsr_flags()))
+		return DROP_INVALID;
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, payload_len),
+			    &tp_new.payload_len, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, daddr),
+			    backend_addr, sizeof(ip6->daddr), 0) < 0)
+		return DROP_WRITE_ERROR;
+	return 0;
+}
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					union v6addr *svc_addr, __be32 svc_port)
 {
@@ -222,12 +255,12 @@ static __always_inline int set_dsr_ext6(struct __ctx_buff *ctx,
 	if (ctx_adjust_room(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
 			    ctx_adjust_room_dsr_flags()))
 		return DROP_INVALID;
-
-	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip6), &opt, sizeof(opt), 0) < 0)
+	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip6), &opt,
+			    sizeof(opt), 0) < 0)
 		return DROP_INVALID;
-
 	return 0;
 }
+#endif /* DSR_ENCAP_MODE */
 
 static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				       struct dsr_opt_v6 *dsr_opt, bool *found)
@@ -331,20 +364,25 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	union v6addr addr = {};
-	__be32 dport;
+	union v6addr addr;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	dport   = ctx_load_meta(ctx, CB_SVC_PORT);
-	addr.p1 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_1);
-	addr.p2 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_2);
-	addr.p3 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_3);
-	addr.p4 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_4);
+	addr.p1 = ctx_load_meta(ctx, CB_ADDR_V6_1);
+	addr.p2 = ctx_load_meta(ctx, CB_ADDR_V6_2);
+	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
+	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
 
-	ret = set_dsr_ext6(ctx, ip6, &addr, dport);
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ret = dsr_set_ipip6(ctx, ip6, &addr);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+	ret = dsr_set_ext6(ctx, ip6, &addr,
+			   ctx_load_meta(ctx, CB_PORT));
+#else
+# error "Invalid load balancer DSR encapsulation mode!"
+#endif
 	if (ret)
 		return ret;
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -380,7 +418,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 }
-# endif /* ENABLE_DSR */
+#endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
@@ -550,11 +588,14 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
+		const bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
+
 		if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
-				&csum_off, &key, &tuple, svc, &ct_state_new);
+				&csum_off, &key, &tuple, svc, &ct_state_new,
+				skip_xlate);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -575,10 +616,7 @@ skip_service_lookup:
 		return DROP_MISSED_TAIL_CALL;
 	}
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
-	backend_local = lookup_ip6_endpoint(ip6);
+	backend_local = __lookup_ip6_endpoint(&tuple.daddr);
 	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
 
@@ -646,11 +684,18 @@ redo_local:
 	if (!backend_local) {
 		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr6(&tuple)) {
-			ctx_store_meta(ctx, CB_SVC_PORT, key.dport);
-			ctx_store_meta(ctx, CB_SVC_ADDR_V6_1, key.address.p1);
-			ctx_store_meta(ctx, CB_SVC_ADDR_V6_2, key.address.p2);
-			ctx_store_meta(ctx, CB_SVC_ADDR_V6_3, key.address.p3);
-			ctx_store_meta(ctx, CB_SVC_ADDR_V6_4, key.address.p4);
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+			ctx_store_meta(ctx, CB_ADDR_V6_1, tuple.daddr.p1);
+			ctx_store_meta(ctx, CB_ADDR_V6_2, tuple.daddr.p2);
+			ctx_store_meta(ctx, CB_ADDR_V6_3, tuple.daddr.p3);
+			ctx_store_meta(ctx, CB_ADDR_V6_4, tuple.daddr.p4);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+			ctx_store_meta(ctx, CB_PORT, key.dport);
+			ctx_store_meta(ctx, CB_ADDR_V6_1, key.address.p1);
+			ctx_store_meta(ctx, CB_ADDR_V6_2, key.address.p2);
+			ctx_store_meta(ctx, CB_ADDR_V6_3, key.address.p3);
+			ctx_store_meta(ctx, CB_ADDR_V6_4, key.address.p4);
+#endif /* DSR_ENCAP_MODE */
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR);
 		} else {
 			ctx_store_meta(ctx, CB_NAT, NAT_DIR_EGRESS);
@@ -932,11 +977,57 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 	return ret;
 }
 
-# ifdef ENABLE_DSR
-/* Helper function to set the IPv4 option for DSR when a backend is remote.
- * NOTE: Revalidate data after calling the function.
+#ifdef ENABLE_DSR
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+/*
+ * Original packet: [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
+ * After DSR IPIP:  [clientIP -> backendIP]                        } IP
+ *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
-static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
+static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
+					 const struct iphdr *ip4,
+					 __be32 backend_addr)
+{
+	__be32 sum, service_addr = ip4->daddr;
+	const int l3_off = ETH_HLEN;
+	struct {
+		__be16 tot_len;
+		__be16 id;
+		__be16 frag_off;
+		__u8   ttl;
+		__u8   protocol;
+	} tp_old = {
+		.tot_len	= ip4->tot_len,
+		.ttl		= ip4->ttl,
+		.protocol	= ip4->protocol,
+	}, tp_new = {
+		.tot_len	= bpf_htons(bpf_ntohs(tp_old.tot_len) +
+					    sizeof(*ip4)),
+		.ttl		= 64,
+		.protocol	= IPPROTO_IPIP,
+	};
+
+	if (ctx_adjust_room(ctx, sizeof(*ip4), BPF_ADJ_ROOM_NET,
+			    ctx_adjust_room_dsr_flags()))
+		return DROP_INVALID;
+	sum = csum_diff(&service_addr, 4, &backend_addr, 4, 0);
+	sum = csum_diff(&tp_old, 8, &tp_new, 8, sum);
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, tot_len),
+			    &tp_new.tot_len, 2, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, ttl),
+			    &tp_new.ttl, 2, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
+			    &backend_addr, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
+			    0, sum, 0) < 0)
+		return DROP_CSUM_L3;
+	return 0;
+}
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4,
 					__be32 svc_addr, __be32 svc_port)
 {
@@ -983,6 +1074,7 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 
 	return 0;
 }
+#endif /* DSR_ENCAP_MODE */
 
 static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 {
@@ -1054,19 +1146,23 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	__be32 address;
-	__be16 dport;
 	int ret;
-
-	address = ctx_load_meta(ctx, CB_SVC_ADDR_V4);
-	dport = ctx_load_meta(ctx, CB_SVC_PORT);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	ret = set_dsr_opt4(ctx, ip4, address, dport);
-	if (ret != 0)
-		return DROP_INVALID;
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ret = dsr_set_ipip4(ctx, ip4,
+			    ctx_load_meta(ctx, CB_ADDR_V4));
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+	ret = dsr_set_opt4(ctx, ip4,
+			   ctx_load_meta(ctx, CB_ADDR_V4),
+			   ctx_load_meta(ctx, CB_PORT));
+#else
+# error "Invalid load balancer DSR encapsulation mode!"
+#endif
+	if (ret)
+		return ret;
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
@@ -1098,7 +1194,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 }
-# endif /* ENABLE_DSR */
+#endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
@@ -1262,12 +1358,14 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
+		const bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
+
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
 		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
-				ip4->saddr, ipv4_has_l4_header(ip4));
+				ip4->saddr, ipv4_has_l4_header(ip4), skip_xlate);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1290,10 +1388,7 @@ skip_service_lookup:
 		return DROP_MISSED_TAIL_CALL;
 	}
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	backend_local = lookup_ip4_endpoint(ip4);
+	backend_local = __lookup_ip4_endpoint(tuple.daddr);
 	if (!backend_local && lb4_svc_is_hostport(svc))
 		return DROP_INVALID;
 
@@ -1370,8 +1465,12 @@ redo_local:
 	if (!backend_local) {
 		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr4(&tuple)) {
-			ctx_store_meta(ctx, CB_SVC_PORT, key.dport);
-			ctx_store_meta(ctx, CB_SVC_ADDR_V4, key.address);
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+			ctx_store_meta(ctx, CB_ADDR_V4, tuple.daddr);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+			ctx_store_meta(ctx, CB_PORT, key.dport);
+			ctx_store_meta(ctx, CB_ADDR_V4, key.address);
+#endif /* DSR_ENCAP_MODE */
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
 		} else {
 			ctx_store_meta(ctx, CB_NAT, NAT_DIR_EGRESS);

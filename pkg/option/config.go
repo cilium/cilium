@@ -256,6 +256,8 @@ const (
 	// Alias to NodePortMode
 	LoadBalancerMode = "bpf-lb-mode"
 
+	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
+
 	// Alias to NodePortAlg
 	LoadBalancerAlg = "bpf-lb-algorithm"
 
@@ -1234,6 +1236,12 @@ const (
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
+	// DSR dispatch mode to encode service into IP option or extension header
+	DSRDispatchOption = "opt"
+
+	// DSR dispatch mode to encapsulate to IPIP
+	DSRDispatchIPIP = "ipip"
+
 	// NodePortAccelerationDisabled means we do not accelerate NodePort via XDP
 	NodePortAccelerationDisabled = XDPModeDisabled
 
@@ -1816,6 +1824,10 @@ type DaemonConfig struct {
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	NodePortAlg string
+
+	// LoadBalancerDSRDispatch indicates the method for pushing packets to
+	// backends under DSR ("opt" or "ipip")
+	LoadBalancerDSRDispatch string
 
 	// Maglev backend table size (M) per service. Must be prime number.
 	MaglevTableSize int
@@ -2578,6 +2590,7 @@ func (c *DaemonConfig) Populate() {
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
+	c.LoadBalancerDSRDispatch = viper.GetString(LoadBalancerDSRDispatch)
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
 
