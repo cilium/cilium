@@ -646,4 +646,8 @@ data:
   # Configure service proxy name for Cilium.
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
 {{- end }}
+
+{{- if .Values.extraConfig }}
+{{ toYaml .Values.extraConfig | indent 2 }}
+{{- end }}
 {{- end }}

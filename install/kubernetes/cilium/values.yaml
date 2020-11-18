@@ -109,6 +109,15 @@ extraConfigmapMounts: []
   #   configMap: certs-configmap
   #   readOnly: true
 
+# -- extraConfig allows you to specify additional configuration parameters to be
+# included in the cilium-config configmap.
+extraConfig: {}
+#  my-config-a: "1234"
+#  my-config-b: |-
+#    test 1
+#    test 2
+#    test 3
+
 # -- Node tolerations for agent scheduling to nodes with taints
 # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 tolerations:
