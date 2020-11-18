@@ -29,6 +29,18 @@ function get_list_of_veth_from_bridge() {
 HOST_PREFIX=${HOST_PREFIX:-/host}
 BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
+CNI_CONF_DIR=${CNI_CONF_DIR:-${HOST_PREFIX}/etc/cni/net.d}
+
+# .conf/.conflist/.json (undocumented) are read by kubelet/dockershim's CNI implementation.
+# Remove any active Cilium CNI configurations to prevent scheduling Pods during agent
+# downtime. Configs belonging to other CNI implementations have already been renamed
+# to *.cilium_bak during agent startup.
+echo "Removing active Cilium CNI configurations from ${CNI_CONF_DIR}..."
+find "${CNI_CONF_DIR}" -maxdepth 1 -type f \
+  -name '*cilium*' -and \( \
+    -name '*.conf' -or \
+    -name '*.conflist' \
+  \) -delete
 
 echo "Removing ${CNI_DIR}/bin/cilium-cni..."
 rm -f "${CNI_DIR}/bin/${BIN_NAME}"
