@@ -78,6 +78,7 @@ const (
 	argDebugVerboseFlow    = "flow"
 	argDebugVerboseKvstore = "kvstore"
 	argDebugVerboseEnvoy   = "envoy"
+	argDebugVerbosePolicy  = "policy"
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
@@ -876,6 +877,8 @@ func initEnv(cmd *cobra.Command) {
 		case argDebugVerboseEnvoy:
 			log.Debugf("Enabling Envoy tracing")
 			envoy.EnableTracing()
+		case argDebugVerbosePolicy:
+			option.Config.Opts.SetBool(option.DebugPolicy, true)
 		default:
 			log.Warningf("Unknown verbose debug group: %s", grp)
 		}
