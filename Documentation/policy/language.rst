@@ -828,11 +828,12 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 
         .. literalinclude:: ../../examples/policies/l7/http/http.json
 
+.. _kafka_policy:
 
 Kafka (beta)
 ------------
 
-.. note:: Kafka support is currently in beta phase.
+.. include:: ../beta.rst
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
