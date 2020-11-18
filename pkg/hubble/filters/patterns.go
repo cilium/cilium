@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	// fqdnRegexpStr matches an FQDN.
+	// fqdnRegexpStr matches an FQDN, inluding underscores.
 	// FIXME this should not match components that begin or end with hyphens, e.g. -foo-
-	fqdnRegexpStr = `(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*)`
+	fqdnRegexpStr = `(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)`
 	_             = regexp.MustCompile(fqdnRegexpStr) // compile regexp to ensure that it is valid
 
 	errEmptyPattern                  = errors.New("empty pattern")
@@ -60,6 +60,8 @@ func appendFQDNPatternRegexp(sb *strings.Builder, fqdnPattern string) error {
 		case r == '-':
 			fallthrough
 		case '0' <= r && r <= '9':
+			fallthrough
+		case r == '_':
 			fallthrough
 		case 'a' <= r && r <= 'z':
 			sb.WriteRune(r)
