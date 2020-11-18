@@ -15,19 +15,27 @@
 package endpoint
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
 	Subsystem = "endpoint"
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+	policyLog = logrus.New()
+
+	policyLogOnce sync.Once
 )
 
 const (
@@ -39,6 +47,20 @@ const (
 func (e *Endpoint) getLogger() *logrus.Entry {
 	v := atomic.LoadPointer(&e.logger)
 	return (*logrus.Entry)(v)
+}
+
+// getPolicyLogger returns a logger to be used for policy update debugging, or nil,
+// if not configured.
+func (e *Endpoint) getPolicyLogger() *logrus.Entry {
+	v := atomic.LoadPointer(&e.policyLogger)
+	return (*logrus.Entry)(v)
+}
+
+// policyDebug logs the 'msg' with 'fields' if policy debug logging is enabled.
+func (e *Endpoint) policyDebug(fields logrus.Fields, msg string) {
+	if dbgLog := e.getPolicyLogger(); dbgLog != nil {
+		dbgLog.WithFields(fields).Debug(msg)
+	}
 }
 
 // Logger returns a logrus object with EndpointID, containerID and the Endpoint
@@ -57,6 +79,7 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 // endpoint's logger, otherwise a full update of those fields is executed.
 // Note: You must hold Endpoint.Mutex for reading if fields is nil.
 func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
+	e.updatePolicyLogger(fields)
 	v := atomic.LoadPointer(&e.logger)
 	epLogger := (*logrus.Entry)(v)
 	if fields != nil && epLogger != nil {
@@ -114,4 +137,62 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	}
 
 	atomic.StorePointer(&e.logger, unsafe.Pointer(l))
+}
+
+func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
+	pv := atomic.LoadPointer(&e.policyLogger)
+	policyLogger := (*logrus.Entry)(pv)
+	// e.Options check needed for unit testing.
+	if policyLogger == nil && e.Options != nil && e.Options.IsEnabled(option.DebugPolicy) {
+		policyLogOnce.Do(func() {
+			maxSize := 10 // 10 MB
+			if ms := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_SIZE"); ms != "" {
+				if ms, err := strconv.Atoi(ms); err == nil {
+					maxSize = ms
+				}
+			}
+			maxBackups := 3
+			if mb := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_BACKUPS"); mb != "" {
+				if mb, err := strconv.Atoi(mb); err == nil {
+					maxBackups = mb
+				}
+			}
+			lumberjackLogger := &lumberjack.Logger{
+				Filename:   filepath.Join(option.Config.StateDir, "endpoint-policy.log"),
+				MaxSize:    maxSize,
+				MaxBackups: maxBackups,
+				MaxAge:     28, // days
+				LocalTime:  true,
+				Compress:   true,
+			}
+			policyLog.SetOutput(lumberjackLogger)
+			policyLog.SetLevel(logrus.DebugLevel)
+		})
+		policyLogger = logrus.NewEntry(policyLog)
+	}
+	if policyLogger == nil || e.Options == nil {
+		return
+	}
+
+	if !e.Options.IsEnabled(option.DebugPolicy) {
+		policyLogger = nil
+	} else if fields != nil {
+		policyLogger = policyLogger.WithFields(fields)
+	} else {
+		policyLogger = policyLogger.WithFields(logrus.Fields{
+			logfields.LogSubsys:              Subsystem,
+			logfields.EndpointID:             e.ID,
+			logfields.ContainerID:            e.getShortContainerID(),
+			logfields.DatapathPolicyRevision: e.policyRevision,
+			logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
+			logfields.IPv4:                   e.IPv4.String(),
+			logfields.IPv6:                   e.IPv6.String(),
+			logfields.K8sPodName:             e.getK8sNamespaceAndPodName(),
+		})
+
+		if e.SecurityIdentity != nil {
+			policyLogger = policyLogger.WithField(logfields.Identity, e.SecurityIdentity.ID.StringID())
+		}
+	}
+	atomic.StorePointer(&e.policyLogger, unsafe.Pointer(policyLogger))
 }

@@ -25,6 +25,7 @@ const (
 	Conntrack           = "Conntrack"
 	Debug               = "Debug"
 	DebugLB             = "DebugLB"
+	DebugPolicy         = "DebugPolicy"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
 	MonitorAggregation  = "MonitorAggregationLevel"
@@ -66,6 +67,11 @@ var (
 	specDebugLB = Option{
 		Define:      "LB_DEBUG",
 		Description: "Enable debugging trace statements for load balancer",
+	}
+
+	specDebugPolicy = Option{
+		Define:      "POLICY_DEBUG",
+		Description: "Enable debugging trace statements for policy enforcement",
 	}
 
 	specDropNotify = Option{
