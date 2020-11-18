@@ -54,6 +54,7 @@ done
 BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
+CNI_CONF_DIR="$(dirname "$CILIUM_CNI_CONF")"
 
 if [ ! -d "${CNI_DIR}/bin" ]; then
 	mkdir -p "${CNI_DIR}/bin"
@@ -77,6 +78,19 @@ if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
 fi
 
 cp "/opt/cni/bin/${BIN_NAME}" "${CNI_DIR}/bin/"
+
+# Remove any active Cilium CNI configurations left over from previous installs
+# to make sure the one we're installing later will take effect.
+# Ignore the file specified by CNI_CONF_NAME. The agent will use this
+# filename to write a user-specified CNI config and races against this script.
+echo "Removing active Cilium CNI configurations from ${CNI_CONF_DIR}})..."
+find "${CNI_CONF_DIR}" -maxdepth 1 -type f \
+  -name '*cilium*' -and \( \
+    -name '*.conf' -or \
+    -name '*.conflist' \
+  \) \
+  -not -name "${CNI_CONF_NAME}" \
+  -delete
 
 # Rename all remaining CNI configurations to *.cilium_bak. This ensures only
 # Cilium's CNI plugin will remain active. This makes sure Pods are not
@@ -194,14 +208,3 @@ if [ ! -d "$(dirname "$CILIUM_CNI_CONF")" ]; then
 fi
 
 mv "${CNI_CONF_NAME}" "${CILIUM_CNI_CONF}"
-
-# Allow switching between chaining and direct CNI mode by removing the
-# currently unused configuration file
-case "${CNI_CONF_NAME}" in
-"05-cilium.conf")
-	rm "${HOST_PREFIX}/etc/cni/net.d/05-cilium.conflist" || true
-	;;
-"05-cilium.conflist")
-	rm "${HOST_PREFIX}/etc/cni/net.d/05-cilium.conf" || true
-	;;
-esac
