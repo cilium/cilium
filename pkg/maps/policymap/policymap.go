@@ -195,6 +195,16 @@ type PolicyEntryDump struct {
 // PolicyEntriesDump is a wrapper for a slice of PolicyEntryDump
 type PolicyEntriesDump []PolicyEntryDump
 
+// String returns a string representation of PolicyEntriesDump
+func (p PolicyEntriesDump) String() string {
+	var sb strings.Builder
+	for _, entry := range p {
+		sb.WriteString(fmt.Sprintf("%20s: %s\n",
+			entry.Key.String(), entry.PolicyEntry.String()))
+	}
+	return sb.String()
+}
+
 // Less is a function used to sort PolicyEntriesDump by Policy Type
 // (Deny / Allow), TrafficDirection (Ingress / Egress) and Identity
 // (ascending order).
@@ -343,16 +353,11 @@ func (pm *PolicyMap) String() string {
 }
 
 func (pm *PolicyMap) Dump() (string, error) {
-	var sb strings.Builder
 	entries, err := pm.DumpToSlice()
 	if err != nil {
 		return "", err
 	}
-	for _, entry := range entries {
-		sb.WriteString(fmt.Sprintf("%20s: %s\n",
-			entry.Key.String(), entry.PolicyEntry.String()))
-	}
-	return sb.String(), nil
+	return entries.String(), nil
 }
 
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {

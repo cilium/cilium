@@ -88,6 +88,7 @@ const (
 	argDebugVerboseKvstore  = "kvstore"
 	argDebugVerboseEnvoy    = "envoy"
 	argDebugVerboseDatapath = "datapath"
+	argDebugVerbosePolicy   = "policy"
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
@@ -962,6 +963,8 @@ func initEnv(cmd *cobra.Command) {
 		case argDebugVerboseDatapath:
 			log.Debugf("Enabling datapath debug messages")
 			debugDatapath = true
+		case argDebugVerbosePolicy:
+			option.Config.Opts.SetBool(option.DebugPolicy, true)
 		default:
 			log.Warningf("Unknown verbose debug group: %s", grp)
 		}

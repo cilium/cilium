@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -67,6 +69,11 @@ type Key struct {
 	// TrafficDirection indicates in which direction Identity is allowed
 	// communication (egress or ingress).
 	TrafficDirection uint8
+}
+
+// String returns a string representation of the Key
+func (k Key) String() string {
+	return fmt.Sprintf("Identity=%d,DestPort=%d,Nexthdr=%d,TrafficDirection=%d", k.Identity, k.DestPort, k.Nexthdr, k.TrafficDirection)
 }
 
 // IsIngress returns true if the key refers to an ingress policy key
@@ -126,6 +133,11 @@ func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 	}
 
 	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort
+}
+
+// String returns a string representation of the MapStateEntry
+func (e MapStateEntry) String() string {
+	return fmt.Sprintf("ProxyPort=%d", e.ProxyPort)
 }
 
 // DenyPreferredInsert inserts a key and entry into the map by given preference

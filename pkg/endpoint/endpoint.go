@@ -126,8 +126,7 @@ type Endpoint struct {
 	// recalculated on endpoint restore.
 	createdAt time.Time
 
-	// mutex protects write operations to this endpoint structure except
-	// for the logger field which has its own mutex
+	// mutex protects write operations to this endpoint structure
 	mutex lock.RWMutex
 
 	// containerName is the name given to the endpoint by the container runtime
@@ -280,8 +279,16 @@ type Endpoint struct {
 	buildMutex lock.Mutex
 
 	// logger is a logrus object with fields set to report an endpoints information.
-	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
+	// This must only be accessed with atomic.LoadPointer/StorePointer.
+	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
+	// when loading this pointer.
 	logger unsafe.Pointer
+
+	// policyLogger is a logrus object with fields set to report an endpoints information.
+	// This must only be accessed with atomic LoadPointer/StorePointer.
+	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
+	// when loading this pointer.
+	policyLogger unsafe.Pointer
 
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
