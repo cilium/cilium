@@ -15,9 +15,9 @@
 package policymap
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -138,6 +138,16 @@ type PolicyEntryDump struct {
 
 // PolicyEntriesDump is a wrapper for a slice of PolicyEntryDump
 type PolicyEntriesDump []PolicyEntryDump
+
+// String returns a string representation of PolicyEntriesDump
+func (p PolicyEntriesDump) String() string {
+	var sb strings.Builder
+	for _, entry := range p {
+		sb.WriteString(fmt.Sprintf("%20s: %s\n",
+			entry.Key.String(), entry.PolicyEntry.String()))
+	}
+	return sb.String()
+}
 
 // Less returns true if the element in index `i` has the value of
 // TrafficDirection lower than `j`'s TrafficDirection or if the element in index
@@ -263,16 +273,11 @@ func (pm *PolicyMap) String() string {
 }
 
 func (pm *PolicyMap) Dump() (string, error) {
-	var buffer bytes.Buffer
 	entries, err := pm.DumpToSlice()
 	if err != nil {
 		return "", err
 	}
-	for _, entry := range entries {
-		buffer.WriteString(fmt.Sprintf("%20s: %s\n",
-			entry.Key.String(), entry.PolicyEntry.String()))
-	}
-	return buffer.String(), nil
+	return entries.String(), nil
 }
 
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
