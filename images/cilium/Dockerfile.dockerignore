@@ -25,6 +25,7 @@
 !/contrib/packaging/docker
 !/daemon
 !/envoy
+!/operator/option
 !/pkg
 !/plugins/cilium-cni
 !/proxylib
