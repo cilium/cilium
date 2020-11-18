@@ -21,6 +21,7 @@ var (
 		Conntrack:           &specConntrack,
 		Debug:               &specDebug,
 		DebugLB:             &specDebugLB,
+		DebugPolicy:         &specDebugPolicy,
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
 		PolicyVerdictNotify: &specPolicyVerdictNotify,
