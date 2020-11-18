@@ -91,6 +91,9 @@ const (
 
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
+
+	metricsIngress = "ingress"
+	metricsEgress  = "egress"
 )
 
 type action int
@@ -555,7 +558,13 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		return nil
 	}
 
-	stats := newNatGCStats(natMap)
+	family := gcFamilyIPv4
+	if ctMapTCP.mapType.isIPv6() {
+		family = gcFamilyIPv6
+	}
+	stats := newNatGCStats(natMap, family)
+	defer stats.finish()
+
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		natKey := key.(nat.NatKey)
 		natVal := value.(nat.NatEntry)
