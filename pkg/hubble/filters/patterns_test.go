@@ -73,6 +73,11 @@ func TestCompileFQDNPattern(t *testing.T) {
 			want:         `\A(?:cilium\.io)\z`,
 		},
 		{
+			name:         "underscores",
+			fqdnPatterns: []string{"_ldap._tcp.example.com"},
+			want:         `\A(?:_ldap\._tcp\.example\.com)\z`,
+		},
+		{
 			name:            "empty_after_trim",
 			fqdnPatterns:    []string{"  .  "},
 			wantErr:         true,
@@ -80,7 +85,7 @@ func TestCompileFQDNPattern(t *testing.T) {
 		},
 		{
 			name:            "invalid rune",
-			fqdnPatterns:    []string{"_"},
+			fqdnPatterns:    []string{"?"},
 			wantErr:         true,
 			wantErrContains: "invalid rune in pattern",
 		},
@@ -120,27 +125,27 @@ func TestCompileNodeNamePatterns(t *testing.T) {
 		{
 			name:             "all",
 			nodeNamePatterns: []string{"/"},
-			want:             `\A(?:(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*)/(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*))\z`,
+			want:             `\A(?:(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)/(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*))\z`,
 		},
 		{
 			name:             "node_pattern_only",
 			nodeNamePatterns: []string{"runtime1"},
-			want:             `\A(?:(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*)/runtime1)\z`,
+			want:             `\A(?:(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)/runtime1)\z`,
 		},
 		{
 			name:             "cluster_pattern_only",
 			nodeNamePatterns: []string{"cluster-name/"},
-			want:             `\A(?:cluster-name/(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*))\z`,
+			want:             `\A(?:cluster-name/(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*))\z`,
 		},
 		{
 			name:             "wildcard_node_pattern",
 			nodeNamePatterns: []string{"k8s*"},
-			want:             `\A(?:(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*)/k8s[-\.0-9a-z]*)\z`,
+			want:             `\A(?:(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)/k8s[-\.0-9a-z]*)\z`,
 		},
 		{
 			name:             "multiple_patterns",
 			nodeNamePatterns: []string{"runtime1", "test-cluster/k8s1"},
-			want:             `\A(?:(?:[-0-9a-z]+(?:\.[-0-9a-z]+)*)/runtime1|test-cluster/k8s1)\z`,
+			want:             `\A(?:(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)/runtime1|test-cluster/k8s1)\z`,
 		},
 		{
 			name:             "empty_pattern",
@@ -150,13 +155,13 @@ func TestCompileNodeNamePatterns(t *testing.T) {
 		},
 		{
 			name:             "invalid_rune_in_node_pattern",
-			nodeNamePatterns: []string{"_"},
+			nodeNamePatterns: []string{"?"},
 			wantErr:          true,
 			wantErrContains:  "invalid rune in pattern",
 		},
 		{
 			name:             "invalid_rune_in_cluster_pattern",
-			nodeNamePatterns: []string{"_/"},
+			nodeNamePatterns: []string{"?/"},
 			wantErr:          true,
 			wantErrContains:  "invalid rune in pattern",
 		},

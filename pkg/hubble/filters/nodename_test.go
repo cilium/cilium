@@ -120,13 +120,13 @@ func TestNodeFilter(t *testing.T) {
 		},
 		{
 			name:            "invalid_cluster_pattern",
-			nodeName:        []string{"cluster_name/"},
+			nodeName:        []string{"cluster|name/"},
 			wantErr:         true,
 			wantErrContains: "invalid rune in pattern",
 		},
 		{
 			name:            "invalid_node_pattern",
-			nodeName:        []string{"cluster-name/node_name"},
+			nodeName:        []string{"cluster-name/node|name"},
 			wantErr:         true,
 			wantErrContains: "invalid rune in pattern",
 		},
