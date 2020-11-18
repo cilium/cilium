@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -56,6 +58,11 @@ type Key struct {
 	TrafficDirection uint8
 }
 
+// String returns a string representation of the Key
+func (k Key) String() string {
+	return fmt.Sprintf("Identity=%d,DestPort=%d,Nexthdr=%d,TrafficDirection=%d", k.Identity, k.DestPort, k.Nexthdr, k.TrafficDirection)
+}
+
 // IsIngress returns true if the key refers to an ingress policy key
 func (k Key) IsIngress() bool {
 	return k.TrafficDirection == trafficdirection.Ingress.Uint8()
@@ -73,6 +80,11 @@ type MapStateEntry struct {
 	// If 0 (default), there is no proxy redirection for the corresponding
 	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
+}
+
+// String returns a string representation of the MapStateEntry
+func (e MapStateEntry) String() string {
+	return fmt.Sprintf("ProxyPort=%d", e.ProxyPort)
 }
 
 // NoRedirectEntry is a special MapStateEntry used to signify that the

@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"fmt"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -44,6 +45,10 @@ type selectorPolicy struct {
 	EgressPolicyEnabled bool
 }
 
+func (s *selectorPolicy) String() string {
+	return fmt.Sprintf("Revision=%d,SelectorCache=%s,L4Policy=%s,CIDRPolicy=%s,IngressPolicyEnabled=%d,EgressPolicyEnabled=%d", s.Revision, s.SelectorCache, s.L4Policy, s.CIDRPolicy, s.IngressPolicyEnabled, s.EgressPolicyEnabled)
+}
+
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
 	if p.L4Policy != nil {
 		p.L4Policy.Attach(ctx)
@@ -71,6 +76,12 @@ type EndpointPolicy struct {
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
+}
+
+func (e *EndpointPolicy) String() string {
+	// NOTE: don't include PolicyOwner, otherwise it will deadlock
+	return fmt.Sprintf("selectorPolicy=%+v,PolicyMapState=%+v,policyMapChanges=%+v",
+		e.selectorPolicy, e.PolicyMapState, e.policyMapChanges)
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.

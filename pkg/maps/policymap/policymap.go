@@ -105,6 +105,16 @@ type PolicyEntryDump struct {
 // PolicyEntriesDump is a wrapper for a slice of PolicyEntryDump
 type PolicyEntriesDump []PolicyEntryDump
 
+// String returns a string representation of PolicyEntriesDump
+func (p PolicyEntriesDump) String() string {
+	var buffer bytes.Buffer
+	for _, entry := range p {
+		buffer.WriteString(fmt.Sprintf("%20s: %s\n",
+			entry.Key.String(), entry.PolicyEntry.String()))
+	}
+	return buffer.String()
+}
+
 // Less returns true if the element in index `i` has the value of
 // TrafficDirection lower than `j`'s TrafficDirection or if the element in index
 // `i` has the value of TrafficDirection lower and equal than `j`'s
@@ -229,16 +239,11 @@ func (pm *PolicyMap) String() string {
 }
 
 func (pm *PolicyMap) Dump() (string, error) {
-	var buffer bytes.Buffer
 	entries, err := pm.DumpToSlice()
 	if err != nil {
 		return "", err
 	}
-	for _, entry := range entries {
-		buffer.WriteString(fmt.Sprintf("%20s: %s\n",
-			entry.Key.String(), entry.PolicyEntry.String()))
-	}
-	return buffer.String(), nil
+	return entries.String(), nil
 }
 
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {

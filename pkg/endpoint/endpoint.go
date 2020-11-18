@@ -268,6 +268,10 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
 	logger unsafe.Pointer
 
+	// policyLogger is a logrus object with fields set to report an endpoints information.
+	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
+	policyLogger unsafe.Pointer
+
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
 	controllers *controller.Manager
