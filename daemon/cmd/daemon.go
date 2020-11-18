@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -133,6 +134,8 @@ type Daemon struct {
 
 	mtuConfig     mtu.Configuration
 	policyTrigger *trigger.Trigger
+
+	datapathRegenTrigger *trigger.Trigger
 
 	// datapath is the underlying datapath implementation to use to
 	// implement all aspects of an agent
@@ -440,6 +443,20 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		return nil, nil, err
 	}
 	d.policyTrigger = t
+
+	// Reuse policyTriggerMetrics and PolicyTriggerInterval here since
+	// this is only triggered by agent configuration changes for now
+	// and should be counted in policyTriggerMetrics.
+	regenerationTrigger, err := trigger.NewTrigger(trigger.Parameters{
+		Name:            "datapath-regeneration",
+		MetricsObserver: &policyTriggerMetrics{},
+		MinInterval:     option.Config.PolicyTriggerInterval,
+		TriggerFunc:     d.datapathRegen,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	d.datapathRegenTrigger = regenerationTrigger
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
@@ -803,6 +820,9 @@ func (d *Daemon) Close() {
 	if d.policyTrigger != nil {
 		d.policyTrigger.Shutdown()
 	}
+	if d.datapathRegenTrigger != nil {
+		d.datapathRegenTrigger.Shutdown()
+	}
 	d.nodeDiscovery.Close()
 }
 
@@ -827,6 +847,27 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 		RegenerationLevel: regeneration.RegenerateWithDatapathLoad,
 	}
 	return d.endpointManager.RegenerateAllEndpoints(regenRequest), nil
+}
+
+func (d *Daemon) datapathRegen(reasons []string) {
+	reason := strings.Join(reasons, ", ")
+
+	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            reason,
+		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+	}
+	d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
+}
+
+// TriggerDatapathRegen triggers datapath rewrite for every daemon's endpoint.
+// This is only called after agent configuration changes for now. Policy revision
+// needs to be increased on PolicyEnforcement mode change.
+func (d *Daemon) TriggerDatapathRegen(force bool, reason string) {
+	if force {
+		log.Debug("PolicyEnforcement mode changed, increasing policy revision to enforce policy recalculation")
+		d.policy.BumpRevision()
+	}
+	d.datapathRegenTrigger.TriggerWithReason(reason)
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {

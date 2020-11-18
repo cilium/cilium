@@ -16,12 +16,16 @@ package endpoint
 
 import "fmt"
 
+var (
+	ErrEndpointDeleted = fmt.Errorf("lock failed: endpoint is in the process of being removed")
+)
+
 // lockAlive returns error if endpoint was removed, locks underlying mutex otherwise
 func (e *Endpoint) lockAlive() error {
 	e.mutex.Lock()
 	if e.IsDisconnecting() {
 		e.mutex.Unlock()
-		return fmt.Errorf("lock failed: endpoint is in the process of being removed")
+		return ErrEndpointDeleted
 	}
 	return nil
 }

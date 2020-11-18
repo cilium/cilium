@@ -692,6 +692,17 @@ func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 	return changed
 }
 
+// ApplyOpts tries to lock endpoint, applies the given options to the
+// endpoint's options and returns true if there were any options changed.
+func (e *Endpoint) ApplyOpts(opts option.OptionMap) (bool, error) {
+	if err := e.lockAlive(); err != nil {
+		return false, err
+	}
+	defer e.unlock()
+	changed := e.applyOptsLocked(opts)
+	return changed, nil
+}
+
 // forcePolicyComputation ensures that upon the next policy calculation for this
 // Endpoint, that no short-circuiting of said operation occurs.
 func (e *Endpoint) forcePolicyComputation() {
