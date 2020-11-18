@@ -252,6 +252,8 @@ func leasesFallbackDiscovery(client kubernetes.Interface, conf k8sconfig.Configu
 }
 
 func updateK8sServerVersion(client kubernetes.Interface) error {
+	var ver go_version.Version
+
 	sv, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return err
@@ -260,7 +262,7 @@ func updateK8sServerVersion(client kubernetes.Interface) error {
 	// Try GitVersion first. In case of error fallback to MajorMinor
 	if sv.GitVersion != "" {
 		// This is a string like "v1.9.0"
-		ver, err := versioncheck.Version(sv.GitVersion)
+		ver, err = versioncheck.Version(sv.GitVersion)
 		if err == nil {
 			updateVersion(ver)
 			return nil
@@ -268,18 +270,14 @@ func updateK8sServerVersion(client kubernetes.Interface) error {
 	}
 
 	if sv.Major != "" && sv.Minor != "" {
-		ver, err := versioncheck.Version(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
+		ver, err = versioncheck.Version(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
 		if err == nil {
 			updateVersion(ver)
 			return nil
 		}
 	}
 
-	if err != nil {
-		return fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
-	}
-
-	return fmt.Errorf("cannot parse k8s server version from %+v", sv)
+	return fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
 }
 
 // Update retrieves the version of the Kubernetes apiserver and derives the
