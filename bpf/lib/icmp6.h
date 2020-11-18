@@ -382,7 +382,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 		return send_icmp6_ndisc_adv(ctx, nh_off, &router_mac, true);
 	}
 
-	ep = lookup_ip6_endpoint_from_daddr(&target);
+	ep = __lookup_ip6_endpoint(&target);
 	if (ep) {
 		union macaddr router_mac = NODE_MAC;
 
