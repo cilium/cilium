@@ -66,14 +66,66 @@ Dockerfile* @cilium/build
 /daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/sysctl_linux.go @cilium/bpf
 /Documentation/ @cilium/docs-structure
-/Documentation/cmdref @cilium/nonexistantteam
-/Documentation/bpf.rst @cilium/bpf
-/Documentation/contributing/ @cilium/contributing
-/Documentation/envoy/ @cilium/proxy
-/Documentation/gettingstarted/hubble-enable.rst @cilium/hubble
-/Documentation/gettingstarted/hubble-install.rst @cilium/hubble
-/Documentation/gettingstarted/hubble.rst @cilium/hubble
-/Documentation/hubble.rst @cilium/hubble
+/Documentation/_static/ @cilium/docs-structure
+/Documentation/api.rst @cilium/agent @cilium/docs-structure
+/Documentation/beta.rst @cilium/docs-structure
+/Documentation/bpf.rst @cilium/bpf @cilium/docs-structure
+/Documentation/check-build.sh @cilium/docs-structure
+/Documentation/check-cmdref.sh @cilium/docs-structure
+/Documentation/check-crd-compat-table.sh @cilium/docs-structure
+/Documentation/check-examples.sh @cilium/docs-structure
+/Documentation/cmdref/ @cilium/nonexistantteam
+/Documentation/commit-access.rst @cilium/contributing @cilium/docs-structure
+/Documentation/community.rst @cilium/contributing
+/Documentation/concepts/ebpf/ @cilium/bpf @cilium/docs-structure
+/Documentation/concepts/index.rst @cilium/docs-structure
+/Documentation/concepts/kubernetes/ @cilium/kubernetes @cilium/docs-structure
+/Documentation/concepts/networking/ipam/ @cilium/ipam @cilium/docs-structure
+/Documentation/concepts/networking/ipam/eni* @cilium/ipam @cilium/aws @cilium/docs-structure
+/Documentation/concepts/networking/ipam/azure* @cilium/ipam @cilium/azure @cilium/docs-structure
+/Documentation/concepts/observability/hubble-configuration.rst @cilium/hubble @cilium/docs-structure
+/Documentation/concepts/overview.rst @cilium/docs-structure
+/Documentation/concepts/security/proxy/ @cilium/proxy @cilium/docs-structure
+/Documentation/conf.py @cilium/docs-structure
+/Documentation/configuration/index.rst @cilium/docs-structure
+/Documentation/contributing/ @cilium/contributing @cilium/docs-structure
+/Documentation/Dockerfile @cilium/docs-structure
+/Documentation/gettinghelp.rst @cilium/contributing @cilium/docs-structure
+/Documentation/gettingstarted/aws* @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/bandwidth-manager.rst @cilium/bpf @cilium/docs-structure
+/Documentation/gettingstarted/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/cni-chaining-azure-cni.rst @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/docker.rst @cilium/docker @cilium/docs-structure
+/Documentation/gettingstarted/http.rst @cilium/policy @cilium/docs-structure
+/Documentation/gettingstarted/hubble* @cilium/hubble @cilium/docs-structure
+/Documentation/gettingstarted/index.rst @cilium/docs-structure
+/Documentation/gettingstarted/ipam.rst @cilium/ipam @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-azure.rst @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-eks.rst @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-azure-cni-validate.rst @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-remove-aws-node.rst @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-azure-cni-steps.rst @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-aks* @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/kind-configure.rst @cilium/docs-structure
+/Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
+/Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
+/Documentation/glossary.rst @cilium/docs-structure
+/Documentation/hubble.rst @cilium/hubble @cilium/docs-structure
+/Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
+/Documentation/index.rst @cilium/docs-structure
+/Documentation/intro.rst @cilium/docs-structure
+/Documentation/images/bpf* @cilium/bpf @cilium/docs-structure
+/Documentation/images/hubble_getflows.png @cilium/hubble @cilium/docs-structure
+/Documentation/Makefile @cilium/docs-structure
+/Documentation/operations/performance/ @cilium/bpf @cilium/docs-structure
+/Documentation/operations/system_requirements.rst @cilium/bpf @cilium/docs-structure
+/Documentation/policy/ @cilium/policy @cilium/docs-structure
+/Documentation/requirements.txt @cilium/docs-structure
+/Documentation/spelling_wordlist.txt @cilium/docs-structure
+/Documentation/tech-preview.rst @cilium/docs-structure
+/Documentation/update-cmdref.sh @cilium/docs-structure
+/Documentation/update-spelling_wordlist.sh @cilium/docs-structure
+/Documentation/yaml.config @cilium/docs-structure
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs-structure
 /examples/crds/ @cilium/kubernetes
