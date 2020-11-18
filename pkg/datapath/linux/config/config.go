@@ -451,7 +451,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
-	if option.Config.PolicyAuditMode {
+	// option.Config.Opts.Opts stores agent mutable config options. We check PolicyAuditMode
+	// by its value instead of option.Config.PolicyAuditMode since PolicyAuditMode can be changed
+	// by cilium CLI/API at runtime and need to be written to bpf header files.
+	if val, ok := option.Config.Opts.Opts[option.PolicyAuditMode]; ok && val != option.OptionDisabled {
 		cDefinesMap["POLICY_AUDIT_MODE"] = "1"
 	}
 
