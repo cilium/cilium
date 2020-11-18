@@ -34,4 +34,6 @@ spec:
   tolerations:
   - key: "node.kubernetes.io/not-ready"
     operator: "Exists"
+  - key: "node.kubernetes.io/unreachable"
+    operator: "Exists"
   hostNetwork: true
