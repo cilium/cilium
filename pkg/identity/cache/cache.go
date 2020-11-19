@@ -104,7 +104,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 }
 
 type identityWatcher struct {
-	stopChan chan bool
+	stopChan chan struct{}
 	owner    IdentityAllocatorOwner
 }
 

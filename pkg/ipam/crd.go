@@ -79,7 +79,7 @@ type nodeStore struct {
 	allocationPoolSize map[Family]int
 
 	// signal for completion of restoration
-	restoreFinished  chan bool
+	restoreFinished  chan struct{}
 	restoreCloseOnce sync.Once
 
 	conf Configuration
@@ -95,7 +95,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
 	}
-	store.restoreFinished = make(chan bool)
+	store.restoreFinished = make(chan struct{})
 	ciliumClient := k8s.CiliumClient()
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
