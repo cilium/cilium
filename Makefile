@@ -350,6 +350,9 @@ generate-health-api: api/v1/health/openapi.yaml
 	@# sort goimports automatically
 	-$(QUIET) find api/v1/health/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
+generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
+
 generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
@@ -603,5 +606,5 @@ update-images-go-version:
 	$(QUIET) $(MAKE) -C images update-golang-image
 	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
 
-.PHONY: build-context-update clean-build clean clean-container force generate-api generate-health-api install licenses-all veryclean
+.PHONY: build-context-update clean-build clean clean-container force generate-api generate-health-api generate-hubble-api install licenses-all veryclean
 force :;
