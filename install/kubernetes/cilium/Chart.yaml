@@ -1,9 +1,22 @@
 apiVersion: v2
 name: cilium
+displayName: Cilium
 home: https://cilium.io/
 version: 1.9.90
 appVersion: 1.9.90
-description: Helm chart for Cilium
+kubeVersion: ">= 1.12.0-0"
+icon: https://raw.githubusercontent.com/cilium/cilium/master/Documentation/images/logo-solo.svg
+description: eBPF-based Networking, Security, and Observability
 keywords:
+  - BPF
+  - eBPF
+  - Kubernetes
+  - Networking
+  - Security
+  - Observability
+  - Troubleshooting
 sources:
   - https://github.com/cilium/cilium
+links:
+  - name: eBPF.io
+    url: https://ebpf.io/
