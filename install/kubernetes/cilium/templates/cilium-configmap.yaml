@@ -547,7 +547,7 @@ data:
 {{- if hasKey .Values "healthChecking" }}
   enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
-{{- if or .Values.wellKnownIdentities.enabled .Values.etcd.managed }}
+{{- if .Values.etcd.managed }}
   enable-well-known-identities: "true"
 {{- else }}
   enable-well-known-identities: "false"

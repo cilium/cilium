@@ -922,11 +922,6 @@ tls:
 #   - geneve
 tunnel: "vxlan"
 
-wellKnownIdentities:
-  # -- Enable the use of well-known identities.
-  enabled: false
-
-
 etcd:
   # -- Enable etcd mode for the agent.
   enabled: false
