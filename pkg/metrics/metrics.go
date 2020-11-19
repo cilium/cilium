@@ -178,6 +178,9 @@ const (
 
 	// LabelVersion is the label for the version number
 	LabelVersion = "version"
+
+	// LabelDirection is the label for traffic direction
+	LabelDirection = "direction"
 )
 
 var (
@@ -897,7 +900,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "drop_count_total",
 				Help:      "Total dropped packets, tagged by drop reason and ingress/egress direction",
 			},
-				[]string{"reason", "direction"})
+				[]string{"reason", LabelDirection})
 
 			collectors = append(collectors, DropCount)
 			c.DropCountEnabled = true
@@ -908,7 +911,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "drop_bytes_total",
 				Help:      "Total dropped bytes, tagged by drop reason and ingress/egress direction",
 			},
-				[]string{"reason", "direction"})
+				[]string{"reason", LabelDirection})
 
 			collectors = append(collectors, DropBytes)
 			c.DropBytesEnabled = true
@@ -919,7 +922,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "forward_count_total",
 				Help:      "Total forwarded packets, tagged by ingress/egress direction",
 			},
-				[]string{"direction"})
+				[]string{LabelDirection})
 
 			collectors = append(collectors, ForwardCount)
 			c.NoOpCounterVecEnabled = true
@@ -930,7 +933,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "forward_bytes_total",
 				Help:      "Total forwarded bytes, tagged by ingress/egress direction",
 			},
-				[]string{"direction"})
+				[]string{LabelDirection})
 
 			collectors = append(collectors, ForwardBytes)
 			c.ForwardBytesEnabled = true
