@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
 # Backwards compatibility
-if [ ! -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
+if [ -n "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
 	CILIUM_CNI_CHAINING_MODE="flannel"
 fi
 
@@ -35,7 +35,8 @@ ENABLE_DEBUG=false
 while test $# -gt 0; do
   case "$1" in
     --enable-debug*)
-      ENABLE_DEBUG=`echo $1 | sed -e 's/^[^=]*=//g'`
+      # shellcheck disable=SC2001
+      ENABLE_DEBUG=$(echo "$1" | sed -e 's/^[^=]*=//g')
       shift
       ;;
     *)
@@ -48,16 +49,16 @@ BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
 
-if [ ! -d ${CNI_DIR}/bin ]; then
-	mkdir -p ${CNI_DIR}/bin
+if [ ! -d "${CNI_DIR}/bin" ]; then
+	mkdir -p "${CNI_DIR}/bin"
 fi
 
 # Install the CNI loopback driver if not installed already
-if [ ! -f ${CNI_DIR}/bin/loopback ]; then
+if [ ! -f "${CNI_DIR}/bin/loopback" ]; then
 	echo "Installing loopback driver..."
 
 	# Don't fail hard if this fails as it is usually not required
-	cp /cni/loopback ${CNI_DIR}/bin/ || true
+	cp /cni/loopback "${CNI_DIR}/bin/" || true
 fi
 
 echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
@@ -65,11 +66,11 @@ echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
 # Move an eventual old existing binary out of the way, we can't delete it
 # as it might be in use right now.
 if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
-	rm -f ${CNI_DIR}/bin/${BIN_NAME}.old || true
-	mv ${CNI_DIR}/bin/${BIN_NAME} ${CNI_DIR}/bin/${BIN_NAME}.old
+	rm -f "${CNI_DIR}/bin/${BIN_NAME}.old" || true
+	mv "${CNI_DIR}/bin/${BIN_NAME}" "${CNI_DIR}/bin/${BIN_NAME}.old"
 fi
 
-cp /opt/cni/bin/${BIN_NAME} ${CNI_DIR}/bin/
+cp "/opt/cni/bin/${BIN_NAME}" "${CNI_DIR}/bin/"
 
 if [ "${CILIUM_CUSTOM_CNI_CONF}" = "true" ]; then
 	echo "Using custom ${CILIUM_CNI_CONF}..."
@@ -79,7 +80,7 @@ fi
 echo "Installing new ${CILIUM_CNI_CONF}..."
 case "$CILIUM_CNI_CHAINING_MODE" in
 "flannel")
-	cat > ${CNI_CONF_NAME} <<EOF
+	cat > "${CNI_CONF_NAME}" <<EOF
 {
   "cniVersion": "0.3.1",
   "name": "cbr0",
@@ -108,7 +109,7 @@ EOF
 	;;
 
 "portmap")
-	cat > ${CNI_CONF_NAME} <<EOF
+	cat > "${CNI_CONF_NAME}" <<EOF
 {
   "cniVersion": "0.3.1",
   "name": "portmap",
@@ -128,7 +129,7 @@ EOF
 	;;
 
 "aws-cni")
-	cat > ${CNI_CONF_NAME} <<EOF
+	cat > "${CNI_CONF_NAME}" <<EOF
 {
   "cniVersion": "0.3.1",
   "name": "aws-cni",
@@ -154,7 +155,7 @@ EOF
 	;;
 
 *)
-	cat > ${CNI_CONF_NAME} <<EOF
+	cat > "${CNI_CONF_NAME}" <<EOF
 {
   "cniVersion": "0.3.1",
   "name": "cilium",
@@ -165,19 +166,19 @@ EOF
 	;;
 esac
 
-if [ ! -d $(dirname $CILIUM_CNI_CONF) ]; then
-	mkdir -p $(dirname $CILIUM_CNI_CONF)
+if [ ! -d "$(dirname "$CILIUM_CNI_CONF")" ]; then
+	mkdir -p "$(dirname "$CILIUM_CNI_CONF")"
 fi
 
-mv ${CNI_CONF_NAME} ${CILIUM_CNI_CONF}
+mv "${CNI_CONF_NAME}" "${CILIUM_CNI_CONF}"
 
 # Allow switching between chaining and direct CNI mode by removing the
 # currently unused configuration file
 case "${CNI_CONF_NAME}" in
 "05-cilium.conf")
-	rm ${HOST_PREFIX}/etc/cni/net.d/05-cilium.conflist || true
+	rm "${HOST_PREFIX}/etc/cni/net.d/05-cilium.conflist" || true
 	;;
 "05-cilium.conflist")
-	rm ${HOST_PREFIX}/etc/cni/net.d/05-cilium.conf || true
+	rm "${HOST_PREFIX}/etc/cni/net.d/05-cilium.conf" || true
 	;;
 esac
