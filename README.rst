@@ -15,7 +15,7 @@ integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
-.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium_overview.png
+.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/cilium_overview.png
     :align: center
 
 Stable Releases
@@ -231,7 +231,7 @@ Linux kernel 4.9.x or later.
 To read up on the necessary kernel versions to run the BPF runtime, see the
 section Prerequisites_.
 
-.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/bpf-overview.png
+.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/bpf-overview.png
     :align: center
 
 XDP is a further step in evolution and enables to run a specific flavor of BPF
@@ -287,7 +287,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
 
-.. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
+.. |logo| image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo.svg
     :alt: Cilium Logo
     :width: 350px
 
