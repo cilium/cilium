@@ -56,7 +56,7 @@ func appendFQDNPatternRegexp(sb *strings.Builder, fqdnPattern string) error {
 		case r == '.':
 			sb.WriteString(`\.`)
 		case r == '*':
-			sb.WriteString(`[-\.0-9a-z]*`)
+			sb.WriteString(`[-.0-9a-z]*`)
 		case r == '-':
 			fallthrough
 		case '0' <= r && r <= '9':

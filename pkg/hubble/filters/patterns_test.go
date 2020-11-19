@@ -50,7 +50,7 @@ func TestCompileFQDNPattern(t *testing.T) {
 		{
 			name:         "star",
 			fqdnPatterns: []string{"*.cilium.io"},
-			want:         `\A(?:[-\.0-9a-z]*\.cilium\.io)\z`,
+			want:         `\A(?:[-.0-9a-z]*\.cilium\.io)\z`,
 		},
 		{
 			name:         "trailing_dot",
@@ -140,7 +140,7 @@ func TestCompileNodeNamePatterns(t *testing.T) {
 		{
 			name:             "wildcard_node_pattern",
 			nodeNamePatterns: []string{"k8s*"},
-			want:             `\A(?:(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)/k8s[-\.0-9a-z]*)\z`,
+			want:             `\A(?:(?:[-0-9_a-z]+(?:\.[-0-9_a-z]+)*)/k8s[-.0-9a-z]*)\z`,
 		},
 		{
 			name:             "multiple_patterns",
