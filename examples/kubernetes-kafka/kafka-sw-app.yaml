@@ -48,7 +48,7 @@ spec:
     spec:
       containers:
       - name: zookeeper
-        image: docker.io/digitalwonderland/zookeeper
+        image: docker.io/cilium/zookeeper:1.0
         ports:
         - containerPort: 2181
 ---

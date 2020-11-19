@@ -43,7 +43,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: web
-        image: docker.io/cilium/demo-httpd:latest
+        image: docker.io/cilium/demo-httpd:1.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -82,7 +82,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: app-frontend
-        image: docker.io/cilium/demo-client:latest
+        image: docker.io/cilium/demo-client:1.0
         imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
@@ -111,7 +111,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: app-frontend
-        image: docker.io/cilium/demo-client:latest
+        image: docker.io/cilium/demo-client:1.0
         imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:

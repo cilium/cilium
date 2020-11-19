@@ -71,7 +71,7 @@ metadata:
 spec:
   containers:
   - name: web
-    image: docker.io/cilium/demo-client:latest
+    image: docker.io/cilium/demo-client:1.0
     imagePullPolicy: IfNotPresent
     command: [ "sleep" ]
     args:
@@ -89,7 +89,7 @@ metadata:
 spec:
   containers:
   - name: web
-    image: docker.io/cilium/demo-client:latest
+    image: docker.io/cilium/demo-client:1.0
     imagePullPolicy: IfNotPresent
     command: [ "sleep" ]
     args:
