@@ -224,8 +224,6 @@ contributors across the globe, there is almost always someone available to help.
 | keepDeprecatedProbes | bool | `false` | Keep the deprecated probes when deploying Cilium DaemonSet |
 | kubeProxyReplacement | string | `"probe"` | Configure the kube-proxy replacement in Cilium BPF datapath Valid options are "disabled", "probe", "partial", "strict". ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/ |
 | kubeProxyReplacementHealthzBindAddr | string | `""` | healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled. |
-| kvstore.managed | bool | `false` |  |
-| kvstore.ssl | string | `nil` |  |
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
 | localRedirectPolicy | bool | `false` |  |
 | logSystemLoad | bool | `false` |  |
