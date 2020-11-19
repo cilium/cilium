@@ -329,8 +329,9 @@ func (Verdict) EnumDescriptor() ([]byte, []int) {
 	return file_flow_flow_proto_rawDescGZIP(), []int{4}
 }
 
-// Taken from pkg/monitor/api/drop.go. Note that non-drop reasons (i.e. values
-// less than api.DropMin) are not used here.
+// These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
+// Note that non-drop reasons (i.e. values less than api.DropMin) are not used
+// here.
 type DropReason int32
 
 const (
