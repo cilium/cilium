@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
@@ -253,25 +254,54 @@ func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdenti
 	return labels
 }
 
-func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoint {
+func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb.Endpoint {
+	// The datapathSecurityIdentity parameter is the numeric security identity
+	// obtained from the datapath.
+	// The numeric identity from the datapath can differ from the one we obtain
+	// from user-space (e.g. the endpoint manager or the IP cache), because
+	// the identity could have changed between the time the datapath event was
+	// created and the time the event reaches the Hubble parser.
+	// To aid in troubleshooting, we want to preserve what the datapath observed
+	// when it made the policy decision.
+	resolveIdentityConflict := func(identity identity.NumericIdentity) uint32 {
+		// if the datapath did not provide an identity (e.g. FROM_LXC trace
+		// points), use what we have in the user-space cache
+		userspaceSecurityIdentity := uint32(identity)
+		if datapathSecurityIdentity == 0 {
+			return userspaceSecurityIdentity
+		}
+
+		if datapathSecurityIdentity != userspaceSecurityIdentity {
+			p.log.WithFields(logrus.Fields{
+				logfields.Identity:    datapathSecurityIdentity,
+				logfields.OldIdentity: userspaceSecurityIdentity,
+				logfields.IPAddr:      ip,
+			}).Debugf("stale identity observed")
+		}
+
+		return datapathSecurityIdentity
+	}
+
 	// for local endpoints, use the available endpoint information
 	if p.endpointGetter != nil {
 		if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
+			epIdentity := resolveIdentityConflict(ep.GetIdentity())
 			return &pb.Endpoint{
 				ID:        uint32(ep.GetID()),
-				Identity:  uint32(ep.GetIdentity()),
+				Identity:  epIdentity,
 				Namespace: ep.GetK8sNamespace(),
-				Labels:    sortAndFilterLabels(p.log, ep.GetLabels(), securityIdentity),
+				Labels:    sortAndFilterLabels(p.log, ep.GetLabels(), epIdentity),
 				PodName:   ep.GetK8sPodName(),
 			}
 		}
 	}
 
 	// for remote endpoints, assemble the information via ip and identity
+	numericIdentity := datapathSecurityIdentity
 	var namespace, podName string
 	if p.ipGetter != nil {
 		if ipIdentity, ok := p.ipGetter.LookupSecIDByIP(ip); ok {
-			securityIdentity = uint32(ipIdentity.ID)
+			numericIdentity = resolveIdentityConflict(ipIdentity.ID)
 		}
 		if meta := p.ipGetter.GetK8sMetadata(ip); meta != nil {
 			namespace, podName = meta.Namespace, meta.PodName
@@ -279,16 +309,16 @@ func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoin
 	}
 	var labels []string
 	if p.identityGetter != nil {
-		if id, err := p.identityGetter.GetIdentity(securityIdentity); err != nil {
-			p.log.WithError(err).WithField("identity", securityIdentity).
+		if id, err := p.identityGetter.GetIdentity(numericIdentity); err != nil {
+			p.log.WithError(err).WithField("identity", numericIdentity).
 				Warn("failed to resolve identity")
 		} else {
-			labels = sortAndFilterLabels(p.log, id.Labels, securityIdentity)
+			labels = sortAndFilterLabels(p.log, id.Labels, numericIdentity)
 		}
 	}
 
 	return &pb.Endpoint{
-		Identity:  securityIdentity,
+		Identity:  numericIdentity,
 		Namespace: namespace,
 		Labels:    labels,
 		PodName:   podName,

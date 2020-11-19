@@ -66,6 +66,7 @@ func TestL34Decode(t *testing.T) {
 			if ip.Equal(net.ParseIP("10.16.236.178")) {
 				return &testutils.FakeEndpointInfo{
 					ID:           1234,
+					Identity:     5678,
 					PodName:      "pod-10.16.236.178",
 					PodNamespace: "default",
 				}, true
@@ -97,6 +98,8 @@ func TestL34Decode(t *testing.T) {
 		OnLookupSecIDByIP: func(ip net.IP) (ipcache.Identity, bool) {
 			// pretend IP belongs to a pod on a remote node
 			if ip.String() == "192.168.33.11" {
+				// This numeric identity will be ignored because the above
+				// TraceNotify event already contains the source identity
 				return ipcache.Identity{
 					ID:     1234,
 					Source: source.Unspec,
@@ -137,6 +140,7 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, "remote", f.GetSource().GetNamespace())
 	assert.Equal(t, "service-1234", f.GetSourceService().GetName())
 	assert.Equal(t, "remote", f.GetSourceService().GetNamespace())
+	assert.Equal(t, uint32(1), f.GetSource().GetIdentity())
 
 	assert.Equal(t, []string(nil), f.GetDestinationNames())
 	assert.Equal(t, "10.16.236.178", f.GetIP().GetDestination())
@@ -145,6 +149,7 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, "default", f.GetDestination().GetNamespace())
 	assert.Equal(t, "service-4321", f.GetDestinationService().GetName())
 	assert.Equal(t, "default", f.GetDestinationService().GetNamespace())
+	assert.Equal(t, uint32(5678), f.GetDestination().GetIdentity())
 
 	assert.Equal(t, int32(api.MessageTypeTrace), f.GetEventType().GetType())
 	assert.Equal(t, int32(api.TraceFromHost), f.GetEventType().GetSubType())
@@ -846,7 +851,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 
 	v0 := monitor.TraceNotifyV0{
 		Type:     byte(api.MessageTypeTrace),
-		SrcLabel: 456, // overwritten by ep.Identity
+		SrcLabel: 456, // takes precedence over ep.Identity
 		Version:  monitor.TraceNotifyVersion0,
 	}
 
@@ -867,7 +872,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, uint32(ep.ID), f.Source.ID)
-	assert.Equal(t, uint32(ep.Identity), f.Source.Identity)
+	assert.Equal(t, uint32(v0.SrcLabel), f.Source.Identity)
 	assert.Equal(t, ep.PodNamespace, f.Source.Namespace)
 	assert.Equal(t, ep.Labels, f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
