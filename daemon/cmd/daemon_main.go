@@ -1537,7 +1537,6 @@ func runDaemon() {
 }
 
 func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
-
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
 		log.WithError(err).Fatal("Cannot load swagger spec")
@@ -1558,47 +1557,49 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	restAPI.DaemonGetConfigHandler = NewGetConfigHandler(d)
 	restAPI.DaemonPatchConfigHandler = NewPatchConfigHandler(d)
 
-	// /endpoint/
-	restAPI.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
+	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		// /endpoint/
+		restAPI.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
 
-	// /endpoint/{id}
-	restAPI.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
-	restAPI.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
-	restAPI.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
-	restAPI.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
+		// /endpoint/{id}
+		restAPI.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
+		restAPI.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
+		restAPI.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
+		restAPI.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
 
-	// /endpoint/{id}config/
-	restAPI.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
-	restAPI.EndpointPatchEndpointIDConfigHandler = NewPatchEndpointIDConfigHandler(d)
+		// /endpoint/{id}config/
+		restAPI.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
+		restAPI.EndpointPatchEndpointIDConfigHandler = NewPatchEndpointIDConfigHandler(d)
 
-	// /endpoint/{id}/labels/
-	restAPI.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
-	restAPI.EndpointPatchEndpointIDLabelsHandler = NewPatchEndpointIDLabelsHandler(d)
+		// /endpoint/{id}/labels/
+		restAPI.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
+		restAPI.EndpointPatchEndpointIDLabelsHandler = NewPatchEndpointIDLabelsHandler(d)
 
-	// /endpoint/{id}/log/
-	restAPI.EndpointGetEndpointIDLogHandler = NewGetEndpointIDLogHandler(d)
+		// /endpoint/{id}/log/
+		restAPI.EndpointGetEndpointIDLogHandler = NewGetEndpointIDLogHandler(d)
 
-	// /endpoint/{id}/healthz
-	restAPI.EndpointGetEndpointIDHealthzHandler = NewGetEndpointIDHealthzHandler(d)
+		// /endpoint/{id}/healthz
+		restAPI.EndpointGetEndpointIDHealthzHandler = NewGetEndpointIDHealthzHandler(d)
 
-	// /identity/
-	restAPI.PolicyGetIdentityHandler = newGetIdentityHandler(d)
-	restAPI.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
+		// /identity/
+		restAPI.PolicyGetIdentityHandler = newGetIdentityHandler(d)
+		restAPI.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
 
-	// /identity/endpoints
-	restAPI.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)
+		// /identity/endpoints
+		restAPI.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)
 
-	// /policy/
-	restAPI.PolicyGetPolicyHandler = newGetPolicyHandler(d.policy)
-	restAPI.PolicyPutPolicyHandler = newPutPolicyHandler(d)
-	restAPI.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
-	restAPI.PolicyGetPolicySelectorsHandler = newGetPolicyCacheHandler(d)
+		// /policy/
+		restAPI.PolicyGetPolicyHandler = newGetPolicyHandler(d.policy)
+		restAPI.PolicyPutPolicyHandler = newPutPolicyHandler(d)
+		restAPI.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
+		restAPI.PolicyGetPolicySelectorsHandler = newGetPolicyCacheHandler(d)
 
-	// /policy/resolve/
-	restAPI.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
+		// /policy/resolve/
+		restAPI.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
 
-	// /lrp/
-	restAPI.ServiceGetLrpHandler = NewGetLrpHandler(d.redirectPolicyManager)
+		// /lrp/
+		restAPI.ServiceGetLrpHandler = NewGetLrpHandler(d.redirectPolicyManager)
+	}
 
 	// /service/{id}/
 	restAPI.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d.svc)
@@ -1613,10 +1614,12 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	restAPI.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
 	restAPI.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
 
-	// /ipam/{ip}/
-	restAPI.IpamPostIpamHandler = NewPostIPAMHandler(d)
-	restAPI.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
-	restAPI.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
+	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		// /ipam/{ip}/
+		restAPI.IpamPostIpamHandler = NewPostIPAMHandler(d)
+		restAPI.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
+		restAPI.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
+	}
 
 	// /debuginfo
 	restAPI.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
@@ -1628,11 +1631,13 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	// metrics
 	restAPI.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
 
-	// /fqdn/cache
-	restAPI.PolicyGetFqdnCacheHandler = NewGetFqdnCacheHandler(d)
-	restAPI.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
-	restAPI.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
-	restAPI.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
+	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		// /fqdn/cache
+		restAPI.PolicyGetFqdnCacheHandler = NewGetFqdnCacheHandler(d)
+		restAPI.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
+		restAPI.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
+		restAPI.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
+	}
 
 	// /ip/
 	restAPI.PolicyGetIPHandler = NewGetIPHandler()
