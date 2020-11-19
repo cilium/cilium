@@ -211,7 +211,7 @@ func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	exit := make(chan bool)
+	exit := make(chan struct{})
 	defer close(exit)
 	go func() {
 		select {

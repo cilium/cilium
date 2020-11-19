@@ -78,7 +78,7 @@ func newCache(a *Allocator) cache {
 	}
 }
 
-type waitChan chan bool
+type waitChan chan struct{}
 
 // CacheMutations are the operations given to a Backend's ListAndWatch command.
 // They are called on changes to identities.

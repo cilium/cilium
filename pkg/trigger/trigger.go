@@ -89,7 +89,7 @@ type Trigger struct {
 	lastTrigger time.Time
 
 	// wakeupCan is used to wake up the background trigger routine
-	wakeupChan chan bool
+	wakeupChan chan struct{}
 
 	// closeChan is used to stop the background trigger routine
 	closeChan chan struct{}
@@ -116,7 +116,7 @@ func NewTrigger(p Parameters) (*Trigger, error) {
 
 	t := &Trigger{
 		params:        p,
-		wakeupChan:    make(chan bool, 1),
+		wakeupChan:    make(chan struct{}, 1),
 		closeChan:     make(chan struct{}, 1),
 		foldedReasons: newReasonStack(),
 	}
@@ -161,7 +161,7 @@ func (t *Trigger) TriggerWithReason(reason string) {
 	}
 
 	select {
-	case t.wakeupChan <- true:
+	case t.wakeupChan <- struct{}{}:
 	default:
 	}
 }

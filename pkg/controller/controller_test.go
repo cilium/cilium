@@ -46,7 +46,7 @@ func (b *ControllerSuite) TestUpdateRemoveController(c *C) {
 
 func (b *ControllerSuite) TestStopFunc(c *C) {
 	stopFuncRan := false
-	waitChan := make(chan bool)
+	waitChan := make(chan struct{})
 
 	mngr := Manager{}
 	mngr.UpdateController("test", ControllerParams{
