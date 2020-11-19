@@ -351,6 +351,9 @@ generate-health-api: api/v1/health/openapi.yaml
 	@# sort goimports automatically
 	-$(QUIET) find api/v1/health/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
+generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
+
 generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
@@ -612,5 +615,5 @@ dev-doctor:
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
 
-.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api install licenses-all veryclean
+.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api generate-hubble-api install licenses-all veryclean
 force :;

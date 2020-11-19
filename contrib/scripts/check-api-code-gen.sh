@@ -28,13 +28,16 @@ make generate-api
 # Generate all health-api files
 make generate-health-api
 
+# Generate all hubble api files
+make generate-hubble-api
+
 # Check for diff
 diff="$(git diff)"
 
 if [ -n "$diff" ]; then
 	echo "Ungenerated api source code:"
 	echo "$diff"
-	echo "Please run make generate-api generate-health-api and submit your changes"
+	echo "Please run `make generate-api generate-health-api generate-hubble-api` and submit your changes"
 	exit 1
 fi
 
