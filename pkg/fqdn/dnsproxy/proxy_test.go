@@ -656,6 +656,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(restored3, checker.DeepEquals, expected3)
 
 	// Test with limited set of allowed IPs
+	oldUsed := s.proxy.usedServers
 	s.proxy.usedServers = map[string]struct{}{"127.0.0.2": {}}
 
 	expected1b := restore.DNSRules{
@@ -674,7 +675,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(restored1b, checker.DeepEquals, expected1b)
 
 	// unlimited again
-	s.proxy.usedServers = nil
+	s.proxy.usedServers = oldUsed
 
 	s.proxy.UpdateAllowed(epID1, 53, nil)
 	s.proxy.UpdateAllowed(epID1, 54, nil)
