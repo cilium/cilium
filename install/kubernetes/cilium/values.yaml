@@ -775,12 +775,6 @@ kubeProxyReplacement: "probe"
 # By default it is disabled.
 kubeProxyReplacementHealthzBindAddr: ""
 
-kvstore:
-  # Managed enables/disables the Cilium etcd-operator
-  managed: false
-  # ssl configures tls for kvstore client connections
-  ssl:
-
 # -- Enable Layer 7 network policy.
 l7Proxy: true
 
