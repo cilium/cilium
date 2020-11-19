@@ -17,9 +17,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: kafka
-        # Normally we would specify an exact version of the image instead of
-        # 'latest', but this is the only tagged version on Dockerhub.
-        image: docker.io/spotify/kafkaproxy:latest
+        image: docker.io/cilium/kafkaproxy:1.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9092
@@ -83,7 +81,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: empire-hq
-        image: docker.io/cilium/kafkaclient:latest
+        image: docker.io/cilium/kafkaclient:1.0
         imagePullPolicy: IfNotPresent
       nodeSelector:
         "cilium.io/ci-node": k8s1
@@ -110,7 +108,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: empire-outpost-8888
-        image: docker.io/cilium/kafkaclient:latest
+        image: docker.io/cilium/kafkaclient:1.0
         imagePullPolicy: IfNotPresent
 ---
 apiVersion: apps/v1
@@ -134,7 +132,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: empire-outpost-9999
-        image: docker.io/cilium/kafkaclient:latest
+        image: docker.io/cilium/kafkaclient:1.0
         imagePullPolicy: IfNotPresent
 ---
 apiVersion: apps/v1
@@ -156,5 +154,5 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: empire-backup
-        image: docker.io/cilium/kafkaclient:latest
+        image: docker.io/cilium/kafkaclient:1.0
         imagePullPolicy: IfNotPresent

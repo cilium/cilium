@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: http-client
-        image: quay.io/isovalent/wrk2:latest
+        image: quay.io/isovalent/wrk2:1.0
         ports:
         - containerPort: 80
