@@ -126,7 +126,12 @@ func generateToCidrFromEndpoint(
 		if err != nil {
 			return err
 		}
-		if _, err := ipcache.AllocateCIDRs(prefixes); err != nil {
+		// TODO: Collect new identities to be upserted to the ipcache only after all
+		// endpoints have been regenerated later. This would make sure that any CIDRs in the
+		// policy would be first pushed to the endpoint policies and then to the ipcache to
+		// avoid traffic mapping to an ID that the endpoint policy maps do not know about
+		// yet.
+		if _, err := ipcache.AllocateCIDRs(prefixes, nil); err != nil {
 			return err
 		}
 	}
