@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -113,7 +114,10 @@ func (poller *DNSPoller) LookupUpdateDNS(ctx context.Context) error {
 		poller.config.PollerResponseNotify(lookupTime, qname, response)
 	}
 
-	_, err := poller.ruleManager.UpdateGenerateDNS(ctx, lookupTime, updatedDNSIPs)
+	_, newlyAllocatedIdentities, err := poller.ruleManager.UpdateGenerateDNS(ctx, lookupTime, updatedDNSIPs)
+	if err == nil {
+		ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
+	}
 	return err
 }
 

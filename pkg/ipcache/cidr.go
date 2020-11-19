@@ -39,26 +39,44 @@ var (
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
 // allocation fails, all allocations are rolled back and the error is returned.
 // When an identity is freshly allocated for a CIDR, it is added to the
-// ipcache.
-func AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
-	return allocateCIDRs(prefixes)
+// ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
+// identities are placed in 'newlyAllocatedIdentities' and it is the caller's
+// responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
+func AllocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+	return allocateCIDRs(prefixes, newlyAllocatedIdentities)
 }
 
 // AllocateCIDRsForIPs attempts to allocate identities for a list of CIDRs. If
 // any allocation fails, all allocations are rolled back and the error is
 // returned. When an identity is freshly allocated for a CIDR, it is added to
-// the ipcache.
-func AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
-	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes))
+// the ipcache if 'newlyAllocatedIdentities' is 'nil', otherwise the newly allocated
+// identities are placed in 'newlyAllocatedIdentities' and it is the caller's
+// responsibility to upsert them into ipcache by calling UpsertGeneratedIdentities().
+func AllocateCIDRsForIPs(prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), newlyAllocatedIdentities)
 }
 
-func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
+func UpsertGeneratedIdentities(newlyAllocatedIdentities map[string]*identity.Identity) {
+	for prefixString, id := range newlyAllocatedIdentities {
+		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+			ID:     id.ID,
+			Source: source.Generated,
+		})
+	}
+}
+
+func allocateCIDRs(prefixes []*net.IPNet, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
 
-	// maintain list of newly allocated identities to update ipcache
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
-	newlyAllocatedIdentities := map[string]*identity.Identity{}
+	// Maintain list of newly allocated identities to update ipcache,
+	// but upsert them to ipcache only if no map was given by the caller.
+	upsert := false
+	if newlyAllocatedIdentities == nil {
+		upsert = true
+		newlyAllocatedIdentities = map[string]*identity.Identity{}
+	}
 
 	for _, prefix := range prefixes {
 		if prefix == nil {
@@ -92,12 +110,10 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
 
-	// Only upsert into ipcache if identity wasn't allocated before.
-	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
-			ID:     id.ID,
-			Source: source.Generated,
-		})
+	// Only upsert into ipcache if identity wasn't allocated
+	// before and the caller does not care doing this
+	if upsert {
+		UpsertGeneratedIdentities(newlyAllocatedIdentities)
 	}
 
 	for _, id := range allocatedIdentities {
