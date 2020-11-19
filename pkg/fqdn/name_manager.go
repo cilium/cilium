@@ -118,7 +118,12 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		"ips":          selectorIPs,
 	}).Debug("getting identities for IPs associated with FQDNSelector")
 	var currentlyAllocatedIdentities []*identity.Identity
-	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+	// TODO: Consider if upserts to ipcache should be delayed until endpoint policies have been
+	// updated. This is the path from policy updates rather than for DNS proxy results. Hence
+	// any existing IPs would typically already have been pushed to the ipcache as they would
+	// not be newly allocated. We need the 'allocation' here to get a reference count on the
+	// allocations.
+	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")
 		return nil
@@ -147,8 +152,8 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
-			return &sync.WaitGroup{}, nil
+		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, map[string]*identity.Identity, error) {
+			return &sync.WaitGroup{}, nil, nil
 		}
 	}
 
@@ -166,9 +171,8 @@ func (n *NameManager) GetDNSCache() *DNSCache {
 }
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
-// have changed for a name, store which rules must be updated in rulesToUpdate,
-// regenerate them, and emit via UpdateSelectors.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, err error) {
+// have changed for a name they will be reflected in updatedDNSIPs.
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
@@ -194,6 +198,8 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
+// Note: This is used only when DNS entries are cleaned up, not when new results
+// are ingested.
 func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
@@ -213,9 +219,10 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	// emit the new rules
-	return n.config.
-		UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	// Emit the new rules.
+	// Ignore newly allocated IDs (2nd result) as this is only used for deletes.
+	wg, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	return wg, err
 }
 
 func (n *NameManager) CompleteBootstrap() {
