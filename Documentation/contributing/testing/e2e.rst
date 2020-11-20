@@ -117,6 +117,12 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
     ginkgo --focus="K8s" -noColor
 
+To run a specific test from the Kubernetes tests suite, run the following command
+from the ``test`` directory:
+
+::
+
+    ginkgo --focus="K8s.*Check iptables masquerading with random-fully"
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "K8s" and
