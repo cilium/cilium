@@ -21,7 +21,8 @@ DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
 QUICK_OPTIONS := \
-    --set hubble.tls.enabled=false
+    --set hubble.tls.enabled=false \
+    --set operator.replicas=1
 EXPERIMENTAL_OPTIONS := \
     --set hubble.enabled=true \
     --set hubble.listenAddress=":4244" \
@@ -30,7 +31,8 @@ EXPERIMENTAL_OPTIONS := \
     --set hubble.metrics.enabled="{dns,drop,tcp,flow,icmp,http}" \
     --set hubble.relay.enabled=true \
     --set hubble.ui.enabled=true \
-    --set localRedirectPolicy=true
+    --set localRedirectPolicy=true \
+    --set operator.replicas=1
 
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--workdir /src/install/kubernetes \
