@@ -42,7 +42,7 @@ type MonitorEvent struct {
 type AgentEvent struct {
 	// Type is a monitorAPI.MessageType* value
 	Type int
-	// Message is the agent message, e.g. accesslog.LogRecord, monitorAPI.AgentNotify
+	// Message is the agent message, e.g. accesslog.LogRecord, monitorAPI.AgentNotifyMessage
 	Message interface{}
 }
 
