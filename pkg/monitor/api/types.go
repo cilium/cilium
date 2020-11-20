@@ -193,9 +193,9 @@ type AgentNotify struct {
 	Text string
 }
 
-// AgentNotify is a notification from the agent. It is similar to AgentNotify,
-// but the notification is an unencoded struct. See the *Message constructors
-// in this package for possible values.
+// AgentNotifyMessage is a notification from the agent. It is similar to
+// AgentNotify, but the notification is an unencoded struct. See the *Message
+// constructors in this package for possible values.
 type AgentNotifyMessage struct {
 	Type         AgentNotification
 	Notification interface{}
@@ -438,7 +438,7 @@ type TimeNotification struct {
 	Time string `json:"time"`
 }
 
-// AgentStartMessage constructs an agent notification message when the agent starts
+// StartMessage constructs an agent notification message when the agent starts
 func StartMessage(t time.Time) AgentNotifyMessage {
 	notification := TimeNotification{
 		Time: t.String(),
