@@ -236,7 +236,6 @@ contributors across the globe, there is almost always someone available to help.
 | nodePort.bindProtection | bool | `true` | Port range to use for NodePort services. range: "30000,32767" -- Set to true to prevent applications binding to service ports. |
 | nodePort.enableHealthCheck | bool | `true` | Enable healthcheck nodePort server for NodePort services |
 | nodePort.enabled | bool | `false` | Enable the Cilium NodePort service implementation. |
-| nodeSelector | object | `{}` | Node labels for agent pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | nodeinit.bootstrapFile | string | `"/tmp/cilium-bootstrap-time"` | bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet |
 | nodeinit.enabled | bool | `false` | Enable the node initialization DaemonSet |
 | nodeinit.extraArgs | object | `{}` |  |
