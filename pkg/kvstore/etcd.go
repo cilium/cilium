@@ -929,7 +929,7 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 
 	scopedLog := e.getLogger().WithFields(logrus.Fields{
 		fieldWatcher: w,
-		fieldPrefix:  w.prefix,
+		fieldPrefix:  w.Prefix,
 	})
 
 	err := <-e.Connected(ctx)
@@ -950,7 +950,7 @@ reList:
 		}
 
 		e.limiter.Wait(ctx)
-		res, err := e.client.Get(ctx, w.prefix, client.WithPrefix(),
+		res, err := e.client.Get(ctx, w.Prefix, client.WithPrefix(),
 			client.WithSerializable())
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
@@ -1010,7 +1010,7 @@ reList:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
 		e.limiter.Wait(ctx)
-		etcdWatch := e.client.Watch(ctx, w.prefix,
+		etcdWatch := e.client.Watch(ctx, w.Prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {

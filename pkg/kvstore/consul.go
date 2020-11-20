@@ -320,10 +320,10 @@ func (c *consulClient) Watch(ctx context.Context, w *Watcher) {
 		sleepTime := 1 * time.Millisecond
 
 		qo.WaitIndex = nextIndex
-		pairs, q, err := c.KV().List(w.prefix, qo)
+		pairs, q, err := c.KV().List(w.Prefix, qo)
 		if err != nil {
 			sleepTime = 5 * time.Second
-			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.prefix, fieldWatcher: w.name})
+			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.Prefix, fieldWatcher: w.Name})
 		}
 
 		if q != nil {
