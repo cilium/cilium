@@ -822,6 +822,8 @@ the time required for this operation, it is advised to:
 * set the ``--since`` option to go back in time to when the issues started.
 * set the ``--nodes`` option to pick only a few nodes in case the cluster has
   many of them.
+* set the ``--size-limit`` option to limit the size of the log files (note:
+  passed onto ``kubectl logs``; does not apply to entire collection archive).
 
 Use ``--help`` to see more options:
 
