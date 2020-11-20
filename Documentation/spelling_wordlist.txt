@@ -778,6 +778,7 @@ sys
 syscall
 sysctl
 sysctls
+sysdump
 systemd
 systemtap
 tableSize
