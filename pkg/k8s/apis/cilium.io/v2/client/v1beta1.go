@@ -76,31 +76,6 @@ func createUpdateV1beta1CRD(
 	return nil
 }
 
-func constructV1beta1CRD(
-	name string,
-	template *apiextensionsv1beta1.CustomResourceDefinition,
-) *apiextensionsv1beta1.CustomResourceDefinition {
-	return &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
-			},
-		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Kind:       template.Spec.Names.Kind,
-				Plural:     template.Spec.Names.Plural,
-				ShortNames: template.Spec.Names.ShortNames,
-				Singular:   template.Spec.Names.Singular,
-			},
-			Scope:      template.Spec.Scope,
-			Validation: template.Spec.Validation,
-		},
-	}
-}
-
 func needsUpdateV1beta1(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool {
 	if clusterCRD.Spec.Validation == nil {
 		// no validation detected

@@ -215,14 +215,6 @@ func (k *Service4Key) ToHost() ServiceKey {
 	return &h
 }
 
-type pad3uint8 [3]uint8
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
-	copy(out[:], in[:])
-	return
-}
-
 // Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue

@@ -138,7 +138,6 @@ func init() {
 
 type parser struct {
 	connection *proxylib.Connection
-	inserted   bool
 }
 
 func (f *factory) Create(connection *proxylib.Connection) interface{} {

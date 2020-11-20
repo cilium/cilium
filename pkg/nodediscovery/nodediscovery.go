@@ -76,10 +76,6 @@ func enableLocalNodeRoute() bool {
 		option.Config.IPAM != ipamOption.IPAMAzure
 }
 
-func getInt(i int) *int {
-	return &i
-}
-
 // NewNodeDiscovery returns a pointer to new node discovery object
 func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
