@@ -203,7 +203,7 @@ spec:
 {{- end }}
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
-{{- with .Values.nodeSelector }}
+{{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
 {{- end }}

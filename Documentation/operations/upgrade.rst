@@ -352,6 +352,12 @@ The following metrics have been removed:
 
 .. _1.9_upgrade_notes:
 
+1.9.1 Upgrade Notes
+-------------------
+
+* Helm option ``nodeSelector`` is removed, please use the option for respective component
+  (e.g. ``operator.nodeSelector``, ``etc.nodeSelector`` and ``preflight.nodeSelector``) instead.
+
 1.9 Upgrade Notes
 -----------------
 
