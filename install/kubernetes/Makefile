@@ -14,6 +14,7 @@ QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
 EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
+CHART_FILE := "$(CILIUM_CHARTS)/Chart.yaml"
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
 LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
@@ -44,6 +45,9 @@ HELM_DOCS_SHA := "12f065115654c9a1d6819b938487d327f1fdb5c32bdc2a5c74afef22ed68f5
 HELM_DOCS_IMAGE := "docker.io/jnorwood/helm-docs:$(HELM_DOCS_VERSION)@sha256:$(HELM_DOCS_SHA)"
 HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 
+LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
+LOGO_PATH := Documentation/images/logo-solo.svg
+
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) docs
 
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
@@ -59,17 +63,21 @@ update-versions:
 		xargs -0 -l sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
 		# Fix up the container image tags										\
 		cilium_version="v$(VERSION)";											\
+		branch="$$cilium_version";											\
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		pull_policy="IfNotPresent";											\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
 			cilium_version="latest";										\
+			branch="master";											\
 			hubble_version="latest";										\
 			pull_policy="Always";											\
 		elif echo "$(VERSION)" | grep -q $(DEV_VERSION_REGEX); then							\
 			cilium_version="v$(subst -dev,,$(VERSION))";								\
+			branch="$$cilium_version";										\
 			hubble_version="$(HUBBLE_UI_VERSION)";									\
 			pull_policy="Always";											\
 		fi;														\
+		sed -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
 		sed -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
 		# hubble.ui.frontend.image.tag hubble.ui.backend.image.tag;							\
