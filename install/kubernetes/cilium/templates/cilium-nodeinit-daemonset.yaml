@@ -162,18 +162,6 @@ spec:
               ip -4 a
               ip -6 a
 
-{{- if or .Values.nodeinit.expectAzureVnet .Values.azure.enabled }}
-              # Azure specific: Transparent bridge mode is required in order
-              # for proxy-redirection to work
-              until [ -f /var/run/azure-vnet.json ]; do
-                echo waiting for azure-vnet to be created
-                sleep 1s
-              done
-              if [ -f /var/run/azure-vnet.json ]; then
-                sed -i 's/"Mode": "bridge",/"Mode": "transparent",/g' /var/run/azure-vnet.json
-              fi
-{{- end }}
-
 {{- if .Values.nodeinit.removeCbrBridge }}
               if ip link show cbr0; then
                 echo "Detected cbr0 bridge. Deleting interface..."

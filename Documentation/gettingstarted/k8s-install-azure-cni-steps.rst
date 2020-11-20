@@ -66,7 +66,6 @@ Deploy Cilium release via Helm:
      --set cni.chainingMode=generic-veth \\
      --set cni.customConf=true \\
      --set nodeinit.enabled=true \\
-     --set nodeinit.expectAzureVnet=true \\
      --set cni.configMap=cni-configuration \\
      --set tunnel=disabled \\
      --set enableIPv4Masquerade=false
