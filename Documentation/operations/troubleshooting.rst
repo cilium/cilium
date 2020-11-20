@@ -813,8 +813,8 @@ window for collecting logs via the ``--since`` argument (e.g. ``2m``, ``3h``).
 
    python cilium-sysdump.zip --nodes $NODE1_IP,$NODE2_IP2 --since $LOG_DURATION
 
-Note that by default ``cilium-sysdump`` will collect logs for the past 30
-minutes and for all the nodes in the cluster.
+Note that by default ``cilium-sysdump`` will attempt to collect as much logs as
+possible and for all the nodes in the cluster.
 
 To make sure the tool collects as much relevant logs as possible, and to reduce
 the time required for this operation, it is advised to:
