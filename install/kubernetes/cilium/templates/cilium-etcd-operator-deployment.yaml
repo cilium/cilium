@@ -75,7 +75,7 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-etcd-operator
       serviceAccountName: cilium-etcd-operator
-{{- with .Values.nodeSelector }}
+{{- with .Values.etcd.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
 {{- end }}

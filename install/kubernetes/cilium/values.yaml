@@ -118,10 +118,6 @@ tolerations:
   #   value: "value"
   #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
-# -- Node labels for agent pod assignment
-# ref: https://kubernetes.io/docs/user-guide/node-selection/
-nodeSelector: {}
-
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 
