@@ -441,7 +441,7 @@ type TimeNotification struct {
 // StartMessage constructs an agent notification message when the agent starts
 func StartMessage(t time.Time) AgentNotifyMessage {
 	notification := TimeNotification{
-		Time: t.String(),
+		Time: t.Format(time.RFC3339Nano),
 	}
 
 	return AgentNotifyMessage{
