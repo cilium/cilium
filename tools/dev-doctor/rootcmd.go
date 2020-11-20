@@ -84,6 +84,14 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			hint:          "See https://golangci-lint.run/usage/install/#local-installation.",
 		},
 		&binaryCheck{
+			name:          "protoc",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"--version"},
+			versionRegexp: regexp.MustCompile(`libprotoc (\d+\.\d+\.\d+)`),
+			minVersion:    &semver.Version{Major: 3, Minor: 12, Patch: 4},
+			hint:          "https://github.com/protocolbuffers/protobuf/releases.",
+		},
+		&binaryCheck{
 			name:          "docker",
 			ifNotFound:    checkError,
 			versionArgs:   []string{"--version"},
