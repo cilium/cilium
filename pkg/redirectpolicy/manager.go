@@ -336,12 +336,6 @@ func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
 	}
 }
 
-// podPolicyInfo stores information about the policy that selects the pod and pod backend(s)
-type podPolicyInfo struct {
-	policyID policyID
-	backends []backend
-}
-
 // podMetadata stores relevant metadata associated with a pod that's updated during pod
 // add/update events
 type podMetadata struct {

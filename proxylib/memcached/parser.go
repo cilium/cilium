@@ -179,7 +179,6 @@ func init() {
 type Parser struct {
 	connection *proxylib.Connection
 	parser     proxylib.Parser
-	isBinary   *bool
 }
 
 var _ proxylib.Parser = &Parser{}

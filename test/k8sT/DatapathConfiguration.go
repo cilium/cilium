@@ -726,15 +726,6 @@ func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode b
 	return res.WasSuccessful(), targetIP
 }
 
-func testPodHTTPAcrossNodes(kubectl *helpers.Kubectl, namespace string) bool {
-	if !config.CiliumTestConfig.Multinode {
-		By("Skipping multinode HTTP check")
-		return true
-	}
-	result, _ := testPodHTTP(kubectl, namespace, true, 1)
-	return result
-}
-
 func testPodHTTPSameNodes(kubectl *helpers.Kubectl, namespace string) bool {
 	result, _ := testPodHTTP(kubectl, namespace, false, 1)
 	return result

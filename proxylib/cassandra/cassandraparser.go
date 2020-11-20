@@ -156,7 +156,6 @@ func init() {
 
 type CassandraParser struct {
 	connection *Connection
-	inserted   bool
 	keyspace   string // stores current keyspace name from 'use' command
 
 	// stores prepared query string while
