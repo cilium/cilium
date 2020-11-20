@@ -331,8 +331,8 @@ func EndpointRegenMessage(e notifications.RegenNotificationInfo, err error) Agen
 	}
 }
 
-// EndpointCreateNotification structures the endpoint create notification
-type EndpointCreateNotification struct {
+// EndpointNotification structures the endpoint create or delete notification
+type EndpointNotification struct {
 	EndpointRegenNotification
 	PodName   string `json:"pod-name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
@@ -340,7 +340,7 @@ type EndpointCreateNotification struct {
 
 // EndpointCreateMessage constructs an agent notification message for endpoint creation
 func EndpointCreateMessage(e notifications.RegenNotificationInfo) AgentNotifyMessage {
-	notification := EndpointCreateNotification{
+	notification := EndpointNotification{
 		EndpointRegenNotification: EndpointRegenNotification{
 			ID:     e.GetID(),
 			Labels: e.GetOpLabels(),
@@ -355,16 +355,9 @@ func EndpointCreateMessage(e notifications.RegenNotificationInfo) AgentNotifyMes
 	}
 }
 
-// EndpointDeleteNotification structures the an endpoint delete notification
-type EndpointDeleteNotification struct {
-	EndpointRegenNotification
-	PodName   string `json:"pod-name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-}
-
 // EndpointDeleteMessage constructs an agent notification message for endpoint deletion
 func EndpointDeleteMessage(e notifications.RegenNotificationInfo) AgentNotifyMessage {
-	notification := EndpointDeleteNotification{
+	notification := EndpointNotification{
 		EndpointRegenNotification: EndpointRegenNotification{
 			ID:     e.GetID(),
 			Labels: e.GetOpLabels(),
