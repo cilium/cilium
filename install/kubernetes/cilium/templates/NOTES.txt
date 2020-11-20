@@ -17,4 +17,4 @@
 
 Your release version is {{ .Chart.Version }}.
 
-For any further help, visit https://docs.cilium.io/en/v{{ substr 0 3 .Chart.Version }}/gettinghelp
+For any further help, visit https://docs.cilium.io/en/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}/gettinghelp
