@@ -816,6 +816,10 @@ window for collecting logs via the ``--since`` argument (e.g. ``2m``, ``3h``).
 Note that by default ``cilium-sysdump`` will attempt to collect as much logs as
 possible and for all the nodes in the cluster.
 
+If your cluster size is above 20 nodes, consider setting the following options
+to limit the size of the sysdump. This is not required, but useful for those
+who have a constraint on bandwidth or upload size.
+
 To make sure the tool collects as much relevant logs as possible, and to reduce
 the time required for this operation, it is advised to:
 
@@ -824,6 +828,12 @@ the time required for this operation, it is advised to:
   many of them.
 * set the ``--size-limit`` option to limit the size of the log files (note:
   passed onto ``kubectl logs``; does not apply to entire collection archive).
+
+Ideally, a sysdump that has a full history of select nodes, rather than a brief
+history of all the nodes, would be preferred (by using ``--nodes``). The second
+recommended way would be to use ``--since`` if you are able to narrow down when
+the issues started. Lastly, if the Cilium agent and Operator logs are too
+large, consider ``--size-limit``.
 
 Use ``--help`` to see more options:
 
