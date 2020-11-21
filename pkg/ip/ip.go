@@ -153,10 +153,7 @@ PreLoop:
 
 			// Only remove CIDR if it is contained in the subnet we are allowing.
 			if allowCIDR.Contains(remove.IP.Mask(remove.Mask)) {
-				nets, err := removeCIDR(allowCIDR, remove)
-				if err != nil {
-					return nil, err
-				}
+				nets := excludeContainedCIDR(allowCIDR, remove)
 
 				// Remove CIDR that we have just processed and append new CIDRs
 				// that we computed from removing the CIDR to remove.
@@ -193,48 +190,25 @@ func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
 	return &mask
 }
 
-func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
-	var allowIsIpv4, removeIsIpv4 bool
-	var allowBitLen int
-
-	if allowCIDR.IP.To4() != nil {
-		allowIsIpv4 = true
-		allowBitLen = ipv4BitLen
-	} else {
-		allowBitLen = ipv6BitLen
-	}
-
-	if removeCIDR.IP.To4() != nil {
-		removeIsIpv4 = true
-	}
-
-	if removeIsIpv4 != allowIsIpv4 {
-		return nil, fmt.Errorf("cannot mix IP addresses of different IP protocol versions")
-	}
-
+// excludeContainedCIDR returns a set of CIDRs that is equivalent to 'allowCIDR'
+// except for 'removeCIDR', which must be a subset of 'allowCIDR'.
+// Caller is responsible for only passing CIDRs of the same address family.
+func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 	// Get size of each CIDR mask.
-	allowSize, _ := allowCIDR.Mask.Size()
+	allowSize, allowBitLen := allowCIDR.Mask.Size()
 	removeSize, _ := removeCIDR.Mask.Size()
 
 	// Removing a CIDR from itself should result into an empty set
 	if allowSize == removeSize && allowCIDR.IP.Equal(removeCIDR.IP) {
-		return nil, nil
-	}
-
-	if allowSize >= removeSize {
-		return nil, fmt.Errorf("allow CIDR prefix must be a superset of " +
-			"remove CIDR prefix")
+		return nil
 	}
 
 	allowFirstIPMasked := allowCIDR.IP.Mask(allowCIDR.Mask)
 	removeFirstIPMasked := removeCIDR.IP.Mask(removeCIDR.Mask)
 
-	// Convert to IPv4 in IPv6 addresses if needed.
-	if allowIsIpv4 {
+	if allowCIDR.IP.To4() != nil {
+		// Convert IPv4 to IPv6 format
 		allowFirstIPMasked = append(v4Mappedv6Prefix, allowFirstIPMasked...)
-	}
-
-	if removeIsIpv4 {
 		removeFirstIPMasked = append(v4Mappedv6Prefix, removeFirstIPMasked...)
 	}
 
@@ -242,8 +216,8 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 	removeFirstIP := &removeFirstIPMasked
 
 	// Create CIDR prefixes with mask size of Y+1, Y+2 ... X where Y is the mask
-	// length of the CIDR prefix B from which we are excluding a CIDR prefix A
-	// with mask length X.
+	// length of the CIDR prefix of allowCIDR from which we are excluding the CIDR
+	// prefix removeCIDR with mask length X.
 	allows := make([]*net.IPNet, 0, removeSize-allowSize)
 	for i := (allowBitLen - allowSize - 1); i >= (allowBitLen - removeSize); i-- {
 		// The mask for each CIDR prefix is simply the ith bit flipped, and then
@@ -262,7 +236,7 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 		allows = append(allows, &newIPNet)
 	}
 
-	return allows, nil
+	return allows
 }
 
 func getByteIndexOfBit(bit uint) uint {
