@@ -80,6 +80,7 @@ func (s *IPTestSuite) TestFirstIP(c *C) {
 }
 
 func (s *IPTestSuite) testIPNetsEqual(created, expected []*net.IPNet, c *C) {
+	c.Assert(created, HasLen, len(expected))
 	for index := range created {
 		c.Assert(created[index].String(), Equals, expected[index].String())
 		c.Assert(created[index].Mask.String(), Equals, expected[index].Mask.String())
@@ -87,6 +88,7 @@ func (s *IPTestSuite) testIPNetsEqual(created, expected []*net.IPNet, c *C) {
 }
 
 func (s *IPTestSuite) testIPsEqual(created, expected net.IP, c *C) {
+	c.Assert(created, HasLen, len(expected))
 	for k := range created {
 		c.Assert(created[k], Equals, expected[k])
 	}
@@ -169,6 +171,34 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
+}
+
+func (s *IPTestSuite) TestRemoveSameCIDR(c *C) {
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen))}
+
+	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, allowCIDRs)
+	c.Assert(err, IsNil)
+	c.Assert(allowedCIDRs, HasLen, 0)
+}
+
+func (s *IPTestSuite) TestRemoveCIDRsEdgeCase(c *C) {
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, int(ipv4BitLen))}
+	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen)), createIPNet("10.96.0.1", 32, int(ipv4BitLen))}
+	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, int(ipv4BitLen))}
+
+	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
+	c.Assert(err, IsNil)
+}
+
+func (s *IPTestSuite) TestRemoveCIDRsEdgeCase2(c *C) {
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 22, int(ipv4BitLen))}
+	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
+	expectedCIDRs := []*net.IPNet{createIPNet("10.96.2.0", 23, int(ipv4BitLen))}
+
+	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
+	c.Assert(err, IsNil)
 }
 
 func (s *IPTestSuite) TestByteFunctions(c *C) {
