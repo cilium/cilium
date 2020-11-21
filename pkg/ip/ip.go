@@ -195,7 +195,7 @@ func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
 // Caller is responsible for only passing CIDRs of the same address family.
 func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 	// Get size of each CIDR mask.
-	allowSize, allowBitLen := allowCIDR.Mask.Size()
+	allowSize, addrSize := allowCIDR.Mask.Size()
 	removeSize, _ := removeCIDR.Mask.Size()
 
 	// Removing a CIDR from itself should result into an empty set
@@ -205,23 +205,21 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 
 	removeIPMasked := removeCIDR.IP.Mask(removeCIDR.Mask)
 
-	if allowCIDR.IP.To4() != nil {
-		// Convert IPv4 to IPv6 format
-		removeIPMasked = append(v4Mappedv6Prefix, removeIPMasked...)
-	}
-
 	// Create CIDR prefixes with mask size of Y+1, Y+2 ... X where Y is the mask
 	// length of the CIDR prefix of allowCIDR from which we are excluding the CIDR
 	// prefix removeCIDR with mask length X.
 	allows := make([]*net.IPNet, 0, removeSize-allowSize)
-	for i := (allowBitLen - allowSize - 1); i >= (allowBitLen - removeSize); i-- {
+	// Scan bits from high to low, where 0th bit is the highest.
+	// For example, an allowCIDR of size 16 covers bits 0..15,
+	// so the new bit in the first new mask is 16th bit, for a mask size 17.
+	for bit := allowSize; bit < removeSize; bit++ {
+		newMaskSize := bit + 1 // bit numbering starts from 0, 0th bit needs mask of size 1
+
 		// The mask for each CIDR prefix is simply the masked removeCIDR with the lowest bit
 		// within the new mask size flipped.
-		newMaskSize := allowBitLen - i
-
-		newIP := flipNthBit(removeIPMasked, uint(i))
-		newMask := net.CIDRMask(newMaskSize, allowBitLen)
-		newIPMasked := newIP.Mask(newMask)
+		newMask := net.CIDRMask(newMaskSize, addrSize)
+		newIPMasked := removeIPMasked.Mask(newMask)
+		flipNthHighestBit(newIPMasked, uint(bit))
 
 		newIPNet := net.IPNet{IP: newIPMasked, Mask: newMask}
 		allows = append(allows, &newIPNet)
@@ -230,24 +228,10 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 	return allows
 }
 
-func getByteIndexOfBit(bit uint) uint {
-	return net.IPv6len - (bit / 8) - 1
-}
-
-func getNthBit(ip net.IP, bitNum uint) uint8 {
-	byteNum := getByteIndexOfBit(bitNum)
-	bits := ip[byteNum]
-	b := uint8(bits)
-	return b >> (bitNum % 8) & 1
-}
-
-func flipNthBit(ip net.IP, bitNum uint) net.IP {
-	ipCopy := make([]byte, len(ip))
-	copy(ipCopy, ip)
-	byteNum := getByteIndexOfBit(bitNum)
-	ipCopy[byteNum] = ipCopy[byteNum] ^ 1<<(bitNum%8)
-
-	return ipCopy
+// Flip the 'n'th highest bit in 'ip'. 'ip' is modified in place. 'n' is zero indexed.
+func flipNthHighestBit(ip net.IP, n uint) {
+	i := (n / 8)
+	ip[i] = ip[i] ^ 0x80>>(n%8)
 }
 
 func ipNetToRange(ipNet net.IPNet) netWithRange {
