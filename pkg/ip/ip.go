@@ -203,13 +203,11 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 		return nil
 	}
 
-	allowFirstIP := allowCIDR.IP.Mask(allowCIDR.Mask)
-	removeFirstIP := removeCIDR.IP.Mask(removeCIDR.Mask)
+	removeIPMasked := removeCIDR.IP.Mask(removeCIDR.Mask)
 
 	if allowCIDR.IP.To4() != nil {
 		// Convert IPv4 to IPv6 format
-		allowFirstIP = append(v4Mappedv6Prefix, allowFirstIP...)
-		removeFirstIP = append(v4Mappedv6Prefix, removeFirstIP...)
+		removeIPMasked = append(v4Mappedv6Prefix, removeIPMasked...)
 	}
 
 	// Create CIDR prefixes with mask size of Y+1, Y+2 ... X where Y is the mask
@@ -217,15 +215,11 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 	// prefix removeCIDR with mask length X.
 	allows := make([]*net.IPNet, 0, removeSize-allowSize)
 	for i := (allowBitLen - allowSize - 1); i >= (allowBitLen - removeSize); i-- {
-		// The mask for each CIDR prefix is simply the ith bit flipped, and then
-		// zero'ing out all subsequent bits (the host identifier part of the
-		// prefix).
+		// The mask for each CIDR prefix is simply the masked removeCIDR with the lowest bit
+		// within the new mask size flipped.
 		newMaskSize := allowBitLen - i
-		newIP := flipNthBit(removeFirstIP, uint(i))
-		for k := range allowFirstIP {
-			newIP[k] = allowFirstIP[k] | newIP[k]
-		}
 
+		newIP := flipNthBit(removeIPMasked, uint(i))
 		newMask := net.CIDRMask(newMaskSize, allowBitLen)
 		newIPMasked := newIP.Mask(newMask)
 
