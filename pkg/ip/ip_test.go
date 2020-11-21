@@ -181,56 +181,46 @@ func (s *IPTestSuite) TestRemoveSameCIDR(c *C) {
 	c.Assert(allowedCIDRs, HasLen, 0)
 }
 
-func (s *IPTestSuite) TestRemoveCIDRsEdgeCase(c *C) {
+func (s *IPTestSuite) TestRemoveCIDRsEdgeCases(c *C) {
+	// Remote some /32s
 	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, int(ipv4BitLen))}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen)), createIPNet("10.96.0.1", 32, int(ipv4BitLen))}
 	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, int(ipv4BitLen))}
-
 	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 	c.Assert(err, IsNil)
-}
 
-func (s *IPTestSuite) TestRemoveCIDRsEdgeCase2(c *C) {
-	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 22, int(ipv4BitLen))}
-	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
-	expectedCIDRs := []*net.IPNet{createIPNet("10.96.2.0", 23, int(ipv4BitLen))}
+	// Remove some subnets
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 22, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
+	expectedCIDRs = []*net.IPNet{createIPNet("10.96.2.0", 23, int(ipv4BitLen))}
+	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
+	c.Assert(err, IsNil)
 
-	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
+	// Remove all subnets
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 23, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
+	expectedCIDRs = []*net.IPNet{}
+	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 	c.Assert(err, IsNil)
 }
 
 func (s *IPTestSuite) TestByteFunctions(c *C) {
-	//getByteIndexofBit
-	byteNum := getByteIndexOfBit(0)
-	c.Assert(byteNum, Equals, uint(15))
-	byteNum = getByteIndexOfBit(1)
-	c.Assert(byteNum, Equals, uint(15))
-	byteNum = getByteIndexOfBit(8)
-	c.Assert(byteNum, Equals, uint(14))
-	byteNum = getByteIndexOfBit(9)
-	c.Assert(byteNum, Equals, uint(14))
-
-	//getNthBit
-	testNet := net.IPNet{IP: net.ParseIP("10.96.0.0"), Mask: net.CIDRMask(12, int(ipv4BitLen))}
-	bit := getNthBit(testNet.IP, 20)
-	c.Assert(bit, Equals, uint8(0))
-	bit = getNthBit(testNet.IP, 22)
-	c.Assert(bit, Equals, uint8(1))
-
-	//flipNthBit
-	testBytes := net.IP{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x0, 0x0}
-	newBytes := flipNthBit(testBytes, 10)
-	expectedBytes := net.IP{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x4, 0x0}
+	//flipNthHighestBit
+	testBytes := net.IP{0x0, 0x0, 0x0, 0x0}
+	expectedBytes := net.IP{0x0, 0x0, 0x0, 0x80}
+	flipNthHighestBit(testBytes, 24)
 	for k := range expectedBytes {
-		c.Assert(expectedBytes[k], Equals, newBytes[k])
+		c.Assert(expectedBytes[k], Equals, testBytes[k])
 	}
 
-	newBytes = flipNthBit(testBytes, 32)
+	testBytes = net.IP{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x0, 0x0}
 	expectedBytes = net.IP{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xfe, 0x0, 0x0, 0x0, 0x0}
+	flipNthHighestBit(testBytes, 95)
 	for k := range expectedBytes {
-		c.Assert(expectedBytes[k], Equals, newBytes[k])
+		c.Assert(expectedBytes[k], Equals, testBytes[k])
 	}
 }
 
