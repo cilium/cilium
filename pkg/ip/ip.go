@@ -114,10 +114,48 @@ func (s NetsByRange) Len() int {
 	return len(s)
 }
 
+// removeRedundantCIDRs removes CIDRs which are contained within other given CIDRs.
+func removeRedundantCIDRs(CIDRs []*net.IPNet) []*net.IPNet {
+	redundant := make(map[int]bool)
+	for j, CIDR := range CIDRs {
+		if redundant[j] {
+			continue // Skip redundant CIDRs
+		}
+		for i, CIDR2 := range CIDRs {
+			// Skip checking CIDR aganst itself or if CIDR has already been deemed redundant.
+			if i == j || redundant[i] {
+				continue
+			}
+			if CIDR.Contains(CIDR2.IP) {
+				redundant[i] = true
+			}
+		}
+	}
+
+	if len(redundant) == 0 {
+		return CIDRs
+	}
+
+	if len(redundant) == 1 {
+		for i := range redundant {
+			return append(CIDRs[:i], CIDRs[i+1:]...)
+		}
+	}
+
+	newCIDRs := make([]*net.IPNet, 0, len(CIDRs)-len(redundant))
+	for i := range CIDRs {
+		if redundant[i] {
+			continue
+		}
+		newCIDRs = append(newCIDRs, CIDRs[i])
+	}
+	return newCIDRs
+}
+
 // RemoveCIDRs removes the specified CIDRs from another set of CIDRs. If a CIDR
 // to remove is not contained within the CIDR, the CIDR to remove is ignored. A
 // slice of CIDRs is returned which contains the set of CIDRs provided minus
-// the set of CIDRs which  were removed. Both input slices may be modified by
+// the set of CIDRs which were removed. Both input slices may be modified by
 // calling this function.
 func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) ([]*net.IPNet, error) {
 
@@ -125,25 +163,17 @@ func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) ([]*net.IPNet, error) {
 	// subnet first.
 	sort.Sort(NetsByMask(removeCIDRs))
 
-PreLoop:
 	// Remove CIDRs which are contained within CIDRs that we want to remove;
 	// such CIDRs are redundant.
-	for j, removeCIDR := range removeCIDRs {
-		for i, removeCIDR2 := range removeCIDRs {
-			if i == j {
-				continue
-			}
-			if removeCIDR.Contains(removeCIDR2.IP) {
-				removeCIDRs = append(removeCIDRs[:i], removeCIDRs[i+1:]...)
-				// Re-trigger loop since we have modified the slice we are iterating over.
-				goto PreLoop
-			}
-		}
-	}
+	removeCIDRs = removeRedundantCIDRs(removeCIDRs)
+
+	// Remove redundant allowCIDR so that all allowCIDRs are disjoint
+	allowCIDRs = removeRedundantCIDRs(allowCIDRs)
 
 	for _, remove := range removeCIDRs {
-	Loop:
-		for i, allowCIDR := range allowCIDRs {
+		i := 0
+		for i < len(allowCIDRs) {
+			allowCIDR := allowCIDRs[i]
 
 			// Don't allow comparison of different address spaces.
 			if allowCIDR.IP.To4() != nil && remove.IP.To4() == nil ||
@@ -159,12 +189,13 @@ PreLoop:
 				// that we computed from removing the CIDR to remove.
 				allowCIDRs = append(allowCIDRs[:i], allowCIDRs[i+1:]...)
 				allowCIDRs = append(allowCIDRs, nets...)
-				goto Loop
 			} else if remove.Contains(allowCIDR.IP.Mask(allowCIDR.Mask)) {
 				// If a CIDR that we want to remove contains a CIDR in the list
 				// that is allowed, then we can just remove the CIDR to allow.
 				allowCIDRs = append(allowCIDRs[:i], allowCIDRs[i+1:]...)
-				goto Loop
+			} else {
+				// Advance only if CIDR at index 'i' was not removed
+				i++
 			}
 		}
 	}
