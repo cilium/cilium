@@ -104,6 +104,67 @@ func createIPRange(first string, last string) *netWithRange {
 	return &netWithRange{First: &firstIP, Last: &lastIP}
 }
 
+func (s *IPTestSuite) TestRemoveRedundant(c *C) {
+	CIDRs := []*net.IPNet{
+		createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+	}
+	expectedCIDRs := []*net.IPNet{
+		createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs := removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+	}
+	expectedCIDRs = []*net.IPNet{
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	expectedCIDRs = []*net.IPNet{
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	expectedCIDRs = []*net.IPNet{
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+}
+
 func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
@@ -113,10 +174,16 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.0.0.0", 10, int(ipv4BitLen)),
 		createIPNet("10.64.0.0", 11, int(ipv4BitLen)),
 		createIPNet("10.120.0.0", 13, int(ipv4BitLen))}
-
 	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
 	c.Assert(err, IsNil)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
+	// Removing superset removes the allowed CIDR
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	expectedCIDRs = []*net.IPNet{}
+	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	c.Assert(err, IsNil)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
@@ -126,7 +193,6 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
 		createIPNet("10.63.0.5", 13, int(ipv4BitLen)),
 	}
-
 	expectedCIDRs = []*net.IPNet{createIPNet("10.128.0.0", 9, int(ipv4BitLen)),
 		createIPNet("10.0.0.0", 11, int(ipv4BitLen)),
 		createIPNet("10.32.0.0", 12, int(ipv4BitLen)),
@@ -152,7 +218,6 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.93.0.8", 29, int(ipv4BitLen)),
 		createIPNet("10.93.0.0", 30, int(ipv4BitLen)),
 	}
-
 	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	c.Assert(err, IsNil)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
@@ -165,7 +230,6 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 	//IPv6 tests
 	allowCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen))}
 	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-
 	c.Assert(err, IsNil)
 	expectedCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, int(ipv6BitLen)),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
