@@ -504,7 +504,7 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)
 	defer cancel()
-	ep.UpdateLabels(newCtx, epLabels, nil, true)
+	ep.UpdateLabels(newCtx, epLabels, epLabels, true)
 	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
 		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
 	}
