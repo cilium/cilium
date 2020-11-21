@@ -37,6 +37,9 @@ var (
 const (
 	// LPCfgFileVersion represents the version of a Label Prefix Configuration File
 	LPCfgFileVersion = 1
+
+	// reservedLabelsPattern is the prefix pattern for all reserved labels
+	reservedLabelsPattern = labels.LabelSourceReserved + ":.*"
 )
 
 // LabelPrefix is the cilium's representation of a container label.
@@ -113,11 +116,25 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 // of valid prefixes. Both are optional. If both are provided, both list are
 // appended together.
 func ParseLabelPrefixCfg(prefixes []string, file string) error {
-	cfg, err := readLabelPrefixCfgFrom(file)
-	if err != nil {
-		return fmt.Errorf("unable to read label prefix file: %s", err)
+	var cfg *labelPrefixCfg
+	var err error
+	var fromCustomFile bool
+
+	// Use default label prefix if configuration file not provided
+	if file == "" {
+		log.Info("Parsing base label prefixes from default label list")
+		cfg = defaultLabelPrefixCfg()
+	} else {
+		log.Infof("Parsing base label prefixes from file %s", file)
+		cfg, err = readLabelPrefixCfgFrom(file)
+		if err != nil {
+			return fmt.Errorf("unable to read label prefix file: %s", err)
+		}
+
+		fromCustomFile = true
 	}
 
+	log.Infof("Parsing additional label prefixes from user inputs: %v", prefixes)
 	for _, label := range prefixes {
 		p, err := parseLabelPrefix(label)
 		if err != nil {
@@ -131,9 +148,24 @@ func ParseLabelPrefixCfg(prefixes []string, file string) error {
 		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
+	if fromCustomFile {
+		found := false
+		for _, label := range cfg.LabelPrefixes {
+			if label.Source+":"+label.Prefix == reservedLabelsPattern {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			log.Errorf("'%s' needs to be included in the final label list for "+
+				"Cilium to work properly.", reservedLabelsPattern)
+		}
+	}
+
 	validLabelPrefixes = cfg
 
-	log.Info("Valid label prefix configuration:")
+	log.Info("Final label prefixes to be used for identity evaluation:")
 	for _, l := range validLabelPrefixes.LabelPrefixes {
 		log.Infof(" - %s", l)
 	}
@@ -161,6 +193,7 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 	}
 
 	expressions := []string{
+		reservedLabelsPattern,           // include all reserved labels
 		k8sConst.PodNamespaceLabel,      // include io.kubernetes.pod.namespace
 		k8sConst.PodNamespaceMetaLabels, // include all namespace labels
 		k8sConst.AppKubernetes,          // include app.kubernetes.io
@@ -187,12 +220,11 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 	return cfg
 }
 
-// readLabelPrefixCfgFrom reads a label prefix configuration file from fileName. If the
-// version is not supported by us it returns an error.
+// readLabelPrefixCfgFrom reads a label prefix configuration file from fileName.
+// return an error if fileName is empty, or if version is not supported.
 func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
-	// if not file is specified, the default is empty
 	if fileName == "" {
-		return defaultLabelPrefixCfg(), nil
+		return nil, fmt.Errorf("label prefix file not provided")
 	}
 
 	f, err := os.Open(fileName)

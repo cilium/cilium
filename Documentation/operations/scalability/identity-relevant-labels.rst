@@ -23,6 +23,7 @@ By default, Cilium evaluates the following labels:
 =================================== ==================================================
 Label                               Description
 ----------------------------------- --------------------------------------------------
+``reserved:.*``                     Include all ``reserved`` labels
 ``k8s:io.kubernetes.pod.namespace`` Include all ``io.kubernetes.pod.namespace`` labels
 ``k8s:app.kubernetes.io``           Include all ``app.kubernetes.io`` labels
 ``k8s:!io.kubernetes``              Ignore all ``io.kubernetes`` labels
