@@ -203,17 +203,14 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 		return nil
 	}
 
-	allowFirstIPMasked := allowCIDR.IP.Mask(allowCIDR.Mask)
-	removeFirstIPMasked := removeCIDR.IP.Mask(removeCIDR.Mask)
+	allowFirstIP := allowCIDR.IP.Mask(allowCIDR.Mask)
+	removeFirstIP := removeCIDR.IP.Mask(removeCIDR.Mask)
 
 	if allowCIDR.IP.To4() != nil {
 		// Convert IPv4 to IPv6 format
-		allowFirstIPMasked = append(v4Mappedv6Prefix, allowFirstIPMasked...)
-		removeFirstIPMasked = append(v4Mappedv6Prefix, removeFirstIPMasked...)
+		allowFirstIP = append(v4Mappedv6Prefix, allowFirstIP...)
+		removeFirstIP = append(v4Mappedv6Prefix, removeFirstIP...)
 	}
-
-	allowFirstIP := &allowFirstIPMasked
-	removeFirstIP := &removeFirstIPMasked
 
 	// Create CIDR prefixes with mask size of Y+1, Y+2 ... X where Y is the mask
 	// length of the CIDR prefix of allowCIDR from which we are excluding the CIDR
@@ -224,9 +221,9 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 		// zero'ing out all subsequent bits (the host identifier part of the
 		// prefix).
 		newMaskSize := allowBitLen - i
-		newIP := (*net.IP)(flipNthBit((*[]byte)(removeFirstIP), uint(i)))
-		for k := range *allowFirstIP {
-			(*newIP)[k] = (*allowFirstIP)[k] | (*newIP)[k]
+		newIP := flipNthBit(removeFirstIP, uint(i))
+		for k := range allowFirstIP {
+			newIP[k] = allowFirstIP[k] | newIP[k]
 		}
 
 		newMask := net.CIDRMask(newMaskSize, allowBitLen)
@@ -243,20 +240,20 @@ func getByteIndexOfBit(bit uint) uint {
 	return net.IPv6len - (bit / 8) - 1
 }
 
-func getNthBit(ip *net.IP, bitNum uint) uint8 {
+func getNthBit(ip net.IP, bitNum uint) uint8 {
 	byteNum := getByteIndexOfBit(bitNum)
-	bits := (*ip)[byteNum]
+	bits := ip[byteNum]
 	b := uint8(bits)
 	return b >> (bitNum % 8) & 1
 }
 
-func flipNthBit(ip *[]byte, bitNum uint) *[]byte {
-	ipCopy := make([]byte, len(*ip))
-	copy(ipCopy, *ip)
+func flipNthBit(ip net.IP, bitNum uint) net.IP {
+	ipCopy := make([]byte, len(ip))
+	copy(ipCopy, ip)
 	byteNum := getByteIndexOfBit(bitNum)
 	ipCopy[byteNum] = ipCopy[byteNum] ^ 1<<(bitNum%8)
 
-	return &ipCopy
+	return ipCopy
 }
 
 func ipNetToRange(ipNet net.IPNet) netWithRange {
