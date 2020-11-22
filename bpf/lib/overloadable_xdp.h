@@ -93,4 +93,22 @@ static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 	ctx_store_meta(ctx, XFER_MARKER, meta);
 }
 
+#ifdef ENABLE_IPV6
+static __always_inline __maybe_unused void
+ctx_skip_lb6_local_clear(struct xdp_md *ctx __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused void
+ctx_skip_lb6_local_set(struct xdp_md *ctx __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused bool
+ctx_skip_lb6_local(struct xdp_md *ctx __maybe_unused)
+{
+	return false;
+}
+#endif
+
 #endif /* __LIB_OVERLOADABLE_XDP_H_ */

@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "hash.h"
 #include "ids.h"
+#include "overloadable.h"
 
 #ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps LB6_REVERSE_NAT_MAP = {
@@ -170,6 +171,26 @@ struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
 #define cilium_dbg_lb cilium_dbg
 #else
 #define cilium_dbg_lb(a, b, c, d)
+#endif
+
+#ifdef ENABLE_IPV6
+static __always_inline __maybe_unused void
+bpf_skip_lb6_local_clear(struct __ctx_buff *ctx)
+{
+	ctx_skip_lb6_local_clear(ctx);
+}
+
+static __always_inline __maybe_unused void
+bpf_skip_lb6_local_set(struct __ctx_buff *ctx)
+{
+	ctx_skip_lb6_local_set(ctx);
+}
+
+static __always_inline __maybe_unused bool
+bpf_skip_lb6_local(struct __ctx_buff *ctx)
+{
+	return ctx_skip_lb6_local(ctx);
+}
 #endif
 
 static __always_inline
