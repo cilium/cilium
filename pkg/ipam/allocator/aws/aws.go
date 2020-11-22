@@ -36,15 +36,32 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-aws")
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
-type AllocatorAWS struct{}
+type AllocatorAWS struct {
+	client *ec2shim.Client
+}
 
 // Init sets up ENI limits based on given options
-func (*AllocatorAWS) Init() error {
+func (a *AllocatorAWS) Init() error {
+	var aMetrics ec2shim.MetricsAPI
+
+	cfg, err := ec2shim.NewConfig()
+	if err != nil {
+		return err
+	}
+	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
+
+	if operatorOption.Config.EnableMetrics {
+		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)
+	} else {
+		aMetrics = &apiMetrics.NoOpMetrics{}
+	}
+	a.client = ec2shim.NewClient(ec2.New(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters)
+
 	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
 	}
 	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(context.TODO()); err != nil {
+		if err := limits.UpdateFromEC2API(context.TODO(), a.client); err != nil {
 			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
 		}
 	}
@@ -54,31 +71,17 @@ func (*AllocatorAWS) Init() error {
 // Start kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	var (
-		aMetrics ec2shim.MetricsAPI
-		iMetrics ipam.MetricsAPI
-	)
+func (a *AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+	var iMetrics ipam.MetricsAPI
 
 	log.Info("Starting ENI allocator...")
 
-	cfg, err := ec2shim.NewConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)
 		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
 	} else {
-		aMetrics = &apiMetrics.NoOpMetrics{}
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-
-	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters)
-	log.Info("Connected to EC2 service API")
-	instances := eni.NewInstancesManager(ec2Client, operatorOption.Config.ENITags)
+	instances := eni.NewInstancesManager(a.client, operatorOption.Config.ENITags)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs)
 	if err != nil {
