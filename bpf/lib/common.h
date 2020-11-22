@@ -81,7 +81,8 @@
 #define CILIUM_CALL_IPV4_FROM_HOST		22
 #define CILIUM_CALL_IPV6_FROM_HOST		23
 #define CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT	24
-#define CILIUM_CALL_SIZE			25
+#define CILIUM_CALL_IPV6_LOCAL_FROM_LXC		25
+#define CILIUM_CALL_SIZE			26
 
 typedef __u64 mac_t;
 
@@ -492,7 +493,6 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 {
 	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
 }
-
 /*
  * ctx->tc_index uses
  *
@@ -504,6 +504,7 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_NODEPORT	4
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
+#define TC_INDEX_F_SKIP_LB6_LOCAL	32
 
 /* ctx_{load,store}_meta() usage: */
 enum {
@@ -511,19 +512,24 @@ enum {
 #define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
+#define CB_CT_STATE6_REVNAT_ID  CB_SRC_LABEL    /* Alias, non-overlapping */
 	CB_IFINDEX,
 #define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_CT_STATE6_FLAGS	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
+#define CB_CT_STATE6_SRC_SEC_ID CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
 #define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
 #define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE	/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT46_STATE	/* Alias, non-overlapping */
+#define CB_CT_STATE6_IFINDEX	CB_NAT46_STATE	/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
+#define CB_CT_STATE6_BACKEND_ID CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
@@ -792,6 +798,34 @@ struct ct_state {
 	__u16 ifindex;
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
+
+static __always_inline void
+ctx_store_meta_ct_state6(struct __ctx_buff *ctx, const struct ct_state *state)
+{
+	__u16 flags = state->loopback | (state->node_port << 1) |
+		(state->proxy_redirect << 2) | (state->dsr << 3);
+
+	ctx_store_meta(ctx, CB_CT_STATE6_REVNAT_ID, state->rev_nat_index);
+	ctx_store_meta(ctx, CB_CT_STATE6_FLAGS, flags);
+	ctx_store_meta(ctx, CB_CT_STATE6_SRC_SEC_ID, state->src_sec_id);
+	ctx_store_meta(ctx, CB_CT_STATE6_IFINDEX, state->ifindex);
+	ctx_store_meta(ctx, CB_CT_STATE6_BACKEND_ID, state->backend_id);
+}
+
+static __always_inline void
+ctx_load_meta_ct_state6(struct __ctx_buff *ctx, struct ct_state *state)
+{
+	__u16 flags = ctx_load_meta(ctx, CB_CT_STATE6_FLAGS);
+
+	state->loopback = flags & 1;
+	state->node_port = (flags >> 1) & 1;
+	state->proxy_redirect = (flags >> 2) & 1;
+	state->dsr = (flags >> 3) & 1;
+	state->rev_nat_index = ctx_load_meta(ctx, CB_CT_STATE6_REVNAT_ID);
+	state->src_sec_id = ctx_load_meta(ctx, CB_CT_STATE6_SRC_SEC_ID);
+	state->ifindex = ctx_load_meta(ctx, CB_CT_STATE6_IFINDEX);
+	state->backend_id = ctx_load_meta(ctx, CB_CT_STATE6_BACKEND_ID);
+}
 
 #define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
 	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))

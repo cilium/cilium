@@ -54,6 +54,69 @@ static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 #endif
 
 #ifdef ENABLE_IPV6
+# ifndef ENABLE_HOST_SERVICES_FULL
+declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			 is_defined(DEBUG)), CILIUM_CALL_IPV6_LOCAL_FROM_LXC)
+int tail_handle_ipv6_local(struct __ctx_buff *ctx)
+{
+	struct lb6_service *svc;
+	struct lb6_key key = {};
+	struct csum_offset csum_off = {};
+	struct ct_state ct_state_new = {};
+	struct ipv6_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int ret, l4_off, hdrlen;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+	tuple.nexthdr = ip6->nexthdr;
+
+	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
+
+	ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
+			      CT_EGRESS);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			goto recirculate_tailcall;
+		goto drop_err;
+	}
+
+	/*
+	 * Check if the destination address is among the address that should
+	 * be load balanced. This operation is performed before we go through
+	 * the connection tracker to allow storing the reverse nat index in
+	 * the CT entry for destination endpoints where we can't encode the
+	 * state in the address.
+	 */
+	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+	if (svc) {
+		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
+				&csum_off, &key, &tuple, svc, &ct_state_new);
+		if (IS_ERR(ret))
+			goto drop_err;
+	}
+
+recirculate_tailcall:
+	bpf_skip_lb6_local_set(ctx);
+	ctx_store_meta_ct_state6(ctx, &ct_state_new);
+
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+	ret = DROP_MISSED_TAIL_CALL;
+
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+}
+
+# endif /* ENABLE_HOST_SERVICES_FULL */
+
 static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 					    struct ipv6_ct_tuple *tuple,
 					    int l3_off, struct ipv6hdr *ip6,
@@ -75,8 +138,9 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	bool skip_lb6_local = bpf_skip_lb6_local(ctx);
 
-	if (unlikely(!is_valid_lxc_src_ip(ip6)))
+	if (unlikely(!skip_lb6_local && !is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
@@ -89,37 +153,22 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	l4_off = l3_off + hdrlen;
 
 #ifndef ENABLE_HOST_SERVICES_FULL
-	{
-		struct lb6_service *svc;
-		struct lb6_key key = {};
-
-		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off,
-				      CT_EGRESS);
-		if (IS_ERR(ret)) {
-			if (ret == DROP_UNKNOWN_L4)
-				goto skip_service_lookup;
-			else
-				return ret;
-		}
-
-		/*
-		 * Check if the destination address is among the address that should
-		 * be load balanced. This operation is performed before we go through
-		 * the connection tracker to allow storing the reverse nat index in
-		 * the CT entry for destination endpoints where we can't encode the
-		 * state in the address.
-		 */
-		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
-		if (svc) {
-			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, tuple, svc, &ct_state_new);
-			if (IS_ERR(ret))
-				return ret;
-			hairpin_flow |= ct_state_new.loopback;
-		}
+	if (!skip_lb6_local) {
+		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+					is_defined(DEBUG)),
+				   CILIUM_CALL_IPV6_LOCAL_FROM_LXC, tail_handle_ipv6_local);
+		return DROP_MISSED_TAIL_CALL;
 	}
+	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
-skip_service_lookup:
+	/* Populate source and destination port from ctx */
+	if (ctx_load_bytes(ctx, l4_off, &tuple->dport, 4) < 0)
+		return DROP_INVALID;
+
+	BPF_V6(tuple->saddr, LXC_IP);
+	ctx_load_meta_ct_state6(ctx, &ct_state_new);
+	bpf_clear_meta(ctx);
+	hairpin_flow |= ct_state_new.loopback;
 #endif /* !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto

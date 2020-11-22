@@ -147,6 +147,13 @@ enum {
 #include "events.h"
 #endif
 
+# define printk2(fmt, ...)					\
+		({						\
+			const char ____fmt[] = fmt;		\
+			trace_printk(____fmt, sizeof(____fmt),	\
+				     ##__VA_ARGS__);		\
+		})
+
 #ifdef DEBUG
 #include "common.h"
 #include "utils.h"
