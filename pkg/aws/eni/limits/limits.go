@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
 // limit contains limits for adapter count and addresses. The mappings will be
@@ -344,34 +343,10 @@ func UpdateFromUserDefinedMappings(m map[string]string) (err error) {
 
 // UpdateFromEC2API updates limits from the EC2 API via calling
 // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html.
-func UpdateFromEC2API(ctx context.Context) error {
-	cfg, err := ec2shim.NewConfig()
+func UpdateFromEC2API(ctx context.Context, ec2Client *ec2shim.Client) error {
+	instanceTypeInfos, err := ec2Client.GetInstanceTypes(ctx)
 	if err != nil {
 		return err
-	}
-	ec2Client := ec2.New(cfg)
-
-	instanceTypeInfos := []ec2.InstanceTypeInfo{}
-	describeInstanceTypes := &ec2.DescribeInstanceTypesInput{}
-	req := ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
-	describeInstanceTypesResponse, err := req.Send(ctx)
-	if err != nil {
-		return err
-	}
-
-	instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
-
-	for describeInstanceTypesResponse.NextToken != nil {
-		describeInstanceTypes := &ec2.DescribeInstanceTypesInput{
-			NextToken: describeInstanceTypesResponse.NextToken,
-		}
-		req = ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
-		describeInstanceTypesResponse, err = req.Send(ctx)
-		if err != nil {
-			return err
-		}
-
-		instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
 	}
 
 	limits.Lock()

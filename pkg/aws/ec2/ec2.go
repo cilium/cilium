@@ -542,3 +542,34 @@ func (c *Client) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap,
 
 	return securityGroups, nil
 }
+
+// GetInstanceTypes returns all the known EC2 instance types in the configured region
+func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2.InstanceTypeInfo, error) {
+	c.limiter.Limit(ctx, "DescribeInstanceTypes")
+	sinceStart := spanstat.Start()
+	instanceTypeInfos := []ec2.InstanceTypeInfo{}
+	describeInstanceTypes := &ec2.DescribeInstanceTypesInput{}
+	req := c.ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
+	describeInstanceTypesResponse, err := req.Send(ctx)
+	c.metricsAPI.ObserveAPICall("DescribeInstanceTypes", deriveStatus(req.Request, err), sinceStart.Seconds())
+	if err != nil {
+		return instanceTypeInfos, err
+	}
+
+	instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
+
+	for describeInstanceTypesResponse.NextToken != nil {
+		describeInstanceTypes := &ec2.DescribeInstanceTypesInput{
+			NextToken: describeInstanceTypesResponse.NextToken,
+		}
+		req = c.ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
+		describeInstanceTypesResponse, err = req.Send(ctx)
+		if err != nil {
+			return instanceTypeInfos, err
+		}
+
+		instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
+	}
+
+	return instanceTypeInfos, nil
+}
