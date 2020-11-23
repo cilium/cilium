@@ -327,6 +327,12 @@ steps 1 to 2 times per day. Works best if done first thing in the working day.
 #. If this PR was opened by a non-committer (e.g. external contributor) please
    assign yourself to that PR and make sure to keep track the PR gets reviewed
    and merged. This may extend beyond your assigned week for Janitor duty.
+
+   If the contributor is a Cilium committer, then they are responsible for
+   getting the PR in a ready to be merged state by adding the ``ready-to-merge``
+   label, once all reviews have been addressed and CI checks are successful, so
+   that the janitor can merge it (see below).
+
    If this PR is a backport PR (e.g. with the label ``kind/backport``) and
    no-one else has reviewed the PR, review the changes as a sanity check.
    If any individual commits deviate from the original patch, request review from
