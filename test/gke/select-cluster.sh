@@ -27,6 +27,13 @@ while [ $locked -ne 0 ]; do
 		continue
 	fi
 
+	echo "checking whether cluster ${cluster_uri} is running"
+	status=$(gcloud container clusters describe --project "${project}" --format="value(status)" "${cluster_uri}" --region="${region}")
+	if [[ "$status" != "RUNNING"  ]] ; then
+		echo "cluster status is $status , trying out another cluster"
+		continue
+	fi
+
 	echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
 	gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
@@ -55,19 +62,19 @@ gcloud container clusters describe --project "${project}" --region "${region}" -
   | sed -E 's/([0-9]+\.[0-9]+)\..*/\1/' | tr -d '\n' > "${script_dir}/cluster-version"
 
 echo "cleaning cluster before tests"
-${script_dir}/clean-cluster.sh
+"${script_dir}"/clean-cluster.sh
 
 echo "creating cilium ns"
 kubectl create ns cilium || true
 
 echo "scaling ${cluster_uri} to 2"
-${script_dir}/resize-cluster.sh 2 ${cluster_uri}
+"${script_dir}"/resize-cluster.sh 2 "${cluster_uri}"
 
 echo "labeling nodes"
 index=1
 for node in $(kubectl get nodes --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}');
 do
-    kubectl label node $node cilium.io/ci-node=k8s$index --overwrite
+    kubectl label node "$node" cilium.io/ci-node=k8s"$index" --overwrite
     index=$((index+1))
 done
 
