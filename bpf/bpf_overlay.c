@@ -9,6 +9,16 @@
 
 #define IS_BPF_OVERLAY 1
 
+/* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
+ * bpf_lxc object file.
+ */
+#define SKIP_ICMPV6_NS_HANDLING
+
+/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
+ * the bpf_lxc object file.
+ */
+#define SKIP_ICMPV6_ECHO_HANDLING
+
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
