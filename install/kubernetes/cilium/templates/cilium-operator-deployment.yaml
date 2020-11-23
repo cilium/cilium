@@ -243,6 +243,9 @@ spec:
 {{- range .Values.operator.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:
-          path: {{ .mountPath }}
+          path: {{ .hostPath }}
+{{- if .hostPathType }}
+          type: {{ .hostPathType }}
+{{- end }}
 {{- end }}
 {{- end }}
