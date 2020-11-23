@@ -446,7 +446,10 @@ spec:
 {{- range .Values.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:
-          path: {{ .mountPath }}
+          path: {{ .hostPath }}
+{{- if .hostPathType }}
+          type: {{ .hostPathType }}
+{{- end }}
 {{- end }}
 {{- if .Values.etcd.enabled }}
         # To read the etcd config stored in config maps
