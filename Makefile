@@ -59,6 +59,7 @@ SKIP_K8S_CODE_GEN_CHECK ?= "true"
 JOB_BASE_NAME ?= cilium_test
 
 GO_VERSION := $(shell cat GO_VERSION)
+GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)/\1.\2/' GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
 DOCKER_FLAGS ?=
@@ -577,8 +578,8 @@ licenses-all:
 update-golang: update-golang-dev-doctor update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
 update-golang-dev-doctor:
-	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_VERSION)"/' tools/dev-doctor/config.go
-	@echo "Updated go version in tools/dev-doctor to $(GO_VERSION)"
+	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
+	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
