@@ -97,7 +97,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		},
 		&binaryCheck{
 			name:          "docker-compose",
-			ifNotFound:    checkWarning,
+			ifNotFound:    checkInfo,
 			versionArgs:   []string{"--version"},
 			versionRegexp: regexp.MustCompile(`docker-compose version (\d+\.\d+\.\d+)`),
 		},
@@ -110,7 +110,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		},
 		&binaryCheck{
 			name:          "vagrant",
-			ifNotFound:    checkWarning,
+			ifNotFound:    checkInfo,
 			versionArgs:   []string{"--version"},
 			versionRegexp: regexp.MustCompile(`Vagrant (\d+\.\d+\S*)`),
 			minVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
@@ -118,12 +118,12 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		&binaryCheck{
 			name:           "virtualbox",
 			alternateNames: []string{"VirtualBox"},
-			ifNotFound:     checkWarning,
+			ifNotFound:     checkInfo,
 		},
 		&binaryCheck{
 			name:           "vboxheadless",
 			alternateNames: []string{"VBoxHeadless"},
-			ifNotFound:     checkWarning,
+			ifNotFound:     checkInfo,
 			versionArgs:    []string{"--version"},
 			versionRegexp:  regexp.MustCompile(`Oracle VM VirtualBox Headless Interface (\d+\.\d+\.\d+\S*)`),
 		},
