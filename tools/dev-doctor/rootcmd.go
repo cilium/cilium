@@ -51,6 +51,12 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 		osArchCheck{},
 		unameCheck{},
 		&binaryCheck{
+			name:          "make",
+			ifNotFound:    checkError,
+			versionArgs:   []string{"--version"},
+			versionRegexp: regexp.MustCompile(`GNU\s+Make\s+(\d+\.\d+\S*)`),
+		},
+		&binaryCheck{
 			name:          "go",
 			ifNotFound:    checkError,
 			versionArgs:   []string{"version"},
