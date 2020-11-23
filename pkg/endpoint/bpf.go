@@ -763,11 +763,11 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 			if !option.Config.DryMode {
 				ipv4 := option.Config.EnableIPv4
 				ipv6 := option.Config.EnableIPv6
-				created := ctmap.Exists(nil, ipv4, ipv6)
+				exists := ctmap.Exists(nil, ipv4, ipv6)
 				if e.ConntrackLocal() {
-					created = ctmap.Exists(e, ipv4, ipv6)
+					exists = ctmap.Exists(e, ipv4, ipv6)
 				}
-				if created {
+				if exists {
 					e.scrubIPsInConntrackTable()
 				}
 			}
