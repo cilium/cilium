@@ -95,9 +95,10 @@ extraInitContainers: []
 
 # -- Additional agent hostPath mounts
 extraHostPathMounts: []
-  # - name: textfile-dir
-  #   mountPath: /srv/txt_collector
-  #   hostPath: /var/lib/agent
+  # - name: host-mnt-data
+  #   mountPath: /host/mnt/data
+  #   hostPath: /mnt/data
+  #   hostPathType: Directory
   #   readOnly: true
   #   mountPropagation: HostToContainer
 
@@ -1084,9 +1085,10 @@ operator:
 
   # -- Additional cilium-operator hostPath mounts
   extraHostPathMounts: []
-    # - name: textfile-dir
-    #   mountPath: /srv/txt_collector
-    #   hostPath: /var/lib/cilium-operator
+    # - name: host-mnt-data
+    #   mountPath: /host/mnt/data
+    #   hostPath: /mnt/data
+    #   hostPathType: Directory
     #   readOnly: true
     #   mountPropagation: HostToContainer
 
