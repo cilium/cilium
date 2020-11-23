@@ -25,6 +25,11 @@
 # undef ENABLE_HOST_FIREWALL
 #endif
 
+/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
+ * the bpf_lxc object file.
+ */
+#define SKIP_ICMPV6_ECHO_HANDLING
+
 #include "lib/common.h"
 #include "lib/edt.h"
 #include "lib/arp.h"

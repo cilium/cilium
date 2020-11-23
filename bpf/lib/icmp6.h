@@ -124,6 +124,7 @@ static __always_inline int __icmp6_send_echo_reply(struct __ctx_buff *ctx,
 	return icmp6_send_reply(ctx, nh_off);
 }
 
+#ifndef SKIP_ICMPV6_ECHO_HANDLING
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY)
 int tail_icmp6_send_echo_reply(struct __ctx_buff *ctx)
 {
@@ -136,6 +137,7 @@ int tail_icmp6_send_echo_reply(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
 	return ret;
 }
+#endif
 
 /*
  * icmp6_send_echo_reply
@@ -325,10 +327,11 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 }
 #endif
 
+#ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
 int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
-#ifdef BPF_HAVE_CHANGE_TAIL
+# ifdef BPF_HAVE_CHANGE_TAIL
 	int ret, nh_off = ctx_load_meta(ctx, 0);
 	__u8 direction  = ctx_load_meta(ctx, 1);
 
@@ -338,10 +341,11 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      direction);
 	return ret;
-#else
+# else
 	return 0;
-#endif
+# endif
 }
+#endif
 
 /*
  * icmp6_send_time_exceeded
@@ -393,6 +397,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 	return ACTION_UNKNOWN_ICMP6_NS;
 }
 
+#ifndef SKIP_ICMPV6_NS_HANDLING
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)
 int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 {
@@ -405,6 +410,7 @@ int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
 	return ret;
 }
+#endif
 
 /*
  * icmp6_handle_ns
