@@ -220,7 +220,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 // GetHealthModel returns the endpoint's health object.
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 	// Duplicated from GetModelRLocked.
 	currentState := models.EndpointState(e.state)
@@ -285,7 +285,7 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
 	k8sPorts := e.k8sPorts
 	// keep named ports ordered to avoid the unnecessary updates to
@@ -331,7 +331,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 
 // GetPolicyModel returns the endpoint's policy as an API model.
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	if e == nil {
 		return nil
@@ -422,7 +422,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 // policyStatus returns the endpoint's policy status
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
