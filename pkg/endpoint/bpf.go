@@ -86,7 +86,7 @@ func (e *Endpoint) BPFIpvlanMapPath() string {
 //
 // For configuration of actual datapath behavior, see WriteEndpointConfig().
 //
-// e.Mutex must be held
+// e.mutex must be RLock()ed
 func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	fw := bufio.NewWriter(w)
 
@@ -143,7 +143,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 
 // writeHeaderfile writes the lxc_config.h header file of an endpoint
 //
-// e.Mutex must be held.
+// e.mutex must be RLock()ed.
 func (e *Endpoint) writeHeaderfile(prefix string) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
 	e.getLogger().WithFields(logrus.Fields{
@@ -203,7 +203,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
-// Must be called with endpoint.Mutex held.
+// Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode || e.isProxyDisabled() {
 		return nil, nil, nil
@@ -451,7 +451,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 // that occurred while adding an l7 redirect for the specified policy.
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
-// Must be called with endpoint.Mutex held.
+// Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	var (
 		finalizeList revert.FinalizeList
@@ -497,7 +497,7 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 	}
 }
 
-// Must be called with endpoint.Mutex held.
+// Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil
@@ -566,7 +566,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 // specified endpoint.
 // ReloadDatapath forces the datapath programs to be reloaded. It does
 // not guarantee recompilation of the programs.
-// Must be called with endpoint.Mutex not held and endpoint.buildMutex held.
+// Must be called with endpoint.mutex not held and endpoint.buildMutex held.
 //
 // Returns the policy revision number when the regeneration has called,
 // Whether the new state dir is populated with all new BPF state files, and
@@ -1307,7 +1307,7 @@ func (e *Endpoint) addPolicyMapDelta() error {
 // is inserted successfully to the endpoint's BPF PolicyMap, it is added to the
 // endpoint's realizedMapState field. Returns an error if the endpoint's BPF
 // PolicyMap is unable to be dumped, or any update operation to the map fails.
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex Lock()ed.
 func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	if e.realizedPolicy.PolicyMapState == nil {
