@@ -612,3 +612,14 @@ func SkipRaceDetectorEnabled() bool {
 	race := os.Getenv("RACE")
 	return race == "1" || race == "true"
 }
+
+// SkipK8sVersions returns true if the current K8s versions matched the
+// constraints passed in argument.
+func SkipK8sVersions(k8sVersions string) bool {
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		return false
+	}
+	constraint := versioncheck.MustCompile(k8sVersions)
+	return constraint(k8sVersion)
+}
