@@ -51,7 +51,7 @@ require (
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 	github.com/kr/pretty v0.2.0
 	github.com/mattn/go-shellwords v1.0.5
-	github.com/miekg/dns v1.0.14
+	github.com/miekg/dns v1.1.35
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
@@ -104,7 +104,6 @@ require (
 )
 
 replace (
-	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8 // To avoid https://github.com/go-yaml/yaml/pull/571.
 	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20201116093811-e3ac748c004a

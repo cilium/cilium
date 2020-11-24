@@ -411,7 +411,7 @@ github.com/mattn/go-isatty
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/miekg/dns v1.0.14 => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
+# github.com/miekg/dns v1.1.35
 ## explicit
 github.com/miekg/dns
 # github.com/mitchellh/go-homedir v1.1.0
@@ -1127,7 +1127,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
-# github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 # github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 # gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8
 # k8s.io/client-go => github.com/cilium/client-go v0.0.0-20201116093811-e3ac748c004a
