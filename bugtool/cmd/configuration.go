@@ -110,6 +110,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		fmt.Sprintf("gops stats $(pidof %s)", components.CiliumAgentName),
 		// Get list of open file descriptors managed by the agent
 		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", components.CiliumAgentName),
+		"lsmod",
 	}
 
 	if bpffsMountpoint := bpffsMountpoint(); bpffsMountpoint != "" {
