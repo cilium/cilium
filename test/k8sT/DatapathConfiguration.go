@@ -254,7 +254,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		It("Check vxlan connectivity with per-endpoint routes", func() {
+		SkipItIf(func() bool {
+			// Skip K8s versions for which the test is currently flaky.
+			return helpers.SkipK8sVersions(">=1.13.0 <1.17.0") && helpers.SkipQuarantined()
+		}, "Check vxlan connectivity with per-endpoint routes", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                 "vxlan",
 				"endpointRoutes.enabled": "true",
@@ -269,7 +272,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 		})
 
-		It("Check iptables masquerading with random-fully", func() {
+		SkipItIf(func() bool {
+			// Skip K8s versions for which the test is currently flaky.
+			return helpers.SkipK8sVersions(">=1.13.0 <1.17.0") && helpers.SkipQuarantined()
+		}, "Check iptables masquerading with random-fully", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"bpf.masquerade":      "false",
 				"iptablesRandomFully": "true",
