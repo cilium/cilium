@@ -492,15 +492,7 @@ microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
-	$(QUIET)microk8s.kubectl apply -f contrib/k8s/microk8s-prepull.yaml
-	$(QUIET)microk8s.kubectl -n kube-system delete pod -l name=prepull
-	$(QUIET)microk8s.kubectl -n kube-system rollout status ds/prepull
-	@echo
-	@echo "Update image tag like this when ready:"
-	@echo "    microk8s.kubectl -n kube-system set image ds/cilium cilium-agent=$(LOCAL_IMAGE)"
-	@echo "Or, redeploy the Cilium pods:"
-	@echo "    microk8s.kubectl -n kube-system delete pod -l k8s-app=cilium"
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
 ci-precheck: precheck
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
