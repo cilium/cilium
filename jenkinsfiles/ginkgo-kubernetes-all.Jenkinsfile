@@ -52,6 +52,10 @@ pipeline {
                 returnStdout: true,
                 script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2020-11-16@sha256:e0a7d9cc628f93f086434d633d2ac825b9d0c2fb4c2dd6d8d926b05e85515822"; fi'
             )}"""
+        RUN_QUARANTINED="""${sh(
+                returnStdout: true,
+                script: 'if [ "${RunQuarantined}" = "" ]; then echo -n "false"; else echo -n "${RunQuarantined}"; fi'
+            )}"""
     }
 
     options {
@@ -210,7 +214,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
                     }
                     post {
                         always {
@@ -236,7 +240,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
                     }
                     post {
                         always {
@@ -345,7 +349,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
                     }
                     post {
                         always {
@@ -371,7 +375,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
                     }
                     post {
                         always {
@@ -479,7 +483,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
                     }
                     post {
                         always {
@@ -505,7 +509,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
                     }
                     post {
                         always {
