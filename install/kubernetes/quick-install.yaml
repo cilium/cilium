@@ -98,18 +98,18 @@ data:
   # container image names
   sidecar-istio-proxy-image: "cilium/istio_proxy"
 
+  # Name of the cluster. Only relevant when building a mesh of clusters.
+  cluster-name: default
+  # Unique ID of the cluster. Must be unique across all conneted clusters and
+  # in the range of 1 and 255. Only relevant when building a mesh of clusters.
+  cluster-id: ""
+
   # Encapsulation mode for communication between nodes
   # Possible values:
   #   - disabled
   #   - vxlan (default)
   #   - geneve
   tunnel: vxlan
-
-  # Name of the cluster. Only relevant when building a mesh of clusters.
-  cluster-name: default
-  # Unique ID of the cluster. Must be unique across all conneted clusters and
-  # in the range of 1 and 255. Only relevant when building a mesh of clusters.
-  cluster-id: ""
   # Enables L7 proxy for L7 policy enforcement and visibility
   enable-l7-proxy: "true"
 
