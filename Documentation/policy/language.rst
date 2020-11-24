@@ -525,6 +525,12 @@ IPs to be allowed are selected via:
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.
 
+The example below allows all DNS traffic on port 53 to the DNS service and
+intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
+a DNS application behind a Kubernetes service, the port must match the backend
+port. When the application makes a request for my-remote-service.com, Cilium
+learns the IP address and will allow traffic due to the match on the name under
+the ``toFQDNs.matchName`` rule.
 
 Example
 ~~~~~~~
