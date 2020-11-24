@@ -127,7 +127,7 @@ func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port 
 }
 
 // Note that this function assumes that endpoint policy has already been generated!
-// must be called with endpoint.Mutex held for reading
+// must be called with endpoint.mutex held for reading
 func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no identity has been computed for this
 	// endpoint.
@@ -311,7 +311,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	return
 }
 
-// Called with e.Mutex UNlocked
+// Called with e.mutex UNlocked
 func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	var revision uint64
 	var stateDirComplete bool
@@ -760,7 +760,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
-// Called with e.Mutex Locked
+// Called with e.mutex Lock()ed
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
 
 	// Set a boolean flag to indicate whether the endpoint has been injected by

@@ -89,7 +89,7 @@ func moveNewFilesTo(oldDir, newDir string) error {
 // necessary for the endpoint.
 // Returns the original regenerationError if regenerationError was non-nil,
 // or if any updates to directories for the endpoint's directories fails.
-// Must be called with endpoint.Mutex held.
+// Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool) error {
 	scopedLog := e.getLogger()
 	scopedLog.Debug("synchronizing directories")
