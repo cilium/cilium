@@ -297,7 +297,7 @@ type Endpoint struct {
 	// realizedRedirects maps the ID of each proxy redirect that has been
 	// successfully added into a proxy for this endpoint, to the redirect's
 	// proxy port number.
-	// You must hold Endpoint.Mutex to read or write it.
+	// You must hold Endpoint.mutex to read or write it.
 	realizedRedirects map[string]uint16
 
 	// ctCleaned indicates whether the conntrack table has already been
@@ -850,13 +850,13 @@ func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 
 // LogStatusOKLocked will log an OK message of the given status type with the
 // given msg string.
-// must be called with endpoint.Mutex held
+// Must be called with endpoint.mutex RLock()ed.
 func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
 	e.logStatusLocked(typ, OK, msg)
 }
 
-// logStatusLocked logs a status message
-// must be called with endpoint.Mutex held
+// logStatusLocked logs a status message.
+// Must be called with endpoint.mutex RLock()ed.
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
 	e.status.indexMU.Lock()
 	defer e.status.indexMU.Unlock()
@@ -986,7 +986,7 @@ func (e *Endpoint) HasLabels(l labels.Labels) bool {
 
 // hasLabelsRLocked returns whether endpoint e contains all labels l. Will
 // return 'false' if any label in l is not in the endpoint's labels.
-// e.Mutex must be RLocked
+// e.mutex must be RLock()ed.
 func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
 	allEpLabels := e.OpLabels.AllLabels()
 
@@ -1008,7 +1008,7 @@ func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
 
 // replaceInformationLabels replaces the information labels of the endpoint.
 // Passing a nil set of labels will not perform any action.
-// Must be called with e.Mutex.Lock().
+// Must be called with e.mutex.Lock().
 func (e *Endpoint) replaceInformationLabels(l labels.Labels) {
 	if l == nil {
 		return
@@ -1021,7 +1021,7 @@ func (e *Endpoint) replaceInformationLabels(l labels.Labels) {
 // returned.
 // Passing a nil set of labels will not perform any action and will return the
 // current endpoint's identityRevision.
-// Must be called with e.Mutex.Lock().
+// Must be called with e.mutex.Lock().
 func (e *Endpoint) replaceIdentityLabels(l labels.Labels) int {
 	if l == nil {
 		return e.identityRevision
@@ -1328,13 +1328,13 @@ func (e *Endpoint) GetDockerNetworkID() string {
 }
 
 // getState returns the endpoint's state
-// endpoint.Mutex may only be.rlockAlive()ed
+// endpoint.mutex may only be rlockAlive()ed
 func (e *Endpoint) getState() string {
 	return e.state
 }
 
 // GetState returns the endpoint's state
-// endpoint.Mutex may only be.rlockAlive()ed
+// endpoint.mutex may only be rlockAlive()ed
 func (e *Endpoint) GetState() string {
 	e.unconditionalRLock()
 	defer e.runlock()
@@ -1443,7 +1443,7 @@ OKState:
 }
 
 // BuilderSetStateLocked modifies the endpoint's state
-// endpoint.Mutex must be held
+// endpoint.mutex must be Lock()ed
 // endpoint buildMutex must be held!
 func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
@@ -1790,7 +1790,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 // runIdentityResolver resolves the numeric identity for the set of labels that
 // are currently configured on the endpoint.
 //
-// Must be called with e.Mutex NOT held.
+// Must be called with e.mutex NOT held.
 func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blocking bool) (regenTriggered bool) {
 	err := e.rlockAlive()
 	if err != nil {
