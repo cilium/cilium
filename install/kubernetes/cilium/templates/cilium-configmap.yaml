@@ -295,13 +295,6 @@ data:
   # container image names
   sidecar-istio-proxy-image: "{{ .Values.proxy.sidecarImageRegex }}"
 
-  # Encapsulation mode for communication between nodes
-  # Possible values:
-  #   - disabled
-  #   - vxlan (default)
-  #   - geneve
-  tunnel: {{ .Values.tunnel }}
-
   # Name of the cluster. Only relevant when building a mesh of clusters.
   cluster-name: {{ .Values.cluster.name }}
 
@@ -311,12 +304,17 @@ data:
   cluster-id: "{{ .Values.cluster.id }}"
 {{- end }}
 
+  # Encapsulation mode for communication between nodes
+  # Possible values:
+  #   - disabled
+  #   - vxlan (default)
+  #   - geneve
 {{- if .Values.gke.enabled }}
-
-  ipam: "kubernetes"
   tunnel: "disabled"
   enable-endpoint-routes: "true"
   enable-local-node-route: "false"
+{{- else }}
+  tunnel: {{ .Values.tunnel }}
 {{- end }}
 
 {{- if .Values.eni }}
@@ -612,9 +610,8 @@ data:
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
 {{- end }}
-{{- if ne $ipam "hostscope" }}
   ipam: {{ $ipam | quote }}
-{{- end }}
+
 {{- if eq $ipam "cluster-pool" }}
 {{- if .Values.ipv4.enabled }}
   cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
