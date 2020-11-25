@@ -33,9 +33,11 @@ import (
 	"go.uber.org/goleak"
 )
 
+const benchmarkCapacity = Capacity4095
+
 func BenchmarkRingWrite(b *testing.B) {
 	entry := &v1.Event{}
-	s := NewRing(capacity(b.N))
+	s := NewRing(benchmarkCapacity)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -45,8 +47,8 @@ func BenchmarkRingWrite(b *testing.B) {
 
 func BenchmarkRingRead(b *testing.B) {
 	entry := &v1.Event{}
-	s := NewRing(capacity(b.N))
-	a := make([]*v1.Event, b.N, b.N)
+	s := NewRing(benchmarkCapacity)
+	a := make([]*v1.Event, b.N)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		s.Write(entry)
