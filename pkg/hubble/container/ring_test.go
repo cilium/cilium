@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 	"testing"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -91,6 +92,76 @@ func BenchmarkTimeLibRingRead(b *testing.B) {
 		a[i], _ = e.(*v1.Event)
 		i++
 	})
+}
+
+func BenchmarkRingBufferNoReaders(b *testing.B) {
+	benchmarkRingBuffer(b, benchmarkRingBufferOptions{})
+}
+
+func BenchmarkRingBufferOneReader(b *testing.B) {
+	benchmarkRingBuffer(b, benchmarkRingBufferOptions{
+		readers: 1,
+	})
+}
+
+func BenchmarkRingBufferEightReaders(b *testing.B) {
+	benchmarkRingBuffer(b, benchmarkRingBufferOptions{
+		readers: 8,
+	})
+}
+
+type benchmarkRingBufferOptions struct {
+	capacity capacity
+	readers  int
+}
+
+// benchmarkRingBuffer benchmarks RingBuffer's writes and reads with multiple
+// readers.
+func benchmarkRingBuffer(b *testing.B, options benchmarkRingBufferOptions) {
+	b.ReportAllocs()
+
+	if options.capacity == capacity(0) {
+		options.capacity = benchmarkCapacity
+	}
+
+	r := NewRing(options.capacity)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var readersReady sync.WaitGroup
+	var readersDone sync.WaitGroup
+	for i := 0; i < options.readers; i++ {
+		readersReady.Add(1)
+		readersDone.Add(1)
+		rr := NewRingReader(r, 0)
+		go func(readerIndex int) {
+			readersReady.Done()
+			defer readersDone.Done()
+			for i := 0; i < b.N; i++ {
+				if rr.NextFollow(ctx) == nil {
+					// Ignore dropped events.
+					// b.Logf("reader %d dropped event %d", readerIndex, i)
+				}
+			}
+		}(i)
+	}
+
+	event := &v1.Event{}
+
+	readersReady.Wait()
+	b.ResetTimer()
+
+	// Write the same event b.N+1 times. The extra event is needed as the last
+	// written event is not available for reading.
+	for i := 0; i < b.N+1; i++ {
+		r.Write(event)
+	}
+
+	// Cancel all readers.
+	cancel()
+
+	// Wait for all readers.
+	readersDone.Wait()
 }
 
 func TestNewCapacity(t *testing.T) {
