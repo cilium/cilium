@@ -63,13 +63,14 @@ function proxy_init {
   create_cilium_docker_network
 
   if [ -z `docker ps -q -f name=^/server1$` ] ; then
-      docker run -dt --net=$TEST_NET --name server1 -l $SERVER_LABEL cilium/demo-httpd
+      docker run -dt --net=cilium --name server1 -l $SERVER_LABEL -v "$dir/testsite":/usr/local/apache2/htdocs/ httpd
   fi
   if [ -z `docker ps -q -f name=^/server2$` ] ; then
-      docker run -dt --net=$TEST_NET --name server2 -l $SERVER_LABEL cilium/demo-httpd
+      docker run -dt --net=cilium --name server2 -l $SERVER_LABEL -v "$dir/testsite":/usr/local/apache2/htdocs/ httpd
   fi
   if [ -z `docker ps -q -f name=^/client$` ] ; then
-      docker run -dt --net=cilium --name client -l id.client tgraf/netperf
+      # use an unused loopback address on a reserved non-listening port with large retry timeout to make this pause "forever"
+      docker run -dt --net=cilium --name client -l id.client curlimages/curl -s --retry-connrefused --retry-delay 1000000 --retry 5 127.242.139.58:967
   fi
   
   SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
@@ -270,25 +271,25 @@ function proxy_test {
   monitor_clear
 
   log "trying to reach server IPv4 at http://$SERVER_IP4:80/public from client (expected: 200)"
-  RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
+  RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public)
   if [[ "${RETURN//$'\n'}" != "200" ]]; then
     abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
   fi
 
   log "trying to reach server IPv6 at http://[$SERVER_IP]:80/public from client (expected: 200)"
-  RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/public")
+  RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/public)
   if [[ "${RETURN//$'\n'}" != "200" ]]; then
     abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
   fi
 
   log "trying to reach server IPv4 at http://$SERVER_IP4:80/private from client (expected: 403)"
-  RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
+  RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private)
   if [[ "${RETURN//$'\n'}" != "403" ]]; then
     abort "GET /private, unexpected return ${RETURN//$'\n'} != 403"
   fi
 
   log "trying to reach server IPv6 at http://[$SERVER_IP]:80/private from client (expected: 403)"
-  RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/private")
+  RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/private)
   if [[ "${RETURN//$'\n'}" != "403" ]]; then
     abort "GET /private, unexpected return ${RETURN//$'\n'} != 403"
   fi
