@@ -77,7 +77,7 @@ cilium-agent [flags]
       --enable-health-checking                               Enable connectivity health checking (default true)
       --enable-host-firewall                                 Enable host network policies (beta)
       --enable-host-legacy-routing                           Enable the legacy host forwarding model which does not bypass upper stack in host namespace
-      --enable-host-port                                     Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
+      --enable-host-port                                     Enable k8s hostPort mapping feature (requires enabling enable-node-port)
       --enable-host-reachable-services                       Enable reachability of services for host applications
       --enable-hubble                                        Enable hubble server
       --enable-identity-mark                                 Enable setting identity mark for local traffic (default true)
