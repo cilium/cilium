@@ -95,10 +95,29 @@ function proxy_init {
   log "finished proxy_init"
 }
 
-function policy_single_egress {
+# Dummy policy to keep the containers in policy enforcement mode all the time
+function policy_base {
   cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
+    "labels": [{"key": "policy", "value": "enforced"}],
+    "endpointSelector": {"matchLabels":{}},
+    "ingress": [{}],
+    "egress": [{}]
+},{
+    "labels": [{"key": "policy", "value": "test"}],
+    "endpointSelector": {"matchLabels":{}},
+    "ingress": [{}],
+    "egress": [{}]
+}]
+EOF
+}
+
+function policy_single_egress {
+  cilium policy delete policy=test
+  cat <<EOF | policy_import_and_wait -
+[{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
@@ -107,6 +126,7 @@ function policy_single_egress {
 	]
     }]
 },{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.client":""}},
     "egress": [{
 	"toPorts": [{
@@ -124,9 +144,10 @@ EOF
 }
 
 function policy_many_egress {
-  cilium policy delete --all
+  cilium policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
@@ -135,6 +156,7 @@ function policy_many_egress {
 	]
     }]
 },{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.client":""}},
     "egress": [{
         "toEndpoints": [{"matchLabels":{"id.server":""}}],
@@ -176,9 +198,10 @@ EOF
 }
 
 function policy_single_ingress {
-  cilium policy delete --all
+  cilium policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
@@ -195,14 +218,23 @@ function policy_single_ingress {
 	    }
 	}]
     }]
+},{
+    "labels": [{"key": "policy", "value": "test"}],
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}]
+	}]
+    }]
 }]
 EOF
 }
 
 function policy_many_ingress {
-  cilium policy delete --all
+  cilium policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
@@ -220,14 +252,23 @@ function policy_many_ingress {
 	    }
 	}]
     }]
+},{
+    "labels": [{"key": "policy", "value": "test"}],
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}]
+	}]
+    }]
 }]
 EOF
 }
 
 function policy_egress_and_ingress {
-  cilium policy delete --all
+  cilium policy delete policy=test
   cat <<EOF | policy_import_and_wait -
 [{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
@@ -235,6 +276,7 @@ function policy_egress_and_ingress {
 	]
     }]
 },{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.client":""}},
     "egress": [{
 	"toPorts": [{
@@ -248,6 +290,7 @@ function policy_egress_and_ingress {
 	}]
     }]
 },{
+    "labels": [{"key": "policy", "value": "test"}],
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
 	"toPorts": [{
@@ -298,6 +341,7 @@ function proxy_test {
 }
 
 proxy_init
+policy_base
 for state in "false" "true"; do
   cilium config ConntrackLocal=$state
 
