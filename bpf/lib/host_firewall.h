@@ -105,7 +105,6 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	struct remote_endpoint_info *info;
 	int ret, verdict, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
-	union v6addr orig_sip;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
@@ -127,7 +126,6 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	/* Lookup connection in conntrack map. */
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
@@ -138,11 +136,11 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		return ret;
 
 	/* Retrieve source identity. */
-	info = lookup_ip6_remote_endpoint(&orig_sip);
+	info = lookup_ip6_remote_endpoint(&tuple.saddr);
 	if (info && info->sec_label)
 		*src_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   orig_sip.p4, *src_id);
+		   tuple.saddr.p4, *src_id);
 
 	/* Perform policy lookup */
 	verdict = policy_can_access_ingress(ctx, *src_id, dst_id, tuple.dport,
