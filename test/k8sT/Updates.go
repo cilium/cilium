@@ -123,15 +123,8 @@ var _ = Describe("K8sUpdates", func() {
 func removeCilium(kubectl *helpers.Kubectl) {
 	_ = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
 	_ = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
-	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete configmap --namespace=%s cilium-config hubble-ca-cert hubble-relay-config", helpers.CiliumNamespace))
-	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete serviceaccount --namespace=%s cilium cilium-operator hubble-relay", helpers.CiliumNamespace))
-	_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator hubble-relay")
-	_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator hubble-relay")
-	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium", helpers.CiliumNamespace))
-	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete deployment --namespace=%s cilium-operator hubble-relay", helpers.CiliumNamespace))
-	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium-node-init", helpers.CiliumNamespace))
-	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete secret --namespace=%s hubble-server-certs hubble-relay-client-certs", helpers.CiliumNamespace))
 
+	kubectl.CleanupCiliumComponents()
 	ExpectAllPodsTerminated(kubectl)
 }
 
