@@ -32,3 +32,12 @@ initResources:
 ##
 tolerations:
 - operator: Exists
+
+# Additional agent hostPath mounts
+extraHostPathMounts: []
+  # - name: host-mnt-data
+  #   mountPath: /host/mnt/data
+  #   hostPath: /mnt/data
+  #   hostPathType: Directory
+  #   readOnly: true
+  #   mountPropagation: HostToContainer

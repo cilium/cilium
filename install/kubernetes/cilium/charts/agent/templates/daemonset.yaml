@@ -264,6 +264,14 @@ spec:
           name: kube-config
           readOnly: true
 {{- end}}
+{{- range .Values.extraHostPathMounts }}
+        - mountPath: {{ .mountPath }}
+          name: {{ .name }}
+          readOnly: {{ .readOnly }}
+{{- if .mountPropagation }}
+          mountPropagation: {{ .mountPropagation }}
+{{- end }}
+{{- end }}
 {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
         command: ["cilium"]
@@ -416,6 +424,14 @@ spec:
           path: {{ .Values.global.nodeinit.bootstrapFile }}
           type: FileOrCreate
         name: cilium-bootstrap-file
+{{- end }}
+{{- range .Values.extraHostPathMounts }}
+      - name: {{ .name }}
+        hostPath:
+          path: {{ .hostPath }}
+{{- if .hostPathType }}
+          type: {{ .hostPathType }}
+{{- end }}
 {{- end }}
 {{- if .Values.global.etcd.enabled }}
         # To read the etcd config stored in config maps
