@@ -55,4 +55,4 @@ jobs:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --namespace=test-clusters --init-manifest=cilium.yaml --image=cilium/hubble-perf-test:8cfdbfe "/usr/local/bin/run_in_test_cluster.sh" "--prom-name=prom" "--prom-ns=prom" "--duration=30m"
+          args: --namespace=test-clusters --init-manifest=cilium.yaml --image=cilium/cilium-perf-test:8cfdbfe "/usr/local/bin/run_in_test_cluster.sh" "--prom-name=prom" "--prom-ns=prom" "--duration=30m"
