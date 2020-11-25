@@ -82,7 +82,9 @@ Deploy Cilium
 In order for routing to be delegated to kube-router, tunneling/encapsulation
 must be disabled. This is done by setting the ``tunnel=disabled`` in the
 ConfigMap ``cilium-config`` or by adjusting the DaemonSet to run the
-``cilium-agent`` with the argument ``--tunnel=disabled``:
+``cilium-agent`` with the argument ``--tunnel=disabled``. Moreover, in the
+same ConfigMap, we must explicitly set ``ipam: kubernetes`` since kube-router
+pulls the pod CIDRs directly from K8s:
 
 .. code:: bash
 
@@ -92,6 +94,7 @@ ConfigMap ``cilium-config`` or by adjusting the DaemonSet to run the
     #   - vxlan (default)
     #   - geneve
     tunnel: "disabled"
+    ipam: "kubernetes"
 
 You can then install Cilium according to the instructions in section
 :ref:`ds_deploy`.
