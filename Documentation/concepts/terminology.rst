@@ -293,7 +293,7 @@ Node
 
 Cilium refers to a node as an individual member of a cluster. Each node must be
 running the ``cilium-agent`` and will operate in a mostly autonomous manner.
-Synchronization of state between Cilium agent's running on different nodes is
+Synchronization of state between Cilium agents running on different nodes is
 kept to a minimum for simplicity and scale. It occurs exclusively via the
 Key-Value store or with packet metadata.
 
