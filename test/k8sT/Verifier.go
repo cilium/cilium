@@ -92,7 +92,7 @@ var _ = Describe("K8sVerifier", func() {
 		kubectl.DeleteResource("pod", podName)
 	})
 
-	It("Runs the kernel verifier against the BPF datapath", func() {
+	SkipItIf(helpers.RunsOnNetNextOr419Kernel, "Runs the kernel verifier against the BPF datapath", func() {
 		By("Building BPF objects from the tree")
 		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf V=0")
 		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
