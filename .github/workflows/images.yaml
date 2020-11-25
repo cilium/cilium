@@ -75,6 +75,9 @@ jobs:
         env:
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD  }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME  }}
+          REGISTRIES: "docker.io/cilium quay.io/cilium"
         with:
           entrypoint: make
           args: -C images cilium-test-image PUSH=true
