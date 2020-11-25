@@ -1341,7 +1341,7 @@ preflight:
 # is useful for rendering charts for gke clusters in advance.
 enableCriticalPriorityClass: true
 
-# -- disableEnvoyVersionCheck removes the check for Envoy, which can be useful
+# disableEnvoyVersionCheck removes the check for Envoy, which can be useful
 # on AArch64 as the images do not currently ship a version of Envoy.
 #disableEnvoyVersionCheck: false
 
