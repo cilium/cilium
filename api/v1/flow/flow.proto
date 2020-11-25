@@ -472,3 +472,97 @@ message LostEvent {
     // PERF_EVENT_RING_BUFFER.
     google.protobuf.Int32Value cpu = 3;
 }
+
+// AgentEventType is the type of agent event. These values are shared with type
+// AgentNotification in pkg/monitor/api/types.go
+enum AgentEventType {
+    AGENT_EVENT_UNKNOWN = 0;
+    AGENT_STARTED = 1;
+    POLICY_UPDATED = 2;
+    POLICY_DELETED = 3;
+    ENDPOINT_REGENERATE_SUCCESS = 4;
+    ENDPOINT_REGENERATE_FAILURE = 5;
+    ENDPOINT_CREATED = 6;
+    ENDPOINT_DELETED = 7;
+    IPCACHE_UPSERTED = 8;
+    IPCACHE_DELETED = 9;
+    SERVICE_UPSERTED = 10;
+    SERVICE_DELETED = 11;
+}
+
+message AgentEvent {
+    AgentEventType type = 1;
+    oneof notification {
+        AgentEventUnknown unknown = 100;
+        TimeNotification agent_start = 101;
+        // used for POLICY_UPDATED and POLICY_DELETED
+        PolicyUpdateNotification policy_update = 102;
+        // used for ENDPOINT_REGENERATE_SUCCESS and ENDPOINT_REGENERATE_FAILURE
+        EndpointRegenNotification endpoint_regenerate = 103;
+        // used for ENDPOINT_CREATED and ENDPOINT_DELETED
+        EndpointUpdateNotification endpoint_update = 104;
+        // used for IPCACHE_UPSERTED and IPCACHE_DELETED
+        IPCacheNotification ipcache_update = 105;
+        ServiceUpsertNotification service_upsert = 106;
+        ServiceDeleteNotification service_delete = 107;
+    }
+}
+
+message AgentEventUnknown {
+    string type = 1;
+    string notification = 2;
+}
+
+message TimeNotification {
+    google.protobuf.Timestamp time = 1;
+}
+
+message PolicyUpdateNotification {
+    repeated string labels = 1;
+    uint64 revision = 2;
+    int64 rule_count = 3;
+}
+
+message EndpointRegenNotification {
+    uint64 id = 1;
+    repeated string labels = 2;
+    string error = 3;
+}
+
+message EndpointUpdateNotification {
+    uint64 id = 1;
+    repeated string labels = 2;
+    string error = 3;
+    string pod_name = 4;
+    string namespace = 5;
+}
+
+message IPCacheNotification {
+    string cidr = 1;
+    uint32 identity = 2;
+    google.protobuf.UInt32Value old_identity = 3;
+    string host_ip = 4;
+    string old_host_ip = 5;
+    uint32 encrypt_key = 6;
+    string namespace = 7;
+    string pod_name = 8;
+}
+
+message ServiceUpsertNotificationAddr {
+    string ip = 1;
+    uint32 port = 2;
+}
+
+message ServiceUpsertNotification {
+    uint32 id = 1;
+    ServiceUpsertNotificationAddr frontend_address = 2;
+    repeated ServiceUpsertNotificationAddr backend_addresses = 3;
+    string type = 4;
+    string traffic_policy = 5;
+    string name = 6;
+    string namespace = 7;
+}
+
+message ServiceDeleteNotification {
+    uint32 id = 1;
+}
