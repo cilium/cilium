@@ -32,7 +32,6 @@ import (
 
 type KubeProxySuite struct {
 	currentNetNS                  netns.NsHandle
-	testNetNS                     netns.NsHandle
 	prevConfigDevices             []string
 	prevConfigDirectRoutingDevice string
 	prevConfigEnableIPv4          bool
@@ -53,8 +52,6 @@ func (s *KubeProxySuite) SetUpSuite(c *C) {
 
 	s.currentNetNS, err = netns.Get()
 	c.Assert(err, IsNil)
-	s.testNetNS, err = netns.New()
-	c.Assert(err, IsNil)
 }
 
 func (s *KubeProxySuite) TearDownTest(c *C) {
@@ -63,15 +60,15 @@ func (s *KubeProxySuite) TearDownTest(c *C) {
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
 	node.SetK8sNodeIP(s.prevK8sNodeIP)
-
-	c.Assert(s.testNetNS.Close(), IsNil)
 }
 
 func (s *KubeProxySuite) TestDetectDevices(c *C) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	c.Assert(netns.Set(s.testNetNS), IsNil)
+	testNetNS, err := netns.New() // creates netns, and sets it to current
+	c.Assert(err, IsNil)
+	defer func() { c.Assert(testNetNS.Close(), IsNil) }()
 	defer func() { c.Assert(netns.Set(s.currentNetNS), IsNil) }()
 
 	// 1. No devices = impossible to detect
