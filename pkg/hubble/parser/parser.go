@@ -18,6 +18,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
+	"github.com/cilium/cilium/pkg/hubble/parser/agent"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
@@ -25,8 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/golang/protobuf/ptypes"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 )
@@ -116,6 +117,13 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			flow.Time = ts
 			flow.NodeName = monitorEvent.NodeName
 			ev.Event = flow
+			return ev, nil
+		case monitorAPI.MessageTypeAgent:
+			agentNotifyMessage, ok := payload.Message.(monitorAPI.AgentNotifyMessage)
+			if !ok {
+				return nil, errors.ErrInvalidAgentMessageType
+			}
+			ev.Event = agent.NotifyMessageToProto(agentNotifyMessage)
 			return ev, nil
 		default:
 			return nil, errors.ErrUnknownEventType
