@@ -131,7 +131,7 @@ Note, in above Helm configuration, the ``kubeProxyReplacement`` has been set to
 underlying Linux kernel support is missing.
 
 By default, Helm sets ``kubeProxyReplacement=probe``, which automatically
-disable a subset of the features to implement the kube-proxy replacement instead
+disables a subset of the features to implement the kube-proxy replacement instead
 of bailing out if the kernel support is missing. This makes the assumption that
 Cilium's eBPF kube-proxy replacement would co-exist with kube-proxy on the system
 to optimize Kubernetes services. Given we've used kubeadm to explicitly deploy
@@ -1008,7 +1008,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
-- ``kubeProxyReplacement=probe``: This option is intended for a hybrid setup,
+- ``kubeProxyReplacement=probe``: This option is only intended for a hybrid setup,
   that is, kube-proxy is running in the Kubernetes cluster where Cilium partially
   replaces and optimizes kube-proxy functionality. Once the Cilium agent is up and
   running, it probes the underlying kernel for the availability of needed eBPF kernel
@@ -1016,7 +1016,13 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
   relying on kube-proxy to complement the remaining Kubernetes service handling. The
   Cilium agent will emit an info message into its log in such case. For example, if
   the kernel does not support :ref:`host-services`, then the ClusterIP translation
-  for the node's host-namespace is done through kube-proxy's iptables rules.
+  for the node's host-namespace is done through kube-proxy's iptables rules. Also,
+  the Cilium agent will set ``nodePort.bindProtection`` to ``false`` in this mode in
+  order to defer to kube-proxy for performing the bind-protection of the host namespace.
+  This is done to avoid having kube-proxy throw (harmless) warnings to its log stating
+  that it could not perform bind calls. In the ``strict`` mode this bind protection is
+  performed by Cilium in a more efficient manner with the help of eBPF instead of
+  allocating and binding actual sockets.
 
 - ``kubeProxyReplacement=partial``: Similarly to ``probe``, this option is
   intended for a hybrid setup, that is, kube-proxy is running in the Kubernetes cluster
