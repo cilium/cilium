@@ -111,11 +111,13 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 2,	/* ingress and egress */
+	.max_elem	= 4,	/* ingress and egress, IPv4 and IPv6 */
 };
 
 #define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
 #define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
+#define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
+#define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
 #endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
 
 #ifdef HAVE_LPM_TRIE_MAP_TYPE
