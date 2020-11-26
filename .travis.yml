@@ -13,12 +13,14 @@ jobs:
       group: edge
     - arch: amd64
       name: "amd64-race"
+      if: type != pull_request
       env:
         - RACE=1
         - BASE_IMAGE=quay.io/cilium/cilium-runtime:2020-11-16@sha256:e0a7d9cc628f93f086434d633d2ac825b9d0c2fb4c2dd6d8d926b05e85515822
         - LOCKDEBUG=1
     - arch: arm64-graviton2
       name: "arm64-graviton2-race"
+      if: type != pull_request
       env:
         - RACE=1
         - BASE_IMAGE=quay.io/cilium/cilium-runtime:2020-11-16@sha256:e0a7d9cc628f93f086434d633d2ac825b9d0c2fb4c2dd6d8d926b05e85515822
