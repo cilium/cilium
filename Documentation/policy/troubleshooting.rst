@@ -93,7 +93,7 @@ data from ``cilium endpoint list`` and ``cilium endpoint get`` can be paired
 with the data from ``cilium policy get``. ``cilium endpoint get`` will list the
 labels of each rule that applies to an endpoint. The list of labels can be
 passed to ``cilium policy get`` to show that exact source policy.  Note that
-rules that have no labels cannot be fetched alone (a no label ``cililum policy
+rules that have no labels cannot be fetched alone (a no label ``cilium policy
 get`` returns the complete policy on the node). Rules with the same labels will
 be returned together.
 
