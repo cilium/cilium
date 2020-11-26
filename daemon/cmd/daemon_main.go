@@ -936,7 +936,7 @@ func initEnv(cmd *cobra.Command) {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate()
 
-	// add hooks after setting up metrics in the option.Confog
+	// add hooks after setting up metrics in the option.Config
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
