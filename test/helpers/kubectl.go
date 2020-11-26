@@ -32,6 +32,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
@@ -4399,6 +4400,8 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"service":            "cilium-agent hubble-metrics hubble-relay",
 			"secret":             "hubble-relay-client-certs hubble-server-certs",
 		}
+
+		crdsToDelete = synced.AllCRDResourceNames
 	)
 
 	wg.Add(len(resourcesToDelete))
@@ -4408,6 +4411,17 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			wg.Done()
 		}(resource, resourceType)
 	}
+
+	wg.Add(len(crdsToDelete))
+	for _, crd := range crdsToDelete {
+		// crd is of format `type:name`, e.g. "crd:ciliumnodes.cilium.io"
+		parts := strings.SplitN(crd, ":", 2)
+		go func(resource, resourceType string) {
+			_ = kub.DeleteResource(resourceType, resource)
+			wg.Done()
+		}(parts[1], parts[0])
+	}
+
 	wg.Wait()
 }
 
