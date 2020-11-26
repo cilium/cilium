@@ -74,7 +74,7 @@ Troubleshooting
 Unable to contact k8s api-server
 --------------------------------
 
-In the :ref:`Cilum agent logs <ts_agent_logs>` you will see::
+In the :ref:`Cilium agent logs <ts_agent_logs>` you will see::
 
     level=info msg="Establishing connection to apiserver" host="https://10.96.0.1:443" subsys=k8s
     level=error msg="Unable to contact k8s api-server" error="Get https://10.96.0.1:443/api/v1/namespaces/kube-system: dial tcp 10.96.0.1:443: connect: no route to host" ipAddr="https://10.96.0.1:443" subsys=k8s
