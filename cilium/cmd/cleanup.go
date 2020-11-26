@@ -67,9 +67,11 @@ const (
 	ciliumNetNSPrefix = "cilium-"
 	hostLinkPrefix    = "lxc"
 	hostLinkLen       = len(hostLinkPrefix + "XXXXX")
-	cniConfigV1       = "/etc/cni/net.d/10-cilium-cni.conf"
-	cniConfigV2       = "/etc/cni/net.d/00-cilium-cni.conf"
-	cniConfigV3       = "/etc/cni/net.d/05-cilium-cni.conf"
+	cniPath           = "/etc/cni/net.d"
+	cniConfigV1       = cniPath + "/10-cilium-cni.conf"
+	cniConfigV2       = cniPath + "/00-cilium-cni.conf"
+	cniConfigV3       = cniPath + "/05-cilium-cni.conf"
+	cniConfigV4       = cniPath + "/05-cilium.conf"
 )
 
 func init() {
@@ -215,8 +217,8 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		defaults.LibraryPath))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("endpoint state in %s",
 		defaults.RuntimePath))
-	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s",
-		cniConfigV1, cniConfigV2, cniConfigV3))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s",
+		cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4))
 	return toBeRemoved
 }
 
@@ -320,8 +322,9 @@ func confirmCleanup() bool {
 func removeCNI() error {
 	os.Remove(cniConfigV1)
 	os.Remove(cniConfigV2)
+	os.Remove(cniConfigV3)
 
-	err := os.Remove(cniConfigV3)
+	err := os.Remove(cniConfigV4)
 	if os.IsNotExist(err) {
 		return nil
 	}
