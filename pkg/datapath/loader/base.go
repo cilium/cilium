@@ -273,11 +273,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	devices := make([]netlink.Link, 0, len(option.Config.Devices))
 	if len(option.Config.Devices) != 0 {
 		for _, device := range option.Config.Devices {
-			_, err := netlink.LinkByName(device)
+			link, err := netlink.LinkByName(device)
 			if err != nil {
 				log.WithError(err).WithField("device", device).Warn("Link does not exist")
 				return err
 			}
+			devices = append(devices, link)
 		}
 		args[initArgDevices] = strings.Join(option.Config.Devices, ";")
 	} else if option.Config.IsFlannelMasterDeviceSet() {
