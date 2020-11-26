@@ -1081,6 +1081,39 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 	return nil
 }
 
+func (m *IptablesManager) installHostTrafficMarkRule(prog string) error {
+	// Mark all packets sourced from processes running on the host with a
+	// special marker so that we can differentiate traffic sourced locally
+	// vs. traffic from the outside world that was masqueraded to appear
+	// like it's from the host.
+	//
+	// Originally we set this mark only for traffic destined to the
+	// ifName device, to ensure that any traffic directly reaching
+	// to a Cilium-managed IP could be classified as from the host.
+	//
+	// However, there's another case where a local process attempts to
+	// reach a service IP which is backed by a Cilium-managed pod. The
+	// service implementation is outside of Cilium's control, for example,
+	// handled by kube-proxy. We can tag even this traffic with a magic
+	// mark, then when the service implementation proxies it back into
+	// Cilium the BPF will see this mark and understand that the packet
+	// originated from the host.
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
+	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
+	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
+
+	return runProg(prog, append(
+		m.waitArgs,
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
+		"-m", "comment", "--comment", "cilium: host->any mark as from host",
+		"-j", "MARK", "--set-xmark", markAsFromHost), false)
+}
+
 // TransientRulesStart installs iptables rules for Cilium that need to be
 // kept in-tact during agent restart which removes/installs its main rules.
 // Transient rules are then removed once iptables rule update cycle has
@@ -1115,9 +1148,6 @@ func (m *IptablesManager) TransientRulesEnd(quiet bool) {
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *IptablesManager) InstallRules(ifName string) error {
-	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
-	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
-
 	for _, c := range ciliumChains {
 		if err := c.add(m.waitArgs); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
@@ -1152,33 +1182,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 
-		// Mark all packets sourced from processes running on the host with a
-		// special marker so that we can differentiate traffic sourced locally
-		// vs. traffic from the outside world that was masqueraded to appear
-		// like it's from the host.
-		//
-		// Originally we set this mark only for traffic destined to the
-		// ifName device, to ensure that any traffic directly reaching
-		// to a Cilium-managed IP could be classified as from the host.
-		//
-		// However, there's another case where a local process attempts to
-		// reach a service IP which is backed by a Cilium-managed pod. The
-		// service implementation is outside of Cilium's control, for example,
-		// handled by kube-proxy. We can tag even this traffic with a magic
-		// mark, then when the service implementation proxies it back into
-		// Cilium the BPF will see this mark and understand that the packet
-		// originated from the host.
-		matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
-		markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-t", "filter",
-			"-A", ciliumOutputChain,
-			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
-			"-m", "comment", "--comment", "cilium: host->any mark as from host",
-			"-j", "MARK", "--set-xmark", markAsFromHost), false); err != nil {
+		if err := m.installHostTrafficMarkRule("iptables"); err != nil {
 			return err
 		}
 
@@ -1192,18 +1196,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	}
 
 	if option.Config.EnableIPv6 {
-		// See comment above.
-		matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
-		markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
-		if err := runProg("ip6tables", append(
-			m.waitArgs,
-			"-t", "filter",
-			"-A", ciliumOutputChain,
-			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
-			"-m", "comment", "--comment", "cilium: host->any mark as from host",
-			"-j", "MARK", "--set-xmark", markAsFromHost), false); err != nil {
+		if err := m.installHostTrafficMarkRule("ip6tables"); err != nil {
 			return err
 		}
 
