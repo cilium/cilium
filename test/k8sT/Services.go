@@ -214,12 +214,8 @@ var _ = Describe("K8sServicesTest", func() {
 	})
 
 	testCurlFromPods := func(clientPodLabel, url string, count, fails int) {
-		// A DS with client is running in each node. So we try from each node
-		// that can connect to the service.  To make sure that the cross-node
-		// service connectivity is correct we tried 10 times, so balance in the
-		// two nodes
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
-		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
+		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", clientPodLabel)
 		cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
 		for _, pod := range pods {
 			By("Making %d curl requests from %s pod to service %s", count, pod, url)
@@ -227,6 +223,34 @@ var _ = Describe("K8sServicesTest", func() {
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Request from %s pod to service %s failed", pod, url)
 		}
 	}
+
+	testCurlFromPodWithSourceIPCheck :=
+		func(clientPodLabel, url string, count int, sourceIP string) {
+			var cmd string
+
+			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
+			ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %s", clientPodLabel)
+
+			By("Making %d HTTP requests from pods(%v) to %s", count, pods, url)
+			for _, pod := range pods {
+				for i := 1; i <= count; i++ {
+					cmd = helpers.CurlFail(url)
+					if sourceIP != "" {
+						cmd += " | grep client_address="
+					}
+
+					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+						"Can not connect to url %q from pod(%s)", url, pod)
+					if sourceIP != "" {
+						// Parse the IPs to avoid issues with 4-in-6 formats
+						outIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
+						srcIP := net.ParseIP(sourceIP)
+						ExpectWithOffset(1, outIP).To(Equal(srcIP))
+					}
+				}
+			}
+		}
 
 	testCurlFromPodsFail := func(clientPodLabel, url string) {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
@@ -1522,6 +1546,56 @@ var _ = Describe("K8sServicesTest", func() {
 				}
 			}
 		}
+
+		SkipContextIf(func() bool {
+			return helpers.RunsWithoutKubeProxy() || helpers.GetCurrentIntegration() != ""
+		}, "IPv6 masquerading", func() {
+			var (
+				k8s2NodeIP      string
+				k8s1EndpointIPs map[string]string
+
+				testDSK8s1IPv6 string = "fd03::310"
+			)
+
+			BeforeAll(func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"tunnel":               "disabled",
+					"autoDirectNodeRoutes": "true",
+				})
+
+				privateIface, err := kubectl.GetPrivateIface()
+				Expect(err).Should(BeNil(), "Cannot determine private iface")
+
+				k8s2NodeIP = getIPv6AddrForIface(k8s2NodeName, privateIface)
+				Expect(k8s2NodeIP).ToNot(BeEmpty(), "Cannot get primary IPv6 address for K8s2 node")
+
+				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s1)
+				k8s1EndpointIPs = kubectl.CiliumEndpointIPv6(pod, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default")
+
+				k8s1Backends := []string{}
+				for _, epIP := range k8s1EndpointIPs {
+					k8s1Backends = append(k8s1Backends, net.JoinHostPort(epIP, "80"))
+				}
+
+				ciliumAddService(31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
+			})
+
+			It("across K8s nodes", func() {
+				url := fmt.Sprintf(`"http://[%s]:80/"`, testDSK8s1IPv6)
+				testCurlFromPodWithSourceIPCheck(testDSK8s2, url, 5, k8s2NodeIP)
+
+				for _, epIP := range k8s1EndpointIPs {
+					url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
+					testCurlFromPodWithSourceIPCheck(testDSK8s2, url, 5, k8s2NodeIP)
+				}
+			})
+
+			AfterAll(func() {
+				ciliumDelService(31080)
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
+			})
+		})
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
