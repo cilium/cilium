@@ -383,7 +383,7 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 		}
 
 		if r.timeRange {
-			ts, err := ptypes.Timestamp(e.GetFlow().GetTime())
+			ts, err := ptypes.Timestamp(e.Timestamp)
 			if err != nil {
 				return nil, err
 			}
@@ -469,7 +469,7 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		}
 		flowsCount++
 		if req.Since != nil {
-			ts, err := ptypes.Timestamp(e.GetFlow().GetTime())
+			ts, err := ptypes.Timestamp(e.Timestamp)
 			if err != nil {
 				return nil, err
 			}
