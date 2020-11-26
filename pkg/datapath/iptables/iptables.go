@@ -924,6 +924,157 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 	return nil
 }
 
+func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInterface,
+	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
+	if !option.Config.Masquerade || (option.Config.Masquerade && option.Config.EnableBPFMasquerade) {
+		return nil
+	}
+
+	// Masquerade all egress traffic leaving the node
+	//
+	// This rule must be first as it has different exclusion criteria
+	// than the other rules in this table.
+	//
+	// The following conditions must be met:
+	// * May not leave on a cilium_ interface, this excludes all
+	//   tunnel traffic
+	// * Must originate from an IP in the local allocation range
+	// * Must not be reply if BPF NodePort is enabled
+	// * Tunnel mode:
+	//   * May not be targeted to an IP in the local allocation
+	//     range
+	// * Non-tunnel mode:
+	//   * May not be targeted to an IP in the cluster range
+	progArgs := append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-d", snatDstExclusionCIDR,
+	)
+
+	if option.Config.EgressMasqueradeInterfaces != "" {
+		progArgs = append(
+			progArgs,
+			"-o", option.Config.EgressMasqueradeInterfaces)
+	} else {
+		progArgs = append(
+			progArgs,
+			"-s", allocRange,
+			"!", "-o", "cilium_+")
+	}
+	progArgs = append(
+		progArgs,
+		"-m", "comment", "--comment", "cilium masquerade non-cluster",
+		"-j", "MASQUERADE")
+	if option.Config.IPTablesRandomFully {
+		progArgs = append(progArgs, "--random-fully")
+	}
+	if err := runProg(prog, progArgs, false); err != nil {
+		return err
+	}
+
+	// The following rules exclude traffic from the remaining rules in this chain.
+	// If any of these rules match, none of the remaining rules in this chain
+	// are considered.
+	// Exclude traffic for other than interface from the masquarade rules.
+	// RETURN fro the chain as it is possible that other rules need to be matched.
+	if err := runProg(prog, append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-o", localDeliveryInterface,
+		"-m", "comment", "--comment", "exclude non-"+ifName+" traffic from masquerade",
+		"-j", "RETURN"), false); err != nil {
+		return err
+	}
+
+	// Exclude proxy return traffic from the masquarade rules
+	if err := runProg(prog, append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		// Don't match proxy (return) traffic
+		"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask),
+		"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
+		"-j", "ACCEPT"), false); err != nil {
+		return err
+	}
+
+	if option.Config.Tunnel != option.TunnelDisabled {
+		// Masquerade all traffic from the host into the ifName
+		// interface if the source is not the internal IP
+		//
+		// The following conditions must be met:
+		// * Must be targeted for the ifName interface
+		// * Must be targeted to an IP that is not local
+		// * Tunnel mode:
+		//   * May not already be originating from the masquerade IP
+		// * Non-tunnel mode:
+		//   * May not orignate from any IP inside of the cluster range
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"!", "-s", hostMasqueradeIP,
+			"!", "-d", allocRange,
+			"-o", "cilium_host",
+			"-m", "comment", "--comment", "cilium host->cluster masquerade",
+			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
+			return err
+		}
+	}
+
+	// Masquerade all traffic from the host into local
+	// endpoints if the source is 127.0.0.1. This is
+	// required to force replies out of the endpoint's
+	// network namespace.
+	//
+	// The following conditions must be met:
+	// * Must be targeted for local endpoint
+	// * Must be from 127.0.0.1
+	if err := runProg(prog, append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"-s", "127.0.0.1",
+		"-o", localDeliveryInterface,
+		"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
+		"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
+		return err
+	}
+
+	// Masquerade all traffic that originated from a local
+	// pod and thus carries a security identity and that
+	// was also DNAT'ed. It must be masqueraded to ensure
+	// that reverse NAT can be performed. Otherwise the
+	// reply traffic would be sent directly to the pod
+	// without traversing the Linux stack again.
+	//
+	// This is only done if EnableEndpointRoutes is
+	// disabled, if EnableEndpointRoutes is enabled, then
+	// all traffic always passes through the stack anyway.
+	//
+	// This is required for:
+	//  - portmap/host if both source and destination are
+	//    on the same node
+	//  - kiam if source and server are on the same node
+	if !option.Config.EnableEndpointRoutes {
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
+			"-o", localDeliveryInterface,
+			"-m", "conntrack", "--ctstate", "DNAT",
+			"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
+			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // TransientRulesStart installs iptables rules for Cilium that need to be
 // kept in-tact during agent restart which removes/installs its main rules.
 // Transient rules are then removed once iptables rule update cycle has
@@ -1025,146 +1176,12 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return err
 		}
 
-		if option.Config.Masquerade && !option.Config.EnableBPFMasquerade {
-			// Masquerade all egress traffic leaving the node
-			//
-			// This rule must be first as it has different exclusion criteria
-			// than the other rules in this table.
-			//
-			// The following conditions must be met:
-			// * May not leave on a cilium_ interface, this excludes all
-			//   tunnel traffic
-			// * Must originate from an IP in the local allocation range
-			// * Must not be reply if BPF NodePort is enabled
-			// * Tunnel mode:
-			//   * May not be targeted to an IP in the local allocation
-			//     range
-			// * Non-tunnel mode:
-			//   * May not be targeted to an IP in the cluster range
-			progArgs := append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
-			)
-			if option.Config.EgressMasqueradeInterfaces != "" {
-				progArgs = append(
-					progArgs,
-					"-o", option.Config.EgressMasqueradeInterfaces)
-			} else {
-				progArgs = append(
-					progArgs,
-					"-s", node.GetIPv4AllocRange().String(),
-					"!", "-o", "cilium_+")
-			}
-			progArgs = append(
-				progArgs,
-				"-m", "comment", "--comment", "cilium masquerade non-cluster",
-				"-j", "MASQUERADE")
-			if option.Config.IPTablesRandomFully {
-				progArgs = append(progArgs, "--random-fully")
-			}
-			if err := runProg("iptables", progArgs, false); err != nil {
-				return err
-			}
-
-			// The following rules exclude traffic from the remaining rules in this chain.
-			// If any of these rules match, none of the remaining rules in this chain
-			// are considered.
-			// Exclude traffic for other than interface from the masquarade rules.
-			// RETURN fro the chain as it is possible that other rules need to be matched.
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"!", "-o", localDeliveryInterface,
-				"-m", "comment", "--comment", "exclude non-"+ifName+" traffic from masquerade",
-				"-j", "RETURN"), false); err != nil {
-				return err
-			}
-
-			// Exclude proxy return traffic from the masquarade rules
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-m", "mark", "--mark", matchFromProxy, // Don't match proxy (return) traffic
-				"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
-				"-j", "ACCEPT"), false); err != nil {
-				return err
-			}
-
-			if option.Config.Tunnel != option.TunnelDisabled {
-				// Masquerade all traffic from the host into the ifName
-				// interface if the source is not the internal IP
-				//
-				// The following conditions must be met:
-				// * Must be targeted for the ifName interface
-				// * Must be targeted to an IP that is not local
-				// * Tunnel mode:
-				//   * May not already be originating from the masquerade IP
-				// * Non-tunnel mode:
-				//   * May not orignate from any IP inside of the cluster range
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"!", "-s", node.GetHostMasqueradeIPv4().String(),
-					"!", "-d", node.GetIPv4AllocRange().String(),
-					"-o", "cilium_host",
-					"-m", "comment", "--comment", "cilium host->cluster masquerade",
-					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-					return err
-				}
-			}
-
-			// Masquerade all traffic from the host into local
-			// endpoints if the source is 127.0.0.1. This is
-			// required to force replies out of the endpoint's
-			// network namespace.
-			//
-			// The following conditions must be met:
-			// * Must be targeted for local endpoint
-			// * Must be from 127.0.0.1
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-s", "127.0.0.1",
-				"-o", localDeliveryInterface,
-				"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
-				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-				return err
-			}
-
-			// Masquerade all traffic that originated from a local
-			// pod and thus carries a security identity and that
-			// was also DNAT'ed. It must be masqueraded to ensure
-			// that reverse NAT can be performed. Otherwise the
-			// reply traffic would be sent directly to the pod
-			// without traversing the Linux stack again.
-			//
-			// This is only done if EnableEndpointRoutes is
-			// disabled, if EnableEndpointRoutes is enabled, then
-			// all traffic always passes through the stack anyway.
-			//
-			// This is required for:
-			//  - portmap/host if both source and destination are
-			//    on the same node
-			//  - kiam if source and server are on the same node
-			if !option.Config.EnableEndpointRoutes {
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
-					"-o", localDeliveryInterface,
-					"-m", "conntrack", "--ctstate", "DNAT",
-					"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
-					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-					return err
-				}
-			}
+		if err := m.installMasqueradeRules("iptables", ifName, localDeliveryInterface,
+			datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
+			node.GetIPv4AllocRange().String(),
+			node.GetHostMasqueradeIPv4().String(),
+		); err != nil {
+			return err
 		}
 	}
 
