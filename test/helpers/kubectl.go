@@ -4394,6 +4394,16 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"service":            "cilium-agent hubble-metrics hubble-relay",
 			"secret":             "hubble-relay-client-certs hubble-server-certs",
 		}
+
+		crdsToDelete = []string{
+			"ciliumclusterwidenetworkpolicies.cilium.io",
+			"ciliumendpoints.cilium.io",
+			"ciliumexternalworkloads.cilium.io",
+			"ciliumidentities.cilium.io",
+			"ciliumlocalredirectpolicies.cilium.io",
+			"ciliumnetworkpolicies.cilium.io",
+			"ciliumnodes.cilium.io",
+		}
 	)
 
 	wg.Add(len(resourcesToDelete))
@@ -4403,6 +4413,15 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			wg.Done()
 		}(resource, resourceType)
 	}
+
+	wg.Add(len(crdsToDelete))
+	for _, crd := range crdsToDelete {
+		go func(crd string) {
+			_ = kub.DeleteResource("crd", crd)
+			wg.Done()
+		}(crd)
+	}
+
 	wg.Wait()
 }
 
