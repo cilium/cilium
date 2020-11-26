@@ -334,8 +334,14 @@ func (s *SSHMeta) RenderTemplateToFile(filename string, tmplt string, perm os.Fi
 		return err
 	}
 
-	cmd := fmt.Sprintf("install -m %o <(echo '%s') %s\n", perm, content, filepath.Join(s.basePath, filename))
+	dst := filepath.Join(s.basePath, filename)
+	cmd := fmt.Sprintf("echo '%s' > %s", content, dst)
 	res := s.Exec(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("%s", res.CombineOutput())
+	}
+	cmd = fmt.Sprintf("chmod %o %s", perm, dst)
+	res = s.Exec(cmd)
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
