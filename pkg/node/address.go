@@ -255,7 +255,7 @@ func Uninitialize() {
 	ipv6AllocRange = nil
 }
 
-// GetNodePortIPv4 returns the node-port IPv4 address for NAT
+// GetNodePortIPv4Addrs returns the node-port IPv4 address for NAT
 func GetNodePortIPv4Addrs() []net.IP {
 	addrs := make([]net.IP, 0, len(ipv4NodePortAddrs))
 	for _, addr := range ipv4NodePortAddrs {
@@ -269,7 +269,7 @@ func GetNodePortIPv4AddrsWithDevices() map[string]net.IP {
 	return copyStringToNetIPMap(ipv4NodePortAddrs)
 }
 
-// GetNodePortIPv6 returns the node-port IPv6 address for NAT
+// GetNodePortIPv6Addrs returns the node-port IPv6 address for NAT
 func GetNodePortIPv6Addrs() []net.IP {
 	addrs := make([]net.IP, 0, len(ipv6NodePortAddrs))
 	for _, addr := range ipv6NodePortAddrs {
@@ -278,7 +278,7 @@ func GetNodePortIPv6Addrs() []net.IP {
 	return addrs
 }
 
-// GetNodePortIPv4AddrsWithDevices returns the map iface => NodePort IPv6.
+// GetNodePortIPv6AddrsWithDevices returns the map iface => NodePort IPv6.
 func GetNodePortIPv6AddrsWithDevices() map[string]net.IP {
 	return copyStringToNetIPMap(ipv6NodePortAddrs)
 }
@@ -346,6 +346,12 @@ func SetIPv6(ip net.IP) {
 
 // GetIPv6 returns the IPv6 address of the node
 func GetIPv6() net.IP {
+	return ipv6Address
+}
+
+// GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
+// any traffic that is being forwarded from the host into the Cilium cluster.
+func GetHostMasqueradeIPv6() net.IP {
 	return ipv6Address
 }
 
