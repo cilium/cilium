@@ -319,6 +319,35 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
+	SkipContextIf(func() bool {
+		return helpers.GetCurrentIntegration() != ""
+	}, "IPVLAN", func() {
+		It("Check connectivity with IPVLAN", func() {
+			options := map[string]string{
+				"tunnel":              "disabled",
+				"datapathMode":        "ipvlan",
+				"ipvlan.masterDevice": "eth0",
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
+
+		It("Check connecitivity with IPVLAN in pure L3 mode", func() {
+			options := map[string]string{
+				"tunnel":               "disabled",
+				"autoDirectNodeRoutes": "true",
+				"datapathMode":         "ipvlan",
+				"ipvlan.masterDevice":  "eth0",
+				"installIptablesRules": "false",
+				"l7Proxy.enabled":      "false",
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
+	})
+
 	Context("AutoDirectNodeRoutes", func() {
 		BeforeEach(func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)

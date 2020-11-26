@@ -2322,18 +2322,25 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		addIfNotOverwritten(options, "hostFirewall", "true")
 	}
 
+	defaultIface, err := kub.GetDefaultIface()
+	if err != nil {
+		return err
+	}
+
 	if !RunsWithKubeProxy() || options["hostFirewall"] == "true" {
 		// Set devices
 		privateIface, err := kub.GetPrivateIface()
 		if err != nil {
 			return err
 		}
-		defaultIface, err := kub.GetDefaultIface()
-		if err != nil {
-			return err
-		}
+
 		devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
 		addIfNotOverwritten(options, "devices", devices)
+	}
+
+	switch options["datapathMode"] {
+	case "ipvlan":
+		addIfNotOverwritten(options, "ipvlan.masterDevice", defaultIface)
 	}
 
 	if len(config.CiliumTestConfig.RegistryCredentials) > 0 {
