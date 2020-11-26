@@ -146,6 +146,14 @@ data:
   {{- if .Values.proxy.prometheus.enabled }}
   proxy-prometheus-port: "{{ .Values.proxy.prometheus.port }}"
   {{- end }}
+  {{- if .Values.prometheus.metrics }}
+  # Metrics that should be enabled or disabled from the default metric
+  # list. (+metric_foo to enable metric_foo , -metric_bar to disable
+  # metric_bar).
+  metrics: {{- range .Values.prometheus.metrics }}
+    {{ . }}
+  {{- end }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.operator.prometheus.enabled }}
