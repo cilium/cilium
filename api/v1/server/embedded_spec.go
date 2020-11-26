@@ -2903,8 +2903,12 @@ func init() {
             "iptables"
           ]
         },
-        "snat-exclusion-cidr": {
-          "description": "Any packet sent to IP addr belonging to CIDR will not be SNAT'd",
+        "snat-exclusion-cidr-v4": {
+          "description": "SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to\nan IPv4 address that belongs to this CIDR.",
+          "type": "string"
+        },
+        "snat-exclusion-cidr-v6": {
+          "description": "SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent to\nan IPv6 address that belongs to this CIDR.\nFor IPv6 we only do masquerading in iptables mode.",
           "type": "string"
         }
       }
@@ -7009,8 +7013,12 @@ func init() {
             "iptables"
           ]
         },
-        "snat-exclusion-cidr": {
-          "description": "Any packet sent to IP addr belonging to CIDR will not be SNAT'd",
+        "snat-exclusion-cidr-v4": {
+          "description": "SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to\nan IPv4 address that belongs to this CIDR.",
+          "type": "string"
+        },
+        "snat-exclusion-cidr-v6": {
+          "description": "SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent to\nan IPv6 address that belongs to this CIDR.\nFor IPv6 we only do masquerading in iptables mode.",
           "type": "string"
         }
       }

@@ -314,6 +314,7 @@ var ciliumChains = []customChain{
 		table:      "nat",
 		hook:       "POSTROUTING",
 		feederArgs: []string{""},
+		ipv6:       true,
 	},
 	{
 		name:       ciliumOutputNatChain,
@@ -469,7 +470,7 @@ func (m *IptablesManager) RemoveRules(quiet bool) {
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.haveIp6tables {
-		tables6 := []string{"mangle", "raw", "filter"}
+		tables6 := []string{"nat", "mangle", "raw", "filter"}
 		for _, t := range tables6 {
 			m.removeCiliumRules(t, "ip6tables", ciliumPrefix)
 		}
@@ -1024,6 +1025,11 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 		}
 	}
 
+	loopbackAddr := "127.0.0.1"
+	if prog == "ip6tables" {
+		loopbackAddr = "::1"
+	}
+
 	// Masquerade all traffic from the host into local
 	// endpoints if the source is 127.0.0.1. This is
 	// required to force replies out of the endpoint's
@@ -1036,9 +1042,9 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 		m.waitArgs,
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
-		"-s", "127.0.0.1",
+		"-s", loopbackAddr,
 		"-o", localDeliveryInterface,
-		"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
+		"-m", "comment", "--comment", "cilium host->cluster from "+loopbackAddr+" masquerade",
 		"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
 		return err
 	}
@@ -1183,6 +1189,32 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		); err != nil {
 			return err
 		}
+	}
+
+	if option.Config.EnableIPv6 {
+		// See comment above.
+		matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
+		markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
+		if err := runProg("ip6tables", append(
+			m.waitArgs,
+			"-t", "filter",
+			"-A", ciliumOutputChain,
+			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+			"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
+			"-m", "comment", "--comment", "cilium: host->any mark as from host",
+			"-j", "MARK", "--set-xmark", markAsFromHost), false); err != nil {
+			return err
+		}
+
+		if err := m.installMasqueradeRules("ip6tables", ifName, localDeliveryInterface,
+			datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
+			node.GetIPv6AllocRange().String(),
+			node.GetHostMasqueradeIPv6().String(),
+		); err != nil {
+			return err
+		}
+
 	}
 
 	// AWS ENI requires to mark packets ingressing on the primary interface
