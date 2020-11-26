@@ -32,11 +32,17 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 esac
 
 ENABLE_DEBUG=false
+CNI_EXCLUSIVE=true
 while test $# -gt 0; do
   case "$1" in
     --enable-debug*)
       # shellcheck disable=SC2001
       ENABLE_DEBUG=$(echo "$1" | sed -e 's/^[^=]*=//g')
+      shift
+      ;;
+    --cni-exclusive*)
+      # shellcheck disable=SC2001
+      CNI_EXCLUSIVE=$(echo "$1" | sed -e 's/^[^=]*=//g')
       shift
       ;;
     *)
@@ -71,6 +77,23 @@ if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
 fi
 
 cp "/opt/cni/bin/${BIN_NAME}" "${CNI_DIR}/bin/"
+
+# Rename all remaining CNI configurations to *.cilium_bak. This ensures only
+# Cilium's CNI plugin will remain active. This makes sure Pods are not
+# scheduled by another CNI when the Cilium agent is down during upgrades
+# or restarts. See GH-14128 and related issues for more context.
+if [ "${CNI_EXCLUSIVE}" != "false" ]; then
+  find "$(dirname "${CILIUM_CNI_CONF}")" \
+     -maxdepth 1 \
+     -type f \
+     \( -name '*.conf' \
+     -or -name '*.conflist' \
+     -or -name '*.json' \
+     \) \
+     -not \( -name '*.cilium_bak' \
+     -or -name "${CNI_CONF_NAME}" \) \
+     -exec mv {} {}.cilium_bak \;
+fi
 
 if [ "${CILIUM_CUSTOM_CNI_CONF}" = "true" ]; then
 	echo "Using custom ${CILIUM_CNI_CONF}..."
