@@ -109,7 +109,12 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 
-		if !option.Config.NodePortBindProtection {
+		if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
+			// We let kube-proxy do the less efficient bind-protection in
+			// this case to avoid the latter throwing (harmless) warnings
+			// to its log that bind request is rejected.
+			option.Config.NodePortBindProtection = false
+		} else if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
