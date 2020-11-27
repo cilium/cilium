@@ -91,7 +91,7 @@ github.com/cilium/arping
 ## explicit
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/ebpf v0.1.0
+# github.com/cilium/ebpf v0.3.0
 ## explicit
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm

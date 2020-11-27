@@ -12,7 +12,8 @@ if [[ "${1:-}" = "--in-vm" ]]; then
   export CGO_ENABLED=0
   export GOFLAGS=-mod=readonly
   export GOPATH=/run/go-path
-  export GOPROXY=file:///run/go-root/pkg/mod/cache/download
+  export GOPROXY=file:///run/go-path/pkg/mod/cache/download
+  export GOSUMDB=off
   export GOCACHE=/run/go-cache
 
   elfs=""
@@ -22,8 +23,8 @@ if [[ "${1:-}" = "--in-vm" ]]; then
 
   echo Running tests...
   # TestLibBPFCompat runs separately to pass the "-elfs" flag only for it: https://github.com/cilium/ebpf/pull/119
-  go test -v -run TestLibBPFCompat -elfs "$elfs"
-  go test -v ./...
+  go test -v -count 1 -run TestLibBPFCompat -elfs "$elfs"
+  go test -v -count 1 ./...
   touch "$1/success"
   exit 0
 fi
