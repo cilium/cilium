@@ -948,6 +948,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.
 }
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
 	//
@@ -979,9 +982,6 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	c.Assert(err, check.IsNil)
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
-
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
 	netns0, err := netns.ReplaceNetNSWithName("test-arping-netns0")
 	c.Assert(err, check.IsNil)
@@ -1052,98 +1052,172 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	}
 	c.Assert(found, check.Equals, false)
 
-	// 2. Add another node which is reachable from the host only via nodev1 (gw).
-	//    Arping should ping veth1 IP addr instead of veth3.
+	// Setup routine for the 2. test
+	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
+		vethPeerIPAddr string) (cleanup func(), errRet error) {
+
+		veth := &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{Name: vethName},
+			PeerName:  vethPeerName,
+		}
+		errRet = netlink.LinkAdd(veth)
+		if errRet != nil {
+			return nil, err
+		}
+		cleanup1 := func() { netlink.LinkDel(veth) }
+		cleanup = cleanup1
+
+		veth2, err := netlink.LinkByName(vethName)
+		if err != nil {
+			errRet = err
+			return
+		}
+		veth3, err := netlink.LinkByName(vethPeerName)
+		if err != nil {
+			errRet = err
+			return
+		}
+		netns1, err := netns.ReplaceNetNSWithName(netnsName)
+		if err != nil {
+			errRet = err
+			return
+		}
+		cleanup = func() {
+			cleanup1()
+			netns1.Close()
+		}
+		if errRet = netlink.LinkSetNsFd(veth2, int(netns0.Fd())); errRet != nil {
+			return
+		}
+		if errRet = netlink.LinkSetNsFd(veth3, int(netns1.Fd())); errRet != nil {
+			return
+		}
+
+		ip, ipnet, err := net.ParseCIDR(vethCIDR)
+		ip2 := net.ParseIP(vethIPAddr)
+		ip3 := net.ParseIP(vethPeerIPAddr)
+		ipnet.IP = ip2
+
+		if errRet = netns0.Do(func(ns.NetNS) error {
+			addr = &netlink.Addr{IPNet: ipnet}
+			if err := netlink.AddrAdd(veth2, addr); err != nil {
+				return err
+			}
+			if err := netlink.LinkSetUp(veth2); err != nil {
+				return err
+			}
+			if err := netlink.LinkSetUp(veth2); err != nil {
+				return err
+			}
+			return nil
+		}); errRet != nil {
+			return
+		}
+
+		ipnet.IP = ip
+		route := &netlink.Route{
+			Dst: ipnet,
+			Gw:  ip1,
+		}
+		if errRet = netlink.RouteAdd(route); errRet != nil {
+			return
+		}
+
+		if errRet = netns1.Do(func(ns.NetNS) error {
+			veth3, err := netlink.LinkByName(vethPeerName)
+			if err != nil {
+				return err
+			}
+			ipnet.IP = ip3
+			addr = &netlink.Addr{IPNet: ipnet}
+			if err := netlink.AddrAdd(veth3, addr); err != nil {
+				return err
+			}
+			if err := netlink.LinkSetUp(veth3); err != nil {
+				return err
+			}
+
+			_, ipnet, err := net.ParseCIDR("9.9.9.248/29")
+			if err != nil {
+				return err
+			}
+			route := &netlink.Route{
+				Dst: ipnet,
+				Gw:  ip2,
+			}
+			if err := netlink.RouteAdd(route); err != nil {
+				return err
+			}
+			return nil
+		}); errRet != nil {
+			return
+		}
+
+		return
+	}
+
+	// 2. Add two nodes which are reachable from the host only via nodev1 (gw).
+	//    Arping should ping veth1 IP addr instead of veth3 or veth5.
 	//
 	//      +--------------+     +--------------+     +--------------+
 	//      |  host netns  |     |    netns0    |     |    netns1    |
 	//      |              |     |    nodev1    |     |    nodev2    |
-	//      |              |     |  8.8.8.250/29|     |              |
+	//      |              |     |  8.8.8.249/29|     |              |
 	//      |              |     |           |  |     |              |
 	//      |         veth0+-----+veth1    veth2+-----+veth3         |
 	//      |          |   |     |   |          |     | |            |
 	//      | 9.9.9.249/29 |     |9.9.9.250/29  |     | 8.8.8.250/29 |
-	//      +--------------+     +--------------+     +--------------+
+	//      +--------------+     |         veth4+-+   +--------------+
+	//                           |           |  | |   +--------------+
+	//                           | 7.7.7.249/29 | |   |    netns2    |
+	//                           +--------------+ |   |    nodev3    |
+	//                                            |   |              |
+	//                                            +---+veth5         |
+	//                                                | |            |
+	//                                                | 7.7.7.250/29 |
+	//                                                +--------------+
 
-	// Setup
-	veth = &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: "veth2"},
-		PeerName:  "veth3",
-	}
-	err = netlink.LinkAdd(veth)
+	cleanup1, err := setupRemoteNode("veth2", "veth3", "test-arping-netns1",
+		"8.8.8.248/29", "8.8.8.249", "8.8.8.250")
 	c.Assert(err, check.IsNil)
-	defer netlink.LinkDel(veth)
-
-	veth2, err := netlink.LinkByName("veth2")
+	defer cleanup1()
+	cleanup2, err := setupRemoteNode("veth4", "veth5", "test-arping-netns2",
+		"7.7.7.248/29", "7.7.7.249", "7.7.7.250")
 	c.Assert(err, check.IsNil)
-	veth3, err := netlink.LinkByName("veth3")
-	c.Assert(err, check.IsNil)
-	netns1, err := netns.ReplaceNetNSWithName("test-arping-netns1")
-	c.Assert(err, check.IsNil)
-	defer netns1.Close()
-	err = netlink.LinkSetNsFd(veth2, int(netns0.Fd()))
-	c.Assert(err, check.IsNil)
-	err = netlink.LinkSetNsFd(veth3, int(netns1.Fd()))
-	c.Assert(err, check.IsNil)
+	defer cleanup2()
 
-	ip, ipnet, err := net.ParseCIDR("8.8.8.248/29")
-	ip2 := net.ParseIP("8.8.8.249")
-	ip3 := net.ParseIP("8.8.8.250")
-	ipnet.IP = ip2
-
-	netns0.Do(func(ns.NetNS) error {
-		addr = &netlink.Addr{IPNet: ipnet}
-		netlink.AddrAdd(veth2, addr)
-		c.Assert(err, check.IsNil)
-		err = netlink.LinkSetUp(veth2)
-		c.Assert(err, check.IsNil)
-		err = netlink.LinkSetUp(veth2)
-		c.Assert(err, check.IsNil)
-		return nil
-
-	})
-
-	ipnet.IP = ip
-	route := &netlink.Route{
-		Dst: ipnet,
-		Gw:  ip1,
-	}
-	err = netlink.RouteAdd(route)
-	c.Assert(err, check.IsNil)
-
-	netns1.Do(func(ns.NetNS) error {
-		veth3, err := netlink.LinkByName("veth3")
-		c.Assert(err, check.IsNil)
-		ipnet.IP = ip3
-		addr = &netlink.Addr{IPNet: ipnet}
-		netlink.AddrAdd(veth3, addr)
-		c.Assert(err, check.IsNil)
-		err = netlink.LinkSetUp(veth3)
-		c.Assert(err, check.IsNil)
-
-		_, ipnet, err := net.ParseCIDR("9.9.9.248/29")
-		c.Assert(err, check.IsNil)
-		route := &netlink.Route{
-			Dst: ipnet,
-			Gw:  ip2,
-		}
-		err = netlink.RouteAdd(route)
-		c.Assert(err, check.IsNil)
-
-		return nil
-	})
-
+	node2IP := net.ParseIP("8.8.8.250")
 	nodev2 := nodeTypes.Node{
 		Name:        "node2",
-		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, ip3}},
+		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node2IP}},
 	}
-	err = linuxNodeHandler.NodeAdd(nodev2)
-	c.Assert(err, check.IsNil)
+	c.Assert(linuxNodeHandler.NodeAdd(nodev2), check.IsNil)
 
+	node3IP := net.ParseIP("7.7.7.250")
+	nodev3 := nodeTypes.Node{
+		Name:        "node3",
+		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node3IP}},
+	}
+	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+
+	nextHop := net.ParseIP("9.9.9.250")
+	// Check that both node{2,3} are via nextHop (gw)
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
 	found = false
-	nextHop := net.ParseIP("9.9.9.250")
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+			found = true
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// Check that removing node2 will not remove nextHop, as it is still used by node3
+	c.Assert(linuxNodeHandler.NodeDelete(nodev2), check.IsNil)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+	found = false
 	for _, n := range neighs {
 		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
 			found = true
@@ -1151,6 +1225,19 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 	}
 	c.Assert(found, check.Equals, true)
+
+	// However, removing node3 should remove the neigh entry for nextHop
+	c.Assert(linuxNodeHandler.NodeDelete(nodev3), check.IsNil)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+			found = true
+			break
+		}
+	}
+	c.Assert(found, check.Equals, false)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config datapath.LocalNodeConfiguration) {
