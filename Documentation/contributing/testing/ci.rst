@@ -231,13 +231,17 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
+| `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                          | test-missed-k8s   | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                        | test-nightly      | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-kubernetes-upstream-test <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_      | test-upstream-k8s | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Flannel <https://jenkins.cilium.io/job/Cilium-PR-Flannel-hook/>`_                                   | test-flannel      | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
