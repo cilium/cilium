@@ -112,7 +112,7 @@ a userspace proxy (Envoy) Cilium creates the following networking objects.
   it is passed to the next layer either by sending it to the Linux stack for
   routing or doing a direct tail call if an overlay is in use.
 
-* **Socket Layer Enforcement:** Socket layer enforcement use two
+* **Socket Layer Enforcement:** Socket layer enforcement uses two
   hooks the socket operations hook and the socket send/recv hook to monitor
   and attach to all TCP sockets associated with Cilium managed endpoints, including
   any L7 proxies. The socket operations hook
@@ -122,10 +122,10 @@ a userspace proxy (Envoy) Cilium creates the following networking objects.
   send/recv hook and will be accelerated using sockmap fast redirects. The fast
   redirect ensures all policies implemented in Cilium are valid for the associated
   socket/endpoint mapping and assuming they are sends the message directly to the
-  peer socket. This is allowed because the sockmap send/recv hooks ensures the message
+  peer socket. This is allowed because the sockmap send/recv hooks ensure the message
   will not need to be processed by any of the objects above.
 
-* **L7 Policy:** The L7 Policy object redirect proxy traffic to a Cilium userspace
+* **L7 Policy:** The L7 Policy object redirects proxy traffic to a Cilium userspace
   proxy instance. Cilium uses an Envoy instance as its userspace proxy. Envoy will
   then either forward the traffic or generate appropriate reject messages based on the configured L7 policy.
 
