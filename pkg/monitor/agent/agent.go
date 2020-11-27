@@ -101,7 +101,7 @@ func NewAgent(ctx context.Context, nPages int) (a *Agent, err error) {
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
 		events:           eventsMap,
 		MonitorStatus: models.MonitorStatus{
-			Cpus:     int64(eventsMap.ABI().MaxEntries),
+			Cpus:     int64(eventsMap.MaxEntries()),
 			Npages:   int64(nPages),
 			Pagesize: int64(os.Getpagesize()),
 		},

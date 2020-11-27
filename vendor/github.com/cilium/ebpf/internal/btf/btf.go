@@ -31,7 +31,7 @@ var (
 type Spec struct {
 	rawTypes  []rawType
 	strings   stringTable
-	types     map[string][]Type
+	types     map[string][]namedType
 	funcInfos map[string]extInfo
 	lineInfos map[string]extInfo
 	byteOrder binary.ByteOrder
@@ -145,6 +145,9 @@ func loadSpecFromVmlinux(rd io.ReaderAt) (*Spec, error) {
 	defer file.Close()
 
 	btfSection, _, _, err := findBtfSections(file)
+	if err != nil {
+		return nil, fmt.Errorf(".BTF ELF section: %s", err)
+	}
 	if btfSection == nil {
 		return nil, fmt.Errorf("unable to find .BTF ELF section")
 	}
@@ -234,7 +237,7 @@ func loadKernelSpec() (*Spec, error) {
 		return loadSpecFromVmlinux(fh)
 	}
 
-	return nil, fmt.Errorf("BTF for kernel version %s: %w", release, ErrNotFound)
+	return nil, fmt.Errorf("no BTF for kernel version %s: %w", release, internal.ErrNotSupported)
 }
 
 func parseBTF(btf io.ReadSeeker, bo binary.ByteOrder) ([]rawType, stringTable, error) {
@@ -500,8 +503,13 @@ func (s *Spec) FindType(name string, typ Type) error {
 		candidate Type
 	)
 
-	for _, typ := range s.types[name] {
+	for _, typ := range s.types[essentialName(name)] {
 		if reflect.TypeOf(typ) != wanted {
+			continue
+		}
+
+		// Match against the full name, not just the essential one.
+		if typ.name() != name {
 			continue
 		}
 

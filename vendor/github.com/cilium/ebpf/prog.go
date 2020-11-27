@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -95,10 +96,9 @@ type Program struct {
 	// otherwise it is empty.
 	VerifierLog string
 
-	fd         *internal.FD
-	name       string
-	abi        ProgramABI
-	attachType AttachType
+	fd   *internal.FD
+	name string
+	typ  ProgramType
 }
 
 // NewProgram creates a new Program.
@@ -147,9 +147,7 @@ func newProgramWithBTF(spec *ProgramSpec, btf *btf.Handle, opts ProgramOptions) 
 
 	fd, err := bpfProgLoad(attr)
 	if err == nil {
-		prog := newProgram(fd, spec.Name, &ProgramABI{spec.Type})
-		prog.VerifierLog = internal.CString(logBuf)
-		return prog, nil
+		return &Program{internal.CString(logBuf), fd, spec.Name, spec.Type}, nil
 	}
 
 	logErr := err
@@ -163,36 +161,49 @@ func newProgramWithBTF(spec *ProgramSpec, btf *btf.Handle, opts ProgramOptions) 
 		_, logErr = bpfProgLoad(attr)
 	}
 
+	if errors.Is(logErr, unix.EPERM) && logBuf[0] == 0 {
+		// EPERM due to RLIMIT_MEMLOCK happens before the verifier, so we can
+		// check that the log is empty to reduce false positives.
+		return nil, fmt.Errorf("load program: RLIMIT_MEMLOCK may be too low: %w", logErr)
+	}
+
 	err = internal.ErrorWithLog(err, logBuf, logErr)
-	return nil, fmt.Errorf("can't load program: %w", err)
+	return nil, fmt.Errorf("load program: %w", err)
 }
 
 // NewProgramFromFD creates a program from a raw fd.
 //
 // You should not use fd after calling this function.
 //
-// Requires at least Linux 4.11.
+// Requires at least Linux 4.10.
 func NewProgramFromFD(fd int) (*Program, error) {
 	if fd < 0 {
 		return nil, errors.New("invalid fd")
 	}
-	bpfFd := internal.NewFD(uint32(fd))
 
-	name, abi, err := newProgramABIFromFd(bpfFd)
-	if err != nil {
-		bpfFd.Forget()
-		return nil, err
-	}
-
-	return newProgram(bpfFd, name, abi), nil
+	return newProgramFromFD(internal.NewFD(uint32(fd)))
 }
 
-func newProgram(fd *internal.FD, name string, abi *ProgramABI) *Program {
-	return &Program{
-		name: name,
-		fd:   fd,
-		abi:  *abi,
+// NewProgramFromID returns the program for a given id.
+//
+// Returns ErrNotExist, if there is no eBPF program with the given id.
+func NewProgramFromID(id ProgramID) (*Program, error) {
+	fd, err := bpfObjGetFDByID(internal.BPF_PROG_GET_FD_BY_ID, uint32(id))
+	if err != nil {
+		return nil, fmt.Errorf("get program by id: %w", err)
 	}
+
+	return newProgramFromFD(fd)
+}
+
+func newProgramFromFD(fd *internal.FD) (*Program, error) {
+	info, err := newProgramInfoFromFd(fd)
+	if err != nil {
+		fd.Close()
+		return nil, fmt.Errorf("discover program type: %w", err)
+	}
+
+	return &Program{"", fd, "", info.Type}, nil
 }
 
 func convertProgramSpec(spec *ProgramSpec, handle *btf.Handle) (*bpfProgLoadAttr, error) {
@@ -271,21 +282,21 @@ func convertProgramSpec(spec *ProgramSpec, handle *btf.Handle) (*bpfProgLoadAttr
 
 func (p *Program) String() string {
 	if p.name != "" {
-		return fmt.Sprintf("%s(%s)#%v", p.abi.Type, p.name, p.fd)
+		return fmt.Sprintf("%s(%s)#%v", p.typ, p.name, p.fd)
 	}
-	return fmt.Sprintf("%s#%v", p.abi.Type, p.fd)
+	return fmt.Sprintf("%s(%v)", p.typ, p.fd)
 }
 
 // Type returns the underlying type of the program.
 func (p *Program) Type() ProgramType {
-	return p.abi.Type
+	return p.typ
 }
 
-// ABI gets the ABI of the Program.
+// Info returns metadata about the program.
 //
-// Deprecated: use Type instead.
-func (p *Program) ABI() ProgramABI {
-	return p.abi
+// Requires at least 4.10.
+func (p *Program) Info() (*ProgramInfo, error) {
+	return newProgramInfoFromFd(p.fd)
 }
 
 // FD gets the file descriptor of the Program.
@@ -317,12 +328,12 @@ func (p *Program) Clone() (*Program, error) {
 		return nil, fmt.Errorf("can't clone program: %w", err)
 	}
 
-	return newProgram(dup, p.name, &p.abi), nil
+	return &Program{p.VerifierLog, dup, p.name, p.typ}, nil
 }
 
 // Pin persists the Program past the lifetime of the process that created it
 //
-// This requires bpffs to be mounted above fileName. See http://cilium.readthedocs.io/en/doc-1.0/kubernetes/install/#mounting-the-bpf-fs-optional
+// This requires bpffs to be mounted above fileName. See https://docs.cilium.io/en/k8s-doc/admin/#admin-mount-bpffs
 func (p *Program) Pin(fileName string) error {
 	if err := internal.BPFObjPin(fileName, p.fd); err != nil {
 		return fmt.Errorf("can't pin program: %w", err)
@@ -549,13 +560,13 @@ func LoadPinnedProgram(fileName string) (*Program, error) {
 		return nil, err
 	}
 
-	name, abi, err := newProgramABIFromFd(fd)
+	info, err := newProgramInfoFromFd(fd)
 	if err != nil {
 		_ = fd.Close()
-		return nil, fmt.Errorf("can't get ABI for %s: %w", fileName, err)
+		return nil, fmt.Errorf("info for %s: %w", fileName, err)
 	}
 
-	return newProgram(fd, name, abi), nil
+	return &Program{"", fd, filepath.Base(fileName), info.Type}, nil
 }
 
 // SanitizeName replaces all invalid characters in name.
@@ -580,24 +591,6 @@ func SanitizeName(name string, replacement rune) string {
 func ProgramGetNextID(startID ProgramID) (ProgramID, error) {
 	id, err := objGetNextID(internal.BPF_PROG_GET_NEXT_ID, uint32(startID))
 	return ProgramID(id), err
-}
-
-// NewProgramFromID returns the program for a given id.
-//
-// Returns ErrNotExist, if there is no eBPF program with the given id.
-func NewProgramFromID(id ProgramID) (*Program, error) {
-	fd, err := bpfObjGetFDByID(internal.BPF_PROG_GET_FD_BY_ID, uint32(id))
-	if err != nil {
-		return nil, err
-	}
-
-	name, abi, err := newProgramABIFromFd(fd)
-	if err != nil {
-		_ = fd.Close()
-		return nil, err
-	}
-
-	return newProgram(fd, name, abi), nil
 }
 
 // ID returns the systemwide unique ID of the program.
@@ -626,10 +619,30 @@ func resolveBTFType(name string, progType ProgramType, attachType AttachType) (b
 
 	target := match{progType, attachType}
 	switch target {
+	case match{LSM, AttachLSMMac}:
+		var target btf.Func
+		err := findKernelType("bpf_lsm_"+name, &target)
+		if errors.Is(err, btf.ErrNotFound) {
+			return nil, &internal.UnsupportedFeatureError{
+				Name: name + " LSM hook",
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("resolve BTF for LSM hook %s: %w", name, err)
+		}
+
+		return &target, nil
+
 	case match{Tracing, AttachTraceIter}:
 		var target btf.Func
-		if err := findKernelType("bpf_iter_"+name, &target); err != nil {
-			return nil, fmt.Errorf("can't resolve BTF for iterator %s: %w", name, err)
+		err := findKernelType("bpf_iter_"+name, &target)
+		if errors.Is(err, btf.ErrNotFound) {
+			return nil, &internal.UnsupportedFeatureError{
+				Name: name + " iterator",
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("resolve BTF for iterator %s: %w", name, err)
 		}
 
 		return &target, nil

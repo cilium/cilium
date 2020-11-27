@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 )
 
 const maxTypeDepth = 32
@@ -26,6 +27,14 @@ type Type interface {
 	// Enumerate all nested Types. Repeated calls must visit nested
 	// types in the same order.
 	walk(*copyStack)
+}
+
+// namedType is a type with a name.
+//
+// Most named types simply embed Name.
+type namedType interface {
+	Type
+	name() string
 }
 
 // Name identifies a type.
@@ -66,6 +75,8 @@ type Int struct {
 	Offset uint32
 	Bits   byte
 }
+
+var _ namedType = (*Int)(nil)
 
 func (i *Int) size() uint32    { return i.Size }
 func (i *Int) walk(*copyStack) {}
@@ -286,8 +297,8 @@ type FuncProto struct {
 
 func (fp *FuncProto) walk(cs *copyStack) {
 	cs.push(&fp.Return)
-	for _, m := range fp.Params {
-		cs.push(&m.Type)
+	for i := range fp.Params {
+		cs.push(&fp.Params[i].Type)
 	}
 }
 
@@ -469,19 +480,13 @@ func (cs *copyStack) pop() *Type {
 	return t
 }
 
-type namer interface {
-	name() string
-}
-
-var _ namer = Name("")
-
 // inflateRawTypes takes a list of raw btf types linked via type IDs, and turns
 // it into a graph of Types connected via pointers.
 //
 // Returns a map of named types (so, where NameOff is non-zero). Since BTF ignores
 // compilation units, multiple types may share the same name. A Type may form a
 // cyclic graph by pointing at itself.
-func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map[string][]Type, err error) {
+func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map[string][]namedType, err error) {
 	type fixupDef struct {
 		id           TypeID
 		expectedKind btfKind
@@ -520,7 +525,7 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 
 	types := make([]Type, 0, len(rawTypes))
 	types = append(types, (*Void)(nil))
-	namedTypes = make(map[string][]Type)
+	namedTypes = make(map[string][]namedType)
 
 	for i, raw := range rawTypes {
 		var (
@@ -656,9 +661,9 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 
 		types = append(types, typ)
 
-		if namer, ok := typ.(namer); ok {
-			if name := namer.name(); name != "" {
-				namedTypes[name] = append(namedTypes[name], typ)
+		if named, ok := typ.(namedType); ok {
+			if name := essentialName(named.name()); name != "" {
+				namedTypes[name] = append(namedTypes[name], named)
 			}
 		}
 	}
@@ -683,4 +688,13 @@ func inflateRawTypes(rawTypes []rawType, rawStrings stringTable) (namedTypes map
 	}
 
 	return namedTypes, nil
+}
+
+// essentialName returns name without a ___ suffix.
+func essentialName(name string) string {
+	lastIdx := strings.LastIndex(name, "___")
+	if lastIdx > 0 {
+		return name[:lastIdx]
+	}
+	return name
 }
