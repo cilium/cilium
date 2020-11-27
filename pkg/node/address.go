@@ -37,6 +37,7 @@ const preferPublicIP bool = true
 
 var (
 	ipv4Loopback        net.IP
+	ipv6Loopback        net.IP
 	ipv4ExternalAddress net.IP
 	ipv4InternalAddress net.IP
 	ipv4NodePortAddrs   map[string]net.IP // iface name => ip addr
@@ -177,9 +178,19 @@ func GetIPv4Loopback() net.IP {
 	return ipv4Loopback
 }
 
+// GetIPv6Loopback returns the loopback IPv6 address of this node.
+func GetIPv6Loopback() net.IP {
+	return ipv6Loopback
+}
+
 // SetIPv4Loopback sets the loopback IPv4 address of this node.
 func SetIPv4Loopback(ip net.IP) {
 	ipv4Loopback = ip
+}
+
+// SetIPv6Loopback sets the loopback IPv6 address of this node.
+func SetIPv6Loopback(ip net.IP) {
+	ipv6Loopback = ip
 }
 
 // GetIPv4AllocRange returns the IPv4 allocation prefix of this node

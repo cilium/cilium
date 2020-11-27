@@ -137,4 +137,27 @@ ctx_set_xfer(struct __sk_buff *ctx __maybe_unused, __u32 meta __maybe_unused)
 	/* Only possible from XDP -> SKB. */
 }
 
+#ifdef ENABLE_IPV6
+static __always_inline __maybe_unused void
+ctx_skip_lb6_local_clear(struct __sk_buff *ctx __maybe_unused)
+{
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_LB6_LOCAL;
+}
+
+static __always_inline __maybe_unused void
+ctx_skip_lb6_local_set(struct __sk_buff *ctx __maybe_unused)
+{
+	ctx->tc_index |= TC_INDEX_F_SKIP_LB6_LOCAL;
+}
+
+static __always_inline __maybe_unused bool
+ctx_skip_lb6_local(struct __sk_buff *ctx __maybe_unused)
+{
+	volatile __u32 tc_index = ctx->tc_index;
+
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_LB6_LOCAL;
+	return tc_index & TC_INDEX_F_SKIP_LB6_LOCAL;
+}
+#endif
+
 #endif /* __LIB_OVERLOADABLE_SKB_H_ */

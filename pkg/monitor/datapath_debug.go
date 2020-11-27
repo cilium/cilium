@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
 	// NOTE: syscall is deprecated, but it is replaced by golang.org/x/sys
 	//       which reuses syscall.Errno similarly to how we do below.
 	"syscall"
@@ -74,6 +75,8 @@ const (
 	DbgLb6LookupBackendFail
 	DbgLb6ReverseNatLookup
 	DbgLb6ReverseNat
+	DbgLb6LoopbackSnat
+	DbgLb6LoopbackSnatRev
 	DbgLb4LookupMaster
 	DbgLb4LookupMasterFail
 	DbgLb4LookupBackendSlot
@@ -319,6 +322,10 @@ func (n *DebugMsg) subTypeString() string {
 		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost(uint16(n.Arg1)))
 	case DbgLb6ReverseNat:
 		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+	case DbgLb6LoopbackSnat:
+		return fmt.Sprintf("Loopback SNAT from.p4=%x to.p4=%x", n.Arg1, n.Arg2)
+	case DbgLb6LoopbackSnatRev:
+		return fmt.Sprintf("Loopback reverse SNAT from.p4=%x to.p4=%x", n.Arg1, n.Arg2)
 	case DbgLb4LookupMaster:
 		return fmt.Sprintf("Master service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4LookupMasterFail:

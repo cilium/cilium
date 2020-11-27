@@ -122,8 +122,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableIPv6 {
+		loopbackIPv6 := node.GetIPv6Loopback()
 		extraMacrosMap["HOST_IP"] = hostIP.String()
 		fw.WriteString(defineIPv6("HOST_IP", hostIP))
+		fw.WriteString(FmtDefineAddress("IPV6_LOOPBACK", loopbackIPv6))
 	}
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
