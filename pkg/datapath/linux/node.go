@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -51,17 +52,21 @@ type linuxNodeHandler struct {
 	datapathConfig       DatapathConfiguration
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
-	neighByNode          map[nodeTypes.Identity]*netlink.Neigh
+	neighNextHopByNode   map[nodeTypes.Identity]string // val = string(net.IP)
+	neighNextHopRefCount counter.StringCounter
+	neighByNextHop       map[string]*netlink.Neigh // key = string(net.IP)
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
 func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) datapath.NodeHandler {
 	return &linuxNodeHandler{
-		nodeAddressing: nodeAddressing,
-		datapathConfig: datapathConfig,
-		nodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
-		neighByNode:    map[nodeTypes.Identity]*netlink.Neigh{},
+		nodeAddressing:       nodeAddressing,
+		datapathConfig:       datapathConfig,
+		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
+		neighNextHopByNode:   map[nodeTypes.Identity]string{},
+		neighNextHopRefCount: counter.StringCounter{},
+		neighByNextHop:       map[string]*netlink.Neigh{},
 	}
 }
 
@@ -559,6 +564,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		logfields.IPAddr:    nextHopIPv4,
 	})
 
+	// Figure out whether newNode is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGet(nextHopIPv4)
 	if err != nil {
 		scopedLog.WithError(err).Error("Failed to retrieve route for remote node IP")
@@ -574,67 +580,82 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		}
 	}
 
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		scopedLog.WithError(err).Error("Failed to retrieve iface by name")
-		return
-	}
+	nextHopStr := nextHopIPv4.String()
+	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
+	_, found := n.neighByNextHop[nextHopStr]
 
-	_, err = arping.FindIPInNetworkFromIface(nextHopIPv4, *iface)
-	if err != nil {
-		scopedLog.WithError(err).Error("IP is not L2 reachable")
-		return
-	}
+	// nextHop hasn't been arpinged before OR the arping failed
+	if n.neighNextHopRefCount.Add(nextHopStr) || !found {
+		iface, err := net.InterfaceByName(ifaceName)
+		if err != nil {
+			scopedLog.WithError(err).Error("Failed to retrieve iface by name")
+			return
+		}
 
-	linkAttr, err := netlink.LinkByName(ifaceName)
-	if err != nil {
-		scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
-		return
-	}
-	link := linkAttr.Attrs().Index
+		_, err = arping.FindIPInNetworkFromIface(nextHopIPv4, *iface)
+		if err != nil {
+			scopedLog.WithError(err).Error("IP is not L2 reachable")
+			return
+		}
 
-	hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface)
-	if err != nil {
-		scopedLog.WithError(err).Error("arping failed")
-		return
-	}
-	scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
+		linkAttr, err := netlink.LinkByName(ifaceName)
+		if err != nil {
+			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
+			return
+		}
+		link := linkAttr.Attrs().Index
 
-	neigh := netlink.Neigh{
-		LinkIndex:    link,
-		IP:           nextHopIPv4,
-		HardwareAddr: hwAddr,
-		State:        netlink.NUD_PERMANENT,
-	}
-	if err := netlink.NeighSet(&neigh); err != nil {
-		scopedLog.WithError(err).Error("Failed to insert neighbor")
-		return
-	}
+		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface)
+		if err != nil {
+			scopedLog.WithError(err).Error("arping failed")
+			return
+		}
+		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
-	n.neighByNode[newNode.Identity()] = &neigh
-	if option.Config.NodePortHairpin {
-		neighborsmap.NeighRetire(nextHopIPv4)
+		neigh := netlink.Neigh{
+			LinkIndex:    link,
+			IP:           nextHopIPv4,
+			HardwareAddr: hwAddr,
+			State:        netlink.NUD_PERMANENT,
+		}
+		if err := netlink.NeighSet(&neigh); err != nil {
+			scopedLog.WithError(err).Error("Failed to insert neighbor")
+			return
+		}
+
+		n.neighByNextHop[nextHopStr] = &neigh
+		if option.Config.NodePortHairpin {
+			neighborsmap.NeighRetire(nextHopIPv4)
+		}
 	}
 }
 
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
-	neigh, ok := n.neighByNode[oldNode.Identity()]
-	if !ok {
+	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
+	if !found {
 		return
 	}
+	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
 
-	if err := netlink.NeighDel(neigh); err != nil {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr:       neigh.IP,
-			logfields.HardwareAddr: neigh.HardwareAddr,
-			logfields.LinkIndex:    neigh.LinkIndex,
-		}).WithError(err).Warn("Failed to remove neighbor entry")
-		return
-	}
+	if n.neighNextHopRefCount.Delete(nextHopStr) {
+		neigh, found := n.neighByNextHop[nextHopStr]
+		delete(n.neighByNextHop, nextHopStr)
 
-	if option.Config.NodePortHairpin {
-		neighborsmap.NeighRetire(neigh.IP)
+		if found {
+			if err := netlink.NeighDel(neigh); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.IPAddr:       neigh.IP,
+					logfields.HardwareAddr: neigh.HardwareAddr,
+					logfields.LinkIndex:    neigh.LinkIndex,
+				}).WithError(err).Warn("Failed to remove neighbor entry")
+				return
+			}
+
+			if option.Config.NodePortHairpin {
+				neighborsmap.NeighRetire(neigh.IP)
+			}
+		}
 	}
 }
 
