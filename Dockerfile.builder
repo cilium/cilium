@@ -5,7 +5,6 @@ FROM docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac as ci
 
 FROM quay.io/cilium/cilium-runtime:2021-01-20@sha256:247eff116cc5d0b3a4931eabd67ea2e8679f7c12877729a73929d3f30753065b
 LABEL maintainer="maintainer@cilium.io"
-ARG ARCH=amd64
 WORKDIR /go/src/github.com/cilium/cilium
 
 #
@@ -19,9 +18,20 @@ ENV GO_VERSION 1.15.7
 #
 # Build dependencies
 #
-RUN apt-get update && \
+RUN \
+    # add multi-arch support for both arm64 and amd64
+    dpkg --add-architecture arm64 && dpkg --add-architecture amd64 && \
+    # apt sources need to be limited to the native architecture
+    ARCH=$(uname -m) && [ "$ARCH" != "aarch64" ] || ARCH="arm64" && [ "$ARCH" != "x86_64" ] || ARCH="amd64" && \
+    sed "s/^deb http/deb [arch=$ARCH] http/" -i /etc/apt/sources.list && \
+    apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
+      # Multi-arch cross-compilation packages, needed for CGO
+      gcc-aarch64-linux-gnu \
+      libc6-dev-arm64-cross \
+      gcc-x86-64-linux-gnu \
+      libc6-dev-amd64-cross \
       # Base Cilium-build dependencies
       binutils \
       coreutils \
@@ -43,5 +53,6 @@ COPY --from=cilium-llvm /usr/local/bin/llvm-objcopy /bin/
 #
 # Install Go
 #
-RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local && \
+RUN ARCH=$(uname -m) && [ "$ARCH" != "aarch64" ] || ARCH="arm64" && [ "$ARCH" != "x86_64" ] || ARCH="amd64" && \
+    curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local && \
     go clean -cache -modcache

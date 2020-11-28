@@ -61,7 +61,6 @@ JOB_BASE_NAME ?= cilium_test
 
 GO_VERSION := $(shell cat GO_VERSION)
 GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)/\1.\2/' GO_VERSION)
-GOARCH := $(shell $(GO) env GOARCH)
 
 DOCKER_FLAGS ?=
 

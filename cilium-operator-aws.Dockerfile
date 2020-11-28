@@ -2,6 +2,10 @@
 #
 ARG BASE_IMAGE=scratch
 
+# Cross-compile go, FROM comment must be located right before the FROM
+# line for the parameter to be applied on BuildKit builds.
+#
+# FROM --platform=$BUILDPLATFORM
 FROM docker.io/library/golang:1.15.7 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
@@ -13,9 +17,12 @@ WORKDIR /go/src/github.com/cilium/cilium/operator
 ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
-RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG RACE=$RACE cilium-operator-aws
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+#
+ARG TARGETARCH
+RUN make GOARCH=$TARGETARCH NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG RACE=$RACE cilium-operator-aws
 WORKDIR /go/src/github.com/cilium/cilium
-RUN make licenses-all
+RUN make GOARCH=$TARGETARCH licenses-all
 
 FROM docker.io/library/alpine:3.12.0 as certs
 ARG CILIUM_SHA=""
@@ -25,7 +32,11 @@ RUN apk --update add ca-certificates
 FROM docker.io/library/golang:1.15.7 as gops
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
-RUN go get -d github.com/google/gops && \
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+#
+ARG TARGETARCH
+RUN GOARCH=$TARGETARCH && [ "$GOARCH" != "arm64" ] || CC="aarch64-linux-gnu-gcc" && \
+    go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \
     git checkout -b v0.3.14 v0.3.14 && \
     git --no-pager remote -v && \
