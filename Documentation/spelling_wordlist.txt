@@ -16,6 +16,7 @@ Brenden
 Broadcom
 Brouer
 Bugtool
+Buildx
 CIDR
 CIDRs
 CRD
@@ -42,6 +43,7 @@ Datapath
 Deathstar
 Dinan
 Dockerfile
+Dockerfiles
 Elasticsearch
 FIt
 Facebook
@@ -247,6 +249,7 @@ browsable
 bugfix
 bugfixes
 bugtool
+buildx
 bytecode
 cBPF
 callee

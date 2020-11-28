@@ -23,6 +23,14 @@ LABEL cilium-sha=${CILIUM_SHA}
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
+# BUILDPLATFORM note: BUILDPLATFORM is an automatic platform ARG enabled by
+# Docker BuildKit. The form we would want to use to enable cross-platform builds
+# is "--platform=$BUILDPLATFORM". This would break classic builds, as they would
+# see just "--platform=", which causes an invalid argument error.
+# Makefile.buildkit detects the "# FROM ..." comment on the previous line and
+# augments the FROM line accordingly.
+#
+# FROM --platform=$BUILDPLATFORM
 FROM quay.io/cilium/cilium-builder:2021-01-20@sha256:09f63f516a88f82e714dac758362d34db9544188ac53b3ba88e85867b1a042bb as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
@@ -34,11 +42,15 @@ ARG LOCKDEBUG
 ARG RACE
 ARG V
 ARG LIBNETWORK_PLUGIN
+
 #
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
 #
-RUN make RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+#
+ARG TARGETARCH
+RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
     SKIP_DOCS=true DESTDIR=/tmp/install build-container install-container \
     licenses-all
 

@@ -43,13 +43,13 @@ RUN go get -d github.com/google/gops && \
 # LLVM, bpftool, iproute2 and loopback for runtime image (cilium/packaging repo)
 #
 FROM runtime-base as tools
-ARG ARCH=amd64
 WORKDIR /tmp
 # when updating this version, also run `images/scripts/update-cni-version.sh <v>`
 # to update images/runtime/cni-version.sh
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       curl ca-certificates xz-utils binutils && \
+      ARCH=$(uname -m) && [ "$ARCH" != "aarch64" ] || ARCH="arm64" && [ "$ARCH" != "x86_64" ] || ARCH="amd64" && \
     curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.9.0/cni-plugins-linux-${ARCH}-v0.9.0.tgz -o cni-plugins-linux-${ARCH}-v0.9.0.tgz && \
     curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.9.0/cni-plugins-linux-${ARCH}-v0.9.0.tgz.sha512 -o cni-plugins-linux-${ARCH}-v0.9.0.tgz.sha512 && \
     sha512sum -c cni-plugins-linux-${ARCH}-v0.9.0.tgz.sha512 && \

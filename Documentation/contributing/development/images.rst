@@ -46,6 +46,73 @@ Anyone can build official release images using the make target below.
 
     DOCKER_IMAGE_TAG=v1.4.0 make docker-images-all
 
+Experimental Docker BuildKit and Buildx support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Docker BuildKit allows build artifact caching between builds and
+generally results in faster builds for the developer. Support can be
+enabled by:
+
+::
+
+    export DOCKER_BUILDKIT=1
+
+Multi-arch image build support for arm64 (aka aarch64) and amd64 (aka
+x86-64) can be enabled by defining:
+
+::
+
+    export DOCKER_BUILDX=1
+
+Multi-arch images are built using a cross-compilation builder by
+default, which uses Go cross compilation for Go targets, and QEMU
+based emulation for other build steps. You can also define your own
+Buildx builder if you have access to both arm64 and amd64 machines.
+The "cross" builder will be defined and used if your current builder
+is "default".
+
+Buildx targets push images automatically, so you must also have
+DOCKER_REGISTRY and DOCKER_DEV_ACCOUNT defined, e.g.:
+
+::
+
+    export DOCKER_REGISTRY=docker.io
+    export DOCKER_DEV_ACCOUNT=your-account
+
+Currently the cilium-runtime and cilium-builder images are released
+for amd64 only (see the table below). This means that you have to
+build your own cilium-runtime and cilium-builder images:
+
+::
+
+    make docker-image-runtime
+
+After the build finishes update the runtime image references in other
+Dockerfiles (``docker buildx imagetools inspect`` is useful for finding
+image information). Then proceed to build the cilium-builder:
+
+::
+
+    make docker-image-builder
+
+After the build finishes update the main Cilium Dockerfile with the
+new builder reference, then proceed to build Hubble from
+github.com/cilium/hubble. Hubble builds via buildx QEMU based
+emulation, unless you have an ARM machine added to your buildx
+builder:
+
+::
+
+    export IMAGE_REPOSITORY=${DOCKER_REGISTRY}/${DOCKER_DEV_ACCOUNT}/hubble
+    CONTAINER_ENGINE="docker buildx" DOCKER_FLAGS="--push --platform=linux/arm64,linux/amd64" make image
+
+Update the main Cilium Dockerfile with the new Hubble reference and
+build the multi-arch versions of the Cilium images:
+    
+::
+
+    make docker-images-all
+
 Official Cilium repositories
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

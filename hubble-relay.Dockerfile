@@ -2,6 +2,10 @@
 #
 ARG BASE_IMAGE=scratch
 
+# Cross-compile go, FROM comment must be located right before the FROM
+# line for the parameter to be applied on BuildKit builds.
+#
+# FROM --platform=$BUILDPLATFORM
 FROM docker.io/library/golang:1.15.7 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
@@ -10,7 +14,8 @@ WORKDIR /go/src/github.com/cilium/cilium/hubble-relay
 ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
-RUN make RACE=${RACE} NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG}
+ARG TARGETARCH
+RUN make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG}
 WORKDIR /go/src/github.com/cilium/cilium
 RUN make licenses-all
 
@@ -22,7 +27,11 @@ RUN apk --update add ca-certificates
 FROM docker.io/library/golang:1.15.7 as gops
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
-RUN go get -d github.com/google/gops && \
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+#
+ARG TARGETARCH
+RUN GOARCH=$TARGETARCH && [ "$GOARCH" != "arm64" ] || CC="aarch64-linux-gnu-gcc" && \
+    go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \
     git checkout -b v0.3.14 v0.3.14 && \
     git --no-pager remote -v && \
