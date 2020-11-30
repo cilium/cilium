@@ -43,7 +43,7 @@ github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.0 => github.com/cespare/xxhash/v2 v2.1.0
 github.com/cespare/xxhash/v2
-# github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710 => github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
+# github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5 => github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5
 github.com/cilium/arping
 # github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96 => github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 github.com/cilium/ebpf
@@ -869,7 +869,7 @@ k8s.io/kube-openapi/pkg/generators
 k8s.io/kube-openapi/pkg/generators/rules
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/sets
-# k8s.io/kubernetes v1.17.12 => k8s.io/kubernetes v1.17.14
+# k8s.io/kubernetes v1.17.14 => k8s.io/kubernetes v1.17.14
 k8s.io/kubernetes/pkg/apis/core
 k8s.io/kubernetes/pkg/apis/scheduling
 k8s.io/kubernetes/pkg/kubelet/types

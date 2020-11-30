@@ -1,3 +1,5 @@
+[![pkg.go.dev](https://godoc.org/github.com/j-keck/arping?status.svg)](https://pkg.go.dev/github.com/j-keck/arping)
+
 # arping
   
 arping is a native go library to ping a host per arp datagram, or query a host mac address 
