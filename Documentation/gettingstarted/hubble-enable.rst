@@ -2,18 +2,33 @@ Enable Hubble for Cluster-Wide Visibility
 =========================================
 
 Hubble is the component for observability in Cilium. To obtain cluster-wide
-visibility into your network traffic, deploy Hubble Relay and the UI with the
-following Helm upgrade command on your existing installation
-(Cilium agent pods will be restarted in the process).
+visibility into your network traffic, deploy Hubble Relay and the UI as follows
+on your existing installation:
 
-.. parsed-literal::
+.. tabs::
 
-   helm upgrade cilium |CHART_RELEASE| \\
-      --namespace $CILIUM_NAMESPACE \\
-      --reuse-values \\
-      --set hubble.listenAddress=":4244" \\
-      --set hubble.relay.enabled=true \\
-      --set hubble.ui.enabled=true
+    .. group-tab:: Installation via Helm
+
+        If you installed Cilium via ``helm install``, you may enable Hubble
+        Relay and UI with the following command:
+
+        .. parsed-literal::
+
+           helm upgrade cilium |CHART_RELEASE| \\
+              --namespace $CILIUM_NAMESPACE \\
+              --reuse-values \\
+              --set hubble.relay.enabled=true \\
+              --set hubble.ui.enabled=true
+
+    .. group-tab:: Installation via ``quick-hubble-install.yaml``
+
+        If you installed Cilium via the provided ``quick-install.yaml``,
+        you may deploy Hubble Relay and UI on top of your existing installation
+        with the following command:
+
+        .. parsed-literal::
+
+            kubectl apply -f |SCM_WEB|/install/kubernetes/quick-hubble-install.yaml
 
 Once the Hubble UI pod is started, use port forwarding for the ``hubble-ui``
 service. This allows opening the UI locally on a browser:
