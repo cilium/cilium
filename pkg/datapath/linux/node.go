@@ -628,6 +628,12 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	return nil
 }
 
+func (n *linuxNodeHandler) NodeNeighInsert(newNode nodeTypes.Node) error {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	return n.insertNeighbor(&newNode, n.getExternalFacingDeviceName())
+}
+
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) error {
 	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
@@ -658,6 +664,12 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) error {
 	}
 
 	return nil
+}
+
+func (n *linuxNodeHandler) NodeNeighRemove(node nodeTypes.Node) error {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	return n.deleteNeighbor(&node)
 }
 
 func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {

@@ -448,6 +448,16 @@ func (c *clusterNodesClient) NodeDelete(node nodeTypes.Node) error {
 	return nil
 }
 
+func (c *clusterNodesClient) NodeNeighInsert(node nodeTypes.Node) error {
+	// no-op
+	return nil
+}
+
+func (c *clusterNodesClient) NodeNeighRemove(_ nodeTypes.Node) error {
+	// no-op
+	return nil
+}
+
 func (c *clusterNodesClient) NodeValidateImplementation(node nodeTypes.Node) error {
 	// no-op
 	return nil

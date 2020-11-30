@@ -133,4 +133,12 @@ type NodeHandler interface {
 	// NodeConfigurationChanged is called when the local node configuration
 	// has changed
 	NodeConfigurationChanged(config LocalNodeConfiguration) error
+
+	// NodeNeighInsert is called to add the new node as a neighbor to the
+	// current node's neighbor table.
+	NodeNeighInsert(newNode nodeTypes.Node) error
+
+	// NodeNeighRemove is called to remove a node as a neighbor from the
+	// current node's neighbor table.
+	NodeNeighRemove(node nodeTypes.Node) error
 }
