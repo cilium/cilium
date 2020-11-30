@@ -14,7 +14,7 @@ require (
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
-	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
+	github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5
 	github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/containernetworking/cni v0.7.1
@@ -89,7 +89,7 @@ require (
 	k8s.io/client-go v0.0.0
 	k8s.io/code-generator v0.0.0
 	k8s.io/klog v1.0.0
-	k8s.io/kubernetes v1.17.12
+	k8s.io/kubernetes v1.17.14
 	sigs.k8s.io/yaml v1.1.0
 )
 
@@ -155,7 +155,7 @@ replace (
 	github.com/chai2010/gettext-go => github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5
 	github.com/checkpoint-restore/go-criu => github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b
 	github.com/cheekybits/genny => github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9
-	github.com/cilium/arping => github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
+	github.com/cilium/arping => github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5
 	github.com/cilium/ebpf => github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/proxy => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/circonus-labs/circonus-gometrics => github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
