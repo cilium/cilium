@@ -31,14 +31,32 @@ func (r *requester) send(request arpDatagram) (time.Time, error) {
 	return time.Now(), syscall.Sendto(r.sock, request.MarshalWithEthernetHeader(), 0, &r.toSockaddr)
 }
 
-func (r *requester) receive() (arpDatagram, time.Time, error) {
-	buffer := make([]byte, 128)
-	n, _, err := syscall.Recvfrom(r.sock, buffer, 0)
-	if err != nil {
-		return arpDatagram{}, time.Now(), err
+func FD_SET(p *syscall.FdSet, i int) {
+	p.Bits[i/64] |= 1 << (uint(i) % 64)
+}
+
+func (r *requester) receive(timeout time.Duration) (arpDatagram, time.Time, error) {
+	fds := &syscall.FdSet{}
+	FD_SET(fds, r.sock)
+	tv := syscall.NsecToTimeval(timeout.Nanoseconds())
+	var err error
+	var ready int
+	if ready, err = syscall.Select(r.sock+1, fds, nil, nil, &tv); err == nil && ready == 1 {
+		buffer := make([]byte, 128)
+		var n int
+		n, _, err = syscall.Recvfrom(r.sock, buffer, 0)
+		if err == nil {
+			// Need at least 14 bytes Eth header + 28 bytes of ARP datagram
+			if n < 14+28 {
+				return arpDatagram{}, time.Now(), ErrSize
+			}
+			// skip 14 bytes ethernet header
+			return parseArpDatagram(buffer[14:n]), time.Now(), nil
+		}
+	} else if err == nil && ready == 0 {
+		return arpDatagram{}, time.Now(), ErrTimeout
 	}
-	// skip 14 bytes ethernet header
-	return parseArpDatagram(buffer[14:n]), time.Now(), nil
+	return arpDatagram{}, time.Now(), err
 }
 
 func (r *requester) deinitialize() error {
