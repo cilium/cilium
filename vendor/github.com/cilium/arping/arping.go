@@ -72,6 +72,7 @@ import (
 var (
 	// ErrTimeout error
 	ErrTimeout = errors.New("timeout")
+	ErrSize = errors.New("truncated")
 
 	verboseLog = log.New(ioutil.Discard, "", 0)
 	timeout    = 1 * time.Second
@@ -147,7 +148,7 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 		}
 		for {
 			// receive arp response
-			response, receiveTime, err := req.receive()
+			response, receiveTime, err := req.receive(timeout)
 
 			if err != nil {
 				select {
