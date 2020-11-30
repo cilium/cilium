@@ -2301,7 +2301,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			"kubeProxyReplacement": "strict",
 		}
 
-		if GetCurrentIntegration() != CIIntegrationGKE {
+		if DoesNotRunOnGKE() {
 			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 			if err != nil {
 				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
