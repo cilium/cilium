@@ -21,6 +21,8 @@ Install kubectl & minikube
 .. include:: minikube-install.rst
 .. include:: quick-install.rst
 .. include:: k8s-install-validate.rst
+.. include:: namespace-kube-system.rst
+.. include:: hubble-enable.rst
 
 Next steps
 ==========
