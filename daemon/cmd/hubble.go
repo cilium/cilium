@@ -185,10 +185,11 @@ func (d *Daemon) launchHubble() {
 				logger.WithError(err).Error("Failed to initialize Hubble server TLS configuration")
 				return
 			}
+			waitingMsgTimeout := time.After(30 * time.Second)
 			for tlsServerConfig == nil {
 				select {
 				case tlsServerConfig = <-tlsServerConfigChan:
-				case <-time.After(30 * time.Second):
+				case <-waitingMsgTimeout:
 					logger.Info("Waiting for Hubble server TLS certificate and key files to be created")
 				case <-d.ctx.Done():
 					return
