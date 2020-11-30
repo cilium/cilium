@@ -15,7 +15,20 @@ clean-build:
 
 veryclean: clean-build
 
-BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
+#
+# Transform classic Dockerfiles by:
+# 1. Add the experimental syntax moniker to the first line
+# 2. Add go build caching to all RUN..make and RUN..go instructions
+#
+# Notes:
+# - These regexes need to be compatible with both GNU sed (Linux) and old AT&T sed (macOS).
+#   That's why we're using '-E' instead of '-r'.
+# - Since we're in a Makefile, all '#' and '$' characters need escaping as '\#' and '$$', respectively.
+# - We use '!' as the separator in the 's' commands as we need '/' and '|' within the expressions.
+#
+BUILDKIT_DOCKERFILE_FILTER := | sed -E \
+			   -e "1s!^\#.*!\# syntax = docker/dockerfile:experimental!" \
+			   -e "s!^RUN(.*)( make| go )!RUN --mount=type=cache,target=/root/.cache/go-build\1\2!"
 
 # Check that files needed for git-less build are up-to-date
 build-context-update: GIT_VERSION
