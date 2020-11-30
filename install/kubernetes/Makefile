@@ -11,6 +11,7 @@ NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
 CERTGEN_VERSION := "v0.1.3"
 
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
+QUICK_HUBBLE_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-hubble-install.yaml"
 EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
@@ -24,6 +25,13 @@ CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
 QUICK_OPTIONS := \
     --set hubble.tls.auto.enabled=false \
     --set operator.replicas=1
+QUICK_HUBBLE_OPTIONS := \
+    --set agent=false \
+    --set operator.enabled=false \
+    --set hubble.tls.auto.enabled=true \
+    --set hubble.tls.auto.method="cronJob" \
+    --set hubble.relay.enabled=true \
+    --set hubble.ui.enabled=true
 EXPERIMENTAL_OPTIONS := \
     --set hubble.tls.auto.enabled=true \
     --set hubble.tls.auto.method="cronJob" \
@@ -46,10 +54,13 @@ HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
 LOGO_PATH := Documentation/images/logo-solo.svg
 
-all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) docs
+all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) $(QUICK_HUBBLE_INSTALL) docs
 
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
+
+$(QUICK_HUBBLE_INSTALL) quick-hubble-install: $(shell find cilium/ -type f) update-versions
+	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_HUBBLE_OPTIONS) > $(QUICK_HUBBLE_INSTALL)
 
 $(EXPERIMENTAL_INSTALL) experimental-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
