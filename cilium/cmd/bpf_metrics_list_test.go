@@ -34,24 +34,35 @@ type BPFMetricsMapSuite struct{}
 var _ = Suite(&BPFMetricsMapSuite{})
 
 func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
-	metricsMap := []interface{}{
-		mockmaps.NewMetricsMockMap(
-			[]metricsmap.Record{
-				{
-					Key:   metricsmap.Key{Reason: 0, Dir: 1},
-					Value: metricsmap.Value{Count: 100, Bytes: 1000},
-				},
-				{
-					Key:   metricsmap.Key{Reason: 0, Dir: 2},
-					Value: metricsmap.Value{Count: 200, Bytes: 2000},
-				},
-				{
-					Key:   metricsmap.Key{Reason: 132, Dir: 2},
-					Value: metricsmap.Value{Count: 300, Bytes: 3000},
-				},
+	oldMetricsMap := mockmaps.NewMetricsMockMap(
+		[]metricsmap.Record{
+			{
+				Key:   metricsmap.Key{Reason: 0, Dir: 2},
+				Value: metricsmap.Value{Count: 100, Bytes: 1000},
 			},
-		),
-	}
+			{
+				Key:   metricsmap.Key{Reason: 140, Dir: 1},
+				Value: metricsmap.Value{Count: 400, Bytes: 4000},
+			},
+		},
+	)
+
+	newMetricsMap := mockmaps.NewMetricsMockMap(
+		[]metricsmap.Record{
+			{
+				Key:   metricsmap.Key{Reason: 0, Dir: 0},
+				Value: metricsmap.Value{Count: 100, Bytes: 1000},
+			},
+			{
+				Key:   metricsmap.Key{Reason: 0, Dir: 1},
+				Value: metricsmap.Value{Count: 200, Bytes: 2000},
+			},
+			{
+				Key:   metricsmap.Key{Reason: 132, Dir: 2},
+				Value: metricsmap.Value{Count: 300, Bytes: 3000},
+			},
+		},
+	)
 
 	desc := func(x int) string {
 		return monitorAPI.DropReason(uint8(x))
@@ -61,40 +72,48 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 		return strings.ToLower(metricsmap.MetricDirection(uint8(d)))
 	}
 
-	jsonEncodedMetricsMap := jsonMetrics{
-		jsonMetric{
+	jsonEncodedMetricsMap := metrics{
+		metric{
 			Reason:      0,
 			Description: desc(0),
-			Values: map[string]jsonMetricValues{
-				dir(1): {
-					Packets: 100,
-					Bytes:   1000,
+			Values: map[string]metricValues{
+				dir(0): {
+					Packets: 100 + 100,
+					Bytes:   1000 + 1000,
 				},
-				dir(2): {
+				dir(1): {
 					Packets: 200,
 					Bytes:   2000,
 				},
 			},
 		},
-		jsonMetric{
+		metric{
 			Reason:      132,
 			Description: desc(132),
-			Values: map[string]jsonMetricValues{
+			Values: map[string]metricValues{
 				dir(2): {
 					Packets: 300,
 					Bytes:   3000,
 				},
 			},
 		},
+		metric{
+			Reason:      140,
+			Description: desc(140),
+			Values: map[string]metricValues{
+				dir(1): {
+					Packets: 400,
+					Bytes:   4000,
+				},
+			},
+		},
 	}
 
-	rawDump := dumpAndRead(metricsMap, func(maps []interface{}, args ...interface{}) {
-		for _, m := range maps {
-			listMetrics(m.(*mockmaps.MetricsMockMap))
-		}
+	rawDump := dumpAndRead(nil, func(maps []interface{}, args ...interface{}) {
+		listMetrics(oldMetricsMap, newMetricsMap)
 	}, c)
 
-	var jsonEncodedMetricsMapDump jsonMetrics
+	var jsonEncodedMetricsMapDump metrics
 	err := json.Unmarshal([]byte(rawDump), &jsonEncodedMetricsMapDump)
 	c.Assert(err, IsNil, Commentf("invalid JSON output: '%s', '%s'", err, rawDump))
 

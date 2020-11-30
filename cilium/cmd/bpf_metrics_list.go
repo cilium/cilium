@@ -38,6 +38,13 @@ const (
 	bytesTitle     = "BYTES"
 )
 
+type metricsMapFormat int
+
+const (
+	oldMetricsMapFormat metricsMapFormat = iota
+	newMetricsMapFormat
+)
+
 type metricsRow struct {
 	reasonCode int
 	reasonDesc string
@@ -46,85 +53,112 @@ type metricsRow struct {
 	bytes      int
 }
 
-type jsonMetricValues struct {
+type metricValues struct {
 	Packets uint64 `json:"packets"`
 	Bytes   uint64 `json:"bytes"`
 }
 
-type jsonMetric struct {
-	Reason      uint64                      `json:"reason"`
-	Description string                      `json:"description"`
-	Values      map[string]jsonMetricValues `json:"values"`
+type metric struct {
+	Reason      uint64                  `json:"reason"`
+	Description string                  `json:"description"`
+	Values      map[string]metricValues `json:"values"`
 }
 
-type jsonMetrics []jsonMetric
+type metrics []metric
 
 var bpfMetricsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List BPF datapath traffic metrics",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf metrics list")
-		listMetrics(metricsmap.Metrics)
+		listMetrics(metricsmap.OldMetrics, metricsmap.Metrics)
 	},
 }
 
-func listMetrics(m metricsmap.MetricsMap) {
+func listMetrics(oldMap, newMap metricsmap.MetricsMap) {
+	oldBPFMetricsList := make(map[string]string)
+	oldBPFMetricsCallback := func(key bpf.MapKey, value bpf.MapValue) {
+		oldBPFMetricsList[key.String()] = value.String()
+	}
+	if err := oldMap.DumpWithCallback(oldBPFMetricsCallback); err != nil {
+		fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
+		os.Exit(1)
+	}
+
 	bpfMetricsList := make(map[string]string)
-	callback := func(key bpf.MapKey, value bpf.MapValue) {
+	bpfMetricsCallback := func(key bpf.MapKey, value bpf.MapValue) {
 		bpfMetricsList[key.String()] = value.String()
 	}
-	if err := m.DumpWithCallback(callback); err != nil {
+	if err := newMap.DumpWithCallback(bpfMetricsCallback); err != nil {
 		fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
 		os.Exit(1)
 	}
 
 	if command.OutputJSON() {
-		listJSONMetrics(bpfMetricsList)
+		listJSONMetrics(oldBPFMetricsList, bpfMetricsList)
 		return
 	}
 
-	listHumanReadableMetrics(bpfMetricsList)
+	listHumanReadableMetrics(oldBPFMetricsList, bpfMetricsList)
 }
 
-func listJSONMetrics(bpfMetricsList map[string]string) {
-	metricsByReason := map[int]jsonMetric{}
+type metricsWithFormat struct {
+	metrics map[string]string
+	format  metricsMapFormat
+}
 
-	for key, value := range bpfMetricsList {
-		row, err := extractRow(key, value)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			continue
-		}
+func mergeOldAndNewMaps(oldBPFMetricsList, bpfMetricsList map[string]string) []metric {
+	metricsByReason := map[int]metric{}
 
-		if _, ok := metricsByReason[row.reasonCode]; !ok {
-			metricsByReason[row.reasonCode] = jsonMetric{
-				Reason:      uint64(row.reasonCode),
-				Description: monitorAPI.DropReason(uint8(row.reasonCode)),
-				Values:      map[string]jsonMetricValues{},
+	metricsWithFormat := []metricsWithFormat{
+		{oldBPFMetricsList, oldMetricsMapFormat},
+		{bpfMetricsList, newMetricsMapFormat},
+	}
+
+	for _, m := range metricsWithFormat {
+		for key, value := range m.metrics {
+			row, err := extractRow(key, value, m.format)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cannot extract metric row: %s\n", err)
+				continue
 			}
-		}
 
-		direction := strings.ToLower(row.direction)
+			if _, ok := metricsByReason[row.reasonCode]; !ok {
+				metricsByReason[row.reasonCode] = metric{
+					Reason:      uint64(row.reasonCode),
+					Description: monitorAPI.DropReason(uint8(row.reasonCode)),
+					Values:      map[string]metricValues{},
+				}
+			}
 
-		metricsByReason[row.reasonCode].Values[direction] = jsonMetricValues{
-			Packets: uint64(row.packets),
-			Bytes:   uint64(row.bytes),
+			direction := strings.ToLower(row.direction)
+
+			metrics, _ := metricsByReason[row.reasonCode].Values[direction]
+			metricsByReason[row.reasonCode].Values[direction] = metricValues{
+				Packets: metrics.Packets + uint64(row.packets),
+				Bytes:   metrics.Bytes + uint64(row.bytes),
+			}
 		}
 	}
 
-	metrics := jsonMetrics{}
+	metrics := []metric{}
 	for _, v := range metricsByReason {
 		metrics = append(metrics, v)
 	}
 
+	return metrics
+}
+
+func listJSONMetrics(oldBPFMetricsList, bpfMetricsList map[string]string) {
+	metrics := mergeOldAndNewMaps(oldBPFMetricsList, bpfMetricsList)
 	if err := command.PrintOutput(metrics); err != nil {
 		fmt.Fprintf(os.Stderr, "error getting output of map in JSON: %s\n", err)
 		os.Exit(1)
 	}
 }
 
-func listHumanReadableMetrics(bpfMetricsList map[string]string) {
-	if len(bpfMetricsList) == 0 {
+func listHumanReadableMetrics(oldBPFMetricsList, bpfMetricsList map[string]string) {
+	if len(oldBPFMetricsList) == 0 && len(bpfMetricsList) == 0 {
 		fmt.Fprintf(os.Stderr, "No entries found.\n")
 		return
 	}
@@ -135,15 +169,11 @@ func listHumanReadableMetrics(bpfMetricsList map[string]string) {
 	const numColumns = 4
 	rows := [][numColumns]string{}
 
-	for key, value := range bpfMetricsList {
-		row, err := extractRow(key, value)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			continue
-
+	for _, metrics := range mergeOldAndNewMaps(oldBPFMetricsList, bpfMetricsList) {
+		for direction, metric := range metrics.Values {
+			rows = append(rows, [numColumns]string{metrics.Description, strings.ToUpper(direction),
+				fmt.Sprintf("%d", metric.Packets), fmt.Sprintf("%d", metric.Bytes)})
 		}
-
-		rows = append(rows, [numColumns]string{row.reasonDesc, row.direction, fmt.Sprintf("%d", row.packets), fmt.Sprintf("%d", row.bytes)})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -165,7 +195,18 @@ func listHumanReadableMetrics(bpfMetricsList map[string]string) {
 	w.Flush()
 }
 
-func extractRow(key, value string) (*metricsRow, error) {
+func oldToNewDirection(direction int) (int, bool) {
+	switch direction {
+	case 1: // old INGRESS
+		return 1, true
+	case 2: // old EGRESS
+		return 0, true
+	default:
+		return 0, false
+	}
+}
+
+func extractRow(key, value string, format metricsMapFormat) (*metricsRow, error) {
 	reasonCodeStr, directionCodeStr, ok := extractTwoValues(key)
 	if !ok {
 		return nil, fmt.Errorf("cannot extract reason and traffic direction from map's key \"%s\"", key)
@@ -197,6 +238,12 @@ func extractRow(key, value string) (*metricsRow, error) {
 	}
 
 	reasonDesc := monitorAPI.DropReason(uint8(reasonCode))
+	if format == oldMetricsMapFormat {
+		var ok bool
+		if directionCode, ok = oldToNewDirection(directionCode); !ok {
+			return nil, fmt.Errorf("invalid direction code")
+		}
+	}
 	direction := metricsmap.MetricDirection(uint8(directionCode))
 
 	return &metricsRow{reasonCode, reasonDesc, direction, packets, bytes}, nil

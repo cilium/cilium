@@ -183,7 +183,7 @@ function load_sockops_prog {
 		cilium_metrics cilium_tunnel_map cilium_encrypt_state		\
 		cilium_lb6_reverse_nat cilium_lb6_services cilium_lb6_backends	\
 		cilium_lb4_reverse_nat cilium_lb4_services cilium_lb4_backends	\
-		cilium_events"
+		cilium_events cilium_metrics_v2"
 
 	map_args=""
 	for map in $ALL_MAPS; do

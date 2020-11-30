@@ -75,7 +75,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define ENDPOINTS_MAP test_cilium_lxc
 #define EVENTS_MAP test_cilium_events
 #define SIGNAL_MAP test_cilium_signals
-#define METRICS_MAP test_cilium_metrics
+#define OLD_METRICS_MAP test_cilium_metrics
+#define METRICS_MAP test_cilium_metrics_v2
 #define POLICY_CALL_MAP test_cilium_policy
 #define SOCK_OPS_MAP test_sock_ops_map
 #define IPCACHE_MAP test_cilium_ipcache

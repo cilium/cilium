@@ -19,6 +19,15 @@ struct bpf_elf_map __section_maps ENDPOINTS_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
+struct bpf_elf_map __section_maps OLD_METRICS_MAP = {
+	.type		= BPF_MAP_TYPE_PERCPU_HASH,
+	.size_key	= sizeof(struct metrics_key),
+	.size_value	= sizeof(struct metrics_value),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= METRICS_MAP_SIZE,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
 struct bpf_elf_map __section_maps METRICS_MAP = {
 	.type		= BPF_MAP_TYPE_PERCPU_HASH,
 	.size_key	= sizeof(struct metrics_key),

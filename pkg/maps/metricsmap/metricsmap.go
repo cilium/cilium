@@ -31,6 +31,16 @@ import (
 )
 
 var (
+	// OldMetrics is the bpf map for metrics in the old format.
+	//
+	// Keeping this map allows to not mix up metrics formats when
+	// upgrading from a version which uses to old format to a
+	// version which uses the new one.
+	//
+	// This map can be removed once the first version that introduced
+	// support for the new metrics format (1.9.1) is not supported anymore.
+	OldMetrics *bpf.Map
+
 	// Metrics is the bpf metrics map
 	Metrics      *bpf.Map
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
@@ -38,8 +48,10 @@ var (
 )
 
 const (
+	// MapName for old metrics map.
+	OldMapName = "cilium_metrics"
 	// MapName for metrics map.
-	MapName = "cilium_metrics"
+	MapName = "cilium_metrics_v2"
 	// MaxEntries is the maximum number of keys that can be present in the
 	// Metrics Map.
 	//
@@ -277,6 +289,18 @@ func init() {
 	possibleCpus = common.GetNumPossibleCPUs(log)
 
 	vs := make(Values, possibleCpus)
+
+	OldMetrics = bpf.NewPerCPUHashMap(
+		OldMapName,
+		&Key{},
+		int(unsafe.Sizeof(Key{})),
+		&vs,
+		int(unsafe.Sizeof(Value{})),
+		possibleCpus,
+		MaxEntries,
+		0, 0,
+		bpf.ConvertKeyValue,
+	)
 
 	// Metrics is a mapping of all packet drops and forwards associated with
 	// the node on ingress/egress direction
