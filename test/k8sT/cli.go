@@ -44,9 +44,7 @@ var _ = Describe("K8sCLI", func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	SkipContextIf(func() bool {
-		return !helpers.IsIntegration(helpers.CIIntegrationGKE)
-	}, "Identity CLI testing", func() {
+	SkipContextIf(helpers.DoesNotRunOnGKE, "Identity CLI testing", func() {
 		const (
 			manifestYAML = "test-cli.yaml"
 			fooID        = "foo"
@@ -120,9 +118,7 @@ var _ = Describe("K8sCLI", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return !helpers.IsIntegration(helpers.CIIntegrationGKE)
-	}, "stdout/stderr testing", func() {
+	SkipContextIf(helpers.DoesNotRunOnGKE, "stdout/stderr testing", func() {
 		var (
 			ciliumPod string
 			err       error

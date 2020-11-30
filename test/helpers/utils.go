@@ -529,6 +529,16 @@ func DoesNotRunOnNetNextOr419Kernel() bool {
 	return !RunsOnNetNextOr419Kernel()
 }
 
+// RunsOnGKE returns true if the tests are running on GKE.
+func RunsOnGKE() bool {
+	return GetCurrentIntegration() == CIIntegrationGKE
+}
+
+// DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
+func DoesNotRunOnGKE() bool {
+	return !RunsOnGKE()
+}
+
 // DoesNotHaveHosts returns a function which returns true if a CI job
 // has less VMs than the given count.
 func DoesNotHaveHosts(count int) func() bool {
