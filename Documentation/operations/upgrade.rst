@@ -333,7 +333,7 @@ Annotations:
 -------------------
 
 * Helm option ``nodeSelector`` is removed, please use the option for respective component
-  (e.g. ``operator.nodeSelector``, ``etc.nodeSelector`` and ``preflight.nodeSelector``) instead.
+  (e.g. ``operator.nodeSelector``, ``etcd.nodeSelector`` and ``preflight.nodeSelector``) instead.
 
 1.9 Upgrade Notes
 -----------------
