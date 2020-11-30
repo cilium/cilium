@@ -741,13 +741,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.enableNeighDiscovery {
-		var ifaceName string
-		if option.Config.EnableNodePort {
-			ifaceName = option.Config.DirectRoutingDevice
-		} else {
-			ifaceName = option.Config.EncryptInterface
-		}
-		n.insertNeighbor(newNode, ifaceName)
+		n.insertNeighbor(newNode, n.getExternalFacingDeviceName())
 	}
 
 	if n.nodeConfig.EnableIPSec {
@@ -800,6 +794,16 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	return nil
+}
+
+// getExternalFacingDeviceName returns the external / cluster-facing device
+// name.
+func (n *linuxNodeHandler) getExternalFacingDeviceName() string {
+	if option.Config.EnableNodePort {
+		return option.Config.DirectRoutingDevice
+	}
+
+	return option.Config.EncryptInterface
 }
 
 func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
