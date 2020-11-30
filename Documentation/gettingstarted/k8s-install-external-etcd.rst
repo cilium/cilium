@@ -102,3 +102,6 @@ Verify that Cilium pods were started on each of your worker nodes
     kubectl -n kube-system get deployments cilium-operator
     NAME              READY   UP-TO-DATE   AVAILABLE   AGE
     cilium-operator   2/2     2            2           2m6s
+
+.. include:: namespace-kube-system.rst
+.. include:: hubble-enable.rst

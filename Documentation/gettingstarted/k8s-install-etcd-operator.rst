@@ -74,6 +74,8 @@ should be healthy and ready:
     coredns-86c58d9df4-4l6b2                1/1     Running   0          13m
     etcd-operator-5cf67779fd-hd9j7          1/1     Running   0          2m42s
 
+.. include:: namespace-kube-system.rst
+.. include:: hubble-enable.rst
 
 Troubleshooting
 ===============
