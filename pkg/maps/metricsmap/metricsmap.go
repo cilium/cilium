@@ -50,9 +50,10 @@ const (
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
 	// in bpf/lib/common.h
-	dirEgress  = 0
+	dirUnknown = 0
 	dirIngress = 1
-	dirService = 2
+	dirEgress  = 2
+	dirService = 3
 )
 
 // direction is the metrics direction i.e ingress (to an endpoint),
@@ -60,8 +61,9 @@ const (
 // outside or a ClusterIP service being accessed from inside the cluster).
 // If it's none of the above, we return UNKNOWN direction.
 var direction = map[uint8]string{
-	dirEgress:  "EGRESS",
+	dirUnknown: "UNKNOWN",
 	dirIngress: "INGRESS",
+	dirEgress:  "EGRESS",
 	dirService: "SERVICE",
 }
 
@@ -141,7 +143,7 @@ func MetricDirection(dir uint8) string {
 	if desc, ok := direction[dir]; ok {
 		return desc
 	}
-	return "UNKNOWN"
+	return direction[dirUnknown]
 }
 
 // Direction gets the direction in human readable string format

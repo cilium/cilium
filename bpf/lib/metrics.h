@@ -42,4 +42,23 @@ static __always_inline void update_metrics(__u32 bytes, __u8 direction,
 	}
 }
 
+/**
+ * ct_to_metrics_dir
+ * @direction:	1: Ingress 2: Egress 3: Service
+ * Convert a CT direction into the corresponding one for metrics.
+ */
+static __always_inline __u8 ct_to_metrics_dir(__u8 ct_dir)
+{
+	switch (ct_dir) {
+	case CT_INGRESS:
+		return METRIC_INGRESS;
+	case CT_EGRESS:
+		return METRIC_EGRESS;
+	case CT_SERVICE:
+		return METRIC_SERVICE;
+	default:
+		return 0;
+	}
+}
+
 #endif /* __LIB_METRICS__ */
