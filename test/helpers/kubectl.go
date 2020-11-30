@@ -3139,6 +3139,11 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 		return
 	}
 
+	if kub == nil {
+		ginkgoext.GinkgoPrint("Skipped gathering logs due to kubectl not being initialized")
+		return
+	}
+
 	// Log gathering for Cilium should take at most 10 minutes. This ensures that
 	// the CiliumReport stage doesn't cause the entire CI to hang.
 
