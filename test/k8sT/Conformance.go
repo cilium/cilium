@@ -22,62 +22,63 @@ import (
 )
 
 var _ = Describe("K8sConformance", func() {
-	var kubectl *helpers.Kubectl
-	var ciliumFilename string
-	var connectivityCheckYaml string
-	var connectivityCheckYamlQuarantine string
-	var connectivityCheckYamlSimple string
+	SkipContextIf(func() bool {
+		return !helpers.RunsWithKubeProxy() || helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel
+	}, "Portmap Chaining", func() {
+		var (
+			kubectl                         *helpers.Kubectl
+			ciliumFilename                  string
+			connectivityCheckYaml           string
+			connectivityCheckYamlQuarantine string
+			connectivityCheckYamlSimple     string
+		)
 
-	BeforeAll(func() {
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		connectivityCheckYaml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-hostport.yaml")
-		connectivityCheckYamlQuarantine = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-quarantine.yaml")
-		connectivityCheckYamlSimple = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-single-node.yaml")
+		BeforeAll(func() {
+			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+			connectivityCheckYaml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-hostport.yaml")
+			connectivityCheckYamlQuarantine = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-quarantine.yaml")
+			connectivityCheckYamlSimple = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-single-node.yaml")
 
-		deployOpts := map[string]string{
-			"cni.chainingMode": "portmap",
-			// When kube-proxy is enabled, the host firewall is not
-			// compatible with portmap chaining because traffic
-			// from pods to remote nodes goes through the tunnel.
-			// This issue is tracked at #12541.
-			"hostFirewall": "false",
-		}
-		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, deployOpts)
+			deployOpts := map[string]string{
+				"cni.chainingMode": "portmap",
+				// When kube-proxy is enabled, the host firewall is not
+				// compatible with portmap chaining because traffic
+				// from pods to remote nodes goes through the tunnel.
+				// This issue is tracked at #12541.
+				"hostFirewall": "false",
+			}
+			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, deployOpts)
 
-		_, err := kubectl.CiliumNodesWait()
-		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
+			_, err := kubectl.CiliumNodesWait()
+			ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
 
-		By("Making sure all endpoints are in ready state")
-		err = kubectl.CiliumEndpointWaitReady()
-		ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
-	})
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
+		})
 
-	AfterEach(func() {
-		kubectl.Delete(connectivityCheckYaml)
-		kubectl.Delete(connectivityCheckYamlQuarantine)
-		kubectl.Delete(connectivityCheckYamlSimple)
-		ExpectAllPodsInNsTerminated(kubectl, "default")
-	})
+		AfterEach(func() {
+			kubectl.Delete(connectivityCheckYaml)
+			kubectl.Delete(connectivityCheckYamlQuarantine)
+			kubectl.Delete(connectivityCheckYamlSimple)
+			ExpectAllPodsInNsTerminated(kubectl, "default")
+		})
 
-	AfterFailed(func() {
-		kubectl.CiliumReport("cilium endpoint list")
-	})
+		AfterFailed(func() {
+			kubectl.CiliumReport("cilium endpoint list")
+		})
 
-	AfterAll(func() {
-		UninstallCiliumFromManifest(kubectl, ciliumFilename)
-		kubectl.CloseSSHClient()
-	})
+		AfterAll(func() {
+			UninstallCiliumFromManifest(kubectl, ciliumFilename)
+			kubectl.CloseSSHClient()
+		})
 
-	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-	})
+		JustAfterEach(func() {
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		})
 
-	Context("Portmap Chaining", func() {
 		It("Check connectivity-check compliance with portmap chaining", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-			SkipItIfNoKubeProxy()
-
 			kubectl.ApplyDefault(connectivityCheckYaml).ExpectSuccess("cannot install connectivity-check")
 
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
@@ -85,9 +86,6 @@ var _ = Describe("K8sConformance", func() {
 		})
 
 		It("Check one node connectivity-check compliance with portmap chaining", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-			SkipItIfNoKubeProxy()
-
 			kubectl.ApplyDefault(connectivityCheckYamlSimple).ExpectSuccess("cannot install connectivity-check-single-node")
 
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
