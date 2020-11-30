@@ -109,11 +109,11 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 
 static __always_inline int
 ipv4_handle_fragmentation(struct __ctx_buff *ctx,
-			  const struct iphdr *ip4, int l4_off, int dir,
+			  const struct iphdr *ip4, int l4_off, int ct_dir,
 			  struct ipv4_frag_l4ports *ports,
 			  bool *has_l4_header)
 {
-	int ret;
+	int ret, dir;
 	bool is_fragment, not_first_fragment;
 
 	struct ipv4_frag_id frag_id = {
@@ -125,6 +125,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 	};
 
 	is_fragment = ipv4_is_fragment(ip4);
+	dir = ct_to_metrics_dir(ct_dir);
 
 	if (unlikely(is_fragment)) {
 		update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET);
