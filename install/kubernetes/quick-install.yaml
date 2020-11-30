@@ -140,6 +140,12 @@ data:
   enable-hubble: "true"
   # UNIX domain socket for Hubble server to listen to.
   hubble-socket-path:  "/var/run/cilium/hubble.sock"
+  # An additional address for Hubble server to listen to (e.g. ":4244").
+  hubble-listen-address: ":4244"
+  hubble-disable-tls: "false"
+  hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
+  hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
+  hubble-tls-client-ca-files: /var/lib/cilium/tls/hubble/client-ca.crt
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"
@@ -509,6 +515,9 @@ spec:
           readOnly: true
         - mountPath: /run/xtables.lock
           name: xtables-lock
+        - mountPath: /var/lib/cilium/tls/hubble
+          name: hubble-tls
+          readOnly: true
       hostNetwork: true
       initContainers:
       - command:
@@ -597,6 +606,23 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
+      - name: hubble-tls
+        projected:
+          sources:
+          - secret:
+              name: hubble-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+              optional: true
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: ca.crt
+                  path: client-ca.crt
+              optional: true
 ---
 # Source: cilium/templates/cilium-operator-deployment.yaml
 apiVersion: apps/v1

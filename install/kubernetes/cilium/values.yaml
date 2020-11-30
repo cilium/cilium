@@ -479,7 +479,7 @@ hubble:
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
-  # listenAddress: ":4244"
+  listenAddress: ":4244"
 
   # -- TLS configuration for Hubble
   tls:
