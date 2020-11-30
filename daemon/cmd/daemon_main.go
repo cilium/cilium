@@ -1558,6 +1558,10 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	// /cluster/nodes
 	restAPI.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(d)
 
+	// /cluster/nodes/neigh
+	restAPI.DaemonPutClusterNodesNeighHandler = NewPutClusterNodesNeighHandler(d)
+	restAPI.DaemonDeleteClusterNodesNeighHandler = NewDeleteClusterNodesNeighHandler(d)
+
 	// /config/
 	restAPI.DaemonGetConfigHandler = NewGetConfigHandler(d)
 	restAPI.DaemonPatchConfigHandler = NewPatchConfigHandler(d)

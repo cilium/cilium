@@ -31,6 +31,58 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/ClusterNodeStatus"
+  "/cluster/nodes/neigh":
+    put:
+      summary: Insert node as a neighbor into cluster
+      description: |
+        Inserts a node as a neighbor into the cluster, rather than a full node
+        (running Cilium). This operation will create a permanent entry in the
+        current node's neighbor table.
+      tags:
+      - daemon
+      parameters:
+      - name: request
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/NodeNeighRequest"
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Invalid request; IPv6 is not supported
+          x-go-name: Invalid
+        '500':
+          description: Error while inserting node neighbor
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Remove node as a neighbor from cluster
+      description: |
+        Removes a node as a neighbor from the cluster. This operation removes
+        the permanent entry from the current node's neighbor table.
+      tags:
+      - daemon
+      parameters:
+      - name: request
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/NodeNeighRequest"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid request; IPv6 is not supported
+          x-go-name: Invalid
+        '404':
+          description: Node neighbor not found
+        '500':
+          description: Error while deleting node neighbor
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/healthz":
     get:
       summary: Get health of Cilium daemon
@@ -2777,3 +2829,14 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Port"
+  NodeNeighRequest:
+    description: |
+      Structure which contains the elements for manipulating node neighbors
+    type: object
+    properties:
+      name:
+        description: Name of the node neighbor
+        type: string
+      ip:
+        description: IP address of the node neighbor
+        type: string

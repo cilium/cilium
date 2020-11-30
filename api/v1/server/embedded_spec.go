@@ -59,6 +59,77 @@ func init() {
         }
       }
     },
+    "/cluster/nodes/neigh": {
+      "put": {
+        "description": "Inserts a node as a neighbor into the cluster, rather than a full node\n(running Cilium). This operation will create a permanent entry in the\ncurrent node's neighbor table.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Insert node as a neighbor into cluster",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NodeNeighRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Invalid request; IPv6 is not supported",
+            "x-go-name": "Invalid"
+          },
+          "500": {
+            "description": "Error while inserting node neighbor",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a node as a neighbor from the cluster. This operation removes\nthe permanent entry from the current node's neighbor table.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Remove node as a neighbor from cluster",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NodeNeighRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request; IPv6 is not supported",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Node neighbor not found"
+          },
+          "500": {
+            "description": "Error while deleting node neighbor",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/config": {
       "get": {
         "description": "Returns the configuration of the Cilium daemon.\n",
@@ -3062,6 +3133,20 @@ func init() {
         }
       }
     },
+    "NodeNeighRequest": {
+      "description": "Structure which contains the elements for manipulating node neighbors\n",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "IP address of the node neighbor",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the node neighbor",
+          "type": "string"
+        }
+      }
+    },
     "Policy": {
       "description": "Policy definition",
       "type": "object",
@@ -3747,6 +3832,77 @@ func init() {
             "schema": {
               "$ref": "#/definitions/ClusterNodeStatus"
             }
+          }
+        }
+      }
+    },
+    "/cluster/nodes/neigh": {
+      "put": {
+        "description": "Inserts a node as a neighbor into the cluster, rather than a full node\n(running Cilium). This operation will create a permanent entry in the\ncurrent node's neighbor table.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Insert node as a neighbor into cluster",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NodeNeighRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Invalid request; IPv6 is not supported",
+            "x-go-name": "Invalid"
+          },
+          "500": {
+            "description": "Error while inserting node neighbor",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a node as a neighbor from the cluster. This operation removes\nthe permanent entry from the current node's neighbor table.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Remove node as a neighbor from cluster",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NodeNeighRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request; IPv6 is not supported",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Node neighbor not found"
+          },
+          "500": {
+            "description": "Error while deleting node neighbor",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
           }
         }
       }
@@ -7165,6 +7321,20 @@ func init() {
           "items": {
             "$ref": "#/definitions/NodeAddressingElement"
           }
+        }
+      }
+    },
+    "NodeNeighRequest": {
+      "description": "Structure which contains the elements for manipulating node neighbors\n",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "IP address of the node neighbor",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the node neighbor",
+          "type": "string"
         }
       }
     },

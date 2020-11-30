@@ -53,6 +53,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 
 		JSONProducer: runtime.JSONProducer(),
 
+		DaemonDeleteClusterNodesNeighHandler: daemon.DeleteClusterNodesNeighHandlerFunc(func(params daemon.DeleteClusterNodesNeighParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.DeleteClusterNodesNeigh has not yet been implemented")
+		}),
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.DeleteEndpointID has not yet been implemented")
 		}),
@@ -173,6 +176,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		IpamPostIpamIPHandler: ipam.PostIpamIPHandlerFunc(func(params ipam.PostIpamIPParams) middleware.Responder {
 			return middleware.NotImplemented("operation ipam.PostIpamIP has not yet been implemented")
 		}),
+		DaemonPutClusterNodesNeighHandler: daemon.PutClusterNodesNeighHandlerFunc(func(params daemon.PutClusterNodesNeighParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.PutClusterNodesNeigh has not yet been implemented")
+		}),
 		EndpointPutEndpointIDHandler: endpoint.PutEndpointIDHandlerFunc(func(params endpoint.PutEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.PutEndpointID has not yet been implemented")
 		}),
@@ -216,6 +222,8 @@ type CiliumAPIAPI struct {
 	//   - application/json
 	JSONProducer runtime.Producer
 
+	// DaemonDeleteClusterNodesNeighHandler sets the operation handler for the delete cluster nodes neigh operation
+	DaemonDeleteClusterNodesNeighHandler daemon.DeleteClusterNodesNeighHandler
 	// EndpointDeleteEndpointIDHandler sets the operation handler for the delete endpoint ID operation
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
 	// PolicyDeleteFqdnCacheHandler sets the operation handler for the delete fqdn cache operation
@@ -296,6 +304,8 @@ type CiliumAPIAPI struct {
 	IpamPostIpamHandler ipam.PostIpamHandler
 	// IpamPostIpamIPHandler sets the operation handler for the post ipam IP operation
 	IpamPostIpamIPHandler ipam.PostIpamIPHandler
+	// DaemonPutClusterNodesNeighHandler sets the operation handler for the put cluster nodes neigh operation
+	DaemonPutClusterNodesNeighHandler daemon.PutClusterNodesNeighHandler
 	// EndpointPutEndpointIDHandler sets the operation handler for the put endpoint ID operation
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
 	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
@@ -378,6 +388,9 @@ func (o *CiliumAPIAPI) Validate() error {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
+	if o.DaemonDeleteClusterNodesNeighHandler == nil {
+		unregistered = append(unregistered, "daemon.DeleteClusterNodesNeighHandler")
+	}
 	if o.EndpointDeleteEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.DeleteEndpointIDHandler")
 	}
@@ -498,6 +511,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.IpamPostIpamIPHandler == nil {
 		unregistered = append(unregistered, "ipam.PostIpamIPHandler")
 	}
+	if o.DaemonPutClusterNodesNeighHandler == nil {
+		unregistered = append(unregistered, "daemon.PutClusterNodesNeighHandler")
+	}
 	if o.EndpointPutEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.PutEndpointIDHandler")
 	}
@@ -595,6 +611,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
+	o.handlers["DELETE"]["/cluster/nodes/neigh"] = daemon.NewDeleteClusterNodesNeigh(o.context, o.DaemonDeleteClusterNodesNeighHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
@@ -755,6 +775,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
 	o.handlers["POST"]["/ipam/{ip}"] = ipam.NewPostIpamIP(o.context, o.IpamPostIpamIPHandler)
+	if o.handlers["PUT"] == nil {
+		o.handlers["PUT"] = make(map[string]http.Handler)
+	}
+	o.handlers["PUT"]["/cluster/nodes/neigh"] = daemon.NewPutClusterNodesNeigh(o.context, o.DaemonPutClusterNodesNeighHandler)
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}

@@ -30,6 +30,8 @@ type Client struct {
 
 // ClientService is the interface for Client methods
 type ClientService interface {
+	DeleteClusterNodesNeigh(params *DeleteClusterNodesNeighParams) (*DeleteClusterNodesNeighOK, error)
+
 	GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error)
 
 	GetConfig(params *GetConfigParams) (*GetConfigOK, error)
@@ -44,7 +46,47 @@ type ClientService interface {
 
 	PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error)
 
+	PutClusterNodesNeigh(params *PutClusterNodesNeighParams) (*PutClusterNodesNeighCreated, error)
+
 	SetTransport(transport runtime.ClientTransport)
+}
+
+/*
+  DeleteClusterNodesNeigh removes node as a neighbor from cluster
+
+  Removes a node as a neighbor from the cluster. This operation removes
+the permanent entry from the current node's neighbor table.
+
+*/
+func (a *Client) DeleteClusterNodesNeigh(params *DeleteClusterNodesNeighParams) (*DeleteClusterNodesNeighOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewDeleteClusterNodesNeighParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "DeleteClusterNodesNeigh",
+		Method:             "DELETE",
+		PathPattern:        "/cluster/nodes/neigh",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &DeleteClusterNodesNeighReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*DeleteClusterNodesNeighOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for DeleteClusterNodesNeigh: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -295,6 +337,45 @@ func (a *Client) PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error) 
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PatchConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+  PutClusterNodesNeigh inserts node as a neighbor into cluster
+
+  Inserts a node as a neighbor into the cluster, rather than a full node
+(running Cilium). This operation will create a permanent entry in the
+current node's neighbor table.
+
+*/
+func (a *Client) PutClusterNodesNeigh(params *PutClusterNodesNeighParams) (*PutClusterNodesNeighCreated, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewPutClusterNodesNeighParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "PutClusterNodesNeigh",
+		Method:             "PUT",
+		PathPattern:        "/cluster/nodes/neigh",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PutClusterNodesNeighReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*PutClusterNodesNeighCreated)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PutClusterNodesNeigh: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 
