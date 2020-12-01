@@ -7,6 +7,8 @@
 #include <node_config.h>
 #include <ep_config.h>
 
+#define IS_BPF_HOST
+
 #define EVENT_SOURCE HOST_EP_ID
 
 /* These are configuration options which have a default value in their
