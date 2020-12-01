@@ -7,7 +7,7 @@
 /* Only compile in if host firewall is enabled and file is included from
  * bpf_host.
  */
-#if defined(ENABLE_HOST_FIREWALL) && defined(HOST_EP_ID)
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 
 # include "policy.h"
 # include "policy_log.h"
@@ -421,5 +421,5 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	return CTX_ACT_OK;
 }
 # endif /* ENABLE_IPV4 */
-#endif /* ENABLE_HOST_FIREWALL && HOST_EP_ID */
+#endif /* ENABLE_HOST_FIREWALL && IS_BPF_HOST */
 #endif /* __LIB_HOST_FIREWALL_H_ */
