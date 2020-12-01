@@ -4,10 +4,6 @@
 
 List nodes
 
-### Synopsis
-
-List nodes
-
 ```
 cilium node list [flags]
 ```

@@ -4,10 +4,6 @@
 
 List CIDR filters
 
-### Synopsis
-
-List CIDR filters
-
 ```
 cilium prefilter list [flags]
 ```

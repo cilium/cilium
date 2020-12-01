@@ -4,10 +4,6 @@
 
 Access metric status
 
-### Synopsis
-
-Access metric status
-
 ### Options
 
 ```

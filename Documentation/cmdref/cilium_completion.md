@@ -4,10 +4,6 @@
 
 Output shell completion code
 
-### Synopsis
-
-Output shell completion code
-
 ```
 cilium completion [shell] [flags]
 ```

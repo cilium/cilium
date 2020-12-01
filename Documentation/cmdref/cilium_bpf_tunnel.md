@@ -4,10 +4,6 @@
 
 Tunnel endpoint map
 
-### Synopsis
-
-Tunnel endpoint map
-
 ### Options
 
 ```

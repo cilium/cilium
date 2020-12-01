@@ -4,10 +4,6 @@
 
 show internal state Cilium has for DNS names / regexes
 
-### Synopsis
-
-show internal state Cilium has for DNS names / regexes
-
 ```
 cilium fqdn names [flags]
 ```

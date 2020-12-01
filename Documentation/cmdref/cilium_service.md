@@ -4,10 +4,6 @@
 
 Manage services & loadbalancers
 
-### Synopsis
-
-Manage services & loadbalancers
-
 ### Options
 
 ```

@@ -4,10 +4,6 @@
 
 Manage endpoints
 
-### Synopsis
-
-Manage endpoints
-
 ### Options
 
 ```

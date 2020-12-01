@@ -4,10 +4,6 @@
 
 Direct access to local BPF maps
 
-### Synopsis
-
-Direct access to local BPF maps
-
 ### Options
 
 ```

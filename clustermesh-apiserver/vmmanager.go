@@ -30,7 +30,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -343,6 +342,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 
 	namespace := id.Labels[k8sConst.PodNamespaceLabel].Value
 
+	var localCEP *ciliumv2.CiliumEndpoint
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
 		log.Info("Getting Node during an CEP update")
 		nr, err := m.ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), name, metav1.GetOptions{})
@@ -351,7 +351,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 			continue
 		}
 		log.Info("Getting CEP during an initialization")
-		localCEP, err := m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		_, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			cep := &ciliumv2.CiliumEndpoint{
 				ObjectMeta: metav1.ObjectMeta{
@@ -395,44 +395,29 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 			// NamedPorts: e.getNamedPortsModel(),
 		}
 
-		if k8sversion.Capabilities().Patch {
-			replaceCEPStatus := []k8s.JSONPatch{
-				{
-					OP:    "replace",
-					Path:  "/status",
-					Value: mdl,
-				},
+		replaceCEPStatus := []k8s.JSONPatch{
+			{
+				OP:    "replace",
+				Path:  "/status",
+				Value: mdl,
+			},
+		}
+		var createStatusPatch []byte
+		createStatusPatch, err = json.Marshal(replaceCEPStatus)
+		if err != nil {
+			log.WithError(err).Fatalf("json.Marshal(%v) failed", replaceCEPStatus)
+		}
+		localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Patch(context.TODO(), name,
+			types.JSONPatchType, createStatusPatch, metav1.PatchOptions{}, "status")
+		if err != nil {
+			if errors.IsConflict(err) {
+				log.WithError(err).Warn("Unable to update CiliumEndpoint resource, will retry")
+				continue
 			}
-			var createStatusPatch []byte
-			createStatusPatch, err = json.Marshal(replaceCEPStatus)
-			if err != nil {
-				log.WithError(err).Fatalf("json.Marshal(%v) failed", replaceCEPStatus)
-			}
-			localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Patch(context.TODO(), name,
-				types.JSONPatchType, createStatusPatch, metav1.PatchOptions{}, "status")
-			if err != nil {
-				if errors.IsConflict(err) {
-					log.WithError(err).Warn("Unable to update CiliumEndpoint resource, will retry")
-					continue
-				}
-				log.WithError(err).Fatal("Unable to update CiliumEndpoint resource")
-			} else {
-				log.Infof("Successfully patched CiliumEndpoint resource: %v", *localCEP)
-				return
-			}
+			log.WithError(err).Fatal("Unable to update CiliumEndpoint resource")
 		} else {
-			localCEP.Status = mdl
-			localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).UpdateStatus(context.TODO(), localCEP, metav1.UpdateOptions{})
-			if err != nil {
-				if errors.IsConflict(err) {
-					log.WithError(err).Warn("Unable to update CiliumEndpoint resource, will retry")
-					continue
-				}
-				log.WithError(err).Fatal("Unable to update CiliumEndpoint resource")
-			} else {
-				log.Infof("Successfully updated CiliumEndpoint resource: %v", *localCEP)
-				return
-			}
+			log.Infof("Successfully patched CiliumEndpoint resource: %v", *localCEP)
+			return
 		}
 	}
 	log.Fatal("Could not create or update CiliumEndpoint resource, despite retries")

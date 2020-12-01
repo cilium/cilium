@@ -4,10 +4,6 @@
 
 Flush all NAT mapping entries
 
-### Synopsis
-
-Flush all NAT mapping entries
-
 ```
 cilium bpf nat flush [flags]
 ```

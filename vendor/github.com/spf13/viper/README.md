@@ -1,10 +1,13 @@
-![viper logo](https://cloud.githubusercontent.com/assets/173412/10886745/998df88a-8151-11e5-9448-4736db51020d.png)
+![Viper](.github/logo.png?raw=true)
 
-Go configuration with fangs!
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/avelino/awesome-go#configuration)
 
-[![Actions](https://github.com/spf13/viper/workflows/CI/badge.svg)](https://github.com/spf13/viper)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/spf13/viper/CI?style=flat-square)](https://github.com/spf13/viper/actions?query=workflow%3ACI)
 [![Join the chat at https://gitter.im/spf13/viper](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/spf13/viper?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![GoDoc](https://godoc.org/github.com/spf13/viper?status.svg)](https://godoc.org/github.com/spf13/viper)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spf13/viper?style=flat-square)](https://goreportcard.com/report/github.com/spf13/viper)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/mod/github.com/spf13/viper)
+
+**Go configuration with fangs!**
 
 Many Go projects are built using Viper including:
 
@@ -101,6 +104,7 @@ where a configuration file is expected.
 
 ```go
 viper.SetConfigName("config") // name of config file (without extension)
+viper.SetConfigType("yaml") // REQUIRED if the config file does not have the extension in the name
 viper.AddConfigPath("/etc/appname/")   // path to look for the config file in
 viper.AddConfigPath("$HOME/.appname")  // call multiple times to add many search paths
 viper.AddConfigPath(".")               // optionally look for config in the working directory
@@ -124,7 +128,7 @@ if err := viper.ReadInConfig(); err != nil {
 // Config file found and successfully parsed
 ```
 
-*NOTE:* You can also have a file without an extension and specify the format programmaticaly. For those configuration files that lie in the home of the user without any extension like `.bashrc`
+*NOTE [since 1.6]:* You can also have a file without an extension and specify the format programmaticaly. For those configuration files that lie in the home of the user without any extension like `.bashrc`
 
 ### Writing Config Files
 
@@ -399,7 +403,7 @@ in a Key/Value store such as etcd or Consul.  These values take precedence over
 default values, but are overridden by configuration values retrieved from disk,
 flags, or environment variables.
 
-Viper uses [crypt](https://github.com/xordataexchange/crypt) to retrieve
+Viper uses [crypt](https://github.com/bketelsen/crypt) to retrieve
 configuration from the K/V store, which means that you can store your
 configuration values encrypted and have them automatically decrypted if you have
 the correct gpg keyring.  Encryption is optional.
@@ -411,7 +415,7 @@ independently of it.
 K/V store. `crypt` defaults to etcd on http://127.0.0.1:4001.
 
 ```bash
-$ go get github.com/xordataexchange/crypt/bin/crypt
+$ go get github.com/bketelsen/crypt/bin/crypt
 $ crypt set -plaintext /config/hugo.json /Users/hugo/settings/config.json
 ```
 
@@ -434,7 +438,7 @@ err := viper.ReadRemoteConfig()
 ```
 
 #### Consul
-You need to set a key to Consul key/value storage with JSON value containing your desired config.  
+You need to set a key to Consul key/value storage with JSON value containing your desired config.
 For example, create a Consul key/value store key `MY_CONSUL_KEY` with value:
 
 ```json
@@ -452,6 +456,16 @@ err := viper.ReadRemoteConfig()
 fmt.Println(viper.Get("port")) // 8080
 fmt.Println(viper.Get("hostname")) // myhostname.com
 ```
+
+#### Firestore
+
+```go
+viper.AddRemoteProvider("firestore", "google-cloud-project-id", "collection/document")
+viper.SetConfigType("json") // Config's format: "json", "toml", "yaml", "yml"
+err := viper.ReadRemoteConfig()
+```
+
+Of course, you're allowed to use `SecureRemoteProvider` also
 
 ### Remote Key/Value Store Example - Encrypted
 
@@ -692,18 +706,49 @@ var C config
 v.Unmarshal(&C)
 ```
 
+Viper also supports unmarshaling into embedded structs:
+
+```go
+/*
+Example config:
+
+module:
+    enabled: true
+    token: 89h3f98hbwf987h3f98wenf89ehf
+*/
+type config struct {
+	Module struct {
+		Enabled bool
+
+		moduleConfig `mapstructure:",squash"`
+	}
+}
+
+// moduleConfig could be in a module specific package
+type moduleConfig struct {
+	Token string
+}
+
+var C config
+
+err := viper.Unmarshal(&C)
+if err != nil {
+	t.Fatalf("unable to decode into struct, %v", err)
+}
+```
+
 Viper uses [github.com/mitchellh/mapstructure](https://github.com/mitchellh/mapstructure) under the hood for unmarshaling values which uses `mapstructure` tags by default.
 
 ### Marshalling to string
 
-You may need to marshal all the settings held in viper into a string rather than write them to a file. 
+You may need to marshal all the settings held in viper into a string rather than write them to a file.
 You can use your favorite format's marshaller with the config returned by `AllSettings()`.
 
 ```go
 import (
     yaml "gopkg.in/yaml.v2"
     // ...
-) 
+)
 
 func yamlStringSettings() string {
     c := viper.AllSettings()

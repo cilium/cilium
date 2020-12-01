@@ -4,10 +4,6 @@
 
 Display policy node information
 
-### Synopsis
-
-Display policy node information
-
 ```
 cilium policy get [<labels>] [flags]
 ```

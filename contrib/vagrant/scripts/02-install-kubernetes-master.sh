@@ -80,7 +80,9 @@ ExecStart=/usr/bin/kube-apiserver \\
   --kubelet-client-certificate='/var/lib/kubernetes/k8s-api-server.pem' \\
   --kubelet-client-key='/var/lib/kubernetes/k8s-api-server-key.pem' \\
   --kubelet-https \\
-  --service-account-key-file='/var/lib/kubernetes/k8s-controller-manager-sa.pem' \\
+  --service-account-issuer='api' \\
+  --service-account-signing-key-file='/var/lib/kubernetes/k8s-controller-manager-sa-key.pem' \\
+  --service-account-key-file='/var/lib/kubernetes/k8s-controller-manager-sa-key.pem' \\
   --service-cluster-ip-range=${k8s_service_cluster_ip_range} \\
   --service-node-port-range=30000-32767 \\
   --tls-cert-file='/var/lib/kubernetes/k8s-api-server.pem' \\

@@ -103,8 +103,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return fmt.Errorf("Kubernetes apiserver is not available")
 				}
 
-				capabilities := k8sversion.Capabilities()
-
 				// K8sPodName and K8sNamespace are not always available when an
 				// endpoint is first created, so we collect them here.
 				podName := e.GetK8sPodName()
@@ -228,38 +226,28 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					}
 				}
 
-				switch {
-				case capabilities.Patch:
-					// For json patch we don't need to perform a GET for endpoints
+				// For json patch we don't need to perform a GET for endpoints
 
-					// If it fails it means the test from the previous patch failed
-					// so we can safely replace this node in the CNP status.
-					replaceCEPStatus := []k8s.JSONPatch{
-						{
-							OP:    "replace",
-							Path:  "/status",
-							Value: mdl,
-						},
-					}
-					var createStatusPatch []byte
-					createStatusPatch, err = json.Marshal(replaceCEPStatus)
-					if err != nil {
-						return err
-					}
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
-						ctx, podName,
-						types.JSONPatchType,
-						createStatusPatch,
-						meta_v1.PatchOptions{},
-						"status")
-				default:
-					// We have an object to reuse. Update and push it up. In the case of an
-					// update error, we retry in the next iteration of the controller using
-					// the copy returned by Update.
-					scopedLog.Debug("Updating CEP from local copy")
-					mdl.DeepCopyInto(&localCEP.Status)
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(ctx, localCEP, meta_v1.UpdateOptions{})
+				// If it fails it means the test from the previous patch failed
+				// so we can safely replace this node in the CNP status.
+				replaceCEPStatus := []k8s.JSONPatch{
+					{
+						OP:    "replace",
+						Path:  "/status",
+						Value: mdl,
+					},
 				}
+				var createStatusPatch []byte
+				createStatusPatch, err = json.Marshal(replaceCEPStatus)
+				if err != nil {
+					return err
+				}
+				localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
+					ctx, podName,
+					types.JSONPatchType,
+					createStatusPatch,
+					meta_v1.PatchOptions{},
+					"status")
 
 				// Handle Update errors or return successfully
 				switch {

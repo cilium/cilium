@@ -6,18 +6,18 @@ The most common structures are under `vendor/k8s.io/api/core/v1/types.go`, or
 `vendor/k8s.io/apimachinery/pkg/apis/meta/v1/types.go`. 
 
 ```bash
-tag=v1.19.0-rc.2
+tag=v1.20.0-rc.0
 url="https://raw.githubusercontent.com/kubernetes/kubernetes/${tag}"
 
-curl "${url}/staging/src/k8s.io/api/core/v1/doc.go" > pkg/k8s/slim/k8s/apis/core/v1/doc.go
-curl "${url}/staging/src/k8s.io/api/core/v1/register.go" > pkg/k8s/slim/k8s/apis/core/v1/register.go
-curl "${url}/staging/src/k8s.io/api/core/v1/taint.go" > pkg/k8s/slim/k8s/apis/core/v1/taint.go
-curl "${url}/staging/src/k8s.io/api/core/v1/types.go" > pkg/k8s/slim/k8s/apis/core/v1/types.go
+curl "${url}/staging/src/k8s.io/api/core/v1/doc.go" > pkg/k8s/slim/k8s/api/core/v1/doc.go
+curl "${url}/staging/src/k8s.io/api/core/v1/register.go" > pkg/k8s/slim/k8s/api/core/v1/register.go
+curl "${url}/staging/src/k8s.io/api/core/v1/taint.go" > pkg/k8s/slim/k8s/api/core/v1/taint.go
+curl "${url}/staging/src/k8s.io/api/core/v1/types.go" > pkg/k8s/slim/k8s/api/core/v1/types.go
 
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/doc.go" > pkg/k8s/slim/k8s/apis/discovery/v1beta1/doc.go
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/register.go" > pkg/k8s/slim/k8s/apis/discovery/v1beta1/register.go
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/types.go" > pkg/k8s/slim/k8s/apis/discovery/v1beta1/types.go
-curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/well_known_labels.go" > pkg/k8s/slim/k8s/apis/discovery/v1beta1/well_known_labels.go
+curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/doc.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/doc.go
+curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/register.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/register.go
+curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/types.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/types.go
+curl "${url}/staging/src/k8s.io/api/discovery/v1beta1/well_known_labels.go" > pkg/k8s/slim/k8s/api/discovery/v1beta1/well_known_labels.go
 
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/labels/doc.go" > pkg/k8s/slim/k8s/apis/labels/doc.go
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/labels/labels.go" > pkg/k8s/slim/k8s/apis/labels/labels.go
@@ -32,9 +32,9 @@ curl "${url}/staging/src/k8s.io/apimachinery/pkg/apis/meta/v1/time.go" > pkg/k8s
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/apis/meta/v1/time_proto.go" > pkg/k8s/slim/k8s/apis/meta/v1/time_proto.go
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/apis/meta/v1/types.go" > pkg/k8s/slim/k8s/apis/meta/v1/types.go
 
-curl "${url}/staging/src/k8s.io/api/networking/v1/doc.go" > pkg/k8s/slim/k8s/apis/networking/v1/doc.go
-curl "${url}/staging/src/k8s.io/api/networking/v1/register.go" > pkg/k8s/slim/k8s/apis/networking/v1/register.go
-curl "${url}/staging/src/k8s.io/api/networking/v1/types.go" > pkg/k8s/slim/k8s/apis/networking/v1/types.go
+curl "${url}/staging/src/k8s.io/api/networking/v1/doc.go" > pkg/k8s/slim/k8s/api/networking/v1/doc.go
+curl "${url}/staging/src/k8s.io/api/networking/v1/register.go" > pkg/k8s/slim/k8s/api/networking/v1/register.go
+curl "${url}/staging/src/k8s.io/api/networking/v1/types.go" > pkg/k8s/slim/k8s/api/networking/v1/types.go
 
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/selection/operator.go" > pkg/k8s/slim/k8s/apis/selection/operator.go
 

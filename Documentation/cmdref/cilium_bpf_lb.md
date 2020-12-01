@@ -4,10 +4,6 @@
 
 Load-balancing configuration
 
-### Synopsis
-
-Load-balancing configuration
-
 ### Options
 
 ```

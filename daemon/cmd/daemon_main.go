@@ -464,9 +464,11 @@ func init() {
 	option.BindEnv(option.K8sServiceCacheSize)
 	flags.MarkHidden(option.K8sServiceCacheSize)
 
+	// Remove in 1.11
 	flags.Bool(option.K8sForceJSONPatch, false, "When set uses JSON Patch to update CNP and CEP status in kube-apiserver")
 	option.BindEnv(option.K8sForceJSONPatch)
 	flags.MarkHidden(option.K8sForceJSONPatch)
+	flags.MarkDeprecated(option.K8sForceJSONPatch, "Marked for removal in Cilium 1.11 as this functionality is enabled by default since Kubernetes >= 1.13")
 
 	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
 	option.BindEnv(option.K8sWatcherEndpointSelector)

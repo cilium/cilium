@@ -4,10 +4,6 @@
 
 Update CIDR filters
 
-### Synopsis
-
-Update CIDR filters
-
 ```
 cilium prefilter update [flags]
 ```

@@ -4,10 +4,6 @@
 
 View endpoint status log
 
-### Synopsis
-
-View endpoint status log
-
 ```
 cilium endpoint log <endpoint id> [flags]
 ```

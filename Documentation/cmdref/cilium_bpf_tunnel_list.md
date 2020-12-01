@@ -4,10 +4,6 @@
 
 List tunnel endpoint entries
 
-### Synopsis
-
-List tunnel endpoint entries
-
 ```
 cilium bpf tunnel list [flags]
 ```

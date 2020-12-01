@@ -67,6 +67,14 @@ func (in *Endpoint) DeepEqual(other *Endpoint) bool {
 		}
 	}
 
+	if (in.NodeName == nil) != (other.NodeName == nil) {
+		return false
+	} else if in.NodeName != nil {
+		if *in.NodeName != *other.NodeName {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -81,6 +89,22 @@ func (in *EndpointConditions) DeepEqual(other *EndpointConditions) bool {
 		return false
 	} else if in.Ready != nil {
 		if *in.Ready != *other.Ready {
+			return false
+		}
+	}
+
+	if (in.Serving == nil) != (other.Serving == nil) {
+		return false
+	} else if in.Serving != nil {
+		if *in.Serving != *other.Serving {
+			return false
+		}
+	}
+
+	if (in.Terminating == nil) != (other.Terminating == nil) {
+		return false
+	} else if in.Terminating != nil {
+		if *in.Terminating != *other.Terminating {
 			return false
 		}
 	}

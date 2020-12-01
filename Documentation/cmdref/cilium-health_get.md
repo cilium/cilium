@@ -4,10 +4,6 @@
 
 Display local cilium agent status
 
-### Synopsis
-
-Display local cilium agent status
-
 ```
 cilium-health get [flags]
 ```

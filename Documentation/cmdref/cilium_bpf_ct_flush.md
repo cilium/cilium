@@ -4,10 +4,6 @@
 
 Flush all connection tracking entries
 
-### Synopsis
-
-Flush all connection tracking entries
-
 ```
 cilium bpf ct flush ( <endpoint identifier> | global ) [flags]
 ```

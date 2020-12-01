@@ -4,10 +4,6 @@
 
 Manage local redirect policies
 
-### Synopsis
-
-Manage local redirect policies
-
 ### Options
 
 ```

@@ -4,10 +4,6 @@
 
 Run cilium-operator
 
-### Synopsis
-
-Run cilium-operator
-
 ```
 cilium-operator [flags]
 ```

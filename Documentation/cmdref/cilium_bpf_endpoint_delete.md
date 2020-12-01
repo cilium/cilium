@@ -4,10 +4,6 @@
 
 Delete local endpoint entries
 
-### Synopsis
-
-Delete local endpoint entries
-
 ```
 cilium bpf endpoint delete [flags]
 ```

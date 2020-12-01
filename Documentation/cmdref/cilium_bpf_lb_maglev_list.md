@@ -4,10 +4,6 @@
 
 List Maglev lookup tables
 
-### Synopsis
-
-List Maglev lookup tables
-
 ```
 cilium bpf lb maglev list [flags]
 ```

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/blang/semver"
@@ -39,9 +38,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
 // version, the Kubernetes discovery API, or probing of individual API
 // endpoints.
 type ServerCapabilities struct {
-	// Patch is the ability to use PATCH to modify a resource
-	Patch bool
-
 	// MinimalVersionMet is true when the minimal version of Kubernetes
 	// required to run Cilium has been met
 	MinimalVersionMet bool
@@ -87,7 +83,7 @@ type cachedVersion struct {
 const (
 	// MinimalVersionConstraint is the minimal version that Cilium supports to
 	// run kubernetes.
-	MinimalVersionConstraint = "1.12.0"
+	MinimalVersionConstraint = "1.13.0"
 )
 
 var (
@@ -98,7 +94,6 @@ var (
 	endpointSliceKind      = "EndpointSlice"
 	leaseKind              = "Lease"
 
-	isGEThanPatchConstraint = versioncheck.MustCompile(">=1.13.0")
 	// Constraint to check support for Lease type from coordination.k8s.io/v1.
 	// Support for Lease resource was introduced in K8s version 1.14.
 	isGEThanLeaseSupportConstraint = versioncheck.MustCompile(">=1.14.0")
@@ -138,7 +133,6 @@ func updateVersion(version go_version.Version) {
 
 	cached.version = version
 
-	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
 	cached.capabilities.WatchPartialObjectMetadata = isGEThanWatchPartialObjectMeta(version)

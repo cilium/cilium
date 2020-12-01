@@ -4,10 +4,6 @@
 
 List local redirect policies
 
-### Synopsis
-
-List local redirect policies
-
 ```
 cilium lrp list [flags]
 ```

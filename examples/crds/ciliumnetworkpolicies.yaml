@@ -140,7 +140,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -183,7 +183,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -697,7 +697,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -740,7 +740,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -778,7 +778,7 @@ spec:
                                   k8s services
                                 properties:
                                   matchExpressions:
-                                    description: MatchExpressions is a list of label
+                                    description: matchExpressions is a list of label
                                       selector requirements. The requirements are
                                       ANDed.
                                     items:
@@ -822,7 +822,7 @@ spec:
                                       maxLength: 63
                                       pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                       type: string
-                                    description: MatchLabels is a map of {key,value}
+                                    description: matchLabels is a map of {key,value}
                                       pairs. A single {key,value} in the matchLabels
                                       map is equivalent to an element of matchExpressions,
                                       whose key field is "key", the operator is "In",
@@ -921,7 +921,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -964,7 +964,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -1080,7 +1080,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -1123,7 +1123,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -1161,7 +1161,7 @@ spec:
                                   k8s services
                                 properties:
                                   matchExpressions:
-                                    description: MatchExpressions is a list of label
+                                    description: matchExpressions is a list of label
                                       selector requirements. The requirements are
                                       ANDed.
                                     items:
@@ -1205,7 +1205,7 @@ spec:
                                       maxLength: 63
                                       pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                       type: string
-                                    description: MatchLabels is a map of {key,value}
+                                    description: matchLabels is a map of {key,value}
                                       pairs. A single {key,value} in the matchLabels
                                       map is equivalent to an element of matchExpressions,
                                       whose key field is "key", the operator is "In",
@@ -1226,7 +1226,7 @@ spec:
                   both empty and are mutually exclusive.
                 properties:
                   matchExpressions:
-                    description: MatchExpressions is a list of label selector requirements.
+                    description: matchExpressions is a list of label selector requirements.
                       The requirements are ANDed.
                     items:
                       description: A label selector requirement is a selector that
@@ -1268,7 +1268,7 @@ spec:
                       maxLength: 63
                       pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                       type: string
-                    description: MatchLabels is a map of {key,value} pairs. A single
+                    description: matchLabels is a map of {key,value} pairs. A single
                       {key,value} in the matchLabels map is equivalent to an element
                       of matchExpressions, whose key field is "key", the operator
                       is "In", and the values array contains only "value". The requirements
@@ -1358,7 +1358,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -1401,7 +1401,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -1441,7 +1441,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -1484,7 +1484,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -1972,7 +1972,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -2015,7 +2015,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -2055,7 +2055,7 @@ spec:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
                           matchExpressions:
-                            description: MatchExpressions is a list of label selector
+                            description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
                             items:
                               description: A label selector requirement is a selector
@@ -2098,7 +2098,7 @@ spec:
                               maxLength: 63
                               pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                               type: string
-                            description: MatchLabels is a map of {key,value} pairs.
+                            description: matchLabels is a map of {key,value} pairs.
                               A single {key,value} in the matchLabels map is equivalent
                               to an element of matchExpressions, whose key field is
                               "key", the operator is "In", and the values array contains
@@ -2180,7 +2180,7 @@ spec:
                   and are mutually exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
                 properties:
                   matchExpressions:
-                    description: MatchExpressions is a list of label selector requirements.
+                    description: matchExpressions is a list of label selector requirements.
                       The requirements are ANDed.
                     items:
                       description: A label selector requirement is a selector that
@@ -2222,7 +2222,7 @@ spec:
                       maxLength: 63
                       pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                       type: string
-                    description: MatchLabels is a map of {key,value} pairs. A single
+                    description: matchLabels is a map of {key,value} pairs. A single
                       {key,value} in the matchLabels map is equivalent to an element
                       of matchExpressions, whose key field is "key", the operator
                       is "In", and the values array contains only "value". The requirements
@@ -2339,7 +2339,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -2382,7 +2382,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -2908,7 +2908,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -2951,7 +2951,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -2989,7 +2989,7 @@ spec:
                                     for k8s services
                                   properties:
                                     matchExpressions:
-                                      description: MatchExpressions is a list of label
+                                      description: matchExpressions is a list of label
                                         selector requirements. The requirements are
                                         ANDed.
                                       items:
@@ -3036,7 +3036,7 @@ spec:
                                         maxLength: 63
                                         pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                         type: string
-                                      description: MatchLabels is a map of {key,value}
+                                      description: matchLabels is a map of {key,value}
                                         pairs. A single {key,value} in the matchLabels
                                         map is equivalent to an element of matchExpressions,
                                         whose key field is "key", the operator is
@@ -3135,7 +3135,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -3178,7 +3178,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -3297,7 +3297,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -3340,7 +3340,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -3378,7 +3378,7 @@ spec:
                                     for k8s services
                                   properties:
                                     matchExpressions:
-                                      description: MatchExpressions is a list of label
+                                      description: matchExpressions is a list of label
                                         selector requirements. The requirements are
                                         ANDed.
                                       items:
@@ -3425,7 +3425,7 @@ spec:
                                         maxLength: 63
                                         pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                         type: string
-                                      description: MatchLabels is a map of {key,value}
+                                      description: matchLabels is a map of {key,value}
                                         pairs. A single {key,value} in the matchLabels
                                         map is equivalent to an element of matchExpressions,
                                         whose key field is "key", the operator is
@@ -3446,7 +3446,7 @@ spec:
                     be both empty and are mutually exclusive.
                   properties:
                     matchExpressions:
-                      description: MatchExpressions is a list of label selector requirements.
+                      description: matchExpressions is a list of label selector requirements.
                         The requirements are ANDed.
                       items:
                         description: A label selector requirement is a selector that
@@ -3488,7 +3488,7 @@ spec:
                         maxLength: 63
                         pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                         type: string
-                      description: MatchLabels is a map of {key,value} pairs. A single
+                      description: matchLabels is a map of {key,value} pairs. A single
                         {key,value} in the matchLabels map is equivalent to an element
                         of matchExpressions, whose key field is "key", the operator
                         is "In", and the values array contains only "value". The requirements
@@ -3579,7 +3579,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -3622,7 +3622,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -3662,7 +3662,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -3705,7 +3705,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -4201,7 +4201,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -4244,7 +4244,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -4284,7 +4284,7 @@ spec:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
                             matchExpressions:
-                              description: MatchExpressions is a list of label selector
+                              description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
                               items:
                                 description: A label selector requirement is a selector
@@ -4327,7 +4327,7 @@ spec:
                                 maxLength: 63
                                 pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                 type: string
-                              description: MatchLabels is a map of {key,value} pairs.
+                              description: matchLabels is a map of {key,value} pairs.
                                 A single {key,value} in the matchLabels map is equivalent
                                 to an element of matchExpressions, whose key field
                                 is "key", the operator is "In", and the values array
@@ -4411,7 +4411,7 @@ spec:
                     empty and are mutually exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
                   properties:
                     matchExpressions:
-                      description: MatchExpressions is a list of label selector requirements.
+                      description: matchExpressions is a list of label selector requirements.
                         The requirements are ANDed.
                       items:
                         description: A label selector requirement is a selector that
@@ -4453,7 +4453,7 @@ spec:
                         maxLength: 63
                         pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                         type: string
-                      description: MatchLabels is a map of {key,value} pairs. A single
+                      description: matchLabels is a map of {key,value} pairs. A single
                         {key,value} in the matchLabels map is equivalent to an element
                         of matchExpressions, whose key field is "key", the operator
                         is "In", and the values array contains only "value". The requirements

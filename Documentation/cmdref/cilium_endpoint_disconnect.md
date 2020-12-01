@@ -4,10 +4,6 @@
 
 Disconnect an endpoint from the network
 
-### Synopsis
-
-Disconnect an endpoint from the network
-
 ```
 cilium endpoint disconnect <endpoint-id> [flags]
 ```

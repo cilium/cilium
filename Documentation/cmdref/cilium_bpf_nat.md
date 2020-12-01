@@ -4,10 +4,6 @@
 
 NAT mapping tables
 
-### Synopsis
-
-NAT mapping tables
-
 ### Options
 
 ```

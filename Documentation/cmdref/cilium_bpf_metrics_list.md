@@ -4,10 +4,6 @@
 
 List BPF datapath traffic metrics
 
-### Synopsis
-
-List BPF datapath traffic metrics
-
 ```
 cilium bpf metrics list [flags]
 ```

@@ -4,10 +4,6 @@
 
 Checks whether the system has required kernel capabilities
 
-### Synopsis
-
-Checks whether the system has required kernel capabilities
-
 ```
 cilium kernel-check [flags]
 ```
