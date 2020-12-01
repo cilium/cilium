@@ -571,10 +571,18 @@ func (c *CtEntry) flagsString() string {
 	return sb.String()
 }
 
-// String returns the readable format
-func (c *CtEntry) String() string {
-	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d \n",
+func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
+
+	var timeDiff string
+	if toRemSecs != nil {
+		timeDiff = fmt.Sprintf(" (%s)", toRemSecs(c.Lifetime))
+	} else {
+		timeDiff = ""
+	}
+
+	return fmt.Sprintf("expires=%d%s RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d \n",
 		c.Lifetime,
+		timeDiff,
 		c.RxPackets,
 		c.RxBytes,
 		c.RxFlagsSeen,
@@ -587,4 +595,9 @@ func (c *CtEntry) String() string {
 		byteorder.NetworkToHost(c.RevNAT),
 		c.SourceSecurityID,
 		c.IfIndex)
+}
+
+// String returns the readable format
+func (c *CtEntry) String() string {
+	return c.StringWithTimeDiff(nil)
 }
