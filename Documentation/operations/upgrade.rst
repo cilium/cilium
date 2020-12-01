@@ -214,8 +214,6 @@ version which was installed in this cluster. Valid options are:
       --set ipam.mode=kubernetes \\
       --set kubeProxyReplacement=strict
 
-
-
    Instead of using ``--set``, you can also save the values relative to your
    deployment in a YAML file and use it to regenerate the YAML for the latest
    Cilium version. Running any of the previous commands will overwrite
@@ -226,7 +224,12 @@ version which was installed in this cluster. Valid options are:
    .. code-block:: yaml
 
       agent: true
-      upgradeCompatibility: 1.7
+      upgradeCompatibility: "1.8"
+      ipam:
+        mode: "kubernetes"
+      k8sServiceHost: "API_SERVER_IP"
+      k8sServicePort: "API_SERVER_PORT"
+      kubeProxyReplacement: "strict"
 
    You can then upgrade using this values file by running:
 
