@@ -70,7 +70,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionRegexp: regexp.MustCompile(`clang version (\d+\.\d+\.\d+)`),
 			minVersion:    &semver.Version{Major: 10, Minor: 0, Patch: 0},
 		},
-		// FIXME add llvm check?
 		// FIXME add libelf-devel check?
 		&binaryCheck{
 			name:          "ginkgo",
@@ -107,6 +106,13 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(`Version:"v(\d+\.\d+\.\d+)"`),
 			minVersion:    &semver.Version{Major: 3, Minor: 0, Patch: 0},
+		},
+		&binaryCheck{
+			name:          "llc",
+			ifNotFound:    checkWarning,
+			versionArgs:   []string{"--version"},
+			versionRegexp: regexp.MustCompile(`LLVM\s+version\s+(\d+\.\d+\S*)`),
+			minVersion:    &semver.Version{Major: 10, Minor: 0, Patch: 0},
 		},
 		&binaryCheck{
 			name:          "vagrant",
