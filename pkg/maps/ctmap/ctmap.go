@@ -26,6 +26,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -261,11 +262,43 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
-// DoDumpEntries iterates through Map m and writes the values of the ct entries
-// in m to a string.
-func DoDumpEntries(m CtMap) (string, error) {
-	var sb strings.Builder
+// DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
+// ct entries in m to a string. If clockSource is not nil, it uses it to
+// compute the time difference of each entry from now and prints that too.
+func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, error) {
+	var toRemSecs func(uint32) string
 
+	if clockSource == nil {
+		toRemSecs = nil
+	} else if clockSource.Mode == models.ClockSourceModeKtime {
+		now, err := bpf.GetMtime()
+		if err != nil {
+			return "", err
+		}
+		now = now / 1000000000
+		toRemSecs = func(t uint32) string {
+			diff := int64(t) - int64(now)
+			return fmt.Sprintf("remaining: %d sec(s)", diff)
+		}
+	} else if clockSource.Mode == models.ClockSourceModeJiffies {
+		now, err := bpf.GetJtime()
+		if err != nil {
+			return "", err
+		}
+		if clockSource.Hertz == 0 {
+			return "", fmt.Errorf("invalid clock Hertz value (0)")
+		}
+		toRemSecs = func(t uint32) string {
+			diff := int64(t) - int64(now)
+			diff = diff << 8
+			diff = diff / int64(clockSource.Hertz)
+			return fmt.Sprintf("remaining: %d sec(s)", diff)
+		}
+	} else {
+		return "", fmt.Errorf("unknown clock source: %s", clockSource.Mode)
+	}
+
+	var sb strings.Builder
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
 		// No need to deep copy as the values are used to create new strings
 		key := k.(CtKey)
@@ -273,11 +306,20 @@ func DoDumpEntries(m CtMap) (string, error) {
 			return
 		}
 		value := v.(*CtEntry)
-		sb.WriteString(value.String())
+		sb.WriteString(value.StringWithTimeDiff(toRemSecs))
 	}
 	// DumpWithCallback() must be called before sb.String().
 	err := m.DumpWithCallback(cb)
+	if err != nil {
+		return "", err
+	}
 	return sb.String(), err
+}
+
+// DoDumpEntries iterates through Map m and writes the values of the ct entries
+// in m to a string.
+func DoDumpEntries(m CtMap) (string, error) {
+	return DumpEntriesWithTimeDiff(m, nil)
 }
 
 // DumpEntries iterates through Map m and writes the values of the ct entries
