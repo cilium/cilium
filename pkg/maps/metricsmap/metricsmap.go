@@ -32,9 +32,8 @@ import (
 
 var (
 	// Metrics is the bpf metrics map
-	Metrics      *bpf.Map
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
-	possibleCpus int
+	Metrics *bpf.Map
+	log     = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-metrics")
 )
 
 const (
@@ -234,49 +233,22 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 // aggregating it into drops (by drop reason and direction) and
 // forwards (by direction) with the prometheus server.
 func SyncMetricsMap(ctx context.Context) error {
-	entry := make([]Value, possibleCpus)
-	file := bpf.MapPath(MapName)
-
-	var err error
-	metricsMap := bpf.GetMap(file)
-	if metricsMap == nil {
-		// Open the map and leave it open, since SyncMetricsMap is called
-		// periodically and it makes sense to use an already opened map rather
-		// than opening the map again and again.
-		// This also prevents the constant registration and unregistration of the
-		// Map.
-		metricsMap, err = bpf.OpenMap(file)
-
-		if err != nil {
-			return fmt.Errorf("Unable to open metrics map: %s", err)
-		}
-	}
-
-	var key, nextKey Key
-	for {
-		err := bpf.GetNextKey(metricsMap.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
-		if err != nil {
-			break
-		}
-		err = bpf.LookupElement(metricsMap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry[0]))
-		if err != nil {
-			return fmt.Errorf("unable to lookup metrics map: %s", err)
-		}
-
-		// cannot use `range entry` since, if the first value for a particular
-		// CPU is zero, it never iterates over the next non-zero value.
-		for i := 0; i < possibleCpus; i++ {
+	callback := func(key bpf.MapKey, values bpf.MapValue) {
+		for _, value := range *values.(*Values) {
 			// Increment Prometheus metrics here.
-			updatePrometheusMetrics(&nextKey, &entry[i])
+			updatePrometheusMetrics(key.(*Key), &value)
 		}
-		key = nextKey
-
 	}
+
+	if err := Metrics.DumpWithCallback(callback); err != nil {
+		return fmt.Errorf("error dumping contents of metrics map: %s", err)
+	}
+
 	return nil
 }
 
 func init() {
-	possibleCpus = common.GetNumPossibleCPUs(log)
+	possibleCpus := common.GetNumPossibleCPUs(log)
 
 	vs := make(Values, possibleCpus)
 
