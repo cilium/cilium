@@ -183,11 +183,6 @@ func (v *Value) CountFloat() float64 {
 	return float64(v.Count)
 }
 
-// bytesFloat converts the bytes count to float
-func (v *Value) bytesFloat() float64 {
-	return float64(v.Bytes)
-}
-
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k *Key) NewValue() bpf.MapValue { return &Value{} }
@@ -213,20 +208,28 @@ func updateMetric(getCounter func() (prometheus.Counter, error), newValue float6
 // updatePrometheusMetrics checks the metricsmap key value pair
 // and determines which prometheus metrics along with respective labels
 // need to be updated.
-func updatePrometheusMetrics(key *Key, val *Value) {
+func updatePrometheusMetrics(key *Key, values *Values) {
+	// Metrics is a per-CPU map so we first need to aggregate the
+	// different entries that make up a value.
+	var packets, bytes uint64
+	for _, value := range *values {
+		packets += value.Count
+		bytes += value.Bytes
+	}
+
 	updateMetric(func() (prometheus.Counter, error) {
 		if key.IsDrop() {
 			return metrics.DropCount.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
 		}
 		return metrics.ForwardCount.GetMetricWithLabelValues(key.Direction())
-	}, val.CountFloat())
+	}, float64(packets))
 
 	updateMetric(func() (prometheus.Counter, error) {
 		if key.IsDrop() {
 			return metrics.DropBytes.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
 		}
 		return metrics.ForwardBytes.GetMetricWithLabelValues(key.Direction())
-	}, val.bytesFloat())
+	}, float64(bytes))
 }
 
 // SyncMetricsMap is called periodically to sync off the metrics map by
@@ -234,10 +237,8 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 // forwards (by direction) with the prometheus server.
 func SyncMetricsMap(ctx context.Context) error {
 	callback := func(key bpf.MapKey, values bpf.MapValue) {
-		for _, value := range *values.(*Values) {
-			// Increment Prometheus metrics here.
-			updatePrometheusMetrics(key.(*Key), &value)
-		}
+		// Increment Prometheus metrics here.
+		updatePrometheusMetrics(key.(*Key), values.(*Values))
 	}
 
 	if err := Metrics.DumpWithCallback(callback); err != nil {
