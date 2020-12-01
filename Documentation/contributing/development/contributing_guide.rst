@@ -425,7 +425,12 @@ day. Works best if done first thing in the working day.
        #. Assign a member that is responsible for that code section to that GitHub
           issue;
        #. If it is a relevant bug to the rest of the committers, bring the issue
-          up in the weekly meeting.
+          up in the weekly meeting. For example:
+
+          * The issue may impact an upcoming release; or
+          * The resolution is unclear and assistance is needed to make progress; or
+          * The issue needs additional attention from core contributors to
+            confirm the resolution is the right path.
 
    #. `Issues recently commented are not left out unanswered <https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Akind%2Fcommunity-report>`_:
 
