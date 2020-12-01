@@ -55,6 +55,8 @@ jobs:
         target:
           - name: quick-install
             template: install/kubernetes/quick-install.yaml
+          - name: quick-hubble-install
+            template: install/kubernetes/quick-hubble-install.yaml
           - name: experimental-install
             template: install/kubernetes/experimental-install.yaml
     runs-on: ubuntu-latest
