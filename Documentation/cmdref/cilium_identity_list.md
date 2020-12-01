@@ -4,10 +4,6 @@
 
 List identities
 
-### Synopsis
-
-List identities
-
 ```
 cilium identity list [LABELS] [flags]
 ```

@@ -56,7 +56,7 @@ spec:
                       traffic is redirected to.
                     properties:
                       matchExpressions:
-                        description: MatchExpressions is a list of label selector
+                        description: matchExpressions is a list of label selector
                           requirements. The requirements are ANDed.
                         items:
                           description: A label selector requirement is a selector
@@ -98,7 +98,7 @@ spec:
                           maxLength: 63
                           pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                           type: string
-                        description: MatchLabels is a map of {key,value} pairs. A
+                        description: matchLabels is a map of {key,value} pairs. A
                           single {key,value} in the matchLabels map is equivalent
                           to an element of matchExpressions, whose key field is "key",
                           the operator is "In", and the values array contains only

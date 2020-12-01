@@ -4,10 +4,6 @@
 
 Direct access to the kvstore
 
-### Synopsis
-
-Direct access to the kvstore
-
 ### Options
 
 ```

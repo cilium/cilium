@@ -4,10 +4,6 @@
 
 List all NAT mapping entries
 
-### Synopsis
-
-List all NAT mapping entries
-
 ```
 cilium bpf nat list [flags]
 ```

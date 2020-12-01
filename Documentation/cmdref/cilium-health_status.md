@@ -4,10 +4,6 @@
 
 Display cilium connectivity to other nodes
 
-### Synopsis
-
-Display cilium connectivity to other nodes
-
 ```
 cilium-health status [flags]
 ```

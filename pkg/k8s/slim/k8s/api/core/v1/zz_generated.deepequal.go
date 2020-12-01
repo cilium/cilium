@@ -881,6 +881,23 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 	if in.ClusterIP != other.ClusterIP {
 		return false
 	}
+	if ((in.ClusterIPs != nil) && (other.ClusterIPs != nil)) || ((in.ClusterIPs == nil) != (other.ClusterIPs == nil)) {
+		in, other := &in.ClusterIPs, &other.ClusterIPs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if in.Type != other.Type {
 		return false
 	}
@@ -932,6 +949,23 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 	} else if in.SessionAffinityConfig != nil {
 		if !in.SessionAffinityConfig.DeepEqual(other.SessionAffinityConfig) {
 			return false
+		}
+	}
+
+	if ((in.IPFamilies != nil) && (other.IPFamilies != nil)) || ((in.IPFamilies == nil) != (other.IPFamilies == nil)) {
+		in, other := &in.IPFamilies, &other.IPFamilies
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
 		}
 	}
 

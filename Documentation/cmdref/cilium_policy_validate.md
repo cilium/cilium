@@ -4,10 +4,6 @@
 
 Validate a policy
 
-### Synopsis
-
-Validate a policy
-
 ```
 cilium policy validate <path> [flags]
 ```

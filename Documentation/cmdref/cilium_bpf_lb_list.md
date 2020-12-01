@@ -4,10 +4,6 @@
 
 List load-balancing configuration
 
-### Synopsis
-
-List load-balancing configuration
-
 ```
 cilium bpf lb list [flags]
 ```

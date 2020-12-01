@@ -4,10 +4,6 @@
 
 Collects agent & system information useful for bug reporting
 
-### Synopsis
-
-Collects agent & system information useful for bug reporting
-
 ```
 cilium-bugtool [OPTIONS] [flags]
 ```

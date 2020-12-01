@@ -4,10 +4,6 @@
 
 Maglev lookup table
 
-### Synopsis
-
-Maglev lookup table
-
 ### Options
 
 ```

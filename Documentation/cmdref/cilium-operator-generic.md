@@ -4,10 +4,6 @@
 
 Run cilium-operator-generic
 
-### Synopsis
-
-Run cilium-operator-generic
-
 ```
 cilium-operator-generic [flags]
 ```

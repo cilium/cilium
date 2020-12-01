@@ -4,10 +4,6 @@
 
 Manage IP addresses and associated information
 
-### Synopsis
-
-Manage IP addresses and associated information
-
 ### Options
 
 ```

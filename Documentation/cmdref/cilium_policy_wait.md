@@ -4,10 +4,6 @@
 
 Wait for all endpoints to have updated to a given policy revision
 
-### Synopsis
-
-Wait for all endpoints to have updated to a given policy revision
-
 ```
 cilium policy wait <revision> [flags]
 ```

@@ -4,10 +4,6 @@
 
 List connection tracking entries
 
-### Synopsis
-
-List connection tracking entries
-
 ```
 cilium bpf ct list ( <endpoint identifier> | global ) [flags]
 ```

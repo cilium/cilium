@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,24 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 )
 
 func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
-	var (
-		ccnpEventStore    cache.Store
-		ccnpConverterFunc informer.ConvertFunc
-	)
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	switch {
-	case k8sversion.Capabilities().Patch:
-		// k8s >= 1.13 does not require a store to update CNP status so
-		// we don't even need to keep the status of a CNP with us.
-		ccnpConverterFunc = k8s.ConvertToCCNP
-	default:
-		ccnpEventStore = ccnpStore
-		ccnpConverterFunc = k8s.ConvertToCCNPWithStatus
-	}
 
 	ciliumV2ClusterwidePolicyController := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
@@ -62,7 +48,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, ccnpEventStore, cnpCpy)
+					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpCpy)
 					k.K8sEventProcessed(metricCCNP, metricCreate, err == nil)
 				}
 			},
@@ -87,7 +73,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 						oldCNPCpy := oldCNP.DeepCopy()
 						newCNPCpy := newCNP.DeepCopy()
 
-						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, ccnpEventStore, oldCNPCpy, newCNPCpy)
+						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, oldCNPCpy, newCNPCpy)
 						k.K8sEventProcessed(metricCCNP, metricUpdate, err == nil)
 					}
 				}
@@ -104,7 +90,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 				k.K8sEventProcessed(metricCCNP, metricDelete, err == nil)
 			},
 		},
-		ccnpConverterFunc,
+		k8s.ConvertToCCNP,
 		ccnpStore,
 	)
 

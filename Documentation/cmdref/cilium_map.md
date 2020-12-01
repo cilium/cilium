@@ -4,10 +4,6 @@
 
 Access userspace cached content of BPF maps
 
-### Synopsis
-
-Access userspace cached content of BPF maps
-
 ### Options
 
 ```

@@ -4,10 +4,6 @@
 
 Manage security identities
 
-### Synopsis
-
-Manage security identities
-
 ### Options
 
 ```

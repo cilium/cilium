@@ -4,10 +4,6 @@
 
 List IP addresses in the userspace IPcache
 
-### Synopsis
-
-List IP addresses in the userspace IPcache
-
 ```
 cilium ip list [flags]
 ```

@@ -4,10 +4,6 @@
 
 Delete a service
 
-### Synopsis
-
-Delete a service
-
 ```
 cilium service delete { <service id> | --all } [flags]
 ```

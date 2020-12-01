@@ -4,10 +4,6 @@
 
 Display cached information about selectors
 
-### Synopsis
-
-Display cached information about selectors
-
 ```
 cilium policy selectors [flags]
 ```

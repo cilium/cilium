@@ -4,10 +4,6 @@
 
 Connection tracking tables
 
-### Synopsis
-
-Connection tracking tables
-
 ### Options
 
 ```

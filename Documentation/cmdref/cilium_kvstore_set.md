@@ -4,10 +4,6 @@
 
 Set a key and value
 
-### Synopsis
-
-Set a key and value
-
 ```
 cilium kvstore set [options] <key> [flags]
 ```

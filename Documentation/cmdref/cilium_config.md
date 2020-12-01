@@ -4,10 +4,6 @@
 
 Cilium configuration options
 
-### Synopsis
-
-Cilium configuration options
-
 ```
 cilium config [<option>=(enable|disable) ...] [flags]
 ```

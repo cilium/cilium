@@ -4,10 +4,6 @@
 
 Get datapath SHA header
 
-### Synopsis
-
-Get datapath SHA header
-
 ```
 cilium bpf sha get <sha> [flags]
 ```

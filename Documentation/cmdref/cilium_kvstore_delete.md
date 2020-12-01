@@ -4,10 +4,6 @@
 
 Delete a key
 
-### Synopsis
-
-Delete a key
-
 ```
 cilium kvstore delete [options] <key> [flags]
 ```

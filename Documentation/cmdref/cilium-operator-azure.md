@@ -4,10 +4,6 @@
 
 Run cilium-operator-azure
 
-### Synopsis
-
-Run cilium-operator-azure
-
 ```
 cilium-operator-azure [flags]
 ```

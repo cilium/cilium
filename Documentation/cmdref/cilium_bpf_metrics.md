@@ -4,10 +4,6 @@
 
 BPF datapath traffic metrics
 
-### Synopsis
-
-BPF datapath traffic metrics
-
 ### Options
 
 ```

@@ -4,10 +4,6 @@
 
 Manage compiled BPF template objects
 
-### Synopsis
-
-Manage compiled BPF template objects
-
 ### Options
 
 ```

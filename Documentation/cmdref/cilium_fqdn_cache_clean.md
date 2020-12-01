@@ -4,10 +4,6 @@
 
 Clean fqdn cache
 
-### Synopsis
-
-Clean fqdn cache
-
 ```
 cilium fqdn cache clean [flags]
 ```

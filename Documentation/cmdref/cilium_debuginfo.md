@@ -4,10 +4,6 @@
 
 Request available debugging information from agent
 
-### Synopsis
-
-Request available debugging information from agent
-
 ```
 cilium debuginfo [flags]
 ```

@@ -4,10 +4,6 @@
 
 List BPF datapath bandwidth settings
 
-### Synopsis
-
-List BPF datapath bandwidth settings
-
 ```
 cilium bpf bandwidth list [flags]
 ```

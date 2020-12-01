@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -159,7 +158,6 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
 			DoFunc: func(ctx context.Context) error {
 				lastRun := v1.NewTime(v1.Now().Add(-operatorOption.Config.NodesGCInterval))
-				k8sCapabilities := k8sversion.Capabilities()
 				continueID := ""
 				wg := sync.WaitGroup{}
 				defer wg.Wait()
@@ -220,7 +218,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 							wg.Add(1)
 							cnpCpy := cnp.DeepCopy()
 							removeNodeFromCNP <- func() {
-								updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete, k8sCapabilities)
+								updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete)
 								wg.Done()
 							}
 						}
@@ -238,89 +236,62 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 }
 
-func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]v1.Time, capabilities k8sversion.ServerCapabilities) {
+func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]v1.Time) {
 	if len(nodesToDelete) == 0 {
 		return
 	}
 
-	var err error
 	ns := utils.ExtractNamespace(&cnp.ObjectMeta)
 
-	switch {
-	case capabilities.Patch:
-		var removeStatusNode, remainingStatusNode []k8s.JSONPatch
-		for nodeToDelete, timeStamp := range nodesToDelete {
-			removeStatusNode = append(removeStatusNode,
-				// It is really unlikely to happen but if a node reappears
-				// with the same name and updates the CNP Status we will perform
-				// a test to verify if the lastUpdated timestamp is the same to
-				// to avoid accidentally deleting that node.
-				// If any of the nodes fails this test *all* of the JSON patch
-				// will not be executed.
-				k8s.JSONPatch{
-					OP:    "test",
-					Path:  "/status/nodes/" + nodeToDelete + "/lastUpdated",
-					Value: timeStamp,
-				},
-				k8s.JSONPatch{
-					OP:   "remove",
-					Path: "/status/nodes/" + nodeToDelete,
-				},
-			)
+	var removeStatusNode, remainingStatusNode []k8s.JSONPatch
+	for nodeToDelete, timeStamp := range nodesToDelete {
+		removeStatusNode = append(removeStatusNode,
+			// It is really unlikely to happen but if a node reappears
+			// with the same name and updates the CNP Status we will perform
+			// a test to verify if the lastUpdated timestamp is the same to
+			// to avoid accidentally deleting that node.
+			// If any of the nodes fails this test *all* of the JSON patch
+			// will not be executed.
+			k8s.JSONPatch{
+				OP:    "test",
+				Path:  "/status/nodes/" + nodeToDelete + "/lastUpdated",
+				Value: timeStamp,
+			},
+			k8s.JSONPatch{
+				OP:   "remove",
+				Path: "/status/nodes/" + nodeToDelete,
+			},
+		)
+	}
+	for {
+		if len(removeStatusNode) > k8s.MaxJSONPatchOperations {
+			remainingStatusNode = removeStatusNode[k8s.MaxJSONPatchOperations:]
+			removeStatusNode = removeStatusNode[:k8s.MaxJSONPatchOperations]
 		}
-		for {
-			if len(removeStatusNode) > k8s.MaxJSONPatchOperations {
-				remainingStatusNode = removeStatusNode[k8s.MaxJSONPatchOperations:]
-				removeStatusNode = removeStatusNode[:k8s.MaxJSONPatchOperations]
-			}
 
-			removeStatusNodeJSON, err := json.Marshal(removeStatusNode)
-			if err != nil {
-				break
-			}
-
-			// If the namespace is empty the policy is the clusterwide policy
-			// and not the namespaced CiliumNetworkPolicy.
-			if ns == "" {
-				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(context.TODO(),
-					cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
-			} else {
-				_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(context.TODO(),
-					cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
-			}
-			if err != nil {
-				// We can leave the errors as debug as the GC happens on a best effort
-				log.WithError(err).Debug("Unable to PATCH")
-			}
-
-			removeStatusNode = remainingStatusNode
-
-			if len(remainingStatusNode) == 0 {
-				return
-			}
+		removeStatusNodeJSON, err := json.Marshal(removeStatusNode)
+		if err != nil {
+			break
 		}
-	default:
-		// This should be treat is as best effort, we don't care if the
-		// UpdateStatus fails.
-		// On the basis of the presence of the namespace field in the object, we
-		// update the respective clusterwide or namespaced policy.
+
+		// If the namespace is empty the policy is the clusterwide policy
+		// and not the namespaced CiliumNetworkPolicy.
 		if ns == "" {
-			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
-				// Need to explicitly copy all the fields even though CNP is
-				// embedded inside CCNP. See comment inside CCNP type
-				// definition. This is required for K8s versions < 1.13.
-				TypeMeta:            cnp.TypeMeta,
-				ObjectMeta:          cnp.ObjectMeta,
-				CiliumNetworkPolicy: cnp,
-				Status:              cnp.Status,
-			}
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(context.TODO(), ccnp, meta_v1.UpdateOptions{})
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(context.TODO(),
+				cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(context.TODO(), cnp, meta_v1.UpdateOptions{})
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(context.TODO(),
+				cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort
-			log.WithError(err).Debug("Unable to UpdateStatus with garbage collected nodes")
+			log.WithError(err).Debug("Unable to PATCH")
+		}
+
+		removeStatusNode = remainingStatusNode
+
+		if len(remainingStatusNode) == 0 {
+			return
 		}
 	}
 }

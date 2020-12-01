@@ -4,10 +4,6 @@
 
 List local endpoint entries
 
-### Synopsis
-
-List local endpoint entries
-
 ```
 cilium bpf endpoint list [flags]
 ```

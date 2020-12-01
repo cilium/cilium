@@ -4,10 +4,6 @@
 
 Run cilium-operator-aws
 
-### Synopsis
-
-Run cilium-operator-aws
-
 ```
 cilium-operator-aws [flags]
 ```

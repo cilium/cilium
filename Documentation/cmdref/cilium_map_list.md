@@ -4,10 +4,6 @@
 
 List all open BPF maps
 
-### Synopsis
-
-List all open BPF maps
-
 ```
 cilium map list [flags]
 ```

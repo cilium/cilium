@@ -4,10 +4,6 @@
 
 Print version information
 
-### Synopsis
-
-Print version information
-
 ```
 cilium version [flags]
 ```

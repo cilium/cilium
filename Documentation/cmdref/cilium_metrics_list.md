@@ -4,10 +4,6 @@
 
 List all metrics
 
-### Synopsis
-
-List all metrics
-
 ```
 cilium metrics list [flags]
 ```

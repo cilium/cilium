@@ -24,7 +24,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -47,19 +46,9 @@ func enableCCNPWatcher() error {
 	log.Info("Starting CCNP derivative handler...")
 
 	var (
-		ccnpConverterFunc informer.ConvertFunc
-		ccnpStatusMgr     *k8s.CCNPStatusEventHandler
+		ccnpStatusMgr *k8s.CCNPStatusEventHandler
 	)
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
-	switch {
-	case k8sversion.Capabilities().Patch:
-		// k8s >= 1.13 does not require a store to update CNP status so
-		// we don't even need to keep the status of a CNP with us.
-		ccnpConverterFunc = k8s.ConvertToCCNP
-	default:
-		ccnpConverterFunc = k8s.ConvertToCCNPWithStatus
-	}
 
 	if enableCNPStatusUpdates {
 		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpStore, operatorOption.Config.CNPStatusUpdateInterval)
@@ -133,7 +122,7 @@ func enableCCNPWatcher() error {
 				}
 			},
 		},
-		ccnpConverterFunc,
+		k8s.ConvertToCCNP,
 		ccnpStore,
 	)
 	go ciliumV2Controller.Run(wait.NeverStop)

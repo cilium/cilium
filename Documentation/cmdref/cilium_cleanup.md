@@ -4,10 +4,6 @@
 
 Reset the agent state
 
-### Synopsis
-
-Reset the agent state
-
 ```
 cilium cleanup [flags]
 ```

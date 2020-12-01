@@ -4,10 +4,6 @@
 
 List services
 
-### Synopsis
-
-List services
-
 ```
 cilium service list [flags]
 ```

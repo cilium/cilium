@@ -4,10 +4,6 @@
 
 Check whether the cilium-health API is up
 
-### Synopsis
-
-Check whether the cilium-health API is up
-
 ```
 cilium-health ping [flags]
 ```

@@ -4,10 +4,6 @@
 
 View & modify endpoint configuration
 
-### Synopsis
-
-View & modify endpoint configuration
-
 ```
 cilium endpoint config <endpoint id> [<option>=(enable|disable) ...] [flags]
 ```

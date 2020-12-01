@@ -4,10 +4,6 @@
 
 List contents of a policy BPF map
 
-### Synopsis
-
-List contents of a policy BPF map
-
 ```
 cilium bpf policy get [flags]
 ```

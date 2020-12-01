@@ -4,10 +4,6 @@
 
 Update a service
 
-### Synopsis
-
-Update a service
-
 ```
 cilium service update [flags]
 ```

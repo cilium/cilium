@@ -4,10 +4,6 @@
 
 Manage security policies
 
-### Synopsis
-
-Manage security policies
-
 ### Options
 
 ```

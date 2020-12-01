@@ -4,10 +4,6 @@
 
 Display status of daemon
 
-### Synopsis
-
-Display status of daemon
-
 ```
 cilium status [flags]
 ```

@@ -74,7 +74,7 @@ sudo chmod 755 /home/vagrant/.kube/config
 
 sudo chown vagrant.vagrant -R /home/vagrant/.kube
 
-until kubectl get componentstatuses
+until kubectl get services
 do
 log "Waiting for kubectl to connect to api-server"
 sleep 1s

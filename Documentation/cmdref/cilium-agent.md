@@ -4,10 +4,6 @@
 
 Run the cilium agent
 
-### Synopsis
-
-Run the cilium agent
-
 ```
 cilium-agent [flags]
 ```

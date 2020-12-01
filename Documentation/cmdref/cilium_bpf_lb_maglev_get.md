@@ -4,10 +4,6 @@
 
 Get Maglev lookup table for given service by ID
 
-### Synopsis
-
-Get Maglev lookup table for given service by ID
-
 ```
 cilium bpf lb maglev get <service id> [flags]
 ```
