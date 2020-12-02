@@ -5,7 +5,7 @@
 # @cilium/azure              Integration with Azure
 # @cilium/bpf                BPF Data Path
 # @cilium/build              Building and packaging
-# @cilium/ci                 Continuous integration, testing
+# @cilium/ci-structure       Continuous integration, testing
 # @cilium/cli                Commandline interfaces
 # @cilium/contributing       Developer documentation & tools
 # @cilium/docker             Docker plugin
@@ -28,10 +28,10 @@
 # is not properly picked up in Github.
 * @cilium/janitors
 /.github/ @cilium/contributing
-/.github/workflows/ @cilium/ci
-/.github/workflows/coccicheck.yaml @cilium/ci @cilium/bpf
-/.github/workflows/docs.yaml @cilium/ci @cilium/docs-structure
-/.github/workflows/images.yaml @cilium/ci @cilium/build
+/.github/workflows/ @cilium/ci-structure
+/.github/workflows/coccicheck.yaml @cilium/ci-structure @cilium/bpf
+/.github/workflows/docs.yaml @cilium/ci-structure @cilium/docs-structure
+/.github/workflows/images.yaml @cilium/ci-structure @cilium/build
 /api/ @cilium/api
 /api/v1/flow/ @cilium/api @cilium/hubble
 /api/v1/observer/ @cilium/api @cilium/hubble
@@ -131,14 +131,14 @@ Dockerfile* @cilium/build
 /examples/crds/ @cilium/kubernetes
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
-*.Jenkinsfile @cilium/ci
+*.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/hubble
 /hubble-relay.Dockerfile @cilium/hubble
 /images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/docs-structure @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/docs-structure @cilium/helm @cilium/hubble
-jenkinsfiles @cilium/ci
-Jenkinsfile.nightly @cilium/ci
+jenkinsfiles @cilium/ci-structure
+Jenkinsfile.nightly @cilium/ci-structure
 /operator/ @cilium/operator
 /pkg/annotation @cilium/kubernetes
 /pkg/api/ @cilium/api
@@ -203,19 +203,55 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/serializer @cilium/agent
 /pkg/service @cilium/loadbalancer
 /pkg/sysctl @cilium/bpf
-/pkg/testutils/ @cilium/ci
+/pkg/testutils/ @cilium/ci-structure
 /pkg/tuple @cilium/bpf
 /plugins/cilium-cni/ @cilium/kubernetes
 /plugins/cilium-docker/ @cilium/docker
 /proxylib/ @cilium/proxy
 /README.rst @cilium/docs-structure
-/test/ @cilium/ci
-/test/bpf/ @cilium/ci @cilium/bpf
-/test/Makefile* @cilium/ci @cilium/build
-/tests/ @cilium/ci
-Vagrantfile @cilium/ci
+/test/ @cilium/ci-structure
+/test/Makefile* @cilium/ci-structure @cilium/build
+# Service handling tests
+/test/k8sT/external_ips.go @cilium/loadbalancer @cilium/ci-structure
+/test/k8sT/manifests/externalIPs/ @cilium/loadbalancer @cilium/ci-structure
+/test/k8sT/Services.go @cilium/loadbalancer @cilium/ci-structure
+/test/runtime/lb.go @cilium/loadbalancer @cilium/ci-structure
+# Datapath tests
+/test/bpf/ @cilium/bpf
+/test/k8sT/Bandwidth.go @cilium/bpf @cilium/ci-structure
+/test/k8sT/Chaos.go @cilium/bpf @cilium/ci-structure
+/test/k8sT/DatapathConfiguration.go @cilium/bpf @cilium/ci-structure
+/test/k8sT/Verifier.go @cilium/bpf @cilium/ci-structure
+/test/runtime/benchmark.go @cilium/bpf @cilium/ci-structure
+/test/runtime/connectivity.go @cilium/bpf @cilium/ci-structure
+# Policy tests
+/test/k8sT/PoliciesNightly.go @cilium/policy @cilium/ci-structure
+/test/k8sT/Policies.go @cilium/policy @cilium/ci-structure
+/test/k8sT/StressPolicy.go @cilium/policy @cilium/ci-structure
+/test/runtime/Policies.go @cilium/policy @cilium/ci-structure
+# Hubble/monitoring tests
+/test/k8sT/hubble.go @cilium/hubble @cilium/ci-structure
+/test/runtime/monitor.go @cilium/hubble @cilium/ci-structure
+# L7 proxy tests
+/test/k8sT/fqdn.go @cilium/proxy @cilium/ci-structure
+/test/k8sT/KafkaPolicies.go @cilium/proxy @cilium/ci-structure
+/test/k8sT/l7_demos.go @cilium/proxy @cilium/ci-structure
+/test/runtime/cassandra.go @cilium/proxy @cilium/ci-structure
+/test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
+/test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
+/test/runtime/memcache.go @cilium/proxy @cilium/ci-structure
+# Misc. tests
+/test/k8sT/cli.go @cilium/cli @cilium/ci-structure
+/test/k8sT/Health.go @cilium/health @cilium/ci-structure
+/test/k8sT/Identity.go @cilium/agent @cilium/ci-structure
+/test/k8sT/Updates.go @cilium/agent @cilium/ci-structure
+/test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
+/test/runtime/chaos_agent.go @cilium/agent @cilium/ci-structure
+/test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
+/tests/ @cilium/ci-structure
+Vagrantfile @cilium/ci-structure
 /Vagrantfile @cilium/contributing
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
-/vagrant_box_defaults.rb @cilium/ci
+/vagrant_box_defaults.rb @cilium/ci-structure
 /vendor/ @cilium/vendor
