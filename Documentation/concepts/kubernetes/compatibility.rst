@@ -21,7 +21,7 @@ backward compatibility offered by Kubernetes.
 | k8s Version                                    | k8s NetworkPolicy API     | CiliumNetworkPolicy        |
 +------------------------------------------------+---------------------------+----------------------------+
 |                                                |                           | ``cilium.io/v2`` has a     |
-| 1.12, 1.13, 1.14, 1.15, 1.16, 1.17, 1.18, 1.19 | * `networking.k8s.io/v1`_ | `CustomResourceDefinition` |
+| 1.13, 1.14, 1.15, 1.16, 1.17, 1.18, 1.19, 1.20 | * `networking.k8s.io/v1`_ | `CustomResourceDefinition` |
 +------------------------------------------------+---------------------------+----------------------------+
 
 Cilium CRD schema validation

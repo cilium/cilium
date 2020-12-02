@@ -335,6 +335,14 @@ Annotations:
 1.10 Upgrade Notes
 ------------------
 
+* Cilium has bumped the minimal Kubernetes version supported to v1.13.0.
+
+Deprecated options
+~~~~~~~~~~~~~~~~~~
+
+* ``k8s-force-json-patch``: This option does not have any effect for
+  environments running Kubernetes >= 1.13. Marked for removal in Cilium v1.11.
+
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
 

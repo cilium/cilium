@@ -2,7 +2,7 @@
 
 set -e
 
-export K8S_VERSION=${K8S_VERSION:-1.19}
+export K8S_VERSION=${K8S_VERSION:-1.20}
 export K8S_NODES=${K8S_NODES:-2}
 
 echo "destroying vms"

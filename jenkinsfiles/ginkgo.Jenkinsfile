@@ -149,13 +149,13 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms K8s-1.12 net-next kubeproxy-free') {
+                stage('Boot vms K8s-1.13 net-next kubeproxy-free') {
                     environment {
-                        TESTED_SUITE="k8s-1.12"
+                        TESTED_SUITE="k8s-1.13"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="1"
-                        K8S_VERSION="1.12"
+                        K8S_VERSION="1.13"
                         K8S_NODES="3"
                         NO_CILIUM_ON_NODE="k8s3"
                         KUBEPROXY="0"
@@ -176,18 +176,18 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.12 net-next vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.13 net-next vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
                     }
                 }
-                stage('Boot vms K8s-1.19') {
+                stage('Boot vms K8s-1.20') {
                     environment {
-                        TESTED_SUITE="k8s-1.19"
+                        TESTED_SUITE="k8s-1.20"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        K8S_VERSION="1.19"
+                        K8S_VERSION="1.20"
                         KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
@@ -205,7 +205,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.19 vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.20 vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -248,14 +248,14 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.12-net-next-kubeproxy-free') {
+                stage('BDD-Test-PR-K8s-1.13-net-next-kubeproxy-free') {
                     environment {
-                        TESTED_SUITE="k8s-1.12"
+                        TESTED_SUITE="k8s-1.13"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="1"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                        K8S_VERSION="1.12"
+                        K8S_VERSION="1.13"
                         K8S_NODES="3"
                         KUBEPROXY="0"
                         NO_CILIUM_ON_NODE="k8s3"
@@ -275,19 +275,19 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.12-net-next fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.13-net-next fail\n' + currentBuild.displayName
                                 }
                             }
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.19') {
+                stage('BDD-Test-PR-K8s-1.20') {
                     environment {
-                        TESTED_SUITE="k8s-1.19"
+                        TESTED_SUITE="k8s-1.20"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                        K8S_VERSION="1.19"
+                        K8S_VERSION="1.20"
                         HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
                     }
                     steps {
@@ -304,7 +304,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.19 fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.20 fail\n' + currentBuild.displayName
                                 }
                             }
                         }
