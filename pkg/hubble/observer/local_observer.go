@@ -397,18 +397,20 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 			}
 		}
 
+		if !filters.Apply(r.whitelist, r.blacklist, e) {
+			continue
+		}
+
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
-			if filters.Apply(r.whitelist, r.blacklist, e) {
-				r.flowsCount++
-				return &observerpb.GetFlowsResponse{
-					Time:     ev.GetTime(),
-					NodeName: ev.GetNodeName(),
-					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
-						Flow: ev,
-					},
-				}, nil
-			}
+			r.flowsCount++
+			return &observerpb.GetFlowsResponse{
+				Time:     ev.GetTime(),
+				NodeName: ev.GetNodeName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+					Flow: ev,
+				},
+			}, nil
 		case *flowpb.LostEvent:
 			return &observerpb.GetFlowsResponse{
 				Time:     e.Timestamp,
