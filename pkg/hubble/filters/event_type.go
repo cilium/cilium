@@ -19,24 +19,37 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func filterByEventType(types []*flowpb.EventTypeFilter) FilterFunc {
 	return func(ev *v1.Event) bool {
-		event := ev.GetFlow().GetEventType()
-		if event == nil {
-			return false
-		}
-
-		for _, typeFilter := range types {
-			if t := typeFilter.GetType(); t != 0 && event.Type != t {
-				continue
+		switch ev.Event.(type) {
+		case *flowpb.Flow:
+			event := ev.GetFlow().GetEventType()
+			if event == nil {
+				return false
 			}
-
-			if typeFilter.GetMatchSubType() && typeFilter.GetSubType() != event.SubType {
-				continue
+			for _, typeFilter := range types {
+				if t := typeFilter.GetType(); t != 0 && event.Type != t {
+					continue
+				}
+				if typeFilter.GetMatchSubType() && typeFilter.GetSubType() != event.SubType {
+					continue
+				}
+				return true
 			}
-
+		case *flowpb.AgentEvent:
+			for _, typeFilter := range types {
+				if t := typeFilter.GetType(); t != 0 && t != monitorAPI.MessageTypeAgent {
+					continue
+				}
+				return true
+			}
+		case *flowpb.LostEvent:
+			// Currently there's no way in the Hubble CLI and API to filter lost events,
+			// thus always include them. They are very uncommon and only occur on
+			// overloaded systems, in which case a user would anyway want to get them.
 			return true
 		}
 
