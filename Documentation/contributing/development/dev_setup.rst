@@ -382,26 +382,8 @@ Let's assume we want to add ``github.com/containernetworking/cni`` version ``v0.
 For a first run, it can take a while as it will download all dependencies to
 your local cache but the remaining runs will be faster.
 
-Updating k8s is a special case which requires updating the client-go library
-first and then the remaining dependencies:
-
-#. Clone ``https://github.com/kubernetes/client-go``
-#. Add the new remote fork: ``git remote add origin-cilium https://github.com/cilium/client-go.git``
-#. Fetch all branches from the remote fork ``git fetch origin-cilium``
-#. Checkout to the release that we are updating ``git fetch origin --tags && git checkout kubernetes-1.19.0``
-#. Create a new branch ``git checkout -b kubernetes-1.19.0-with-hot-fix``
-#. Cherry pick the patches that are not merged upstream from the older branches,
-   there are currently 2 patches not merged upstream:
-   ``git cherry-pick kubernetes-1.18.5-with-hot-fix^ kubernetes-1.18.5-with-hot-fix``
-#. Push the new branch to the remote fork ``git push origin-cilium kubernetes-1.19.0-with-hot-fix``
-#. Save the commit SHA of the ``kubernetes-1.19.0-with-hot-fix`` branch to use
-   it in the next step.
-
-After updating the ``client-go`` fork, update the commit SHA in the ``replace``
-directive of the ``go.mod`` file for the ``client-go`` library in the Cilium
-repository.
-
-At the same time, update the tags of the Kubernetes libraries:
+Updating k8s is a special case which requires updating k8s libraries in a single
+change:
 
 .. code:: bash
 

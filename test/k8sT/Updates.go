@@ -58,6 +58,17 @@ var _ = Describe("K8sUpdates", func() {
 	)
 
 	BeforeAll(func() {
+		canRun, err := helpers.CanRunK8sVersion(helpers.CiliumStableVersion, helpers.GetCurrentK8SEnv())
+		ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", helpers.CiliumStableVersion)
+		if !canRun {
+			Skip(fmt.Sprintf(
+				"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
+				helpers.CiliumStableVersion, helpers.GetCurrentK8SEnv()))
+			return
+		}
+
+		SkipIfIntegration(helpers.CIIntegrationFlannel)
+
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")

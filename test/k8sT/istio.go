@@ -30,7 +30,7 @@ import (
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
 var _ = SkipContextIf(func() bool {
-	return helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19"
+	return helpers.SkipQuarantined() && (helpers.GetCurrentK8SEnv() == "1.19" || helpers.GetCurrentK8SEnv() == "1.20")
 }, "K8sIstioTest", func() {
 
 	var (

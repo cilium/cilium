@@ -37,7 +37,15 @@ After you don't need to run tests on your branch, please remove the branch from 
 
 .. note::
 
-   It is also possible to run specific tests from this suite via ``test-only``. The comment can contain 3 arguments: ``--focus`` which specifies which tests should be run, ``--kernel_version`` for supported kernel version (net-next, 49, 419 are possible values right now), ``--k8s_version`` for k8s version. If you want to run only one ``It`` block, you need to prepend it with a test suite and create a regex, e.g ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next`` will run specified test in 1.18 Kubernetes cluster running on net-next nodes. Kubernetes version defaults to 1.17, kernel version defaults to 4.19.
+   It is also possible to run specific tests from this suite via ``test-only``.
+   The comment can contain 3 arguments: ``--focus`` which specifies which tests
+   should be run, ``--kernel_version`` for supported kernel version
+   (net-next, 49, 419 are possible values right now), ``--k8s_version`` for k8s
+   version. If you want to run only one ``It`` block, you need to prepend it
+   with a test suite and create a regex, e.g
+   ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next``
+   will run specified test in 1.18 Kubernetes cluster running on net-next nodes.
+   Kubernetes version defaults to 1.20, kernel version defaults to 4.19.
 
    +------------------------------------------------+-------------------------------------------+
    | ``test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
@@ -183,16 +191,16 @@ We are currently testing following kernel - k8s version pairs in our CI:
 +====================+==================+
 | Vagrant k8s clusters per PR           |
 +--------------------+------------------+
-| 1.12               | 5.x.x (net-next) |
+| 1.13               | 5.x.x (net-next) |
 +--------------------+------------------+
-| 1.18               | 4.19.57          |
+| 1.19               | 4.19.57          |
 +--------------------+------------------+
-| 1.19               | 4.9              |
+| 1.20               | 4.9              |
 +--------------------+------------------+
 | Vagrant k8s clusters per backport     |
 | (in addition to PR)                   |
 +--------------------+------------------+
-| 1.{12-18}          | 4.9              |
+| 1.{13-19}          | 4.9              |
 +--------------------+------------------+
 | GKE clusters                          |
 +--------------------+------------------+
@@ -273,9 +281,9 @@ If you want to run test suite with race condition detection enabled, enter follo
 +====================================================================================+========================+
 | https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Kernel-Race-Detection | test-race-4.19         |
 +------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.12-net-next-Race-Detection   | test-race-net-next     |
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.13-net-next-Race-Detection   | test-race-net-next     |
 +------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.19-kernel-4.9-Race-Detection | test-race-4.9          |
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.20-kernel-4.9-Race-Detection | test-race-4.9          |
 +------------------------------------------------------------------------------------+------------------------+
 | https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-GKE-Race-Detection             | test-race-gke          |
 +------------------------------------------------------------------------------------+------------------------+

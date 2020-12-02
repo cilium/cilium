@@ -192,9 +192,9 @@ const (
 
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.8-dev"
-	CiliumStableVersion          = "v1.8"
-	CiliumLatestHelmChartVersion = "1.8.90"
+	CiliumStableHelmChartVersion = "1.9-dev"
+	CiliumStableVersion          = "v1.9"
+	CiliumLatestHelmChartVersion = "1.9.90"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -279,14 +279,16 @@ var NightlyStableUpgradesFrom = map[string]string{
 	"v1.6": "1.6-dev",
 	"v1.7": "1.7-dev",
 	"v1.8": "1.8-dev",
+	"v1.9": "1.9-dev",
 }
 
 var (
-	IsCiliumV1_5 = versioncheck.MustCompile(">=1.4.90 <1.6.0")
-	IsCiliumV1_6 = versioncheck.MustCompile(">=1.5.90 <1.7.0")
-	IsCiliumV1_7 = versioncheck.MustCompile(">=1.6.90 <1.8.0")
-	IsCiliumV1_8 = versioncheck.MustCompile(">=1.7.90 <1.9.0")
-	IsCiliumV1_9 = versioncheck.MustCompile(">=1.8.90 <1.10.0")
+	IsCiliumV1_5  = versioncheck.MustCompile(">=1.4.90 <1.6.0")
+	IsCiliumV1_6  = versioncheck.MustCompile(">=1.5.90 <1.7.0")
+	IsCiliumV1_7  = versioncheck.MustCompile(">=1.6.90 <1.8.0")
+	IsCiliumV1_8  = versioncheck.MustCompile(">=1.7.90 <1.9.0")
+	IsCiliumV1_9  = versioncheck.MustCompile(">=1.8.90 <1.10.0")
+	IsCiliumV1_10 = versioncheck.MustCompile(">=1.9.90 <1.11.0")
 )
 
 // badLogMessages is a map which key is a part of a log message which indicates

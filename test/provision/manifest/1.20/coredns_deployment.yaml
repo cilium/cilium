@@ -1,7 +1,94 @@
 # File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.20/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.19/cluster/addons/dns/coredns/coredns.yaml.base
 # __MACHINE_GENERATED_WARNING__
 
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coredns
+  namespace: kube-system
+  labels:
+      kubernetes.io/cluster-service: "true"
+      addonmanager.kubernetes.io/mode: Reconcile
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+    addonmanager.kubernetes.io/mode: Reconcile
+  name: system:coredns
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - services
+  - pods
+  - namespaces
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+    addonmanager.kubernetes.io/mode: EnsureExists
+  name: system:coredns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:coredns
+subjects:
+- kind: ServiceAccount
+  name: coredns
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+  labels:
+      addonmanager.kubernetes.io/mode: EnsureExists
+data:
+  Corefile: |
+    cilium.test:53 {
+        forward . 10.96.0.100:53 {
+            max_fails 0
+        }
+    }
+    .:53 {
+        log
+        errors
+        health {
+            lameduck 5s
+        }
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            ttl 0
+            fallthrough in-addr.arpa ip6.arpa
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf {
+            max_fails 0
+        }
+        loop
+        reload
+        loadbalance
+    }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,10 +115,9 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: 'runtime/default'
     spec:
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
       priorityClassName: system-cluster-critical
       serviceAccountName: coredns
       affinity:
@@ -105,3 +191,31 @@ spec:
             items:
             - key: Corefile
               path: Corefile
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+  annotations:
+    prometheus.io/port: "9153"
+    prometheus.io/scrape: "true"
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/name: "CoreDNS"
+spec:
+  selector:
+    k8s-app: kube-dns
+  clusterIP: 10.96.0.10
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+  - name: metrics
+    port: 9153
+    protocol: TCP

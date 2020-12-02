@@ -64,11 +64,11 @@ function install_k8s_using_binary {
     rm -rf /etc/systemd/system/kubelet.service || true
 
     # github.com/kubernetes/release is the canonical location for deb/rpm build definitions/specs.
-    curl -sSL "https://raw.githubusercontent.com/kubernetes/release/v0.2.6/cmd/kubepkg/templates/latest/deb/kubelet/lib/systemd/system/kubelet.service" \
+    curl -sSL "https://raw.githubusercontent.com/kubernetes/release/v0.6.0/cmd/kubepkg/templates/latest/deb/kubelet/lib/systemd/system/kubelet.service" \
       > /etc/systemd/system/kubelet.service
 
 
-    curl -sSL "https://raw.githubusercontent.com/kubernetes/release/v0.2.6/cmd/kubepkg/templates/latest/deb/kubeadm/10-kubeadm.conf" \
+    curl -sSL "https://raw.githubusercontent.com/kubernetes/release/v0.6.0/cmd/kubepkg/templates/latest/deb/kubeadm/10-kubeadm.conf" \
         > /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
     systemctl enable kubelet
 }
