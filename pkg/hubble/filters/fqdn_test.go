@@ -217,7 +217,7 @@ func TestFQDNFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fl, err := BuildFilterList(context.Background(), tt.args.f, []OnBuildFilter{&FQDNFilter{}})
 			if (err != nil) != tt.wantErr {
-				t.Errorf("BuildFilterList(context.Background(), ) error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("BuildFilterList() with FQDNFilter: error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			for i, ev := range tt.args.ev {

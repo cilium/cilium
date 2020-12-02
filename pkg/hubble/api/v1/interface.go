@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
-// Flow is an interface matching pb.Flow
+// Flow is an interface matching flowpb.Flow.
 type Flow interface {
 	proto.Message
 	GetTime() *timestamp.Timestamp
@@ -50,7 +50,7 @@ type Flow interface {
 	GetDropReasonDesc() flowpb.DropReason
 }
 
-// This ensures that the protobuf definition implements the interface
+// This ensures that the protobuf definition implements the interface.
 var _ Flow = &flowpb.Flow{}
 
 // EndpointInfo defines readable fields of a Cilium endpoint.
@@ -61,3 +61,12 @@ type EndpointInfo interface {
 	GetK8sNamespace() string
 	GetLabels() []string
 }
+
+// AgentEvent is an interface matching flowpb.AgentEvent.
+type AgentEvent interface {
+	proto.Message
+	GetType() flowpb.AgentEventType
+}
+
+// This ensures that the protobuf definition implements the interface.
+var _ AgentEvent = &flowpb.AgentEvent{}

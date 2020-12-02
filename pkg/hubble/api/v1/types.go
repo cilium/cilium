@@ -39,3 +39,15 @@ func (ev *Event) GetFlow() Flow {
 	}
 	return nil
 }
+
+// GetAgentEvent returns the decoded agent event, or nil if there is no event.
+func (ev *Event) GetAgentEvent() AgentEvent {
+	if ev == nil || ev.Event == nil {
+		// returns typed nil so getter methods still work
+		return (*pb.AgentEvent)(nil)
+	}
+	if f, ok := ev.Event.(AgentEvent); ok {
+		return f
+	}
+	return nil
+}
