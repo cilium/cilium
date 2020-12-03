@@ -52,7 +52,7 @@ RUN make RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNE
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2020-11-16@sha256:e0a7d9cc628f93f086434d633d2ac825b9d0c2fb4c2dd6d8d926b05e85515822
+FROM quay.io/cilium/cilium-runtime:2020-12-03@sha256:013957bdcbb32960ebf98dd5ba45ff6631844396c0c55760590c1d63d811e804
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
