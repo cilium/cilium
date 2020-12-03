@@ -32,8 +32,11 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/google/gopacket"
@@ -443,12 +446,42 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	localIP := net.ParseIP("1.2.3.4")
 	localEP := uint16(1234)
 	remoteIP := net.ParseIP("5.6.7.8")
+	remoteID := uint32(5678)
+
+	directionFromProto := func(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
+		switch direction {
+		case flowpb.TrafficDirection_INGRESS:
+			return trafficdirection.Ingress
+		case flowpb.TrafficDirection_EGRESS:
+			return trafficdirection.Egress
+		}
+		return trafficdirection.Invalid
+	}
+
+	type policyGetter interface {
+		GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+			derivedFrom labels.LabelArrayList,
+			revision uint64,
+			ok bool,
+		)
+	}
+	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
+	policyKey := policy.Key{
+		Identity:         remoteID,
+		DestPort:         0,
+		Nexthdr:          0,
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
 			if ip.Equal(localIP) {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
+					PolicyMap: map[policy.Key]labels.LabelArrayList{
+						policyKey: policyLabel,
+					},
+					PolicyRevision: 1,
 				}, true
 			}
 			return nil, false
@@ -561,13 +594,24 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// PolicyVerdictNotify Egress
 	pvn := monitor.PolicyVerdictNotify{
-		Type:   byte(api.MessageTypePolicyVerdict),
-		Source: localEP,
-		Flags:  api.PolicyEgress,
+		Type:        byte(api.MessageTypePolicyVerdict),
+		Source:      localEP,
+		Flags:       api.PolicyEgress,
+		RemoteLabel: identity.NumericIdentity(remoteID),
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
+
+	ep, ok := endpointGetter.GetEndpointInfo(localIP)
+	assert.Equal(t, true, ok)
+	lbls, rev, ok := ep.(policyGetter).GetRealizedPolicyRuleLabelsForKey(policy.Key{
+		Identity:         f.GetDestination().GetIdentity(),
+		TrafficDirection: directionFromProto(f.GetTrafficDirection()).Uint8(),
+	})
+	assert.Equal(t, true, ok)
+	assert.Equal(t, lbls, policyLabel)
+	assert.Equal(t, uint64(1), rev)
 
 	// PolicyVerdictNotify Ingress
 	pvn = monitor.PolicyVerdictNotify{

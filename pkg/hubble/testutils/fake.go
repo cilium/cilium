@@ -29,6 +29,8 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -513,6 +515,9 @@ type FakeEndpointInfo struct {
 	PodName      string
 	PodNamespace string
 	Labels       []string
+
+	PolicyMap      map[policy.Key]labels.LabelArrayList
+	PolicyRevision uint64
 }
 
 // GetID returns the ID of the endpoint.
@@ -538,4 +543,13 @@ func (e *FakeEndpointInfo) GetK8sNamespace() string {
 // GetLabels returns the labels of the endpoint.
 func (e *FakeEndpointInfo) GetLabels() []string {
 	return e.Labels
+}
+
+func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+	derivedFrom labels.LabelArrayList,
+	revision uint64,
+	ok bool,
+) {
+	derivedFrom, ok = e.PolicyMap[key]
+	return derivedFrom, e.PolicyRevision, ok
 }

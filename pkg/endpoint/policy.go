@@ -873,3 +873,24 @@ func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
 	}
 	<-ch
 }
+
+// GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels
+// which match a given flow key (in host byte-order). The returned
+// LabelArrayList is shallow-copied and therefore must not be mutated.
+// This function explicitly exported to be accessed by code outside of the
+// Cilium source code tree and for testing.
+func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+	derivedFrom labels.LabelArrayList,
+	revision uint64,
+	ok bool,
+) {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	entry, ok := e.realizedPolicy.PolicyMapState[key]
+	if !ok {
+		return nil, 0, false
+	}
+
+	return entry.DerivedFromRules, e.policyRevision, true
+}
