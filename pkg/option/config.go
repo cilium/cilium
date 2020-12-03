@@ -121,6 +121,10 @@ const (
 	// direct routing mode (only required by BPF NodePort)
 	DirectRoutingDevice = "direct-routing-device"
 
+	// LBDevInheritIPAddr is device name which IP addr is inherited by devices
+	// running BPF loadbalancer program
+	LBDevInheritIPAddr = "bpf-lb-dev-ip-addr-inherit"
+
 	// DisableConntrack disables connection tracking
 	DisableConntrack = "disable-conntrack"
 
@@ -1345,6 +1349,7 @@ type DaemonConfig struct {
 	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
 	Devices             []string   // bpf_host device
 	DirectRoutingDevice string     // Direct routing device (used only by NodePort BPF)
+	LBDevInheritIPAddr  string     // Device which IP addr used by bpf_host devices
 	DevicePreFilter     string     // Prefilter device
 	ModePreFilter       string     // Prefilter mode
 	XDPDevice           string     // XDP device
@@ -2460,6 +2465,7 @@ func (c *DaemonConfig) Populate() {
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
 	c.DirectRoutingDevice = viper.GetString(DirectRoutingDevice)
+	c.LBDevInheritIPAddr = viper.GetString(LBDevInheritIPAddr)
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = viper.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)

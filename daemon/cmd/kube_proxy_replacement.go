@@ -396,7 +396,7 @@ func handleNativeDevices(strict bool) {
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
+		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
 			msg := "Failed to initialize NodePort addrs."
 			if isKubeProxyReplacementStrict {
 				log.WithError(err).Fatal(msg)
