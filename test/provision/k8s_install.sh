@@ -83,7 +83,7 @@ fi
 sudo ln -sf $KUBEDNS_DEPLOYMENT $DNS_DEPLOYMENT
 $PROVISIONSRC/dns.sh
 
-cat <<EOF > /etc/hosts
+cat <<EOF >> /etc/hosts
 127.0.0.1       localhost
 ::1     localhost ip6-localhost ip6-loopback
 ff02::1 ip6-allnodes

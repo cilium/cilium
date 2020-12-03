@@ -56,6 +56,21 @@ class VagrantPlugins::ProviderVirtualBox::Action::Network
   end
 end
 
+$bootstrap = <<SCRIPT
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [ -x /home/vagrant/go/src/github.com/cilium/cilium/.devvmrc ] ; then
+   echo "----------------------------------------------------------------"
+   echo "Executing .devvmrc"
+   /home/vagrant/go/src/github.com/cilium/cilium/.devvmrc || true
+fi
+echo "----------------------------------------------------------------"
+sudo sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile
+echo 'export GOPATH=$(go env GOPATH)' >> /home/vagrant/.bashrc
+SCRIPT
+
 Vagrant.configure("2") do |config|
     cilium_dir = '../'
     cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'
@@ -107,16 +122,7 @@ Vagrant.configure("2") do |config|
         end
 
         # Provision section
-        server.vm.provision :shell,
-            :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-        # Disable unattended-upgrades to prevent it from holding the dpkg frontend lock
-        # To be removed once this has been added through packer-ci-build
-        server.vm.provision :shell,
-            :inline => "sudo systemctl disable unattended-upgrades.service"
-        server.vm.provision :shell,
-            :inline => "sudo systemctl stop unattended-upgrades.service"
-        server.vm.provision :shell,
-            :inline => "echo 'export GOPATH=$(go env GOPATH)' >> /home/vagrant/.bashrc"
+        server.vm.provision "bootstrap", type: "shell", inline: $bootstrap
         server.vm.provision "file", source: "provision/", destination: "/tmp/"
         server.vm.provision "shell" do |sh|
             sh.path = "./provision/runtime_install.sh"
@@ -186,16 +192,9 @@ Vagrant.configure("2") do |config|
                 server.vm.synced_folder cilium_dir, cilium_path
             end
             # Provision section
+            server.vm.provision "bootstrap", type: "shell", inline: $bootstrap
             server.vm.provision :shell,
                 :inline => "sudo sysctl -w net.ipv6.conf.all.forwarding=1"
-            server.vm.provision :shell,
-                :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-            # Disable unattended-upgrades to prevent it from holding the dpkg frontend lock
-            # To be removed once this has been added through packer-ci-build
-            server.vm.provision :shell,
-                :inline => "sudo systemctl disable unattended-upgrades.service"
-            server.vm.provision :shell,
-                :inline => "sudo systemctl stop unattended-upgrades.service"
             server.vm.provision "file", source: "provision/", destination: "/tmp/"
             server.vm.provision "shell" do |sh|
                 sh.path = "./provision/k8s_install.sh"
