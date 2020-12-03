@@ -212,6 +212,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 					 const struct ipv6hdr *ip6,
 					 union v6addr *backend_addr)
 {
+	union v6addr lb_addr = IPV6_DIRECT_ROUTING;
 	const int l3_off = ETH_HLEN;
 	struct {
 		__be16 payload_len;
@@ -232,6 +233,9 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, daddr),
 			    backend_addr, sizeof(ip6->daddr), 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, saddr),
+			    &lb_addr, sizeof(ip6->saddr), 0) < 0)
 		return DROP_WRITE_ERROR;
 	return 0;
 }
@@ -984,45 +988,51 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 /*
  * Original packet: [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
- * After DSR IPIP:  [clientIP -> backendIP]                        } IP
+ *
+ * After DSR IPIP:  [loadBalancerIP -> backendIP]                  } IP
  *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
 static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 					 const struct iphdr *ip4,
 					 __be32 backend_addr)
 {
-	__be32 sum, service_addr = ip4->daddr;
 	const int l3_off = ETH_HLEN;
+	__be32 sum;
 	struct {
 		__be16 tot_len;
 		__be16 id;
 		__be16 frag_off;
 		__u8   ttl;
 		__u8   protocol;
+		__be32 saddr;
+		__be32 daddr;
 	} tp_old = {
 		.tot_len	= ip4->tot_len,
 		.ttl		= ip4->ttl,
 		.protocol	= ip4->protocol,
+		.saddr		= ip4->saddr,
+		.daddr		= ip4->daddr,
 	}, tp_new = {
 		.tot_len	= bpf_htons(bpf_ntohs(tp_old.tot_len) +
 					    sizeof(*ip4)),
 		.ttl		= 64,
 		.protocol	= IPPROTO_IPIP,
+		.saddr		= IPV4_DIRECT_ROUTING,
+		.daddr		= backend_addr,
 	};
 
 	if (ctx_adjust_room(ctx, sizeof(*ip4), BPF_ADJ_ROOM_NET,
 			    ctx_adjust_room_dsr_flags()))
 		return DROP_INVALID;
-	sum = csum_diff(&service_addr, 4, &backend_addr, 4, 0);
-	sum = csum_diff(&tp_old, 8, &tp_new, 8, sum);
+	sum = csum_diff(&tp_old, 16, &tp_new, 16, 0);
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, tot_len),
 			    &tp_new.tot_len, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, ttl),
 			    &tp_new.ttl, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
-			    &backend_addr, 4, 0) < 0)
+	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
+			    &tp_new.saddr, 8, 0) < 0)
 		return DROP_WRITE_ERROR;
 	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
 			    0, sum, 0) < 0)
