@@ -55,6 +55,7 @@ LOGLEVEL ?= "error"
 SKIP_VET ?= "false"
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
+SKIP_CUSTOMVET_CHECK ?= "false"
 
 JOB_BASE_NAME ?= cilium_test
 
@@ -502,6 +503,10 @@ endif
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
+ifeq ($(SKIP_CUSTOMVET_CHECK),"false")
+	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
+	$(QUIET) contrib/scripts/custom-vet-check.sh
+endif
 	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
 	$(QUIET) contrib/scripts/rand-check.sh
 

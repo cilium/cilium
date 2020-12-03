@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -543,6 +544,8 @@ func runServer(cmd *cobra.Command) {
 	}
 
 	go func() {
+		timer, timerDone := inctimer.New()
+		defer timerDone()
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
@@ -550,7 +553,7 @@ func runServer(cmd *cobra.Command) {
 				log.WithError(err).Warning("Unable to update heartbeat key")
 			}
 			cancel()
-			<-time.After(kvstore.HeartbeatWriteInterval)
+			<-timer.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
 

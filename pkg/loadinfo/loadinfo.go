@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -97,15 +98,14 @@ func LogPeriodicSystemLoad(ctx context.Context, logFunc LogFunc, interval time.D
 	go func() {
 		LogCurrentSystemLoad(logFunc)
 
-		t := time.NewTimer(interval)
-		defer t.Stop()
+		timer, timerDone := inctimer.New()
+		defer timerDone()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-t.C:
+			case <-timer.After(interval):
 				LogCurrentSystemLoad(logFunc)
-				t.Reset(interval)
 			}
 		}
 	}()
