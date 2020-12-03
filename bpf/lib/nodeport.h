@@ -17,6 +17,7 @@
 #include "csum.h"
 #include "encap.h"
 #include "trace.h"
+#include "ghash.h"
 #include "host_firewall.h"
 
 #define CB_SRC_IDENTITY	0
@@ -208,11 +209,41 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_DSR
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+static __always_inline void rss_gen_src6(union v6addr *src,
+					 const union v6addr *client,
+					 __be32 l4_hint)
+{
+	__u32 bits = 128 - IPV6_RSS_PREFIX_BITS;
+
+	*src = (union v6addr)IPV6_RSS_PREFIX;
+	if (bits) {
+		__u32 todo;
+
+		if (bits > 96) {
+			todo = bits - 96;
+			src->p1 |= bpf_htonl(hash_32(client->p1 ^ l4_hint, todo));
+			bits -= todo;
+		}
+		if (bits > 64) {
+			todo = bits - 64;
+			src->p2 |= bpf_htonl(hash_32(client->p2 ^ l4_hint, todo));
+			bits -= todo;
+		}
+		if (bits > 32) {
+			todo = bits - 32;
+			src->p3 |= bpf_htonl(hash_32(client->p3 ^ l4_hint, todo));
+			bits -= todo;
+		}
+		src->p4 |= bpf_htonl(hash_32(client->p4 ^ l4_hint, bits));
+	}
+}
+
 static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 					 const struct ipv6hdr *ip6,
-					 union v6addr *backend_addr)
+					 union v6addr *backend_addr,
+					 __be32 l4_hint)
 {
-	union v6addr lb_addr = IPV6_DIRECT_ROUTING;
+	union v6addr saddr;
 	const int l3_off = ETH_HLEN;
 	struct {
 		__be16 payload_len;
@@ -225,6 +256,8 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 		.hop_limit	= 64,
 	};
 
+	rss_gen_src6(&saddr, (union v6addr *)&ip6->saddr, l4_hint);
+
 	if (ctx_adjust_room(ctx, sizeof(*ip6), BPF_ADJ_ROOM_NET,
 			    ctx_adjust_room_dsr_flags()))
 		return DROP_INVALID;
@@ -235,7 +268,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 			    backend_addr, sizeof(ip6->daddr), 0) < 0)
 		return DROP_WRITE_ERROR;
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, saddr),
-			    &lb_addr, sizeof(ip6->saddr), 0) < 0)
+			    &saddr, sizeof(ip6->saddr), 0) < 0)
 		return DROP_WRITE_ERROR;
 	return 0;
 }
@@ -380,7 +413,8 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
-	ret = dsr_set_ipip6(ctx, ip6, &addr);
+	ret = dsr_set_ipip6(ctx, ip6, &addr,
+			    ctx_load_meta(ctx, CB_HINT));
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_ext6(ctx, ip6, &addr,
 			   ctx_load_meta(ctx, CB_PORT));
@@ -689,6 +723,8 @@ redo_local:
 		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr6(&tuple)) {
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+			ctx_store_meta(ctx, CB_HINT,
+				       ((__u32)tuple.sport << 16) | tuple.dport);
 			ctx_store_meta(ctx, CB_ADDR_V6_1, tuple.daddr.p1);
 			ctx_store_meta(ctx, CB_ADDR_V6_2, tuple.daddr.p2);
 			ctx_store_meta(ctx, CB_ADDR_V6_3, tuple.daddr.p3);
@@ -986,15 +1022,26 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_DSR
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
+{
+	const __u32 bits = 32 - IPV4_RSS_PREFIX_BITS;
+	__be32 src = IPV4_RSS_PREFIX;
+
+	if (bits)
+		src |= bpf_htonl(hash_32(client ^ l4_hint, bits));
+	return src;
+}
+
 /*
  * Original packet: [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  *
- * After DSR IPIP:  [loadBalancerIP -> backendIP]                  } IP
+ * After DSR IPIP:  [rssSrcIP -> backendIP]                        } IP
  *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
 static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 					 const struct iphdr *ip4,
-					 __be32 backend_addr)
+					 __be32 backend_addr,
+					 __be32 l4_hint)
 {
 	const int l3_off = ETH_HLEN;
 	__be32 sum;
@@ -1017,7 +1064,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 					    sizeof(*ip4)),
 		.ttl		= 64,
 		.protocol	= IPPROTO_IPIP,
-		.saddr		= IPV4_DIRECT_ROUTING,
+		.saddr		= rss_gen_src4(ip4->saddr, l4_hint),
 		.daddr		= backend_addr,
 	};
 
@@ -1166,7 +1213,8 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
-			    ctx_load_meta(ctx, CB_ADDR_V4));
+			    ctx_load_meta(ctx, CB_ADDR_V4),
+			    ctx_load_meta(ctx, CB_HINT));
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_opt4(ctx, ip4,
 			   ctx_load_meta(ctx, CB_ADDR_V4),
@@ -1479,6 +1527,8 @@ redo_local:
 		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr4(&tuple)) {
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+			ctx_store_meta(ctx, CB_HINT,
+				       ((__u32)tuple.sport << 16) | tuple.dport);
 			ctx_store_meta(ctx, CB_ADDR_V4, tuple.daddr);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 			ctx_store_meta(ctx, CB_PORT, key.dport);

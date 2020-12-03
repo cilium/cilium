@@ -564,6 +564,12 @@ func init() {
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\")")
 	option.BindEnv(option.LoadBalancerDSRDispatch)
 
+	flags.String(option.LoadBalancerRSSv4CIDR, "", "BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP")
+	option.BindEnv(option.LoadBalancerRSSv4CIDR)
+
+	flags.String(option.LoadBalancerRSSv6CIDR, "", "BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP")
+	option.BindEnv(option.LoadBalancerRSSv6CIDR)
+
 	flags.String(option.LoadBalancerAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF load balancing acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))

@@ -272,6 +272,29 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		} else {
 			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
 		}
+		if option.Config.EnableIPv4 {
+			if option.Config.LoadBalancerRSSv4CIDR != "" {
+				ipv4 := byteorder.HostSliceToNetwork(option.Config.LoadBalancerRSSv4.IP, reflect.Uint32).(uint32)
+				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
+				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
+				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
+			} else {
+				cDefinesMap["IPV4_RSS_PREFIX"] = "IPV4_DIRECT_ROUTING"
+				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = "32"
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if option.Config.LoadBalancerRSSv6CIDR != "" {
+				ipv6 := option.Config.LoadBalancerRSSv6.IP
+				ones, _ := option.Config.LoadBalancerRSSv6.Mask.Size()
+				extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6.String()
+				fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6))
+				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
+			} else {
+				cDefinesMap["IPV6_RSS_PREFIX"] = "IPV6_DIRECT_ROUTING"
+				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = "128"
+			}
+		}
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
