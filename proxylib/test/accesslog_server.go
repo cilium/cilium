@@ -23,7 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/cilium/pkg/inctimer"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
@@ -62,7 +63,7 @@ func (s *AccessLogServer) Clear() (passed, drops int) {
 			} else {
 				passes++
 			}
-		case <-time.After(10 * time.Millisecond):
+		case <-inctimer.After(10 * time.Millisecond):
 			empty = true
 		}
 	}

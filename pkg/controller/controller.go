@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -195,6 +196,8 @@ func (c *Controller) runController() {
 	c.mutex.RUnlock()
 	runFunc := true
 	interval := 10 * time.Minute
+	runTimer, timerDone := inctimer.New()
+	defer timerDone()
 
 	for {
 		var err error
@@ -258,7 +261,6 @@ func (c *Controller) runController() {
 
 			c.mutex.Unlock()
 		}
-
 		select {
 		case <-c.stop:
 			goto shutdown
@@ -280,7 +282,7 @@ func (c *Controller) runController() {
 			c.mutex.RUnlock()
 			runFunc = true
 
-		case <-time.After(interval):
+		case <-runTimer.After(interval):
 		}
 
 	}

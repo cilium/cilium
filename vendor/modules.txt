@@ -84,6 +84,10 @@ github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
+# github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
+## explicit
+github.com/cilium/customvet
+github.com/cilium/customvet/analysis/timeafter
 # github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 ## explicit
 github.com/cilium/deepequal-gen
@@ -640,7 +644,7 @@ golang.org/x/net/trace
 # golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+# golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
@@ -675,15 +679,25 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
+# golang.org/x/tools v0.0.0-20201208233053-a543418bbed2
 ## explicit
 golang.org/x/tools/cmd/goimports
+golang.org/x/tools/go/analysis
+golang.org/x/tools/go/analysis/internal/analysisflags
+golang.org/x/tools/go/analysis/internal/checker
+golang.org/x/tools/go/analysis/internal/facts
+golang.org/x/tools/go/analysis/multichecker
+golang.org/x/tools/go/analysis/passes/inspect
+golang.org/x/tools/go/analysis/unitchecker
 golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/gcimporter
 golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/go/packages
+golang.org/x/tools/go/types/objectpath
 golang.org/x/tools/imports
+golang.org/x/tools/internal/analysisinternal
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
@@ -692,7 +706,9 @@ golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
+golang.org/x/tools/internal/lsp/fuzzy
 golang.org/x/tools/internal/packagesinternal
+golang.org/x/tools/internal/span
 golang.org/x/tools/internal/typesinternal
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
