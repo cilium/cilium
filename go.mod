@@ -13,6 +13,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
 	github.com/aws/aws-sdk-go-v2 v0.24.0
 	github.com/blang/semver v3.5.0+incompatible
+	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775
 	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
