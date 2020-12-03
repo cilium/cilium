@@ -128,27 +128,51 @@ func InitDefaultPrefix(device string) {
 }
 
 // InitNodePortAddrs initializes NodePort IPv{4,6} addrs for the given devices.
-func InitNodePortAddrs(devices []string) error {
+// If inheritIPAddrFromDevice is non-empty, then the IP addr for the devices
+// will be derived from it.
+func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
+	var inheritedIP net.IP
+	var err error
+
 	if option.Config.EnableIPv4 {
+		if inheritIPAddrFromDevice != "" {
+			inheritedIP, err = firstGlobalV4Addr(inheritIPAddrFromDevice, GetK8sNodeIP(), !preferPublicIP)
+			if err != nil {
+				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", inheritIPAddrFromDevice)
+			}
+		}
 		ipv4NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), !preferPublicIP)
-			if err != nil {
-				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
+			if inheritIPAddrFromDevice != "" {
+				ipv4NodePortAddrs[device] = inheritedIP
+			} else {
+				ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), !preferPublicIP)
+				if err != nil {
+					return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
+				}
+				ipv4NodePortAddrs[device] = ip
 			}
-
-			ipv4NodePortAddrs[device] = ip
 		}
 	}
 
 	if option.Config.EnableIPv6 {
+		if inheritIPAddrFromDevice != "" {
+			inheritedIP, err = firstGlobalV6Addr(inheritIPAddrFromDevice, GetK8sNodeIP(), !preferPublicIP)
+			if err != nil {
+				return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", inheritIPAddrFromDevice)
+			}
+		}
 		ipv6NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV6Addr(device, GetK8sNodeIP(), !preferPublicIP)
-			if err != nil {
-				return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", device)
+			if inheritIPAddrFromDevice != "" {
+				ipv6NodePortAddrs[device] = inheritedIP
+			} else {
+				ip, err := firstGlobalV6Addr(device, GetK8sNodeIP(), !preferPublicIP)
+				if err != nil {
+					return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", device)
+				}
+				ipv6NodePortAddrs[device] = ip
 			}
-			ipv6NodePortAddrs[device] = ip
 		}
 	}
 
