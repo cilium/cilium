@@ -95,3 +95,6 @@ GIT_VERSION
 # During image builds following files get created
 .buildx
 .buildx_builder
+
+# Local developer config to be executed in the dev VM and CI VMs started locally
+.devvmrc

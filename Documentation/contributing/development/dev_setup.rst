@@ -93,6 +93,36 @@ existing cluster. For example, to add a net-next VM to a one-node cluster:
 
     $ NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
 
+Cilium Vagrantfiles look for a file ``.devvmrc`` in the root of your
+Cilium repository. This file is ignored for Git, so it does not exist
+by default. If this file exists and is executable, it will be executed
+in the beginning of the VM bootstrap. This allows you to automatically
+customize the new VM, e.g., with your personal Git configuration. You
+may also want to add any local entries you need in ``/etc/hosts``,
+etc.
+
+For example, you could have something like this in your ``.devvmrc``:
+
+::
+
+    #!/usr/bin/env bash
+
+    git config --global user.name "Firstname Lastname"
+    git config --global user.email developer@company.com
+
+    sudo tee -a /etc/hosts <<EOF
+    192.168.99.99 nas
+    EOF
+
+Remember to make the script executable (``chmod +x .devvmrc``). When
+successfully running, the VM bootstrap shows a message like this right
+after the shared folders have been set up:
+
+::
+
+    runtime: ----------------------------------------------------------------
+    runtime: Executing .devvmrc
+
 The box is currently available for the following providers:
 
 * virtualbox
