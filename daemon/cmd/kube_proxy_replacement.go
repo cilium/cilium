@@ -245,17 +245,20 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	if !option.Config.EnableHostLegacyRouting {
+		msg := ""
 		switch {
 		case !option.Config.EnableNodePort:
-			fallthrough
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableNodePort)
 		case option.Config.Tunnel != option.TunnelDisabled:
-			fallthrough
+			msg = fmt.Sprintf("BPF host routing is only available in native routing mode.")
 		// Needs host stack for packet handling.
-		case option.Config.EnableEndpointRoutes || option.Config.EnableIPSec:
-			fallthrough
+		case option.Config.EnableEndpointRoutes:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableEndpointRoutes)
+		case option.Config.EnableIPSec:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.Masquerade && !option.Config.EnableBPFMasquerade:
-			option.Config.EnableHostLegacyRouting = true
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		default:
 			foundNeigh := false
 			foundPeer := false
@@ -264,8 +267,12 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				_, foundPeer = h["bpf_redirect_peer"]
 			}
 			if !foundNeigh || !foundPeer {
-				option.Config.EnableHostLegacyRouting = true
+				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
 			}
+		}
+		if msg != "" {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
 		}
 	}
 
