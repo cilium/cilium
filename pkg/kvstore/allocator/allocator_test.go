@@ -272,10 +272,10 @@ func (s *AllocatorSuite) TestGC(c *C) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	keysToDelete := map[string]uint64{}
-	keysToDelete, err = allocator.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
 	c.Assert(err, IsNil)
 	c.Assert(len(keysToDelete), Equals, 1)
-	keysToDelete, err = allocator.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
 	c.Assert(err, IsNil)
 	c.Assert(len(keysToDelete), Equals, 0)
 
@@ -353,7 +353,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	staleKeysPreviousRound := map[string]uint64{}
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 	// running the GC should not evict any entries
-	staleKeysPreviousRound, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	staleKeysPreviousRound, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
 	v, err := kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
@@ -366,9 +366,9 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	staleKeysPreviousRound, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	staleKeysPreviousRound, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
 	c.Assert(err, IsNil)
-	_, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	_, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
 	v, err = kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))

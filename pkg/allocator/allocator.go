@@ -173,6 +173,14 @@ func NewAllocatorForGC(backend Backend) *Allocator {
 	return &Allocator{backend: backend}
 }
 
+type GCStats struct {
+	// Alive is the number of identities alive
+	Alive int
+
+	// Deleted is the number of identities deleted
+	Deleted int
+}
+
 // Backend represents clients to remote ID allocation systems, such as KV
 // Stores. These are used to coordinate key->ID allocation between cilium
 // nodes.
@@ -243,7 +251,7 @@ type Backend interface {
 	// by cilium-agent.
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
-	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
+	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *GCStats, error)
 
 	// RunLocksGC reaps stale or unused locks within the Backend. It is used by
 	// the cilium-operator and is not invoked by cilium-agent. Returns
@@ -802,7 +810,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (a *Allocator) RunGC(rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (a *Allocator) RunGC(rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *GCStats, error) {
 	return a.backend.RunGC(context.TODO(), rateLimit, staleKeysPrevRound)
 }
 
