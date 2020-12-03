@@ -38,6 +38,7 @@ type NetConf struct {
 	Azure       azureTypes.AzureSpec `json:"azure,omitempty"`
 	IPAM        ipamTypes.IPAMSpec   `json:"ipam,omitempty"`
 	EnableDebug bool                 `json:"enable-debug"`
+	LogFormat   string               `json:"log-format"`
 }
 
 // NetConfList is a CNI chaining configuration
@@ -93,7 +94,6 @@ func LoadNetConf(bytes []byte) (*NetConf, error) {
 	}
 
 	return parsePrevResult(n)
-
 }
 
 // ArgsSpec is the specification of additional arguments of the CNI ADD call
