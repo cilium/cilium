@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 
@@ -105,6 +106,47 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
 			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
+		}
+
+		if option.Config.LoadBalancerRSSv4CIDR != "" {
+			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
+			if ip.To4() == nil {
+				err = fmt.Errorf("CIDR is not IPv4 based")
+			}
+			if err == nil {
+				if ones, _ := cidr.Mask.Size(); ones == 0 || ones >= 32 {
+					err = fmt.Errorf("CIDR length must be in (0,32)")
+				}
+			}
+			if err != nil {
+				log.WithError(err).Fatalf("Invalid value for --%s: %s",
+					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
+			}
+			option.Config.LoadBalancerRSSv4 = *cidr
+		}
+
+		if option.Config.LoadBalancerRSSv6CIDR != "" {
+			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv6CIDR)
+			if ip.To4() != nil {
+				err = fmt.Errorf("CIDR is not IPv6 based")
+			}
+			if err == nil {
+				if ones, _ := cidr.Mask.Size(); ones == 0 || ones >= 128 {
+					err = fmt.Errorf("CIDR length must be in (0,128)")
+				}
+			}
+			if err != nil {
+				log.WithError(err).Fatalf("Invalid value for --%s: %s",
+					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
+			}
+			option.Config.LoadBalancerRSSv6 = *cidr
+		}
+
+		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
+			(option.Config.NodePortMode != option.NodePortModeDSR ||
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
+			log.Fatalf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
+				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
 		}
 
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&

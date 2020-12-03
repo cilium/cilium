@@ -256,7 +256,14 @@ const (
 	// Alias to NodePortMode
 	LoadBalancerMode = "bpf-lb-mode"
 
+	// Alias to DSR dispatch method
 	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
+
+	// Alias to DSR/IPIP IPv4 source CIDR
+	LoadBalancerRSSv4CIDR = "bpf-lb-rss-ipv4-src-cidr"
+
+	// Alias to DSR/IPIP IPv6 source CIDR
+	LoadBalancerRSSv6CIDR = "bpf-lb-rss-ipv6-src-cidr"
 
 	// Alias to NodePortAlg
 	LoadBalancerAlg = "bpf-lb-algorithm"
@@ -1829,6 +1836,14 @@ type DaemonConfig struct {
 	// backends under DSR ("opt" or "ipip")
 	LoadBalancerDSRDispatch string
 
+	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
+	LoadBalancerRSSv4CIDR string
+	LoadBalancerRSSv4     net.IPNet
+
+	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
+	LoadBalancerRSSv6CIDR string
+	LoadBalancerRSSv6     net.IPNet
+
 	// Maglev backend table size (M) per service. Must be prime number.
 	MaglevTableSize int
 
@@ -2591,6 +2606,8 @@ func (c *DaemonConfig) Populate() {
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = viper.GetString(LoadBalancerDSRDispatch)
+	c.LoadBalancerRSSv4CIDR = viper.GetString(LoadBalancerRSSv4CIDR)
+	c.LoadBalancerRSSv6CIDR = viper.GetString(LoadBalancerRSSv6CIDR)
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
 
