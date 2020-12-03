@@ -550,9 +550,9 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 }
 
 // Must be called with linuxNodeHandler.mutex held.
-func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
+func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) error {
 	if newNode.IsLocal() {
-		return
+		return nil
 	}
 
 	newNodeIP := newNode.GetNodeIP(false).To4()
@@ -567,8 +567,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	// Figure out whether newNode is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGet(nextHopIPv4)
 	if err != nil {
-		scopedLog.WithError(err).Error("Failed to retrieve route for remote node IP")
-		return
+		return fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
 	for _, route := range routes {
 		if route.Gw != nil {
@@ -588,27 +587,23 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	if n.neighNextHopRefCount.Add(nextHopStr) || !found {
 		iface, err := net.InterfaceByName(ifaceName)
 		if err != nil {
-			scopedLog.WithError(err).Error("Failed to retrieve iface by name")
-			return
+			return fmt.Errorf("failed to retrieve iface by name: %w", err)
 		}
 
 		_, err = arping.FindIPInNetworkFromIface(nextHopIPv4, *iface)
 		if err != nil {
-			scopedLog.WithError(err).Error("IP is not L2 reachable")
-			return
+			return fmt.Errorf("IP is not L2 reachable: %w", err)
 		}
 
 		linkAttr, err := netlink.LinkByName(ifaceName)
 		if err != nil {
-			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
-			return
+			return fmt.Errorf("failed to retrieve iface by name (netlink): %w", err)
 		}
 		link := linkAttr.Attrs().Index
 
 		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface)
 		if err != nil {
-			scopedLog.WithError(err).Error("arping failed")
-			return
+			return fmt.Errorf("arping failed: %w", err)
 		}
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
@@ -619,8 +614,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			State:        netlink.NUD_PERMANENT,
 		}
 		if err := netlink.NeighSet(&neigh); err != nil {
-			scopedLog.WithError(err).Error("Failed to insert neighbor")
-			return
+			return fmt.Errorf("failed to insert neighbor: %w", err)
 		}
 
 		n.neighByNextHop[nextHopStr] = &neigh
@@ -628,13 +622,15 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			neighborsmap.NeighRetire(nextHopIPv4)
 		}
 	}
+
+	return nil
 }
 
 // Must be called with linuxNodeHandler.mutex held.
-func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) error {
 	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
 	if !found {
-		return
+		return nil
 	}
 	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
 
@@ -644,12 +640,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 
 		if found {
 			if err := netlink.NeighDel(neigh); err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.IPAddr:       neigh.IP,
-					logfields.HardwareAddr: neigh.HardwareAddr,
-					logfields.LinkIndex:    neigh.LinkIndex,
-				}).WithError(err).Warn("Failed to remove neighbor entry")
-				return
+				return fmt.Errorf("failed to remove neighbor entry: %w", err)
 			}
 
 			if option.Config.NodePortHairpin {
@@ -657,6 +648,8 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
