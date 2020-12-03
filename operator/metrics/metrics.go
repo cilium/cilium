@@ -15,28 +15,118 @@
 package metrics
 
 import (
-	"log"
+	"context"
 	"net/http"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "metrics")
+)
+
 const Namespace = "cilium_operator"
 
 var (
-	Registry *prometheus.Registry
+	Registry   *prometheus.Registry
+	shutdownCh chan struct{}
 )
 
 func Register() {
+	log.Info("Registering Operator metrics")
+
 	Registry = prometheus.NewPedanticRegistry()
-	Registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
+	registerMetrics()
+
+	m := http.NewServeMux()
+	m.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
+	srv := &http.Server{
+		Addr:    operatorOption.Config.OperatorPrometheusServeAddr,
+		Handler: m,
+	}
+
+	shutdownCh = make(chan struct{})
 	go func() {
-		// The Handler function provides a default handler to expose metrics
-		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		http.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
-		log.Fatal(http.ListenAndServe(operatorOption.Config.OperatorPrometheusServeAddr, nil))
+		go func() {
+			err := srv.ListenAndServe()
+			switch err {
+			case http.ErrServerClosed:
+				log.Info("Metrics server shutdown successfully")
+				return
+			default:
+				log.WithError(err).Fatal("Metrics server ListenAndServe failed")
+			}
+		}()
+
+		<-shutdownCh
+		log.Info("Received shutdown signal")
+		if err := srv.Shutdown(context.TODO()); err != nil {
+			log.WithError(err).Error("Shutdown operator metrics server failed")
+		}
 	}()
+}
+
+func Unregister() {
+	log.Info("Shutting down metrics server")
+
+	if shutdownCh == nil {
+		return
+	}
+
+	shutdownCh <- struct{}{}
+}
+
+var (
+	// IdentityGCSize records the identity GC results
+	IdentityGCSize *prometheus.GaugeVec
+
+	// IdentityGCRuns records how many times identity GC has run
+	IdentityGCRuns *prometheus.GaugeVec
+)
+
+const (
+	// LabelStatus marks the status of a resource or completed task
+	LabelStatus = "status"
+
+	// LabelOutcome indicates whether the outcome of the operation was successful or not
+	LabelOutcome = "outcome"
+
+	// Label values
+
+	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
+	LabelValueOutcomeSuccess = "success"
+
+	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
+	LabelValueOutcomeFail = "fail"
+)
+
+func registerMetrics() []prometheus.Collector {
+	// Builtin process metrics
+	Registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
+
+	// Custom metrics
+	var collectors []prometheus.Collector
+
+	IdentityGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "identity_gc_entries_total",
+		Help:      "The number of alive and deleted identities at the end of a garbage collector run",
+	}, []string{LabelStatus})
+	collectors = append(collectors, IdentityGCSize)
+
+	IdentityGCRuns = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "identity_gc_runs_total",
+		Help:      "The number of times identity garbage collector has run",
+	}, []string{LabelOutcome})
+	collectors = append(collectors, IdentityGCRuns)
+
+	Registry.MustRegister(collectors...)
+
+	return collectors
 }

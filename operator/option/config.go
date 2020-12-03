@@ -23,6 +23,9 @@ import (
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
+
+	// PrometheusServeAddr is the default server address for operator metrics
+	PrometheusServeAddr = ":6942"
 )
 
 const (
