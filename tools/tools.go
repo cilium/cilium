@@ -17,6 +17,7 @@
 package tools
 
 import (
+	_ "github.com/cilium/customvet"
 	_ "github.com/cilium/deepequal-gen"
 	_ "github.com/go-bindata/go-bindata/v3"
 	_ "github.com/go-bindata/go-bindata/v3/go-bindata"

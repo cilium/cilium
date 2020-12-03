@@ -21,6 +21,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader/fswatcher"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -159,11 +160,11 @@ func (w *Watcher) Watch() <-chan struct{} {
 
 				if keypairUpdated {
 					if keypairReload == nil {
-						keypairReload = time.After(watcherEventCoalesceWindow)
+						keypairReload = inctimer.After(watcherEventCoalesceWindow)
 					}
 				} else if caUpdated {
 					if caReload == nil {
-						caReload = time.After(watcherEventCoalesceWindow)
+						caReload = inctimer.After(watcherEventCoalesceWindow)
 					}
 				} else {
 					// fswatcher should never send events for unknown files
