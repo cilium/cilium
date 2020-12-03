@@ -226,6 +226,26 @@ be only accessible if the source endpoint also has the label ``env=prod``.
 
         .. literalinclude:: ../../examples/policies/l3/requires/requires.json
 
+This ``fromRequires`` rule doesn't allow anything on its own and needs to be
+combined with other rules to allow traffic. For example, when combined with the
+example policy below, the endpoint with label ``env=prod`` will become
+accessible from endpoints that have both labels ``env=prod`` and
+``role=frontend``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.json
+
 .. _Services based:
 
 Services based
