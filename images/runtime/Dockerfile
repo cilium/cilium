@@ -10,7 +10,7 @@ ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:8bce67040cd0ae39e0beb55bc
 
 ARG CILIUM_LLVM_IMAGE=docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac
 ARG CILIUM_BPFTOOL_IMAGE=docker.io/cilium/cilium-bpftool:fbb2e86339609f6755f53fcefd2257e4beea4423
-ARG CILIUM_IPROUTE2_IMAGE=docker.io/cilium/cilium-iproute2:44d4c6ebc57b78af0f1080ef52da2bae2605a439
+ARG CILIUM_IPROUTE2_IMAGE=docker.io/cilium/cilium-iproute2:3f4e19bb56e261313291f314b604d44fe15ea47f
 
 FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
