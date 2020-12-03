@@ -62,7 +62,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/russross/blackfriday v1.5.2
+	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 	github.com/shirou/gopsutil v2.20.4+incompatible

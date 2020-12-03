@@ -33,7 +33,7 @@ import (
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 
-	"github.com/russross/blackfriday"
+	"github.com/russross/blackfriday/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -433,7 +433,7 @@ func printTicks(w io.Writer) {
 }
 
 func writeHTML(data []byte, path string) {
-	output := blackfriday.MarkdownCommon(data)
+	output := blackfriday.Run(data)
 	if err := ioutil.WriteFile(path, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
 		return
