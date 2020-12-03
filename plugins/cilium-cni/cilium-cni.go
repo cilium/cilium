@@ -63,7 +63,6 @@ var (
 )
 
 func init() {
-	logging.SetLogLevel(logrus.DebugLevel)
 	runtime.LockOSThread()
 }
 
@@ -262,6 +261,17 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
+func setupLogging(n *types.NetConf) error {
+	f := n.LogFormat
+	if f == "" {
+		f = string(logging.DefaultLogFormat)
+	}
+	logOptions := logging.LogOptions{
+		logging.FormatOpt: f,
+	}
+	return logging.SetupLogging([]string{}, logOptions, "cilium-cni", n.EnableDebug)
+}
+
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	var (
 		ipConfig *cniTypesVer.IPConfig
@@ -271,19 +281,21 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		c        *client.Client
 		netNs    ns.NetNS
 	)
-	logger := log.WithField("eventUUID", uuid.NewUUID())
 
 	n, err = types.LoadNetConf(args.StdinData)
 	if err != nil {
-		// In case of an error is helpful to always print the processing CNI
-		// ADD request.
-		logger.Infof("Processing CNI ADD request %#v", args)
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return
 	}
-	if !n.EnableDebug {
-		logger.Logger.SetLevel(logrus.InfoLevel)
-	} else {
+
+	if innerErr := setupLogging(n); innerErr != nil {
+		err = fmt.Errorf("unable to setup logging: %w", innerErr)
+		return
+	}
+
+	logger := log.WithField("eventUUID", uuid.NewUUID())
+
+	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
 			log.WithError(err).Warn("Unable to start gops")
 		} else {
@@ -543,20 +555,19 @@ func cmdDel(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
-
-	logger := log.WithField("eventUUID", uuid.NewUUID())
-
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		// In case of an error is helpful to always print the processing CNI
-		// DEL request.
-		logger.Infof("Processing CNI DEL request %#v", args)
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return err
 	}
-	if !n.EnableDebug {
-		logger.Logger.SetLevel(logrus.InfoLevel)
-	} else {
+
+	if err := setupLogging(n); err != nil {
+		return fmt.Errorf("unable to setup logging: %w", err)
+	}
+
+	logger := log.WithField("eventUUID", uuid.NewUUID())
+
+	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
 			log.WithError(err).Warn("Unable to start gops")
 		} else {
