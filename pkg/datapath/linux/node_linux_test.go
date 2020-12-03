@@ -1094,6 +1094,10 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 
 		ip, ipnet, err := net.ParseCIDR(vethCIDR)
+		if err != nil {
+			errRet = err
+			return
+		}
 		ip2 := net.ParseIP(vethIPAddr)
 		ip3 := net.ParseIP(vethPeerIPAddr)
 		ipnet.IP = ip2
