@@ -17,6 +17,7 @@ package main
 import (
 	"time"
 
+	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -34,14 +35,29 @@ func startKvstoreIdentityGC() {
 	}
 	a := allocator.NewAllocatorForGC(backend)
 
+	successfulRuns := 0
+	failedRuns := 0
 	keysToDelete := map[string]uint64{}
 	go func() {
 		for {
-			keysToDelete2, err := a.RunGC(identityRateLimiter, keysToDelete)
+			keysToDelete2, gcStats, err := a.RunGC(identityRateLimiter, keysToDelete)
 			if err != nil {
 				log.WithError(err).Warning("Unable to run security identity garbage collector")
+
+				if operatorOption.Config.EnableMetrics {
+					failedRuns++
+					metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(failedRuns))
+				}
 			} else {
 				keysToDelete = keysToDelete2
+
+				if operatorOption.Config.EnableMetrics {
+					successfulRuns++
+					metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(successfulRuns))
+
+					metrics.IdentityGCSize.WithLabelValues("alive").Set(float64(gcStats.Alive))
+					metrics.IdentityGCSize.WithLabelValues("deleted").Set(float64(gcStats.Deleted))
+				}
 			}
 			<-time.After(operatorOption.Config.IdentityGCInterval)
 			log.WithFields(logrus.Fields{

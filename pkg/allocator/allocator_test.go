@@ -181,8 +181,8 @@ func (d *dummyBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value)
 	return nil, nil
 }
 
-func (d *dummyBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64) (map[string]uint64, error) {
-	return nil, nil
+func (d *dummyBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64) (map[string]uint64, *GCStats, error) {
+	return nil, nil, nil
 }
 
 func (d *dummyBackend) Status() (string, error) {
