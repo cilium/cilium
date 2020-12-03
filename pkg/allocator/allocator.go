@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -841,6 +842,8 @@ func (a *Allocator) syncLocalKeys() error {
 
 func (a *Allocator) startLocalKeySync() {
 	go func(a *Allocator) {
+		kvTimer, kvTimerDone := inctimer.New()
+		defer kvTimerDone()
 		for {
 			if err := a.syncLocalKeys(); err != nil {
 				log.WithError(err).Warning("Unable to run local key sync routine")
@@ -850,7 +853,7 @@ func (a *Allocator) startLocalKeySync() {
 			case <-a.stopGC:
 				log.Debug("Stopped master key sync routine")
 				return
-			case <-time.After(option.Config.KVstorePeriodicSync):
+			case <-kvTimer.After(option.Config.KVstorePeriodicSync):
 			}
 		}
 	}(a)
