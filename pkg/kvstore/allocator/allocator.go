@@ -437,12 +437,15 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *allocator.GCStats, error) {
 	// fetch list of all /id/ keys
 	allocated, err := k.backend.ListPrefix(ctx, k.idPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("list failed: %s", err)
+		return nil, nil, fmt.Errorf("list failed: %s", err)
 	}
+
+	totalEntries := len(allocated)
+	deletedEntries := 0
 
 	staleKeys := map[string]uint64{}
 
@@ -492,6 +495,7 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, sta
 					if err := k.backend.DeleteIfLocked(ctx, key, lock); err != nil {
 						scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
 					} else {
+						deletedEntries++
 						scopedLog.Info("Deleted unused allocator master key")
 					}
 					// consider the key regardless if there was an error from
@@ -513,12 +517,16 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, sta
 			// for a long period of time.
 			err = rateLimit.Wait(ctx)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
 
-	return staleKeys, nil
+	gcStats := &allocator.GCStats{
+		Alive:   totalEntries - deletedEntries,
+		Deleted: deletedEntries,
+	}
+	return staleKeys, gcStats, nil
 }
 
 func (k *kvstoreBackend) keyToID(key string) (id idpool.ID, err error) {
