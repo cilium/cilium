@@ -631,6 +631,23 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 	})
+
+	Context("Host firewall", func() {
+		SkipItIf(func() bool {
+			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
+		}, "Check connectivity with IPv6 disabled", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"ipv4.enabled": "true",
+				"ipv6.enabled": "false",
+				"hostFirewall": "true",
+				// We need the default GKE config. except for per-endpoint
+				// routes (incompatible with host firewall for now).
+				"gke.enabled": "false",
+				"tunnel":      "disabled",
+			}, DeployCiliumOptionsAndDNS)
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
+	})
 })
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
