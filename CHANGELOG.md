@@ -1,5 +1,95 @@
 # Changelog
 
+## v1.8.6
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* change default docker image repository from docker.io to quay.io (Backport PR #14022, Upstream PR #13937, @aanm)
+
+**Minor Changes:**
+* Add Resource Quotas in Cilium Namespace for GKE installations (Backport PR #13951, Upstream PR #13878, @aanm)
+* docs: Point OKD guide at 1.8.5 (#13849, @errordeveloper)
+* k8s: update k8s libraries to 1.18.12 (#14034, @aanm)
+* node: Handle arpinging when remote node is in different L2 (Backport PR #14249, Upstream PR #14201, @brb)
+* v1.8: Update Go to 1.14.12 (#14015, @tklauser)
+
+**Bugfixes:**
+* bpf: Fix --force-local-policy-eval-at-source=false (Backport PR #13875, Upstream PR #13769, @joestringer)
+* bpf: fix disable PolicyVerdictNotification broken (Backport PR #13951, Upstream PR #13921, @ArthurChiao)
+* ctmap: GC orphan SNAT entries (Backport PR #14022, Upstream PR #13912, @brb)
+* Fix bug in cluster-pool IPAM mode where the user is never alerted of a node CIDR allocation failure (Backport PR #14022, Upstream PR #13916, @christarazi)
+* Fix bug where Cilium on smaller instance types cannot allocate IPs (Backport PR #14059, Upstream PR #13865, @christarazi)
+* Fix dynamic NAT table size calculation if CT map sizes are configured statically. (Backport PR #13875, Upstream PR #13844, @tklauser)
+* Fix etcd's auth token invalid after watch reconnects (Backport PR #14249, Upstream PR #14238, @aanm)
+* Fix panic on cilium-agent startup when restoring LB source range maps (Backport PR #13875, Upstream PR #13842, @aanm)
+* Fixed Goroutine leak for unresponded ARP pings. (Backport PR #14249, Upstream PR #14222, @jrajahalme)
+* Fixed installation instructions for K3s and Kubernetes Network Policy enforcement (Backport PR #13875, Upstream PR #13783, @aanm)
+* FQDN rule restoration IP limit has been made configurable (`--tofqdns-max-ips-per-restored-rule`, default 1000). (Backport PR #14022, Upstream PR #13992, @jrajahalme)
+* fqdn: Add a nil check for security id lookup (Backport PR #13951, Upstream PR #13886, @aditighag)
+* fqdn: Delay ipcache upserts until policies have been updated (Backport PR #14213, Upstream PR #14110, @jrajahalme)
+* fqdn: keep IPs alive if their name is alive (Backport PR #13951, Upstream PR #13914, @kkourt)
+* go.mod: update cilium/ipam library with bug fixes (Backport PR #13875, Upstream PR #13810, @aanm)
+* Hubble-relay now proxies the GRPC context to its servers. (Backport PR #13951, Upstream PR #12865, @nathanjsweet)
+* hubble/parser: Always preserve datapath numeric identity (Backport PR #14213, Upstream PR #14090, @gandro)
+* hubble: Fix reply state unknown being interpreted as false (Backport PR #13876, Upstream PR #13750, @gandro)
+* Increment the default value of maximum garbage collected security identities from 250 to 2500 per minute (Backport PR #13951, Upstream PR #13907, @aanm)
+* kpr: ensure DirectRoutingDevice is in devices (Backport PR #14249, Upstream PR #14054, @kkourt)
+* Trim spaces from loadBalancerSourceRanges when parsing its values. (Backport PR #14059, Upstream PR #13996, @aanm)
+
+**CI Changes:**
+* bpf: Compile test POLICY_VERDICT_NOTIFY (Backport PR #13951, Upstream PR #13922, @pchaigno)
+* ci: log in to docker in vagrant boxes (Backport PR #14022, Upstream PR #13969, @nebril)
+* daemon: Fix netns usage in kpr privileged unit tests (Backport PR #14213, Upstream PR #14171, @brb)
+* test/bpf: Fix XDP loading in verifier-test.sh (Backport PR #13951, Upstream PR #13927, @pchaigno)
+* test: Don't wait for network to schedule test-verifier (Backport PR #14142, Upstream PR #14074, @pchaigno)
+* test: Increase timeout on privileged unit tests (Backport PR #14022, Upstream PR #13944, @pchaigno)
+* test: Move RuntimeVerifier to K8sVerifier (Backport PR #13951, Upstream PR #12658, @pchaigno)
+
+**Misc Changes:**
+* Add Registry Credentials to Tests (Backport PR #14009, Upstream PR #13959, @nathanjsweet)
+* Added new Cilium agent option --debug-verbose=policy to log policy map updates. (Backport PR #14213, Upstream PR #14112, @jrajahalme)
+* bpf: fix session affinity timeout test flake (Backport PR #13875, Upstream PR #13859, @fristonio)
+* bugtool: Add lsmod (Backport PR #14213, Upstream PR #14145, @joestringer)
+* ci/github: Replace set-env command by echo command (Backport PR #14059, Upstream PR #14053, @sayboras)
+* cilium: disable bind-protection in kube-proxy free probe mode (Backport PR #14213, Upstream PR #14182, @borkmann)
+* cilium: fix redirect limits on multi dev case (Backport PR #14087, Upstream PR #13884, @borkmann)
+* cilium: Node to node encryption is not supported with vxlan (Backport PR #13875, Upstream PR #13800, @jrfastab)
+* daemon: Don't check XDPDevice in DevicePreFilter case (Backport PR #13875, Upstream PR #13794, @brb)
+* dnsproxy: print total number of rules if too many (Backport PR #14022, Upstream PR #13991, @kkourt)
+* doc: Link hubble metrics to L7 visibility (Backport PR #14213, Upstream PR #13923, @mandarjog)
+* docs: Add Azure troubleshooting tips (Backport PR #13875, Upstream PR #13714, @jrajahalme)
+* docs: Add how to remove kube-proxy from existing clusters (Backport PR #13875, Upstream PR #13808, @brb)
+* docs: Fix helm install command in kubeadm getting started guide (Backport PR #14087, Upstream PR #14061, @pchaigno)
+* docs: Fix shell session highlighting (Backport PR #13875, Upstream PR #13704, @joestringer)
+* docs: Fix wording around labels configuration (Backport PR #14087, Upstream PR #14064, @joestringer)
+* Documentation: Fix Loadbalancer Guide for Clustermesh (Backport PR #13875, Upstream PR #13822, @nathanjsweet)
+* examples: Fix grafana and prometheus (Backport PR #13875, Upstream PR #13860, @nathanjsweet)
+* Fix GetFlows Test (Backport PR #13951, Upstream PR #13206, @nathanjsweet)
+* fqdn: Fix confusion of ToFQDNs vs. DNS rules. (Backport PR #14087, Upstream PR #14012, @jrajahalme)
+* fqdn: Fix unit test (Backport PR #14087, Upstream PR #14085, @jrajahalme)
+* helm: Backport `agent.extraHostPathMounts` (#14173, @errordeveloper)
+* helm: Fix format issue for logOptions in ConfigMap (Backport PR #13875, Upstream PR #13837, @sayboras)
+* Hubble-Relay: proxy metadata from originating client (Backport PR #14022, Upstream PR #13994, @nathanjsweet)
+* hubble: Fix dropped flows not showing up in Hubble UI (Backport PR #13876, Upstream PR #13796, @gandro)
+* Improve and expand on documentation for the API rate limiter (Backport PR #13875, Upstream PR #13825, @christarazi)
+* k8s: clarify CRD schema versioning and its update process (Backport PR #13875, Upstream PR #13811, @aanm)
+* loader: Use netlink lib instead of tc binary to delete filters (Backport PR #13875, Upstream PR #13724, @pchaigno)
+* metrics: add cilium_datapath_nat_gc_entries (Backport PR #14142, Upstream PR #12832, @ArthurChiao)
+* node: Fix ineffectual assignment (Backport PR #14249, Upstream PR #14256, @brb)
+* node: Misc neighbor related changes (Backport PR #14142, Upstream PR #14070, @brb)
+* pkg/kvstore: fix race in etcd initialization (Backport PR #13875, Upstream PR #13780, @aanm)
+* release: add script to check presence of docker images (Backport PR #13951, Upstream PR #13892, @aanm)
+* Update wording for BPFFS requirement and move to main system requirements page (Backport PR #13875, Upstream PR #13710, @joestringer)
+* Various fixes for NodePort XDP kube-proxy free guide (Backport PR #13875, Upstream PR #13674, @tklauser)
+* [v1.8] Update Go to 1.14.11 (#13948, @tklauser)
+
+**Other Changes:**
+* [v1.8] backporting: Escape commit message when used as regex (#13873, @tklauser)
+* [v1.8] contrib: Sort authors without depending on locale (#13802, @christarazi)
+* v1.8: hubble/relay: flush old flows when the buffer drain timeout is reached (#13877, @Rolinh)
+
 ## v1.8.5
 
 Summary of Changes
@@ -102,7 +192,8 @@ Summary of Changes
 **Minor Changes:**
 * DNS Proxy is started earlier in the Cilium agent bootstrap to make it available to running endpoints sooner. (Backport PR #13226, Upstream PR #12964, @jrajahalme)
 * k8s: honor the service.kubernetes.io/service-proxy-name label (Backport PR #13126, Upstream PR #13036, @fristonio)
-* Remove the default toleration on hubble-relay deployment. Set the Helm value `hubble-relay.tolerations[0].operator=Exists` to restore the previous behavior. (Backport PR #13246, Upstream PR #13237, @gandro)
+* Remove the default toleration on hubble-relay deployment.
+ Set the Helm value `hubble-relay.tolerations[0].operator=Exists` to restore the previous behavior. (Backport PR #13246, Upstream PR #13237, @gandro)
 * update Go to 1.14.8 (#13102, @tklauser)
 * Update Go to 1.14.9 (#13140, @tklauser)
 * Update gops to v0.3.10 (#13128, @tklauser)
@@ -121,7 +212,8 @@ Summary of Changes
 * Fix bug in operator where the operator instances in HA mode can become inconsistent in terms of running mode(HA/non HA), if kube-apiserver is not accessible when deriving k8s capabilities. (Backport PR #13246, Upstream PR #13219, @fristonio)
 * Fix bug where Hubble and the Cilium CLI would fail to resolve security identities across a cluster mesh. (Backport PR #13212, Upstream PR #13205, @gandro)
 * Fix clustermesh policy with endpoint-routes mode (Backport PR #13184, Upstream PR #12694, @joestringer)
-* Fix endpoint selection for a wildcard to/fromEndpoints in CCNP. Cilium will only allow access from Cilium-managed endpoints in such cases instead of allowing traffic from any source. Preflight checks, when following the upgrade guide, have been extended to warn users of the new behavior. (Backport PR #13126, Upstream PR #12890, @fristonio)
+* Fix endpoint selection for a wildcard to/fromEndpoints in CCNP.
+ Cilium will only allow access from Cilium-managed endpoints in such cases instead of allowing traffic from any source. Preflight checks, when following the upgrade guide, have been extended to warn users of the new behavior. (Backport PR #13126, Upstream PR #12890, @fristonio)
 * Fix handling of changes to session affinity configuration for Kubernetes services. (Backport PR #13286, Upstream PR #13271, @adamwg)
 * Fix issue in NodePort service revnat handling where the interface index was not properly restored from the conntrack state leading to packet redirects to an invalid interface. (Backport PR #13289, Upstream PR #13162, @fristonio)
 * Fix panic when restoring services with enable-health-check-nodeport: false (Backport PR #13212, Upstream PR #13190, @gandro)
@@ -153,7 +245,8 @@ Summary of Changes
 * identity: Avoid kvstore lookup for local identities (Backport PR #13320, Upstream PR #13228, @gandro)
 * pkg/logging: add a logfield to embed help messages when logging (Backport PR #13126, Upstream PR #12946, @fristonio)
 * Prevent Cilium from deleting all custom resources especially CNP & CCNP installed inside the cluster (Backport PR #13289, Upstream PR #13272, @christarazi)
-* Report HTTP "service unavailable" (503) instead of "internal server error" (500) in unhealthy state, commonly used in Kubernetes liveness and readiness probes. (Backport PR #13212, Upstream PR #13188, @tklauser)
+* Report HTTP "service unavailable" (503) instead of "internal
+ server error" (500) in unhealthy state, commonly used in Kubernetes liveness and readiness probes. (Backport PR #13212, Upstream PR #13188, @tklauser)
 * Warn when failing to update CiliumNode status (Backport PR #13212, Upstream PR #13197, @christarazi)
 
 ## v1.8.3
