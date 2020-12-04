@@ -67,7 +67,7 @@ name: cilium
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: v1.9.0
+  tag: v1.9.1
   pullPolicy: IfNotPresent
 
 # -- Pod affinity for cilium-agent.
@@ -539,7 +539,7 @@ hubble:
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
-      tag: v1.9.0
+      tag: v1.9.1
       pullPolicy: IfNotPresent
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1049,7 +1049,7 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: v1.9.0
+    tag: v1.9.1
     pullPolicy: IfNotPresent
 
   # -- Number of replicas to run for the cilium-operator deployment
@@ -1254,7 +1254,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.9.0
+    tag: v1.9.1
     pullPolicy: IfNotPresent
 
   priorityClassName: ""
@@ -1362,7 +1362,7 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: v1.9.0
+      tag: v1.9.1
       pullPolicy: IfNotPresent
 
     etcd:
