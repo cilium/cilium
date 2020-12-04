@@ -15,31 +15,34 @@
 package loader
 
 import (
+	"crypto/sha256"
+	"encoding"
+	"encoding/hex"
+	"hash"
 	"io"
 
-	"github.com/cilium/cilium/pkg/crypto/sha1"
 	"github.com/cilium/cilium/pkg/datapath"
 )
 
 var (
-	// DatapathSHA is set during build to the SHA across all datapath BPF
-	// code. See the definition of CILIUM_DATAPATH_SHA in Makefile.defs for
+	// DatapathSHA256 is set during build to the SHA across all datapath BPF
+	// code. See the definition of CILIUM_DATAPATH_SHA256 in Makefile.defs for
 	// details.
-	DatapathSHA string
+	DatapathSHA256 string
 )
 
 // datapathHash represents a unique enumeration of the datapath implementation.
 type datapathHash struct {
-	sha1.ResumableHash
+	hash.Hash
 }
 
 // newDatapathHash creates a new datapath hash based on the contents of the datapath
 // template files under bpf/.
 func newDatapathHash() *datapathHash {
-	d := sha1.New()
-	io.WriteString(d, DatapathSHA)
+	d := sha256.New()
+	io.WriteString(d, DatapathSHA256)
 	return &datapathHash{
-		ResumableHash: d,
+		Hash: d,
 	}
 }
 
@@ -78,4 +81,22 @@ func (d *datapathHash) sumEndpoint(c datapath.ConfigWriter, epCfg datapath.Endpo
 		c.WriteTemplateConfig(result, epCfg)
 	}
 	return result.String(), nil
+}
+
+func (d *datapathHash) Copy() (*datapathHash, error) {
+	state, err := d.Hash.(encoding.BinaryMarshaler).MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	newDatapathHash := sha256.New()
+	if err := newDatapathHash.(encoding.BinaryUnmarshaler).UnmarshalBinary(state); err != nil {
+		return nil, err
+	}
+	return &datapathHash{
+		Hash: newDatapathHash,
+	}, nil
+}
+
+func (d *datapathHash) String() string {
+	return hex.EncodeToString(d.Sum(nil))
 }
