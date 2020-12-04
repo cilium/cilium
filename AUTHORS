@@ -1,6 +1,7 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
+Aditi Ghag                              aditi@cilium.io
 Adrien Trouillaud                       adrienjt@users.noreply.github.com
 Alban Crequy                            alban@kinvolk.io
 Alexander Alemayhu                      alexander@alemayhu.com
@@ -118,6 +119,7 @@ Martin Koppehel                         martin.koppehel@st.ovgu.de
 Martynas Pumputis                       m@lambda.lt
 Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com
+Maxime VISONNEAU                        maxime.visonneau@gmail.com
 Melissa Peiffer                         mbp83@nau.edu
 Michael Schubert                        michael@kinvolk.io
 Michael Vorburger                       vorburger@redhat.com
@@ -126,6 +128,7 @@ Michi Mutsuzaki                         michi@isovalent.com
 Moh Ahmed                               moh.ahmed@cengn.ca
 Moritz Johner                           beller.moritz@googlemail.com
 Moshe Immerman                          moshe.immerman@vitalitygroup.com
+Nate Sweet                              nathanjsweet@pm.me
 Nathan Bird                             njbird@infiniteenergy.com
 Nathan Taylor                           ntaylor1781@gmail.com
 Neela Jacques                           neela@isovalent.com
@@ -172,7 +175,6 @@ Timo Reimann                            ttr314@googlemail.com
 Tobias Klauser                          tklauser@distanz.ch
 Tom Hadlaw                              thomas.hadlaw@hootsuite.com
 Tony Lambiris                           tony@criticalstack.com
-Tony Lu                                 tonylu@linux.alibaba.com
 Tony Lu                                 tonylu@linux.alibaba.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
 Umesh Keerthy B S                       umesh.freelance@gmail.com
