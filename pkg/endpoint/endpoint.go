@@ -2293,7 +2293,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 		// ingress rule and one egress rule. If we find more than one rule in
 		// either case, then the rules will be left as-is because there was
 		// likely manual intervention.
-		if err := linuxrouting.Delete(e.IPv4.IP()); err != nil {
+		if err := linuxrouting.Delete(e.IPv4.IP(), option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %s", err))
 		}
 	}
