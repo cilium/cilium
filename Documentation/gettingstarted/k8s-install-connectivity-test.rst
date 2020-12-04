@@ -37,7 +37,7 @@ indicates success or failure of the test:
    pod-to-b-multi-node-headless-7d44b85d69-mtscc            1/1     Running   0          66s
    pod-to-b-multi-node-nodeport-7ffc76db7c-rrw82            1/1     Running   0          65s
    pod-to-external-1111-d56f47579-d79dz                     1/1     Running   0          66s
-   pod-to-external-fqdn-allow-google-cnp-78986f4bcf-btjn7   0/1     Running   0          66s
+   pod-to-external-fqdn-allow-google-cnp-78986f4bcf-btjn7   1/1     Running   0          66s
 
 .. note::
 
