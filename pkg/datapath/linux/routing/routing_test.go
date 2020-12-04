@@ -60,7 +60,7 @@ func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	_, ri := getFakes(c)
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
-	err := ri.Configure(ipv6, 1500, true)
+	err := ri.Configure(ipv6, 1500, true, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
@@ -68,7 +68,7 @@ func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 func (e *LinuxRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
-	err := Delete(ipv6)
+	err := Delete(ipv6, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
@@ -137,7 +137,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 			defer ifaceCleanup()
 
 			ip := tt.preRun()
-			err := Delete(ip)
+			err := Delete(ip, false)
 			c.Assert((err != nil), Equals, tt.wantErr)
 		})
 	}
@@ -183,12 +183,12 @@ func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool)
 }
 
 func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool) {
-	err := ri.Configure(ip, mtu, masq)
+	err := ri.Configure(ip, mtu, masq, false)
 	c.Assert(err, IsNil)
 }
 
 func runDelete(c *C, ip net.IP) {
-	err := Delete(ip)
+	err := Delete(ip, false)
 	c.Assert(err, IsNil)
 }
 

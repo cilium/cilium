@@ -48,6 +48,7 @@ func eniAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf m
 		ipConfig.Address.IP,
 		int(conf.DeviceMTU),
 		conf.Masquerade,
+		conf.EgressMultiHomeIPRuleCompat,
 	); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %s", err)
 	}
