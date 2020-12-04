@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.7.12
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* change default docker image repository from docker.io to quay.io (Backport PR #13987, Upstream PR #13937, @aanm)
+
+**Minor Changes:**
+* Added support for logging in JSON format (Backport PR #14174, Upstream PR #11133, @mvisonneau)
+* k8s: update k8s libraries to 1.17.14 (#14035, @aanm)
+* metrics: add cilium_datapath_nat_gc_entries (Backport PR #14140, Upstream PR #12832, @ArthurChiao)
+
+**Bugfixes:**
+* ctmap: GC orphan SNAT entries (Backport PR #14140, Upstream PR #13912, @brb)
+* Fixed Goroutine leak for unresponded ARP pings. (Backport PR #14247, Upstream PR #14222, @jrajahalme)
+* FQDN rule restoration IP limit has been made configurable (`--tofqdns-max-ips-per-restored-rule`, default 1000). (Backport PR #14068, Upstream PR #13992, @jrajahalme)
+* fqdn: Add a nil check for security id lookup (Backport PR #13950, Upstream PR #13886, @aditighag)
+* fqdn: Delay ipcache upserts until policies have been updated (#14084, @jrajahalme)
+* fqdn: keep IPs alive if their name is alive (Backport PR #13950, Upstream PR #13914, @kkourt)
+* Increment the default value of maximum garbage collected security identities from 250 to 2500 per minute (Backport PR #13950, Upstream PR #13907, @aanm)
+* Register "log-driver" and "log-opt" flags with the cilium-operator command. (Backport PR #14174, Upstream PR #12395, @ungureanuvladvictor)
+
+**CI Changes:**
+* ci: log in to docker in vagrant boxes (Backport PR #13987, Upstream PR #13969, @nebril)
+* Add Registry Credentials to Tests (Backport PR #14068, Upstream PR #13959, @nathanjsweet)
+
+**Misc Changes:**
+* backporting: Clean tmp files after backport with conflicts (Backport PR #13871, Upstream PR #13707, @pchaigno)
+* backporting: Properly escape commit message when used as regex (Backport PR #13871, Upstream PR #13756, @gandro)
+* cilium: improve bpf dp signal upon ct insertion error (Backport PR #14140, Upstream PR #11684, @borkmann)
+* dnsproxy: print total number of rules if too many (Backport PR #14068, Upstream PR #13991, @kkourt)
+* endpoint: Add DebugPolicy option (#14081, @jrajahalme)
+* fqdn: Fix confusion of ToFQDNs vs. DNS rules. (Backport PR #14068, Upstream PR #14012, @jrajahalme)
+* Improve and expand on documentation for the API rate limiter (Backport PR #13871, Upstream PR #13825, @christarazi)
+* k8s: clarify CRD schema versioning and its update process (Backport PR #13871, Upstream PR #13811, @aanm)
+* maps/ctmap: unexport NewMap, MapType type and related consts (Backport PR #14140, Upstream PR #10440, @tklauser)
+* release: add script to check presence of docker images (Backport PR #13950, Upstream PR #13892, @aanm)
+* contrib: Sort authors without depending on locale (#13851, @christarazi)
+
 ## v1.7.11
 
 Summary of Changes
