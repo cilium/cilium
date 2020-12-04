@@ -1,5 +1,92 @@
 # Changelog
 
+## v1.9.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bpf: add metrics for fragmented ipv4 packets (Backport PR #14088, Upstream PR #13347, @jibi)
+* helm: Add extraConfig in configmap template (Backport PR #14270, Upstream PR #14077, @michi-covalent)
+* helm: Correct nodeSelector values (Backport PR #14212, Upstream PR #14104, @sayboras)
+* helm: fix usage of `hostPath` and add `hostPathType` in `extraHostPathMounts` (Backport PR #14212, Upstream PR #14134, @errordeveloper)
+* install: Disable operator HA for quick/experimental install YAMLs (Backport PR #14116, Upstream PR #14102, @joestringer)
+* k8s: update k8s libraries to 1.19.4 (#14033, @aanm)
+* node: Handle arpinging when remote node is in different L2 (Backport PR #14246, Upstream PR #14201, @brb)
+
+**Bugfixes:**
+* bpf: Don't compile unused BPF sections (Backport PR #14212, Upstream PR #14141, @pchaigno)
+* ctmap: GC orphan SNAT entries (Backport PR #14060, Upstream PR #13912, @brb)
+* Fix bug where Cilium on smaller instance types cannot allocate IPs (Backport PR #14060, Upstream PR #13865, @christarazi)
+* Fix etcd's auth token invalid after watch reconnects (Backport PR #14270, Upstream PR #14238, @aanm)
+* Fixed Goroutine leak for unresponded ARP pings. (Backport PR #14246, Upstream PR #14222, @jrajahalme)
+* FQDN rule restoration IP limit has been made configurable (`--tofqdns-max-ips-per-restored-rule`, default 1000). (Backport PR #14060, Upstream PR #13992, @jrajahalme)
+* fqdn: Delay ipcache upserts until policies have been updated (Backport PR #14212, Upstream PR #14110, @jrajahalme)
+* hubble/parser: Always preserve datapath numeric identity (Backport PR #14212, Upstream PR #14090, @gandro)
+* kpr: ensure DirectRoutingDevice is in devices (Backport PR #14246, Upstream PR #14054, @kkourt)
+* metricsmap: fix Prometheus exporter (Backport PR #14270, Upstream PR #14220, @jibi)
+* Trim spaces from loadBalancerSourceRanges when parsing its values. (Backport PR #14060, Upstream PR #13996, @aanm)
+
+**CI Changes:**
+* .travis: Run race detection builds on master commits only (Backport PR #14270, Upstream PR #14189, @pchaigno)
+* build, ci: extend API checks to include Hubble API (Backport PR #14116, Upstream PR #14091, @tklauser)
+* checkpatch: update image tag to latest (Backport PR #14060, Upstream PR #13976, @qmonnet)
+* checkpatch: update image tag to latest (Backport PR #14212, Upstream PR #14135, @qmonnet)
+* ci/helpers: Delete CRDs in CleanupCiliumComponents (Backport PR #14246, Upstream PR #14187, @gandro)
+* ci: log in to docker in vagrant boxes (Backport PR #14060, Upstream PR #13969, @nebril)
+* daemon: Fix netns usage in kpr privileged unit tests (Backport PR #14212, Upstream PR #14171, @brb)
+* Revert commits that skip running tests on CI with EKS (Backport PR #14088, Upstream PR #13961, @christarazi)
+* test: Avoid installing Cilium for K8sBandwidth if tests are skipped (Backport PR #14212, Upstream PR #14185, @pchaigno)
+* test: Avoid use of install with NFS (Backport PR #14212, Upstream PR #14191, @pchaigno)
+* test: Bump migrate-svc-test image (Backport PR #14060, Upstream PR #14044, @brb)
+* test: Don't wait for network to schedule test-verifier (Backport PR #14116, Upstream PR #14074, @pchaigno)
+* test: Switch from Cilium test logger to Ginkgo (Backport PR #14060, Upstream PR #13754, @manuelbuil)
+* test: Use NFS by default in test VMs (Backport PR #14212, Upstream PR #13983, @pchaigno)
+
+**Misc Changes:**
+* Add Registry Credentials to Tests (Backport PR #14010, Upstream PR #13959, @nathanjsweet)
+* Added new Cilium agent option --debug-verbose=policy to log policy map updates. (Backport PR #14212, Upstream PR #14112, @jrajahalme)
+* bpf: don't override DROP_FRAG_NOT_FOUND error (Backport PR #14088, Upstream PR #13936, @jibi)
+* bpf: Fix IS_BPF_HOST macro (Backport PR #14270, Upstream PR #14255, @pchaigno)
+* bpf: Fix program size issue with host firewall in IPv4-only mode (Backport PR #14246, Upstream PR #14232, @pchaigno)
+* bpf: revert changes to metrics directions contants (Backport PR #14246, Upstream PR #14217, @jibi)
+* bugtool: Add lsmod (Backport PR #14212, Upstream PR #14145, @joestringer)
+* ci/github: Replace set-env command by echo command (Backport PR #14060, Upstream PR #14053, @sayboras)
+* cilium: disable bind-protection in kube-proxy free probe mode (Backport PR #14212, Upstream PR #14182, @borkmann)
+* cilium: fix redirect limits on multi dev case (Backport PR #14060, Upstream PR #13884, @borkmann)
+* contrib: Add script to bump stable docker image tags (Backport PR #14088, Upstream PR #13364, @joestringer)
+* dnsproxy: print total number of rules if too many (Backport PR #14060, Upstream PR #13991, @kkourt)
+* doc/hubble-internals: update Hubble Relay section to reflect current state (Backport PR #14060, Upstream PR #14042, @Rolinh)
+* doc: Link hubble metrics to L7 visibility (Backport PR #14212, Upstream PR #13923, @mandarjog)
+* docs: Correct typo in upgrade notes (Backport PR #14246, Upstream PR #14214, @sayboras)
+* docs: encryption: interface clarifications (Backport PR #14088, Upstream PR #13660, @kkourt)
+* docs: Fix helm install command in kubeadm getting started guide (Backport PR #14088, Upstream PR #14061, @pchaigno)
+* docs: Fix wording around labels configuration (Backport PR #14088, Upstream PR #14064, @joestringer)
+* docs: Improve visibility limitations docs (Backport PR #14116, Upstream PR #14073, @joestringer)
+* docs: Replace outdated backporting docs with link (Backport PR #14060, Upstream PR #13986, @twpayne)
+* fqdn: Fix confusion of ToFQDNs vs. DNS rules. (Backport PR #14088, Upstream PR #14012, @jrajahalme)
+* fqdn: Fix unit test (Backport PR #14116, Upstream PR #14085, @jrajahalme)
+* helm/hubble-relay: fixed indentation error (Backport PR #14088, Upstream PR #14029, @PranaviRoy)
+* helm/hubble-ui: fixed ingress configuration on EKS clusters (Backport PR #14060, Upstream PR #14023, @mvisonneau)
+* helm: 'upgradeCompatibility' needs to be a string, not a float64 (Backport PR #14088, Upstream PR #14019, @mvisonneau)
+* helm: Fix description for clustermesh (Backport PR #14212, Upstream PR #14163, @joestringer)
+* Hubble-Relay: proxy metadata from originating client (Backport PR #14060, Upstream PR #13994, @nathanjsweet)
+* Improve the Helm readme (Backport PR #14116, Upstream PR #14083, @joestringer)
+* Improve the Helm readme (Backport PR #14139, Upstream PR #14083, @joestringer)
+* ipam: Remove unnecessary deep copies (Backport PR #14116, Upstream PR #14078, @christarazi)
+* kvstore: add tests for etcd ratelimiter implementation (Backport PR #14116, Upstream PR #14063, @fristonio)
+* Log host routing fallback & document kernel requirement (Backport PR #14270, Upstream PR #14263, @pchaigno)
+* Mention kernel MTU bug in IPv4 fragmentation document (Backport PR #14088, Upstream PR #14030, @liuyuan10)
+* metrics: add cilium_datapath_nat_gc_entries (Backport PR #14116, Upstream PR #12832, @ArthurChiao)
+* node: Fix ineffectual assignment (Backport PR #14270, Upstream PR #14256, @brb)
+* node: Misc neighbor related changes (Backport PR #14116, Upstream PR #14070, @brb)
+* test: use kubectl helper for cilium cleanup in upgrade tests (Backport PR #14212, Upstream PR #14165, @fristonio)
+* Update troubleshooting docs for cilium-sysdump (Backport PR #14139, Upstream PR #14111, @christarazi)
+
+**Other Changes:**
+* Fix potential panic in Hubble when applying time range on non-flow events, e.g. LostEvent. (#14197, @tklauser)
+* v1.9: Update Go to 1.15.5 (#14014, @tklauser)
+
 ## v1.9.0
 
 Summary of Changes
