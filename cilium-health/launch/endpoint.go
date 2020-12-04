@@ -345,9 +345,12 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	if option.Config.IPAM == option.IPAMENI {
-		if err := routingConfig.Configure(healthIP,
+		if err := routingConfig.Configure(
+			healthIP,
 			mtuConfig.GetDeviceMTU(),
-			option.Config.Masquerade); err != nil {
+			option.Config.Masquerade,
+			option.Config.EgressMultiHomeIPRuleCompat,
+		); err != nil {
 
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
 		}
@@ -374,5 +377,5 @@ func LaunchAsEndpoint(baseCtx context.Context,
 }
 
 type routingConfigurer interface {
-	Configure(ip net.IP, mtu int, masq bool) error
+	Configure(ip net.IP, mtu int, masq, compat bool) error
 }
