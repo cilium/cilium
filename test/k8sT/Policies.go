@@ -1442,14 +1442,16 @@ var _ = Describe("K8sPolicyTest", func() {
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
 				count := testConnectivity(backendPodIP, false)
-				monitorCancel()
+				defer monitorCancel()
 
 				By("Asserting that the expected policy verdict logs are in the monitor output")
-				Expect(
-					len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
-				).To(BeNumerically(">=", count),
-					"Monitor output does not show traffic as denied: %s\n%s", policyVerdictDenyRegex,
-					monitor.CombineOutput().Bytes())
+				var verdicts int
+				err = helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+					verdicts = len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1))
+					return verdicts >= count
+				})
+				Expect(err).To(BeNil(), "Monitor output is missing verdicts (%d < %d): %s\n%s",
+					verdicts, count, policyVerdictDenyRegex, monitor.CombineOutput().Bytes())
 			})
 
 			It("connectivity is restored after importing ingress policy", func() {
@@ -1474,14 +1476,16 @@ var _ = Describe("K8sPolicyTest", func() {
 					"cnp-ingress-from-cidr-to-ports.yaml")
 				importPolicy(kubectl, testNamespace, cnpAllowIngress, "ingress-from-cidr-to-ports")
 				count := testConnectivity(backendPodIP, true)
-				monitorCancel()
+				defer monitorCancel()
 
 				By("Asserting that the expected policy verdict logs are in the monitor output")
-				Expect(
-					len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
-				).To(BeNumerically(">=", count),
-					"Monitor output does not show traffic as allowed: %s\n%s", policyVerdictAllowRegex,
-					monitor.CombineOutput().Bytes())
+				var verdicts int
+				err = helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+					verdicts = len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1))
+					return verdicts >= count
+				})
+				Expect(err).To(BeNil(), "Monitor output is missing verdicts (%d < %d): %s\n%s",
+					verdicts, count, policyVerdictAllowRegex, monitor.CombineOutput().Bytes())
 			})
 
 			Context("With host policy", func() {
@@ -1523,14 +1527,16 @@ var _ = Describe("K8sPolicyTest", func() {
 
 					testConnectivity(backendPodIP, true)
 					count := testConnectivity(hostIPOfBackendPod, false)
-					monitorCancel()
+					defer monitorCancel()
 
 					By("Asserting that the expected policy verdict logs are in the monitor output")
-					Expect(
-						len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
-					).To(BeNumerically(">=", count),
-						"Monitor output does not show traffic as denied: %s\n%s", policyVerdictDenyRegex,
-						monitor.CombineOutput().Bytes())
+					var verdicts int
+					err = helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+						verdicts = len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1))
+						return verdicts >= count
+					})
+					Expect(err).To(BeNil(), "Monitor output is missing verdicts (%d < %d): %s\n%s",
+						verdicts, count, policyVerdictDenyRegex, monitor.CombineOutput().Bytes())
 				})
 
 				It("Connectivity is restored after importing ingress policy", func() {
@@ -1555,14 +1561,16 @@ var _ = Describe("K8sPolicyTest", func() {
 
 					testConnectivity(backendPodIP, true)
 					count := testConnectivity(hostIPOfBackendPod, true)
-					monitorCancel()
+					defer monitorCancel()
 
 					By("Asserting that the expected policy verdict logs are in the monitor output")
-					Expect(
-						len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
-					).To(BeNumerically(">=", count),
-						"Monitor output does not show traffic as denied: %s\n%s", policyVerdictDenyRegex,
-						monitor.CombineOutput().Bytes())
+					var verdicts int
+					err = helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+						verdicts = len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1))
+						return verdicts >= count
+					})
+					Expect(err).To(BeNil(), "Monitor output is missing verdicts (%d < %d): %s\n%s",
+						verdicts, count, policyVerdictAllowRegex, monitor.CombineOutput().Bytes())
 
 					By("Removing the fromCIDR+toPorts ingress host policy")
 					// This is to ensure this policy is always removed before the default-deny one.
