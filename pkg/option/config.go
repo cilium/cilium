@@ -155,6 +155,9 @@ const (
 	// EnvoyLog sets the path to a separate Envoy log file, if any
 	EnvoyLog = "envoy-log"
 
+	// GopsPort is the TCP port for the gops server.
+	GopsPort = "gops-port"
+
 	// ProxyPrometheusPort specifies the port to serve Cilium host proxy metrics on.
 	ProxyPrometheusPort = "proxy-prometheus-port"
 
