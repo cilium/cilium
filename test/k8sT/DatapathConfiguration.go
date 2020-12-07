@@ -111,18 +111,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 			By("Checking that ICMP notifications in egress direction were observed")
 			expEgress := fmt.Sprintf("ICMPv4.*DstIP=%s", targetIP)
 			expEgressRegex := regexp.MustCompile(expEgress)
-			err := helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+			Eventually(func() bool {
 				return searchMonitorLog(expEgressRegex)
-			})
-			Expect(err).To(BeNil(), "Egress ICMPv4 flow (%q) not found in monitor log\n%s", expEgress, monitorOutput)
+			}, helpers.HelperTimeout).Should(BeTrue(), "Egress ICMPv4 flow (%q) not found in monitor log\n%s", expEgress, monitorOutput)
 
 			By("Checking that ICMP notifications in ingress direction were observed")
 			expIngress := fmt.Sprintf("ICMPv4.*SrcIP=%s", targetIP)
 			expIngressRegex := regexp.MustCompile(expIngress)
-			err = helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+			Eventually(func() bool {
 				return searchMonitorLog(expIngressRegex)
-			})
-			Expect(err).To(BeNil(), "Ingress ICMPv4 flow (%q) not found in monitor log\n%s", expIngress, monitorOutput)
+			}, helpers.HelperTimeout).Should(BeTrue(), "Ingress ICMPv4 flow (%q) not found in monitor log\n%s", expIngress, monitorOutput)
 
 			By("Checking the set of TCP notifications received matches expectations")
 			// | TCP Flags | Direction | Report? | Why?
@@ -137,11 +135,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// | ACK       |    ->     |    Y    | monitorAggregation=medium
 			egressPktCount := 3
 			ingressPktCount := 2
-			err = helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+			Eventually(func() bool {
 				monitorOutput = monitorRes.CombineOutput().Bytes()
 				return checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
-			})
-			Expect(err).To(BeNil(), "Monitor log did not contain %d ingress and %d egress TCP notifications\n%s",
+			}, helpers.HelperTimeout).Should(BeTrue(), "Monitor log did not contain %d ingress and %d egress TCP notifications\n%s",
 				ingressPktCount, egressPktCount, monitorOutput)
 
 			helpers.WriteToReportFile(monitorOutput, monitorLog)
@@ -172,11 +169,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// | ACK       |    ->     |    Y    | monitorAggregation=medium
 			egressPktCount := 4
 			ingressPktCount := 3
-			err := helpers.RepeatUntilTrueDefaultTimeout(func() bool {
+			Eventually(func() bool {
 				monitorOutput = monitorRes.CombineOutput().Bytes()
 				return checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
-			})
-			Expect(err).To(BeNil(), "monitor aggregation did not result in correct number of TCP notifications\n%s", monitorOutput)
+			}, helpers.HelperTimeout).Should(BeTrue(), "monitor aggregation did not result in correct number of TCP notifications\n%s", monitorOutput)
 			helpers.WriteToReportFile(monitorOutput, monitorLog)
 		})
 	})
