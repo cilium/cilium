@@ -19,7 +19,6 @@ cilium-agent [flags]
       --api-rate-limit map                                   API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2) (default map[])
       --auto-create-cilium-node-resource                     Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                              Enable automatic L2 routing between nodes
-      --bpf-compile-debug                                    Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                            Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                            Maximum number of entries in TCP CT table (default 524288)
       --bpf-ct-timeout-regular-any duration                  Timeout for entries in non-TCP CT table (default 1m0s)

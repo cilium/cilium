@@ -367,9 +367,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 }
 
 func (l *Loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
-	debug := option.Config.BPFCompilationDebug
 	stats.BpfCompilation.Start()
-	err := compileDatapath(ctx, dirs, ep.IsHost(), debug, ep.Logger(Subsystem))
+	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(Subsystem))
 	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return err

@@ -373,6 +373,12 @@ Removed Options
 * ``crd-wait-timeout``: this option does not have any effect since 1.9 and is
   now removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* ``bpf-compile-debug``: This option does not have any effect since 1.10
+  and is planned to be removed in 1.11.
+
 .. _1.9_upgrade_notes:
 
 1.9.1 Upgrade Notes
