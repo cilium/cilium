@@ -224,7 +224,8 @@ func init() {
 	flags.String(option.CGroupRoot, "", "Path to Cgroup2 filesystem")
 	option.BindEnv(option.CGroupRoot)
 
-	flags.Bool(option.BPFCompileDebugName, false, "Enable debugging of the BPF compilation process")
+	flags.Bool(option.BPFCompileDebugName, true, "Enable debugging of the BPF compilation process. ")
+	flags.MarkDeprecated(option.BPFCompileDebugName, "This flag is no longer available and will be removed in v1.11")
 	option.BindEnv(option.BPFCompileDebugName)
 
 	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
