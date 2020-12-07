@@ -110,34 +110,6 @@ Ginkgo-CI-Tests-Pipeline
 
 `Ginkgo-CI-Tests-Pipeline`_
 
-Cilium-Nightly-Tests-PR
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Runs long-lived tests which take extended time. Some of these tests have an
-expected failure rate.
-
-Nightly tests run once per day in the `Cilium-Nightly-Tests-PR`_ job.  The
-configuration for this job is stored in ``Jenkinsfile.nightly``.
-
-To see the results of these tests, you can view the JUnit Report for an individual job:
-
-1. Click on the build number you wish to get test results from on the left hand
-   side of the `Cilium-Nightly-Tests-PR`_ job.
-2. Click on 'Test Results' on the left side of the page to view the results from the build.
-   This will give you a report of which tests passed and failed. You can click on each test
-   to view its corresponding output created from Ginkgo.
-
-This first runs the Nightly tests with the following setup:
-
-    - 4 Kubernetes 1.8 nodes
-    - 4 GB of RAM per node.
-    - 4 vCPUs per node.
-
-Then, it runs tests Kubernetes tests against versions of Kubernetes that are currently not tested against
-as part of each pull-request, but that Cilium still supports.
-
-It also runs a variety of tests against Envoy to ensure that proxy functionality is working correctly.
-
 .. _packer_ci:
 
 Packer-CI-Build
@@ -244,8 +216,6 @@ illustrating which subset of tests the job runs.
 | `Cilium-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                          | test-missed-k8s   | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                        | test-nightly      | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
@@ -371,8 +341,6 @@ GitHub issues using the process below:
 +---------------------------------------+------------------------------------------------------------------+
 | `Ginkgo-CI-Tests-Pipeline`_           | Runs every two hours on the master branch                        |
 +---------------------------------------+------------------------------------------------------------------+
-| `Master-Nightly`_                     | Runs durability tests every night                                |
-+---------------------------------------+------------------------------------------------------------------+
 | `Vagrant-Master-Boxes-Packer-Build`_  | Runs on merge into `packer-ci-build`_ repository.                |
 +---------------------------------------+------------------------------------------------------------------+
 | :jenkins-branch:`Release-branch <>`   | Runs various Ginkgo tests on merge into branch "\ |SCM_BRANCH|"  |
@@ -380,7 +348,6 @@ GitHub issues using the process below:
 
 .. _Ginkgo-Tests-Validated-master: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/
 .. _Ginkgo-CI-Tests-Pipeline: https://jenkins.cilium.io/job/Ginkgo-CI-Tests-Pipeline/
-.. _Master-Nightly: https://jenkins.cilium.io/job/Cilium-Master-Nightly/
 .. _Vagrant-Master-Boxes-Packer-Build: https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/
 .. _packer-ci-build: https://github.com/cilium/packer-ci-build/
 

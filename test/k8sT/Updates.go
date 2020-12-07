@@ -147,6 +147,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	var (
 		privateIface string // only used when running w/o kube-proxy
 		err          error
+
+		timeout = 5 * time.Minute
 	)
 
 	canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
