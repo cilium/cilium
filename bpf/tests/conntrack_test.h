@@ -94,7 +94,7 @@ static void test___ct_lookup(void)
 	void *tuple = (void *)__TUPLE_EXIST;
 
 	struct ct_state ct_state;
-	union tcp_flags seen_flags;
+	union tcp_flags seen_flags = {0};
 	__u32 monitor;
 	int res;
 
