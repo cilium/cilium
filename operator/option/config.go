@@ -159,9 +159,6 @@ const (
 	// primary IPConfiguration
 	AzureUsePrimaryAddress = "azure-use-primary-address"
 
-	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
-	CRDWaitTimeout = "crd-wait-timeout"
-
 	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
 	// force acquire leadership
 	LeaderElectionLeaseDuration = "leader-election-lease-duration"
@@ -302,9 +299,6 @@ type OperatorConfig struct {
 	// primary IPConfiguration
 	AzureUsePrimaryAddress bool
 
-	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
-	CRDWaitTimeout time.Duration
-
 	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
 	// force acquire leadership in Cilium Operator HA deployment.
 	LeaderElectionLeaseDuration time.Duration
@@ -339,7 +333,6 @@ func (c *OperatorConfig) Populate() {
 	c.ClusterPoolIPv4CIDR = viper.GetStringSlice(ClusterPoolIPv4CIDR)
 	c.ClusterPoolIPv6CIDR = viper.GetStringSlice(ClusterPoolIPv6CIDR)
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
-	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)

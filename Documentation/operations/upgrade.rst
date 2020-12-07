@@ -362,6 +362,8 @@ Removed Options
   1.9 and is now removed.
 * ``device``: this option was deprecated in 1.9 in favor of ``devices`` and is
   now removed.
+* ``crd-wait-timeout``: this option does not have any effect since 1.9 and is
+  now removed.
 
 .. _1.9_upgrade_notes:
 
