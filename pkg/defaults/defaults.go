@@ -22,6 +22,15 @@ const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9876
 
+	// GopsPortAgent is the default value for option.GopsPort in the agent
+	GopsPortAgent = 9890
+
+	// GopsPortOperator is the default value for option.GopsPort in the operator
+	GopsPortOperator = 9891
+
+	// GopsPortApiserver is the default value for option.GopsPort in the apiserver
+	GopsPortApiserver = 9892
+
 	// IPv6ClusterAllocCIDR is the default value for option.IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDR = IPv6ClusterAllocCIDRBase + "/64"
 

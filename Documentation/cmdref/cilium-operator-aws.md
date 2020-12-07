@@ -33,6 +33,7 @@ cilium-operator-aws [flags]
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
       --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
+      --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator-aws
       --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration             GC interval for security identities (default 15m0s)

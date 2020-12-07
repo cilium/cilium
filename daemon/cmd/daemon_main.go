@@ -115,10 +115,15 @@ var (
 			}
 
 			// Open socket for using gops to get stacktraces of the agent.
-			if err := gops.Listen(gops.Options{}); err != nil {
-				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
-				os.Exit(1)
+			addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
+			addrField := logrus.Fields{"address": addr}
+			if err := gops.Listen(gops.Options{
+				Addr:                   addr,
+				ReuseSocketAddrAndPort: true,
+			}); err != nil {
+				log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
 			}
+			log.WithFields(addrField).Info("Started gops server")
 
 			bootstrapStats.earlyInit.Start()
 			initEnv(cmd)
@@ -776,6 +781,9 @@ func init() {
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(option.CMDRef)
+
+	flags.Int(option.GopsPort, defaults.GopsPortAgent, "Port for gops server to listen on")
+	option.BindEnv(option.GopsPort)
 
 	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
 	option.BindEnv(option.ToFQDNsMinTTL)

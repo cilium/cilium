@@ -407,6 +407,7 @@ gocheck
 golang
 golangci
 golangci-lint
+gops
 grafana
 grep
 hairpinned

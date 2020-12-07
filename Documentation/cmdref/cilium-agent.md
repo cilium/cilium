@@ -112,6 +112,7 @@ cilium-agent [flags]
       --flannel-master-device string                         Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
       --flannel-uninstall-on-exit                            When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
       --force-local-policy-eval-at-source                    Force policy evaluation of all local communication at the source endpoint (default true)
+      --gops-port int                                        Port for gops server to listen on (default 9890)
   -h, --help                                                 help for cilium-agent
       --host-reachable-services-protos strings               Only enable reachability of services for host applications for specific protocols (default [tcp,udp])
       --http-idle-timeout uint                               Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)

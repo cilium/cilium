@@ -423,6 +423,11 @@ Deprecated Options
   the Helm option ``bpf.hostRouting=true`` can be used. If the underlying kernel
   does not implement the needed BPF features, then the agent will fallback and rely
   on host routing automatically.
+* For the agent, operator, clustermesh-apiserver and hubble-relay, the gops listener
+  has been mapped to fixed ports instead of port auto-binding. Meaning, the agent's
+  gops server will listen on 9890, the operator on 9891, the clustermesh-apiserver on
+  9892, and hubble-relay on port 9893 by default. If needed, the port can also be
+  remapped for each through using the ``--gops-port`` flag.
 
 .. _1.9_helm_options:
 

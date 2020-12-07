@@ -70,11 +70,16 @@ var (
 				os.Exit(0)
 			}
 
-			// Open socket for using gops to get stacktraces of the operator.
-			if err := gops.Listen(gops.Options{}); err != nil {
-				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
-				os.Exit(1)
+			// Open socket for using gops to get stacktraces of the agent.
+			addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
+			addrField := logrus.Fields{"address": addr}
+			if err := gops.Listen(gops.Options{
+				Addr:                   addr,
+				ReuseSocketAddrAndPort: true,
+			}); err != nil {
+				log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
 			}
+			log.WithFields(addrField).Info("Started gops server")
 
 			initEnv()
 			runOperator()
