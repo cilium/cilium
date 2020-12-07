@@ -35,6 +35,7 @@ import (
 const (
 	keyPprof                  = "pprof"
 	keyGops                   = "gops"
+	keyGopsPort               = "gops-port"
 	keyDialTimeout            = "dial-timeout"
 	keyRetryTimeout           = "retry-timeout"
 	keyListenAddress          = "listen-address"
@@ -67,6 +68,10 @@ func New(vp *viper.Viper) *cobra.Command {
 	flags.Bool(
 		keyGops, true, "Run gops agent",
 	)
+	flags.Int(
+		keyGopsPort,
+		defaults.GopsPort,
+		"Port for gops server to listen on")
 	flags.Duration(
 		keyDialTimeout,
 		defaults.DialTimeout,
@@ -184,7 +189,11 @@ func runServe(vp *viper.Viper) error {
 	}
 	gopsEnabled := vp.GetBool(keyGops)
 	if gopsEnabled {
-		if err := agent.Listen(agent.Options{}); err != nil {
+		addr := fmt.Sprintf("127.0.0.1:%d", vp.GetInt(keyGopsPort))
+		if err := agent.Listen(agent.Options{
+			Addr:                   addr,
+			ReuseSocketAddrAndPort: true,
+		}); err != nil {
 			return fmt.Errorf("failed to start gops agent: %v", err)
 		}
 	}

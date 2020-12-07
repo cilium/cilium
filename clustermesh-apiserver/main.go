@@ -68,6 +68,17 @@ var (
 		Use:   "clustermesh-apiserver",
 		Short: "Run the ClusterMesh apiserver",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Open socket for using gops to get stacktraces of the agent.
+			addr := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(option.GopsPort))
+			addrField := logrus.Fields{"address": addr}
+			if err := gops.Listen(gops.Options{
+				Addr:                   addr,
+				ReuseSocketAddrAndPort: true,
+			}); err != nil {
+				log.WithError(err).WithFields(addrField).Fatal("Cannot start gops server")
+			}
+			log.WithFields(addrField).Info("Started gops server")
+
 			runServer(cmd)
 		},
 	}
@@ -160,13 +171,12 @@ func readMockFile(path string) error {
 }
 
 func runApiserver() error {
-	if err := gops.Listen(gops.Options{}); err != nil {
-		return fmt.Errorf("unable to start gops: %s", err)
-	}
-
 	flags := rootCmd.Flags()
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
+
+	flags.Int(option.GopsPort, defaults.GopsPortApiserver, "Port for gops server to listen on")
+	option.BindEnv(option.GopsPort)
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
 	option.BindEnv(option.CRDWaitTimeout)
