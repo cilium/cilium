@@ -625,6 +625,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		return nil, nil, err
 	}
 
+	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
 	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
 
 	// Annotation of the k8s node must happen after discovery of the
