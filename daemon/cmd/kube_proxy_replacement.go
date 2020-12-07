@@ -299,7 +299,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		case option.Config.EnableIPSec:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
-		case option.Config.Masquerade && !option.Config.EnableBPFMasquerade:
+		case (option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade) &&
+			!option.Config.EnableBPFMasquerade:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		default:
 			foundNeigh := false

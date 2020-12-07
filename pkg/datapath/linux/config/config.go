@@ -546,7 +546,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			}
 			fmt.Fprint(fw, "\n")
 		}
-		if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 			// NodePort comment above applies to IPV4_MASQUERADE too
 			placeholderIPv4 := []byte{1, 1, 1, 1}
 			fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))

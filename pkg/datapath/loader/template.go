@@ -241,7 +241,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 				result["IPV4_NODEPORT"] = 0
 			}
 		}
-		if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4 {
 				result["IPV4_MASQUERADE"] = 0
 			}

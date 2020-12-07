@@ -1787,7 +1787,17 @@ func init() {
         },
         "masquerade": {
           "description": "Status of masquerading feature",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Status of masquerading for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Status of masquerading for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
@@ -2890,7 +2900,17 @@ func init() {
       "properties": {
         "enabled": {
           "description": "Is masquerading enabled",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Is masquerading enabled for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Is masquerading enabled for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "ip-masq-agent": {
           "description": "Is BPF ip-masq-agent enabled",
@@ -5686,7 +5706,17 @@ func init() {
         },
         "masquerade": {
           "description": "Status of masquerading feature",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Status of masquerading for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Status of masquerading for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
@@ -5699,6 +5729,20 @@ func init() {
         "routeMTU": {
           "description": "MTU for network facing routes",
           "type": "integer"
+        }
+      }
+    },
+    "DaemonConfigurationStatusMasquerade": {
+      "description": "Status of masquerading feature",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "Status of masquerading for IPv4 traffic",
+          "type": "boolean"
+        },
+        "ipv6": {
+          "description": "Status of masquerading for IPv6 traffic",
+          "type": "boolean"
         }
       }
     },
@@ -7000,7 +7044,17 @@ func init() {
       "properties": {
         "enabled": {
           "description": "Is masquerading enabled",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Is masquerading enabled for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Is masquerading enabled for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "ip-masq-agent": {
           "description": "Is BPF ip-masq-agent enabled",
@@ -7020,6 +7074,20 @@ func init() {
         "snat-exclusion-cidr-v6": {
           "description": "SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent to\nan IPv6 address that belongs to this CIDR.\nFor IPv6 we only do masquerading in iptables mode.",
           "type": "string"
+        }
+      }
+    },
+    "MasqueradingEnabled": {
+      "description": "Is masquerading enabled",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "Is masquerading enabled for IPv4 traffic",
+          "type": "boolean"
+        },
+        "ipv6": {
+          "description": "Is masquerading enabled for IPv6 traffic",
+          "type": "boolean"
         }
       }
     },

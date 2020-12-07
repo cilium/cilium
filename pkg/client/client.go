@@ -400,24 +400,37 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 	if sr.Masquerading != nil {
 		var status string
-		if !sr.Masquerading.Enabled {
-			status = "Disabled"
-		} else if sr.Masquerading.Mode == models.MasqueradingModeBPF {
-			if sr.Masquerading.IPMasqAgent {
-				status = "BPF (ip-masq-agent)"
-			} else {
-				status = "BPF"
+
+		enabled := func(enabled bool) string {
+			if enabled {
+				return "Enabled"
 			}
-			if sr.KubeProxyReplacement != nil {
-				// When BPF Masquerading is enabled we don't do any masquerading for IPv6
-				// traffic so no SNAT Exclusion IPv6 CIDR is listed in status output.
-				status += fmt.Sprintf("\t[%s]\t%s",
-					strings.Join(sr.KubeProxyReplacement.Devices, ", "),
-					sr.Masquerading.SnatExclusionCidrV4)
+			return "Disabled"
+		}
+
+		if !sr.Masquerading.Enabled.IPV4 && !sr.Masquerading.Enabled.IPV6 {
+			status = enabled(false)
+		} else {
+			if sr.Masquerading.Mode == models.MasqueradingModeBPF {
+				if sr.Masquerading.IPMasqAgent {
+					status = "BPF (ip-masq-agent)"
+				} else {
+					status = "BPF"
+				}
+				if sr.KubeProxyReplacement != nil {
+					// When BPF Masquerading is enabled we don't do any masquerading for IPv6
+					// traffic so no SNAT Exclusion IPv6 CIDR is listed in status output.
+					status += fmt.Sprintf("\t[%s]\t%s",
+						strings.Join(sr.KubeProxyReplacement.Devices, ", "),
+						sr.Masquerading.SnatExclusionCidrV4)
+				}
+
+			} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
+				status = "IPTables"
 			}
 
-		} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
-			status = "IPTables"
+			status = fmt.Sprintf("%s [IPv4: %s, IPv6: %s]", status,
+				enabled(sr.Masquerading.Enabled.IPV4), enabled(sr.Masquerading.Enabled.IPV6))
 		}
 		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
 	}

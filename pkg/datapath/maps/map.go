@@ -86,7 +86,8 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 
 func (ms *MapSweeper) checkStaleGlobalMap(path string, filename string) {
 	globalCTinUse := ms.HasGlobalCT() || option.Config.EnableNodePort ||
-		!option.Config.InstallIptRules && option.Config.Masquerade
+		!option.Config.InstallIptRules && (option.Config.EnableIPv4Masquerade ||
+			option.Config.EnableIPv6Masquerade)
 
 	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
 		ms.RemoveMapPath(path)

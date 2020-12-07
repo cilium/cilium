@@ -372,6 +372,6 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(result.GatewayIP,
 		result.CIDRs,
 		result.Master,
-		option.Config.Masquerade)
+		option.Config.EnableIPv4Masquerade)
 	return err
 }
