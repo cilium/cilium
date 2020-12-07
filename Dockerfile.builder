@@ -3,7 +3,7 @@
 #
 FROM docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac as cilium-llvm
 
-FROM quay.io/cilium/cilium-runtime:2020-12-03@sha256:013957bdcbb32960ebf98dd5ba45ff6631844396c0c55760590c1d63d811e804
+FROM quay.io/cilium/cilium-runtime:2020-12-07@sha256:d6752f9b212f1ece30e0269ab0aae34ae7c34ebe27fe8fe032f26fd3493fb8f9
 LABEL maintainer="maintainer@cilium.io"
 ARG ARCH=amd64
 WORKDIR /go/src/github.com/cilium/cilium
@@ -14,7 +14,7 @@ WORKDIR /go/src/github.com/cilium/cilium
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
-ENV GO_VERSION 1.15.5
+ENV GO_VERSION 1.15.6
 
 #
 # Build dependencies
