@@ -208,9 +208,6 @@ const (
 	// K8sSyncTimeout is the timeout to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
-	// K8sWatcherQueueSize is the queue size used to serialize each k8s event type
-	K8sWatcherQueueSize = "k8s-watcher-queue-size"
-
 	// KeepConfig when restoring state, keeps containers' configuration in place
 	KeepConfig = "keep-config"
 
@@ -940,7 +937,6 @@ var HelpFlagSections = []FlagsSection{
 			K8sRequireIPv6PodCIDRName,
 			K8sSyncTimeoutName,
 			K8sWatcherEndpointSelector,
-			K8sWatcherQueueSize,
 			K8sEventHandover,
 			AnnotateK8sNode,
 			K8sForceJSONPatch,
