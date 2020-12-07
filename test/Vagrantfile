@@ -34,6 +34,7 @@ $LOCKDEBUG = ENV['LOCKDEBUG'] || ""
 $BASE_IMAGE = ENV['BASE_IMAGE'] || ""
 $DOCKER_LOGIN = ENV['DOCKER_LOGIN'] || ""
 $DOCKER_PASSWORD = ENV['DOCKER_PASSWORD'] || ""
+$CILIUM_REGISTRY = ENV['CILIUM_REGISTRY'] || ""
 
 # RAM and CPU settings
 $MEMORY = (ENV['VM_MEMORY'] || "4096").to_i
@@ -214,7 +215,8 @@ Vagrant.configure("2") do |config|
                           "LOCKDEBUG" => "#{$LOCKDEBUG}",
                           "BASE_IMAGE" => "#{$BASE_IMAGE}",
                           "DOCKER_LOGIN" => "#{$DOCKER_LOGIN}",
-                          "DOCKER_PASSWORD" => "#{$DOCKER_PASSWORD}"
+                          "DOCKER_PASSWORD" => "#{$DOCKER_PASSWORD}",
+                          "CILIUM_REGISTRY" => "#{$CILIUM_REGISTRY}"
                 }
             end
         end
