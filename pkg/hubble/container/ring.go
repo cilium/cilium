@@ -278,108 +278,98 @@ func (r *Ring) read(read uint64) (*v1.Event, error) {
 }
 
 // readFrom continues to read from the given position until the context is
-// cancelled.
-func (r *Ring) readFrom(ctx context.Context, read uint64) <-chan *v1.Event {
-	// TODO should we create the channel or the caller?
-	const returnedBufferChLen = 1000
-	ch := make(chan *v1.Event, returnedBufferChLen)
-	go func() {
-		defer func() {
-			close(ch)
-		}()
+// cancelled. This function does not return until the context is done.
+func (r *Ring) readFrom(ctx context.Context, read uint64, ch chan<- *v1.Event) {
+	// read forever until ctx is done
+	for ; ; read++ {
+		readIdx := read & r.mask
+		event := r.dataLoadAtomic(readIdx)
 
-		// read forever until ctx is done
-		for ; ; read++ {
-			readIdx := read & r.mask
-			event := r.dataLoadAtomic(readIdx)
-
-			lastWrite := atomic.LoadUint64(&r.write) - 1
-			lastWriteIdx := lastWrite & r.mask
-			writeCycle := lastWrite >> r.cycleExp
-			readCycle := read >> r.cycleExp
-			switch {
-			// This case is where X is marked
-			//                        +----------------valid read------------+  +position possibly being written
-			//                        |                                      |  |  +next position to be written (r.write)
-			//                        V     X                                V  V  V
-			// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-			// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-			// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-			case event != nil && readCycle == (writeCycle-1)&r.cycleMask && readIdx > lastWriteIdx:
+		lastWrite := atomic.LoadUint64(&r.write) - 1
+		lastWriteIdx := lastWrite & r.mask
+		writeCycle := lastWrite >> r.cycleExp
+		readCycle := read >> r.cycleExp
+		switch {
+		// This case is where X is marked
+		//                        +----------------valid read------------+  +position possibly being written
+		//                        |                                      |  |  +next position to be written (r.write)
+		//                        V     X                                V  V  V
+		// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+		// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+		// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+		case event != nil && readCycle == (writeCycle-1)&r.cycleMask && readIdx > lastWriteIdx:
+			select {
+			case ch <- event:
+				continue
+			case <-ctx.Done():
+				return
+			}
+		// This case is where X is marked
+		//                        +----------------valid read------------+  +position possibly being written
+		//                        |                                      |  |  +next position to be written (r.write)
+		//                        V                                   X  V  V  V
+		// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+		// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+		// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+		case event != nil && readCycle == writeCycle:
+			if readIdx < lastWriteIdx {
 				select {
 				case ch <- event:
 					continue
 				case <-ctx.Done():
 					return
 				}
-			// This case is where X is marked
-			//                        +----------------valid read------------+  +position possibly being written
-			//                        |                                      |  |  +next position to be written (r.write)
-			//                        V                                   X  V  V  V
-			// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-			// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-			// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-			case event != nil && readCycle == writeCycle:
-				if readIdx < lastWriteIdx {
-					select {
-					case ch <- event:
-						continue
-					case <-ctx.Done():
-						return
-					}
-				}
-				// If we are in the same cycle as the writer and we are in this
-				// branch it means the reader caught the writer so it needs to
-				// wait until a new event is received by the writer.
-				fallthrough
-
-			// This is a ring buffer, we will stop the reader, i.e. we will
-			// read the same index over and over until the writer reached
-			// the reader, if the readCycle is >= writeCycle + 1 *and*
-			// readCycle < writeCycle + half of a cycle.
-			// half of a cycle is used to know if the reader is behind or a head
-			// of the writer.
-			// This case is where X is marked
-			//                        +----------------valid read------------+  +position possibly being written
-			//                        |                                      |  |  +next position to be written (r.write)
-			//                        V                                      V  V  V                          X
-			// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-			// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-			// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-			case event == nil || readCycle >= (writeCycle+1)&r.cycleMask && readCycle < (r.halfCycle+writeCycle)&r.cycleMask:
-				// The writer has already written a new event so there's no
-				// need to stop the reader.
-
-				// Before going to sleep, we need to check that there has been
-				// no write in the meantime. This check can only be race free
-				// if the lock on notifyMu is held, otherwise a write can occur
-				// before we obtain the notifyCh instance.
-				r.notifyMu.Lock()
-				if lastWrite != atomic.LoadUint64(&r.write)-1 {
-					// A write has occurred - retry
-					r.notifyMu.Unlock()
-					read--
-					continue
-				}
-
-				// This channel will be closed by the writer if it makes a write
-				if r.notifyCh == nil {
-					r.notifyCh = make(chan struct{})
-				}
-				notifyCh := r.notifyCh
-				r.notifyMu.Unlock()
-
-				// Sleep until a write occurs or the context is cancelled
-				select {
-				case <-notifyCh:
-					read--
-					continue
-				case <-ctx.Done():
-					return
-				}
-
 			}
+			// If we are in the same cycle as the writer and we are in this
+			// branch it means the reader caught the writer so it needs to
+			// wait until a new event is received by the writer.
+			fallthrough
+
+		// This is a ring buffer, we will stop the reader, i.e. we will
+		// read the same index over and over until the writer reached
+		// the reader, if the readCycle is >= writeCycle + 1 *and*
+		// readCycle < writeCycle + half of a cycle.
+		// half of a cycle is used to know if the reader is behind or a head
+		// of the writer.
+		// This case is where X is marked
+		//                        +----------------valid read------------+  +position possibly being written
+		//                        |                                      |  |  +next position to be written (r.write)
+		//                        V                                      V  V  V                          X
+		// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+		// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+		// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+		case event == nil || readCycle >= (writeCycle+1)&r.cycleMask && readCycle < (r.halfCycle+writeCycle)&r.cycleMask:
+			// The writer has already written a new event so there's no
+			// need to stop the reader.
+
+			// Before going to sleep, we need to check that there has been
+			// no write in the meantime. This check can only be race free
+			// if the lock on notifyMu is held, otherwise a write can occur
+			// before we obtain the notifyCh instance.
+			r.notifyMu.Lock()
+			if lastWrite != atomic.LoadUint64(&r.write)-1 {
+				// A write has occurred - retry
+				r.notifyMu.Unlock()
+				read--
+				continue
+			}
+
+			// This channel will be closed by the writer if it makes a write
+			if r.notifyCh == nil {
+				r.notifyCh = make(chan struct{})
+			}
+			notifyCh := r.notifyCh
+			r.notifyMu.Unlock()
+
+			// Sleep until a write occurs or the context is cancelled
+			select {
+			case <-notifyCh:
+				read--
+				continue
+			case <-ctx.Done():
+				return
+			}
+
 		}
-	}()
-	return ch
+	}
 }

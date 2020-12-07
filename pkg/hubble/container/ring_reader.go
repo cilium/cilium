@@ -16,25 +16,33 @@ package container
 
 import (
 	"context"
+	"sync"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 // RingReader is a reader for a Ring container.
 type RingReader struct {
-	ring *Ring
-	idx  uint64
-	ctx  context.Context
-	c    <-chan *v1.Event
+	ring          *Ring
+	idx           uint64
+	ctx           context.Context
+	followChan    chan *v1.Event
+	followChanLen int
+	wg            sync.WaitGroup
 }
 
 // NewRingReader creates a new RingReader that starts reading the ring at the
 // position given by start.
 func NewRingReader(ring *Ring, start uint64) *RingReader {
+	return newRingReader(ring, start, 1000)
+}
+
+func newRingReader(ring *Ring, start uint64, bufferLen int) *RingReader {
 	return &RingReader{
-		ring: ring,
-		idx:  start,
-		ctx:  nil,
+		ring:          ring,
+		idx:           start,
+		ctx:           nil,
+		followChanLen: bufferLen,
 	}
 }
 
@@ -77,17 +85,31 @@ func (r *RingReader) Next() (*v1.Event, error) {
 func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 	// if the context changed between invocations, we also have to restart
 	// readFrom, as the old readFrom instance will be using the old context.
-	if r.c == nil || r.ctx != ctx {
-		r.c = r.ring.readFrom(ctx, r.idx)
+	if r.ctx != ctx {
+		if r.followChan == nil {
+			r.followChan = make(chan *v1.Event, r.followChanLen)
+		}
+		r.wg.Add(1)
+		go func(ctx context.Context) {
+			r.ring.readFrom(ctx, r.idx, r.followChan)
+			if ctx.Err() != nil && r.followChan != nil { // context is done
+				close(r.followChan)
+				r.followChan = nil
+			}
+			r.wg.Done()
+		}(ctx)
 		r.ctx = ctx
 	}
+	defer func() {
+		if ctx.Err() != nil { // context is done
+			r.ctx = nil
+		}
+	}()
 
 	select {
-	case e, ok := <-r.c:
+	case e, ok := <-r.followChan:
 		if !ok {
-			// channel can only be closed by readFrom if ctx is cancelled
-			r.c = nil
-			r.ctx = nil
+			// the channel is closed so the context is done
 			return nil
 		}
 		// increment idx so that future calls to the ring reader will
@@ -95,8 +117,14 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 		r.idx++
 		return e
 	case <-ctx.Done():
-		r.c = nil
-		r.ctx = nil
 		return nil
 	}
+}
+
+// Close waits for any method to return and closes the RingReader. It is not
+// required to call Close on a RingReader but it may be useful for specific
+// situations such as testing.
+func (r *RingReader) Close() error {
+	r.wg.Wait()
+	return nil
 }

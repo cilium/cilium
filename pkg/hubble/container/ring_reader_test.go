@@ -103,6 +103,7 @@ func TestRingReader_Previous(t *testing.T) {
 				got = append(got, event)
 			}
 			assert.Equal(t, tt.want, got)
+			assert.Nil(t, reader.Close())
 		})
 	}
 }
@@ -174,6 +175,7 @@ func TestRingReader_Next(t *testing.T) {
 				got = append(got, event)
 			}
 			assert.Equal(t, tt.want, got)
+			assert.Nil(t, reader.Close())
 		})
 	}
 }
@@ -248,6 +250,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 					assert.NotNil(t, got[i])
 				}
 				cancel()
+				assert.Nil(t, reader.Close())
 			}
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantTimeout, timedOut)
@@ -256,6 +259,12 @@ func TestRingReader_NextFollow(t *testing.T) {
 }
 
 func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
+	defer goleak.VerifyNone(
+		t,
+		// ignore go routines started by the redirect we do from klog to logrus
+		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	ring := NewRing(Capacity15)
 	reader := NewRingReader(ring, ring.LastWriteParallel())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -273,4 +282,5 @@ func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 		// the call blocked, we're good
 	}
 	cancel()
+	assert.Nil(t, reader.Close())
 }

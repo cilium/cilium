@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 	"testing"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -670,7 +671,13 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := r.readFrom(ctx, 0)
+	ch := make(chan *v1.Event, 30)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		r.readFrom(ctx, 0, ch)
+		wg.Done()
+	}()
 	i := int64(0)
 	for entry := range ch {
 		want := &timestamp.Timestamp{Seconds: i}
@@ -688,12 +695,8 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		t.Errorf("Read Event %v received when channel should be empty", entry)
 	default:
 	}
-
 	cancel()
-	event, ok := <-ch
-	if ok {
-		t.Errorf("Channel should have been closed, received %+v", event)
-	}
+	wg.Wait()
 }
 
 func TestRing_ReadFrom_Test_2(t *testing.T) {
@@ -731,7 +734,13 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
-	ch := r.readFrom(ctx, 1)
+	ch := make(chan *v1.Event, 30)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.readFrom(ctx, 1, ch)
+	}()
 	i := int64(0)
 	for entry := range ch {
 		// Given the buffer length is 16 and there are no more writes being made,
@@ -772,12 +781,8 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
 		}
 	}
-
 	cancel()
-	event, ok := <-ch
-	if ok {
-		t.Errorf("Channel should have been closed, received %+v", event)
-	}
+	wg.Wait()
 }
 
 func TestRing_ReadFrom_Test_3(t *testing.T) {
@@ -814,7 +819,13 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
-	ch := r.readFrom(ctx, ^uint64(0)-15)
+	ch := make(chan *v1.Event, 30)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		r.readFrom(ctx, ^uint64(0)-15, ch)
+		wg.Done()
+	}()
 	i := int64(0)
 	for entry := range ch {
 		// Given the buffer length is 16 and there are no more writes being made,
@@ -855,10 +866,6 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
 		}
 	}
-
 	cancel()
-	event, ok := <-ch
-	if ok {
-		t.Errorf("Channel should have been closed, received %+v", event)
-	}
+	wg.Wait()
 }

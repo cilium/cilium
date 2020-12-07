@@ -264,6 +264,7 @@ func (s *LocalObserverServer) GetFlows(
 		}
 		return err
 	}
+
 	flowsReader, err := newFlowsReader(ringReader, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
