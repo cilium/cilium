@@ -398,6 +398,9 @@ You can verify by checking the DNS cache's metrics ``coredns_dns_request_count_t
 ``<node-local-dns pod IP>:9253/metrics``, the metric should increment as new DNS requests being issued from
 application pods are now redirected to the ``node-local-dns`` pod.
 
+In the absence of a node-local DNS cache, DNS queries from application pods
+will get directed to cluster DNS pods backed by the ``kube-dns`` service.
+
 kiam redirect on EKS
 --------------------
 `kiam <https://github.com/uswitch/kiam>`_ agent runs on each node in an EKS
@@ -474,6 +477,5 @@ Miscellaneous
 =============
 When a Local Redirect Policy is applied, cilium BPF datapath translates frontend
 (ip/port/protocol tuple) from the policy to a node-local backend pod selected
-by the policy. However, such translation is skipped for traffic that originates
-from the backend and is destined to the frontend.
-
+by the policy. However, such translation is skipped using ``sk_lookup`` BPF
+helpers for traffic that originates from the backend and is destined to the frontend .
