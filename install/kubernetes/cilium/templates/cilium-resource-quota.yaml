@@ -1,4 +1,5 @@
 {{- if or .Values.resourceQuotas.enabled (and (ne .Release.Namespace "kube-system") .Values.gke.enabled) }}
+{{- if .Values.agent }}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -13,6 +14,8 @@ spec:
       scopeName: PriorityClass
       values:
       - system-node-critical
+{{- end }}
+{{- if .Values.operator.enabled }}
 ---
 apiVersion: v1
 kind: ResourceQuota
@@ -28,4 +31,5 @@ spec:
       scopeName: PriorityClass
       values:
       - system-cluster-critical
+{{- end }}
 {{- end }}
