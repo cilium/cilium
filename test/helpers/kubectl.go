@@ -426,17 +426,17 @@ func (kub *Kubectl) AddRegistryCredentials(cred string, registry string) error {
 // WaitForCiliumReadiness waits for the Cilium DaemonSet to become ready.
 // Readiness is achieved when all Cilium pods which are desired to run on a
 // node are in ready state.
-func (kub *Kubectl) WaitForCiliumReadiness() error {
+func (kub *Kubectl) WaitForCiliumReadiness(offset int, errMsg string) {
 	ginkgoext.By("Waiting for Cilium to become ready")
-	return RepeatUntilTrue(func() bool {
+	gomega.EventuallyWithOffset(1+offset, func() error {
 		numPods, err := kub.DaemonSetIsReady(CiliumNamespace, "cilium")
 		if err != nil {
 			ginkgoext.By("Cilium DaemonSet not ready yet: %s", err)
 		} else {
 			ginkgoext.By("Number of ready Cilium pods: %d", numPods)
 		}
-		return err == nil
-	}, &TimeoutConfig{Timeout: 4 * time.Minute})
+		return err
+	}, 4*time.Minute).Should(gomega.BeNil(), errMsg)
 }
 
 // DeleteResourceInAnyNamespace deletes all objects with the provided name of
