@@ -114,9 +114,6 @@ const (
 	// DebugVerbose is the argument enables verbose log message for particular subsystems
 	DebugVerbose = "debug-verbose"
 
-	// Device facing cluster/external network for attaching bpf_host
-	Device = "device"
-
 	// Devices facing cluster/external network for attaching bpf_host
 	Devices = "devices"
 
@@ -1112,7 +1109,6 @@ var HelpFlagSections = []FlagsSection{
 	{
 		Name: "Networking flags",
 		Flags: []string{
-			Device,
 			DatapathMode,
 			ConntrackGCInterval,
 			DisableConntrack,
@@ -2797,17 +2793,6 @@ func (c *DaemonConfig) Populate() {
 
 func (c *DaemonConfig) populateDevices() {
 	c.Devices = viper.GetStringSlice(Devices)
-	device := viper.GetString(Device)
-
-	if len(c.Devices) != 0 && device != "" {
-		log.Fatalf("--%s and --%s (deprecated) are mutually exclusive",
-			Devices, Device)
-	}
-
-	// For backward compatibility until the flag is completely deprecated
-	if device != "" {
-		c.Devices = []string{device}
-	}
 
 	// Make sure that devices are unique
 	if len(c.Devices) <= 1 {
