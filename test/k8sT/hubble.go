@@ -84,7 +84,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		res.ExpectSuccess("removing proxy visibility annotation failed")
 	}
 
-	hubbleObserveUntilMatch := func(hubblePod, args, filter, expected string, timeout *helpers.TimeoutConfig) {
+	hubbleObserveUntilMatch := func(hubblePod, args, filter, expected string, timeout time.Duration) {
 		hubbleObserve := func() bool {
 			res := kubectl.HubbleObserve(hubblePod, args)
 			res.ExpectSuccess("hubble observe invocation failed: %q", res.OutputPrettyPrint())
@@ -101,8 +101,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			return false
 		}
 
-		err := helpers.RepeatUntilTrue(hubbleObserve, timeout)
-		Expect(err).Should(BeNil(),
+		Eventually(hubbleObserve, timeout).Should(BeTrue(),
 			"hubble observe: filter %q never matched expected string %q", filter, expected)
 	}
 
@@ -226,11 +225,7 @@ var _ = Describe("K8sHubbleTest", func() {
 				"--server %s --last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
 				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port),
 				`{$.Type}`, "L3_L4",
-				&helpers.TimeoutConfig{
-					Ticker:  5 * time.Second,
-					Timeout: helpers.MidCommandTimeout,
-				},
-			)
+				helpers.MidCommandTimeout)
 		})
 
 		It("Test L7 Flow", func() {
@@ -273,11 +268,7 @@ var _ = Describe("K8sHubbleTest", func() {
 				"--server %s --last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels),
 				`{$.Type}`, "L7",
-				&helpers.TimeoutConfig{
-					Ticker:  5 * time.Second,
-					Timeout: helpers.MidCommandTimeout,
-				},
-			)
+				helpers.MidCommandTimeout)
 		})
 	})
 })

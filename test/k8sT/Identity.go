@@ -66,10 +66,9 @@ var _ = Describe("K8sIdentity", func() {
 			kubectl.ApplyDefault(dummyIdentity).ExpectSuccess("Cannot import dummy identity")
 
 			By("Waiting for CiliumIdentity to be garbage collected")
-			err := helpers.RepeatUntilTrue(func() bool {
+			Eventually(func() bool {
 				return !kubectl.ExecShort(helpers.KubectlCmd + " get ciliumidentity 99999").WasSuccessful()
-			}, &helpers.TimeoutConfig{Timeout: 2 * time.Minute})
-			Expect(err).Should(BeNil(), "CiliumIdentity did not get garbage collected before timeout")
+			}, 2*time.Minute).Should(BeTrue(), "CiliumIdentity did not get garbage collected before timeout")
 		})
 	})
 })
