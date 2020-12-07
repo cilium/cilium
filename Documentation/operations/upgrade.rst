@@ -358,6 +358,8 @@ Removed Options
 
 * ``k8s-watcher-queue-size``: this option does not have any effect since 1.8 and
   is now removed.
+* ``blacklist-conflicting-routes``: this option does not have any effect since
+  1.9 and is now removed.
 
 .. _1.9_upgrade_notes:
 

@@ -687,10 +687,6 @@ const (
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix = "endpoint-interface-name-prefix"
 
-	// BlacklistConflictingRoutes removes all IPs from the IPAM block if a
-	// local route not owned by Cilium conflicts with it
-	BlacklistConflictingRoutes = "blacklist-conflicting-routes"
-
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource = "force-local-policy-eval-at-source"
