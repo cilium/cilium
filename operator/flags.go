@@ -264,6 +264,9 @@ func init() {
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(option.CMDRef)
 
+	flags.Int(option.GopsPort, defaults.GopsPortOperator, "Port for gops server to listen on")
+	option.BindEnv(option.GopsPort)
+
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	option.BindEnv(option.K8sHeartbeatTimeout)
 
