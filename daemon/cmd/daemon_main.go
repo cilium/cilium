@@ -254,11 +254,6 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringP(option.Device, "d", "",
-		fmt.Sprintf("Device facing cluster/external network for attaching bpf_host. Deprecated in favor of --%s", option.Devices))
-	flags.MarkDeprecated(option.Device, "This option will be removed in v1.10")
-	option.BindEnv(option.Device)
-
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall)")
 	option.BindEnv(option.Devices)
 
