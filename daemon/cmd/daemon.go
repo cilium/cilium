@@ -567,6 +567,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		return nil, nil, err
 	}
 
+	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
+	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
+
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
 	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
@@ -592,8 +595,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	} else if !option.Config.AnnotateK8sNode {
 		log.Debug("Annotate k8s node is disabled.")
 	}
-
-	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
