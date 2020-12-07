@@ -927,10 +927,6 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 
 func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInterface,
 	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
-	if !option.Config.Masquerade || (option.Config.Masquerade && option.Config.EnableBPFMasquerade) {
-		return nil
-	}
-
 	// Masquerade all egress traffic leaving the node
 	//
 	// This rule must be first as it has different exclusion criteria
@@ -1186,12 +1182,14 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return err
 		}
 
-		if err := m.installMasqueradeRules("iptables", ifName, localDeliveryInterface,
-			datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
-			node.GetIPv4AllocRange().String(),
-			node.GetHostMasqueradeIPv4().String(),
-		); err != nil {
-			return err
+		if option.Config.EnableIPv4Masquerade && !option.Config.EnableBPFMasquerade {
+			if err := m.installMasqueradeRules("iptables", ifName, localDeliveryInterface,
+				datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
+				node.GetIPv4AllocRange().String(),
+				node.GetHostMasqueradeIPv4().String(),
+			); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1200,14 +1198,15 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return err
 		}
 
-		if err := m.installMasqueradeRules("ip6tables", ifName, localDeliveryInterface,
-			datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
-			node.GetIPv6AllocRange().String(),
-			node.GetHostMasqueradeIPv6().String(),
-		); err != nil {
-			return err
+		if option.Config.EnableIPv6Masquerade && !option.Config.EnableBPFMasquerade {
+			if err := m.installMasqueradeRules("ip6tables", ifName, localDeliveryInterface,
+				datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
+				node.GetIPv6AllocRange().String(),
+				node.GetHostMasqueradeIPv6().String(),
+			); err != nil {
+				return err
+			}
 		}
-
 	}
 
 	// AWS ENI requires to mark packets ingressing on the primary interface

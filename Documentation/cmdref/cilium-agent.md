@@ -84,7 +84,9 @@ cilium-agent [flags]
       --enable-ipsec                                         Enable IPSec support
       --enable-ipv4                                          Enable IPv4 support (default true)
       --enable-ipv4-fragment-tracking                        Enable IPv4 fragments tracking for L4-based lookups (default true)
+      --enable-ipv4-masquerade                               Masquerade IPv4 traffic from endpoints leaving the host (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)
+      --enable-ipv6-masquerade                               Masquerade IPv6 traffic from endpoints leaving the host (default true)
       --enable-ipv6-ndp                                      Enable IPv6 NDP support
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
@@ -173,7 +175,6 @@ cilium-agent [flags]
       --log-driver strings                                   Logging endpoints to use for example syslog
       --log-opt map                                          Log driver options for cilium (default map[])
       --log-system-load                                      Enable periodic logging of system load
-      --masquerade                                           Masquerade packets from endpoints leaving the host (default true)
       --metrics strings                                      Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                           Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                    TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])

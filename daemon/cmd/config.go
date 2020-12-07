@@ -132,8 +132,11 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			MasterDeviceIndex: int64(option.Config.Ipvlan.MasterDeviceIndex),
 			OperationMode:     option.Config.Ipvlan.OperationMode,
 		},
-		IpamMode:   option.Config.IPAM,
-		Masquerade: option.Config.Masquerade,
+		IpamMode: option.Config.IPAM,
+		Masquerade: &models.DaemonConfigurationStatusMasquerade{
+			IPV4: option.Config.EnableIPv4Masquerade,
+			IPV6: option.Config.EnableIPv6Masquerade,
+		},
 	}
 
 	cfg := &models.DaemonConfiguration{

@@ -182,7 +182,7 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 			opts["IPV6_NODEPORT_4"] = sliceToBe32(nodePortIPv6[12:16])
 		}
 	}
-	if option.Config.Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
 		if option.Config.EnableIPv4 {
 			ipv4 := bpfMasqIPv4Addrs[ifName]
 			opts["IPV4_MASQUERADE"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)

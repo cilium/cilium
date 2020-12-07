@@ -2039,7 +2039,14 @@ definitions:
         type: string
       masquerade:
         description: Status of masquerading feature
-        type: boolean
+        type: object
+        properties:
+          ipv4:
+            description: Status of masquerading for IPv4 traffic
+            type: boolean
+          ipv6:
+            description: Status of masquerading for IPv6 traffic
+            type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
@@ -2491,7 +2498,14 @@ definitions:
     properties:
       enabled:
         description: Is masquerading enabled
-        type: boolean
+        type: object
+        properties:
+          ipv4:
+            description: Is masquerading enabled for IPv4 traffic
+            type: boolean
+          ipv6:
+            description: Is masquerading enabled for IPv6 traffic
+            type: boolean
       mode:
         type: string
         enum:

@@ -123,10 +123,13 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 
 func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	s := &models.Masquerading{
-		Enabled: option.Config.Masquerade,
+		Enabled: &models.MasqueradingEnabled{
+			IPV4: option.Config.EnableIPv4Masquerade,
+			IPV6: option.Config.EnableIPv6Masquerade,
+		},
 	}
 
-	if !option.Config.Masquerade {
+	if !option.Config.EnableIPv4Masquerade && !option.Config.EnableIPv6Masquerade {
 		return s
 	}
 

@@ -31,6 +31,15 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		return nil
 	}
 
+	var masq bool
+	if ipConfig.Version == "4" {
+		masq = conf.Masquerade.IPV4
+	} else if ipConfig.Version == "6" {
+		masq = conf.Masquerade.IPV6
+	} else {
+		return fmt.Errorf("Invalid IPConfig version: %s", ipConfig.Version)
+	}
+
 	allCIDRs := make([]*net.IPNet, 0, len(ipam.Cidrs))
 	for _, cidrString := range ipam.Cidrs {
 		_, cidr, err := net.ParseCIDR(cidrString)
@@ -46,14 +55,13 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		cidrs = append(cidrs, cidr.String())
 	}
 
-	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, cidrs, ipam.MasterMac, conf.Masquerade)
+	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, cidrs, ipam.MasterMac, masq)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %v", err)
 	}
 
 	if err := routingInfo.Configure(ipConfig.Address.IP,
-		int(conf.DeviceMTU),
-		conf.Masquerade); err != nil {
+		int(conf.DeviceMTU), masq); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %s", err)
 	}
 

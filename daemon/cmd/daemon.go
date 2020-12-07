@@ -514,7 +514,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
-	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
 		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" ||
 			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
 
@@ -536,7 +536,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.EnableBPFMasquerade = false
 		log.Warn(msg + " Falling back to iptables-based masquerading.")
 	}
-	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)

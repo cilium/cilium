@@ -623,6 +623,13 @@ func init() {
 
 	flags.Bool(option.Masquerade, true, "Masquerade packets from endpoints leaving the host")
 	option.BindEnv(option.Masquerade)
+	flags.MarkDeprecated(option.Masquerade, fmt.Sprintf("This option will be removed in v1.11 in favour of %s", option.EnableIPv4Masquerade))
+
+	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
+	option.BindEnv(option.EnableIPv4Masquerade)
+
+	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
+	option.BindEnv(option.EnableIPv6Masquerade)
 
 	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
 	option.BindEnv(option.EnableBPFMasquerade)
@@ -1212,7 +1219,8 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EnableExternalIPs = true
 		option.Config.Tunnel = option.TunnelDisabled
 		option.Config.EnableHealthChecking = false
-		option.Config.Masquerade = false
+		option.Config.EnableIPv4Masquerade = false
+		option.Config.EnableIPv6Masquerade = false
 		option.Config.InstallIptRules = false
 		option.Config.EnableL7Proxy = false
 	default:
