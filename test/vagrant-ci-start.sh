@@ -18,7 +18,7 @@ for i in $(seq 1 $K8S_NODES); do
 done
 
 if [ -n "${KUBECONFIG}" ]; then
-    echo "getting vagrant kubeconfig from provisioned vagrant cluster"
+    echo "getting vagrant kubeconfig from provisioned vagrant cluster into ${KUBECONFIG}"
     ./get-vagrant-kubeconfig.sh > ${KUBECONFIG}
     KUBECTL="kubectl"
 else
