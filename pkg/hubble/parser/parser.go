@@ -71,6 +71,8 @@ func lostEventSourceToProto(source int) pb.LostEventSource {
 		return pb.LostEventSource_PERF_EVENT_RING_BUFFER
 	case observerTypes.LostEventSourceEventsQueue:
 		return pb.LostEventSource_OBSERVER_EVENTS_QUEUE
+	case observerTypes.LostEventSourceHubbleRingBuffer:
+		return pb.LostEventSource_HUBBLE_RING_BUFFER
 	default:
 		return pb.LostEventSource_UNKNOWN_LOST_EVENT_SOURCE
 	}

@@ -20,11 +20,15 @@ import (
 	"fmt"
 	"io"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/math"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 var (
@@ -369,7 +373,26 @@ func (r *Ring) readFrom(ctx context.Context, read uint64, ch chan<- *v1.Event) {
 			case <-ctx.Done():
 				return
 			}
-
+		default:
+			// The writer overwrote the entry before we had time to read it.
+			// Send a ListEvent to notify the read-miss.
+			now := time.Now().UTC()
+			select {
+			case ch <- &v1.Event{
+				Timestamp: &timestamp.Timestamp{
+					Seconds: int64(now.Unix()),
+					Nanos:   int32(now.Nanosecond()),
+				},
+				Event: &flowpb.LostEvent{
+					Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+					NumEventsLost: 1,
+					Cpu:           nil,
+				},
+			}:
+				continue
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }
