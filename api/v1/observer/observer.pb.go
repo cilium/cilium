@@ -182,6 +182,7 @@ type LostEventSource = flow.LostEventSource
 const LostEventSource_UNKNOWN_LOST_EVENT_SOURCE = flow.LostEventSource_UNKNOWN_LOST_EVENT_SOURCE
 const LostEventSource_PERF_EVENT_RING_BUFFER = flow.LostEventSource_PERF_EVENT_RING_BUFFER
 const LostEventSource_OBSERVER_EVENTS_QUEUE = flow.LostEventSource_OBSERVER_EVENTS_QUEUE
+const LostEventSource_HUBBLE_RING_BUFFER = flow.LostEventSource_HUBBLE_RING_BUFFER
 
 var LostEventSource_name = flow.LostEventSource_name
 var LostEventSource_value = flow.LostEventSource_value

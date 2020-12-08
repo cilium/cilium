@@ -463,6 +463,10 @@ enum LostEventSource {
     // Hubble events queue was full, indicating that the Hubble observer did
     // not keep up.
     OBSERVER_EVENTS_QUEUE = 2;
+
+    // HUBBLE_RING_BUFFER indicates that the event was dropped because it could
+    // not be read from Hubble's ring buffer in time before being overwritten.
+    HUBBLE_RING_BUFFER = 3;
 }
 
 // LostEvent is a message which notifies consumers about a loss of events
