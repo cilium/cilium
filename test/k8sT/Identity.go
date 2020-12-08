@@ -24,42 +24,43 @@ import (
 )
 
 var _ = Describe("K8sIdentity", func() {
-	var kubectl *helpers.Kubectl
-	var ciliumFilename string
+	SkipContextIf(helpers.DoesNotRunOnGKE, "Identity expiration", func() {
+		var (
+			kubectl        *helpers.Kubectl
+			ciliumFilename string
+		)
 
-	BeforeAll(func() {
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		BeforeAll(func() {
+			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-			"endpointGCInterval":       "2s",
-			"identityGCInterval":       "2s",
-			"identityHeartbeatTimeout": "2s",
+			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"endpointGCInterval":       "2s",
+				"identityGCInterval":       "2s",
+				"identityHeartbeatTimeout": "2s",
+			})
+
+			_, err := kubectl.CiliumNodesWait()
+			ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
+
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
 		})
 
-		_, err := kubectl.CiliumNodesWait()
-		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
+		AfterFailed(func() {
+			kubectl.CiliumReport("cilium endpoint list")
+		})
 
-		By("Making sure all endpoints are in ready state")
-		err = kubectl.CiliumEndpointWaitReady()
-		ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
+		AfterAll(func() {
+			UninstallCiliumFromManifest(kubectl, ciliumFilename)
+			kubectl.CloseSSHClient()
+		})
 
-	})
+		JustAfterEach(func() {
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		})
 
-	AfterFailed(func() {
-		kubectl.CiliumReport("cilium endpoint list")
-	})
-
-	AfterAll(func() {
-		UninstallCiliumFromManifest(kubectl, ciliumFilename)
-		kubectl.CloseSSHClient()
-	})
-
-	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-	})
-
-	Context("Identity expiration", func() {
 		It("Expiration of CiliumIdentity", func() {
 			By("Creating unused CiliumIdentity")
 			dummyIdentity := helpers.ManifestGet(kubectl.BasePath(), "dummy_identity.yaml")
