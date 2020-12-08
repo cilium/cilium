@@ -274,7 +274,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		SkipItIf(func() bool {
 			// Skip K8s versions for which the test is currently flaky.
-			return helpers.SkipK8sVersions(">=1.13.0 <1.18.0") && helpers.SkipQuarantined()
+			return helpers.SkipK8sVersions(">=1.14.0 <1.20.0") && helpers.SkipQuarantined()
 		}, "Check iptables masquerading with random-fully", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"bpf.masquerade":      "false",
