@@ -79,7 +79,12 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 					// handling.
 					if ep := k.endpointManager.LookupPodName(podNSName); ep != nil {
 						epCreatedAt := ep.GetCreatedAt()
-						metrics.EventLagK8s.Set(time.Since(epCreatedAt).Seconds())
+						timeSinceEpCreated := time.Since(epCreatedAt)
+						if timeSinceEpCreated <= 0 {
+							metrics.EventLagK8s.Set(0)
+						} else {
+							metrics.EventLagK8s.Set(timeSinceEpCreated.Round(time.Second).Seconds())
+						}
 					}
 					err := k.addK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
