@@ -351,7 +351,7 @@ func (l *BPFListener) OnIPIdentityCacheGC() {
 	// fully to give us the history of all events. As such, periodically check
 	// for inconsistencies in the data-path with that in the agent to ensure
 	// consistent state.
-	controller.NewManager().UpdateController("ipcache-bpf-garbage-collection",
+	ipcache.IPIdentityCache.UpdateController("ipcache-bpf-garbage-collection",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				wg, err := l.garbageCollect(ctx)
