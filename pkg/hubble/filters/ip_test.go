@@ -157,6 +157,62 @@ func TestIPFilter(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "source cidr",
+			args: args{
+				f: []*flowpb.FlowFilter{{SourceIp: []string{"1.1.1.0/24", "f00d::/16"}}},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "2.2.2.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
+				},
+			},
+			want: []bool{
+				true,
+				false,
+				true,
+				false,
+			},
+		},
+		{
+			name: "destination cidr",
+			args: args{
+				f: []*flowpb.FlowFilter{{DestinationIp: []string{"1.1.1.0/24", "f00d::/16"}}},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "1.1.1.1", Source: "2.2.2.2"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "2.2.2.2", Source: "1.1.1.1"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "f00d::a10:0:0:9195", Source: "ff02::1:ff00:b3e5"}}},
+					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "ff02::1:ff00:b3e5", Source: "f00d::a10:0:0:9195"}}},
+				},
+			},
+			want: []bool{
+				true,
+				false,
+				true,
+				false,
+			},
+		},
+		{
+			name: "invalid source cidr filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{SourceIp: []string{"1.1.1.1/1234"}},
+					{SourceIp: []string{"2001::/1234"}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid destination cidr filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{DestinationIp: []string{"1.1.1.1/1234"}},
+					{DestinationIp: []string{"2001::/1234"}},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -320,7 +320,9 @@ message CiliumEventType {
 // FlowFilter represent an individual flow filter. All fields are optional. If
 // multiple fields are set, then all fields must match for the filter to match.
 message FlowFilter {
-    // source_ip filters by a list of source ips
+    // source_ip filters by a list of source ips. Each of the source ips can be
+    // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
+    // "1.1.1.0/24").
     repeated string source_ip = 1;
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
@@ -336,7 +338,9 @@ message FlowFilter {
     // supports the same syntax as the source_pod field.
     repeated string source_service = 16;
 
-    // destination_ip filters by a list of destination ips
+    // destination_ip filters by a list of destination ips. Each of the
+    // destination ips can be specified as an exact match (e.g. "1.1.1.1") or
+    // as a CIDR range (e.g. "1.1.1.0/24").
     repeated string destination_ip = 3;
     // destination_pod filters by a list of destination pod names
     repeated string destination_pod = 4;
