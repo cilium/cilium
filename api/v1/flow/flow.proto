@@ -477,17 +477,20 @@ message LostEvent {
 // AgentNotification in pkg/monitor/api/types.go
 enum AgentEventType {
     AGENT_EVENT_UNKNOWN = 0;
-    AGENT_STARTED = 1;
-    POLICY_UPDATED = 2;
-    POLICY_DELETED = 3;
-    ENDPOINT_REGENERATE_SUCCESS = 4;
-    ENDPOINT_REGENERATE_FAILURE = 5;
-    ENDPOINT_CREATED = 6;
-    ENDPOINT_DELETED = 7;
-    IPCACHE_UPSERTED = 8;
-    IPCACHE_DELETED = 9;
-    SERVICE_UPSERTED = 10;
-    SERVICE_DELETED = 11;
+    // used for AGENT_EVENT_GENERIC in monitor API, but there are currently no
+    // such events;
+    reserved 1;
+    AGENT_STARTED = 2;
+    POLICY_UPDATED = 3;
+    POLICY_DELETED = 4;
+    ENDPOINT_REGENERATE_SUCCESS = 5;
+    ENDPOINT_REGENERATE_FAILURE = 6;
+    ENDPOINT_CREATED = 7;
+    ENDPOINT_DELETED = 8;
+    IPCACHE_UPSERTED = 9;
+    IPCACHE_DELETED = 10;
+    SERVICE_UPSERTED = 11;
+    SERVICE_DELETED = 12;
 }
 
 message AgentEvent {
