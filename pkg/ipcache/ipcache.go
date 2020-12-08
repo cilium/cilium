@@ -17,6 +17,7 @@ package ipcache
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -79,6 +80,9 @@ type IPCache struct {
 	v6PrefixLengths map[int]int
 
 	listeners []IPIdentityMappingListener
+
+	// controllers manages the async controllers for this IPCache
+	controllers *controller.Manager
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -92,6 +96,7 @@ func NewIPCache() *IPCache {
 		ipToK8sMetadata:   map[string]K8sMetadata{},
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
+		controllers:       controller.NewManager(),
 	}
 }
 
@@ -136,6 +141,11 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	defer ipc.mutex.RUnlock()
 	// Initialize new listener with the current mappings
 	ipc.DumpToListenerLocked(listener)
+}
+
+// Update a controller for this IPCache
+func (ipc *IPCache) UpdateController(name string, params controller.ControllerParams) {
+	ipc.controllers.UpdateController(name, params)
 }
 
 // endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
