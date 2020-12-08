@@ -58,6 +58,9 @@ assignees: ''
       Suggested approach: Follow the full [GKE getting started guide].
 - [ ] Check draft release from [releases] page and publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
+- [ ] Update Grafana dashboards (only for vX.Y.0)
+  - Install the dashboards available in ``./examples/kubernetes/addons/prometheus``
+    and use them to upload them to Grafana.com.
 
 ## Post-release
 

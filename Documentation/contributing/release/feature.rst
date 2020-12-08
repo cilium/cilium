@@ -118,6 +118,9 @@ On Freeze date
     tested on every change and Nightly.
 #. (Only 1.0 minor releases) Tag newest 1.0.x Docker image as ``v1.0-stable``
    and push it to Docker Hub. This will ensure that Kops uses latest 1.0 release by default.
+#. Update Grafana dashboards in `Grafana <https://grafana.com/orgs/cilium/dashboards>`_.
+   Install the dashboards available in ``./examples/kubernetes/addons/prometheus``
+   and use them to upload them to Grafana.
 
 
 For the final release
