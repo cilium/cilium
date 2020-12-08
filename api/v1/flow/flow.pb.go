@@ -1928,7 +1928,9 @@ type FlowFilter struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// source_ip filters by a list of source ips
+	// source_ip filters by a list of source ips. Each of the source ips can be
+	// specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
+	// "1.1.1.0/24").
 	SourceIp []string `protobuf:"bytes,1,rep,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
 	// source_pod filters by a list of source pod name prefixes, optionally
 	// within a given namespace (e.g. "xwing", "kube-system/coredns-").
@@ -1943,7 +1945,9 @@ type FlowFilter struct {
 	// source_service filters on a list of source service names. This field
 	// supports the same syntax as the source_pod field.
 	SourceService []string `protobuf:"bytes,16,rep,name=source_service,json=sourceService,proto3" json:"source_service,omitempty"`
-	// destination_ip filters by a list of destination ips
+	// destination_ip filters by a list of destination ips. Each of the
+	// destination ips can be specified as an exact match (e.g. "1.1.1.1") or
+	// as a CIDR range (e.g. "1.1.1.0/24").
 	DestinationIp []string `protobuf:"bytes,3,rep,name=destination_ip,json=destinationIp,proto3" json:"destination_ip,omitempty"`
 	// destination_pod filters by a list of destination pod names
 	DestinationPod []string `protobuf:"bytes,4,rep,name=destination_pod,json=destinationPod,proto3" json:"destination_pod,omitempty"`

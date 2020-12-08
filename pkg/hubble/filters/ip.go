@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -32,9 +33,22 @@ func destinationIP(ev *v1.Event) string {
 }
 
 func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error) {
+	// IP filter can either be an exact match (e.g. "1.1.1.1") or a CIDR range
+	// (e.g. "1.1.1.0/24"). Put them into 2 separate lists here.
+	var addresses []string
+	var cidrs []*net.IPNet
 	for _, ip := range ips {
-		if net.ParseIP(ip) == nil {
-			return nil, fmt.Errorf("invalid IP address in filter: %q", ip)
+		if strings.Contains(ip, "/") {
+			_, ipnet, err := net.ParseCIDR(ip)
+			if err != nil {
+				return nil, fmt.Errorf("invalid CIDR in filter: %q", ip)
+			}
+			cidrs = append(cidrs, ipnet)
+		} else {
+			if net.ParseIP(ip) == nil {
+				return nil, fmt.Errorf("invalid IP address in filter: %q", ip)
+			}
+			addresses = append(addresses, ip)
 		}
 	}
 
@@ -44,9 +58,18 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 			return false
 		}
 
-		for _, ip := range ips {
+		for _, ip := range addresses {
 			if ip == eventIP {
 				return true
+			}
+		}
+
+		if len(cidrs) > 0 {
+			parsedIP := net.ParseIP(eventIP)
+			for _, cidr := range cidrs {
+				if cidr.Contains(parsedIP) {
+					return true
+				}
 			}
 		}
 
