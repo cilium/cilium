@@ -250,7 +250,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				} else {
 					insertedDesiredMapState[keyFromFilter] = struct{}{}
 				}
-				if entry != policy.NoRedirectEntry {
+				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
 				}
 				e.desiredPolicy.PolicyMapState[keyFromFilter] = entry
@@ -360,9 +360,10 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 			TrafficDirection: direction.Uint8(),
 		}
 
-		e.desiredPolicy.PolicyMapState[newKey] = policy.MapStateEntry{
-			ProxyPort: redirectPort,
-		}
+		entry := policy.NewMapStateEntry(nil, true)
+		entry.ProxyPort = redirectPort
+
+		e.desiredPolicy.PolicyMapState[newKey] = entry
 
 		insertedDesiredMapState[newKey] = struct{}{}
 	}
@@ -1027,11 +1028,6 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 	// Operation was successful, remove from realized state.
 	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
 
-	// Incremental updates need to update the desired state as well.
-	if incremental && e.desiredPolicy != e.realizedPolicy {
-		delete(e.desiredPolicy.PolicyMapState, keyToDelete)
-	}
-
 	e.policyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToDelete,
 		logfields.BPFMapValue: entry,
@@ -1061,11 +1057,6 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 
 	// Operation was successful, add to realized state.
 	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
-
-	// Incremental updates need to update the desired state as well.
-	if incremental && e.desiredPolicy != e.realizedPolicy {
-		e.desiredPolicy.PolicyMapState[keyToAdd] = entry
-	}
 
 	e.policyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToAdd,
@@ -1116,12 +1107,15 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	//  collected on the newly computed desired policy, which is
 	//  not fully realized yet. This is why we get the map changes
 	//  from the desired policy here.
+	//  ConsumeMapChanges() applies the incremental updates to the
+	//  desired policy and only returns changes that need to be
+	//  applied to the Endpoint's bpf policy map.
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 
 	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range adds {
 		// Keep the existing proxy port, if any
-		if entry != policy.NoRedirectEntry {
+		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			if entry.ProxyPort != 0 {
 				proxyChanges = true
@@ -1201,7 +1195,7 @@ func (e *Endpoint) addPolicyMapDelta() error {
 	errors := 0
 
 	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || oldEntry != entry {
+		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || !oldEntry.Equal(&entry) {
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}
@@ -1228,10 +1222,6 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	if e.realizedPolicy.PolicyMapState == nil {
 		e.realizedPolicy.PolicyMapState = make(policy.MapState)
-	}
-
-	if e.desiredPolicy.PolicyMapState == nil {
-		e.desiredPolicy.PolicyMapState = make(policy.MapState)
 	}
 
 	if e.policyMap == nil {
