@@ -65,6 +65,7 @@ type EndpointPolicy struct {
 	// It maps each Key to the proxy port if proxy redirection is needed.
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the Key and the proxy port must be in host byte-order.
+	// Must only be accessed with PolicyOwner (aka Endpoint) lock taken.
 	PolicyMapState MapState
 
 	// policyMapChanges collects pending changes to the PolicyMapState
@@ -191,10 +192,11 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 // ConsumeMapChanges transfers the changes from MapChanges to the caller,
 // locking the selector cache to make sure concurrent identity updates
 // have completed.
+// PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	return p.policyMapChanges.consumeMapChanges()
+	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState)
 }
 
 // AllowsIdentity returns whether the specified policy allows
