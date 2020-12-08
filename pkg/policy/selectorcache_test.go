@@ -125,6 +125,83 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector
 	csu.selections[selector] = selections
 }
 
+// Mock CachedSelector for unit testing.
+
+type testCachedSelector struct {
+	name       string
+	wildcard   bool
+	selections []identity.NumericIdentity
+}
+
+func newTestCachedSelector(name string, wildcard bool, selections ...int) *testCachedSelector {
+	cs := &testCachedSelector{
+		name:       name,
+		wildcard:   wildcard,
+		selections: make([]identity.NumericIdentity, 0, len(selections)),
+	}
+	cs.addSelections(selections...)
+	return cs
+}
+
+// returns selections as []identity.NumericIdentity
+func (cs *testCachedSelector) addSelections(selections ...int) (adds []identity.NumericIdentity) {
+	for _, id := range selections {
+		nid := identity.NumericIdentity(id)
+		adds = append(adds, nid)
+		if cs == nil {
+			continue
+		}
+		if !cs.Selects(nid) {
+			cs.selections = append(cs.selections, nid)
+		}
+	}
+	return adds
+}
+
+// returns selections as []identity.NumericIdentity
+func (cs *testCachedSelector) deleteSelections(selections ...int) (deletes []identity.NumericIdentity) {
+	for _, id := range selections {
+		nid := identity.NumericIdentity(id)
+		deletes = append(deletes, nid)
+		if cs == nil {
+			continue
+		}
+		for i := 0; i < len(cs.selections); i++ {
+			if nid == cs.selections[i] {
+				cs.selections = append(cs.selections[:i], cs.selections[i+1:]...)
+				i--
+			}
+		}
+	}
+	return deletes
+}
+
+// CachedSelector interface
+
+func (cs *testCachedSelector) GetSelections() []identity.NumericIdentity {
+	return cs.selections
+}
+func (cs *testCachedSelector) Selects(nid identity.NumericIdentity) bool {
+	for _, id := range cs.selections {
+		if id == nid {
+			return true
+		}
+	}
+	return false
+}
+
+func (cs *testCachedSelector) IsWildcard() bool {
+	return cs.wildcard
+}
+
+func (cs *testCachedSelector) IsNone() bool {
+	return false
+}
+
+func (cs *testCachedSelector) String() string {
+	return cs.name
+}
+
 func (ds *SelectorCacheTestSuite) SetUpTest(c *C) {
 }
 

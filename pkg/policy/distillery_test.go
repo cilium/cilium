@@ -326,13 +326,13 @@ var (
 	mapKeyAllowAll__ = Key{0, 0, 0, dirIngress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(labels.LabelArrayList(lbls).Sort(), false, false)
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false).WithoutSelectors()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(labels.LabelArrayList(lbls).Sort(), false, true)
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true).WithoutSelectors()
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(labels.LabelArrayList(lbls).Sort(), true, false)
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false).WithoutSelectors()
 	}
 )
 
@@ -382,6 +382,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 		allowAllIngress := true
 		allowAllEgress := false // Skip egress
 		result.AllowAllIdentities(allowAllIngress, allowAllEgress)
+		result.clearCachedSelectors()
 		return result, nil
 	}
 
@@ -413,7 +414,20 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 		}
 	}
 	l4IngressPolicy.Detach(d.Repository.GetSelectorCache())
+	result.clearCachedSelectors()
 	return result, nil
+}
+
+// clearCachedSelectors removes CachedSelectors from MapStateEntries
+// for testing purposes.  Table-driven testing pattern used for these
+// tests does not allow expected MapStateEntries to contain actual
+// CachedSelectors as those have not been inserted to the selector
+// cache at the time when the expectations are created.
+func (m MapState) clearCachedSelectors() {
+	for k, v := range m {
+		v.selectors = nil
+		m[k] = v
+	}
 }
 
 func Test_MergeL3(t *testing.T) {

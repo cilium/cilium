@@ -23,6 +23,27 @@ import (
 	"gopkg.in/check.v1"
 )
 
+// WithSelectors returns a copy of 'e', but selectors replaced with 'selectors'. 'e' is not modified.
+// No selectors is represented with a 'nil' map.
+func (e MapStateEntry) WithSelectors(selectors ...CachedSelector) MapStateEntry {
+	mse := e
+	if len(selectors) > 0 {
+		mse.selectors = make(map[CachedSelector]struct{}, len(selectors))
+		for _, cs := range selectors {
+			mse.selectors[cs] = struct{}{}
+		}
+	} else {
+		mse.selectors = nil
+	}
+	return mse
+}
+
+// WithoutSelectors returns a copy of 'e', but selectors replaced with 'nil'. 'e' is not modified.
+// Note: This is used only in unit tests and helps test readability.
+func (e MapStateEntry) WithoutSelectors() MapStateEntry {
+	return e.WithSelectors()
+}
+
 func (ds *PolicyTestSuite) TestPolicyKeyTrafficDirection(c *check.C) {
 	k := Key{TrafficDirection: trafficdirection.Ingress.Uint8()}
 	c.Assert(k.IsIngress(), check.Equals, true)
@@ -707,5 +728,251 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 	for _, tt := range tests {
 		tt.keys.DenyPreferredInsert(tt.args.key, tt.args.entry)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
+	}
+}
+
+func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
+	csFoo := newTestCachedSelector("Foo", false)
+	csBar := newTestCachedSelector("Bar", false)
+
+	TestKey := func(id int, port uint16, proto uint8, direction trafficdirection.TrafficDirection) Key {
+		return Key{
+			Identity:         uint32(id),
+			DestPort:         port,
+			Nexthdr:          proto,
+			TrafficDirection: direction.Uint8(),
+		}
+	}
+	TestIngressKey := func(id int, port uint16, proto uint8) Key {
+		return TestKey(id, port, proto, trafficdirection.Ingress)
+	}
+	TestEgressKey := func(id int, port uint16, proto uint8) Key {
+		return TestKey(id, port, proto, trafficdirection.Egress)
+	}
+	DNSUDPEgressKey := func(id int) Key {
+		return TestEgressKey(id, 53, 17)
+	}
+	DNSTCPEgressKey := func(id int) Key {
+		return TestEgressKey(id, 53, 6)
+	}
+	HostIngressKey := func() Key {
+		return TestIngressKey(1, 0, 0)
+	}
+	AnyIngressKey := func() Key {
+		return TestIngressKey(0, 0, 0)
+	}
+	//AnyEgressKey := func() Key {
+	//	return TestEgressKey(0, 0, 0)
+	//}
+	HttpIngressKey := func(id int) Key {
+		return TestIngressKey(id, 80, 6)
+	}
+	HttpEgressKey := func(id int) Key {
+		return TestEgressKey(id, 80, 6)
+	}
+
+	TestEntry := func(proxyPort uint16, deny bool, selectors ...CachedSelector) MapStateEntry {
+		entry := MapStateEntry{
+			ProxyPort: proxyPort,
+			IsDeny:    deny,
+		}
+		if len(selectors) > 0 {
+			entry.selectors = make(map[CachedSelector]struct{}, len(selectors))
+			for _, cs := range selectors {
+				entry.selectors[cs] = struct{}{}
+			}
+		}
+		return entry
+	}
+
+	type args struct {
+		cs       *testCachedSelector
+		adds     []int
+		deletes  []int
+		port     uint16
+		proto    uint8
+		ingress  bool
+		redirect bool
+		deny     bool
+	}
+	tests := []struct {
+		continued bool // Start from the end state of the previous test
+		name      string
+		args      []args // changes applied, in order
+		state     MapState
+		adds      MapState
+		deletes   MapState
+	}{{
+		name: "test-1 - Adding identity to an empty state",
+		args: []args{
+			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(42): TestEntry(0, false, csFoo),
+		},
+		adds: MapState{
+			HttpIngressKey(42): TestEntry(0, false),
+		},
+		deletes: MapState{},
+	}, {
+		continued: true,
+		name:      "test-2 - Removing the sole key",
+		args: []args{
+			{cs: csFoo, adds: nil, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{},
+		adds:  MapState{},
+		deletes: MapState{
+			HttpIngressKey(42): TestEntry(0, false),
+		},
+	}, {
+		name: "test-3 - Adding 2 identities, and deleting a nonexisting key on an empty state",
+		args: []args{
+			{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(42): TestEntry(0, false, csFoo),
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
+		},
+		adds: MapState{
+			HttpIngressKey(42): TestEntry(0, false),
+			HttpIngressKey(43): TestEntry(0, false),
+		},
+		deletes: MapState{},
+	}, {
+		continued: true,
+		name:      "test-4 - Adding Bar also selecting 42",
+		args: []args{
+			{cs: csBar, adds: []int{42, 44}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(42): TestEntry(0, false, csFoo, csBar),
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
+			HttpIngressKey(44): TestEntry(0, false, csBar),
+		},
+		adds: MapState{
+			HttpIngressKey(44): TestEntry(0, false),
+		},
+		deletes: MapState{},
+	}, {
+		continued: true,
+		name:      "test-5 - Deleting 42 from Foo, remains on Bar and no deletes",
+		args: []args{
+			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(42): TestEntry(0, false, csBar),
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
+			HttpIngressKey(44): TestEntry(0, false, csBar),
+		},
+		adds:    MapState{},
+		deletes: MapState{},
+	}, {
+		continued: true,
+		name:      "test-6 - Deleting 42 from Bar, deleted",
+		args: []args{
+			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
+			HttpIngressKey(44): TestEntry(0, false, csBar),
+		},
+		adds: MapState{},
+		deletes: MapState{
+			HttpIngressKey(42): TestEntry(0, false),
+		},
+	}, {
+		continued: true,
+		name:      "test-6b - Adding an entry that already exists, no adds",
+		args: []args{
+			{cs: csBar, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
+			HttpIngressKey(44): TestEntry(0, false, csBar),
+		},
+		adds:    MapState{},
+		deletes: MapState{},
+	}, {
+		continued: false,
+		name:      "test-7a - egress HTTP proxy (setup)",
+		args: []args{
+			{cs: nil, adds: []int{0}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: false},
+			{cs: nil, adds: []int{1}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: false},
+			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 17, ingress: false, redirect: false, deny: false},
+			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 6, ingress: false, redirect: false, deny: false},
+		},
+		state: MapState{
+			AnyIngressKey():     TestEntry(0, false, nil),
+			HostIngressKey():    TestEntry(0, false, nil),
+			DNSUDPEgressKey(42): TestEntry(0, false, csBar),
+			DNSTCPEgressKey(42): TestEntry(0, false, csBar),
+		},
+		adds: MapState{
+			AnyIngressKey():     TestEntry(0, false),
+			HostIngressKey():    TestEntry(0, false),
+			DNSUDPEgressKey(42): TestEntry(0, false),
+			DNSTCPEgressKey(42): TestEntry(0, false),
+		},
+		deletes: MapState{},
+	}, {
+		continued: true,
+		name:      "test-7b - egress HTTP proxy (incremental update)",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
+		},
+		state: MapState{
+			AnyIngressKey():     TestEntry(0, false, nil),
+			HostIngressKey():    TestEntry(0, false, nil),
+			DNSUDPEgressKey(42): TestEntry(0, false, csBar),
+			DNSTCPEgressKey(42): TestEntry(0, false, csBar),
+			HttpEgressKey(43):   TestEntry(1, false, csFoo),
+		},
+		adds: MapState{
+			HttpEgressKey(43): TestEntry(1, false),
+		},
+		deletes: MapState{},
+	}, {
+		continued: false,
+		name:      "test-n - title",
+		args:      []args{
+			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			//HttpIngressKey(42): TestEntry(0, false, csFoo),
+		},
+		adds: MapState{
+			//HttpIngressKey(42): TestEntry(0, false),
+		},
+		deletes: MapState{
+			//HttpIngressKey(43): TestEntry(0, false),
+		},
+	},
+	}
+
+	policyMapState := MapState{}
+
+	for _, tt := range tests {
+		policyMaps := MapChanges{}
+		if !tt.continued {
+			policyMapState = MapState{}
+		}
+		for _, x := range tt.args {
+			dir := trafficdirection.Egress
+			if x.ingress {
+				dir = trafficdirection.Ingress
+			}
+			adds := x.cs.addSelections(x.adds...)
+			deletes := x.cs.deleteSelections(x.deletes...)
+			var cs CachedSelector
+			if x.cs != nil {
+				cs = x.cs
+			}
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
+		}
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
+		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
+		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
+		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
 	}
 }
