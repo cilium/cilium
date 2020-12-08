@@ -99,7 +99,7 @@ func TestEventTypeFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "agent event",
+			name: "agent event without subtype",
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
@@ -125,6 +125,40 @@ func TestEventTypeFilter(t *testing.T) {
 				true,
 				true,
 				true,
+				true, // always want lost events
+			},
+		},
+		{
+			name: "agent event with subtype",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						EventType: []*flowpb.EventTypeFilter{
+							{
+								Type:         monitorAPI.MessageTypeAgent,
+								MatchSubType: true,
+								SubType:      int32(monitorAPI.AgentNotifyEndpointCreated),
+							},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{}},
+					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{}}},
+					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog}}},
+					{Event: &flowpb.AgentEvent{}},
+					{Event: &flowpb.AgentEvent{Type: flowpb.AgentEventType_ENDPOINT_CREATED}},
+					{Event: &flowpb.AgentEvent{Type: flowpb.AgentEventType_POLICY_DELETED}},
+					{Event: &flowpb.LostEvent{}},
+				},
+			},
+			want: []bool{
+				false,
+				false,
+				false,
+				false,
+				true,
+				false,
 				true, // always want lost events
 			},
 		},
