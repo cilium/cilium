@@ -447,6 +447,9 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{})
 
+	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, false)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, false)
+
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
@@ -475,18 +478,17 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 		},
 		PolicyOwner: DummyOwner{},
 		PolicyMapState: MapState{
-			{TrafficDirection: trafficdirection.Egress.Uint8()}: {},
-			{DestPort: 80, Nexthdr: 6}:                          {},
+			{TrafficDirection: trafficdirection.Egress.Uint8()}: allowEgressMapStateEntry,
+			{DestPort: 80, Nexthdr: 6}:                          rule1MapStateEntry,
 		},
 	}
 
-	// Add new identity to test accumulation of PolicyMapChanges
+	// Add new identity to test accumulation of MapChanges
 	added1 := cache.IdentityCache{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
-	c.Assert(policy.policyMapChanges.adds, HasLen, 0)
-	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
+	c.Assert(policy.policyMapChanges.changes, HasLen, 0)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
@@ -543,28 +545,31 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{})
 
-	// Add new identity to test accumulation of PolicyMapChanges
+	// Add new identity to test accumulation of MapChanges
 	added1 := cache.IdentityCache{
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
-	c.Assert(policy.policyMapChanges.adds, HasLen, 3)
-	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
+	// Cleanup the identities from the testSelectorCache
+	defer testSelectorCache.UpdateIdentities(nil, added1)
+	c.Assert(policy.policyMapChanges.changes, HasLen, 3)
 
 	deleted1 := cache.IdentityCache{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
 	testSelectorCache.UpdateIdentities(nil, deleted1)
-	c.Assert(policy.policyMapChanges.adds, HasLen, 2)
-	c.Assert(policy.policyMapChanges.deletes, HasLen, 1)
+	c.Assert(policy.policyMapChanges.changes, HasLen, 4)
 
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
+
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, false)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -594,17 +599,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		},
 		PolicyOwner: DummyOwner{},
 		PolicyMapState: MapState{
-			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          {},
-			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: {},
-		},
-		policyMapChanges: MapChanges{
-			adds: MapState{
-				{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
-				{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
-			},
-			deletes: MapState{
-				{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
-			},
+			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
+			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithSelectors(cachedSelectorWorld),
+			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
+			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
 		},
 	}
 
@@ -615,18 +613,17 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest = testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, IsNil)
 
-	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
-
 	adds, deletes := policy.ConsumeMapChanges()
 	// maps on the policy got cleared
-	c.Assert(policy.policyMapChanges.adds, IsNil)
-	c.Assert(policy.policyMapChanges.deletes, IsNil)
+	c.Assert(policy.policyMapChanges.changes, IsNil)
 
 	c.Assert(adds, checker.Equals, MapState{
-		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
-		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
+		{Identity: 192, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
+		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
 	})
 	c.Assert(deletes, checker.Equals, MapState{
-		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
+		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
 	})
+
+	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }

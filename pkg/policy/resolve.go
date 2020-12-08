@@ -64,6 +64,7 @@ type EndpointPolicy struct {
 	// It maps each Key to the proxy port if proxy redirection is needed.
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the Key and the proxy port must be in host byte-order.
+	// Must only be accessed with PolicyOwner (aka Endpoint) lock taken.
 	PolicyMapState MapState
 
 	// policyMapChanges collects pending changes to the PolicyMapState
@@ -157,13 +158,13 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 		keysFromFilter := filter.ToMapState(direction)
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
-			if entry != NoRedirectEntry {
+			if entry.IsRedirectEntry() {
 				entry.ProxyPort = p.PolicyOwner.LookupRedirectPort(filter)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
 				// e.addNewRedirectsFromDesiredPolicy() once the port has been allocated.
-				if entry == NoRedirectEntry {
+				if !entry.IsRedirectEntry() {
 					continue
 				}
 			}
@@ -175,10 +176,11 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 // ConsumeMapChanges transfers the changes from MapChanges to the caller,
 // locking the selector cache to make sure concurrent identity updates
 // have completed.
+// PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	return p.policyMapChanges.consumeMapChanges()
+	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState)
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.

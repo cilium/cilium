@@ -80,6 +80,50 @@ type MapStateEntry struct {
 	// If 0 (default), there is no proxy redirection for the corresponding
 	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
+
+	// Selectors collects the selectors in the policy that require this key to be present.
+	// TODO: keep track which selector needed the entry to be a redirect, or just allow.
+	selectors map[CachedSelector]struct{}
+}
+
+// NewMapStateEntry creates a map state entry. If redirect is true, the
+// caller is expected to replace the ProxyPort field before it is added to
+// the actual BPF map.
+// 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
+// will become sticky and cannot be completely removed via incremental updates.
+func NewMapStateEntry(cs CachedSelector, redirect bool) MapStateEntry {
+	var proxyPort uint16
+	if redirect {
+		// Any non-zero value will do, as the callers replace this with the
+		// actual proxy listening port number before the entry is added to the
+		// actual bpf map.
+		proxyPort = 1
+	}
+
+	return MapStateEntry{
+		ProxyPort: proxyPort,
+		selectors: map[CachedSelector]struct{}{cs: {}},
+	}
+}
+
+// MergeSelectors adds selectors from entry 'b' to 'e'. 'b' is not modified.
+func (e *MapStateEntry) MergeSelectors(b *MapStateEntry) {
+	for cs, v := range b.selectors {
+		e.selectors[cs] = v
+	}
+}
+
+// IsRedirectEntry returns true if e contains a redirect
+func (e *MapStateEntry) IsRedirectEntry() bool {
+	return e.ProxyPort != 0
+}
+
+// Equal returns true of two entries are equal
+func (e *MapStateEntry) Equal(o *MapStateEntry) bool {
+	if e == nil || o == nil {
+		return e == o
+	}
+	return e.ProxyPort == o.ProxyPort
 }
 
 // String returns a string representation of the MapStateEntry
@@ -87,28 +131,95 @@ func (e MapStateEntry) String() string {
 	return fmt.Sprintf("ProxyPort=%d", e.ProxyPort)
 }
 
-// NoRedirectEntry is a special MapStateEntry used to signify that the
-// entry is not redirecting to a proxy.
-var NoRedirectEntry = MapStateEntry{ProxyPort: 0}
-
-// redirectEntry is a MapStateEntry used to signify that the entry
-// must redirect to a proxy. Any non-zero value would do, as the
-// callers replace this with the actual proxy listening port number
-// before the entry is added to the actual bpf map.
-var redirectEntry = MapStateEntry{ProxyPort: 1}
-
 // RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry
+// This form may be used when a full policy is computed and we are not yet interested
+// in accumulating incremental changes.
 func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
-	if entry == NoRedirectEntry {
-		if _, ok := keys[key]; ok {
-			// Key already exist, keep the existing entry so that
-			// a redirect entry is never overwritten by a non-redirect
-			// entry
-			return
+	keys.redirectPreferredInsertWithChanges(key, entry, nil, nil)
+}
+
+// addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes'
+func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes MapState) {
+	// Keep all selectors that need this entry so that it is deleted only if all the selectors delete their contribution
+	updatedEntry := entry
+	oldEntry, exists := keys[key]
+	if exists {
+		// keep the existing selectors map of the old entry
+		updatedEntry.selectors = oldEntry.selectors
+	} else if len(entry.selectors) > 0 {
+		// create a new selectors map
+		updatedEntry.selectors = make(map[CachedSelector]struct{}, len(entry.selectors))
+	} else {
+		// Keep the map as nil when empty. This makes a difference for unit testing only.
+		// MergeSelectors below becomes a no-op as 'entry' is empty.
+		updatedEntry.selectors = nil
+	}
+
+	// TODO: Do we need to merge labels as well?
+	// Merge new selectors to the updated entry without modifying 'entry' as it is being reused by the caller
+	updatedEntry.MergeSelectors(&entry)
+	// Update (or insert) the entry
+	keys[key] = updatedEntry
+
+	// Record an incremental Add if desired and entry is new or changed
+	if adds != nil && (!exists || oldEntry.ProxyPort != entry.ProxyPort) {
+		updatedEntry.selectors = nil
+		adds[key] = updatedEntry // copy w/o selectors
+		// Key add overrides any previous delete of the same key
+		if deletes != nil {
+			delete(deletes, key)
 		}
 	}
-	keys[key] = entry
+}
+
+// deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
+// The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
+func (keys MapState) deleteKeyWithChanges(key Key, cs CachedSelector, adds, deletes MapState) {
+	if entry, exists := keys[key]; exists {
+		if cs != nil {
+			// remove the contribution of the given selector only
+			if _, exists = entry.selectors[cs]; exists {
+				// Remove the contribution of this selector from the entry
+				delete(entry.selectors, cs)
+				// key is not deleted if other selectors still need it
+				if len(entry.selectors) > 0 {
+					return
+				}
+			}
+		}
+		if deletes != nil {
+			entry.selectors = nil
+			deletes[key] = entry // copy w/o selectors
+			// Remove a potential previously added key
+			if adds != nil {
+				delete(adds, key)
+			}
+		}
+		delete(keys, key)
+	}
+}
+
+// redirectPreferredInsertWithChanges inserts a new entry giving priority to L7-redirects by
+// not overwriting a L7-redirect entry with a non-redirect entry.
+func (keys MapState) redirectPreferredInsertWithChanges(key Key, entry MapStateEntry, adds, deletes MapState) {
+	// Do not overwrite the entry, but only merge selectors if the old entry is a redirect.
+	// This prevents an existing redirect being overridden by a non-redirect.
+	if oldEntry, exists := keys[key]; exists && oldEntry.IsRedirectEntry() {
+		oldEntry.MergeSelectors(&entry)
+		keys[key] = oldEntry
+		// For compatibility with old redirect management code we'll have to pass on
+		// redirect entry if the oldEntry is also a redirect, even if they are equal.
+		// We store the new entry here, the proxy port of it will be fixed up before
+		// insertion to the bpf map.
+		if adds != nil && entry.IsRedirectEntry() {
+			entry.selectors = nil
+			adds[key] = entry // copy w/o selectors
+		}
+		return
+	}
+	// Otherwise write the entry to the map
+	keys.addKeyWithChanges(key, entry, adds, deletes)
 }
 
 // DetermineAllowLocalhostIngress determines whether communication should be allowed
@@ -117,9 +228,9 @@ func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
 // endpoint.
 func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 	if option.Config.AlwaysAllowLocalhost() {
-		keys[localHostKey] = MapStateEntry{}
+		keys[localHostKey] = NewMapStateEntry(nil, false)
 		if !option.Config.EnableRemoteNodeIdentity {
-			keys[localRemoteNodeKey] = MapStateEntry{}
+			keys[localRemoteNodeKey] = NewMapStateEntry(nil, false)
 		}
 	}
 }
@@ -135,7 +246,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Ingress.Uint8(),
 		}
-		keys[keyToAdd] = MapStateEntry{}
+		keys[keyToAdd] = NewMapStateEntry(nil, false)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -144,7 +255,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Egress.Uint8(),
 		}
-		keys[keyToAdd] = MapStateEntry{}
+		keys[keyToAdd] = NewMapStateEntry(nil, false)
 	}
 }
 
@@ -153,20 +264,21 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 // and deletes. 'mutex' must be held for any access.
 type MapChanges struct {
 	mutex   lock.Mutex
-	adds    MapState
-	deletes MapState
+	changes []MapChange
+}
+
+type MapChange struct {
+	add   bool // false deletes
+	key   Key
+	value MapStateEntry
 }
 
 // AccumulateMapChanges accumulates the given changes to the
-// MapChanges, updating both maps for each add and delete, as
-// applicable.
+// MapChanges.
 //
 // The caller is responsible for making sure the same identity is not
-// present in both 'adds' and 'deletes'.  Accross multiple calls we
-// maintain the adds and deletes within the MapChanges are disjoint in
-// cases where an identity is first added and then deleted, or first
-// deleted and then added.
-func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
+// present in both 'adds' and 'deletes'.
+func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
 	key := Key{
 		// The actual identity is set in the loops below
@@ -176,13 +288,12 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		Nexthdr:          proto,
 		TrafficDirection: direction.Uint8(),
 	}
-	var value MapStateEntry // defaults to ProxyPort 0 == no redirect
-	if redirect {
-		value = redirectEntry // Special entry to mark the need for redirection
-	}
+
+	value := NewMapStateEntry(cs, redirect)
 
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{
+			logfields.EndpointSelector: cs,
 			logfields.AddedPolicyID:    adds,
 			logfields.DeletedPolicyID:  deletes,
 			logfields.Port:             port,
@@ -193,45 +304,37 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 	}
 
 	mc.mutex.Lock()
-	if len(adds) > 0 {
-		if mc.adds == nil {
-			mc.adds = make(MapState)
-		}
-		for _, id := range adds {
-			key.Identity = id.Uint32()
-			// insert but do not allow NoRedirectEntry to overwrite a redirect entry
-			mc.adds.RedirectPreferredInsert(key, value)
-
-			// Remove a potential previously deleted key
-			if mc.deletes != nil {
-				delete(mc.deletes, key)
-			}
-		}
+	for _, id := range adds {
+		key.Identity = id.Uint32()
+		mc.changes = append(mc.changes, MapChange{true, key, value})
 	}
-	if len(deletes) > 0 {
-		if mc.deletes == nil {
-			mc.deletes = make(MapState)
-		}
-		for _, id := range deletes {
-			key.Identity = id.Uint32()
-			mc.deletes[key] = value
-			// Remove a potential previously added key
-			if mc.adds != nil {
-				delete(mc.adds, key)
-			}
-		}
+	for _, id := range deletes {
+		key.Identity = id.Uint32()
+		mc.changes = append(mc.changes, MapChange{false, key, value})
 	}
 	mc.mutex.Unlock()
 }
 
-// consumeMapChanges transfers the changes from MapChanges to the caller.
-// May return nil maps.
-func (mc *MapChanges) consumeMapChanges() (adds, deletes MapState) {
+// consumeMapChanges transfers the incremental changes from MapChanges to the caller,
+// while applying the changes to PolicyMapState.
+func (mc *MapChanges) consumeMapChanges(policyMapState MapState) (adds, deletes MapState) {
 	mc.mutex.Lock()
-	adds = mc.adds
-	mc.adds = nil
-	deletes = mc.deletes
-	mc.deletes = nil
+	adds = make(MapState, len(mc.changes))
+	deletes = make(MapState, len(mc.changes))
+
+	for i := range mc.changes {
+		if mc.changes[i].add {
+			// Insert but do not allow non-redirect entries to overwrite a redirect entry.
+			// Collect the incremental changes to the overall state in 'adds' and 'deletes'.
+			policyMapState.redirectPreferredInsertWithChanges(mc.changes[i].key, mc.changes[i].value, adds, deletes)
+		} else {
+			// Delete the contribution of this cs to the key and collect incremental changes
+			for cs := range mc.changes[i].value.selectors { // get the sole selector
+				policyMapState.deleteKeyWithChanges(mc.changes[i].key, cs, adds, deletes)
+			}
+		}
+	}
+	mc.changes = nil
 	mc.mutex.Unlock()
 	return adds, deletes
 }

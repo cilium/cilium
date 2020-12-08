@@ -246,8 +246,8 @@ var (
 	mapKeyAllow___L4 = Key{0, 80, 6, dirIngress}
 	mapKeyAllowAll__ = Key{0, 0, 0, dirIngress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
-	mapEntryL7None_ = NoRedirectEntry
-	mapEntryL7Proxy = redirectEntry
+	mapEntryL7None_ = NewMapStateEntry(nil, false)
+	mapEntryL7Proxy = NewMapStateEntry(nil, true)
 )
 
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and
@@ -296,6 +296,7 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 		allowAllIngress := true
 		allowAllEgress := false // Skip egress
 		result.AllowAllIdentities(allowAllIngress, allowAllEgress)
+		result.clearCachedSelectors()
 		return result, nil
 	}
 
@@ -316,13 +317,28 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 	for _, l4 := range l4IngressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
 		for key, entry := range l4.ToMapState(0) {
-			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, entry != NoRedirectEntry))
+			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, entry.IsRedirectEntry()))
 			result[key] = entry
 		}
 	}
 	l4IngressPolicy.Detach(d.Repository.GetSelectorCache())
+	result.clearCachedSelectors()
 	return result, nil
 }
+
+// clearCachedSelectors removes CachedSelectors from MapStateEntries
+// for testing purposes.  Table-driven testing pattern used for these
+// tests does not allow expected MapStateEntries to contain actual
+// CachedSelectors as those have not been inserted to the selector
+// cache at the time when the expectations are created.
+func (m MapState) clearCachedSelectors() {
+	for k, v := range m {
+		v.selectors = nilSelectors
+		m[k] = v
+	}
+}
+
+var nilSelectors = map[CachedSelector]struct{}{nil: {}}
 
 func Test_MergeL3(t *testing.T) {
 	identityCache := cache.IdentityCache{
