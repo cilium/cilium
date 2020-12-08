@@ -51,3 +51,15 @@ func (ev *Event) GetAgentEvent() AgentEvent {
 	}
 	return nil
 }
+
+// GetLostEvent returns the decoded lost event or nil if there is no event.
+func (ev *Event) GetLostEvent() LostEvent {
+	if ev == nil || ev.Event == nil {
+		// returns typed nil so getter methods still work
+		return (*pb.LostEvent)(nil)
+	}
+	if f, ok := ev.Event.(LostEvent); ok {
+		return f
+	}
+	return nil
+}
