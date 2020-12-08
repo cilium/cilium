@@ -26,11 +26,14 @@ import (
 	"sync"
 	"testing"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
 
@@ -680,6 +683,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 	}()
 	i := int64(0)
 	for entry := range ch {
+		require.NotNil(t, entry)
 		want := &timestamp.Timestamp{Seconds: i}
 		if entry.Timestamp.Seconds != want.Seconds {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
@@ -741,8 +745,9 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		defer wg.Done()
 		r.readFrom(ctx, 1, ch)
 	}()
-	i := int64(0)
-	for entry := range ch {
+	i := int64(1) // ReadFrom
+	for event := range ch {
+		require.NotNil(t, event)
 		// Given the buffer length is 16 and there are no more writes being made,
 		// we will receive 15 non-nil events, after that the channel must stall.
 		//
@@ -752,11 +757,23 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		// write:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
 		// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 		// cycle:  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1
-		want := &timestamp.Timestamp{Seconds: 4 + i}
-		if entry.Timestamp.Seconds != want.Seconds {
-			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
+		switch {
+		case i < 4:
+			want := &flowpb.LostEvent{
+				Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           nil,
+			}
+			if diff := cmp.Diff(want, event.GetLostEvent(), cmpopts.IgnoreUnexported(flowpb.LostEvent{})); diff != "" {
+				t.Errorf("LostEvent mismatch (-want +got):\n%s", diff)
+			}
+		default:
+			want := &timestamp.Timestamp{Seconds: i}
+			if diff := cmp.Diff(want, event.Timestamp, cmpopts.IgnoreUnexported(timestamp.Timestamp{})); diff != "" {
+				t.Errorf("Event timestamp mismatch (-want +got):\n%s", diff)
+			}
 		}
-		if i == 14 {
+		if i == 18 {
 			break
 		}
 		i++
@@ -826,22 +843,35 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 		r.readFrom(ctx, ^uint64(0)-15, ch)
 		wg.Done()
 	}()
-	i := int64(0)
+	i := ^uint64(0) - 15
 	for entry := range ch {
+		require.NotNil(t, entry)
 		// Given the buffer length is 16 and there are no more writes being made,
 		// we will receive 15 non-nil events, after that the channel must stall.
 		//
-		//   ReadFrom +           +----------------valid read------------+  +position possibly being written
-		//            |           |                                      |  |  +next position to be written (r.write)
-		//            v           V                                      V  V  V
+		//   ReadFrom +        +-------------------valid read------------+  +position possibly being written
+		//            |        |                                         |  |  +next position to be written (r.write)
+		//            v        V                                         V  V  V
 		// write: f0 f1 //  3  4  5  6  7  8  9  a  b  c  d  e  f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
 		// index:  0  1 //  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 		// cycle: ff ff //  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1
-		want := &timestamp.Timestamp{Seconds: 4 + i}
-		if entry.Timestamp.Seconds != want.Seconds {
-			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
+		switch {
+		case i < 4, i > 18:
+			want := &flowpb.LostEvent{
+				Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           nil,
+			}
+			if diff := cmp.Diff(want, entry.GetLostEvent(), cmpopts.IgnoreUnexported(flowpb.LostEvent{})); diff != "" {
+				t.Errorf("%d LostEvent mismatch (-want +got):\n%s", i, diff)
+			}
+		default:
+			want := &timestamp.Timestamp{Seconds: int64(i)}
+			if diff := cmp.Diff(want, entry.Timestamp, cmpopts.IgnoreUnexported(timestamp.Timestamp{})); diff != "" {
+				t.Errorf("Event timestamp mismatch (-want +got):\n%s", diff)
+			}
 		}
-		if i == 14 {
+		if i == 18 {
 			break
 		}
 		i++

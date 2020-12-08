@@ -383,23 +383,32 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 			return nil, io.EOF
 		}
 
-		if r.timeRange {
-			ts, err := ptypes.Timestamp(e.Timestamp)
-			if err != nil {
-				return nil, err
+		// Treat LostEvent as a special case as callers will never explicitly
+		// request them. This means that no regular filter nor time range
+		// filter should be applied.
+		// Note: lost events don't respect the assumption that "ring buffer
+		// timestamps are supposed to be monotonic" as their timestamp
+		// corresponds to when a LostEvent was detected.
+		_, isLostEvent := e.Event.(*flowpb.LostEvent)
+		if !isLostEvent {
+			if r.timeRange {
+				ts, err := ptypes.Timestamp(e.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+
+				if r.until != nil && ts.After(*r.until) {
+					return nil, io.EOF
+				}
+
+				if r.since != nil && ts.Before(*r.since) {
+					continue
+				}
 			}
 
-			if r.until != nil && ts.After(*r.until) {
-				return nil, io.EOF
-			}
-
-			if r.since != nil && ts.Before(*r.since) {
+			if !filters.Apply(r.whitelist, r.blacklist, e) {
 				continue
 			}
-		}
-
-		if !filters.Apply(r.whitelist, r.blacklist, e) {
-			continue
 		}
 
 		switch ev := e.Event.(type) {
@@ -466,6 +475,8 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		} else if err != nil {
 			return nil, err
 		}
+		// Note: LostEvent type is ignored here and this is expected as lost
+		// events will never be explicitly requested by the caller
 		_, ok := e.Event.(*flowpb.Flow)
 		if !ok || !filters.Apply(whitelist, blacklist, e) {
 			continue
