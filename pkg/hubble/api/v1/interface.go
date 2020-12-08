@@ -70,3 +70,14 @@ type AgentEvent interface {
 
 // This ensures that the protobuf definition implements the interface.
 var _ AgentEvent = &flowpb.AgentEvent{}
+
+// LostEvent is an interface matching flowpb.LostEvent.
+type LostEvent interface {
+	proto.Message
+	GetSource() flowpb.LostEventSource
+	GetNumEventsLost() uint64
+	GetCpu() *wrappers.Int32Value
+}
+
+// This ensures that the protobuf definition implements the interface.
+var _ LostEvent = &flowpb.LostEvent{}
