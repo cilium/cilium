@@ -309,7 +309,7 @@ func (l4 *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirecti
 			continue
 		}
 
-		entry := NewMapStateEntry(l4.DerivedFromRules, l7 != nil)
+		entry := NewMapStateEntry(cs, l4.DerivedFromRules, l7 != nil)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.RedirectPreferredInsert(keyToAdd, entry)
@@ -363,15 +363,15 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 
 	// Push endpoint policy changes.
 	//
-	// `l4.policy` is set to nil when the filter is detached so
-	// that we could not push updates on a stale policy.
+	// `l4.policy` is nil when the filter is detached so
+	// that we could not push updates on an unstable policy.
 	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
 	if l4Policy != nil {
 		direction := trafficdirection.Egress
 		if l4.Ingress {
 			direction = trafficdirection.Ingress
 		}
-		l4Policy.AccumulateMapChanges(added, deleted, l4, direction, l4.L7RulesPerSelector[selector] != nil)
+		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, l4.L7RulesPerSelector[selector] != nil)
 	}
 }
 
@@ -555,11 +555,15 @@ func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
 
 // detach releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected.
+// L4Filter may still be accessed concurrently after it has been detached.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	l4.removeSelectors(selectorCache)
 	l4.attach(nil, nil)
 }
 
+// attach signifies that the L4Filter is ready and reacheable for updates
+// from SelectorCache. L4Filter is read-only after this is called,
+// multiple goroutines will be reading the fields from that point on.
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 	// All rules have been added to the L4Filter at this point.
 	// Sort the rules label array list for more efficient equality comparison.
@@ -683,6 +687,7 @@ func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
+// This is done before the L4PolicyMap is exposed to concurrent access.
 func (l4 L4PolicyMap) Attach(ctx PolicyContext, l4Policy *L4Policy) {
 	for _, f := range l4 {
 		f.attach(ctx, l4Policy)
@@ -828,7 +833,7 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
+func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
 	direction trafficdirection.TrafficDirection, redirect bool) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
@@ -851,8 +856,7 @@ func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentit
 				continue
 			}
 		}
-
-		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect, derivedFrom)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, derivedFrom)
 	}
 }
 
