@@ -44,6 +44,10 @@ func filterByEventType(types []*flowpb.EventTypeFilter) FilterFunc {
 				if t := typeFilter.GetType(); t != 0 && t != monitorAPI.MessageTypeAgent {
 					continue
 				}
+				agentEventType := int32(ev.GetAgentEvent().GetType())
+				if typeFilter.GetMatchSubType() && typeFilter.GetSubType() != agentEventType {
+					continue
+				}
 				return true
 			}
 		case *flowpb.LostEvent:
