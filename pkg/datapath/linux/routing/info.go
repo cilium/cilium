@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -56,11 +57,11 @@ type RoutingInfo struct {
 // (on either ENI or Azure interface) is the only supported path currently.
 // Azure does not support masquerade yet (subnets CIDRs aren't provided):
 // until it does, we forward a masquerade bool to opt out ipam.Cidrs use.
-func NewRoutingInfo(gateway string, cidrs []string, mac string, masquerade bool) (*RoutingInfo, error) {
-	return parse(gateway, cidrs, mac, masquerade)
+func NewRoutingInfo(gateway string, cidrs []string, mac, ifaceNum string, masquerade bool) (*RoutingInfo, error) {
+	return parse(gateway, cidrs, mac, ifaceNum, masquerade)
 }
 
-func parse(gateway string, cidrs []string, macAddr string, masquerade bool) (*RoutingInfo, error) {
+func parse(gateway string, cidrs []string, macAddr, ifaceNum string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid ip: %s", gateway)
@@ -85,10 +86,16 @@ func parse(gateway string, cidrs []string, macAddr string, masquerade bool) (*Ro
 		return nil, fmt.Errorf("invalid mac: %s", macAddr)
 	}
 
+	parsedIfaceNum, err := strconv.Atoi(ifaceNum)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interface number: %s", ifaceNum)
+	}
+
 	return &RoutingInfo{
-		IPv4Gateway: ip,
-		IPv4CIDRs:   parsedCIDRs,
-		MasterIfMAC: parsedMAC,
-		Masquerade:  masquerade,
+		IPv4Gateway:     ip,
+		IPv4CIDRs:       parsedCIDRs,
+		MasterIfMAC:     parsedMAC,
+		Masquerade:      masquerade,
+		InterfaceNumber: parsedIfaceNum,
 	}, nil
 }
