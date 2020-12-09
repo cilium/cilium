@@ -195,7 +195,7 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	err := compileDatapath(ctx, dirInfo, false, true, log)
+	err := compileDatapath(ctx, dirInfo, false, log)
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
@@ -251,8 +251,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		debug := false // Otherwise we compile lots more.
-		if err := compileDatapath(ctx, dirInfo, false, debug, log); err != nil {
+		if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -280,7 +279,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	if err := compileDatapath(ctx, dirInfo, false, false, log); err != nil {
+	if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
 		b.Fatal(err)
 	}
 
