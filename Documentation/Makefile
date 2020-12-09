@@ -51,7 +51,7 @@ html-netlify: copy-api
 	@$(ECHO_GEN)_build/$@
 	$(QUIET) SKIP_LINT=1 ./check-build.sh html $(SPHINX_OPTS)
 
-DOCS_PORT = 9082
+DOCS_PORT = 9081
 
 run-server: stop-server
 	# Work around Docker issue where this directory is created as root in
