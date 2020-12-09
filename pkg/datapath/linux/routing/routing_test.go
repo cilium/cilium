@@ -255,10 +255,13 @@ func getFakes(c *C) (net.IP, RoutingInfo) {
 	c.Assert(err, IsNil)
 	c.Assert(fakeMAC, NotNil)
 
-	fakeRoutingInfo, err := parse(fakeGateway.String(),
+	fakeRoutingInfo, err := parse(
+		fakeGateway.String(),
 		[]string{fakeCIDR.String()},
 		fakeMAC.String(),
-		true)
+		"1",
+		true,
+	)
 	c.Assert(err, IsNil)
 	c.Assert(fakeRoutingInfo, NotNil)
 
