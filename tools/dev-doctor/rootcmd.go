@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"text/tabwriter"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/spf13/cobra"
 )
 

@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -77,7 +77,7 @@ type ServerCapabilities struct {
 type cachedVersion struct {
 	mutex        lock.RWMutex
 	capabilities ServerCapabilities
-	version      go_version.Version
+	version      semver.Version
 }
 
 const (
@@ -112,7 +112,7 @@ var (
 )
 
 // Version returns the version of the Kubernetes apiserver
-func Version() go_version.Version {
+func Version() semver.Version {
 	cached.mutex.RLock()
 	c := cached.version
 	cached.mutex.RUnlock()
@@ -127,7 +127,7 @@ func Capabilities() ServerCapabilities {
 	return c
 }
 
-func updateVersion(version go_version.Version) {
+func updateVersion(version semver.Version) {
 	cached.mutex.Lock()
 	defer cached.mutex.Unlock()
 
@@ -246,7 +246,7 @@ func leasesFallbackDiscovery(client kubernetes.Interface, conf k8sconfig.Configu
 }
 
 func updateK8sServerVersion(client kubernetes.Interface) error {
-	var ver go_version.Version
+	var ver semver.Version
 
 	sv, err := client.Discovery().ServerVersion()
 	if err != nil {

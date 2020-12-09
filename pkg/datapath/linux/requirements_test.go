@@ -19,12 +19,12 @@ package linux
 import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	. "gopkg.in/check.v1"
 )
 
 func (s *linuxTestSuite) TestParseKernelVersion(c *C) {
-	mustHaveVersion := func(v string) go_version.Version {
+	mustHaveVersion := func(v string) semver.Version {
 		ver, err := versioncheck.Version(v)
 		c.Assert(err, IsNil)
 		return ver
@@ -32,7 +32,7 @@ func (s *linuxTestSuite) TestParseKernelVersion(c *C) {
 
 	var flagtests = []struct {
 		in  string
-		out go_version.Version
+		out semver.Version
 	}{
 		{"4.10.0", mustHaveVersion("4.10.0")},
 		{"4.10", mustHaveVersion("4.10.0")},
