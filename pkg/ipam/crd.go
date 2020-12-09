@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -450,6 +451,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ciliumv2.Allocat
 				if eni.Subnet.CIDR != "" {
 					result.GatewayIP = deriveGatewayIP(eni)
 				}
+				result.InterfaceNumber = strconv.Itoa(eni.Number)
 
 				return
 			}
