@@ -54,6 +54,7 @@ cilium-agent [flags]
       --disable-k8s-services                          Disable east-west K8s load balancing by cilium
       --dns-max-ips-per-restored-rule int             Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --egress-masquerade-interfaces string           Limit egress masquerading to interface selector
+      --egress-multi-home-ip-rule-compat              Use a new scheme to store rules and routes under ENI and Azure IPAM modes, if false. Otherwise, it will use the old scheme.
       --enable-api-rate-limit                         Enables the use of the API rate limiting configuration
       --enable-auto-protect-node-port-range           Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
       --enable-endpoint-health-checking               Enable connectivity health checking between virtual endpoints (default true)
