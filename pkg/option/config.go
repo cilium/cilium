@@ -828,6 +828,11 @@ const (
 
 	// EnableAPIRateLimit enables the use of API rate limiting.
 	EnableAPIRateLimit = "enable-api-rate-limit"
+
+	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
+	// store rules and routes under ENI and Azure IPAM modes, if false.
+	// Otherwise, it will use the old scheme.
+	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -1927,6 +1932,11 @@ type DaemonConfig struct {
 
 	// EnableAPIRateLimit enables the use of API rate limiting.
 	EnableAPIRateLimit bool
+
+	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
+	// store rules and routes under ENI and Azure IPAM modes, if false.
+	// Otherwise, it will use the old scheme.
+	EgressMultiHomeIPRuleCompat bool
 }
 
 var (
@@ -2440,6 +2450,7 @@ func (c *DaemonConfig) Populate() {
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 	c.EnableAPIRateLimit = viper.GetBool(EnableAPIRateLimit)
+	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
 	c.populateDevices()
 
