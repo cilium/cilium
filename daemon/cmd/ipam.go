@@ -68,22 +68,24 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	if ipv4Result != nil {
 		resp.Address.IPV4 = ipv4Result.IP.String()
 		resp.IPV4 = &models.IPAMAddressResponse{
-			Cidrs:          ipv4Result.CIDRs,
-			IP:             ipv4Result.IP.String(),
-			MasterMac:      ipv4Result.Master,
-			Gateway:        ipv4Result.GatewayIP,
-			ExpirationUUID: ipv4Result.ExpirationUUID,
+			Cidrs:           ipv4Result.CIDRs,
+			IP:              ipv4Result.IP.String(),
+			MasterMac:       ipv4Result.Master,
+			Gateway:         ipv4Result.GatewayIP,
+			ExpirationUUID:  ipv4Result.ExpirationUUID,
+			InterfaceNumber: ipv4Result.InterfaceNumber,
 		}
 	}
 
 	if ipv6Result != nil {
 		resp.Address.IPV6 = ipv6Result.IP.String()
 		resp.IPV6 = &models.IPAMAddressResponse{
-			Cidrs:          ipv6Result.CIDRs,
-			IP:             ipv6Result.IP.String(),
-			MasterMac:      ipv6Result.Master,
-			Gateway:        ipv6Result.GatewayIP,
-			ExpirationUUID: ipv6Result.ExpirationUUID,
+			Cidrs:           ipv6Result.CIDRs,
+			IP:              ipv6Result.IP.String(),
+			MasterMac:       ipv6Result.Master,
+			Gateway:         ipv6Result.GatewayIP,
+			ExpirationUUID:  ipv6Result.ExpirationUUID,
+			InterfaceNumber: ipv6Result.InterfaceNumber,
 		}
 	}
 
@@ -369,9 +371,11 @@ func (d *Daemon) startIPAM() {
 
 func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 	var err error
-	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(result.GatewayIP,
+	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(
+		result.GatewayIP,
 		result.CIDRs,
 		result.Master,
-		option.Config.EnableIPv4Masquerade)
+		option.Config.EnableIPv4Masquerade,
+	)
 	return err
 }

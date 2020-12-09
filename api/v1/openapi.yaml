@@ -1440,6 +1440,10 @@ definitions:
         description: |
           The UUID for the expiration timer. Set when expiration has been
           enabled while allocating.
+      interface-number:
+        type: string
+        description: |
+          InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.
   AddressPair:
     description: Addressing information of an endpoint
     type: object
