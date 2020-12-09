@@ -48,6 +48,10 @@ type AllocationResult struct {
 	// ExpirationUUID is the UUID of the expiration timer. This field is
 	// only set if AllocateNextWithExpiration is used.
 	ExpirationUUID string
+
+	// InterfaceNumber is a field for generically identifying an interface.
+	// This is only useful in ENI mode.
+	InterfaceNumber string
 }
 
 // Allocator is the interface for an IP allocator implementation
