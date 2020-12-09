@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -51,11 +52,11 @@ type RoutingInfo struct {
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
 // parsed and validated. Note, this code assumes IPv4 values because ENI + IPv4
 // is the only supported path currently.
-func NewRoutingInfo(gateway string, cidrs []string, mac string) (*RoutingInfo, error) {
-	return parse(gateway, cidrs, mac)
+func NewRoutingInfo(gateway string, cidrs []string, mac, ifaceNum string) (*RoutingInfo, error) {
+	return parse(gateway, cidrs, mac, ifaceNum)
 }
 
-func parse(gateway string, cidrs []string, macAddr string) (*RoutingInfo, error) {
+func parse(gateway string, cidrs []string, macAddr, ifaceNum string) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid ip: %s", gateway)
@@ -80,9 +81,15 @@ func parse(gateway string, cidrs []string, macAddr string) (*RoutingInfo, error)
 		return nil, fmt.Errorf("invalid mac: %s", macAddr)
 	}
 
+	parsedIfaceNum, err := strconv.ParseInt(ifaceNum, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interface number: %s", ifaceNum)
+	}
+
 	return &RoutingInfo{
-		IPv4Gateway: ip,
-		IPv4CIDRs:   parsedCIDRs,
-		MasterIfMAC: parsedMAC,
+		IPv4Gateway:     ip,
+		IPv4CIDRs:       parsedCIDRs,
+		MasterIfMAC:     parsedMAC,
+		InterfaceNumber: int(parsedIfaceNum),
 	}, nil
 }
