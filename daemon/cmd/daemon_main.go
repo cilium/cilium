@@ -907,6 +907,10 @@ func init() {
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
 	option.BindEnv(option.CRDWaitTimeout)
 
+	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
+		"Use a new scheme to store rules and routes under ENI and Azure IPAM modes, if false. Otherwise, it will use the old scheme.")
+	option.BindEnv(option.EgressMultiHomeIPRuleCompat)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)
