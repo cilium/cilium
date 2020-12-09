@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
@@ -423,7 +423,7 @@ func DNSDeployment(base string) string {
 
 // getK8sSupportedConstraints returns the Kubernetes versions supported by
 // a specific Cilium version.
-func getK8sSupportedConstraints(ciliumVersion string) (go_version.Range, error) {
+func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 	cst, err := versioncheck.Version(ciliumVersion)
 	if err != nil {
 		return nil, err

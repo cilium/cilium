@@ -32,7 +32,7 @@ import (
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -99,7 +99,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// was created.
 				scopedLog = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 
-				if k8sversion.Version().Equals(go_version.Version{}) {
+				if k8sversion.Version().Equals(semver.Version{}) {
 					return fmt.Errorf("Kubernetes apiserver is not available")
 				}
 

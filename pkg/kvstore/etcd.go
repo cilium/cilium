@@ -36,7 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	client "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
@@ -821,16 +821,16 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	return ec, nil
 }
 
-func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (go_version.Version, error) {
+func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (semver.Version, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
-		return go_version.Version{}, Hint(err)
+		return semver.Version{}, Hint(err)
 	}
 	v, err := versioncheck.Version(sr.Version)
 	if err != nil {
-		return go_version.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
+		return semver.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
 	}
 	return v, nil
 }

@@ -26,7 +26,7 @@ type Version struct {
 	Minor uint64
 	Patch uint64
 	Pre   []PRVersion
-	Build []string //No Precendence
+	Build []string //No Precedence
 }
 
 // Version to string
@@ -58,6 +58,18 @@ func (v Version) String() string {
 		}
 	}
 
+	return string(b)
+}
+
+// FinalizeVersion discards prerelease and build number and only returns
+// major, minor and patch number.
+func (v Version) FinalizeVersion() string {
+	b := make([]byte, 0, 5)
+	b = strconv.AppendUint(b, v.Major, 10)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, v.Minor, 10)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, v.Patch, 10)
 	return string(b)
 }
 
@@ -161,6 +173,27 @@ func (v Version) Compare(o Version) int {
 
 }
 
+// IncrementPatch increments the patch version
+func (v *Version) IncrementPatch() error {
+	v.Patch++
+	return nil
+}
+
+// IncrementMinor increments the minor version
+func (v *Version) IncrementMinor() error {
+	v.Minor++
+	v.Patch = 0
+	return nil
+}
+
+// IncrementMajor increments the major version
+func (v *Version) IncrementMajor() error {
+	v.Major++
+	v.Minor = 0
+	v.Patch = 0
+	return nil
+}
+
 // Validate validates v and returns error in case
 func (v Version) Validate() error {
 	// Major, Minor, Patch already validated using uint64
@@ -189,10 +222,10 @@ func (v Version) Validate() error {
 }
 
 // New is an alias for Parse and returns a pointer, parses version string and returns a validated Version or error
-func New(s string) (vp *Version, err error) {
+func New(s string) (*Version, error) {
 	v, err := Parse(s)
-	vp = &v
-	return
+	vp := &v
+	return vp, err
 }
 
 // Make is an alias for Parse, parses version string and returns a validated Version or error
@@ -202,14 +235,25 @@ func Make(s string) (Version, error) {
 
 // ParseTolerant allows for certain version specifications that do not strictly adhere to semver
 // specs to be parsed by this library. It does so by normalizing versions before passing them to
-// Parse(). It currently trims spaces, removes a "v" prefix, and adds a 0 patch number to versions
-// with only major and minor components specified
+// Parse(). It currently trims spaces, removes a "v" prefix, adds a 0 patch number to versions
+// with only major and minor components specified, and removes leading 0s.
 func ParseTolerant(s string) (Version, error) {
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "v")
 
 	// Split into major.minor.(patch+pr+meta)
 	parts := strings.SplitN(s, ".", 3)
+	// Remove leading zeros.
+	for i, p := range parts {
+		if len(p) > 1 {
+			p = strings.TrimLeft(p, "0")
+			if len(p) == 0 || !strings.ContainsAny(p[0:1], "0123456789") {
+				p = "0" + p
+			}
+			parts[i] = p
+		}
+	}
+	// Fill up shortened versions.
 	if len(parts) < 3 {
 		if strings.ContainsAny(parts[len(parts)-1], "+-") {
 			return Version{}, errors.New("Short version cannot contain PreRelease/Build meta data")
@@ -217,8 +261,8 @@ func ParseTolerant(s string) (Version, error) {
 		for len(parts) < 3 {
 			parts = append(parts, "0")
 		}
-		s = strings.Join(parts, ".")
 	}
+	s = strings.Join(parts, ".")
 
 	return Parse(s)
 }
@@ -415,4 +459,18 @@ func NewBuildVersion(s string) (string, error) {
 		return "", fmt.Errorf("Invalid character(s) found in build meta data %q", s)
 	}
 	return s, nil
+}
+
+// FinalizeVersion returns the major, minor and patch number only and discards
+// prerelease and build number.
+func FinalizeVersion(s string) (string, error) {
+	v, err := Parse(s)
+	if err != nil {
+		return "", err
+	}
+	v.Pre = nil
+	v.Build = nil
+
+	finalVer := v.String()
+	return finalVer, nil
 }

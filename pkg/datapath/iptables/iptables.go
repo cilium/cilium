@@ -38,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 )
@@ -90,15 +90,15 @@ type customChain struct {
 	ipv6       bool // ip6tables chain in addition to iptables chain
 }
 
-func getVersion(prog string) (go_version.Version, error) {
+func getVersion(prog string) (semver.Version, error) {
 	b, err := exec.WithTimeout(defaults.ExecTimeout, prog, "--version").CombinedOutput(log, false)
 	if err != nil {
-		return go_version.Version{}, err
+		return semver.Version{}, err
 	}
 	v := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
 	vString := v.FindStringSubmatch(string(b))
 	if vString == nil {
-		return go_version.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
+		return semver.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
 	}
 	return versioncheck.Version(vString[1])
 }

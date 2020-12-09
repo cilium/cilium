@@ -20,12 +20,8 @@ import (
 	"os/exec"
 	"regexp"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 )
-
-// leadingZerosRegexp isolates leading zeros while preserving a single zero on
-// its own.
-var leadingZerosRegexp = regexp.MustCompile(`\b(?:0+)(0|[1-9][0-9]*)\b`)
 
 // A binaryCheck checks that a binary called name is installed and optionally at
 // least version minVersion.
@@ -68,27 +64,17 @@ func (c *binaryCheck) Run() (checkResult, string) {
 		return checkFailed, err.Error()
 	}
 
-	origVersion := output
+	version := output
 	if c.versionRegexp != nil {
-		match := c.versionRegexp.FindSubmatch(origVersion)
+		match := c.versionRegexp.FindSubmatch(version)
 		if len(match) != 2 {
-			return checkFailed, fmt.Sprintf("found %s, could not parse version from %s", path, origVersion)
+			return checkFailed, fmt.Sprintf("found %s, could not parse version from %s", path, version)
 		}
-		origVersion = match[1]
+		version = match[1]
 	}
 
 	if c.minVersion != nil {
-		// mangle the version we extracted into something that
-		// github.com/blang/semver will understand
-		versionBytes := origVersion
-
-		// sadly github.com/blang/semver.ParseTolerant is not tolerant of
-		// leading zeros in version numbers, as used by Docker, e.g. "19.03.13".
-		// so, remove leading zeros with a regexp. sorry, this is horrible but
-		// the alternative was bringing in a new version number handling module
-		versionBytes = leadingZerosRegexp.ReplaceAll(versionBytes, []byte("$1"))
-
-		version, err := semver.ParseTolerant(string(versionBytes))
+		v, err := semver.ParseTolerant(string(version))
 		if err != nil {
 			return checkFailed, err.Error()
 		}
@@ -98,16 +84,16 @@ func (c *binaryCheck) Run() (checkResult, string) {
 		// version, meaning that, e.g. clang version "10.0.0-4ubuntu1" compares
 		// less than "10.0.0"
 		effectiveVersion := semver.Version{
-			Major: version.Major,
-			Minor: version.Minor,
-			Patch: version.Patch,
+			Major: v.Major,
+			Minor: v.Minor,
+			Patch: v.Patch,
 		}
 		if effectiveVersion.LT(*c.minVersion) {
-			return checkError, fmt.Sprintf("found %s, version %s, need %s", path, origVersion, c.minVersion)
+			return checkError, fmt.Sprintf("found %s, version %s, need %s", path, version, c.minVersion)
 		}
 	}
 
-	return checkOK, fmt.Sprintf("found %s, version %s", path, origVersion)
+	return checkOK, fmt.Sprintf("found %s, version %s", path, version)
 }
 
 func (c *binaryCheck) Hint() string {
