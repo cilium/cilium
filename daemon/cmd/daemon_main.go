@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
+	enitypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
@@ -39,6 +40,7 @@ import (
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -50,6 +52,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -81,6 +84,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -1507,6 +1511,31 @@ func runDaemon() {
 		}()
 	}
 
+	// Migrating the ENI datapath must happen before the API is served to
+	// prevent endpoints from being created. It also must be before the health
+	// initialization logic which creates the health endpoint, for the same
+	// reasons as the API being served. We want to ensure that this migration
+	// logic runs before any endpoint creates.
+	if option.Config.IPAM == ipamOption.IPAMENI {
+		migrated, failed := linuxrouting.NewMigrator(
+			&interfaceNumberGetter{},
+		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
+		switch {
+		case failed == -1:
+			// No need to handle this case specifically because it is handled
+			// in the call already.
+		case migrated >= 0 && failed > 0:
+			log.Errorf("Failed to migrate ENI datapath. "+
+				"%d endpoints were successfully migrated and %d failed to migrate completely. "+
+				"The original datapath is still in-place, however it is recommended to retry the migration.",
+				migrated, failed)
+
+		case migrated >= 0 && failed == 0:
+			log.Infof("Migration of ENI datapath successful, %d endpoints were migrated and none failed.",
+				migrated)
+		}
+	}
+
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		d.initHealth()
@@ -1737,4 +1766,86 @@ func initClockSourceOption() {
 			}
 		}
 	}
+}
+
+// GetInterfaceNumberByMAC implements the linuxrouting.interfaceDB interface.
+// It retrieves the number associated with the ENI device for the given MAC
+// address. The interface number is retrieved from the CiliumNode resource, as
+// this functionality is needed for ENI mode.
+func (in *interfaceNumberGetter) GetInterfaceNumberByMAC(mac string) (int, error) {
+	// Update the cache on the first run. After retrieving the CiliumNode
+	// resource, we use the cached result for the remainder of the migration.
+	if len(in.cache.ENIs) == 0 {
+		cn, err := in.fetchFromK8s(nodeTypes.GetName())
+		if err != nil {
+			return -1, err
+		}
+
+		in.cache = cn.Status.ENI
+	}
+
+	var (
+		eni   enitypes.ENI
+		found bool
+	)
+	for _, e := range in.cache.ENIs {
+		if e.MAC == mac {
+			eni = e
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return -1, fmt.Errorf("could not find interface with MAC %q in CiliumNode resource", mac)
+	}
+
+	return eni.Number, nil
+}
+
+// GetInterfaceNumberByMAC retrieves the number associated with the ENI device
+// for the given MAC address. The interface number is retrieved from the
+// CiliumNode resource, as this functionality is needed for ENI mode. This
+// implements the linuxrouting.interfaceDB interface.
+func (in *interfaceNumberGetter) GetMACByInterfaceNumber(ifaceNum int) (string, error) {
+	// Update the cache on the first run. After retrieving the CiliumNode
+	// resource, we use the cached result for the remainder of the migration.
+	if len(in.cache.ENIs) == 0 {
+		cn, err := in.fetchFromK8s(nodeTypes.GetName())
+		if err != nil {
+			return "", err
+		}
+
+		in.cache = cn.Status.ENI
+	}
+
+	var (
+		eni   enitypes.ENI
+		found bool
+	)
+	for _, e := range in.cache.ENIs {
+		if e.Number == ifaceNum {
+			eni = e
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return "", fmt.Errorf("could not find interface with number %q in CiliumNode resource", ifaceNum)
+	}
+
+	return eni.MAC, nil
+}
+
+func (in *interfaceNumberGetter) fetchFromK8s(name string) (*v2.CiliumNode, error) {
+	return k8s.CiliumClient().CiliumV2().CiliumNodes().Get(
+		context.TODO(),
+		nodeTypes.GetName(),
+		v1.GetOptions{},
+	)
+}
+
+type interfaceNumberGetter struct {
+	cache enitypes.ENIStatus
 }
