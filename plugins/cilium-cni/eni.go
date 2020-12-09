@@ -34,14 +34,21 @@ func eniAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf m
 		cidrs = append(cidrs, cidr.String())
 	}
 
-	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, cidrs, ipam.MasterMac)
+	routingInfo, err := linuxrouting.NewRoutingInfo(
+		ipam.Gateway,
+		cidrs,
+		ipam.MasterMac,
+		ipam.InterfaceNumber,
+	)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %v", err)
 	}
 
-	if err := routingInfo.Configure(ipConfig.Address.IP,
+	if err := routingInfo.Configure(
+		ipConfig.Address.IP,
 		int(conf.DeviceMTU),
-		conf.Masquerade); err != nil {
+		conf.Masquerade,
+	); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %s", err)
 	}
 

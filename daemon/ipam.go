@@ -378,6 +378,7 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 		result.GatewayIP,
 		result.CIDRs,
 		result.Master,
+		result.InterfaceNumber,
 	)
 	return err
 }
