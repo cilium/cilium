@@ -129,8 +129,6 @@ spec:
             cpu: 25m
             memory: 5Mi
         args: [ "-localip", "169.254.20.10,__PILLAR__DNS__SERVER__", "-conf", "/etc/Corefile", "-upstreamsvc", "kube-dns-upstream", "-skipteardown=true", "-setupinterface=false", "-setupiptables=false" ]
-        securityContext:
-          privileged: true
         ports:
         - containerPort: 53
           name: dns
@@ -148,18 +146,11 @@ spec:
           initialDelaySeconds: 60
           timeoutSeconds: 5
         volumeMounts:
-        - mountPath: /run/xtables.lock
-          name: xtables-lock
-          readOnly: false
         - name: config-volume
           mountPath: /etc/coredns
         - name: kube-dns-config
           mountPath: /etc/kube-dns
       volumes:
-      - name: xtables-lock
-        hostPath:
-          path: /run/xtables.lock
-          type: FileOrCreate
       - name: kube-dns-config
         configMap:
           name: kube-dns
