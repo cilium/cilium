@@ -25,7 +25,7 @@ Install microk8s
 
    ::
 
-      microk8s.enable cilium
+      microk8s enable cilium
 
 #. Cilium is now configured! The ``cilium`` CLI is provided as ``microk8s.cilium``.
 
