@@ -763,6 +763,11 @@ const (
 
 	// EnableAPIRateLimit enables the use of API rate limiting.
 	EnableAPIRateLimit = "enable-api-rate-limit"
+
+	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
+	// store rules and routes under ENI and Azure IPAM modes, if false.
+	// Otherwise, it will use the old scheme.
+	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 )
 
 // Default string arguments
@@ -1535,6 +1540,11 @@ type DaemonConfig struct {
 
 	// EnableAPIRateLimit enables the use of API rate limiting.
 	EnableAPIRateLimit bool
+
+	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
+	// store rules and routes under ENI and Azure IPAM modes, if false.
+	// Otherwise, it will use the old scheme.
+	EgressMultiHomeIPRuleCompat bool
 }
 
 var (
@@ -2034,6 +2044,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
 	c.EnableAPIRateLimit = viper.GetBool(EnableAPIRateLimit)
+	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
