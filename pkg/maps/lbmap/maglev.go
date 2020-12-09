@@ -16,10 +16,12 @@ package lbmap
 
 import (
 	"fmt"
+	"io"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -45,12 +47,18 @@ func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
 	defer dummyInnerMap.Close()
 
 	if ipv4 {
+		if _, err := deleteMapIfMNotMatch(MaglevOuter4MapName); err != nil {
+			return err
+		}
 		MaglevOuter4Map = newOuterMaglevMap(MaglevOuter4MapName, dummyInnerMap)
 		if _, err := MaglevOuter4Map.OpenOrCreate(); err != nil {
 			return err
 		}
 	}
 	if ipv6 {
+		if _, err := deleteMapIfMNotMatch(MaglevOuter6MapName); err != nil {
+			return err
+		}
 		MaglevOuter6Map = newOuterMaglevMap(MaglevOuter6MapName, dummyInnerMap)
 		if _, err := MaglevOuter6Map.OpenOrCreate(); err != nil {
 			return err
@@ -58,6 +66,55 @@ func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
 	}
 
 	return nil
+}
+
+// deleteMapIfMNotMatch removes the outer maglev maps if the M param
+// (MaglevTableSize) has changed. This is to avoid the verifier error when
+// loading BPF programs which access the maps.
+func deleteMapIfMNotMatch(mapName string) (bool, error) {
+	deleteMap := false
+
+	m, err := bpf.OpenMap(mapName)
+	if err == nil {
+		outerKey := &MaglevOuterKey{}
+		if err := bpf.GetNextKey(m.GetFd(), nil, unsafe.Pointer(outerKey)); err == nil {
+			outerVal, err := m.Lookup(outerKey)
+			if err != nil {
+				return false, err
+			}
+			v := outerVal.(*MaglevOuterVal)
+
+			fd, err := bpf.MapFdFromID(int(v.FD))
+			if err != nil {
+				return false, err
+			}
+			info, err := bpf.GetMapInfoByFd(uint32(fd))
+			if err != nil {
+				return false, err
+			}
+			previousM := int(info.ValueSize) / int(unsafe.Sizeof(uint16(0)))
+			if option.Config.MaglevTableSize != previousM {
+				deleteMap = true
+			}
+		} else if err == io.EOF {
+			// The map is empty. To be on the safe side, remove it to avoid M
+			// mismatch. The removal is harmless, as no new entry can be
+			// created while the initialization of the map has not returned.
+			deleteMap = true
+		} else {
+			return false, err
+		}
+	}
+
+	if deleteMap {
+		log.WithField(logfields.BPFMapName, mapName).
+			Info("Deleting Maglev outer map due to different M or empty map")
+		if err := m.Unpin(); err != nil {
+			return false, err
+		}
+	}
+
+	return deleteMap, nil
 }
 
 func newInnerMaglevMap(name string) *bpf.Map {
