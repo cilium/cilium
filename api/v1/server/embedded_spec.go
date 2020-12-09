@@ -2326,6 +2326,10 @@ func init() {
           "description": "IP of gateway",
           "type": "string"
         },
+        "interface-number": {
+          "description": "InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.\n",
+          "type": "string"
+        },
         "ip": {
           "description": "Allocated IP for endpoint",
           "type": "string"
@@ -5960,6 +5964,10 @@ func init() {
         },
         "gateway": {
           "description": "IP of gateway",
+          "type": "string"
+        },
+        "interface-number": {
+          "description": "InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.\n",
           "type": "string"
         },
         "ip": {

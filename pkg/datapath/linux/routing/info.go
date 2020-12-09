@@ -41,6 +41,11 @@ type RoutingInfo struct {
 	// traffic is directed to. This is the MAC of the interface itself which
 	// corresponds to the IPv4Gateway IP addr.
 	MasterIfMAC mac.MAC
+
+	// InterfaceNumber is the generic number of the master interface that
+	// egress traffic is directed to. This is used to compute the table ID for
+	// the per-ENI tables.
+	InterfaceNumber int
 }
 
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
