@@ -57,7 +57,7 @@ Deploy Cilium release via Helm:
    is connected to the VPC using ``eth0``. It will route all traffic that does
    not stay in the VPC via ``eth0`` and masquerade it.
 
-   If you want to avoid masquerading, set ``masquerade=false``. You must
+   If you want to avoid masquerading, set ``enableIPv4Masquerade=false``. You must
    ensure that the security groups associated with the ENIs (``eth1``,
    ``eth2``, ...) allow for egress traffic to outside of the VPC. By default,
    the security groups for pod ENIs are derived from the primary ENI

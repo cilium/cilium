@@ -99,7 +99,7 @@ masquerading all traffic leaving the node:
      --set datapathMode=ipvlan \\
      --set ipvlan.masterDevice=bond0 \\
      --set tunnel=disabled \\
-     --set masquerade=true \\
+     --set enableIPv4Masquerade=true \\
      --set autoDirectNodeRoutes=true
 
 Verify that it has come up correctly:

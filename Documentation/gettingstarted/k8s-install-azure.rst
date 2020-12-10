@@ -89,7 +89,7 @@ Deploy Cilium release via Helm:
      --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
      --set tunnel=disabled \\
      --set ipam.mode=azure \\
-     --set masquerade=false \\
+     --set enableIPv4Masquerade=false \\
      --set nodeinit.enabled=true
 
 .. include:: k8s-install-restart-pods.rst

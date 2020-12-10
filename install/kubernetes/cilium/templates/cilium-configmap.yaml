@@ -375,7 +375,9 @@ data:
 {{- end }}
 {{- end }}
 
-  masquerade: {{ .Values.masquerade | quote }}
+  enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+  enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
+
 {{- if hasKey .Values.bpf "masquerade" }}
   enable-bpf-masquerade: {{ .Values.bpf.masquerade | quote }}
 {{- else if eq $defaultBpfMasquerade "true" }}
