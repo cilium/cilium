@@ -12,5 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+<<<<<<< HEAD:pkg/ipam/doc.go
 // Package ipam handles address allocation management
 package ipam
+=======
+// +build linux
+// +build mips mipsle mips64 mips64le
+
+package procfs
+
+var parseCPUInfo = parseCPUInfoMips
+>>>>>>> k8s: Update to v1.20:vendor/github.com/prometheus/procfs/cpuinfo_mipsx.go
