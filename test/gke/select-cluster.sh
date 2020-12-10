@@ -34,6 +34,13 @@ while [ $locked -ne 0 ]; do
 		continue
 	fi
 
+	cluster_name=${cluster_uri##*/}
+	echo "checking whether cluster ${cluster_uri} has a running operation"
+	if gcloud container operations list | grep RUNNING | grep "${cluster_name}" ; then
+		echo "cluster has an ongoing operation, trying out another cluster"
+		continue
+	fi
+
 	echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
 	gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
