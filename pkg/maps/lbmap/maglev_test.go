@@ -22,6 +22,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"golang.org/x/sys/unix"
 	. "gopkg.in/check.v1"
@@ -39,13 +41,24 @@ type MaglevSuite struct {
 var _ = Suite(&MaglevSuite{})
 
 func (s *MaglevSuite) SetUpSuite(c *C) {
+	vsn, err := version.GetKernelVersion()
+	c.Assert(err, IsNil)
+	constraint, err := versioncheck.Compile(">=4.11.0")
+	c.Assert(err, IsNil)
+
+	if !constraint(vsn) {
+		// Currently, we run privileged tests on the 4.9 kernel in CI. That
+		// kernel does not have the support for map-in-map. Thus, this skip.
+		c.Skip("Skipping as >= 4.11 kernel is required for map-in-map support")
+	}
+
 	s.prevMaglevTableSize = option.Config.MaglevTableSize
 
 	tmpLim := unix.Rlimit{
 		Cur: unix.RLIM_INFINITY,
 		Max: unix.RLIM_INFINITY,
 	}
-	err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &s.oldLim)
+	err = unix.Getrlimit(unix.RLIMIT_MEMLOCK, &s.oldLim)
 	c.Assert(err, IsNil)
 	// Otherwise opening the map might fail with EPERM
 	err = unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim)
