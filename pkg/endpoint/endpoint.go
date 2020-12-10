@@ -717,6 +717,9 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 			e.Options.SetValidated(k, opts.GetValue(k))
 		}
 	}
+	if option.Config.Debug {
+		e.Options.SetValidated(option.DebugPolicy, option.OptionEnabled)
+	}
 	e.UpdateLogger(nil)
 }
 
