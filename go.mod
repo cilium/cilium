@@ -40,6 +40,7 @@ require (
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.14
 	github.com/google/renameio v0.1.0
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.0
 	github.com/hashicorp/consul/api v1.2.0
 	github.com/hashicorp/go-immutable-radix v1.1.0
@@ -57,7 +58,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
-	github.com/pborman/uuid v1.2.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0

@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/sysctl"
-	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
@@ -53,6 +52,7 @@ import (
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	gops "github.com/google/gops/agent"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -293,7 +293,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return
 	}
 
-	logger := log.WithField("eventUUID", uuid.NewUUID())
+	logger := log.WithField("eventUUID", uuid.New())
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
@@ -565,7 +565,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
-	logger := log.WithField("eventUUID", uuid.NewUUID())
+	logger := log.WithField("eventUUID", uuid.New())
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {

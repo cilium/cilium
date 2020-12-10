@@ -24,10 +24,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/uuid"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
@@ -1172,7 +1172,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					Fail(fmt.Sprintf("invalid parser type for proxy visibility: %s", parser))
 				}
 
-				observeFile := fmt.Sprintf("hubble-observe-%s", uuid.NewUUID().String())
+				observeFile := fmt.Sprintf("hubble-observe-%s", uuid.New().String())
 
 				// curl commands are issued from the first k8s worker where all
 				// the app instances are running

@@ -42,9 +42,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
-	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/google/uuid"
 )
 
 type policyTriggerMetrics struct{}
@@ -258,7 +258,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 // was not able to be imported.
 func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
-	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
+	logger := log.WithField("policyAddRequest", uuid.New().String())
 
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Debug("Policy Add Request")

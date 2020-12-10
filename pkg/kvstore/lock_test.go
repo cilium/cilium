@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/pborman/uuid"
 	. "gopkg.in/check.v1"
 )
 
@@ -51,7 +50,7 @@ func (s *independentSuite) TestLocalLock(c *C) {
 
 	owner, ok := locks.lockPaths[path]
 	c.Assert(ok, Equals, true)
-	c.Assert(uuid.Equal(owner.id, id2), Equals, true)
+	c.Assert(owner.id, Equals, id2)
 
 	// Unlock lock2, this should be a no-op
 	locks.unlock(path, id2)
