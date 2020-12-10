@@ -432,6 +432,7 @@ hostonlyifs
 hostport
 hostscope
 hq
+httpd
 https
 hubble
 hubble-relay
