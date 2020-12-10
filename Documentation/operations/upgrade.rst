@@ -337,12 +337,6 @@ Annotations:
 
 * Cilium has bumped the minimal Kubernetes version supported to v1.13.0.
 
-Deprecated options
-~~~~~~~~~~~~~~~~~~
-
-* ``k8s-force-json-patch``: This option does not have any effect for
-  environments running Kubernetes >= 1.13. Marked for removal in Cilium v1.11.
-
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -361,6 +355,15 @@ The following metrics have been removed:
 * Label ``subnetId`` and ``availabilityZone`` in ``cilium_operator_ipam_available_ips_per_subnet`` are removed. Please
   use label ``subnet_id`` and ``availability_zone`` instead.
 
+New Options
+~~~~~~~~~~~
+
+* ``enable-ipv6-masquerade``: This option can be used to enable/disable masquerading
+  for IPv6 traffic. Currently the only mode supported is ``iptables`` with BPF based
+  IPv6 masquerading in the roadmap.
+* ``enable-ipv4-masquerade``: This option enables/disables masquerading for IPv4 traffic
+  and has the same desired effect as ``masquerade`` option.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
@@ -378,6 +381,12 @@ Deprecated Options
 
 * ``bpf-compile-debug``: This option does not have any effect since 1.10
   and is planned to be removed in 1.11.
+* ``k8s-force-json-patch``: This option does not have any effect for
+  environments running Kubernetes >= 1.13. Marked for removal in Cilium v1.11.
+* ``masquerade``: With the introduction of IPv6 masquerading this option has
+  been deprecated in favor of ``enable-ipv4-masquerade`` and is planned to
+  be removed in 1.11. For 1.10 release this option will have the same effect as
+  ``enable-ipv4-masquerade`` where both options must not be used simultaneously.
 
 .. _1.9_upgrade_notes:
 
