@@ -12,7 +12,7 @@ all: $(TARGET)
 $(TARGET):
 	@$(ECHO_GO)
 ifneq ($(RACE),"")
-	$(QUIET)$(GO_BUILD_WITH_CGO) -o $@
+	$(QUIET)$(GO_BUILD_WITH_CGO) -v -o $@
 else
 	$(QUIET)$(GO_BUILD) -o $@
 endif
