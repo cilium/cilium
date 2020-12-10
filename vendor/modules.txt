@@ -318,7 +318,7 @@ github.com/google/gofuzz
 ## explicit
 github.com/google/gopacket
 github.com/google/gopacket/layers
-# github.com/google/gops v0.3.10
+# github.com/google/gops v0.3.14
 ## explicit
 github.com/google/gops/agent
 github.com/google/gops/internal
@@ -649,7 +649,7 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+# golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
