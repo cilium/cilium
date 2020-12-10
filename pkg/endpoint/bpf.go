@@ -286,6 +286,11 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				updatedStats = append(updatedStats, proxyStats)
 			}
 
+			if e.desiredPolicy == e.realizedPolicy {
+				// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
+				continue
+			}
+
 			// Set the proxy port in the policy map.
 			var direction trafficdirection.TrafficDirection
 			if l4.Ingress {
@@ -1197,7 +1202,9 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 
 	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range adds {
-		// Keep the existing proxy port, if any
+		// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
+		// the actual proxy port number. This is due to the fact that proxies may not yet have
+		// bound to a specific port when a proxy policy is first instantiated.
 		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			if entry.ProxyPort != 0 {

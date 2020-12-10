@@ -321,17 +321,11 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes MapState) {
 	// Do not overwrite the entry, but only merge selectors if the old entry is a deny or redirect.
 	// This prevents an existing deny or redirect being overridden by a non-deny or a non-redirect.
+	// Merging selectors from the new entry to the eisting one has no datapath impact so we skip
+	// adding anything to 'adds' here.
 	if oldEntry, exists := keys[key]; exists && (oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
 		oldEntry.MergeSelectors(&entry)
 		keys[key] = oldEntry
-		// For compatibility with old redirect management code we'll have to pass on
-		// redirect entry if the oldEntry is also a redirect, even if they are equal.
-		// We store the new entry here, the proxy port of it will be fixed up before
-		// insertion to the bpf map.
-		// TODO: Remove this hack when not needed any more.
-		if adds != nil && entry.IsRedirectEntry() && oldEntry.IsRedirectEntry() {
-			adds[key] = entry
-		}
 		return
 	}
 	// Otherwise write the entry to the map
