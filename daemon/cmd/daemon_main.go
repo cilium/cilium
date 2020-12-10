@@ -979,6 +979,10 @@ func initEnv(cmd *cobra.Command) {
 			log.Warningf("Unknown verbose debug group: %s", grp)
 		}
 	}
+	// Enable policy debugging if debug is enabled.
+	if option.Config.Debug {
+		option.Config.Opts.SetBool(option.DebugPolicy, true)
+	}
 
 	common.RequireRootPrivilege("cilium-agent")
 
