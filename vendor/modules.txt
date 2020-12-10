@@ -316,7 +316,7 @@ github.com/google/gofuzz
 ## explicit
 github.com/google/gopacket
 github.com/google/gopacket/layers
-# github.com/google/gops v0.3.10
+# github.com/google/gops v0.3.14
 ## explicit
 github.com/google/gops/agent
 github.com/google/gops/internal
