@@ -1787,9 +1787,6 @@ type DaemonConfig struct {
 	// Specifies wheather to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
-	// RunMonitorAgent indicates whether to run the monitor agent
-	RunMonitorAgent bool
-
 	// ReadCNIConfiguration reads the CNI configuration file and extracts
 	// Cilium relevant information. This can be used to pass per node
 	// configuration to Cilium.
