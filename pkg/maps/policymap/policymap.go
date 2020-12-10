@@ -123,6 +123,18 @@ type PolicyEntry struct {
 	Bytes     uint64 `align:"bytes"`
 }
 
+// ToHost returns a copy of entry with fields converted from network byte-order
+// to host-byte-order if necessary.
+func (pe *PolicyEntry) ToHost() PolicyEntry {
+	if pe == nil {
+		return PolicyEntry{}
+	}
+
+	n := *pe
+	n.ProxyPort = byteorder.NetworkToHost(n.ProxyPort).(uint16)
+	return n
+}
+
 func (pe *PolicyEntry) SetFlags(flags uint8) {
 	pe.Flags = flags
 }
@@ -373,18 +385,6 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	err := pm.DumpWithCallback(cb)
 
 	return entries, err
-}
-
-func (pm *PolicyMap) DumpKeysToSlice() ([]PolicyKey, error) {
-	var policyKeys []PolicyKey
-
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		keyDump := *key.DeepCopyMapKey().(*PolicyKey)
-		policyKeys = append(policyKeys, keyDump)
-	}
-	err := pm.DumpWithCallback(cb)
-
-	return policyKeys, err
 }
 
 func newMap(path string) *PolicyMap {

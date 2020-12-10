@@ -476,9 +476,9 @@ type MapChanges struct {
 }
 
 type MapChange struct {
-	add   bool // false deletes
-	key   Key
-	value MapStateEntry
+	Add   bool // false deletes
+	Key   Key
+	Value MapStateEntry
 }
 
 // AccumulateMapChanges accumulates the given changes to the
@@ -515,11 +515,11 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 	mc.mutex.Lock()
 	for _, id := range adds {
 		key.Identity = id.Uint32()
-		mc.changes = append(mc.changes, MapChange{true, key, value})
+		mc.changes = append(mc.changes, MapChange{Add: true, Key: key, Value: value})
 	}
 	for _, id := range deletes {
 		key.Identity = id.Uint32()
-		mc.changes = append(mc.changes, MapChange{false, key, value})
+		mc.changes = append(mc.changes, MapChange{Add: false, Key: key, Value: value})
 	}
 	mc.mutex.Unlock()
 }
@@ -532,15 +532,15 @@ func (mc *MapChanges) consumeMapChanges(policyMapState MapState) (adds, deletes 
 	deletes = make(MapState, len(mc.changes))
 
 	for i := range mc.changes {
-		if mc.changes[i].add {
+		if mc.changes[i].Add {
 			// insert but do not allow non-redirect entries to overwrite a redirect entry,
 			// nor allow non-deny entries to overwrite deny entries.
 			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
-			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].key, mc.changes[i].value, adds, deletes)
+			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, adds, deletes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.changes[i].value.selectors { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].key, cs, adds, deletes)
+			for cs := range mc.changes[i].Value.selectors { // get the sole selector
+				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, adds, deletes)
 			}
 		}
 	}

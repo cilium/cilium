@@ -1238,65 +1238,95 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
 func (e *Endpoint) syncPolicyMap() error {
-	e.policyDebug(logrus.Fields{
-		"policyRealized": e.realizedPolicy == e.desiredPolicy,
-	}, "syncPolicyMap")
-
-	// Nothing to do if the desired policy is already fully realized.
-	if e.realizedPolicy != e.desiredPolicy {
-		errors := 0
-
-		// Add policy map entries before deleting to avoid transient drops
-		err := e.addPolicyMapDelta()
-		if err != nil {
-			errors++
-		}
-
-		// Delete policy keys present in the realized state, but not present in the desired state
-		for keyToDelete := range e.realizedPolicy.PolicyMapState {
-			// If key that is in realized state is not in desired state, just remove it.
-			if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-				if !e.deletePolicyKey(keyToDelete, false, nil) {
-					errors++
-				}
-			}
-		}
-
-		if errors > 0 {
-			return fmt.Errorf("syncPolicyMap failed")
-		}
+	// Apply pending policy map changes first so that desired map is up-to-date before
+	// we diff the maps below.
+	_, err := e.applyPolicyMapChanges()
+	if err != nil {
+		return err
 	}
 
-	// Still may have changes due to identities added and/or
-	// deleted after the desired policy was computed.
-	_, err := e.applyPolicyMapChanges()
-	return err
-}
-
-// addPolicyMapDelta adds new or updates existing bpf policy map state based
-// on the difference between the realized and desired policy state without
-// dumping the bpf policy map.
-func (e *Endpoint) addPolicyMapDelta() error {
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
+		e.policyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
 		return nil
 	}
 
+	// Diffs between the maps are expected here, so do not bother collecting them
+	_, _, err = e.syncDesiredPolicyMapWith(e.realizedPolicy.PolicyMapState, false)
+	return err
+}
+
+// syncDesiredPolicyMapWith updates the bpf policy map state based on the
+// difference between the given 'realized' and desired policy state without
+// dumping the bpf policy map.
+func (e *Endpoint) syncDesiredPolicyMapWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
+	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+		if oldEntry, ok := realized[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+			// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
+			// the actual proxy port number. This is due to the fact that proxies may not yet have
+			// bound to a specific port when a proxy policy is first instantiated.
+			if entry.IsRedirectEntry() {
+				// Will change to 0 if on a sidecar
+				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
+			}
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
+			}
+			diffCount++
+			if withDiffs {
+				diffs = append(diffs, policy.MapChange{Add: true, Key: keyToAdd, Value: entry})
+			}
+		}
+	}
+
+	// Delete policy keys present in the realized state, but not present in the desired state
+	for keyToDelete := range realized {
+		// If key that is in realized state is not in desired state, just remove it.
+		if entry, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
+			if !e.deletePolicyKey(keyToDelete, false, nil) {
+				errors++
+			}
+			diffCount++
+			if withDiffs {
+				diffs = append(diffs, policy.MapChange{Add: false, Key: keyToDelete, Value: entry})
 			}
 		}
 	}
 
 	if errors > 0 {
-		return fmt.Errorf("updating desired PolicyMap state failed")
+		err = fmt.Errorf("syncPolicyMap failed")
 	}
+	return diffCount, diffs, err
+}
 
-	return nil
+func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
+	currentMap := make(policy.MapState)
+
+	cb := func(key bpf.MapKey, value bpf.MapValue) {
+		// Convert key to host byte-order. ToHost() makes a copy.
+		keyHostOrder := key.(*policymap.PolicyKey).ToHost()
+		// Convert from policymap.Key to policy.Key
+		policyKey := policy.Key{
+			Identity:         keyHostOrder.Identity,
+			DestPort:         keyHostOrder.DestPort,
+			Nexthdr:          keyHostOrder.Nexthdr,
+			TrafficDirection: keyHostOrder.TrafficDirection,
+		}
+		// Convert value to host byte-order. ToHost() makes a copy.
+		entryHostOrder := value.(*policymap.PolicyEntry).ToHost()
+		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
+		policyEntry := policy.MapStateEntry{
+			ProxyPort: entryHostOrder.ProxyPort,
+			IsDeny:    policymap.PolicyEntryFlags(entryHostOrder.GetFlags()).IsDeny(),
+		}
+		currentMap[policyKey] = policyEntry
+	}
+	err := e.policyMap.DumpWithCallback(cb)
+
+	return currentMap, err
 }
 
 // syncPolicyMapWithDump attempts to synchronize the PolicyMap for this endpoint to
@@ -1309,16 +1339,18 @@ func (e *Endpoint) addPolicyMapDelta() error {
 // PolicyMap is unable to be dumped, or any update operation to the map fails.
 // Must be called with e.mutex Lock()ed.
 func (e *Endpoint) syncPolicyMapWithDump() error {
-
-	if e.realizedPolicy.PolicyMapState == nil {
-		e.realizedPolicy.PolicyMapState = make(policy.MapState)
-	}
-
 	if e.policyMap == nil {
 		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
 	}
 
-	currentMapContents, err := e.policyMap.DumpKeysToSlice()
+	// Apply pending policy map changes first so that desired map is up-to-date before
+	// we diff the maps below.
+	_, err := e.applyPolicyMapChanges()
+	if err != nil {
+		return err
+	}
+
+	currentMap, err := e.dumpPolicyMapToMapState()
 
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
@@ -1339,44 +1371,21 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		}
 
 		// Try to dump again, fail if error occurs.
-		currentMapContents, err = e.policyMap.DumpKeysToSlice()
+		currentMap, err = e.dumpPolicyMapToMapState()
 		if err != nil {
 			return err
 		}
 	}
 
-	errors := 0
-
 	// Log full policy map for every dump
-	e.policyDebug(logrus.Fields{
-		"dumpedPolicyMap": currentMapContents,
-	}, "syncPolicyMapWithDump")
+	e.policyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
+	// Diffs between the maps indicate an error in the policy map update logic.
+	// Collect and log diffs if policy logging is enabled.
+	diffCount, diffs, err := e.syncDesiredPolicyMapWith(currentMap, e.getPolicyLogger() != nil)
 
-	for _, entry := range currentMapContents {
-		// Convert key to host-byte order for lookup in the desiredMapState.
-		keyHostOrder := entry.ToHost()
-
-		// Convert from policymap.Key to policy.Key
-		keyToDelete := policy.Key{
-			Identity:         keyHostOrder.Identity,
-			DestPort:         keyHostOrder.DestPort,
-			Nexthdr:          keyHostOrder.Nexthdr,
-			TrafficDirection: keyHostOrder.TrafficDirection,
-		}
-
-		// If key that is in policy map is not in desired state, just remove it.
-		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			e.getLogger().WithField(logfields.BPFMapKey, entry.String()).Debug("syncPolicyMapWithDump removing a bpf policy entry not in the desired state")
-			if !e.deletePolicyKey(keyToDelete, false, nil) {
-				errors++
-			}
-		}
-	}
-
-	err = e.addPolicyMapDelta()
-
-	if errors > 0 {
-		return fmt.Errorf("synchronizing desired PolicyMap state failed")
+	if diffCount > 0 {
+		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")
+		e.policyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
 	}
 
 	return err
