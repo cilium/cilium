@@ -38,7 +38,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.2
 	github.com/google/gopacket v1.1.17
-	github.com/google/gops v0.3.10
+	github.com/google/gops v0.3.14
 	github.com/google/renameio v0.1.0
 	github.com/gorilla/mux v1.7.0
 	github.com/hashicorp/consul/api v1.2.0
@@ -77,7 +77,7 @@ require (
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+	golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
 	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
