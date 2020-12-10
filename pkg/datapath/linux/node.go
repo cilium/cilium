@@ -591,12 +591,6 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			return
 		}
 
-		_, err = arping.FindIPInNetworkFromIface(nextHopIPv4, *iface)
-		if err != nil {
-			scopedLog.WithError(err).Error("IP is not L2 reachable")
-			return
-		}
-
 		linkAttr, err := netlink.LinkByName(ifaceName)
 		if err != nil {
 			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
