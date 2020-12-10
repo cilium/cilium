@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
@@ -611,7 +611,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 	req = &limitedRequest{
 		limiter:      l,
 		scheduleTime: time.Now(),
-		uuid:         uuid.NewUUID().String(),
+		uuid:         uuid.New().String(),
 	}
 
 	l.mutex.Lock()

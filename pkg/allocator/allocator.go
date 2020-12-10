@@ -28,8 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -278,7 +278,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}),
-		suffix:       uuid.NewUUID().String()[:10],
+		suffix:       uuid.New().String()[:10],
 		remoteCaches: map[*RemoteCache]struct{}{},
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
