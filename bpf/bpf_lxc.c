@@ -1203,6 +1203,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					   verdict, policy_match_type, audited);
 	}
 
+	relax_verifier();
 	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
 	{
