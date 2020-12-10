@@ -114,8 +114,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				err = fmt.Errorf("CIDR is not IPv4 based")
 			}
 			if err == nil {
-				if ones, _ := cidr.Mask.Size(); ones == 0 || ones >= 32 {
-					err = fmt.Errorf("CIDR length must be in (0,32)")
+				if ones, _ := cidr.Mask.Size(); ones == 0 {
+					err = fmt.Errorf("CIDR length must be in (0,32]")
 				}
 			}
 			if err != nil {
@@ -131,8 +131,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				err = fmt.Errorf("CIDR is not IPv6 based")
 			}
 			if err == nil {
-				if ones, _ := cidr.Mask.Size(); ones == 0 || ones >= 128 {
-					err = fmt.Errorf("CIDR length must be in (0,128)")
+				if ones, _ := cidr.Mask.Size(); ones == 0 {
+					err = fmt.Errorf("CIDR length must be in (0,128]")
 				}
 			}
 			if err != nil {
