@@ -27,7 +27,7 @@ ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 RUN go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \
-    git checkout -b v0.3.10 v0.3.10 && \
+    git checkout -b v0.3.14 v0.3.14 && \
     git --no-pager remote -v && \
     git --no-pager log -1 && \
     CGO_ENABLED=0 go install && \
