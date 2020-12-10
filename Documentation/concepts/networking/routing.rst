@@ -248,7 +248,7 @@ The AWS ENI datapath is enabled by setting the following option:
 
 * ``egress-masquerade-interfaces: eth+`` is the interface selector of all
   interfaces which are subject to masquerading. Masquerading can be disabled
-  entirely with ``masquerade: "false"``.
+  entirely with ``enable-ipv4-masquerade: "false"``.
 
 See the section :ref:`ipam_eni` for details on how to configure ENI IPAM
 specific parameters.

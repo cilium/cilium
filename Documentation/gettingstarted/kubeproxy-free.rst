@@ -772,7 +772,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set azure.clientID=$AZURE_CLIENT_ID \\
      --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
      --set tunnel=disabled \\
-     --set masquerade=false \\
+     --set enableIPv4Masquerade=false \\
      --set devices=eth0 \\
      --set kubeProxyReplacement=strict \\
      --set loadBalancer.acceleration=native \\

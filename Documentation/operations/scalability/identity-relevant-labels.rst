@@ -54,7 +54,7 @@ this attribute can also be set via helm option ``--set labels=<values>``.
     ...
       kube-proxy-replacement: partial
       labels:  "k8s:io.kubernetes.pod.namespace k8s:k8s-app k8s:app k8s:name"
-      masquerade: "true"
+      enable-ipv4-masquerade: "true"
       monitor-aggregation: medium
     ...
 

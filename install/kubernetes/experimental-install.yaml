@@ -137,7 +137,8 @@ data:
   # wait-bpf-mount makes init container wait until bpf filesystem is mounted
   wait-bpf-mount: "false"
 
-  masquerade: "true"
+  enable-ipv4-masquerade: "true"
+  enable-ipv6-masquerade: "true"
   enable-bpf-masquerade: "true"
 
   enable-xt-socket-fallback: "true"

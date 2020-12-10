@@ -806,9 +806,11 @@ maglev: {}
   # -- hashSeed is the cluster-wide base64 encoded seed for the hashing
   # hashSeed:
 
-# -- Enables masquerading of traffic leaving the node for destinations
-# outside of the cluster.
-masquerade: true
+# -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
+enableIPv4Masquerade: true
+
+# -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
+enableIPv6Masquerade: true
 
 # -- Specify the CIDR for native routing (ie to avoid IP masquerade for).
 # This value corresponds to the configured cluster-cidr.
