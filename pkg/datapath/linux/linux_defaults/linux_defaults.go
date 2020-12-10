@@ -55,6 +55,14 @@ const (
 	// of endpoints. This priority is after the local table priority.
 	RulePriorityEgress = 110
 
+	// RulePriorityEgress is the v2 of the priority of the rule used for egress
+	// routing of endpoints. This priority is after the local table priority.
+	//
+	// Because of https://github.com/cilium/cilium/issues/14336, we must use a
+	// new priority value to disambiguate which rules are still under the old
+	// scheme.
+	RulePriorityEgressv2 = 111
+
 	// RulePriorityNodeport is the priority of the rule used with AWS ENI to
 	// make sure that lookups for multi-node NodePort traffic are NOT done
 	// from the table for the VPC to which the endpoint's CIDR is
