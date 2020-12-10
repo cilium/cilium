@@ -365,6 +365,22 @@ commands, respectively:
     $ sudo systemctl status cilium
     $ cilium status
 
+Simple smoke-test with HTTP policies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+After Cilium daemon has been restarted, you may want to verify that it
+boots up properly and integration with Envoy still works. To do this,
+run this bash test script:
+
+::
+
+    $ tests/envoy-smoke-test.sh
+
+This test launches three docker containers (one curl client, and two
+httpd servers) and tests various simple network policies with
+them. These containers should be automatically removed when the test
+finishes.
+
 Making Changes
 ~~~~~~~~~~~~~~
 
