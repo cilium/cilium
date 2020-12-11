@@ -38,3 +38,5 @@ spec:
   - key: "node.kubernetes.io/unreachable"
     operator: "Exists"
   hostNetwork: true
+  nodeSelector:
+    "cilium.io/ci-node": k8s1
