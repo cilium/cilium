@@ -294,8 +294,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		case option.Config.Tunnel != option.TunnelDisabled:
 			msg = fmt.Sprintf("BPF host routing is only available in native routing mode.")
 		// Needs host stack for packet handling.
-		case option.Config.EnableEndpointRoutes:
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableEndpointRoutes)
 		case option.Config.EnableIPSec:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
