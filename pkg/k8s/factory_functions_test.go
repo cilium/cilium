@@ -1174,6 +1174,15 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 			},
 		},
 		{
+			name: "A CCNP where it doesn't contain neither a spec nor specs",
+			args: args{
+				obj: &v2.CiliumClusterwideNetworkPolicy{},
+			},
+			want: &types.SlimCNP{
+				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
+			},
+		},
+		{
 			name: "delete final state unknown conversion",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
