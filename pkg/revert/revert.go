@@ -47,3 +47,10 @@ func (s *RevertStack) Revert() error {
 	}
 	return nil
 }
+
+// Extend extends the revert stack by the given stack.
+func (s *RevertStack) Extend(t RevertStack) {
+	for _, f := range t.revertFuncs {
+		s.Push(f)
+	}
+}
