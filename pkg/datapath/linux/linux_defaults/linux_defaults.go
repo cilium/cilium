@@ -23,6 +23,12 @@ const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
 	RouteTableIPSec = 200
 
+	// RouteTableInterfacesOffset is the offset for the per-ENI routing tables.
+	// Each ENI interface will have its own table starting with this offset. It
+	// is 10 because it is highly unlikely to collide with the main routing
+	// table which is between 253-255. See ip-route(8).
+	RouteTableInterfacesOffset = 10
+
 	// RouteMarkDecrypt is the default route mark to use to indicate datapath
 	// needs to decrypt a packet.
 	RouteMarkDecrypt = 0x0D00
