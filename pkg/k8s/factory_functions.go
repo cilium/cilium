@@ -483,9 +483,11 @@ func ConvertToCCNP(obj interface{}) interface{} {
 			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 				TypeMeta:   concreteObj.TypeMeta,
 				ObjectMeta: concreteObj.ObjectMeta,
-				Spec:       concreteObj.Spec,
-				Specs:      concreteObj.Specs,
 			},
+		}
+		if concreteObj.CiliumNetworkPolicy != nil {
+			cnp.Spec = concreteObj.Spec
+			cnp.Specs = concreteObj.Specs
 		}
 		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return cnp
@@ -495,16 +497,19 @@ func ConvertToCCNP(obj interface{}) interface{} {
 		if !ok {
 			return obj
 		}
+		slimCNP := &types.SlimCNP{
+			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+				TypeMeta:   cnp.TypeMeta,
+				ObjectMeta: cnp.ObjectMeta,
+			},
+		}
+		if cnp.CiliumNetworkPolicy != nil {
+			slimCNP.Spec = cnp.Spec
+			slimCNP.Specs = cnp.Specs
+		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.SlimCNP{
-				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-					TypeMeta:   cnp.TypeMeta,
-					ObjectMeta: cnp.ObjectMeta,
-					Spec:       cnp.Spec,
-					Specs:      cnp.Specs,
-				},
-			},
+			Obj: slimCNP,
 		}
 		*cnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return dfsu
