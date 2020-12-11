@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -51,8 +50,6 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		triggeredBySignal := false
-		ctTimer, ctTimerDone := inctimer.New()
-		defer ctTimerDone()
 		for {
 			var (
 				maxDeleteRatio float64
@@ -136,7 +133,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 						ipv6 = true
 					}
 				}
-			case <-ctTimer.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
+			case <-time.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
 				ipv4 = ipv4Orig
 				ipv6 = ipv6Orig
 			}

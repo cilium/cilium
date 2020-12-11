@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -227,14 +226,11 @@ func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimC
 			nodeStatusMap[cnpns.Node] = cnpns.CiliumNetworkPolicyNodeStatus
 		}
 	}
-	updateTimer, updateDone := inctimer.New()
-	defer updateDone()
-
 	for {
 		// Allow for a bunch of different node status updates to come before
 		// we break out to avoid jitter in updates across the cluster
 		// to affect batching on our end.
-		limit := updateTimer.After(c.updateInterval)
+		limit := time.After(c.updateInterval)
 
 		// Collect any other events that have come in, but bail out after the
 		// above limit is hit so that we can send the updates we have received.
