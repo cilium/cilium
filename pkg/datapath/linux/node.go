@@ -555,6 +555,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		return
 	}
 
+	srcIP := make(net.IP, net.IPv4len)
 	newNodeIP := newNode.GetNodeIP(false).To4()
 	nextHopIPv4 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv4, newNodeIP)
@@ -575,7 +576,8 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			// newNode is in a different L2 subnet, so it must be reachable through
 			// a gateway. Send arping to the gw IP addr instead of newNode IP addr.
 			// NOTE: we currently don't handle multipath, so only one gw can be used.
-			copy(nextHopIPv4, route.Gw)
+			copy(nextHopIPv4, route.Gw.To4())
+			copy(srcIP, route.Src.To4())
 			break
 		}
 	}
@@ -599,7 +601,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		}
 		link := linkAttr.Attrs().Index
 
-		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface)
+		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface, srcIP)
 		if err != nil {
 			scopedLog.WithError(err).Error("arping failed")
 			return
