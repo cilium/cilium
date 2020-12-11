@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/davecgh/go-spew/spew"
@@ -90,8 +89,6 @@ func (pl *pathLocks) runGC() {
 }
 
 func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID, err error) {
-	lockTimer, lockTimerDone := inctimer.New()
-	defer lockTimerDone()
 	for {
 		pl.mutex.Lock()
 		if _, ok := pl.lockPaths[path]; !ok {
@@ -106,7 +103,7 @@ func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID, err e
 		pl.mutex.Unlock()
 
 		select {
-		case <-lockTimer.After(time.Duration(10) * time.Millisecond):
+		case <-time.After(time.Duration(10) * time.Millisecond):
 		case <-ctx.Done():
 			err = fmt.Errorf("lock was cancelled: %s", ctx.Err())
 			return

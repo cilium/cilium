@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -330,8 +329,6 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 
 	go func() {
 		nodeValidationsReceived := 0
-		timer, timerDone := inctimer.New()
-		defer timerDone()
 		for {
 			select {
 			case <-signalNodeHandler.NodeValidateImplementationEvent:
@@ -340,7 +337,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 					allNodeValidateCallsReceived.Done()
 					return
 				}
-			case <-timer.After(time.Second * 5):
+			case <-time.After(time.Second * 5):
 				c.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
 			}
 		}

@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/contexthelpers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
@@ -1106,9 +1105,6 @@ func (e *etcdClient) statusChecker() {
 
 	consecutiveQuorumErrors := 0
 
-	statusTimer, statusTimerDone := inctimer.New()
-	defer statusTimerDone()
-
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -1172,7 +1168,7 @@ func (e *etcdClient) statusChecker() {
 		case <-e.stopStatusChecker:
 			close(e.statusCheckErrors)
 			return
-		case <-statusTimer.After(e.extraOptions.StatusCheckInterval(allConnected)):
+		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
 	}
 }

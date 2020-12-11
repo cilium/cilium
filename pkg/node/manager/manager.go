@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -276,8 +275,6 @@ func (m *Manager) backgroundSyncInterval() time.Duration {
 }
 
 func (m *Manager) backgroundSync() {
-	syncTimer, syncTimerDone := inctimer.New()
-	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
 		log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
@@ -308,7 +305,7 @@ func (m *Manager) backgroundSync() {
 		select {
 		case <-m.closeChan:
 			return
-		case <-syncTimer.After(syncInterval):
+		case <-time.After(syncInterval):
 		}
 	}
 }

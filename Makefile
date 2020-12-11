@@ -513,8 +513,6 @@ endif
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
-	$(QUIET) contrib/scripts/custom-vet-check.sh
 	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
 	$(QUIET) contrib/scripts/rand-check.sh
 

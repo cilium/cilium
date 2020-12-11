@@ -23,7 +23,6 @@ import (
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
@@ -81,8 +80,6 @@ func (m *PeerManager) Start() {
 
 func (m *PeerManager) watchNotifications() {
 	ctx, cancel := context.WithCancel(context.Background())
-	retryTimer, retryTimerDone := inctimer.New()
-	defer retryTimerDone()
 connect:
 	for {
 		cl, err := m.opts.peerClientBuilder.Client(m.opts.peerServiceAddress)
@@ -95,7 +92,7 @@ connect:
 			case <-m.stop:
 				cancel()
 				return
-			case <-retryTimer.After(m.opts.retryTimeout):
+			case <-time.After(m.opts.retryTimeout):
 				continue
 			}
 		}
@@ -110,7 +107,7 @@ connect:
 			case <-m.stop:
 				cancel()
 				return
-			case <-retryTimer.After(m.opts.retryTimeout):
+			case <-time.After(m.opts.retryTimeout):
 				continue
 			}
 		}
@@ -133,7 +130,7 @@ connect:
 				case <-m.stop:
 					cancel()
 					return
-				case <-retryTimer.After(m.opts.retryTimeout):
+				case <-time.After(m.opts.retryTimeout):
 					continue connect
 				}
 			}
@@ -152,8 +149,6 @@ connect:
 }
 
 func (m *PeerManager) manageConnections() {
-	connTimer, connTimerDone := inctimer.New()
-	defer connTimerDone()
 	for {
 		select {
 		case <-m.stop:
@@ -168,7 +163,7 @@ func (m *PeerManager) manageConnections() {
 				// a connection request has been made, make sure to attempt a connection
 				m.connect(p, true)
 			}()
-		case <-connTimer.After(m.opts.connCheckInterval):
+		case <-time.After(m.opts.connCheckInterval):
 			m.mu.RLock()
 			now := time.Now()
 			for _, p := range m.peers {
