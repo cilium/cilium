@@ -425,7 +425,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 // cache at the time when the expectations are created.
 func (m MapState) clearCachedSelectors() {
 	for k, v := range m {
-		v.selectors = nil
+		v.selectors = make(map[CachedSelector]struct{})
 		m[k] = v
 	}
 }
