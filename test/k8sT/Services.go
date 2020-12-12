@@ -385,7 +385,7 @@ var _ = Describe("K8sServicesTest", func() {
 			res := kubectl.Exec(fmt.Sprintf("kubectl label services/%s %s=%s", echoServiceName, serviceProxyLabelName, "dummy-lb"))
 			res.ExpectSuccess("cannot label service")
 
-			// Wait for all cilium pods to remove the serivce from its list.
+			// Wait for all cilium pods to remove the service from its list.
 			By("Validating that Cilium is not handling the service")
 			Eventually(func() int {
 				validPods := 0
