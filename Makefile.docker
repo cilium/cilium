@@ -90,6 +90,25 @@ docker-operator-image-unstripped: NOSTRIP=1
 docker-operator-image-unstripped: UNSTRIPPED=-unstripped
 docker-operator-image-unstripped: docker-operator-image
 
+dev-docker-opera%-image: GIT_VERSION $(BUILD_DIR)/cilium-opera%.Dockerfile build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build \
+		$(DOCKER_FLAGS) \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		-f $(BUILD_DIR)/cilium-opera$*.Dockerfile \
+		-t $(DOCKER_DEV_ACCOUNT)/cilium-opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag $(DOCKER_DEV_ACCOUNT)/cilium-opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_DEV_ACCOUNT)/cilium-opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) tag $(DOCKER_DEV_ACCOUNT)/cilium-opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_DEV_ACCOUNT)/cilium-opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)
+	@echo "Push like this when ready:"
+	@echo "${CONTAINER_ENGINE} push $(DOCKER_DEV_ACCOUNT)/cilium-opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+dev-docker-operator-image-unstripped: NOSTRIP=1
+dev-docker-operator-image-unstripped: UNSTRIPPED=-unstripped
+dev-docker-operator-image-unstripped: dev-docker-operator-image
+
 docker-operator-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
 	$(QUIET) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
