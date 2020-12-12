@@ -109,7 +109,7 @@ var _ = Describe("K8sHubbleTest", func() {
 				return false
 			}
 
-			Eventually(hubbleObserve, timeout).Should(BeTrue(),
+			Eventually(hubbleObserve, timeout, time.Second).Should(BeTrue(),
 				"hubble observe: filter %q never matched expected string %q", filter, expected)
 		}
 
