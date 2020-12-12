@@ -27,13 +27,9 @@ import (
 // No selectors is represented with a 'nil' map.
 func (e MapStateEntry) WithSelectors(selectors ...CachedSelector) MapStateEntry {
 	mse := e
-	if len(selectors) > 0 {
-		mse.selectors = make(map[CachedSelector]struct{}, len(selectors))
-		for _, cs := range selectors {
-			mse.selectors[cs] = struct{}{}
-		}
-	} else {
-		mse.selectors = nil
+	mse.selectors = make(map[CachedSelector]struct{}, len(selectors))
+	for _, cs := range selectors {
+		mse.selectors[cs] = struct{}{}
 	}
 	return mse
 }
@@ -776,11 +772,9 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			ProxyPort: proxyPort,
 			IsDeny:    deny,
 		}
-		if len(selectors) > 0 {
-			entry.selectors = make(map[CachedSelector]struct{}, len(selectors))
-			for _, cs := range selectors {
-				entry.selectors[cs] = struct{}{}
-			}
+		entry.selectors = make(map[CachedSelector]struct{}, len(selectors))
+		for _, cs := range selectors {
+			entry.selectors[cs] = struct{}{}
 		}
 		return entry
 	}
@@ -811,7 +805,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(42): TestEntry(0, false, csFoo),
 		},
 		adds: MapState{
-			HttpIngressKey(42): TestEntry(0, false),
+			HttpIngressKey(42): TestEntry(0, false, csFoo),
 		},
 		deletes: MapState{},
 	}, {
@@ -835,8 +829,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(43): TestEntry(0, false, csFoo),
 		},
 		adds: MapState{
-			HttpIngressKey(42): TestEntry(0, false),
-			HttpIngressKey(43): TestEntry(0, false),
+			HttpIngressKey(42): TestEntry(0, false, csFoo),
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
 		},
 		deletes: MapState{},
 	}, {
@@ -851,7 +845,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpIngressKey(44): TestEntry(0, false, csBar),
 		},
 		adds: MapState{
-			HttpIngressKey(44): TestEntry(0, false),
+			HttpIngressKey(44): TestEntry(0, false, csBar),
 		},
 		deletes: MapState{},
 	}, {
@@ -869,9 +863,22 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		deletes: MapState{},
 	}, {
 		continued: true,
-		name:      "test-6 - Deleting 42 from Bar, deleted",
+		name:      "test-5b - Deleting 42 from Foo again, not deleted",
 		args: []args{
 			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+		},
+		state: MapState{
+			HttpIngressKey(42): TestEntry(0, false, csBar),
+			HttpIngressKey(43): TestEntry(0, false, csFoo),
+			HttpIngressKey(44): TestEntry(0, false, csBar),
+		},
+		adds:    MapState{},
+		deletes: MapState{},
+	}, {
+		continued: true,
+		name:      "test-6 - Deleting 42 from Bar, deleted",
+		args: []args{
+			{cs: csBar, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
 		state: MapState{
 			HttpIngressKey(43): TestEntry(0, false, csFoo),
@@ -909,10 +916,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			DNSTCPEgressKey(42): TestEntry(0, false, csBar),
 		},
 		adds: MapState{
-			AnyIngressKey():     TestEntry(0, false),
-			HostIngressKey():    TestEntry(0, false),
-			DNSUDPEgressKey(42): TestEntry(0, false),
-			DNSTCPEgressKey(42): TestEntry(0, false),
+			AnyIngressKey():     TestEntry(0, false, nil),
+			HostIngressKey():    TestEntry(0, false, nil),
+			DNSUDPEgressKey(42): TestEntry(0, false, csBar),
+			DNSTCPEgressKey(42): TestEntry(0, false, csBar),
 		},
 		deletes: MapState{},
 	}, {
@@ -929,7 +936,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			HttpEgressKey(43):   TestEntry(1, false, csFoo),
 		},
 		adds: MapState{
-			HttpEgressKey(43): TestEntry(1, false),
+			HttpEgressKey(43): TestEntry(1, false, csFoo),
 		},
 		deletes: MapState{},
 	}, {

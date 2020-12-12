@@ -490,8 +490,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	// maps on the policy got cleared
 
 	c.Assert(adds, checker.Equals, MapState{
-		{Identity: 192, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
-		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
+		{Identity: 192, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
+		{Identity: 194, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
 	})
 	c.Assert(deletes, checker.Equals, MapState{
 		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithoutSelectors(),
