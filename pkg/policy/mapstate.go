@@ -150,10 +150,6 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 	} else if len(entry.selectors) > 0 {
 		// create a new selectors map
 		updatedEntry.selectors = make(map[CachedSelector]struct{}, len(entry.selectors))
-	} else {
-		// Keep the map as nil when empty. This makes a difference for unit testing only.
-		// MergeSelectors below becomes a no-op as 'entry' is empty.
-		updatedEntry.selectors = nil
 	}
 
 	// TODO: Do we need to merge labels as well?
@@ -164,8 +160,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 
 	// Record an incremental Add if desired and entry is new or changed
 	if adds != nil && (!exists || oldEntry.ProxyPort != entry.ProxyPort) {
-		updatedEntry.selectors = nil
-		adds[key] = updatedEntry // copy w/o selectors
+		adds[key] = updatedEntry
 		// Key add overrides any previous delete of the same key
 		if deletes != nil {
 			delete(deletes, key)
@@ -186,11 +181,13 @@ func (keys MapState) deleteKeyWithChanges(key Key, cs CachedSelector, adds, dele
 				if len(entry.selectors) > 0 {
 					return
 				}
+			} else {
+				// 'cs' was not found, do not change anything
+				return
 			}
 		}
 		if deletes != nil {
-			entry.selectors = nil
-			deletes[key] = entry // copy w/o selectors
+			deletes[key] = entry
 			// Remove a potential previously added key
 			if adds != nil {
 				delete(adds, key)
@@ -213,8 +210,7 @@ func (keys MapState) redirectPreferredInsertWithChanges(key Key, entry MapStateE
 		// We store the new entry here, the proxy port of it will be fixed up before
 		// insertion to the bpf map.
 		if adds != nil && entry.IsRedirectEntry() {
-			entry.selectors = nil
-			adds[key] = entry // copy w/o selectors
+			adds[key] = entry
 		}
 		return
 	}
