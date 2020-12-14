@@ -146,7 +146,6 @@ Docker network managed by Cilium:
 ::
 
     $ docker run -d --name app1 --net cilium-net -l "id=app1" cilium/demo-httpd
-    e5723edaa2a1307e7aa7e71b4087882de0250973331bc74a37f6f80667bc5856
 
 
 This has launched a container running an HTTP server which Cilium is now
