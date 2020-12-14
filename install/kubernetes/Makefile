@@ -23,7 +23,6 @@ DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
 QUICK_OPTIONS := \
-    --set hubble.tls.auto.enabled=false \
     --set operator.replicas=1
 QUICK_HUBBLE_OPTIONS := \
     --set agent=false \
