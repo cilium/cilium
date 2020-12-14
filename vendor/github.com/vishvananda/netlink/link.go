@@ -65,6 +65,17 @@ type VfInfo struct {
 	LinkState uint32
 	MaxTxRate uint32 // IFLA_VF_RATE Max TxRate
 	MinTxRate uint32 // IFLA_VF_RATE Min TxRate
+	RxPackets uint64
+	TxPackets uint64
+	RxBytes   uint64
+	TxBytes   uint64
+	Multicast uint64
+	Broadcast uint64
+	RxDropped uint64
+	TxDropped uint64
+
+	RssQuery uint32
+	Trust    uint32
 }
 
 // LinkOperState represents the values of the IFLA_OPERSTATE link
@@ -103,7 +114,8 @@ func (s LinkOperState) String() string {
 // NewLinkAttrs returns LinkAttrs structure filled with default values
 func NewLinkAttrs() LinkAttrs {
 	return LinkAttrs{
-		TxQLen: -1,
+		NetNsID: -1,
+		TxQLen:  -1,
 	}
 }
 
@@ -247,6 +259,7 @@ func (ifb *Ifb) Type() string {
 type Bridge struct {
 	LinkAttrs
 	MulticastSnooping *bool
+	AgeingTime        *uint32
 	HelloTime         *uint32
 	VlanFiltering     *bool
 }
@@ -339,6 +352,7 @@ type Veth struct {
 	LinkAttrs
 	PeerName         string // veth on create only
 	PeerHardwareAddr net.HardwareAddr
+	PeerNamespace    interface{}
 }
 
 func (veth *Veth) Attrs() *LinkAttrs {
@@ -347,6 +361,19 @@ func (veth *Veth) Attrs() *LinkAttrs {
 
 func (veth *Veth) Type() string {
 	return "veth"
+}
+
+// Wireguard represent links of type "wireguard", see https://www.wireguard.com/
+type Wireguard struct {
+	LinkAttrs
+}
+
+func (wg *Wireguard) Attrs() *LinkAttrs {
+	return &wg.LinkAttrs
+}
+
+func (wg *Wireguard) Type() string {
+	return "wireguard"
 }
 
 // GenericLink links represent types that are not currently understood
@@ -762,8 +789,10 @@ func (bond *Bond) Type() string {
 type BondSlaveState uint8
 
 const (
-	BondStateActive = iota // Link is active.
-	BondStateBackup        // Link is backup.
+	//BondStateActive Link is active.
+	BondStateActive BondSlaveState = iota
+	//BondStateBackup Link is backup.
+	BondStateBackup
 )
 
 func (s BondSlaveState) String() string {
@@ -777,15 +806,19 @@ func (s BondSlaveState) String() string {
 	}
 }
 
-// BondSlaveState represents the values of the IFLA_BOND_SLAVE_MII_STATUS bond slave
+// BondSlaveMiiStatus represents the values of the IFLA_BOND_SLAVE_MII_STATUS bond slave
 // attribute, which contains the status of MII link monitoring
 type BondSlaveMiiStatus uint8
 
 const (
-	BondLinkUp   = iota // link is up and running.
-	BondLinkFail        // link has just gone down.
-	BondLinkDown        // link has been down for too long time.
-	BondLinkBack        // link is going back.
+	//BondLinkUp link is up and running.
+	BondLinkUp BondSlaveMiiStatus = iota
+	//BondLinkFail link has just gone down.
+	BondLinkFail
+	//BondLinkDown link has been down for too long time.
+	BondLinkDown
+	//BondLinkBack link is going back.
+	BondLinkBack
 )
 
 func (s BondSlaveMiiStatus) String() string {
@@ -816,6 +849,30 @@ type BondSlave struct {
 
 func (b *BondSlave) SlaveType() string {
 	return "bond"
+}
+
+// Geneve devices must specify RemoteIP and ID (VNI) on create
+// https://github.com/torvalds/linux/blob/47ec5303d73ea344e84f46660fff693c57641386/drivers/net/geneve.c#L1209-L1223
+type Geneve struct {
+	LinkAttrs
+	ID             uint32 // vni
+	Remote         net.IP
+	Ttl            uint8
+	Tos            uint8
+	Dport          uint16
+	UdpCsum        uint8
+	UdpZeroCsum6Tx uint8
+	UdpZeroCsum6Rx uint8
+	Link           uint32
+	FlowBased      bool
+}
+
+func (geneve *Geneve) Attrs() *LinkAttrs {
+	return &geneve.LinkAttrs
+}
+
+func (geneve *Geneve) Type() string {
+	return "geneve"
 }
 
 // Gretap devices must specify LocalIP and RemoteIP on create
@@ -879,10 +936,14 @@ type Ip6tnl struct {
 	Remote     net.IP
 	Ttl        uint8
 	Tos        uint8
-	EncapLimit uint8
 	Flags      uint32
 	Proto      uint8
 	FlowInfo   uint32
+	EncapLimit uint8
+	EncapType  uint16
+	EncapFlags uint16
+	EncapSport uint16
+	EncapDport uint16
 }
 
 func (ip6tnl *Ip6tnl) Attrs() *LinkAttrs {
@@ -896,11 +957,13 @@ func (ip6tnl *Ip6tnl) Type() string {
 type Sittun struct {
 	LinkAttrs
 	Link       uint32
-	Local      net.IP
-	Remote     net.IP
 	Ttl        uint8
 	Tos        uint8
 	PMtuDisc   uint8
+	Proto      uint8
+	Local      net.IP
+	Remote     net.IP
+	EncapLimit uint8
 	EncapType  uint16
 	EncapFlags uint16
 	EncapSport uint16
@@ -1033,6 +1096,58 @@ var iPoIBModeToString = map[IPoIBMode]string{
 var StringToIPoIBMode = map[string]IPoIBMode{
 	"datagram":  IPOIB_MODE_DATAGRAM,
 	"connected": IPOIB_MODE_CONNECTED,
+}
+
+const (
+	CAN_STATE_ERROR_ACTIVE = iota
+	CAN_STATE_ERROR_WARNING
+	CAN_STATE_ERROR_PASSIVE
+	CAN_STATE_BUS_OFF
+	CAN_STATE_STOPPED
+	CAN_STATE_SLEEPING
+)
+
+type Can struct {
+	LinkAttrs
+
+	BitRate            uint32
+	SamplePoint        uint32
+	TimeQuanta         uint32
+	PropagationSegment uint32
+	PhaseSegment1      uint32
+	PhaseSegment2      uint32
+	SyncJumpWidth      uint32
+	BitRatePreScaler   uint32
+
+	Name                string
+	TimeSegment1Min     uint32
+	TimeSegment1Max     uint32
+	TimeSegment2Min     uint32
+	TimeSegment2Max     uint32
+	SyncJumpWidthMax    uint32
+	BitRatePreScalerMin uint32
+	BitRatePreScalerMax uint32
+	BitRatePreScalerInc uint32
+
+	ClockFrequency uint32
+
+	State uint32
+
+	Mask  uint32
+	Flags uint32
+
+	TxError uint16
+	RxError uint16
+
+	RestartMs uint32
+}
+
+func (can *Can) Attrs() *LinkAttrs {
+	return &can.LinkAttrs
+}
+
+func (can *Can) Type() string {
+	return "can"
 }
 
 type IPoIB struct {
