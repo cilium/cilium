@@ -215,6 +215,7 @@ label "id=app3":
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id=app3" cilium/demo-client curl -m 10 http://app1
+    curl: (28) Connection timed out after 10001 milliseconds
 
 You will see no reply as all packets are dropped by the Cilium security policy.
 The request will time-out after 10 seconds.
