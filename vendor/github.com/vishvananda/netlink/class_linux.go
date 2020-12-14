@@ -43,12 +43,12 @@ func NewHtbClass(attrs ClassAttrs, cattrs HtbClassAttrs) *HtbClass {
 	if buffer == 0 {
 		buffer = uint32(float64(rate)/Hz() + float64(mtu))
 	}
-	buffer = uint32(Xmittime(rate, buffer))
+	buffer = Xmittime(rate, buffer)
 
 	if cbuffer == 0 {
 		cbuffer = uint32(float64(ceil)/Hz() + float64(mtu))
 	}
-	cbuffer = uint32(Xmittime(ceil, cbuffer))
+	cbuffer = Xmittime(ceil, cbuffer)
 
 	return &HtbClass{
 		ClassAttrs: attrs,
@@ -56,9 +56,9 @@ func NewHtbClass(attrs ClassAttrs, cattrs HtbClassAttrs) *HtbClass {
 		Ceil:       ceil,
 		Buffer:     buffer,
 		Cbuffer:    cbuffer,
-		Quantum:    10,
 		Level:      0,
-		Prio:       0,
+		Prio:       cattrs.Prio,
+		Quantum:    cattrs.Quantum,
 	}
 }
 
