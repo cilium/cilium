@@ -287,13 +287,13 @@ import this policy to Cilium by running:
 
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/public'
     HTTP/1.1 200 OK
-    Accept-Ranges: bytes
-    Content-Length: 28
-    Date: Tue, 31 Oct 2017 14:30:56 GMT
-    Etag: "1c-54bb868cec400"
-    Last-Modified: Mon, 27 Mar 2017 15:58:08 GMT
-    Server: Apache/2.4.25 (Unix)
-    Content-Type: text/plain; charset=utf-8
+    date: Thu, 19 Nov 2020 16:59:35 GMT
+    server: envoy
+    last-modified: Mon, 27 Mar 2017 15:58:08 GMT
+    etag: "1c-54bb868cec400"
+    accept-ranges: bytes
+    content-length: 28
+    x-envoy-upstream-service-time: 1
 
     { 'val': 'this is public' }
 
@@ -303,10 +303,10 @@ and
 
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/private'
     HTTP/1.1 403 Forbidden
-    Content-Type: text/plain; charset=utf-8
-    X-Content-Type-Options: nosniff
-    Date: Tue, 31 Oct 2017 14:31:09 GMT
-    Content-Length: 14
+    content-length: 15
+    content-type: text/plain
+    date: Thu, 19 Nov 2020 17:01:14 GMT
+    server: envoy
 
     Access denied
 
