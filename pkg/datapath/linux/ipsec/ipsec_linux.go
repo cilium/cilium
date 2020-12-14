@@ -118,7 +118,10 @@ func ipSecReplaceStateIn(remoteIP, localIP net.IP) (uint8, error) {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
-	state.OutputMark = linux_defaults.RouteMarkDecrypt
+	state.OutputMark = &netlink.XfrmMark{
+		Value: linux_defaults.RouteMarkDecrypt,
+		Mask:  linux_defaults.RouteMarkMask,
+	}
 
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
@@ -137,7 +140,10 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
-	state.OutputMark = linux_defaults.RouteMarkEncrypt
+	state.OutputMark = &netlink.XfrmMark{
+		Value: linux_defaults.RouteMarkEncrypt,
+		Mask:  linux_defaults.RouteMarkMask,
+	}
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
@@ -292,9 +298,6 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * Policy2(src=10.156.0.0/16,dst=10.182.0.1/16,dir=out,tmpl(spi=#spi,reqid=#reqid))
  * State1(src=*,dst=10.182.0.1,spi=#spi,reqid=#reqid,...)
  * State2(src=*,dst=10.156.0.1,spi=#spi,reqid=#reqid,...)
- *
- * setMark is used to set output-marks and use table 200 post-encryption
- * This only applies to the subnet mode where sip/dip needs to be rewritten
  *
  * Design Note: For newer kernels a BPF xfrm interface would greatly simplify the
  * state space. Basic idea would be to reference a state using any key generated
