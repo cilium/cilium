@@ -68,30 +68,6 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Precheck') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
-
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-               sh "cd ${TESTDIR}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
-               }
-               unsuccessful {
-                   script {
-                       if  (!currentBuild.displayName.contains('fail')) {
-                           currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
-                       }
-                   }
-               }
-            }
-        }
         stage('Preload vagrant boxes') {
             steps {
                 sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
