@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -433,11 +434,16 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		opts = map[string]string{
 			"preflight.enabled":   "true ",
-			"agent.enabled":       "false ",
 			"config.enabled":      "false ",
 			"operator.enabled":    "false ",
 			"preflight.image.tag": newImageVersion,
 			"nodeinit.enabled":    "false",
+		}
+		hasNewHelmValues := versioncheck.MustCompile(">=1.8.90")
+		if hasNewHelmValues(versioncheck.MustVersion(newHelmChartVersion)) {
+			opts["agent"] = "false "
+		} else {
+			opts["agent.enabled"] = "false "
 		}
 		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
 			switch oldHelmChartVersion {
