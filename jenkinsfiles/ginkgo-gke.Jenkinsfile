@@ -68,27 +68,6 @@ pipeline {
                 sh 'cd ${TESTDIR}/gke; ./start-registry.sh'
             }
         }
-        stage('Precheck') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-
-            steps {
-               sh "cd ${WORKSPACE}/${PROJ_PATH}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${WORKSPACE}/${PROJ_PATH}; make clean-jenkins-precheck || true"
-               }
-               unsuccessful {
-                   script {
-                       if  (!currentBuild.displayName.contains('fail')) {
-                           currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
-                       }
-                   }
-               }
-            }
-        }
         stage('Authenticate in gke') {
             steps {
                 dir("/tmp") {

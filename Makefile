@@ -137,14 +137,6 @@ build-container:
 $(SUBDIRS): force
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
-jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
-
-clean-jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER rm
-	# remove the networks
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
-
 PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril '+build [^!]*privileged_tests' | xargs dirname | sort | uniq)
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged: GO_TAGS_FLAGS+=privileged_tests
@@ -494,9 +486,6 @@ microk8s: check-microk8s
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
-
-ci-precheck: precheck
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
 
 precheck: logging-subsys-field
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
