@@ -23,7 +23,7 @@ Clone and Provision Environment
       git clone https://github.com/cilium/cilium.git
       cd cilium
 
-#. Set up your :ref:`dev_env`
+#. Set up your :ref:`dev_env`.
 #. Check the GitHub issues for `good tasks to get started
    <https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Agood-first-issue>`_.
 

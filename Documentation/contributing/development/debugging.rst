@@ -40,7 +40,7 @@ implementations, notably musl which is common in Alpine Linux images, terminate
 the whole DNS search in these cases. This often manifests as a connect error in
 applications, as the libc lookup returns no data.
 To work around this, denied responses can be configured to be NXDOMAIN by
-setting the ``--tofqdns-dns-reject-response-code`` command line argument.
+setting ``--tofqdns-dns-reject-response-code=nameError`` on the command line.
 
 
 Monitor Events
