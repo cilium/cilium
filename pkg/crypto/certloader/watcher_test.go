@@ -151,7 +151,7 @@ func TestFutureWatcher(t *testing.T) {
 	select {
 	case w = <-ch:
 	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatcher should be ready one the TLS files exists")
+		t.Fatal("FutureWatcher should be ready once the TLS files exists")
 	}
 	defer w.Stop()
 
@@ -183,7 +183,7 @@ func TestKubernetesMount(t *testing.T) {
 	select {
 	case w = <-ch:
 	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatcher should be ready one the TLS files exists")
+		t.Fatal("FutureWatcher should be ready once the TLS files exists")
 	}
 	defer w.Stop()
 
