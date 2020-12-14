@@ -71,7 +71,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
 	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
-	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
@@ -115,3 +115,5 @@ replace (
 	// https://github.com/kubernetes-sigs/structured-merge-diff/issues/172 is fixed.
 	sigs.k8s.io/structured-merge-diff/v4 => github.com/christarazi/structured-merge-diff/v4 v4.0.2-0.20200917183246-1cc601931628
 )
+
+replace github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20201214091400-b6003859665e

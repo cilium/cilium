@@ -259,6 +259,29 @@ func NewIfInfomsgChild(parent *RtAttr, family int) *IfInfomsg {
 	return msg
 }
 
+type Uint32Attribute struct {
+	Type  uint16
+	Value uint32
+}
+
+func (a *Uint32Attribute) Serialize() []byte {
+	native := NativeEndian()
+	buf := make([]byte, rtaAlignOf(8))
+	native.PutUint16(buf[0:2], 8)
+	native.PutUint16(buf[2:4], a.Type)
+
+	if a.Type&NLA_F_NET_BYTEORDER != 0 {
+		binary.BigEndian.PutUint32(buf[4:], a.Value)
+	} else {
+		native.PutUint32(buf[4:], a.Value)
+	}
+	return buf
+}
+
+func (a *Uint32Attribute) Len() int {
+	return 8
+}
+
 // Extend RtAttr to handle data and children
 type RtAttr struct {
 	unix.RtAttr
