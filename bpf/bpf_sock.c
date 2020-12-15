@@ -421,8 +421,8 @@ int sock4_connect(struct bpf_sock_addr *ctx)
 }
 
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
-static __always_inline int __sock4_bind(struct bpf_sock *ctx,
-					struct bpf_sock *ctx_full)
+static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
+					     struct bpf_sock *ctx_full)
 {
 	struct lb4_service *svc;
 	struct lb4_key key = {
@@ -455,9 +455,9 @@ static __always_inline int __sock4_bind(struct bpf_sock *ctx,
 }
 
 __section("post_bind4")
-int sock4_bind(struct bpf_sock *ctx)
+int sock4_post_bind(struct bpf_sock *ctx)
 {
-	if (__sock4_bind(ctx, ctx) < 0)
+	if (__sock4_post_bind(ctx, ctx) < 0)
 		return SYS_REJECT;
 
 	return SYS_PROCEED;
@@ -702,7 +702,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
 static __always_inline int
-sock6_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
+sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock fake_ctx;
@@ -717,12 +717,12 @@ sock6_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 	fake_ctx.src_ip4  = addr6.p4;
 	fake_ctx.src_port = ctx->src_port;
 
-	return __sock4_bind(&fake_ctx, ctx);
+	return __sock4_post_bind(&fake_ctx, ctx);
 #endif /* ENABLE_IPV4 */
 	return 0;
 }
 
-static __always_inline int __sock6_bind(struct bpf_sock *ctx)
+static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
 	struct lb6_key key = {
@@ -739,7 +739,7 @@ static __always_inline int __sock6_bind(struct bpf_sock *ctx)
 	if (!svc) {
 		svc = sock6_wildcard_lookup(&key, false, false, true);
 		if (!svc)
-			return sock6_bind_v4_in_v6(ctx);
+			return sock6_post_bind_v4_in_v6(ctx);
 	}
 
 	if (svc && (lb6_svc_is_nodeport(svc) ||
@@ -751,9 +751,9 @@ static __always_inline int __sock6_bind(struct bpf_sock *ctx)
 }
 
 __section("post_bind6")
-int sock6_bind(struct bpf_sock *ctx)
+int sock6_post_bind(struct bpf_sock *ctx)
 {
-	if (__sock6_bind(ctx) < 0)
+	if (__sock6_post_bind(ctx) < 0)
 		return SYS_REJECT;
 
 	return SYS_PROCEED;
