@@ -41,80 +41,85 @@ const (
 // directory. All test commands are executed in this privileged Pod after
 // uninstalling Cilium from the cluster.
 var _ = Describe("K8sVerifier", func() {
-	var kubectl *helpers.Kubectl
 
-	collectObjectFiles := func() {
-		testPath, err := helpers.CreateReportDirectory()
-		if err != nil {
-			GinkgoPrint(fmt.Sprintf("Cannot create test results directory %s", testPath))
-			return
-		}
-		res := kubectl.Exec("kubectl exec test-verifier -- ls bpf/")
-		for _, file := range strings.Split(strings.TrimSuffix(res.Stdout(), "\n"), "\n") {
-			if strings.HasSuffix(file, ".o") {
-				cmd := fmt.Sprintf("kubectl cp %s:bpf/%s \"%s/%s\"", podName, file, testPath, file)
-				res = kubectl.Exec(cmd)
-				if !res.WasSuccessful() {
-					GinkgoPrint(fmt.Sprintf("Failed to cp BPF object file: %s\n%s", cmd, res.Stderr()))
+	SkipContextIf(func() bool {
+		// Skip K8s versions for which the test is currently flaky.
+		return helpers.SkipK8sVersions(">=1.14.0 <1.20.0") && helpers.SkipQuarantined()
+	}, "Dummy context for quarantine", func() {
+		var kubectl *helpers.Kubectl
+
+		collectObjectFiles := func() {
+			testPath, err := helpers.CreateReportDirectory()
+			if err != nil {
+				GinkgoPrint(fmt.Sprintf("Cannot create test results directory %s", testPath))
+				return
+			}
+			res := kubectl.Exec("kubectl exec test-verifier -- ls bpf/")
+			for _, file := range strings.Split(strings.TrimSuffix(res.Stdout(), "\n"), "\n") {
+				if strings.HasSuffix(file, ".o") {
+					cmd := fmt.Sprintf("kubectl cp %s:bpf/%s \"%s/%s\"", podName, file, testPath, file)
+					res = kubectl.Exec(cmd)
+					if !res.WasSuccessful() {
+						GinkgoPrint(fmt.Sprintf("Failed to cp BPF object file: %s\n%s", cmd, res.Stderr()))
+					}
 				}
 			}
 		}
-	}
+		BeforeAll(func() {
+			SkipIfIntegration(helpers.CIIntegrationGKE)
 
-	BeforeAll(func() {
-		SkipIfIntegration(helpers.CIIntegrationGKE)
+			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+			// We don't check the returned error because Cilium could
+			// already be removed (e.g., first test to run).
+			kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace))
+			ExpectCiliumNotRunning(kubectl)
 
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		// We don't check the returned error because Cilium could
-		// already be removed (e.g., first test to run).
-		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace))
-		ExpectCiliumNotRunning(kubectl)
+			testVerifierManifest := helpers.ManifestGet(kubectl.BasePath(), podManifest)
+			res := kubectl.ApplyDefault(testVerifierManifest)
+			res.ExpectSuccess("Unable to apply %s", testVerifierManifest)
+			err := kubectl.WaitForSinglePod(helpers.DefaultNamespace, podName, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), fmt.Sprintf("%s pod not ready after timeout", podName))
 
-		testVerifierManifest := helpers.ManifestGet(kubectl.BasePath(), podManifest)
-		res := kubectl.ApplyDefault(testVerifierManifest)
-		res.ExpectSuccess("Unable to apply %s", testVerifierManifest)
-		err := kubectl.WaitForSinglePod(helpers.DefaultNamespace, podName, helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), fmt.Sprintf("%s pod not ready after timeout", podName))
+			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf clean V=0")
+			res.ExpectSuccess("Failed to clean up bpf/ tree")
+		})
 
-		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf clean V=0")
-		res.ExpectSuccess("Failed to clean up bpf/ tree")
-	})
+		AfterFailed(func() {
+			res := kubectl.Exec("kubectl describe pod")
+			GinkgoPrint(res.CombineOutput().String())
 
-	AfterFailed(func() {
-		res := kubectl.Exec("kubectl describe pod")
-		GinkgoPrint(res.CombineOutput().String())
+			By("Collecting bpf_*.o artifacts")
+			collectObjectFiles()
+		})
 
-		By("Collecting bpf_*.o artifacts")
-		collectObjectFiles()
-	})
+		AfterAll(func() {
+			kubectl.DeleteResource("pod", podName)
+		})
 
-	AfterAll(func() {
-		kubectl.DeleteResource("pod", podName)
-	})
+		It("Runs the kernel verifier against Cilium's BPF datapath", func() {
+			By("Building BPF objects from the tree")
+			res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf V=0")
+			res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
+			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
+			res.ExpectSuccess("Expected compilation of maptool to succeed")
 
-	It("Runs the kernel verifier against Cilium's BPF datapath", func() {
-		By("Building BPF objects from the tree")
-		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf V=0")
-		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
-		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
-		res.ExpectSuccess("Expected compilation of maptool to succeed")
-
-		if helpers.RunsOn419Kernel() {
-			// On 4.19, we need to remove global data sections before loading
-			// those programs. The libbpf version used in our bpftool (which
-			// loads these two programs), rejects global data.
-			By("Remove global data section")
-			for _, prog := range []string{"bpf/sockops/bpf_sockops.o", "bpf/sockops/bpf_redir.o"} {
-				cmd := "llvm-objcopy --remove-section=.debug_info --remove-section=.BTF --remove-section=.data /cilium/%s /cilium/%s"
-				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName,
-					fmt.Sprintf(cmd, prog, prog))
-				res.ExpectSuccess(fmt.Sprintf("Expected deletion of object file sections from %s to succeed.", prog))
+			if helpers.RunsOn419Kernel() {
+				// On 4.19, we need to remove global data sections before loading
+				// those programs. The libbpf version used in our bpftool (which
+				// loads these two programs), rejects global data.
+				By("Remove global data section")
+				for _, prog := range []string{"bpf/sockops/bpf_sockops.o", "bpf/sockops/bpf_redir.o"} {
+					cmd := "llvm-objcopy --remove-section=.debug_info --remove-section=.BTF --remove-section=.data /cilium/%s /cilium/%s"
+					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName,
+						fmt.Sprintf(cmd, prog, prog))
+					res.ExpectSuccess(fmt.Sprintf("Expected deletion of object file sections from %s to succeed.", prog))
+				}
 			}
-		}
 
-		By("Running the verifier test script")
-		cmd := fmt.Sprintf("test/%s", script)
-		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
-		res.ExpectSuccess("Expected the kernel verifier to pass for BPF programs")
+			By("Running the verifier test script")
+			cmd := fmt.Sprintf("test/%s", script)
+			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
+			res.ExpectSuccess("Expected the kernel verifier to pass for BPF programs")
+		})
 	})
 })
