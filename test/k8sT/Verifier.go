@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -74,7 +73,7 @@ var _ = Describe("K8sVerifier", func() {
 		testVerifierManifest := helpers.ManifestGet(kubectl.BasePath(), podManifest)
 		res := kubectl.ApplyDefault(testVerifierManifest)
 		res.ExpectSuccess("Unable to apply %s", testVerifierManifest)
-		err := kubectl.WaitForSinglePod(helpers.DefaultNamespace, podName, 5*helpers.HelperTimeout)
+		err := kubectl.WaitForSinglePod(helpers.DefaultNamespace, podName, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), fmt.Sprintf("%s pod not ready after timeout", podName))
 
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf clean V=0")
@@ -97,8 +96,7 @@ var _ = Describe("K8sVerifier", func() {
 		By("Building BPF objects from the tree")
 		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C bpf V=0")
 		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
-		timeout := 10 * time.Minute
-		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/", helpers.ExecOptions{Timeout: &timeout})
+		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
 		res.ExpectSuccess("Expected compilation of maptool to succeed")
 
 		if helpers.RunsOn419Kernel() {
