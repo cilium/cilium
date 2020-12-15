@@ -76,9 +76,9 @@ require (
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200806125547-5acd03effb82
+	golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
@@ -87,11 +87,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.19.4
-	k8s.io/apiextensions-apiserver v0.19.4
-	k8s.io/apimachinery v0.19.4
-	k8s.io/client-go v0.19.4
-	k8s.io/code-generator v0.19.4
+	k8s.io/api v0.19.5
+	k8s.io/apiextensions-apiserver v0.19.5
+	k8s.io/apimachinery v0.19.5
+	k8s.io/client-go v0.19.5
+	k8s.io/code-generator v0.19.5
 	k8s.io/klog/v2 v2.2.0
 	// We specify the controller-tools version here to be the version of the
 	// fork below, so that when we generate CRDs, the generated CRD contains
@@ -106,7 +106,7 @@ replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8 // To avoid https://github.com/go-yaml/yaml/pull/571.
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20201116093811-e3ac748c004a
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20201214231305-dd88765b1037
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
