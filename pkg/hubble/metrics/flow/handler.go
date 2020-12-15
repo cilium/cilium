@@ -56,6 +56,7 @@ func (h *flowHandler) ProcessFlow(flow v1.Flow) {
 	switch flow.GetEventType().Type {
 	case monitorAPI.MessageTypeAgent:
 		typeName = "Agent"
+		subType = monitorAPI.AgentNotifications[monitorAPI.AgentNotification(flow.GetEventType().SubType)]
 	case monitorAPI.MessageTypeAccessLog:
 		typeName = "L7"
 		if l7 := flow.GetL7(); l7 != nil {
