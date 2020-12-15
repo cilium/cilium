@@ -58,7 +58,7 @@ ca.crt: |-
 {{- define "hubble.server.gen-certs" }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
 {{- $_ := set . "ca" $ca -}}
-{{- $cn := list "*" .Values.cluster.name "hubble-grpc.cilium.io" | join "." }}
+{{- $cn := list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}
 {{- $cert := genSignedCert $cn nil (list $cn) (.Values.hubble.tls.auto.certValidityDuration | int) $ca -}}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
