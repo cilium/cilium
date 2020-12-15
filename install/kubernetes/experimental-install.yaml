@@ -1227,6 +1227,9 @@ spec:
           imagePullPolicy: Always
           command:
             - "/usr/bin/cilium-certgen"
+          # Because this is executed as a job, we pass the values as command
+          # line args instead of via config map. This allows users to inspect
+          # the values used in past runs by inspecting the completed pod.
           args:
             - "--cilium-namespace=kube-system"
             - "--hubble-ca-reuse-secret=true"
@@ -1236,6 +1239,7 @@ spec:
             - "--hubble-ca-config-map-create=true"
             - "--hubble-ca-config-map-name=hubble-ca-cert"
             - "--hubble-server-cert-generate=true"
+            - "--hubble-server-cert-common-name=*.default.hubble-grpc.cilium.io"
             - "--hubble-server-cert-validity-duration=94608000s"
             - "--hubble-server-cert-secret-name=hubble-server-certs"
             - "--hubble-relay-client-cert-generate=true"
@@ -1272,6 +1276,9 @@ spec:
               imagePullPolicy: Always
               command:
                 - "/usr/bin/cilium-certgen"
+              # Because this is executed as a job, we pass the values as command
+              # line args instead of via config map. This allows users to inspect
+              # the values used in past runs by inspecting the completed pod.
               args:
                 - "--cilium-namespace=kube-system"
                 - "--hubble-ca-reuse-secret=true"
@@ -1281,6 +1288,7 @@ spec:
                 - "--hubble-ca-config-map-create=true"
                 - "--hubble-ca-config-map-name=hubble-ca-cert"
                 - "--hubble-server-cert-generate=true"
+                - "--hubble-server-cert-common-name=*.default.hubble-grpc.cilium.io"
                 - "--hubble-server-cert-validity-duration=94608000s"
                 - "--hubble-server-cert-secret-name=hubble-server-certs"
                 - "--hubble-relay-client-cert-generate=true"
