@@ -72,13 +72,21 @@ var _ = Describe("K8sVerifier", func() {
 
 	SkipItIf(helpers.RunsOnNetNextOr419Kernel, "Runs the kernel verifier against Cilium's BPF datapath", func() {
 		By("Building BPF objects from the tree")
-		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C /cilium/bpf V=0")
+		kernel := "49"
+		switch {
+		case helpers.RunsOnNetNextKernel():
+			kernel = "netnext"
+		case helpers.RunsOn419Kernel():
+			kernel = "419"
+		}
+		cmd := fmt.Sprintf("make -C /cilium/bpf KERNEL=%s", kernel)
+		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
 		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C /cilium/tools/maptool/")
 		res.ExpectSuccess("Expected compilation of maptool to succeed")
 
 		By("Running the verifier test script")
-		cmd := fmt.Sprintf("/cilium/test/%s", script)
+		cmd = fmt.Sprintf("/cilium/test/%s", script)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
 		res.ExpectSuccess("Expected the kernel verifier to pass for BPF programs")
 	})
