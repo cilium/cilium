@@ -152,11 +152,13 @@ var (
 	}
 
 	microk8sHelmOverrides = map[string]string{
-		"ipv6.enabled":   "false",
-		"cni.confPath":   "/var/snap/microk8s/current/args/cni-network",
-		"cni.binPath":    "/var/snap/microk8s/current/opt/cni/bin",
-		"cni.customConf": "true",
-		"daemon.runPath": "/var/snap/microk8s/current/var/run/cilium",
+		"cni.confPath":      "/var/snap/microk8s/current/args/cni-network",
+		"cni.binPath":       "/var/snap/microk8s/current/opt/cni/bin",
+		"cni.customConf":    "true",
+		"daemon.runPath":    "/var/snap/microk8s/current/var/run/cilium",
+		"image.pullPolicy":  "IfNotPresent",
+		"ipv6.enabled":      "false",
+		"operator.replicas": "1",
 	}
 	minikubeHelmOverrides = map[string]string{
 		"ipv6.enabled":           "false",
