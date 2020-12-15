@@ -232,7 +232,8 @@ const (
 	AgentNotifyServiceDeleted
 )
 
-var notifyTable = map[AgentNotification]string{
+// AgentNotifications is a map of all supported agent notification types.
+var AgentNotifications = map[AgentNotification]string{
 	AgentNotifyUnspec:                    "unspecified",
 	AgentNotifyGeneric:                   "Message",
 	AgentNotifyStart:                     "Cilium agent started",
@@ -249,7 +250,7 @@ var notifyTable = map[AgentNotification]string{
 }
 
 func resolveAgentType(t AgentNotification) string {
-	if n, ok := notifyTable[t]; ok {
+	if n, ok := AgentNotifications[t]; ok {
 		return n
 	}
 
