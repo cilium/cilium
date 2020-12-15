@@ -68,7 +68,7 @@ func ListenPacket(network, address string) (*PacketConn, error) {
 		if err != nil {
 			return nil, os.NewSyscallError("socket", err)
 		}
-		if runtime.GOOS == "darwin" && family == syscall.AF_INET {
+		if (runtime.GOOS == "darwin" || runtime.GOOS == "ios") && family == syscall.AF_INET {
 			if err := syscall.SetsockoptInt(s, iana.ProtocolIP, sysIP_STRIPHDR, 1); err != nil {
 				syscall.Close(s)
 				return nil, os.NewSyscallError("setsockopt", err)

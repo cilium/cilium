@@ -51,7 +51,7 @@ func (c *PacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	// Please be informed that ipv4.NewPacketConn enables
 	// IP_STRIPHDR option by default on Darwin.
 	// See golang.org/issue/9395 for further information.
-	if runtime.GOOS == "darwin" && c.p4 != nil {
+	if (runtime.GOOS == "darwin" || runtime.GOOS == "ios") && c.p4 != nil {
 		n, _, peer, err := c.p4.ReadFrom(b)
 		return n, peer, err
 	}
