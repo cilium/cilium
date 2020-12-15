@@ -59,6 +59,16 @@ struct bpf_elf_map __section_maps LB6_SRC_RANGE_MAP = {
 };
 #endif
 
+#ifdef ENABLE_HEALTH_CHECK
+struct bpf_elf_map __section_maps LB6_HEALTH_MAP = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(__sock_cookie),
+	.size_value	= sizeof(struct lb6_health),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
+#endif
+
 #if LB_SELECTION == LB_SELECTION_MAGLEV
 struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_INNER = {
 	.type		= BPF_MAP_TYPE_ARRAY,
@@ -128,6 +138,16 @@ struct bpf_elf_map __section_maps LB4_SRC_RANGE_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= LB4_SRC_RANGE_MAP_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif
+
+#ifdef ENABLE_HEALTH_CHECK
+struct bpf_elf_map __section_maps LB4_HEALTH_MAP = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(__sock_cookie),
+	.size_value	= sizeof(struct lb4_health),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
 };
 #endif
 

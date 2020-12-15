@@ -27,6 +27,9 @@ import (
 )
 
 const (
+	// HealthProbe4MapName is the health datapath map name
+	HealthProbe4MapName = "cilium_lb4_health"
+
 	// SockRevNat4MapName is the BPF map name.
 	SockRevNat4MapName = "cilium_lb4_reverse_sk"
 
