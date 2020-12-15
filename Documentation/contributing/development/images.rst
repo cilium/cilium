@@ -127,8 +127,8 @@ Update cilium-builder and cilium-runtime images
 Login to quay.io with your credentials to the repository that you want to
 update:
 
-`cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains Cilium build-time dependencies
-`cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains Cilium run-time dependencies
+* `cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains Cilium build-time dependencies
+* `cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains Cilium run-time dependencies
 
 0. After login, select the tab "builds" on the left menu.
 
