@@ -295,6 +295,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		mode = baseDeviceMode(option.Config.Tunnel)
 	case option.Config.DatapathMode == datapathOption.DatapathModeIpvlan:
 		mode = ipvlanMode
+	case option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
+		option.Config.NodePortMode == option.NodePortModeDSR &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP:
+		mode = option.DSRDispatchIPIP
 	default:
 		mode = directMode
 	}

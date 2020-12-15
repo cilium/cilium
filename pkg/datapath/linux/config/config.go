@@ -240,16 +240,27 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableNodePort {
+		healthCheck := option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
+			option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		if healthCheck {
+			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
+		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 		cDefinesMap["ENABLE_LOADBALANCER"] = "1"
-
 		if option.Config.EnableIPv4 {
 			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 			cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
+			if healthCheck {
+				cDefinesMap["LB4_HEALTH_MAP"] = "cilium_lb4_health"
+			}
 		}
 		if option.Config.EnableIPv6 {
 			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 			cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
+			if healthCheck {
+				cDefinesMap["LB6_HEALTH_MAP"] = "cilium_lb6_health"
+			}
 		}
 		const (
 			dsrEncapInv = iota

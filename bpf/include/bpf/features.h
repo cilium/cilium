@@ -16,7 +16,9 @@
 # define BPF_HAVE_NETNS_COOKIE 1
 #endif
 
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_socket_cookie)
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_socket_cookie) && \
+    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_get_socket_cookie) && \
+    HAVE_PROG_TYPE_HELPER(sched_cls,        bpf_get_socket_cookie)
 # define BPF_HAVE_SOCKET_COOKIE 1
 #endif
 

@@ -26,6 +26,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+# undef ENABLE_HEALTH_CHECK
+#endif
+
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/eps.h"

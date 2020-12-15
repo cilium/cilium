@@ -10,6 +10,7 @@
 #include <linux/if_ether.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
+#include <linux/socket.h>
 
 #include "endian.h"
 #include "mono.h"
@@ -408,6 +409,13 @@ enum {
 #define LB_LOOKUP_SCOPE_EXT	0
 #define LB_LOOKUP_SCOPE_INT	1
 
+/* Priority for certain traffic type */
+#define TC_PRIO_BESTEFFORT	0
+#define TC_PRIO_CONTROL		7
+
+#define PRIORITY_DEFAULT	TC_PRIO_BESTEFFORT
+#define PRIORITY_HEALTH		TC_PRIO_CONTROL
+
 /* Cilium metrics direction for dropping/forwarding packet */
 #define METRIC_INGRESS  1
 #define METRIC_EGRESS   2
@@ -444,6 +452,10 @@ enum {
  * overlap with MARK_MAGIC_KEY_ID.
  */
 #define MARK_MAGIC_SNAT_DONE		0x1500
+/* MARK_MAGIC_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both being
+ * mutual exclusive.
+ */
+#define MARK_MAGIC_IPIP_DONE		MARK_MAGIC_SNAT_DONE
 
 /* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
  * zero so that they can be OR'd with service port.
@@ -673,6 +685,10 @@ struct lb6_backend {
 	__u8 pad;
 };
 
+struct lb6_health {
+	struct lb6_backend peer;
+};
+
 struct lb6_reverse_nat {
 	union v6addr address;
 	__be16 port;
@@ -720,6 +736,10 @@ struct lb4_backend {
 	__be16 port;		/* L4 port filter */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
 	__u8 pad;
+};
+
+struct lb4_health {
+	struct lb4_backend peer;
 };
 
 struct lb4_reverse_nat {

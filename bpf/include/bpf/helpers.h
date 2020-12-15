@@ -92,4 +92,8 @@ static struct bpf_sock *BPF_FUNC(sk_lookup_udp, void *ctx,
 				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
 				 __u64 netns, __u64 flags);
 
+/* Socket helpers, misc */
+static int BPF_FUNC(getsockopt, void *ctx, int level, int optname, void *optval,
+		    int optlen);
+
 #endif /* __BPF_HELPERS__ */

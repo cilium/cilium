@@ -435,12 +435,39 @@ move_local_rules
 # using a separate routing table
 setup_proxy_rules
 
-sed -i '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
-sed -i '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
-if [ "$MODE" = "vxlan" ]; then
-	echo "#define ENCAP_VXLAN 1" >> $RUNDIR/globals/node_config.h
-elif [ "$MODE" = "geneve" ]; then
-	echo "#define ENCAP_GENEVE 1" >> $RUNDIR/globals/node_config.h
+if [ "$MODE" = "ipip" ]; then
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		ENCAP_DEV="cilium_ipip4"
+		ip link show $ENCAP_DEV || {
+			ip link add name tunl0 type ipip external || true
+			ip link set tunl0 name $ENCAP_DEV
+		}
+		setup_dev $ENCAP_DEV || encap_fail
+
+		ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
+		sed -i '/^#.*ENCAP4_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+		echo "#define ENCAP4_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
+	else
+		ip link del cilium_ipip4 2> /dev/null || true
+	fi
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		ENCAP_DEV="cilium_ipip6"
+		ip link show $ENCAP_DEV || {
+			ip link add name ip6tnl0 type ip6tnl external || true
+			ip link set ip6tnl0 name $ENCAP_DEV
+			ip link set sit0 name cilium_sit || true
+		}
+		setup_dev $ENCAP_DEV || encap_fail
+
+		ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
+		sed -i '/^#.*ENCAP6_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+		echo "#define ENCAP6_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
+	else
+		ip link del cilium_ipip6 2> /dev/null || true
+	fi
+else
+	ip link del cilium_ipip4 2> /dev/null || true
+	ip link del cilium_ipip6 2> /dev/null || true
 fi
 
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
@@ -526,7 +553,9 @@ if [ "$HOSTLB" = "true" ]; then
 		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
+			bpf_clear_cgroups $CGROUP_ROOT post_bind6
 			bpf_clear_cgroups $CGROUP_ROOT post_bind6
 		fi
 		if [ "$HOSTLB_UDP" = "true" ]; then
@@ -544,8 +573,10 @@ if [ "$HOSTLB" = "true" ]; then
 		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind4
+			bpf_clear_cgroups $CGROUP_ROOT bind4
 		fi
 		if [ "$HOSTLB_UDP" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
