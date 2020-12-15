@@ -14,7 +14,8 @@ $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.20"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
-$NFS = ENV['NFS']=="0"? false : true
+#$NFS = ENV['NFS']=="0"? false : true
+$NFS = false
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 $CNI_INTEGRATION=(ENV['CNI_INTEGRATION'] || "")
