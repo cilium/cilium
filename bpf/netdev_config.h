@@ -9,7 +9,6 @@
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
-#define ENCAP_IFINDEX 1
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
 #define CALLS_MAP test_cilium_calls_65535
