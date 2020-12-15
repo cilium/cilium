@@ -921,3 +921,37 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	assert.Equal(t, ep.Labels, f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
 }
+
+func TestDebugCapture(t *testing.T) {
+	f := &flowpb.Flow{}
+
+	parser, err := New(log, &testutils.NoopEndpointGetter, &testutils.NoopIdentityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	require.NoError(t, err)
+
+	dbg := monitor.DebugCapture{
+		Type:    api.MessageTypeCapture,
+		SubType: monitor.DbgCaptureDelivery,
+	}
+
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP:    net.ParseIP("2.2.2.2"),
+		DstIP:    net.ParseIP("3.3.3.3"),
+		Protocol: layers.IPProtocolTCP,
+	}
+	data, err := testutils.CreateL3L4Payload(dbg, &eth, &ip, &layers.TCP{})
+	require.NoError(t, err)
+
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(dbg.Type), f.EventType.Type)
+	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
+	assert.Equal(t, ip.SrcIP.String(), f.IP.Source)
+	assert.Equal(t, ip.DstIP.String(), f.IP.Destination)
+	assert.NotNil(t, f.L4.GetTCP())
+}
