@@ -80,6 +80,10 @@ func New(
 		layers.LayerTypeEthernet, &packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6, &packet.TCP, &packet.UDP)
+	// Let packet.decLayer.DecodeLayers return a nil error when it
+	// encounters a layer it doesn't have a parser for, instead of returning
+	// an UnsupportedLayerType error.
+	packet.decLayer.IgnoreUnsupported = true
 
 	return &Parser{
 		log:            log,
@@ -148,7 +152,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	defer p.packet.Unlock()
 
 	err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
-	if err != nil && !strings.HasPrefix(err.Error(), "No decoder for layer type") {
+	if err != nil {
 		return err
 	}
 
