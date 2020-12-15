@@ -108,6 +108,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
 	var pvn *monitor.PolicyVerdictNotify
+	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -140,6 +141,13 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
+	case monitorAPI.MessageTypeCapture:
+		dbg = &monitor.DebugCapture{}
+		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dbg); err != nil {
+			return fmt.Errorf("failed to parse debug capture: %w", err)
+		}
+		eventSubType = dbg.SubType
+		packetOffset = monitor.DebugCaptureLen
 	default:
 		return errors.NewErrInvalidType(eventType)
 	}

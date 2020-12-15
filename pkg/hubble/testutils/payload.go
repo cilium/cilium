@@ -31,7 +31,8 @@ import (
 func CreateL3L4Payload(message interface{}, layers ...gopacket.SerializableLayer) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	switch messageType := message.(type) {
-	case monitor.DropNotify,
+	case monitor.DebugCapture,
+		monitor.DropNotify,
 		monitor.PolicyVerdictNotify,
 		monitor.TraceNotify,
 		monitor.TraceNotifyV0,
