@@ -150,6 +150,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.MaglevOuter6MapName,
 			lbmap.Affinity6MapName,
 			lbmap.SourceRange6MapName,
+			lbmap.HealthProbe6MapName,
 		}...)
 	}
 
@@ -169,6 +170,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.MaglevOuter4MapName,
 			lbmap.Affinity4MapName,
 			lbmap.SourceRange4MapName,
+			lbmap.HealthProbe4MapName,
 			ipmasq.MapName,
 		}...)
 	}
@@ -179,6 +181,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !option.Config.EnableBandwidthManager {
 		maps = append(maps, "cilium_throttle")
+	}
+
+	if !option.Config.EnableHealthDatapath {
+		maps = append(maps, lbmap.HealthProbe6MapName, lbmap.HealthProbe4MapName)
 	}
 
 	if option.Config.NodePortAlg != option.NodePortAlgMaglev {

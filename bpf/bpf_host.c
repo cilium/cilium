@@ -1027,6 +1027,12 @@ out:
 						      METRIC_EGRESS);
 	}
 #endif
+#ifdef ENABLE_HEALTH_CHECK
+	ret = lb_handle_health(ctx);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+#endif
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0,
 			  0, ret, 0);
 	return ret;

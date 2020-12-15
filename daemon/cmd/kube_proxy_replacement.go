@@ -344,6 +344,23 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				log.Fatalf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
 			}
 		}
+
+		option.Config.EnableHealthDatapath =
+			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
+				option.Config.NodePortMode == option.NodePortModeDSR &&
+				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		if option.Config.EnableHealthDatapath {
+			found := false
+			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
+				if _, ok := h["bpf_getsockopt"]; ok {
+					found = true
+				}
+			}
+			if !found {
+				option.Config.EnableHealthDatapath = false
+				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
+			}
+		}
 	}
 
 	return

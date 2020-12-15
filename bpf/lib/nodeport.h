@@ -1678,6 +1678,98 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
+#ifdef ENABLE_HEALTH_CHECK
+static __always_inline int
+health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
+		__u32 seclabel)
+{
+	struct bpf_tunnel_key key;
+
+	/* When encapsulating, a packet originating from the local
+	 * host is being considered as a packet from a remote node
+	 * as it is being received.
+	 */
+	memset(&key, 0, sizeof(key));
+	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
+	key.remote_ipv4 = bpf_htonl(tunnel_ep);
+	key.tunnel_ttl = 64;
+
+	if (unlikely(ctx_set_tunnel_key(ctx, &key, sizeof(key),
+					BPF_F_ZERO_CSUM_TX) < 0))
+		return DROP_WRITE_ERROR;
+	return 0;
+}
+
+static __always_inline int
+health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
+		__u32 seclabel)
+{
+	struct bpf_tunnel_key key;
+
+	memset(&key, 0, sizeof(key));
+	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
+	key.remote_ipv6[0] = tunnel_ep->p1;
+	key.remote_ipv6[1] = tunnel_ep->p2;
+	key.remote_ipv6[2] = tunnel_ep->p3;
+	key.remote_ipv6[3] = tunnel_ep->p4;
+	key.tunnel_ttl = 64;
+
+	if (unlikely(ctx_set_tunnel_key(ctx, &key, sizeof(key),
+					BPF_F_ZERO_CSUM_TX |
+					BPF_F_TUNINFO_IPV6) < 0))
+		return DROP_WRITE_ERROR;
+	return 0;
+}
+
+static __always_inline int
+lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
+{
+	void *data __maybe_unused, *data_end __maybe_unused;
+	__sock_cookie key __maybe_unused;
+	int ret __maybe_unused;
+	__u16 proto = 0;
+
+	if ((ctx->mark & MARK_MAGIC_HEALTH_IPIP_DONE) ==
+	    MARK_MAGIC_HEALTH_IPIP_DONE)
+		return CTX_ACT_OK;
+	validate_ethertype(ctx, &proto);
+	switch (proto) {
+#if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	case bpf_htons(ETH_P_IP): {
+		struct lb4_health *val;
+
+		key = get_socket_cookie(ctx);
+		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
+		if (!val)
+			return CTX_ACT_OK;
+		ret = health_encap_v4(ctx, val->peer.address, 0);
+		if (ret != 0)
+			return ret;
+		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
+		return redirect(ENCAP4_IFINDEX, 0);
+	}
+#endif
+#if defined(ENABLE_IPV6) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	case bpf_htons(ETH_P_IPV6): {
+		struct lb6_health *val;
+
+		key = get_socket_cookie(ctx);
+		val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+		if (!val)
+			return CTX_ACT_OK;
+		ret = health_encap_v6(ctx, &val->peer.address, 0);
+		if (ret != 0)
+			return ret;
+		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
+		return redirect(ENCAP6_IFINDEX, 0);
+	}
+#endif
+	default:
+		return CTX_ACT_OK;
+	}
+}
+#endif /* ENABLE_HEALTH_CHECK */
+
 static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
