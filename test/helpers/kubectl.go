@@ -3023,9 +3023,11 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 
 	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
 
-	if status := kub.Action(action, filepath, namespace); !status.WasSuccessful() {
+	status := kub.Action(action, filepath, namespace)
+	if !status.WasSuccessful() {
 		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
+	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
 
 	// If policy is uninstalled we can't require a policy being enforced.
 	if action != KubectlDelete {
@@ -3072,6 +3074,11 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		}
 	}
 
+	// If the applied policy was unchanged, we don't need to wait for the next policy revision.
+	if unchanged {
+		return "", nil
+	}
+
 	return "", kub.waitNextPolicyRevisions(podRevisions, action != KubectlDelete, timeout)
 }
 
@@ -3086,9 +3093,11 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 
 	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
 
-	if status := kub.Action(action, filepath); !status.WasSuccessful() {
+	status := kub.Action(action, filepath)
+	if !status.WasSuccessful() {
 		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
+	unchanged := action == KubectlApply && strings.HasSuffix(status.Stdout(), " unchanged\n")
 
 	// If policy is uninstalled we can't require a policy being enforced.
 	if action != KubectlDelete {
@@ -3127,6 +3136,11 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 		if err != nil {
 			return "", err
 		}
+	}
+
+	// If the applied policy was unchanged, we don't need to wait for the next policy revision.
+	if unchanged {
+		return "", nil
 	}
 
 	return "", kub.waitNextPolicyRevisions(podRevisions, action != KubectlDelete, timeout)
