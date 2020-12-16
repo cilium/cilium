@@ -16,52 +16,14 @@ package monitor
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/cilium/cilium/pkg/lock"
-
-	"github.com/vishvananda/netlink"
-)
-
-type linkMap map[int]string
-
-var (
-	ifindexMap = linkMap{}
-	mutex      lock.RWMutex
+	"github.com/cilium/cilium/pkg/datapath/link"
 )
 
 func ifname(ifindex int) string {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
-	if name, ok := ifindexMap[ifindex]; ok {
+	if name, ok := link.GetIfNameCached(ifindex); ok {
 		return name
 	}
 
 	return fmt.Sprintf("%d", ifindex)
-}
-
-func init() {
-	go func() {
-		for {
-			newMap := linkMap{}
-
-			links, err := netlink.LinkList()
-			if err != nil {
-				goto sleep
-			}
-
-			for _, link := range links {
-				newMap[link.Attrs().Index] = link.Attrs().Name
-			}
-
-			mutex.Lock()
-			ifindexMap = newMap
-			mutex.Unlock()
-
-		sleep:
-			time.Sleep(time.Duration(15) * time.Second)
-		}
-
-	}()
 }
