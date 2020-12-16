@@ -69,12 +69,12 @@ Distribution               Minimum Version
 `Amazon Linux 2`_          all
 `Container-Optimized OS`_  all
 `CentOS`_                  >= 7.0 [#centos_foot]_
-CoreOS_                    stable (>= 1298.5.0)
 Debian_                    >= 9 Stretch
 `Fedora Atomic/Core`_      >= 25
+Flatcar_                   all
 LinuxKit_                  all
 `RedHat Enterprise Linux`_ >= 8.0
-Ubuntu_                    >= 16.04.2, >= 16.10
+Ubuntu_                    >= 16.04.1 (Azure), >= 16.04.2 (Canonical), >= 16.10
 Opensuse_                  Tumbleweed, >=Leap 15.0
 RancherOS_                 >= 1.5.5
 ========================== ====================
@@ -82,9 +82,9 @@ RancherOS_                 >= 1.5.5
 .. _Amazon Linux 2: https://aws.amazon.com/amazon-linux-2/
 .. _CentOS: https://centos.org
 .. _Container-Optimized OS: https://cloud.google.com/container-optimized-os/docs
-.. _CoreOS: https://coreos.com/releases/
 .. _Debian: https://wiki.debian.org/DebianStretch
 .. _Fedora Atomic/Core: http://www.projectatomic.io/blog/2017/03/fedora_atomic_2week_2/
+.. _Flatcar: https://www.flatcar-linux.org/
 .. _LinuxKit: https://github.com/linuxkit/linuxkit/tree/master/kernel
 .. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
