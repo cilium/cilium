@@ -28,6 +28,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -928,9 +929,20 @@ func TestDebugCapture(t *testing.T) {
 	parser, err := New(log, &testutils.NoopEndpointGetter, &testutils.NoopIdentityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
 	require.NoError(t, err)
 
+	// Obtaining the index for the loopback device might not succeed depending
+	// on the system on which the test is running, therefore we just skip that
+	// part of the test with a warning if it fails.
+	loIfName := "lo"
+	loIfIndex, err := link.GetIfIndex(loIfName)
+	if err != nil {
+		t.Logf("warning: failed to get ifIndex for %q: %s", loIfName, err)
+		loIfIndex = 0
+	}
+
 	dbg := monitor.DebugCapture{
 		Type:    api.MessageTypeCapture,
 		SubType: monitor.DbgCaptureDelivery,
+		Arg1:    loIfIndex,
 	}
 
 	eth := layers.Ethernet{
@@ -955,4 +967,12 @@ func TestDebugCapture(t *testing.T) {
 	assert.Equal(t, ip.SrcIP.String(), f.IP.Source)
 	assert.Equal(t, ip.DstIP.String(), f.IP.Destination)
 	assert.NotNil(t, f.L4.GetTCP())
+
+	// Only checked if loIfIndex was populated by the test code above
+	if loIfIndex != 0 {
+		assert.Equal(t, &flowpb.NetworkInterface{
+			Index: loIfIndex,
+			Name:  loIfName,
+		}, f.Interface)
+	}
 }
