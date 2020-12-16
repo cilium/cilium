@@ -20,11 +20,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/common"
@@ -66,8 +64,6 @@ const (
 	initArgNodePort
 	initArgNodePortBind
 	initBPFCPU
-	initArgNodePortIPv4Addrs
-	initArgNodePortIPv6Addrs
 	initArgNrCPUs
 	initArgEndpointRoutes
 	initArgMax
@@ -305,32 +301,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
-		if option.Config.EnableIPv4 {
-			addrs := node.GetNodePortIPv4AddrsWithDevices()
-			tmp := make([]string, 0, len(addrs))
-			for iface, ipv4 := range addrs {
-				tmp = append(tmp,
-					fmt.Sprintf("%s=%#x", iface,
-						byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)))
-			}
-			args[initArgNodePortIPv4Addrs] = strings.Join(tmp, ";")
-		} else {
-			args[initArgNodePortIPv4Addrs] = "<nil>"
-		}
-		if option.Config.EnableIPv6 {
-			addrs := node.GetNodePortIPv6AddrsWithDevices()
-			tmp := make([]string, 0, len(addrs))
-			for iface, ipv6 := range addrs {
-				tmp = append(tmp, fmt.Sprintf("%s=%s", iface, common.GoArray2CNoSpaces(ipv6)))
-			}
-			args[initArgNodePortIPv6Addrs] = strings.Join(tmp, ";")
-		} else {
-			args[initArgNodePortIPv6Addrs] = "<nil>"
-		}
 	} else {
 		args[initArgNodePort] = "false"
-		args[initArgNodePortIPv4Addrs] = "<nil>"
-		args[initArgNodePortIPv6Addrs] = "<nil>"
 	}
 
 	if option.Config.NodePortBindProtection {
