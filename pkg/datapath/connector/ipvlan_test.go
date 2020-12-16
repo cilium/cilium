@@ -16,7 +16,7 @@ import (
 func TestEntryProgInstructions(t *testing.T) {
 	mapFD := 0xaabbccdd
 	tmp := (*[4]byte)(unsafe.Pointer(&mapFD))
-	immProg := []byte{
+	immProg0 := []byte{
 		0x18, 0x12, 0x00, 0x00, tmp[0], tmp[1], tmp[2], tmp[3],
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -25,14 +25,34 @@ func TestEntryProgInstructions(t *testing.T) {
 		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 
-	prog := getEntryProgInstructions(mapFD)
-	var buf bytes.Buffer
-	if err := prog.Marshal(&buf, binary.LittleEndian); err != nil {
+	prog0 := getEntryProgInstructions(mapFD, 0)
+	var buf0 bytes.Buffer
+	if err := prog0.Marshal(&buf0, binary.LittleEndian); err != nil {
 		t.Fatal(err)
 	}
 
-	if insnsProg := buf.Bytes(); !bytes.Equal(insnsProg, immProg) {
+	if insnsProg := buf0.Bytes(); !bytes.Equal(insnsProg, immProg0) {
 		t.Errorf("Marshalled entry program does not match immediate encoding:\ngot:\n%s\nwant:\n%s",
-			hex.Dump(insnsProg), hex.Dump(immProg))
+			hex.Dump(insnsProg), hex.Dump(immProg0))
+	}
+
+	immProg1 := []byte{
+		0x18, 0x12, 0x00, 0x00, tmp[0], tmp[1], tmp[2], tmp[3],
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0xb7, 0x03, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+		0x85, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
+		0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+
+	prog1 := getEntryProgInstructions(mapFD, 1)
+	var buf1 bytes.Buffer
+	if err := prog1.Marshal(&buf1, binary.LittleEndian); err != nil {
+		t.Fatal(err)
+	}
+
+	if insnsProg := buf1.Bytes(); !bytes.Equal(insnsProg, immProg1) {
+		t.Errorf("Marshalled entry program does not match immediate encoding:\ngot:\n%s\nwant:\n%s",
+			hex.Dump(insnsProg), hex.Dump(immProg1))
 	}
 }

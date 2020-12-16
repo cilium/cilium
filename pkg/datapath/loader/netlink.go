@@ -29,6 +29,9 @@ const (
 	tunnelMode = baseDeviceMode("tunnel")
 
 	libbpfFixupMsg = "struct bpf_elf_map fixup performed due to size mismatch!"
+
+	ingressKey = "0"
+	egressKey  = "1"
 )
 
 func replaceQdisc(ifName string) error {
@@ -126,7 +129,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 }
 
 // graftDatapath replaces obj in tail call map
-func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error {
+func graftDatapath(ctx context.Context, mapPath, objPath, progSec, key string) error {
 	if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), objPath); err != nil {
 		return fmt.Errorf("Failed to start bpffs map migration: %w", err)
 	}
@@ -140,8 +143,7 @@ func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error 
 	}()
 
 	// FIXME: replace exec with native call
-	// FIXME: only key 0 right now, could be made more flexible
-	args := []string{"exec", "bpf", "graft", mapPath, "key", "0",
+	args := []string{"exec", "bpf", "graft", mapPath, "key", key,
 		"obj", objPath, "sec", progSec,
 	}
 	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
