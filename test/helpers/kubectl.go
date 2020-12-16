@@ -62,7 +62,10 @@ const (
 	// used in the CI.
 	CIIntegrationFlannel = "flannel"
 
-	// CIIntegrationEKS contains the constants to be used when running tests on EKS.
+	// CIIntegrationEKSChaining contains the constants to be used when running tests on EKS with aws-cni in chaining mode.
+	CIIntegrationEKSChaining = "eks-chaining"
+
+	// CIIntegrationEKS contains the constants to be used when running tests on EKS in ENI mode.
 	CIIntegrationEKS = "eks"
 
 	// CIIntegrationGKE contains the constants to be used when running tests on GKE.
@@ -128,12 +131,22 @@ var (
 		"tunnel":          "disabled",
 	}
 
-	eksHelmOverrides = map[string]string{
+	eksChainingHelmOverrides = map[string]string{
 		"k8s.requireIPv4PodCIDR": "false",
 		"cni.chainingMode":       "aws-cni",
 		"masquerade":             "false",
 		"tunnel":                 "disabled",
 		"nodeinit.enabled":       "true",
+	}
+
+	eksHelmOverrides = map[string]string{
+		"egressMasqueradeInterfaces": "eth0",
+		"eni":                        "true",
+		"ipam.mode":                  "eni",
+		"ipv6.enabled":               "false",
+		"k8s.requireIPv4PodCIDR":     "false",
+		"nodeinit.enabled":           "true",
+		"tunnel":                     "disabled",
 	}
 
 	gkeHelmOverrides = map[string]string{
@@ -178,12 +191,13 @@ var (
 	// specific CI environment integrations.
 	// The key must be a string consisting of lower case characters.
 	helmOverrides = map[string]map[string]string{
-		CIIntegrationFlannel:  flannelHelmOverrides,
-		CIIntegrationEKS:      eksHelmOverrides,
-		CIIntegrationGKE:      gkeHelmOverrides,
-		CIIntegrationKind:     kindHelmOverrides,
-		CIIntegrationMicrok8s: microk8sHelmOverrides,
-		CIIntegrationMinikube: minikubeHelmOverrides,
+		CIIntegrationFlannel:     flannelHelmOverrides,
+		CIIntegrationEKSChaining: eksChainingHelmOverrides,
+		CIIntegrationEKS:         eksHelmOverrides,
+		CIIntegrationGKE:         gkeHelmOverrides,
+		CIIntegrationKind:        kindHelmOverrides,
+		CIIntegrationMicrok8s:    microk8sHelmOverrides,
+		CIIntegrationMinikube:    minikubeHelmOverrides,
 	}
 
 	// resourcesToClean is the list of resources which should be cleaned
