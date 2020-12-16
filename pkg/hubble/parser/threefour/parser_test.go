@@ -951,6 +951,7 @@ func TestDebugCapture(t *testing.T) {
 
 	assert.Equal(t, int32(dbg.Type), f.EventType.Type)
 	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
+	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_DELIVERY, f.DebugCapturePoint)
 	assert.Equal(t, ip.SrcIP.String(), f.IP.Source)
 	assert.Equal(t, ip.DstIP.String(), f.IP.Destination)
 	assert.NotNil(t, f.L4.GetTCP())
