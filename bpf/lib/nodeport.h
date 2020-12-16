@@ -31,30 +31,11 @@
 #define DSR_ENCAP_MODE 0
 #define DSR_ENCAP_IPIP 2
 #endif
-#if defined(ENABLE_IPV4) && !defined(IPV4_NODEPORT)
-#define IPV4_NODEPORT 0
-#endif
 #if defined(ENABLE_IPV4) && defined(ENABLE_MASQUERADE) && !defined(IPV4_MASQUERADE)
 #define IPV4_MASQUERADE 0
 #endif
 
-#if defined(ENABLE_IPV6) && !defined(IPV6_NODEPORT_V)
-DEFINE_IPV6(IPV6_NODEPORT,
-	    0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
-	    0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
-# define IPV6_NODEPORT_V
-#endif
 #endif /* ENABLE_NODEPORT */
-
-#ifdef IPV6_NODEPORT_VAL
-# define BPF_V6_NODEPORT(dst)				\
-	({						\
-		union v6addr tmp = IPV6_NODEPORT_VAL;	\
-		dst = tmp;				\
-	})
-#else
-# define BPF_V6_NODEPORT(dst)	BPF_V6(dst, IPV6_NODEPORT)
-#endif
 
 static __always_inline __maybe_unused void
 bpf_skip_nodeport_clear(struct __ctx_buff *ctx)
@@ -886,11 +867,11 @@ declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 		    CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
-	union v6addr addr = { .p1 = 0 };
 #if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
+	union v6addr addr = { .p1 = 0 };
 	BPF_V6(addr, ROUTER_IP);
 #else
-	BPF_V6_NODEPORT(addr);
+	union v6addr addr = IPV6_DIRECT_ROUTING;
 #endif
 	return nodeport_nat_ipv6_fwd(ctx, &addr);
 }
@@ -926,8 +907,13 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		return true;
 	}
 #else
-	if (ip4->saddr == IPV4_NODEPORT) {
-		*addr = IPV4_NODEPORT;
+    /* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
+     * preprocessor, as the former is known only during load time (templating).
+     * This checks whether bpf_host is running on the direct routing device.
+     */
+	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
+	    ip4->saddr == IPV4_DIRECT_ROUTING) {
+		*addr = IPV4_DIRECT_ROUTING;
 		return true;
 	}
 # ifdef ENABLE_MASQUERADE

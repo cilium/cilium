@@ -36,10 +36,8 @@ BPFFS_ROOT=${18}
 NODE_PORT=${19}
 NODE_PORT_BIND=${20}
 MCPU=${21}
-NODE_PORT_IPV4_ADDRS=${22}
-NODE_PORT_IPV6_ADDRS=${23}
-NR_CPUS=${24}
-ENDPOINT_ROUTES=${25}
+NR_CPUS=${22}
+ENDPOINT_ROUTES=${23}
 
 ID_HOST=1
 ID_WORLD=2
@@ -478,22 +476,6 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ]
 		if [ "$IP6_HOST" != "<nil>" ]; then
 			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 		fi
-
-		if [ "$NODE_PORT_IPV4_ADDRS" != "<nil>" ]; then
-			declare -A v4_addrs
-			for a in ${NODE_PORT_IPV4_ADDRS//;/ }; do
-				IFS== read iface addr <<< "$a"
-				v4_addrs[$iface]=$addr
-			done
-		fi
-		if [ "$NODE_PORT_IPV6_ADDRS" != "<nil>" ]; then
-			declare -A v6_addrs
-			for a in ${NODE_PORT_IPV6_ADDRS//;/ }; do
-				IFS== read iface addr <<< "$a"
-				v6_addrs[$iface]=$addr
-			done
-		fi
-
 		echo "$NATIVE_DEVS" > $RUNDIR/device.state
 	fi
 else
@@ -618,13 +600,6 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 	if [ "$NODE_PORT" = "true" ]; then
 		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
 		COPTS="${COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
-		# Currently it assumes that XDP_DEV is listed among NATIVE_DEVS
-		if [ "$IP4_HOST" != "<nil>" ]; then
-			COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$XDP_DEV]}"
-		fi
-		if [ "$IP6_HOST" != "<nil>" ]; then
-			COPTS="${COPTS} -DIPV6_NODEPORT_VAL={.addr={${v6_addrs[$XDP_DEV]}}}"
-		fi
 	fi
 	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi

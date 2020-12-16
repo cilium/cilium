@@ -225,21 +225,9 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	result["NODE_MAC_1"] = sliceToBe32(mac[0:4])
 	result["NODE_MAC_2"] = uint32(sliceToBe16(mac[4:6]))
 
-	// These values are defined in nodeport.h regardless even for bpf_lxc (so
-	// regardless of whether it's the host endpoint).
-	if option.Config.EnableNodePort && option.Config.EnableIPv6 {
-		result["IPV6_NODEPORT_1"] = 0
-		result["IPV6_NODEPORT_2"] = 0
-		result["IPV6_NODEPORT_3"] = 0
-		result["IPV6_NODEPORT_4"] = 0
-	}
-
 	if ep.IsHost() {
 		if option.Config.EnableNodePort {
 			result["NATIVE_DEV_IFINDEX"] = 0
-			if option.Config.EnableIPv4 {
-				result["IPV4_NODEPORT"] = 0
-			}
 		}
 		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4 {

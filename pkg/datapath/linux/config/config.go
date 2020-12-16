@@ -536,14 +536,6 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			// values for the native devices.
 			fmt.Fprint(fw, "/* Fake values, replaced by 0 for host device and by actual values for native devices. */\n")
 			fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
-			if option.Config.EnableIPv6 {
-				placeholderIPv6 := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv6("IPV6_NODEPORT", placeholderIPv6))
-			}
-			if option.Config.EnableIPv4 {
-				placeholderIPv4 := []byte{1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv4("IPV4_NODEPORT", placeholderIPv4))
-			}
 			fmt.Fprint(fw, "\n")
 		}
 		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
