@@ -1678,6 +1678,10 @@ func init() {
           "description": "MTU on workload facing devices",
           "type": "integer"
         },
+        "egress-multi-home-ip-rule-compat": {
+          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
+        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -5148,6 +5152,10 @@ func init() {
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
+        },
+        "egress-multi-home-ip-rule-compat": {
+          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
         },
         "immutable": {
           "description": "Immutable configuration (read-only)",
