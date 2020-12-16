@@ -95,12 +95,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionRegexp: regexp.MustCompile(`Docker version (\d+\.\d+\.\d+)`),
 		},
 		&binaryCheck{
-			name:          "docker-compose",
-			ifNotFound:    checkInfo,
-			versionArgs:   []string{"--version"},
-			versionRegexp: regexp.MustCompile(`docker-compose version (\d+\.\d+\.\d+)`),
-		},
-		&binaryCheck{
 			name:          "helm",
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"version"},
