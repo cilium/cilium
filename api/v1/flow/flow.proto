@@ -92,6 +92,9 @@ message Flow {
     // Only applicable to cilium debug capture events, blank for other types
     DebugCapturePoint debug_capture_point = 27;
 
+    // interface is the network interface on which this flow was observed
+    NetworkInterface interface = 28;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
@@ -594,4 +597,9 @@ message ServiceUpsertNotification {
 
 message ServiceDeleteNotification {
     uint32 id = 1;
+}
+
+message NetworkInterface {
+    uint32 index = 1;
+    string name = 2;
 }
