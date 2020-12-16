@@ -89,6 +89,9 @@ message Flow {
     // is a reply or not).
     google.protobuf.BoolValue is_reply = 26;
 
+    // Only applicable to cilium debug capture events, blank for other types
+    DebugCapturePoint debug_capture_point = 27;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
@@ -291,6 +294,20 @@ enum TrafficDirection {
     EGRESS = 2;
 }
 
+// These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h.
+enum DebugCapturePoint {
+    DBG_CAPTURE_POINT_UNKNOWN = 0;
+    reserved 1 to 3;
+    DBG_CAPTURE_DELIVERY = 4;
+    DBG_CAPTURE_FROM_LB = 5;
+    DBG_CAPTURE_AFTER_V46 = 6;
+    DBG_CAPTURE_AFTER_V64 = 7;
+    DBG_CAPTURE_PROXY_PRE = 8;
+    DBG_CAPTURE_PROXY_POST = 9;
+    DBG_CAPTURE_SNAT_PRE = 10;
+    DBG_CAPTURE_SNAT_POST = 11;
+}
+
 // EventTypeFilter is a filter describing a particular event type
 message EventTypeFilter {
 	// type is the primary flow type as defined by:
@@ -314,6 +331,7 @@ message CiliumEventType {
     // sub_type may indicate more details depending on type, e.g.
 	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
     // - github.com/cilium/cilium/pkg/monitor/api.Drop*
+    // - github.com/cilium/cilium/pkg/monitor/api.DbgCapture*
     int32 sub_type = 2;
 }
 
