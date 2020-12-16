@@ -211,7 +211,7 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 
 #ifdef CIDR6_FILTER
-	memcpy(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
+	__bpf_memcpy_builtin(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
 	pfx.lpm.prefixlen = 128;
 
 #ifdef CIDR6_LPM_PREFILTER
