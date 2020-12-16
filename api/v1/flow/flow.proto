@@ -95,6 +95,9 @@ message Flow {
     // interface is the network interface on which this flow was observed
     NetworkInterface interface = 28;
 
+    // proxy_port indicates the port of the proxy to which the flow was forwarded
+    uint32 proxy_port = 29;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
