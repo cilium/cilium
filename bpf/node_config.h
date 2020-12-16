@@ -120,7 +120,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
-#if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL)
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT46)
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
 #define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
