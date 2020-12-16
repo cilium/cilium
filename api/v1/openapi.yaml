@@ -2040,6 +2040,9 @@ definitions:
       masquerade:
         description: Status of masquerading feature
         type: boolean
+      egress-multi-home-ip-rule-compat:
+        description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
+        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
