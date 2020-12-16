@@ -137,6 +137,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
+		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
 	}
 
 	cfg := &models.DaemonConfiguration{
