@@ -975,4 +975,20 @@ func TestDebugCapture(t *testing.T) {
 			Name:  loIfName,
 		}, f.Interface)
 	}
+
+	dbg = monitor.DebugCapture{
+		Type:    api.MessageTypeCapture,
+		SubType: monitor.DbgCaptureProxyPost,
+		Arg1:    byteorder.HostToNetwork(uint32(1234)).(uint32),
+	}
+	data, err = testutils.CreateL3L4Payload(dbg)
+	require.NoError(t, err)
+
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(dbg.Type), f.EventType.Type)
+	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
+	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_PROXY_POST, f.DebugCapturePoint)
+	assert.Equal(t, uint32(1234), f.ProxyPort)
 }
