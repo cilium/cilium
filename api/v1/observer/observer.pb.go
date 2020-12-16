@@ -265,6 +265,7 @@ type IPCacheNotification = flow.IPCacheNotification
 type ServiceUpsertNotificationAddr = flow.ServiceUpsertNotificationAddr
 type ServiceUpsertNotification = flow.ServiceUpsertNotification
 type ServiceDeleteNotification = flow.ServiceDeleteNotification
+type NetworkInterface = flow.NetworkInterface
 
 type ServerStatusRequest struct {
 	state         protoimpl.MessageState
