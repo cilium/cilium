@@ -12,30 +12,6 @@ Building Container Images
 Two make targets exists to build container images automatically based on the
 locally checked out branch:
 
-Developer images
-~~~~~~~~~~~~~~~~
-
-Run ``make dev-docker-image`` to build a cilium-agent Docker image that
-contains your local changes.
-
-::
-
-    DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
-
-Run ``make docker-operator-generic-image`` (respectively,
-``docker-operator-aws-image`` or ``docker-operator-azure-image``) to build the
-cilium-operator Docker image:
-
-::
-
-    DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make docker-operator-generic-image
-
-The commands above assumes that your username for ``quay.io`` is ``myaccount``.
-You can then push the image tag to your own registry for development builds:
-
-::
-
-    docker push quay.io/myaccount/cilium-dev:jane-developer-my-fix-amd64
 
 Official release images
 ~~~~~~~~~~~~~~~~~~~~~~~
