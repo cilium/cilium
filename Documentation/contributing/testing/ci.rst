@@ -22,10 +22,7 @@ verified. These tests must always pass.
 
 The configuration for this job is contained within ``ginkgo.Jenkinsfile``.
 
-It first runs unit tests using docker-compose using a YAML located at
-``test/docker-compose.yaml``.
-
-The next steps happens in parallel:
+The job runs the following steps in parallel:
 
     - Runs the single-node e2e tests using the Docker runtime.
     - Runs the multi-node Kubernetes e2e tests against the latest default
