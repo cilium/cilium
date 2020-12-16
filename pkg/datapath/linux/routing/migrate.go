@@ -26,8 +26,8 @@ import (
 // MigrateENIDatapath migrates the egress rules inside the Linux routing policy
 // database (RPDB) for ENI IPAM mode. It will return the number of rules that
 // were successfully migrated and the number of rules we've failed to migrated.
-// A -1 is returned for the failed number of rules indicating we couldn't even
-// start the migration.
+// A -1 is returned for the failed number of rules if we couldn't even start
+// the migration.
 //
 // The compat flag will control what Cilium will do in the migration process.
 // If the flag is false, this instructs Cilium to ensure the datapath is newer

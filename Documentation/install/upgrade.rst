@@ -320,6 +320,35 @@ Annotations:
 
 .. _1.7_required_changes:
 
+1.7.13 Upgrade Notes
+~~~~~~~~~~~~~~~~~~~~
+
+In rare cases, Cilium 1.7.12 or earlier when configured with ENI IPAM mode
+could disrupt connectivity for the node when new ENI devices are created on the
+node. This version fixes the issue and introduces a new flag to handle
+compatibility. This flag is ``--egress-multi-home-ip-rule-compat``.
+
+The flag defaults to ``false`` meaning it will instruct Cilium to perform a
+migration to the new ENI datapath upon Cilium upgrade.
+
+If the flag is ``true`` upon upgrade, Cilium will **not** perform a migration.
+
+If the migration was already completed and you wish to downgrade to v1.7.12 or
+earlier, you must first set the flag to ``true`` and then restart Cilium so
+that it can rollback the migration. This ensures that the new ENI datapath is
+rolled back to a state where it is compatible with the older version of Cilium.
+Once this has migrated back to the compatibility mode, further downgrade to
+v1.7.12 or earlier can be performed without connectivity disruption to active
+pods.
+
+When upgrading to this version, you can verify the success of the migration by
+inspecting Cilium agent logs for a message like below:
+
+::
+
+    Migration of ENI datapath successful
+
+
 IMPORTANT: Changes required before upgrading to 1.7.x
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
