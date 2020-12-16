@@ -168,6 +168,21 @@ const TrafficDirection_EGRESS = flow.TrafficDirection_EGRESS
 var TrafficDirection_name = flow.TrafficDirection_name
 var TrafficDirection_value = flow.TrafficDirection_value
 
+type DebugCapturePoint = flow.DebugCapturePoint
+
+const DebugCapturePoint_DBG_CAPTURE_POINT_UNKNOWN = flow.DebugCapturePoint_DBG_CAPTURE_POINT_UNKNOWN
+const DebugCapturePoint_DBG_CAPTURE_DELIVERY = flow.DebugCapturePoint_DBG_CAPTURE_DELIVERY
+const DebugCapturePoint_DBG_CAPTURE_FROM_LB = flow.DebugCapturePoint_DBG_CAPTURE_FROM_LB
+const DebugCapturePoint_DBG_CAPTURE_AFTER_V46 = flow.DebugCapturePoint_DBG_CAPTURE_AFTER_V46
+const DebugCapturePoint_DBG_CAPTURE_AFTER_V64 = flow.DebugCapturePoint_DBG_CAPTURE_AFTER_V64
+const DebugCapturePoint_DBG_CAPTURE_PROXY_PRE = flow.DebugCapturePoint_DBG_CAPTURE_PROXY_PRE
+const DebugCapturePoint_DBG_CAPTURE_PROXY_POST = flow.DebugCapturePoint_DBG_CAPTURE_PROXY_POST
+const DebugCapturePoint_DBG_CAPTURE_SNAT_PRE = flow.DebugCapturePoint_DBG_CAPTURE_SNAT_PRE
+const DebugCapturePoint_DBG_CAPTURE_SNAT_POST = flow.DebugCapturePoint_DBG_CAPTURE_SNAT_POST
+
+var DebugCapturePoint_name = flow.DebugCapturePoint_name
+var DebugCapturePoint_value = flow.DebugCapturePoint_value
+
 type EventType = flow.EventType
 
 const EventType_UNKNOWN = flow.EventType_UNKNOWN
