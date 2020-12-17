@@ -13,6 +13,7 @@ BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate cilium-probe-kernel-hz
+KERNEL ?= "49"
 
 include ./Makefile.bpf
 
@@ -25,7 +26,6 @@ build_all: force
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) all BUILD_PERMUTATIONS=1
 
 BUILD_PERMUTATIONS ?= ""
-KERNEL ?= "49"
 
 ifneq ("$(KERNEL)","49")
 BPF_SIMPLE_OPTIONS += -DHAVE_LPM_TRIE_MAP_TYPE -DHAVE_LRU_HASH_MAP_TYPE
