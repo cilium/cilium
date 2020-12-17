@@ -16,42 +16,8 @@
 package v1
 
 import (
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/identity"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/golang/protobuf/ptypes/wrappers"
 )
-
-// Flow is an interface matching flowpb.Flow.
-type Flow interface {
-	proto.Message
-	GetTime() *timestamp.Timestamp
-	GetVerdict() flowpb.Verdict
-	GetDropReason() uint32
-	GetEthernet() *flowpb.Ethernet
-	GetIP() *flowpb.IP
-	GetL4() *flowpb.Layer4
-	GetSource() *flowpb.Endpoint
-	GetDestination() *flowpb.Endpoint
-	GetType() flowpb.FlowType
-	GetNodeName() string
-	GetSourceNames() []string
-	GetDestinationNames() []string
-	GetL7() *flowpb.Layer7
-	GetIsReply() *wrappers.BoolValue
-	GetEventType() *flowpb.CiliumEventType
-	GetSourceService() *flowpb.Service
-	GetDestinationService() *flowpb.Service
-	GetTrafficDirection() flowpb.TrafficDirection
-	GetPolicyMatchType() uint32
-	GetSummary() string
-	GetDropReasonDesc() flowpb.DropReason
-}
-
-// This ensures that the protobuf definition implements the interface.
-var _ Flow = &flowpb.Flow{}
 
 // EndpointInfo defines readable fields of a Cilium endpoint.
 type EndpointInfo interface {
@@ -61,23 +27,3 @@ type EndpointInfo interface {
 	GetK8sNamespace() string
 	GetLabels() []string
 }
-
-// AgentEvent is an interface matching flowpb.AgentEvent.
-type AgentEvent interface {
-	proto.Message
-	GetType() flowpb.AgentEventType
-}
-
-// This ensures that the protobuf definition implements the interface.
-var _ AgentEvent = &flowpb.AgentEvent{}
-
-// LostEvent is an interface matching flowpb.LostEvent.
-type LostEvent interface {
-	proto.Message
-	GetSource() flowpb.LostEventSource
-	GetNumEventsLost() uint64
-	GetCpu() *wrappers.Int32Value
-}
-
-// This ensures that the protobuf definition implements the interface.
-var _ LostEvent = &flowpb.LostEvent{}
