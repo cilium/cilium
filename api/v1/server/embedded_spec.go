@@ -2663,9 +2663,23 @@ func init() {
       "type": "object",
       "properties": {
         "devices": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "array",
           "items": {
-            "type": "string"
+            "description": "\n\n+k8s:deepcopy-gen=true",
+            "type": "object",
+            "properties": {
+              "ip": {
+                "description": "\n\n+k8s:deepcopy-gen=true",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "type": "string"
+              }
+            }
           }
         },
         "directRoutingDevice": {
@@ -6635,9 +6649,10 @@ func init() {
       "type": "object",
       "properties": {
         "devices": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/KubeProxyReplacementDevicesItems0"
           }
         },
         "directRoutingDevice": {
@@ -6740,6 +6755,22 @@ func init() {
             "Probe",
             "Partial"
           ]
+        }
+      }
+    },
+    "KubeProxyReplacementDevicesItems0": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
         }
       }
     },

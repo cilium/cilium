@@ -10,6 +10,7 @@ package models
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -24,8 +25,10 @@ import (
 // swagger:model KubeProxyReplacement
 type KubeProxyReplacement struct {
 
-	// devices
-	Devices []string `json:"devices"`
+	//
+	//
+	// +k8s:deepcopy-gen=true
+	Devices []*KubeProxyReplacementDevicesItems0 `json:"devices"`
 
 	// direct routing device
 	DirectRoutingDevice string `json:"directRoutingDevice,omitempty"`
@@ -42,6 +45,10 @@ type KubeProxyReplacement struct {
 func (m *KubeProxyReplacement) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateDevices(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateFeatures(formats); err != nil {
 		res = append(res, err)
 	}
@@ -53,6 +60,31 @@ func (m *KubeProxyReplacement) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *KubeProxyReplacement) validateDevices(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Devices) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Devices); i++ {
+		if swag.IsZero(m.Devices[i]) { // not required
+			continue
+		}
+
+		if m.Devices[i] != nil {
+			if err := m.Devices[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("devices" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -134,6 +166,45 @@ func (m *KubeProxyReplacement) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacement) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacement
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// KubeProxyReplacementDevicesItems0
+//
+// +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementDevicesItems0
+type KubeProxyReplacementDevicesItems0 struct {
+
+	//
+	//
+	// +k8s:deepcopy-gen=true
+	IP []string `json:"ip"`
+
+	// name
+	Name string `json:"name,omitempty"`
+}
+
+// Validate validates this kube proxy replacement devices items0
+func (m *KubeProxyReplacementDevicesItems0) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *KubeProxyReplacementDevicesItems0) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *KubeProxyReplacementDevicesItems0) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementDevicesItems0
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
