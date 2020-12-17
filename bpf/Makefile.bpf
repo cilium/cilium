@@ -11,7 +11,13 @@ CLANG_FLAGS += -Wno-address-of-packed-member
 CLANG_FLAGS += -Wno-unknown-warning-option
 CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
 CLANG_FLAGS += -Wdeclaration-after-statement
-LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris
+LLC_FLAGS := -march=bpf -mattr=dwarfris
+# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
+ifeq ("$(KERNEL)","49")
+LLC_FLAGS += -mcpu=v1
+else
+LLC_FLAGS += -mcpu=v2
+endif
 
 # BUILD_PERMUTATIONS_DEP is a dummy file dependency that ensures all targets
 # are rebuilt when the 'build_all' target is run.
