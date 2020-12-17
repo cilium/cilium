@@ -1440,7 +1440,7 @@
    * - securityContext
      - Security context to be added to agent pods
      - object
-     - ``{}``
+     - ``{"privileged":false}``
    * - serviceAccounts
      - Define serviceAccount names for components.
      - object

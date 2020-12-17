@@ -225,6 +225,7 @@ cilium-agent [flags]
       --pprof-port int                                       Port that the pprof listens on (default 6060)
       --preallocate-bpf-maps                                 Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                              Prepend custom iptables chains instead of appending (default true)
+      --procfs string                                        Root's proc filesystem path (default "/proc")
       --prometheus-serve-addr string                         IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                           Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
       --proxy-gid uint                                       Group ID for proxy control plane sockets. (default 1337)

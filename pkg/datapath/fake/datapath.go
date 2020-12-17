@@ -90,6 +90,10 @@ func (f *fakeDatapath) WireguardAgent() datapath.WireguardAgent {
 	return nil
 }
 
+func (f *fakeDatapath) Procfs() string {
+	return "/proc"
+}
+
 // Loader is an interface to abstract out loading of datapath programs.
 type fakeLoader struct {
 }

@@ -41,6 +41,8 @@ import (
 const (
 	initArgLib int = iota
 	initArgRundir
+	initArgProcSysNetDir
+	initArgSysDir
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
 	initArgMode
@@ -263,6 +265,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
+	args[initArgProcSysNetDir] = filepath.Join(o.Datapath().Procfs(), "sys", "net")
+	args[initArgSysDir] = filepath.Join("/sys", "class", "net")
 
 	if option.Config.EnableXDPPrefilter {
 		scopedLog := log.WithField(logfields.Devices, option.Config.Devices)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -21,7 +22,7 @@ import (
 const (
 	subsystem = "sysctl"
 
-	prefixDir = "/proc/sys"
+	procFsDefault = "/proc"
 )
 
 var (
@@ -29,6 +30,11 @@ var (
 
 	// parameterElemRx matches an element of a sysctl parameter.
 	parameterElemRx = regexp.MustCompile(`\A[-0-9_a-z]+\z`)
+
+	procFsMU lock.Mutex
+	// procFsRead is mark as true if procFs changes value.
+	procFsRead bool
+	procFs     = procFsDefault
 )
 
 // An ErrInvalidSysctlParameter is returned when a parameter is invalid.
@@ -54,7 +60,28 @@ func parameterPath(name string) (string, error) {
 			return "", ErrInvalidSysctlParameter(name)
 		}
 	}
-	return filepath.Join(append([]string{prefixDir}, elems...)...), nil
+	return filepath.Join(append([]string{GetProcfs(), "sys"}, elems...)...), nil
+}
+
+// SetProcfs sets path for the root's /proc. Calling it after GetProcfs causes
+// panic.
+func SetProcfs(path string) {
+	procFsMU.Lock()
+	defer procFsMU.Unlock()
+	if procFsRead {
+		// do not change the procfs after we have gotten its value from GetProcfs
+		panic("SetProcfs called after GetProcfs")
+	}
+	procFs = path
+}
+
+// GetProcfs returns the path set in procFs. Executing SetProcFs after GetProcfs
+// might panic depending. See SetProcfs for more info.
+func GetProcfs() string {
+	procFsMU.Lock()
+	defer procFsMU.Unlock()
+	procFsRead = true
+	return procFs
 }
 
 func writeSysctl(name string, value string) error {
