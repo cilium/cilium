@@ -15,11 +15,11 @@
 package dns
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -100,7 +100,7 @@ func (d *dnsHandler) Status() string {
 	return strings.Join(append(status, d.context.Status()), ",")
 }
 
-func (d *dnsHandler) ProcessFlow(flow v1.Flow) {
+func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 	if flow.GetL7() == nil {
 		return
 	}

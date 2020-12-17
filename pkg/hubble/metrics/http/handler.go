@@ -15,11 +15,11 @@
 package http
 
 import (
+	"context"
 	"strconv"
 	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -66,7 +66,7 @@ func (h *httpHandler) Status() string {
 	return h.context.Status()
 }
 
-func (h *httpHandler) ProcessFlow(flow v1.Flow) {
+func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 	l7 := flow.GetL7()
 	if l7 == nil {
 		return

@@ -17,10 +17,11 @@
 package api
 
 import (
+	"context"
 	"io/ioutil"
 	"testing"
 
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	pb "github.com/cilium/cilium/api/v1/flow"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -51,7 +52,7 @@ func (t *testHandler) Status() string {
 	return ""
 }
 
-func (t *testHandler) ProcessFlow(p v1.Flow) {
+func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) {
 	t.ProcessCalled++
 }
 
@@ -71,6 +72,6 @@ func TestRegister(t *testing.T) {
 	assert.EqualValues(t, len(handlers), 1)
 	assert.EqualValues(t, handlers[0].(*testHandler).InitCalled, 1)
 
-	handlers.ProcessFlow(nil)
+	handlers.ProcessFlow(context.TODO(), nil)
 	assert.EqualValues(t, handlers[0].(*testHandler).ProcessCalled, 1)
 }

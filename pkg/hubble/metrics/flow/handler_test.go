@@ -17,11 +17,11 @@
 package flow
 
 import (
+	"context"
 	"testing"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	"github.com/cilium/cilium/pkg/hubble/testutils"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -44,7 +44,7 @@ func TestFlowHandler(t *testing.T) {
 	})
 
 	t.Run("ProcessFlow", func(t *testing.T) {
-		flow1 := &testutils.FakeFlow{
+		flow1 := &pb.Flow{
 			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
 			L7: &pb.Layer7{
 				Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
@@ -53,7 +53,7 @@ func TestFlowHandler(t *testing.T) {
 			Destination: &pb.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_FORWARDED,
 		}
-		h.ProcessFlow(flow1)
+		h.ProcessFlow(context.TODO(), flow1)
 
 		metricFamilies, err := registry.Gather()
 		require.NoError(t, err)
@@ -81,14 +81,14 @@ func TestFlowHandler(t *testing.T) {
 		assert.Equal(t, "verdict", *metric.Label[5].Name)
 		assert.Equal(t, "FORWARDED", *metric.Label[5].Value)
 
-		flow2 := &testutils.FakeFlow{
+		flow2 := &pb.Flow{
 			EventType: &pb.CiliumEventType{
 				Type:    monitorAPI.MessageTypeAgent,
 				SubType: int32(monitorAPI.AgentNotifyPolicyUpdated),
 			},
 		}
 
-		h.ProcessFlow(flow2)
+		h.ProcessFlow(context.TODO(), flow2)
 
 		metricFamilies, err = registry.Gather()
 		require.NoError(t, err)

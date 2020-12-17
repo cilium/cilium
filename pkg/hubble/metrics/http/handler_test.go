@@ -17,6 +17,7 @@
 package http
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -38,19 +39,20 @@ func Test_httpHandler_Status(t *testing.T) {
 }
 
 func Test_httpHandler_ProcessFlow(t *testing.T) {
+	ctx := context.TODO()
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
 	require.Error(t, handler.Init(prometheus.NewRegistry(), map[string]string{"destinationContext": "invalid"}))
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
 	// shouldn't count
-	handler.ProcessFlow(&pb.Flow{})
+	handler.ProcessFlow(ctx, &pb.Flow{})
 	// shouldn't count
-	handler.ProcessFlow(&pb.Flow{L7: &pb.Layer7{
+	handler.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
 		Type:   pb.L7FlowType_RESPONSE,
 		Record: &pb.Layer7_Dns{},
 	}})
 	// should count for request
-	handler.ProcessFlow(&pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		L7: &pb.Layer7{
 			Type: pb.L7FlowType_REQUEST,
 			Record: &pb.Layer7_Http{Http: &pb.HTTP{
@@ -59,7 +61,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 		},
 	})
 	// should count for response
-	handler.ProcessFlow(&pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		L7: &pb.Layer7{
 			Type:      pb.L7FlowType_RESPONSE,
 			LatencyNs: 12345678,
