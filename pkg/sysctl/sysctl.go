@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,8 +32,6 @@ import (
 
 const (
 	subsystem = "sysctl"
-
-	prefixDir = "/proc/sys"
 )
 
 var (
@@ -40,6 +39,10 @@ var (
 
 	// parameterElemRx matches an element of a sysctl parameter.
 	parameterElemRx = regexp.MustCompile(`\A[-0-9_a-z]+\z`)
+
+	procFs = "/proc"
+
+	notSafeToChange int32
 )
 
 // An ErrInvalidSysctlParameter is returned when a parameter is invalid.
@@ -65,7 +68,17 @@ func parameterPath(name string) (string, error) {
 			return "", ErrInvalidSysctlParameter(name)
 		}
 	}
-	return filepath.Join(append([]string{prefixDir}, elems...)...), nil
+	return filepath.Join(append([]string{procFs, "sys"}, elems...)...), nil
+}
+
+// SetProcfs sets path for the root's /proc. Changing this value after a Enable
+// Disable, Write or Read function being executed will cause a panic.
+func SetProcfs(path string) {
+	if atomic.LoadInt32(&notSafeToChange) == 1 {
+		// do not change the procfs after we have changed the base path
+		panic("SetProcfs executed after a Disable/Enable/Write/Read function execution")
+	}
+	procFs = path
 }
 
 func writeSysctl(name string, value string) error {
@@ -88,22 +101,26 @@ func writeSysctl(name string, value string) error {
 
 // Disable disables the given sysctl parameter.
 func Disable(name string) error {
+	atomic.StoreInt32(&notSafeToChange, 1)
 	return writeSysctl(name, "0")
 }
 
 // Enable enables the given sysctl parameter.
 func Enable(name string) error {
+	atomic.StoreInt32(&notSafeToChange, 1)
 	return writeSysctl(name, "1")
 }
 
 // Write writes the given sysctl parameter.
 func Write(name string, val string) error {
+	atomic.StoreInt32(&notSafeToChange, 1)
 	return writeSysctl(name, val)
 }
 
 // Read reads the given sysctl parameter.
 func Read(name string) (string, error) {
 	path, err := parameterPath(name)
+	atomic.StoreInt32(&notSafeToChange, 1)
 	if err != nil {
 		return "", err
 	}

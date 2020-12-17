@@ -1044,6 +1044,8 @@ resourceQuotas:
 # in the node.
 sleepAfterInit: false
 
+procfs: "/host/proc"
+
 # -- Configure BPF socket operations configuration
 sockops:
   # enabled enables installation of socket options acceleration.

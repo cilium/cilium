@@ -34,4 +34,6 @@ type Datapath interface {
 
 	// WireguardAgent returns the Wireguard agent for the local node
 	WireguardAgent() WireguardAgent
+
+	Procfs() string
 }

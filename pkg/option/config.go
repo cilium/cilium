@@ -403,6 +403,8 @@ const (
 	// PrefilterMode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")
 	PrefilterMode = "prefilter-mode"
 
+	ProcFs = "procfs"
+
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddr = "prometheus-serve-addr"
 
@@ -1363,6 +1365,8 @@ type DaemonConfig struct {
 
 	// EnableSockOps specifies whether to enable sockops (socket lookup).
 	SockopsEnable bool
+
+	ProcFs string
 
 	// PrependIptablesChains is the name of the option to enable prepending
 	// iptables chains instead of appending
@@ -2492,6 +2496,7 @@ func (c *DaemonConfig) Populate() {
 	c.PProfPort = viper.GetInt(PProfPort)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
+	c.ProcFs = viper.GetString(ProcFs)
 	c.PrometheusServeAddr = viper.GetString(PrometheusServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
 	c.ProxyPrometheusPort = viper.GetInt(ProxyPrometheusPort)

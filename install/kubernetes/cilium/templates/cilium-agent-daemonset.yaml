@@ -67,6 +67,7 @@ spec:
         # gets priority scheduling.
         # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
         scheduler.alpha.kubernetes.io/critical-pod: ""
+        container.apparmor.security.beta.kubernetes.io/cilium-agent: "unconfined"
 {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
 {{- end }}
@@ -267,13 +268,51 @@ spec:
         securityContext:
           capabilities:
             add:
-            - NET_ADMIN
-            - SYS_MODULE
-          privileged: true
+              # Remove because we only need it to change the gid of the socket
+              # in the dev VM
+              # Note: check systemd options
+              # Note: check docker file to create user 'cilium'
+              # Check in security channel because the UIDs will be available in
+              # the host
+              - CHOWN
+              # put it back if something breaks
+              #- FOWNER
+              # put it back if something breaks - used for envoy
+              #- KILL
+              - NET_ADMIN
+              - NET_RAW
+              # Perf ring buffer
+              - IPC_LOCK
+              # Yes, for iptables. Consider removing once we are iptables-free
+              - SYS_MODULE
+              # We need it for now but might not need it for >= 5.11 specially
+              # for the '* override RLIMIT_NPROC resource limit'.
+              # In >= 5.8 we already have the BPF and PERMON
+              # Check if health endpoint still works because we need this:
+              # 'employ CLONE_* flags that create new namespaces with clone(2)
+              # and unshare(2) (but, since Linux 3.8, creating user namespaces
+              # does not require any capability);'
+              # Check if monitor breaks, we might need:
+              # 'access privileged perf event information;'
+              # Check if we still receive fsnotify events because of:
+              # 'call fanotify_init(2);'
+              - SYS_ADMIN
+              # Could be an alternative for the SYS_ADMIN for the RLIMIT_NPROC
+              - SYS_RESOURCE
+              # Re-add if endpoint create fails or if the log driver is using syslog
+              #- SYSLOG
+              # Requires kernel 5.8 and container runtime X
+              # if enabled user can remove SYS_ADMIN
+              #- PERFMON
+              #- BPF
         volumeMounts:
+        - mountPath: /host/proc/sys/net
+          name: host-proc-sys-net
+        - mountPath: /host/proc/sys/kernel
+          name: host-proc-sys-kernel
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
 {{- if not (eq .Values.containerRuntime.integration "crio") }}
-        - mountPath: /sys/fs/bpf
+        - mountPath: /host/sys/fs/bpf
           name: bpf-maps
 {{- end }}
         - mountPath: /var/run/cilium
@@ -418,11 +457,10 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
         volumeMounts:
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
 {{- if not (eq .Values.containerRuntime.integration "crio") }}
-        - mountPath: /sys/fs/bpf
+        - mountPath: /host/sys/fs/bpf
           name: bpf-maps
 {{- /* Required for wait-bpf-mount to work */}}
           mountPropagation: HostToContainer
@@ -553,6 +591,14 @@ spec:
           name: bgp-config
         name: bgp-config-path
 {{- end }}
+      - name: host-proc-sys-net
+        hostPath:
+          path: /proc/sys/net
+          type: Directory
+      - name: host-proc-sys-kernel
+        hostPath:
+          path: /proc/sys/kernel
+          type: Directory
 {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls
         projected:

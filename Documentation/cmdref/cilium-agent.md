@@ -214,6 +214,7 @@ cilium-agent [flags]
       --prefilter-device string                              Device facing external network for XDP prefiltering (default "undefined")
       --prefilter-mode string                                Prefilter mode via XDP ("native", "generic") (default "native")
       --prepend-iptables-chains                              Prepend custom iptables chains instead of appending (default true)
+      --procfs string                                        Root's proc filesystem path (default "/proc")
       --prometheus-serve-addr string                         IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                           Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
       --proxy-prometheus-port int                            Port to serve Envoy metrics on. Default 0 (disabled).

@@ -618,6 +618,8 @@ data:
 {{- if ne $defaultOperatorApiServeAddr "localhost:9234" }}
   operator-api-serve-addr: {{ $defaultOperatorApiServeAddr | quote }}
 {{- end }}
+  procfs: {{ .Values.procfs | quote }}
+  bpf-root: "/host/sys/fs/bpf"
 
 {{- if .Values.hubble.enabled }}
   # Enable Hubble gRPC service.
