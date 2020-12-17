@@ -16,6 +16,7 @@ package filters
 
 import (
 	"context"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
@@ -26,7 +27,7 @@ func filterByReplyField(replyParams []bool) FilterFunc {
 			return true
 		}
 		switch f := ev.Event.(type) {
-		case v1.Flow:
+		case *flowpb.Flow:
 			// FIXME: For dropped flows, we handle `is_reply=unknown` as
 			// `is_reply=false`. This is for compatibility with older clients
 			// (such as Hubble UI) which assume this filter applies to the
