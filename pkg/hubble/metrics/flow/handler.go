@@ -15,6 +15,9 @@
 package flow
 
 import (
+	"context"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -51,7 +54,7 @@ func (h *flowHandler) Status() string {
 	return h.context.Status()
 }
 
-func (h *flowHandler) ProcessFlow(flow v1.Flow) {
+func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 	var typeName, subType string
 	switch flow.GetEventType().Type {
 	case monitorAPI.MessageTypeAgent:

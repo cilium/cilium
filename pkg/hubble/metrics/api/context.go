@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
 // ContextIdentifier describes the identification method of a transmission or
@@ -113,21 +113,21 @@ func ParseContextOptions(options Options) (*ContextOptions, error) {
 	return o, nil
 }
 
-func sourceNamespaceContext(flow v1.Flow) (context string) {
+func sourceNamespaceContext(flow *pb.Flow) (context string) {
 	if flow.GetSource() != nil {
 		context = flow.GetSource().Namespace
 	}
 	return
 }
 
-func sourceIdentityContext(flow v1.Flow) (context string) {
+func sourceIdentityContext(flow *pb.Flow) (context string) {
 	if flow.GetSource() != nil {
 		context = strings.Join(flow.GetSource().Labels, ",")
 	}
 	return
 }
 
-func sourcePodContext(flow v1.Flow) (context string) {
+func sourcePodContext(flow *pb.Flow) (context string) {
 	if flow.GetSource() != nil {
 		context = flow.GetSource().PodName
 		if flow.GetSource().Namespace != "" {
@@ -141,7 +141,7 @@ func shortenPodName(name string) string {
 	return shortPodPattern.ReplaceAllString(name, "${1}")
 }
 
-func sourcePodShortContext(flow v1.Flow) (context string) {
+func sourcePodShortContext(flow *pb.Flow) (context string) {
 	if flow.GetSource() != nil {
 		context = shortenPodName(flow.GetSource().PodName)
 		if flow.GetSource().Namespace != "" {
@@ -151,21 +151,21 @@ func sourcePodShortContext(flow v1.Flow) (context string) {
 	return
 }
 
-func destinationNamespaceContext(flow v1.Flow) (context string) {
+func destinationNamespaceContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = flow.GetDestination().Namespace
 	}
 	return
 }
 
-func destinationIdentityContext(flow v1.Flow) (context string) {
+func destinationIdentityContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = strings.Join(flow.GetDestination().Labels, ",")
 	}
 	return
 }
 
-func destinationPodContext(flow v1.Flow) (context string) {
+func destinationPodContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = flow.GetDestination().PodName
 		if flow.GetDestination().Namespace != "" {
@@ -175,7 +175,7 @@ func destinationPodContext(flow v1.Flow) (context string) {
 	return
 }
 
-func destinationPodShortContext(flow v1.Flow) (context string) {
+func destinationPodShortContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = shortenPodName(flow.GetDestination().PodName)
 		if flow.GetDestination().Namespace != "" {
@@ -188,7 +188,7 @@ func destinationPodShortContext(flow v1.Flow) (context string) {
 // GetLabelValues returns the values of the context relevant labels according
 // to the configured options. The order of the values is the same as the order
 // of the label names returned by GetLabelNames()
-func (o *ContextOptions) GetLabelValues(flow v1.Flow) (labels []string) {
+func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 	switch o.Source {
 	case ContextNamespace:
 		labels = append(labels, sourceNamespaceContext(flow))

@@ -158,7 +158,7 @@ nextEvent:
 
 			atomic.AddUint64(&s.numObservedFlows, 1)
 			// FIXME: Convert metrics into an OnDecodedFlow function
-			metrics.ProcessFlow(flow)
+			metrics.ProcessFlow(ctx, flow)
 		}
 
 		s.GetRingBuffer().Write(ev)

@@ -17,11 +17,12 @@
 package metrics
 
 import (
+	"context"
 	"testing"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
 func TestUninitializedMetrics(t *testing.T) {
-	ProcessFlow(&pb.Flow{})
+	ProcessFlow(context.TODO(), &pb.Flow{})
 }
