@@ -28,37 +28,36 @@ type Event struct {
 	Event interface{}
 }
 
-// GetFlow returns the decoded flow, or nil if there is no event
-func (ev *Event) GetFlow() Flow {
+// GetFlow returns the decoded flow, or nil if the event is nil or not a flow
+func (ev *Event) GetFlow() *pb.Flow {
 	if ev == nil || ev.Event == nil {
-		// returns typed nil so getter methods still work
-		return (*pb.Flow)(nil)
+		return nil
 	}
-	if f, ok := ev.Event.(Flow); ok {
+	if f, ok := ev.Event.(*pb.Flow); ok {
 		return f
 	}
 	return nil
 }
 
-// GetAgentEvent returns the decoded agent event, or nil if there is no event.
-func (ev *Event) GetAgentEvent() AgentEvent {
+// GetAgentEvent returns the decoded agent event, or nil if the event is nil
+// or not an agent event
+func (ev *Event) GetAgentEvent() *pb.AgentEvent {
 	if ev == nil || ev.Event == nil {
-		// returns typed nil so getter methods still work
-		return (*pb.AgentEvent)(nil)
+		return nil
 	}
-	if f, ok := ev.Event.(AgentEvent); ok {
+	if f, ok := ev.Event.(*pb.AgentEvent); ok {
 		return f
 	}
 	return nil
 }
 
-// GetLostEvent returns the decoded lost event or nil if there is no event.
-func (ev *Event) GetLostEvent() LostEvent {
+// GetLostEvent returns the decoded lost event, or nil if the event is nil
+// or not a lost event
+func (ev *Event) GetLostEvent() *pb.LostEvent {
 	if ev == nil || ev.Event == nil {
-		// returns typed nil so getter methods still work
-		return (*pb.LostEvent)(nil)
+		return nil
 	}
-	if f, ok := ev.Event.(LostEvent); ok {
+	if f, ok := ev.Event.(*pb.LostEvent); ok {
 		return f
 	}
 	return nil
