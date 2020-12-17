@@ -83,8 +83,8 @@ func TestFlowHandler(t *testing.T) {
 
 		flow2 := &pb.Flow{
 			EventType: &pb.CiliumEventType{
-				Type:    monitorAPI.MessageTypeAgent,
-				SubType: int32(monitorAPI.AgentNotifyPolicyUpdated),
+				// flow events cannot be derived from agent events
+				Type: monitorAPI.MessageTypeAgent,
 			},
 		}
 
@@ -99,9 +99,9 @@ func TestFlowHandler(t *testing.T) {
 		metric = metricFamilies[0].Metric[0]
 
 		assert.Equal(t, "subtype", *metric.Label[3].Name)
-		assert.Equal(t, "Policy updated", *metric.Label[3].Value)
+		assert.Equal(t, "130", *metric.Label[3].Value)
 
 		assert.Equal(t, "type", *metric.Label[4].Name)
-		assert.Equal(t, "Agent", *metric.Label[4].Value)
+		assert.Equal(t, "Unknown", *metric.Label[4].Value)
 	})
 }
