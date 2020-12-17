@@ -16,6 +16,7 @@ package flow
 
 import (
 	"context"
+	"fmt"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -56,10 +57,8 @@ func (h *flowHandler) Status() string {
 
 func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 	var typeName, subType string
-	switch flow.GetEventType().Type {
-	case monitorAPI.MessageTypeAgent:
-		typeName = "Agent"
-		subType = monitorAPI.AgentNotifications[monitorAPI.AgentNotification(flow.GetEventType().SubType)]
+	eventType := flow.GetEventType().GetType()
+	switch eventType {
 	case monitorAPI.MessageTypeAccessLog:
 		typeName = "L7"
 		if l7 := flow.GetL7(); l7 != nil {
@@ -72,16 +71,16 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 				subType = "Kafka"
 			}
 		}
-
 	case monitorAPI.MessageTypeDrop:
 		typeName = "Drop"
-	case monitorAPI.MessageTypeDebug:
-		typeName = "Debug"
 	case monitorAPI.MessageTypeCapture:
 		typeName = "Capture"
 	case monitorAPI.MessageTypeTrace:
 		typeName = "Trace"
 		subType = monitorAPI.TraceObservationPoints[uint8(flow.GetEventType().SubType)]
+	default:
+		typeName = "Unknown"
+		subType = fmt.Sprintf("%d", eventType)
 	}
 
 	labels := []string{v1.FlowProtocol(flow), typeName, subType, flow.GetVerdict().String()}
