@@ -97,6 +97,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 
+	var observerOpts []observeroption.Option
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
@@ -106,6 +107,12 @@ func (d *Daemon) launchHubble() {
 			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
 			return
 		}
+
+		opt := observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+			metrics.ProcessFlow(ctx, flow)
+			return false, nil
+		})
+		observerOpts = append(observerOpts, opt)
 	}
 
 	payloadParser, err := parser.New(logger, d, d, d, d, d)
@@ -119,11 +126,14 @@ func (d *Daemon) launchHubble() {
 		logger.WithError(err).Error("Specified capacity for Hubble events buffer is invalid")
 		return
 	}
-
-	d.hubbleObserver, err = observer.NewLocalServer(payloadParser, logger,
+	observerOpts = append(observerOpts,
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
-		observeroption.WithCiliumDaemon(d))
+		observeroption.WithCiliumDaemon(d),
+	)
+	d.hubbleObserver, err = observer.NewLocalServer(payloadParser, logger,
+		observerOpts...,
+	)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
