@@ -15,6 +15,8 @@ import (
 type DatapathConfiguration struct {
 	// HostDevice is the name of the device to be used to access the host.
 	HostDevice string
+
+	ProcFs string
 }
 
 type linuxDatapath struct {
@@ -59,4 +61,8 @@ func (l *linuxDatapath) Loader() datapath.Loader {
 
 func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {
 	return l.wgAgent
+}
+
+func (l *linuxDatapath) Procfs() string {
+	return l.config.ProcFs
 }

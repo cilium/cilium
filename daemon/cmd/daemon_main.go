@@ -74,6 +74,7 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -765,6 +766,9 @@ func initializeFlags() {
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	option.BindEnv(option.MTUName)
 
+	flags.String(option.ProcFs, "/proc", "Root's proc filesystem path")
+	option.BindEnv(option.ProcFs)
+
 	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
 	option.BindEnv(option.RouteMetric)
 
@@ -1178,6 +1182,8 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	option.LogRegisteredOptions(log)
+
+	sysctl.SetProcfs(option.Config.ProcFs)
 
 	// Configure k8s as soon as possible so that k8s.IsEnabled() has the right
 	// behavior.
@@ -1681,6 +1687,7 @@ func (d *Daemon) initKVStore() {
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
+		ProcFs:     option.Config.ProcFs,
 	}
 
 	log.Info("Initializing daemon")

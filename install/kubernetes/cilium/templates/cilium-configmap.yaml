@@ -826,6 +826,10 @@ data:
   enable-bgp-control-plane: "false"
 {{- end }}
 
+{{- if not .Values.securityContext.privileged }}
+  procfs: "/host/proc"
+{{- end }}
+
 {{- if hasKey .Values.bpf "root" }}
   bpf-root: {{ .Values.bpf.root | quote }}
 {{- end }}

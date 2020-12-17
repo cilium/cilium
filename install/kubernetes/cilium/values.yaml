@@ -170,8 +170,9 @@ resources: {}
   #   memory: 512Mi
 
 # -- Security context to be added to agent pods
-securityContext: {}
+securityContext:
   # runAsUser: 0
+  privileged: false
 
 # -- Cilium agent update strategy
 updateStrategy:
