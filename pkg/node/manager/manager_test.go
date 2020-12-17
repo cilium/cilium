@@ -87,6 +87,10 @@ type signalNodeHandler struct {
 	EnableNodeUpdateEvent                 bool
 	NodeDeleteEvent                       chan nodeTypes.Node
 	EnableNodeDeleteEvent                 bool
+	NodeNeighInsertEvent                  chan nodeTypes.Node
+	EnableNodeNeighInsertEvent            bool
+	NodeNeighRemoveEvent                  chan nodeTypes.Node
+	EnableNodeNeighRemoveEvent            bool
 	NodeValidateImplementationEvent       chan nodeTypes.Node
 	EnableNodeValidateImplementationEvent bool
 }
@@ -117,6 +121,20 @@ func (n *signalNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 func (n *signalNodeHandler) NodeDelete(node nodeTypes.Node) error {
 	if n.EnableNodeDeleteEvent {
 		n.NodeDeleteEvent <- node
+	}
+	return nil
+}
+
+func (n *signalNodeHandler) NodeNeighInsert(node nodeTypes.Node) error {
+	if n.EnableNodeNeighInsertEvent {
+		n.NodeNeighInsertEvent <- node
+	}
+	return nil
+}
+
+func (n *signalNodeHandler) NodeNeighRemove(node nodeTypes.Node) error {
+	if n.EnableNodeNeighRemoveEvent {
+		n.NodeNeighRemoveEvent <- node
 	}
 	return nil
 }

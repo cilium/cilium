@@ -22,26 +22,14 @@ import (
 type fakeNodeHandler struct{}
 
 // NewNodeHandler returns a fake NodeHandler that performs no actions
-func NewNodeHandler() datapath.NodeHandler {
-	return &fakeNodeHandler{}
-}
+func NewNodeHandler() datapath.NodeHandler { return &fakeNodeHandler{} }
 
-func (n *fakeNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
-	return nil
-}
-
-func (n *fakeNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
-	return nil
-}
-
-func (n *fakeNodeHandler) NodeDelete(node nodeTypes.Node) error {
-	return nil
-}
-
-func (n *fakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
-	return nil
-}
-
+func (n *fakeNodeHandler) NodeAdd(newNode nodeTypes.Node) error                 { return nil }
+func (n *fakeNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error     { return nil }
+func (n *fakeNodeHandler) NodeDelete(node nodeTypes.Node) error                 { return nil }
+func (n *fakeNodeHandler) NodeNeighInsert(newNode nodeTypes.Node) error         { return nil }
+func (n *fakeNodeHandler) NodeNeighRemove(node nodeTypes.Node) error            { return nil }
+func (n *fakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error { return nil }
 func (n *fakeNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
 	return nil
 }
