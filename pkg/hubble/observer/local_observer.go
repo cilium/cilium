@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
-	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -157,8 +156,6 @@ nextEvent:
 			}
 
 			atomic.AddUint64(&s.numObservedFlows, 1)
-			// FIXME: Convert metrics into an OnDecodedFlow function
-			metrics.ProcessFlow(ctx, flow)
 		}
 
 		s.GetRingBuffer().Write(ev)
