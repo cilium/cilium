@@ -1754,9 +1754,28 @@ definitions:
         - Probe
         - Partial
       devices:
-          type: array
-          items:
-            type: string
+        description: |-
+
+
+          +k8s:deepcopy-gen=true
+        type: array
+        items:
+          description: |-
+
+
+            +k8s:deepcopy-gen=true
+          type: object
+          properties:
+            name:
+              type: string
+            ip:
+              description: |-
+
+
+                +k8s:deepcopy-gen=true
+              type: array
+              items:
+                type: string
       directRoutingDevice:
         type: string
       features:

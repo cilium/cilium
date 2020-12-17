@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
@@ -199,9 +200,21 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devices := make([]string, len(option.Config.Devices))
+	devices := make([]*models.KubeProxyReplacementDevicesItems0, len(option.Config.Devices))
+	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
+	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
 	for i, iface := range option.Config.Devices {
-		devices[i] = iface
+		info := &models.KubeProxyReplacementDevicesItems0{
+			Name: iface,
+			IP:   make([]string, 0),
+		}
+		if addr, ok := v4Addrs[iface]; ok {
+			info.IP = append(info.IP, addr.String())
+		}
+		if addr, ok := v6Addrs[iface]; ok {
+			info.IP = append(info.IP, addr.String())
+		}
+		devices[i] = info
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
