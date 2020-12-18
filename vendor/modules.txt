@@ -420,7 +420,7 @@ github.com/kisielk/errcheck
 github.com/kisielk/errcheck/internal/errcheck
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kr/pretty v0.2.0
+# github.com/kr/pretty v0.2.1
 ## explicit
 github.com/kr/pretty
 # github.com/kr/text v0.2.0
@@ -453,8 +453,6 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/morikuni/aec v1.0.0
 ## explicit
-# github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
-github.com/niemeyer/pretty
 # github.com/onsi/ginkgo v1.11.0
 ## explicit
 github.com/onsi/ginkgo
@@ -837,7 +835,7 @@ google.golang.org/protobuf/types/known/emptypb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-# gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+# gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 ## explicit
 gopkg.in/check.v1
 # gopkg.in/fsnotify.v1 v1.4.7

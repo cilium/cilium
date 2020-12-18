@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/niemeyer/pretty"
+	"github.com/kr/pretty"
 )
 
 // -----------------------------------------------------------------------

@@ -53,7 +53,7 @@ require (
 	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
-	github.com/kr/pretty v0.2.0
+	github.com/kr/pretty v0.2.1
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -87,7 +87,7 @@ require (
 	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
