@@ -43,7 +43,7 @@ require (
 	github.com/google/go-cmp v0.5.4
 	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.14
-	github.com/google/renameio v0.1.0
+	github.com/google/renameio v1.0.0
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/consul/api v1.2.0
