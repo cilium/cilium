@@ -154,7 +154,7 @@ send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
-	struct trace_notify msg;
+	struct trace_notify msg __align_stack_8;
 
 	update_trace_metrics(ctx, obs_point, reason);
 
@@ -170,6 +170,7 @@ send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 		.reason		= reason,
 		.ifindex	= ifindex,
 	};
+	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
 	ctx_event_output(ctx, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
