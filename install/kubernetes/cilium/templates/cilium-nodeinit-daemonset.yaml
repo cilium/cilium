@@ -162,7 +162,7 @@ spec:
               ip -4 a
               ip -6 a
 
-{{- if or .Values.expectAzureVnet .Values.azure.enabled }}
+{{- if or .Values.nodeinit.expectAzureVnet .Values.azure.enabled }}
               # Azure specific: Transparent bridge mode is required in order
               # for proxy-redirection to work
               until [ -f /var/run/azure-vnet.json ]; do
