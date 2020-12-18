@@ -362,7 +362,7 @@ github.com/google/uuid
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 github.com/googleapis/gnostic/openapiv2
-# github.com/gorilla/mux v1.7.0
+# github.com/gorilla/mux v1.8.0
 ## explicit
 github.com/gorilla/mux
 # github.com/hashicorp/consul/api v1.2.0
