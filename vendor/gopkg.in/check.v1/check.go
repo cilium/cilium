@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -143,17 +143,11 @@ func (td *tempDir) newPath() string {
 	td.Lock()
 	defer td.Unlock()
 	if td.path == "" {
-		var err error
-		for i := 0; i != 100; i++ {
-			path := fmt.Sprintf("%s%ccheck-%d", os.TempDir(), os.PathSeparator, rand.Int())
-			if err = os.Mkdir(path, 0700); err == nil {
-				td.path = path
-				break
-			}
-		}
-		if td.path == "" {
+		path, err := ioutil.TempDir("", "check-")
+		if err != nil {
 			panic("Couldn't create temporary directory: " + err.Error())
 		}
+		td.path = path
 	}
 	result := filepath.Join(td.path, strconv.Itoa(td.counter))
 	td.counter++
