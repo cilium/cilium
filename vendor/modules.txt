@@ -611,7 +611,7 @@ go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.uber.org/atomic v1.4.0
 go.uber.org/atomic
-# go.uber.org/goleak v1.0.0
+# go.uber.org/goleak v1.1.10
 ## explicit
 go.uber.org/goleak
 go.uber.org/goleak/internal/stack
