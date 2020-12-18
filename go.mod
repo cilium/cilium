@@ -20,7 +20,7 @@ require (
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.3.0
-	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
+	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
 	github.com/cilium/proxy v0.0.0-20201222161048-8bceb17eb027
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
