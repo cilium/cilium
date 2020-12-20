@@ -15,6 +15,7 @@
 package clusterpool
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -60,7 +61,7 @@ type AllocatorOperator struct {
 }
 
 // Init sets up Cilium allocator based on given options
-func (a *AllocatorOperator) Init() error {
+func (a *AllocatorOperator) Init(ctx context.Context) error {
 	if option.Config.EnableIPv4 {
 		if len(operatorOption.Config.ClusterPoolIPv4CIDR) == 0 {
 			return fmt.Errorf("%s must be provided when using ClusterPool", operatorOption.ClusterPoolIPv4CIDR)

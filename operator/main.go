@@ -309,7 +309,7 @@ func onOperatorStartLeading(ctx context.Context) {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(); err != nil {
+		if err := alloc.Init(ctx); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
