@@ -171,33 +171,33 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	eni = &eniTypes.ENI{
-		IP:             *iface.PrivateIpAddress,
+		IP:             aws.ToString(iface.PrivateIpAddress),
 		SecurityGroups: []string{},
 		Addresses:      []string{},
 	}
 
 	if iface.MacAddress != nil {
-		eni.MAC = *iface.MacAddress
+		eni.MAC = aws.ToString(iface.MacAddress)
 	}
 
 	if iface.NetworkInterfaceId != nil {
-		eni.ID = *iface.NetworkInterfaceId
+		eni.ID = aws.ToString(iface.NetworkInterfaceId)
 	}
 
 	if iface.Description != nil {
-		eni.Description = *iface.Description
+		eni.Description = aws.ToString(iface.Description)
 	}
 
 	if iface.Attachment != nil {
 		eni.Number = int(iface.Attachment.DeviceIndex)
 
 		if iface.Attachment.InstanceId != nil {
-			instanceID = *iface.Attachment.InstanceId
+			instanceID = aws.ToString(iface.Attachment.InstanceId)
 		}
 	}
 
 	if iface.SubnetId != nil {
-		eni.Subnet.ID = *iface.SubnetId
+		eni.Subnet.ID = aws.ToString(iface.SubnetId)
 
 		if subnets != nil {
 			if subnet, ok := subnets[eni.Subnet.ID]; ok && subnet.CIDR != nil {
@@ -207,7 +207,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	if iface.VpcId != nil {
-		eni.VPC.ID = *iface.VpcId
+		eni.VPC.ID = aws.ToString(iface.VpcId)
 
 		if vpcs != nil {
 			if vpc, ok := vpcs[eni.VPC.ID]; ok {
@@ -218,13 +218,13 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 
 	for _, ip := range iface.PrivateIpAddresses {
 		if ip.PrivateIpAddress != nil {
-			eni.Addresses = append(eni.Addresses, *ip.PrivateIpAddress)
+			eni.Addresses = append(eni.Addresses, aws.ToString(ip.PrivateIpAddress))
 		}
 	}
 
 	for _, g := range iface.Groups {
 		if g.GroupId != nil {
-			eni.SecurityGroups = append(eni.SecurityGroups, *g.GroupId)
+			eni.SecurityGroups = append(eni.SecurityGroups, aws.ToString(g.GroupId))
 		}
 	}
 
@@ -283,10 +283,10 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 	}
 
 	for _, v := range vpcList {
-		vpc := &ipamTypes.VirtualNetwork{ID: *v.VpcId}
+		vpc := &ipamTypes.VirtualNetwork{ID: aws.ToString(v.VpcId)}
 
 		if v.CidrBlock != nil {
-			vpc.PrimaryCIDR = *v.CidrBlock
+			vpc.PrimaryCIDR = aws.ToString(v.CidrBlock)
 		}
 
 		vpcs[vpc.ID] = vpc
@@ -323,31 +323,31 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	}
 
 	for _, s := range subnetList {
-		c, err := cidr.ParseCIDR(*s.CidrBlock)
+		c, err := cidr.ParseCIDR(aws.ToString(s.CidrBlock))
 		if err != nil {
 			continue
 		}
 
 		subnet := &ipamTypes.Subnet{
-			ID:                 *s.SubnetId,
+			ID:                 aws.ToString(s.SubnetId),
 			CIDR:               c,
 			AvailableAddresses: int(s.AvailableIpAddressCount),
 			Tags:               map[string]string{},
 		}
 
 		if s.AvailabilityZone != nil {
-			subnet.AvailabilityZone = *s.AvailabilityZone
+			subnet.AvailabilityZone = aws.ToString(s.AvailabilityZone)
 		}
 
 		if s.VpcId != nil {
-			subnet.VirtualNetworkID = *s.VpcId
+			subnet.VirtualNetworkID = aws.ToString(s.VpcId)
 		}
 
 		for _, tag := range s.Tags {
-			if *tag.Key == "Name" {
-				subnet.Name = *tag.Value
+			if aws.ToString(tag.Key) == "Name" {
+				subnet.Name = aws.ToString(tag.Value)
 			}
-			subnet.Tags[*tag.Key] = *tag.Value
+			subnet.Tags[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
 		}
 
 		subnets[subnet.ID] = subnet
@@ -359,9 +359,9 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 // CreateNetworkInterface creates an ENI with the given parameters
 func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	input := &ec2.CreateNetworkInterfaceInput{
-		Description:                    &desc,
+		Description:                    aws.String(desc),
 		SecondaryPrivateIpAddressCount: int32(toAllocate),
-		SubnetId:                       &subnetID,
+		SubnetId:                       aws.String(subnetID),
 	}
 	input.Groups = append(input.Groups, groups...)
 
@@ -380,7 +380,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, s
 		// information is optional. Returning the ENI ID is sufficient
 		// to allow for the caller to retrieve the ENI information via
 		// the API or wait for a regular sync to fetch the information.
-		return *output.NetworkInterface.NetworkInterfaceId, nil, nil
+		return aws.ToString(output.NetworkInterface.NetworkInterfaceId), nil, nil
 	}
 
 	return eni.ID, eni, nil
@@ -390,7 +390,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, s
 // DeleteNetworkInterface deletes an ENI with the specified ID
 func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	input := &ec2.DeleteNetworkInterfaceInput{
-		NetworkInterfaceId: &eniID,
+		NetworkInterfaceId: aws.String(eniID),
 	}
 
 	c.limiter.Limit(ctx, "DeleteNetworkInterface")
@@ -404,8 +404,8 @@ func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error
 func (c *Client) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
 	input := &ec2.AttachNetworkInterfaceInput{
 		DeviceIndex:        int32(index),
-		InstanceId:         &instanceID,
-		NetworkInterfaceId: &eniID,
+		InstanceId:         aws.String(instanceID),
+		NetworkInterfaceId: aws.String(eniID),
 	}
 
 	c.limiter.Limit(ctx, "AttachNetworkInterface")
@@ -422,13 +422,13 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int64, instan
 // ModifyNetworkInterface modifies the attributes of an ENI
 func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error {
 	changes := &ec2_types.NetworkInterfaceAttachmentChanges{
-		AttachmentId:        &attachmentID,
+		AttachmentId:        aws.String(attachmentID),
 		DeleteOnTermination: deleteOnTermination,
 	}
 
 	input := &ec2.ModifyNetworkInterfaceAttributeInput{
 		Attachment:         changes,
-		NetworkInterfaceId: &eniID,
+		NetworkInterfaceId: aws.String(eniID),
 	}
 
 	c.limiter.Limit(ctx, "ModifyNetworkInterfaceAttribute")
@@ -442,7 +442,7 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 // addresses
 func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
 	input := &ec2.AssignPrivateIpAddressesInput{
-		NetworkInterfaceId:             &eniID,
+		NetworkInterfaceId:             aws.String(eniID),
 		SecondaryPrivateIpAddressCount: int32(addresses),
 	}
 
@@ -456,7 +456,7 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 // UnassignPrivateIpAddresses unassigns specified IP addresses from ENI
 func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error {
 	input := &ec2.UnassignPrivateIpAddressesInput{
-		NetworkInterfaceId: &eniID,
+		NetworkInterfaceId: aws.String(eniID),
 		PrivateIpAddresses: addresses,
 	}
 
