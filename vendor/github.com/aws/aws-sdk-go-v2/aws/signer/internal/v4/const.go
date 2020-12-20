@@ -16,9 +16,6 @@ const (
 	// AmzDateKey is the UTC timestamp for the request in the format YYYYMMDD'T'HHMMSS'Z'
 	AmzDateKey = "X-Amz-Date"
 
-	// AmzExpiresKey indicates the interval of time the presigned is valid for
-	AmzExpiresKey = "X-Amz-Expires"
-
 	// AmzCredentialKey is the access key ID and credential scope
 	AmzCredentialKey = "X-Amz-Credential"
 
@@ -33,4 +30,7 @@ const (
 
 	// ShortTimeFormat is the shorten time format used in the credential scope
 	ShortTimeFormat = "20060102"
+
+	// ContentSHAKey is the SHA256 of request body
+	ContentSHAKey = "X-Amz-Content-Sha256"
 )

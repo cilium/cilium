@@ -23,10 +23,11 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
+
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-type Filters []ec2.Filter
+type Filters []ec2_types.Filter
 
 func (s Filters) Len() int           { return len(s) }
 func (s Filters) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
@@ -40,7 +41,7 @@ func TestNewSubnetsFilters(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []ec2.Filter
+		want []ec2_types.Filter
 	}{
 
 		{
@@ -49,7 +50,7 @@ func TestNewSubnetsFilters(t *testing.T) {
 				tags: map[string]string{},
 				ids:  []string{},
 			},
-			want: []ec2.Filter{},
+			want: []ec2_types.Filter{},
 		},
 
 		{
@@ -58,7 +59,7 @@ func TestNewSubnetsFilters(t *testing.T) {
 				tags: map[string]string{},
 				ids:  []string{"a", "b"},
 			},
-			want: []ec2.Filter{
+			want: []ec2_types.Filter{
 				{
 					Name:   aws.String("subnet-id"),
 					Values: []string{"a", "b"},
@@ -72,7 +73,7 @@ func TestNewSubnetsFilters(t *testing.T) {
 				tags: map[string]string{"a": "b", "c": "d"},
 				ids:  []string{},
 			},
-			want: []ec2.Filter{
+			want: []ec2_types.Filter{
 				{
 					Name:   aws.String("tag:a"),
 					Values: []string{"b"},
@@ -90,7 +91,7 @@ func TestNewSubnetsFilters(t *testing.T) {
 				tags: map[string]string{"a": "b"},
 				ids:  []string{"c", "d"},
 			},
-			want: []ec2.Filter{
+			want: []ec2_types.Filter{
 				{
 					Name:   aws.String("tag:a"),
 					Values: []string{"b"},

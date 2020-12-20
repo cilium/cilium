@@ -24,12 +24,14 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 const (
-	awsLogLevel         = aws.LogOff // For debugging pourposes can be set to aws.LogDebugWithSigning
 	awsDefaultRegionKey = "AWS_DEFAULT_REGION"
 	awsDefaultRegion    = "eu-west-1"
 )
@@ -56,12 +58,11 @@ func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]net.IP, error)
 // initializeAWSAccount retrieve the env variables from the runtime and it
 // iniliazes the account in the specified region.
 func initializeAWSAccount(region string) (*aws.Config, error) {
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("Cannot initialize aws connector: %s", err)
 	}
 	cfg.Region = region
-	cfg.LogLevel = awsLogLevel
 	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
 	return &cfg, nil
 }
@@ -75,21 +76,21 @@ func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net
 	}
 	input := &ec2.DescribeInstancesInput{}
 	for labelKey, labelValue := range filter.Labels {
-		newFilter := ec2.Filter{
+		newFilter := ec2_types.Filter{
 			Name:   aws.String(fmt.Sprintf("%s:%s", policyEC2Labelskey, labelKey)),
 			Values: []string{labelValue},
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
 	if len(filter.SecurityGroupsIds) > 0 {
-		newFilter := ec2.Filter{
+		newFilter := ec2_types.Filter{
 			Name:   policySecurityGroupIDKey,
 			Values: filter.SecurityGroupsIds,
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
 	if len(filter.SecurityGroupsNames) > 0 {
-		newFilter := ec2.Filter{
+		newFilter := ec2_types.Filter{
 			Name:   policySecurityGroupName,
 			Values: filter.SecurityGroupsNames,
 		}
@@ -99,13 +100,12 @@ func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net
 	if err != nil {
 		return []net.IP{}, err
 	}
-	svc := ec2.New(*cfg)
-	req := svc.DescribeInstancesRequest(input)
-	result, err := req.Send(ctx)
+	svc := ec2.NewFromConfig(*cfg)
+	result, err := svc.DescribeInstances(ctx, input)
 	if err != nil {
 		return []net.IP{}, fmt.Errorf("Cannot retrieve aws information: %s", err)
 	}
-	return awsDumpIpsFromRequest(result.DescribeInstancesOutput), nil
+	return awsDumpIpsFromRequest(result), nil
 }
 
 // getDefaultRegion returns the given region of the default one.

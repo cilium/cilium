@@ -313,7 +313,7 @@ loop:
 		default:
 			return nil, NewParseError(
 				fmt.Sprintf("invalid state with ASTKind %v and TokenType %v",
-					k, tok.Type()))
+					k.Kind, tok.Type()))
 		}
 
 		if len(tokens) > 0 {
