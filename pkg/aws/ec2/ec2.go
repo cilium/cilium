@@ -357,10 +357,10 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	input := &ec2.CreateNetworkInterfaceInput{
 		Description:                    aws.String(desc),
-		SecondaryPrivateIpAddressCount: int32(toAllocate),
+		SecondaryPrivateIpAddressCount: toAllocate,
 		SubnetId:                       aws.String(subnetID),
 	}
 	input.Groups = append(input.Groups, groups...)
@@ -401,9 +401,9 @@ func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error
 }
 
 // AttachNetworkInterface attaches a previously created ENI to an instance
-func (c *Client) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
+func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error) {
 	input := &ec2.AttachNetworkInterfaceInput{
-		DeviceIndex:        int32(index),
+		DeviceIndex:        index,
 		InstanceId:         aws.String(instanceID),
 		NetworkInterfaceId: aws.String(eniID),
 	}
@@ -440,10 +440,10 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 
 // AssignPrivateIpAddresses assigns the specified number of secondary IP
 // addresses
-func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
+func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
 	input := &ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId:             aws.String(eniID),
-		SecondaryPrivateIpAddressCount: int32(addresses),
+		SecondaryPrivateIpAddressCount: addresses,
 	}
 
 	c.limiter.Limit(ctx, "AssignPrivateIpAddresses")

@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
@@ -35,11 +35,11 @@ type EC2API interface {
 	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
-	CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error)
-	AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error)
+	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error)
+	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
-	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error
+	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
 }

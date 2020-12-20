@@ -227,7 +227,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 // AllocateIPs performs the ENI allocation oepration
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
-	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int64(a.AvailableForAllocation))
+	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.AvailableForAllocation))
 }
 
 func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec) ([]string, error) {
@@ -296,7 +296,7 @@ func isAttachmentIndexConflict(err error) bool {
 
 // indexExists returns true if the specified index is occupied by an ENI in the
 // slice of ENIs
-func indexExists(enis map[string]eniTypes.ENI, index int64) bool {
+func indexExists(enis map[string]eniTypes.ENI, index int32) bool {
 	for _, e := range enis {
 		if e.Number == int(index) {
 			return true
@@ -309,13 +309,13 @@ func indexExists(enis map[string]eniTypes.ENI, index int64) bool {
 // the first candidate. When calling this function, ensure that the mutex is
 // not held as this function read-locks the mutex to protect access to
 // `n.enis`.
-func (n *Node) findNextIndex(index int64) int64 {
+func (n *Node) findNextIndex(index int32) int32 {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 	for indexExists(n.enis, index) {
 		index++
 	}
-	return index
+	return int32(index)
 }
 
 // The following error constants represent the error conditions for
@@ -372,7 +372,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, "", nil
 	}
 
-	index := n.findNextIndex(int64(*resource.Spec.ENI.FirstInterfaceIndex))
+	index := n.findNextIndex(int32(*resource.Spec.ENI.FirstInterfaceIndex))
 
 	scopedLog = scopedLog.WithFields(logrus.Fields{
 		"securityGroupIDs": securityGroupIDs,
@@ -381,7 +381,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	})
 	scopedLog.Info("No more IPs available, creating new ENI")
 
-	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int64(toAllocate), bestSubnet.ID, desc, securityGroupIDs)
+	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), bestSubnet.ID, desc, securityGroupIDs)
 	if err != nil {
 		return 0, errUnableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
 	}
