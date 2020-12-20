@@ -60,14 +60,14 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 }
 
 // NewConfig returns a new aws.Config configured with the correct region + endpoint resolver
-func NewConfig() (aws.Config, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
+func NewConfig(ctx context.Context) (aws.Config, error) {
+	cfg, err := awsconfig.LoadDefaultConfig()
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("unable to load AWS configuration: %w", err)
 	}
 
 	metadataClient := ec2imds.NewFromConfig(cfg)
-	instance, err := metadataClient.GetInstanceIdentityDocument(context.TODO(), &ec2imds.GetInstanceIdentityDocumentInput{})
+	instance, err := metadataClient.GetInstanceIdentityDocument(ctx, &ec2imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("unable to retrieve instance identity document: %w", err)
 	}
