@@ -123,6 +123,8 @@ var (
 		// We need CNP node status to know when a policy is being enforced
 		"enableCnpStatusUpdates": "true",
 		"nativeRoutingCIDR":      "10.0.0.0/8",
+
+		"ipam.operator.clusterPoolIPv6PodCIDR": "fd02::/112",
 	}
 
 	flannelHelmOverrides = map[string]string{
