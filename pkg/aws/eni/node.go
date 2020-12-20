@@ -17,9 +17,11 @@ package eni
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/awslabs/smithy-go"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -28,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
 
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/sirupsen/logrus"
 )
 
@@ -286,8 +287,11 @@ func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
 }
 
 func isAttachmentIndexConflict(err error) bool {
-	e, ok := err.(awserr.Error)
-	return ok && e.Code() == "InvalidParameterValue" && strings.Contains(e.Message(), "interface attached at device")
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "InvalidParameterValue" && strings.Contains(apiErr.ErrorMessage(), "interface attached at device")
+	}
+	return false
 }
 
 // indexExists returns true if the specified index is occupied by an ENI in the

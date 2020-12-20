@@ -54,3 +54,9 @@
 // configure the SDK to use the custom HTTP Client by setting the HTTPClient
 // value of the SDK's Config type when creating a Session or service client.
 package aws
+
+// generate.go uses a build tag of "ignore", go run doesn't need to specify
+// this because go run ignores all build flags when running a go file directly.
+//go:generate go run -tags codegen generate.go
+//go:generate go run -tags codegen logging_generate.go
+//go:generate gofmt -w -s .

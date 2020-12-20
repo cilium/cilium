@@ -20,13 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/endpoints"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "aws-endpoints")
-
-	defaultResolver = endpoints.NewDefaultResolver()
 )
 
 func Resolver(service, region string) (aws.Endpoint, error) {
@@ -37,5 +34,6 @@ func Resolver(service, region string) (aws.Endpoint, error) {
 			URL: "https://" + ep,
 		}, nil
 	}
-	return defaultResolver.ResolveEndpoint(service, region)
+
+	return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 }

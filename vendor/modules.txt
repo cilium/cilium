@@ -42,38 +42,64 @@ github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
 ## explicit
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go-v2 v0.24.0
+# github.com/aws/aws-sdk-go-v2 v0.30.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/aws
-github.com/aws/aws-sdk-go-v2/aws/awserr
-github.com/aws/aws-sdk-go-v2/aws/defaults
-github.com/aws/aws-sdk-go-v2/aws/ec2metadata
-github.com/aws/aws-sdk-go-v2/aws/ec2rolecreds
-github.com/aws/aws-sdk-go-v2/aws/endpointcreds
-github.com/aws/aws-sdk-go-v2/aws/endpoints
-github.com/aws/aws-sdk-go-v2/aws/external
-github.com/aws/aws-sdk-go-v2/aws/processcreds
+github.com/aws/aws-sdk-go-v2/aws/middleware
+github.com/aws/aws-sdk-go-v2/aws/protocol/ec2query
+github.com/aws/aws-sdk-go-v2/aws/protocol/query
+github.com/aws/aws-sdk-go-v2/aws/protocol/xml
 github.com/aws/aws-sdk-go-v2/aws/ratelimit
 github.com/aws/aws-sdk-go-v2/aws/retry
 github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4
 github.com/aws/aws-sdk-go-v2/aws/signer/v4
-github.com/aws/aws-sdk-go-v2/aws/stscreds
-github.com/aws/aws-sdk-go-v2/internal/awsutil
+github.com/aws/aws-sdk-go-v2/aws/transport/http
+github.com/aws/aws-sdk-go-v2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/internal/ini
 github.com/aws/aws-sdk-go-v2/internal/rand
 github.com/aws/aws-sdk-go-v2/internal/sdk
 github.com/aws/aws-sdk-go-v2/internal/sdkio
+github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-github.com/aws/aws-sdk-go-v2/private/protocol
-github.com/aws/aws-sdk-go-v2/private/protocol/ec2query
-github.com/aws/aws-sdk-go-v2/private/protocol/query
-github.com/aws/aws-sdk-go-v2/private/protocol/query/queryutil
-github.com/aws/aws-sdk-go-v2/private/protocol/rest
-github.com/aws/aws-sdk-go-v2/private/protocol/xml/xmlutil
+# github.com/aws/aws-sdk-go-v2/config v0.3.0
+## explicit
+github.com/aws/aws-sdk-go-v2/config
+# github.com/aws/aws-sdk-go-v2/credentials v0.1.5
+github.com/aws/aws-sdk-go-v2/credentials
+github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
+github.com/aws/aws-sdk-go-v2/credentials/endpointcreds
+github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client
+github.com/aws/aws-sdk-go-v2/credentials/processcreds
+github.com/aws/aws-sdk-go-v2/credentials/stscreds
+# github.com/aws/aws-sdk-go-v2/ec2imds v0.1.5
+## explicit
+github.com/aws/aws-sdk-go-v2/ec2imds
+# github.com/aws/aws-sdk-go-v2/service/ec2 v0.30.0
+## explicit
 github.com/aws/aws-sdk-go-v2/service/ec2
+github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/ec2/types
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v0.1.2
+github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
+# github.com/aws/aws-sdk-go-v2/service/sts v0.30.0
 github.com/aws/aws-sdk-go-v2/service/sts
-github.com/aws/aws-sdk-go-v2/service/sts/stsiface
+github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/sts/types
+# github.com/awslabs/smithy-go v0.4.0
+## explicit
+github.com/awslabs/smithy-go
+github.com/awslabs/smithy-go/httpbinding
+github.com/awslabs/smithy-go/internal/encoding
+github.com/awslabs/smithy-go/io
+github.com/awslabs/smithy-go/logging
+github.com/awslabs/smithy-go/middleware
+github.com/awslabs/smithy-go/ptr
+github.com/awslabs/smithy-go/rand
+github.com/awslabs/smithy-go/time
+github.com/awslabs/smithy-go/transport/http
+github.com/awslabs/smithy-go/transport/http/internal/io
+github.com/awslabs/smithy-go/xml
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/blang/semver/v4 v4.0.0
@@ -305,7 +331,7 @@ github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
 # github.com/golang/snappy v0.0.1
 github.com/golang/snappy
-# github.com/google/go-cmp v0.5.2
+# github.com/google/go-cmp v0.5.4
 ## explicit
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
@@ -380,8 +406,6 @@ github.com/ishidawataru/sctp
 # github.com/jeremywohl/flatten v1.0.1
 ## explicit
 github.com/jeremywohl/flatten
-# github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
-github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.10
 github.com/json-iterator/go
 # github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd

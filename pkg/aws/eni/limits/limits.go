@@ -354,9 +354,9 @@ func UpdateFromEC2API(ctx context.Context, ec2Client *ec2shim.Client) error {
 
 	for _, instanceTypeInfo := range instanceTypeInfos {
 		instanceType := string(instanceTypeInfo.InstanceType)
-		adapterLimit := aws.Int64Value(instanceTypeInfo.NetworkInfo.MaximumNetworkInterfaces)
-		ipv4PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv4AddressesPerInterface)
-		ipv6PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
+		adapterLimit := aws.ToInt32(instanceTypeInfo.NetworkInfo.MaximumNetworkInterfaces)
+		ipv4PerAdapter := aws.ToInt32(instanceTypeInfo.NetworkInfo.Ipv4AddressesPerInterface)
+		ipv6PerAdapter := aws.ToInt32(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
 
 		limits.m[instanceType] = ipamTypes.Limits{
 			Adapters: int(adapterLimit),
