@@ -55,7 +55,7 @@ spec:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
         command:
-{{- if .Values.eni }}
+{{- if .Values.eni.enabled }}
         - cilium-operator-aws
 {{- else if .Values.azure.enabled }}
         - cilium-operator-azure
@@ -79,7 +79,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-{{- if .Values.eni }}
+{{- if .Values.eni.enabled }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -131,7 +131,7 @@ spec:
         - name: {{ $key }}
           value: {{ $value }}
 {{- end }}
-{{- if .Values.eni }}
+{{- if .Values.eni.enabled }}
         image: {{ .Values.operator.image.repository }}-aws:{{ .Values.operator.image.tag }}
 {{- else if .Values.azure.enabled }}
         image: {{ .Values.operator.image.repository }}-azure:{{ .Values.operator.image.tag }}

@@ -45,7 +45,7 @@ Deploy Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set eni=true \\
+     --set eni.enabled=true \\
      --set ipam.mode=eni \\
      --set egressMasqueradeInterfaces=eth0 \\
      --set tunnel=disabled \\

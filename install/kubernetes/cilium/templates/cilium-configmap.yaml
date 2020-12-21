@@ -317,7 +317,7 @@ data:
   tunnel: {{ .Values.tunnel }}
 {{- end }}
 
-{{- if .Values.eni }}
+{{- if .Values.eni.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
 {{- end }}

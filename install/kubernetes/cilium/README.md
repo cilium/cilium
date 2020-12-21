@@ -119,7 +119,7 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.secretName | string | `"cilium-ipsec-keys"` | Name of the Kubernetes secret containing the encryption keys. |
 | endpointHealthChecking.enabled | bool | `true` |  |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
-| eni | bool | `false` | Enable Elastic Network Interface (ENI) integration. |
+| eni.enabled | bool | `false` | Enable Elastic Network Interface (ENI) integration. |
 | etcd.clusterDomain | string | `"cluster.local"` | Cluster domain for cilium-etcd-operator. |
 | etcd.clusterSize | int | `3` | Size of the managed etcd cluster. |
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |

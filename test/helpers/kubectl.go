@@ -141,7 +141,7 @@ var (
 
 	eksHelmOverrides = map[string]string{
 		"egressMasqueradeInterfaces": "eth0",
-		"eni":                        "true",
+		"eni.enabled":                "true",
 		"ipam.mode":                  "eni",
 		"ipv6.enabled":               "false",
 		"k8s.requireIPv4PodCIDR":     "false",
@@ -2554,7 +2554,7 @@ func (kub *Kubectl) convertOptionsToLegacyOptions(options map[string]string) map
 			if newKey == "image.repository" {
 				result["agent.image"] = v + ":" + options["image.tag"]
 			} else if newKey == "operator.image.repository" {
-				if options["eni"] == "true" {
+				if options["eni.enabled"] == "true" {
 					result["operator.image"] = v + "-aws:" + options["image.tag"]
 				} else if options["azure.enabled"] == "true" {
 					result["operator.image"] = v + "-azure:" + options["image.tag"]
