@@ -32,7 +32,7 @@ import (
 
 type AccessLogServer struct {
 	Path     string
-	Logs     chan cilium.LogEntry
+	Logs     chan cilium.EntryType
 	closing  uint32 // non-zero if closing, accessed atomically
 	listener *net.UnixListener
 	conns    []*net.UnixConn
@@ -56,8 +56,8 @@ func (s *AccessLogServer) Clear() (passed, drops int) {
 	empty := false
 	for !empty {
 		select {
-		case pblog := <-s.Logs:
-			if pblog.EntryType == cilium.EntryType_Denied {
+		case entryType := <-s.Logs:
+			if entryType == cilium.EntryType_Denied {
 				drops++
 			} else {
 				passes++
@@ -75,7 +75,7 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 
 	server := &AccessLogServer{
 		Path: accessLogPath,
-		Logs: make(chan cilium.LogEntry, bufSize),
+		Logs: make(chan cilium.EntryType, bufSize),
 	}
 
 	// Create the access log listener
@@ -155,6 +155,6 @@ func (s *AccessLogServer) accessLogger(conn *net.UnixConn) {
 		}
 
 		log.Debugf("Access log message: %s", pblog.String())
-		s.Logs <- pblog
+		s.Logs <- pblog.EntryType
 	}
 }
