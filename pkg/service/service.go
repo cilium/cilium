@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
+	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,6 +46,8 @@ var (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*lbmap.UpsertServiceParams) error
+	UpsertMaglevLookupTable(uint16, map[string]uint16, bool) error
+	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
@@ -82,7 +85,6 @@ type svcInfo struct {
 	svcName                   string
 	svcNamespace              string
 	loadBalancerSourceRanges  []*cidr.CIDR
-	maglev                    bool
 
 	restoredFromDatapath bool
 }
@@ -118,6 +120,13 @@ func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool
 	default:
 		return false, false
 	}
+}
+
+func (svc *svcInfo) useMaglev() bool {
+	return option.Config.NodePortAlg == option.NodePortAlgMaglev &&
+		((svc.svcType == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
+			svc.svcType == lb.SVCTypeExternalIPs ||
+			svc.svcType == lb.SVCTypeLoadBalancer)
 }
 
 // Service is a service handler. Its main responsibility is to reflect
@@ -614,11 +623,6 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc.restoredFromDatapath = false
 	}
 
-	svc.maglev = option.Config.NodePortAlg == option.NodePortAlgMaglev &&
-		((p.Type == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
-			p.Type == lb.SVCTypeExternalIPs ||
-			p.Type == lb.SVCTypeLoadBalancer)
-
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
 
@@ -740,7 +744,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		SessionAffinity:           svc.sessionAffinity,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
 		CheckSourceRange:          checkLBSrcRange,
-		UseMaglev:                 svc.maglev,
+		UseMaglev:                 svc.useMaglev(),
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
@@ -825,12 +829,10 @@ func (s *Service) restoreServicesLocked() error {
 		}
 
 		newSVC := &svcInfo{
-			hash:          svc.Frontend.Hash(),
-			frontend:      svc.Frontend,
-			backends:      svc.Backends,
-			backendByHash: map[string]*lb.Backend{},
-			// Correct traffic policy will be restored by k8s_watcher after k8s
-			// service cache has been initialized
+			hash:             svc.Frontend.Hash(),
+			frontend:         svc.Frontend,
+			backends:         svc.Backends,
+			backendByHash:    map[string]*lb.Backend{},
 			svcType:          svc.Type,
 			svcTrafficPolicy: svc.TrafficPolicy,
 
@@ -848,6 +850,21 @@ func (s *Service) restoreServicesLocked() error {
 			hash := backend.L3n4Addr.Hash()
 			s.backendRefCount.Add(hash)
 			newSVC.backendByHash[hash] = &svc.Backends[j]
+		}
+
+		// Recalculate Maglev lookup tables if the maps were removed due to
+		// the changed M param.
+		ipv6 := newSVC.frontend.IsIPv6()
+		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
+			newSVC.useMaglev() && s.lbmap.IsMaglevLookupTableRecreated(ipv6) {
+
+			backends := make(map[string]uint16, len(newSVC.backends))
+			for _, b := range newSVC.backends {
+				backends[b.String()] = uint16(b.ID)
+			}
+			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
+				return err
+			}
 		}
 
 		s.svcByHash[newSVC.hash] = newSVC
@@ -874,7 +891,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends), svc.maglev); err != nil {
+	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends), svc.useMaglev()); err != nil {
 		return err
 	}
 
