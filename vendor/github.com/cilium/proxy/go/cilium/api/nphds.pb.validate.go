@@ -46,8 +46,19 @@ func (m *NetworkPolicyHosts) Validate() error {
 
 	// no validation rules for Policy
 
+	_NetworkPolicyHosts_HostAddresses_Unique := make(map[string]struct{}, len(m.GetHostAddresses()))
+
 	for idx, item := range m.GetHostAddresses() {
 		_, _ = idx, item
+
+		if _, exists := _NetworkPolicyHosts_HostAddresses_Unique[item]; exists {
+			return NetworkPolicyHostsValidationError{
+				field:  fmt.Sprintf("HostAddresses[%v]", idx),
+				reason: "repeated value must contain unique items",
+			}
+		} else {
+			_NetworkPolicyHosts_HostAddresses_Unique[item] = struct{}{}
+		}
 
 		if len(item) < 1 {
 			return NetworkPolicyHostsValidationError{
