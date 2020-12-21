@@ -377,8 +377,9 @@ endpointRoutes:
   # the cilium_host interface.
   enabled: false
 
-# -- Enable Elastic Network Interface (ENI) integration.
-eni: false
+eni:
+  # -- Enable Elastic Network Interface (ENI) integration.
+  enabled: false
 
 externalIPs:
   # -- Enable ExternalIPs service support.
