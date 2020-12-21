@@ -154,13 +154,22 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 		// one per each public iface IP addr.
 		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
 			if option.Config.EnableNodePort && nodeAddressing != nil {
+				proto := loadbalancer.L4Type(port.Protocol)
+				port := uint16(port.NodePort)
+				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
+				// did not assign any NodePort to the serivce port field.
+				// For example if `allocateLoadBalancerNodePorts` is set to false in the service
+				// spec. For more details see -
+				// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1864-disable-lb-node-ports
+				if port == uint16(0) {
+					continue
+				}
+				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
+
 				if _, ok := svcInfo.NodePorts[portName]; !ok {
 					svcInfo.NodePorts[portName] =
 						make(map[string]*loadbalancer.L3n4AddrID)
 				}
-				proto := loadbalancer.L4Type(port.Protocol)
-				port := uint16(port.NodePort)
-				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
 
 				if option.Config.EnableIPv4 &&
 					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":") {
