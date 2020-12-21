@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,6 +37,8 @@ type ManagerTestSuite struct {
 	svcHealth                 *healthserver.MockHealthHTTPServerFactory
 	prevOptionSessionAffinity bool
 	prevOptionLBSourceRanges  bool
+	prevOptionNPAlgo          string
+	prevOptionDPMode          string
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -56,6 +59,9 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 
 	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
 	option.Config.EnableSVCSourceRangeCheck = true
+
+	m.prevOptionNPAlgo = option.Config.NodePortAlg
+	m.prevOptionDPMode = option.Config.DatapathMode
 }
 
 func (m *ManagerTestSuite) TearDownTest(c *C) {
@@ -63,6 +69,8 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 	backendIDAlloc.resetLocalID()
 	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
 	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
+	option.Config.NodePortAlg = m.prevOptionNPAlgo
+	option.Config.DatapathMode = m.prevOptionDPMode
 }
 
 var (
@@ -227,6 +235,8 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 
 	// Restart service, but keep the lbmap to restore services from
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
@@ -261,7 +271,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(m.svc.svcByID[id2].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id2].sessionAffinityTimeoutSec, Equals, uint32(200))
 
-	// LoadBalancer source ranges
+	// LoadBalancer source ranges too
 	c.Assert(len(m.svc.svcByID[id2].loadBalancerSourceRanges), Equals, 2)
 	for _, cidr := range []*cidr.CIDR{cidr1, cidr2} {
 		found := false
@@ -273,6 +283,10 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 		}
 		c.Assert(found, Equals, true)
 	}
+
+	// Maglev lookup table too
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id2)], Equals, len(backends2))
 
 	// Check that the non-existing affinity matches were removed
 	matches, _ := lbmap.DumpAffinityMatches()
