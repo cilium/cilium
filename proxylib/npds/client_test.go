@@ -77,7 +77,7 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 type updater struct{}
 
 func (u *updater) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryResponse) error {
-	log.Debugf("Received policy update: %v", *resp)
+	log.Debugf("Received policy update: %s", resp.String())
 	return nil
 }
 

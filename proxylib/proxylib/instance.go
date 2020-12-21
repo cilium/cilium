@@ -195,7 +195,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryRespon
 		oldPolicy, found := oldMap[policyName]
 		if found {
 			// Check if the new policy is the same as the old one
-			if proto.Equal(&config, &oldPolicy.protobuf) {
+			if proto.Equal(&config, oldPolicy.protobuf) {
 				log.Debugf("NPDS: New policy for %s is equal to the old one, no need to change", policyName)
 				newMap[policyName] = oldPolicy
 				continue
@@ -207,7 +207,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryRespon
 			return fmt.Errorf("NPDS: Policy validation error for %s: %v", policyName, err)
 		}
 
-		// Create new PolicyInstance, may panic
+		// Create new PolicyInstance, may panic. Takes ownership of 'config'.
 		newMap[policyName] = newPolicyInstance(&config)
 	}
 

@@ -131,8 +131,8 @@ func checkAccessLogs(t *testing.T, logServer *test.AccessLogServer, expPasses, e
 	// Loop until done or when the timeout has ticked 100 times without any logs being received
 	for !done && nWaits < 100 {
 		select {
-		case pblog := <-logServer.Logs:
-			if pblog.EntryType == cilium.EntryType_Denied {
+		case entryType := <-logServer.Logs:
+			if entryType == cilium.EntryType_Denied {
 				drops++
 			} else {
 				passes++
