@@ -127,7 +127,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		}
 		if err := newNpHost.Validate(); err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.XDSResource: newNpHost,
+				logfields.XDSResource: newNpHost.String(),
 			}).Warning("Could not validate NPHDS resource update on upsert")
 			return
 		}
