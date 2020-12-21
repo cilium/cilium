@@ -32,7 +32,7 @@ type AccessLogServerSuite struct{}
 var _ = Suite(&AccessLogServerSuite{})
 
 func (k *AccessLogServerSuite) TestParseURL(c *C) {
-	logs := []cilium.HttpLogEntry{
+	logs := []*cilium.HttpLogEntry{
 		{Scheme: "http", Host: "foo", Path: "/foo?blah=131"},
 		{Scheme: "http", Host: "foo", Path: "foo?blah=131"},
 		{Scheme: "http", Host: "foo", Path: "/foo"},
