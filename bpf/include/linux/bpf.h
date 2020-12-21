@@ -4479,14 +4479,7 @@ struct bpf_sock_addr {
 	__u32 msg_src_ip6[4];	/* Allows 1,2,4,8-byte read and 4,8-byte write.
 				 * Stored in network byte order.
 				 */
-
-	/* TODO: compiled out for now since this cases verifier breakage
-	 * on older kernels resulting in invalid bpf_context access. Needs
-	 * follow-up investigation.
-	 */
-#if 0
 	__bpf_md_ptr(struct bpf_sock *, sk);
-#endif
 };
 
 /* User bpf_sock_ops struct to access socket values and specify request ops

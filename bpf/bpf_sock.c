@@ -574,9 +574,13 @@ static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 					       union v6addr *addr)
 {
 	addr->p1 = ctx->user_ip6[0];
+	barrier();
 	addr->p2 = ctx->user_ip6[1];
+	barrier();
 	addr->p3 = ctx->user_ip6[2];
+	barrier();
 	addr->p4 = ctx->user_ip6[3];
+	barrier();
 }
 
 #ifdef ENABLE_NODEPORT
@@ -584,9 +588,13 @@ static __always_inline void ctx_get_v6_src_address(const struct bpf_sock *ctx,
 						   union v6addr *addr)
 {
 	addr->p1 = ctx->src_ip6[0];
+	barrier();
 	addr->p2 = ctx->src_ip6[1];
+	barrier();
 	addr->p3 = ctx->src_ip6[2];
+	barrier();
 	addr->p4 = ctx->src_ip6[3];
+	barrier();
 }
 #endif /* ENABLE_NODEPORT */
 
@@ -594,9 +602,13 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 					       const union v6addr *addr)
 {
 	ctx->user_ip6[0] = addr->p1;
+	barrier();
 	ctx->user_ip6[1] = addr->p2;
+	barrier();
 	ctx->user_ip6[2] = addr->p3;
+	barrier();
 	ctx->user_ip6[3] = addr->p4;
+	barrier();
 }
 
 static __always_inline __maybe_unused bool
