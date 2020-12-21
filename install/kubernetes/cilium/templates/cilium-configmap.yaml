@@ -320,6 +320,18 @@ data:
 {{- if .Values.eni.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
+{{- if .Values.eni.updateEC2AdapterLimitViaAPI }}
+  update-ec2-adapter-limit-via-api: "true"
+  # The below value is deprecated and will be removed in a future release, see https://github.com/cilium/cilium/issues/12396
+  update-ec2-apdater-limit-via-api: "true"
+{{- end }}
+{{- if .Values.eni.awsReleaseExcessIPs }}
+  aws-release-excess-ips: "true"
+{{- end }}
+  ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
+  eni-tags: {{ .Values.eni.eniTags }}
+  subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | quote }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter | quote }}
 {{- end }}
 
 {{- if .Values.azure.enabled }}
