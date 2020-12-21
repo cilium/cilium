@@ -18,22 +18,15 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 
-	"github.com/cilium/cilium/pkg/aws/endpoints"
+	cilium_ec2 "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-)
-
-const (
-	awsDefaultRegionKey = "AWS_DEFAULT_REGION"
-	awsDefaultRegion    = "eu-west-1"
 )
 
 var (
@@ -55,25 +48,9 @@ func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]net.IP, error)
 	return getInstancesIpsFromFilter(ctx, group.AWS)
 }
 
-// initializeAWSAccount retrieve the env variables from the runtime and it
-// iniliazes the account in the specified region.
-func initializeAWSAccount(region string) (*aws.Config, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize aws connector: %s", err)
-	}
-	cfg.Region = region
-	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
-	return &cfg, nil
-}
-
 // getInstancesFromFilter returns the instances IPs in aws EC2 filter by the
 // given filter
 func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net.IP, error) {
-	region := filter.Region
-	if filter.Region == "" {
-		region = getDefaultRegion()
-	}
 	input := &ec2.DescribeInstancesInput{}
 	for labelKey, labelValue := range filter.Labels {
 		newFilter := ec2_types.Filter{
@@ -96,37 +73,27 @@ func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
-	cfg, err := initializeAWSAccount(region)
+	cfg, err := cilium_ec2.NewConfig(ctx)
 	if err != nil {
 		return []net.IP{}, err
 	}
-	svc := ec2.NewFromConfig(*cfg)
-	result, err := svc.DescribeInstances(ctx, input)
+	ec2Client := ec2.NewFromConfig(cfg)
+	result, err := ec2Client.DescribeInstances(ctx, input)
 	if err != nil {
 		return []net.IP{}, fmt.Errorf("Cannot retrieve aws information: %s", err)
 	}
-	return awsDumpIpsFromRequest(result), nil
+	return extractIPs(result), nil
 }
 
-// getDefaultRegion returns the given region of the default one.
-// @TODO retrieve the region from aws metadata.
-func getDefaultRegion() string {
-	val := os.Getenv(awsDefaultRegionKey)
-	if val != "" {
-		return val
-	}
-	return awsDefaultRegion
-}
-
-func awsDumpIpsFromRequest(req *ec2.DescribeInstancesOutput) []net.IP {
+func extractIPs(req *ec2.DescribeInstancesOutput) []net.IP {
 	result := []net.IP{}
 	for _, reservation := range req.Reservations {
 		for _, instance := range reservation.Instances {
 			for _, iface := range instance.NetworkInterfaces {
 				for _, ifaceIP := range iface.PrivateIpAddresses {
-					result = append(result, net.ParseIP(string(*ifaceIP.PrivateIpAddress)))
+					result = append(result, net.ParseIP(aws.ToString(ifaceIP.PrivateIpAddress)))
 					if ifaceIP.Association != nil {
-						result = append(result, net.ParseIP(string(*ifaceIP.Association.PublicIp)))
+						result = append(result, net.ParseIP(aws.ToString(ifaceIP.Association.PublicIp)))
 					}
 				}
 			}
