@@ -17,18 +17,48 @@ on your existing installation:
            helm upgrade cilium |CHART_RELEASE| \\
               --namespace $CILIUM_NAMESPACE \\
               --reuse-values \\
+              --set hubble.listenAddress=":4244" \\
               --set hubble.relay.enabled=true \\
               --set hubble.ui.enabled=true
 
+        On Cilium 1.9.1 and older, the Cilium agent pods will be restarted in
+        the process.
+
     .. group-tab:: Installation via ``quick-hubble-install.yaml``
 
-        If you installed Cilium via the provided ``quick-install.yaml``,
-        you may deploy Hubble Relay and UI on top of your existing installation
-        with the following command:
+        If you installed Cilium **1.9.2 or newer** via the provided
+        ``quick-install.yaml``, you may deploy Hubble Relay and UI on top of
+        your existing installation with the following command:
 
         .. parsed-literal::
 
             kubectl apply -f |SCM_WEB|/install/kubernetes/quick-hubble-install.yaml
+
+        Installation via ``quick-hubble-install.yaml`` only works if the
+        installed Cilium version is 1.9.2 or newer.  Users of Cilium 1.9.0
+        or 1.9.1 are encouraged to upgrade to a newer version by applying the
+        most recent Cilium ``quick-install.yaml`` first.
+
+        Alternatively, it is possible to manually generate a YAML manifest
+        for the Cilium DaemonSet and Hubble Relay/UI as follows. The generated
+        YAML can be applied on top of an existing installation:
+
+        .. code:: bash
+
+           # Set this to your installed Cilium version
+           export CILIUM_VERSION=1.9.1
+           # Please set any custom Helm values you may need for Cilium,
+           # such as for example `--set operator.replicas=1` on single-cluster nodes.
+           helm template cilium cilium/cilium --version $CILIUM_VERSION \\
+              --namespace $CILIUM_NAMESPACE \\
+              --set hubble.tls.auto.method="cronJob" \\
+              --set hubble.listenAddress=":4244" \\
+              --set hubble.relay.enabled=true \\
+              --set hubble.ui.enabled=true > cilium-with-hubble.yaml
+           # This will modify your existing Cilium DaemonSet and ConfigMap
+           kubectl apply -f cilium-with-hubble.yaml
+
+        The Cilium agent pods will be restarted in the process.
 
 Once the Hubble UI pod is started, use port forwarding for the ``hubble-ui``
 service. This allows opening the UI locally on a browser:
