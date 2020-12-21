@@ -380,6 +380,18 @@ endpointRoutes:
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
+  # -- Update ENI Adapter limits from the EC2 API
+  updateEC2AdapterLimitViaAPI: false
+  # -- Release IPs not used from the ENI
+  awsReleaseExcessIPs: false
+  # -- EC2 API endpoint to usee
+  ec2APIEndpoint: ""
+  # -- Tags to apply to the newly created ENIs
+  eniTags: {}
+  # -- Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs
+  subnetIDsFilter: ""
+  # -- Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs
+  subnetTagsFilter: ""
 
 externalIPs:
   # -- Enable ExternalIPs service support.

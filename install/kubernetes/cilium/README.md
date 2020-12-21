@@ -119,7 +119,13 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.secretName | string | `"cilium-ipsec-keys"` | Name of the Kubernetes secret containing the encryption keys. |
 | endpointHealthChecking.enabled | bool | `true` |  |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
+| eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI |
+| eni.ec2APIEndpoint | string | `""` | EC2 API endpoint to usee |
 | eni.enabled | bool | `false` | Enable Elastic Network Interface (ENI) integration. |
+| eni.eniTags | object | `{}` | Tags to apply to the newly created ENIs |
+| eni.subnetIDsFilter | string | `""` | Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs |
+| eni.subnetTagsFilter | string | `""` | Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs |
+| eni.updateEC2AdapterLimitViaAPI | bool | `false` | Update ENI Adapter limits from the EC2 API |
 | etcd.clusterDomain | string | `"cluster.local"` | Cluster domain for cilium-etcd-operator. |
 | etcd.clusterSize | int | `3` | Size of the managed etcd cluster. |
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |
