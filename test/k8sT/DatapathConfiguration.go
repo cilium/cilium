@@ -280,6 +280,17 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
 				Should(BeTrue(), "Connectivity test to http://google.com failed")
 		})
+
+		It("Check iptables masquerading without random-fully", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"bpf.masquerade": "false",
+			}, DeployCiliumOptionsAndDNS)
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+
+			By("Test iptables masquerading")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
+				Should(BeTrue(), "Connectivity test to http://google.com failed")
+		})
 	})
 
 	// DirectRouting without AutoDirectNodeRoutes not supported outside of GKE.
