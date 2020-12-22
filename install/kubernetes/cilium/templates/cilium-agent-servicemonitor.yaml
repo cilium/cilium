@@ -36,7 +36,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: cilium
+      k8s-app: hubble
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
