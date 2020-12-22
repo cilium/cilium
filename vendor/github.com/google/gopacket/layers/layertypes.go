@@ -143,6 +143,11 @@ var (
 	LayerTypeMLDv2MulticastListenerQuery  = gopacket.RegisterLayerType(139, gopacket.LayerTypeMetadata{Name: "MLDv2MulticastListenerQuery", Decoder: gopacket.DecodeFunc(decodeMLDv2MulticastListenerQuery)})
 	LayerTypeTLS                          = gopacket.RegisterLayerType(140, gopacket.LayerTypeMetadata{Name: "TLS", Decoder: gopacket.DecodeFunc(decodeTLS)})
 	LayerTypeModbusTCP                    = gopacket.RegisterLayerType(141, gopacket.LayerTypeMetadata{Name: "ModbusTCP", Decoder: gopacket.DecodeFunc(decodeModbusTCP)})
+	LayerTypeRMCP                         = gopacket.RegisterLayerType(142, gopacket.LayerTypeMetadata{Name: "RMCP", Decoder: gopacket.DecodeFunc(decodeRMCP)})
+	LayerTypeASF                          = gopacket.RegisterLayerType(143, gopacket.LayerTypeMetadata{Name: "ASF", Decoder: gopacket.DecodeFunc(decodeASF)})
+	LayerTypeASFPresencePong              = gopacket.RegisterLayerType(144, gopacket.LayerTypeMetadata{Name: "ASFPresencePong", Decoder: gopacket.DecodeFunc(decodeASFPresencePong)})
+	LayerTypeERSPANII                     = gopacket.RegisterLayerType(145, gopacket.LayerTypeMetadata{Name: "ERSPAN Type II", Decoder: gopacket.DecodeFunc(decodeERSPANII)})
+	LayerTypeRADIUS                       = gopacket.RegisterLayerType(146, gopacket.LayerTypeMetadata{Name: "RADIUS", Decoder: gopacket.DecodeFunc(decodeRADIUS)})
 )
 
 var (

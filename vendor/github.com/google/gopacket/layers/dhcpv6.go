@@ -8,7 +8,6 @@ package layers
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net"
 
@@ -88,12 +87,20 @@ func (d *DHCPv6) LayerType() gopacket.LayerType { return LayerTypeDHCPv6 }
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (d *DHCPv6) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 4 {
+		df.SetTruncated()
+		return fmt.Errorf("DHCPv6 length %d too short", len(data))
+	}
 	d.BaseLayer = BaseLayer{Contents: data}
 	d.Options = d.Options[:0]
 	d.MsgType = DHCPv6MsgType(data[0])
 
 	offset := 0
 	if d.MsgType == DHCPv6MsgTypeRelayForward || d.MsgType == DHCPv6MsgTypeRelayReply {
+		if len(data) < 34 {
+			df.SetTruncated()
+			return fmt.Errorf("DHCPv6 length %d too short for message type %d", len(data), d.MsgType)
+		}
 		d.HopCount = data[1]
 		d.LinkAddr = net.IP(data[2:18])
 		d.PeerAddr = net.IP(data[18:34])
@@ -261,21 +268,33 @@ type DHCPv6DUID struct {
 // DecodeFromBytes decodes the given bytes into a DHCPv6DUID
 func (d *DHCPv6DUID) DecodeFromBytes(data []byte) error {
 	if len(data) < 2 {
-		return errors.New("Not enough bytes to decode: " + string(len(data)))
+		return fmt.Errorf("Not enough bytes to decode: %d", len(data))
 	}
 
 	d.Type = DHCPv6DUIDType(binary.BigEndian.Uint16(data[:2]))
 	if d.Type == DHCPv6DUIDTypeLLT || d.Type == DHCPv6DUIDTypeLL {
+		if len(data) < 4 {
+			return fmt.Errorf("Not enough bytes to decode: %d", len(data))
+		}
 		d.HardwareType = data[2:4]
 	}
 
 	if d.Type == DHCPv6DUIDTypeLLT {
+		if len(data) < 8 {
+			return fmt.Errorf("Not enough bytes to decode: %d", len(data))
+		}
 		d.Time = data[4:8]
 		d.LinkLayerAddress = net.HardwareAddr(data[8:])
 	} else if d.Type == DHCPv6DUIDTypeEN {
+		if len(data) < 6 {
+			return fmt.Errorf("Not enough bytes to decode: %d", len(data))
+		}
 		d.EnterpriseNumber = data[2:6]
 		d.Identifier = data[6:]
 	} else { // DHCPv6DUIDTypeLL
+		if len(data) < 4 {
+			return fmt.Errorf("Not enough bytes to decode: %d", len(data))
+		}
 		d.LinkLayerAddress = net.HardwareAddr(data[4:])
 	}
 

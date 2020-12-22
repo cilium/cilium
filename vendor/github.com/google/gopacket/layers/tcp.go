@@ -108,10 +108,12 @@ func (t TCPOption) String() string {
 	}
 	switch t.OptionType {
 	case TCPOptionKindMSS:
-		return fmt.Sprintf("TCPOption(%s:%v%s)",
-			t.OptionType,
-			binary.BigEndian.Uint16(t.OptionData),
-			hd)
+		if len(t.OptionData) >= 2 {
+			return fmt.Sprintf("TCPOption(%s:%v%s)",
+				t.OptionType,
+				binary.BigEndian.Uint16(t.OptionData),
+				hd)
+		}
 
 	case TCPOptionKindTimestamps:
 		if len(t.OptionData) == 8 {
@@ -254,6 +256,7 @@ func (tcp *TCP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	} else {
 		tcp.Options = tcp.Options[:0]
 	}
+	tcp.Padding = tcp.Padding[:0]
 	if tcp.DataOffset < 5 {
 		return fmt.Errorf("Invalid TCP data offset %d < 5", tcp.DataOffset)
 	}
@@ -268,6 +271,7 @@ func (tcp *TCP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	tcp.Payload = data[dataStart:]
 	// From here on, data points just to the header options.
 	data = data[20:dataStart]
+OPTIONS:
 	for len(data) > 0 {
 		tcp.Options = append(tcp.Options, TCPOption{OptionType: TCPOptionKind(data[0])})
 		opt := &tcp.Options[len(tcp.Options)-1]
@@ -275,7 +279,7 @@ func (tcp *TCP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		case TCPOptionKindEndList: // End of options
 			opt.OptionLength = 1
 			tcp.Padding = data[1:]
-			break
+			break OPTIONS
 		case TCPOptionKindNop: // 1 byte padding
 			opt.OptionLength = 1
 		default:

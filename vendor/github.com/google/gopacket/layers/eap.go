@@ -47,9 +47,17 @@ func (e *EAP) LayerType() gopacket.LayerType { return LayerTypeEAP }
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (e *EAP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 4 {
+		df.SetTruncated()
+		return fmt.Errorf("EAP length %d too short", len(data))
+	}
 	e.Code = EAPCode(data[0])
 	e.Id = data[1]
 	e.Length = binary.BigEndian.Uint16(data[2:4])
+	if len(data) < int(e.Length) {
+		df.SetTruncated()
+		return fmt.Errorf("EAP length %d too short, %d expected", len(data), e.Length)
+	}
 	switch {
 	case e.Length > 4:
 		e.Type = EAPType(data[4])

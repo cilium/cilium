@@ -608,14 +608,14 @@ func (o *DHCPv6Option) encode(b []byte, opts gopacket.SerializeOptions) error {
 }
 
 func (o *DHCPv6Option) decode(data []byte) error {
-	if len(data) < 2 {
+	if len(data) < 4 {
 		return errors.New("not enough data to decode")
 	}
 	o.Code = DHCPv6Opt(binary.BigEndian.Uint16(data[0:2]))
-	if len(data) < 3 {
-		return errors.New("not enough data to decode")
-	}
 	o.Length = binary.BigEndian.Uint16(data[2:4])
+	if len(data) < 4+int(o.Length) {
+		return fmt.Errorf("dhcpv6 option size < length %d", 4+o.Length)
+	}
 	o.Data = data[4 : 4+o.Length]
 	return nil
 }

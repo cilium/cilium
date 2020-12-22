@@ -160,6 +160,9 @@ func (g *GTPv1U) CanDecode() gopacket.LayerClass {
 
 // NextLayerType specifies the next layer that GoPacket should attempt to
 func (g *GTPv1U) NextLayerType() gopacket.LayerType {
+	if len(g.LayerPayload()) == 0 {
+		return gopacket.LayerTypeZero
+	}
 	version := uint8(g.LayerPayload()[0]) >> 4
 	if version == 4 {
 		return LayerTypeIPv4

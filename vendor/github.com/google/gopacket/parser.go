@@ -10,6 +10,12 @@ import (
 	"fmt"
 )
 
+// A container for single LayerType->DecodingLayer mapping.
+type decodingLayerElem struct {
+	typ LayerType
+	dec DecodingLayer
+}
+
 // DecodingLayer is an interface for packet layers that can decode themselves.
 //
 // The important part of DecodingLayer is that they decode themselves in-place.
@@ -39,15 +45,150 @@ type DecodingLayer interface {
 	LayerPayload() []byte
 }
 
+// DecodingLayerFunc decodes given packet and stores decoded LayerType
+// values into specified slice. Returns either first encountered
+// unsupported LayerType value or decoding error. In case of success,
+// returns (LayerTypeZero, nil).
+type DecodingLayerFunc func([]byte, *[]LayerType) (LayerType, error)
+
+// DecodingLayerContainer stores all DecodingLayer-s and serves as a
+// searching tool for DecodingLayerParser.
+type DecodingLayerContainer interface {
+	// Put adds new DecodingLayer to container. The new instance of
+	// the same DecodingLayerContainer is returned so it may be
+	// implemented as a value receiver.
+	Put(DecodingLayer) DecodingLayerContainer
+	// Decoder returns DecodingLayer to decode given LayerType and
+	// true if it was found. If no decoder found, return false.
+	Decoder(LayerType) (DecodingLayer, bool)
+	// LayersDecoder returns DecodingLayerFunc which decodes given
+	// packet, starting with specified LayerType and DecodeFeedback.
+	LayersDecoder(first LayerType, df DecodeFeedback) DecodingLayerFunc
+}
+
+// DecodingLayerSparse is a sparse array-based implementation of
+// DecodingLayerContainer. Each DecodingLayer is addressed in an
+// allocated slice by LayerType value itself. Though this is the
+// fastest container it may be memory-consuming if used with big
+// LayerType values.
+type DecodingLayerSparse []DecodingLayer
+
+// Put implements DecodingLayerContainer interface.
+func (dl DecodingLayerSparse) Put(d DecodingLayer) DecodingLayerContainer {
+	maxLayerType := LayerType(len(dl) - 1)
+	for _, typ := range d.CanDecode().LayerTypes() {
+		if typ > maxLayerType {
+			maxLayerType = typ
+		}
+	}
+
+	if extra := maxLayerType - LayerType(len(dl)) + 1; extra > 0 {
+		dl = append(dl, make([]DecodingLayer, extra)...)
+	}
+
+	for _, typ := range d.CanDecode().LayerTypes() {
+		dl[typ] = d
+	}
+	return dl
+}
+
+// LayersDecoder implements DecodingLayerContainer interface.
+func (dl DecodingLayerSparse) LayersDecoder(first LayerType, df DecodeFeedback) DecodingLayerFunc {
+	return LayersDecoder(dl, first, df)
+}
+
+// Decoder implements DecodingLayerContainer interface.
+func (dl DecodingLayerSparse) Decoder(typ LayerType) (DecodingLayer, bool) {
+	if int64(typ) < int64(len(dl)) {
+		decoder := dl[typ]
+		return decoder, decoder != nil
+	}
+	return nil, false
+}
+
+// DecodingLayerArray is an array-based implementation of
+// DecodingLayerContainer. Each DecodingLayer is searched linearly in
+// an allocated slice in one-by-one fashion.
+type DecodingLayerArray []decodingLayerElem
+
+// Put implements DecodingLayerContainer interface.
+func (dl DecodingLayerArray) Put(d DecodingLayer) DecodingLayerContainer {
+TYPES:
+	for _, typ := range d.CanDecode().LayerTypes() {
+		for i := range dl {
+			if dl[i].typ == typ {
+				dl[i].dec = d
+				continue TYPES
+			}
+		}
+		dl = append(dl, decodingLayerElem{typ, d})
+	}
+	return dl
+}
+
+// Decoder implements DecodingLayerContainer interface.
+func (dl DecodingLayerArray) Decoder(typ LayerType) (DecodingLayer, bool) {
+	for i := range dl {
+		if dl[i].typ == typ {
+			return dl[i].dec, true
+		}
+	}
+	return nil, false
+}
+
+// LayersDecoder implements DecodingLayerContainer interface.
+func (dl DecodingLayerArray) LayersDecoder(first LayerType, df DecodeFeedback) DecodingLayerFunc {
+	return LayersDecoder(dl, first, df)
+}
+
+// DecodingLayerMap is an map-based implementation of
+// DecodingLayerContainer. Each DecodingLayer is searched in a map
+// hashed by LayerType value.
+type DecodingLayerMap map[LayerType]DecodingLayer
+
+// Put implements DecodingLayerContainer interface.
+func (dl DecodingLayerMap) Put(d DecodingLayer) DecodingLayerContainer {
+	for _, typ := range d.CanDecode().LayerTypes() {
+		if dl == nil {
+			dl = make(map[LayerType]DecodingLayer)
+		}
+		dl[typ] = d
+	}
+	return dl
+}
+
+// Decoder implements DecodingLayerContainer interface.
+func (dl DecodingLayerMap) Decoder(typ LayerType) (DecodingLayer, bool) {
+	d, ok := dl[typ]
+	return d, ok
+}
+
+// LayersDecoder implements DecodingLayerContainer interface.
+func (dl DecodingLayerMap) LayersDecoder(first LayerType, df DecodeFeedback) DecodingLayerFunc {
+	return LayersDecoder(dl, first, df)
+}
+
+// Static code check.
+var (
+	_ = []DecodingLayerContainer{
+		DecodingLayerSparse(nil),
+		DecodingLayerMap(nil),
+		DecodingLayerArray(nil),
+	}
+)
+
 // DecodingLayerParser parses a given set of layer types.  See DecodeLayers for
 // more information on how DecodingLayerParser should be used.
 type DecodingLayerParser struct {
 	// DecodingLayerParserOptions is the set of options available to the
 	// user to define the parser's behavior.
 	DecodingLayerParserOptions
-	first    LayerType
-	decoders map[LayerType]DecodingLayer
-	df       DecodeFeedback
+	dlc   DecodingLayerContainer
+	first LayerType
+	df    DecodeFeedback
+
+	decodeFunc DecodingLayerFunc
+
 	// Truncated is set when a decode layer detects that the packet has been
 	// truncated.
 	Truncated bool
@@ -57,9 +198,7 @@ type DecodingLayerParser struct {
 // the decoding layer's CanDecode layers to the parser... should they be
 // encountered, they'll be parsed.
 func (l *DecodingLayerParser) AddDecodingLayer(d DecodingLayer) {
-	for _, typ := range d.CanDecode().LayerTypes() {
-		l.decoders[typ] = d
-	}
+	l.SetDecodingLayerContainer(l.dlc.Put(d))
 }
 
 // SetTruncated is used by DecodingLayers to set the Truncated boolean in the
@@ -77,16 +216,28 @@ func (l *DecodingLayerParser) SetTruncated() {
 // subsequently decoded layers to find the next relevant decoder.  Should a
 // deoder not be available for the layer type returned by NextLayerType,
 // decoding will stop.
+//
+// NewDecodingLayerParser uses DecodingLayerMap container by
+// default.
 func NewDecodingLayerParser(first LayerType, decoders ...DecodingLayer) *DecodingLayerParser {
-	dlp := &DecodingLayerParser{
-		decoders: make(map[LayerType]DecodingLayer),
-		first:    first,
-	}
+	dlp := &DecodingLayerParser{first: first}
 	dlp.df = dlp // Cast this once to the interface
+	// default container
+	dlc := DecodingLayerContainer(DecodingLayerMap(make(map[LayerType]DecodingLayer)))
 	for _, d := range decoders {
-		dlp.AddDecodingLayer(d)
+		dlc = dlc.Put(d)
 	}
+
+	dlp.SetDecodingLayerContainer(dlc)
 	return dlp
+}
+
+// SetDecodingLayerContainer specifies container with decoders. This
+// call replaces all decoders already registered in given instance of
+// DecodingLayerParser.
+func (l *DecodingLayerParser) SetDecodingLayerContainer(dlc DecodingLayerContainer) {
+	l.dlc = dlc
+	l.decodeFunc = l.dlc.LayersDecoder(l.first, l.df)
 }
 
 // DecodeLayers decodes as many layers as possible from the given data.  It
@@ -153,23 +304,15 @@ func (l *DecodingLayerParser) DecodeLayers(data []byte, decoded *[]LayerType) (e
 	if !l.IgnorePanic {
 		defer panicToError(&err)
 	}
-	typ := l.first
-	*decoded = (*decoded)[:0] // Truncated decoded layers.
-	for len(data) > 0 {
-		decoder, ok := l.decoders[typ]
-		if !ok {
-			if l.IgnoreUnsupported {
-				return nil
-			}
-			return UnsupportedLayerType(typ)
-		} else if err = decoder.DecodeFromBytes(data, l.df); err != nil {
-			return err
+	typ, err := l.decodeFunc(data, decoded)
+	if typ != LayerTypeZero {
+		// no decoder
+		if l.IgnoreUnsupported {
+			return nil
 		}
-		*decoded = append(*decoded, typ)
-		typ = decoder.NextLayerType()
-		data = decoder.LayerPayload()
+		return UnsupportedLayerType(typ)
 	}
-	return nil
+	return err
 }
 
 // UnsupportedLayerType is returned by DecodingLayerParser if DecodeLayers
