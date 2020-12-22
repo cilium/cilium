@@ -471,7 +471,7 @@ type MLDv2MulticastAddressRecord struct {
 
 // decodes a multicast address record from bytes
 func (m *MLDv2MulticastAddressRecord) decode(data []byte, df gopacket.DecodeFeedback) (int, error) {
-	if len(data) < 4 {
+	if len(data) < 20 {
 		df.SetTruncated()
 		return 0, errors.New(
 			"Multicast Listener Report Message V2 layer less than 4 bytes for Multicast Address Record")

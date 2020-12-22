@@ -135,6 +135,7 @@ func (t *TLS) decodeTLSRecords(data []byte, df gopacket.DecodeFeedback) error {
 
 	// since there are no further layers, the baselayer's content is
 	// pointing to this layer
+	// TODO: Consider removing this
 	t.BaseLayer = BaseLayer{Contents: data[:len(data)]}
 
 	var h TLSRecordHeader
@@ -205,4 +206,78 @@ func (t *TLS) NextLayerType() gopacket.LayerType {
 // Payload returns nil, since TLS encrypted payload is inside TLSAppDataRecord
 func (t *TLS) Payload() []byte {
 	return nil
+}
+
+// SerializeTo writes the serialized form of this layer into the
+// SerializationBuffer, implementing gopacket.SerializableLayer.
+func (t *TLS) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	totalLength := 0
+	for _, record := range t.ChangeCipherSpec {
+		if opts.FixLengths {
+			record.Length = 1
+		}
+		totalLength += 5 + 1 // length of header + record
+	}
+	for range t.Handshake {
+		totalLength += 5
+		// TODO
+	}
+	for _, record := range t.AppData {
+		if opts.FixLengths {
+			record.Length = uint16(len(record.Payload))
+		}
+		totalLength += 5 + len(record.Payload)
+	}
+	for _, record := range t.Alert {
+		if len(record.EncryptedMsg) == 0 {
+			if opts.FixLengths {
+				record.Length = 2
+			}
+			totalLength += 5 + 2
+		} else {
+			if opts.FixLengths {
+				record.Length = uint16(len(record.EncryptedMsg))
+			}
+			totalLength += 5 + len(record.EncryptedMsg)
+		}
+	}
+	data, err := b.PrependBytes(totalLength)
+	if err != nil {
+		return err
+	}
+	off := 0
+	for _, record := range t.ChangeCipherSpec {
+		off = encodeHeader(record.TLSRecordHeader, data, off)
+		data[off] = byte(record.Message)
+		off++
+	}
+	for _, record := range t.Handshake {
+		off = encodeHeader(record.TLSRecordHeader, data, off)
+		// TODO
+	}
+	for _, record := range t.AppData {
+		off = encodeHeader(record.TLSRecordHeader, data, off)
+		copy(data[off:], record.Payload)
+		off += len(record.Payload)
+	}
+	for _, record := range t.Alert {
+		off = encodeHeader(record.TLSRecordHeader, data, off)
+		if len(record.EncryptedMsg) == 0 {
+			data[off] = byte(record.Level)
+			data[off+1] = byte(record.Description)
+			off += 2
+		} else {
+			copy(data[off:], record.EncryptedMsg)
+			off += len(record.EncryptedMsg)
+		}
+	}
+	return nil
+}
+
+func encodeHeader(header TLSRecordHeader, data []byte, offset int) int {
+	data[offset] = byte(header.ContentType)
+	binary.BigEndian.PutUint16(data[offset+1:], uint16(header.Version))
+	binary.BigEndian.PutUint16(data[offset+3:], header.Length)
+
+	return offset + 5
 }

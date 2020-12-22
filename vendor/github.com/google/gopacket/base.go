@@ -78,7 +78,7 @@ func (p Payload) SerializeTo(b SerializeBuffer, opts SerializeOptions) error {
 func decodePayload(data []byte, p PacketBuilder) error {
 	payload := &Payload{}
 	if err := payload.DecodeFromBytes(data, p); err != nil {
-		return nil
+		return err
 	}
 	p.AddLayer(payload)
 	p.SetApplicationLayer(payload)
@@ -132,7 +132,7 @@ func (p *Fragment) SerializeTo(b SerializeBuffer, opts SerializeOptions) error {
 func decodeFragment(data []byte, p PacketBuilder) error {
 	payload := &Fragment{}
 	if err := payload.DecodeFromBytes(data, p); err != nil {
-		return nil
+		return err
 	}
 	p.AddLayer(payload)
 	p.SetApplicationLayer(payload)

@@ -41,7 +41,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.4
-	github.com/google/gopacket v1.1.17
+	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.14
 	github.com/google/renameio v0.1.0
 	github.com/google/uuid v1.1.2

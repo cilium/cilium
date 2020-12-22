@@ -27,6 +27,10 @@ func (d *Dot1Q) LayerType() gopacket.LayerType { return LayerTypeDot1Q }
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (d *Dot1Q) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 4 {
+		df.SetTruncated()
+		return fmt.Errorf("802.1Q tag length %d too short", len(data))
+	}
 	d.Priority = (data[0] & 0xE0) >> 5
 	d.DropEligible = data[0]&0x10 != 0
 	d.VLANIdentifier = binary.BigEndian.Uint16(data[:2]) & 0x0FFF

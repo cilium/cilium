@@ -341,7 +341,7 @@ github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.1.0
 github.com/google/gofuzz
-# github.com/google/gopacket v1.1.17
+# github.com/google/gopacket v1.1.19
 ## explicit
 github.com/google/gopacket
 github.com/google/gopacket/layers

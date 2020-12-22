@@ -779,6 +779,16 @@ func (c *LinkLayerDiscovery) SerializeTo(b gopacket.SerializeBuffer, opts gopack
 	binary.BigEndian.PutUint16(vb[chassIDLen+portIDLen:], ttlIDLen)
 	binary.BigEndian.PutUint16(vb[chassIDLen+portIDLen+2:], c.TTL)
 
+	for _, v := range c.Values {
+		vb, err := b.AppendBytes(int(v.Length) + 2) // +2 for TLV type and length; 1 byte for subtype is included in v.Value
+		if err != nil {
+			return err
+		}
+		idLen := ((uint16(v.Type) << 9) | v.Length)
+		binary.BigEndian.PutUint16(vb[0:2], idLen)
+		copy(vb[2:], v.Value)
+	}
+
 	vb, err = b.AppendBytes(2) // End Tlv, 2 bytes
 	if err != nil {
 		return err
@@ -792,10 +802,18 @@ func decodeLinkLayerDiscovery(data []byte, p gopacket.PacketBuilder) error {
 	var vals []LinkLayerDiscoveryValue
 	vData := data[0:]
 	for len(vData) > 0 {
+		if len(vData) < 2 {
+			p.SetTruncated()
+			return errors.New("LLDP vdata < 2 bytes")
+		}
 		nbit := vData[0] & 0x01
 		t := LLDPTLVType(vData[0] >> 1)
 		val := LinkLayerDiscoveryValue{Type: t, Length: uint16(nbit)<<8 + uint16(vData[1])}
 		if val.Length > 0 {
+			if len(vData) < int(val.Length+2) {
+				p.SetTruncated()
+				return fmt.Errorf("LLDP VData < %d bytes", val.Length+2)
+			}
 			val.Value = vData[2 : val.Length+2]
 		}
 		vals = append(vals, val)
@@ -872,10 +890,10 @@ func decodeLinkLayerDiscovery(data []byte, p gopacket.PacketBuilder) error {
 			info.MgmtAddress.InterfaceSubtype = LLDPInterfaceSubtype(v.Value[mlen+1])
 			info.MgmtAddress.InterfaceNumber = binary.BigEndian.Uint32(v.Value[mlen+2 : mlen+6])
 			olen := v.Value[mlen+6]
-			if err := checkLLDPTLVLen(v, int(mlen+6+olen)); err != nil {
+			if err := checkLLDPTLVLen(v, int(mlen+7+olen)); err != nil {
 				return err
 			}
-			info.MgmtAddress.OID = string(v.Value[mlen+9 : mlen+9+olen])
+			info.MgmtAddress.OID = string(v.Value[mlen+7 : mlen+7+olen])
 		case LLDPTLVOrgSpecific:
 			if err := checkLLDPTLVLen(v, 4); err != nil {
 				return err

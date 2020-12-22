@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/google/gopacket"
@@ -38,6 +39,7 @@ const (
 	ASExternalLSAtypeV2     = 0x5
 	ASExternalLSAtype       = 0x4005
 	NSSALSAtype             = 0x2007
+	NSSALSAtypeV2           = 0x7
 	LinkLSAtype             = 0x0008
 	IntraAreaPrefixLSAtype  = 0x2009
 )
@@ -126,6 +128,12 @@ type InterAreaPrefixLSA struct {
 // NetworkLSA is the struct from RFC 5340  A.4.4.
 type NetworkLSA struct {
 	Options        uint32
+	AttachedRouter []uint32
+}
+
+// NetworkLSAV2 is the struct from RFC 2328  A.4.3.
+type NetworkLSAV2 struct {
+	NetworkMask    uint32
 	AttachedRouter []uint32
 }
 
@@ -288,12 +296,30 @@ func extractLSAInformation(lstype, lsalength uint16, data []byte) (interface{}, 
 	switch lstype {
 	case RouterLSAtypeV2:
 		var routers []RouterV2
+		var j uint32
+		for j = 24; j < uint32(lsalength); j += 12 {
+			if len(data) < int(j+12) {
+				return nil, errors.New("LSAtypeV2 too small")
+			}
+			router := RouterV2{
+				LinkID:   binary.BigEndian.Uint32(data[j : j+4]),
+				LinkData: binary.BigEndian.Uint32(data[j+4 : j+8]),
+				Type:     uint8(data[j+8]),
+				Metric:   binary.BigEndian.Uint16(data[j+10 : j+12]),
+			}
+			routers = append(routers, router)
+		}
+		if len(data) < 24 {
+			return nil, errors.New("LSAtypeV2 too small")
+		}
 		links := binary.BigEndian.Uint16(data[22:24])
 		content = RouterLSAV2{
 			Flags:   data[20],
 			Links:   links,
 			Routers: routers,
 		}
+	case NSSALSAtypeV2:
+		fallthrough
 	case ASExternalLSAtypeV2:
 		content = ASExternalLSAV2{
 			NetworkMask:       binary.BigEndian.Uint32(data[20:24]),
@@ -301,6 +327,16 @@ func extractLSAInformation(lstype, lsalength uint16, data []byte) (interface{}, 
 			Metric:            binary.BigEndian.Uint32(data[24:28]) & 0x00FFFFFF,
 			ForwardingAddress: binary.BigEndian.Uint32(data[28:32]),
 			ExternalRouteTag:  binary.BigEndian.Uint32(data[32:36]),
+		}
+	case NetworkLSAtypeV2:
+		var routers []uint32
+		var j uint32
+		for j = 24; j < uint32(lsalength); j += 4 {
+			routers = append(routers, binary.BigEndian.Uint32(data[j:j+4]))
+		}
+		content = NetworkLSAV2{
+			NetworkMask:    binary.BigEndian.Uint32(data[20:24]),
+			AttachedRouter: routers,
 		}
 	case RouterLSAtype:
 		var routers []Router
@@ -346,7 +382,6 @@ func extractLSAInformation(lstype, lsalength uint16, data []byte) (interface{}, 
 	case ASExternalLSAtype:
 		fallthrough
 	case NSSALSAtype:
-
 		flags := uint8(data[20])
 		prefixLen := uint8(data[24]) / 8
 		var forwardingAddress []byte
