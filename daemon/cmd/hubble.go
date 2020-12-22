@@ -328,10 +328,9 @@ func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
 		bits = net.IPv6len * 8
 	}
 	for _, prefixLen := range prefixes {
-		if prefixLen == bits {
-			// IP lookup was already done above; skip it here
-			continue
-		}
+		// note: we perform a lookup even when `prefixLen == bits`, as some
+		// entries derived by a single address cidr-range will not have been
+		// found by the above lookup
 		mask := net.CIDRMask(prefixLen, bits)
 		cidr := net.IPNet{
 			IP:   ip.Mask(mask),
