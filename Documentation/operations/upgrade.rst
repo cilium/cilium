@@ -375,6 +375,7 @@ Removed Options
   now removed.
 * ``crd-wait-timeout``: this option does not have any effect since 1.9 and is
   now removed.
+* ``eni``: this option has been replaced by ``eni.enabled`` option.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
