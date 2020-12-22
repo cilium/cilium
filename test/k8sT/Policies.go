@@ -1733,7 +1733,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				"Web policy cannot be deleted")
 			k8sVersion := helpers.GetCurrentK8SEnv()
 			switch k8sVersion {
-			case "1.10", "1.11", "1.12", "1.13", "1.14", "1.15":
+			case "1.13", "1.14", "1.15":
 				kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated)).ExpectSuccess(
 					"Redis deprecated policy cannot be deleted")
 			default:
@@ -1828,7 +1828,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			k8sVersion := helpers.GetCurrentK8SEnv()
 			switch k8sVersion {
-			case "1.10", "1.11", "1.12", "1.13", "1.14", "1.15":
+			case "1.13", "1.14", "1.15":
 			default:
 				Skip(fmt.Sprintf("K8s %s doesn't support extensions/v1beta1 NetworkPolicies, skipping test", k8sVersion))
 			}

@@ -228,39 +228,6 @@ fi
 # SystemVerification errors are ignored as net-next VM often triggers them, eg:
 #     [ERROR SystemVerification]: unsupported kernel release: 5.0.0-rc6+
 case $K8S_VERSION in
-    "1.8")
-        KUBERNETES_CNI_VERSION="0.5.1"
-        K8S_FULL_VERSION="1.8.14"
-        KUBEADM_OPTIONS="--skip-preflight-checks"
-        KUBEADM_SLAVE_OPTIONS="--skip-preflight-checks"
-        ;;
-    "1.9")
-        KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.9.11"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        ;;
-    "1.10")
-        KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.10.13"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        ;;
-    "1.11")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.11.10"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,FileExisting-crictl,SystemVerification"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,FileExisting-crictl,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        ;;
-    "1.12")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.12.10"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA2}"
-        ;;
     "1.13")
         KUBERNETES_CNI_VERSION="0.7.5"
         K8S_FULL_VERSION="1.13.12"
@@ -356,7 +323,7 @@ esac
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16"|"1.17"|"1.18"|"1.19"|"1.20")
+    "1.13"|"1.14"|"1.15"|"1.16"|"1.17"|"1.18"|"1.19"|"1.20")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
