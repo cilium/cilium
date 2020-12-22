@@ -37,6 +37,9 @@ type StatusResponse struct {
 	//
 	ClientID int64 `json:"client-id,omitempty"`
 
+	// Status of clock source
+	ClockSource *ClockSource `json:"clock-source,omitempty"`
+
 	// Status of cluster
 	Cluster *ClusterStatus `json:"cluster,omitempty"`
 
@@ -48,6 +51,9 @@ type StatusResponse struct {
 
 	// Status of all endpoint controllers
 	Controllers ControllerStatuses `json:"controllers,omitempty"`
+
+	// Status of host routing
+	HostRouting *HostRouting `json:"host-routing,omitempty"`
 
 	// Status of Hubble server
 	Hubble *HubbleStatus `json:"hubble,omitempty"`
@@ -93,6 +99,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateClockSource(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateCluster(formats); err != nil {
 		res = append(res, err)
 	}
@@ -106,6 +116,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateControllers(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateHostRouting(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -205,6 +219,24 @@ func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *StatusResponse) validateClockSource(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ClockSource) { // not required
+		return nil
+	}
+
+	if m.ClockSource != nil {
+		if err := m.ClockSource.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("clock-source")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *StatusResponse) validateCluster(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Cluster) { // not required
@@ -270,6 +302,24 @@ func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
 			return ve.ValidateName("controllers")
 		}
 		return err
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateHostRouting(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.HostRouting) { // not required
+		return nil
+	}
+
+	if m.HostRouting != nil {
+		if err := m.HostRouting.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("host-routing")
+			}
+			return err
+		}
 	}
 
 	return nil

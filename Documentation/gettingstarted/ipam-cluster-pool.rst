@@ -21,18 +21,18 @@ Enable Cluster-pool IPAM mode
 =============================
 
 #. Setup Cilium for Kubernetes using helm with the options:
-   ``--set config.ipam=cluster-pool``.
+   ``--set ipam.mode=cluster-pool``.
 #. Depending if you are using IPv4 and / or IPv6, you might want to adjust
    the ``podCIDR`` allocated for your cluster's pods with the options:
 
-   * ``--set global.ipam.operator.clusterPoolIPv4PodCIDR=<IPv4CIDR>``
-   * ``--set global.ipam.operator.clusterPoolIPv6PodCIDR=<IPv6CIDR>``
+   * ``--set ipam.operator.clusterPoolIPv4PodCIDR=<IPv4CIDR>``
+   * ``--set ipam.operator.clusterPoolIPv6PodCIDR=<IPv6CIDR>``
 
 #. To adjust the CIDR size that should be allocated for each node you can use
    the following options:
 
-   * ``--set global.ipam.operator.clusterPoolIPv4MaskSize=<IPv4MaskSize>``
-   * ``--set global.ipam.operator.clusterPoolIPv6MaskSize=<IPv6MaskSize>``
+   * ``--set ipam.operator.clusterPoolIPv4MaskSize=<IPv4MaskSize>``
+   * ``--set ipam.operator.clusterPoolIPv6MaskSize=<IPv6MaskSize>``
 
 #. Deploy Cilium and Cilium-Operator. Cilium will automatically wait until the
    ``podCIDR`` is allocated for its node by Cilium Operator.

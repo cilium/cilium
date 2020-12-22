@@ -41,11 +41,17 @@ func ExpectKubeDNSReady(vm *helpers.Kubectl) {
 // ExpectCiliumReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumReady(vm *helpers.Kubectl) {
-	err := vm.WaitForCiliumReadiness()
-	Expect(err).To(BeNil(), "Timeout while waiting for Cilium to become ready")
+	vm.WaitForCiliumReadiness(0, "Timeout while waiting for Cilium to become ready")
 
-	err = vm.CiliumPreFlightCheck()
+	err := vm.CiliumPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
+}
+
+func ExpectCiliumNotRunning(vm *helpers.Kubectl) {
+	err := vm.WaitTerminatingPodsInNsWithFilter(helpers.CiliumNamespace, "-l name=cilium-operator", helpers.HelperTimeout)
+	ExpectWithOffset(1, err).To(BeNil(), "terminating cilium-operator pod is not deleted after timeout")
+	err = vm.WaitTerminatingPodsInNsWithFilter(helpers.CiliumNamespace, "-l k8s-app=cilium", helpers.HelperTimeout)
+	ExpectWithOffset(1, err).To(BeNil(), "terminating cilium pods are not deleted after timeout")
 }
 
 // ExpectCiliumOperatorReady is a wrapper around helpers/WaitForPods. It asserts that
@@ -72,17 +78,17 @@ func ExpectHubbleRelayReady(vm *helpers.Kubectl, ns string) {
 	ExpectWithOffset(1, err).Should(BeNil(), "hubble-relay was not able to get into ready state")
 }
 
-// ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
+// ExpectAllPodsTerminated is a wrapper around helpers/WaitTerminatingPods.
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
-	err := vm.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
+	err := vm.WaitTerminatingPods(helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
 
-// ExpectAllPodsInNsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
+// ExpectAllPodsInNsTerminated is a wrapper around helpers/WaitTerminatingPods.
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsInNsTerminated(vm *helpers.Kubectl, ns string) {
-	err := vm.WaitCleanAllTerminatingPodsInNs(ns, helpers.HelperTimeout)
+	err := vm.WaitTerminatingPodsInNs(ns, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
 
@@ -104,7 +110,7 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
 func DeployCiliumAndDNS(vm *helpers.Kubectl, ciliumFilename string) {
-	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{"global.debug.verbose": "flow"})
+	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{"debug.verbose": "flow"})
 }
 
 func redeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
@@ -112,8 +118,7 @@ func redeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 	err := vm.CiliumInstall(ciliumFilename, options)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
-	err = vm.WaitForCiliumReadiness()
-	Expect(err).To(BeNil(), "Timeout while waiting for Cilium to become ready")
+	vm.WaitForCiliumReadiness(0, "Timeout while waiting for Cilium to become ready")
 }
 
 // RedeployCilium reinstantiates the Cilium DS and ensures it is running.
@@ -161,6 +166,8 @@ func RedeployCiliumWithMerge(vm *helpers.Kubectl,
 // DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
 func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	redeployCilium(vm, ciliumFilename, options)
+
+	vm.RestartUnmanagedPodsInNamespace(helpers.LogGathererNamespace)
 
 	vm.RedeployKubernetesDnsIfNecessary()
 

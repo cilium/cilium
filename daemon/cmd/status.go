@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
@@ -122,15 +124,22 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 
 func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	s := &models.Masquerading{
-		Enabled: option.Config.Masquerade,
+		Enabled: &models.MasqueradingEnabled{
+			IPV4: option.Config.EnableIPv4Masquerade,
+			IPV6: option.Config.EnableIPv6Masquerade,
+		},
 	}
 
-	if !option.Config.Masquerade {
+	if !option.Config.EnableIPv4Masquerade && !option.Config.EnableIPv6Masquerade {
 		return s
 	}
 
 	if option.Config.EnableIPv4 {
-		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDR().String()
+		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
+	}
+
+	if option.Config.EnableIPv6 {
+		s.SnatExclusionCidrV6 = datapath.RemoteSNATDstAddrExclusionCIDRv6().String()
 	}
 
 	if option.Config.EnableBPFMasquerade {
@@ -161,11 +170,24 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	return s
 }
 
-func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
-	if !k8s.IsEnabled() {
-		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
+func (d *Daemon) getHostRoutingStatus() *models.HostRouting {
+	s := &models.HostRouting{Mode: models.HostRoutingModeBPF}
+	if option.Config.EnableHostLegacyRouting {
+		s.Mode = models.HostRoutingModeLegacy
 	}
+	return s
+}
 
+func (d *Daemon) getClockSourceStatus() *models.ClockSource {
+	s := &models.ClockSource{Mode: models.ClockSourceModeKtime}
+	if option.Config.ClockSource == option.ClockSourceJiffies {
+		s.Mode = models.ClockSourceModeJiffies
+		s.Hertz = int64(option.Config.KernelHz)
+	}
+	return s
+}
+
+func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	var mode string
 	switch option.Config.KubeProxyReplacement {
 	case option.KubeProxyReplacementStrict:
@@ -178,9 +200,21 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devices := make([]string, len(option.Config.Devices))
+	devices := make([]*models.KubeProxyReplacementDevicesItems0, len(option.Config.Devices))
+	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
+	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
 	for i, iface := range option.Config.Devices {
-		devices[i] = iface
+		info := &models.KubeProxyReplacementDevicesItems0{
+			Name: iface,
+			IP:   make([]string, 0),
+		}
+		if addr, ok := v4Addrs[iface]; ok {
+			info.IP = append(info.IP, addr.String())
+		}
+		if addr, ok := v6Addrs[iface]; ok {
+			info.IP = append(info.IP, addr.String())
+		}
+		devices[i] = info
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
@@ -193,6 +227,9 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(option.Config.NodePortMode)
+		if option.Config.NodePortMode == option.NodePortModeHybrid {
+			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
+		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
@@ -201,7 +238,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
 			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric
 		} else {
-			features.NodePort.Acceleration = strings.ToTitle(option.Config.NodePortAcceleration)
+			features.NodePort.Acceleration = strings.Title(option.Config.NodePortAcceleration)
 		}
 		features.NodePort.PortMin = int64(option.Config.NodePortMin)
 		features.NodePort.PortMax = int64(option.Config.NodePortMax)
@@ -857,7 +894,7 @@ func (d *Daemon) startStatusCollector() {
 		},
 	}
 
-	if k8s.IsEnabled() {
+	if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
 		// kube-proxy replacement configuration does not change after
 		// initKubeProxyReplacementOptions() has been executed, so it's fine to
 		// statically set the field here.
@@ -866,6 +903,8 @@ func (d *Daemon) startStatusCollector() {
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
+	d.statusResponse.HostRouting = d.getHostRoutingStatus()
+	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})

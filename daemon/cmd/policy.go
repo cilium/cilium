@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -41,9 +42,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
-	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/google/uuid"
 )
 
 type policyTriggerMetrics struct{}
@@ -257,7 +258,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 // was not able to be imported.
 func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
-	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
+	logger := log.WithField("policyAddRequest", uuid.New().String())
 
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Debug("Policy Add Request")
@@ -270,7 +271,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
-		metrics.PolicyImportErrors.Inc()
 		metrics.PolicyImportErrorsTotal.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
@@ -285,7 +285,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		logger.Debug("CIDR policy has changed; recompiling base programs")
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			_ = d.prefixLengths.Delete(prefixes)
-			metrics.PolicyImportErrors.Inc()
 			metrics.PolicyImportErrorsTotal.Inc()
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
 			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
@@ -298,9 +297,13 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		}
 	}
 
-	if _, err := ipcache.AllocateCIDRs(prefixes); err != nil {
+	// Any newly allocated identities MUST be upserted to the ipcache if no error is returned.
+	// With SelectiveRegeneration this is postponed to the rule reaction queue to be done
+	// after the affected endpoints have been regenerated, otherwise new identities are
+	// upserted to the ipcache before we return.
+	newlyAllocatedIdentities := make(map[string]*identity.Identity)
+	if _, err := ipcache.AllocateCIDRs(prefixes, newlyAllocatedIdentities); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
-		metrics.PolicyImportErrors.Inc()
 		metrics.PolicyImportErrorsTotal.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
@@ -406,7 +409,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	}
 	err = d.SendNotification(monitorAPI.PolicyUpdateMessage(len(sourceRules), labels, newRev))
 	if err != nil {
-		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
+		logger.WithError(err).WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	if option.Config.SelectiveRegeneration {
@@ -416,12 +419,16 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// select any at all). The "reacting" to rule updates enqueues events
 		// for all endpoints. Once all endpoints have events queued up, this
 		// function will return.
-
+		//
+		// With selective regeneration upserting CIDRs to ipcache is performed after
+		// endpoint regeneration and serialized with the corresponding ipcache deletes via
+		// the policy reaction queue.
 		r := &PolicyReactionEvent{
 			wg:                &policySelectionWG,
 			epsToBumpRevision: endpointsToBumpRevision,
 			endpointsToRegen:  endpointsToRegen,
 			newRev:            newRev,
+			upsertIdentities:  newlyAllocatedIdentities,
 		}
 
 		ev := eventqueue.NewEvent(r)
@@ -430,11 +437,15 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// order.
 		_, err := d.policy.RuleReactionQueue.Enqueue(ev)
 		if err != nil {
-			log.WithField(logfields.PolicyRevision, newRev).Errorf("enqueue of RuleReactionEvent failed: %s", err)
+			log.WithError(err).WithField(logfields.PolicyRevision, newRev).Error("enqueue of RuleReactionEvent failed")
 		}
 	} else {
 		// Regenerate all endpoints unconditionally.
 		d.TriggerPolicyUpdates(false, "policy rules added")
+		// TODO: Remove 'enable-selective-regeneration' agent option.  Without selective
+		// regeneration we retain the old behavior of upserting new identities to ipcache
+		// before endpoint policy maps have been updated.
+		ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities)
 	}
 
 	return
@@ -448,6 +459,8 @@ type PolicyReactionEvent struct {
 	epsToBumpRevision *policy.EndpointSet
 	endpointsToRegen  *policy.EndpointSet
 	newRev            uint64
+	upsertIdentities  map[string]*identity.Identity // deferred CIDR identity upserts, if any
+	releasePrefixes   []*net.IPNet                  // deferred CIDR identity deletes, if any
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
@@ -455,15 +468,24 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
 	r.wg.Wait()
-	reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
+	reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev, r.upsertIdentities, r.releasePrefixes)
 }
 
 // reactToRuleUpdates does the following:
 // * regenerate all endpoints in epsToRegen
 // * bump the policy revision of all endpoints not in epsToRegen, but which are
 //   in allEps, to revision rev.
-func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64) {
+// * wait for the regenerations to be finished
+// * upsert or delete CIDR identities to the ipcache, as needed.
+func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertIdentities map[string]*identity.Identity, releasePrefixes []*net.IPNet) {
 	var enqueueWaitGroup sync.WaitGroup
+
+	// Release CIDR identities before regenerations have been started, if any. This makes sure
+	// the stale identities are not used in policy map classifications after we regenerate the
+	// endpoints below.
+	if len(releasePrefixes) != 0 {
+		ipcache.ReleaseCIDRs(releasePrefixes)
+	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
 	epsToBumpRevision.ForEachGo(&enqueueWaitGroup, func(epp policy.Endpoint) {
@@ -492,6 +514,13 @@ func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev u
 	})
 
 	enqueueWaitGroup.Wait()
+
+	// Upsert new identities after regeneration has completed, if any. This makes sure the
+	// policy maps are ready to classify packets using the newly allocated identities before
+	// they are upserted to the ipcache here.
+	if upsertIdentities != nil {
+		ipcache.UpsertGeneratedIdentities(upsertIdentities)
+	}
 }
 
 // PolicyDeleteEvent is a wrapper around deletion of policy rules with a given
@@ -595,7 +624,6 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// not appropriately performing garbage collection.
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
-	ipcache.ReleaseCIDRs(prefixes)
 
 	prefixesChanged := d.prefixLengths.Delete(prefixes)
 	if !bpfIPCache.BackedByLPM() && prefixesChanged {
@@ -614,11 +642,16 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	}
 
 	if option.Config.SelectiveRegeneration {
+		// With selective regeneration releasing prefixes from ipcache is serialized with
+		// the corresponding ipcache upserts via the policy reaction queue. Execution order
+		// w.r.t. to endpoint regenerations remains the same, endpoints are regenerated
+		// after any prefixes have been removed from the ipcache.
 		r := &PolicyReactionEvent{
 			wg:                &policySelectionWG,
 			epsToBumpRevision: epsToBumpRevision,
 			endpointsToRegen:  endpointsToRegen,
 			newRev:            rev,
+			releasePrefixes:   prefixes,
 		}
 
 		ev := eventqueue.NewEvent(r)
@@ -627,15 +660,16 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		// order.
 		_, err := d.policy.RuleReactionQueue.Enqueue(ev)
 		if err != nil {
-			log.WithField(logfields.PolicyRevision, rev).Errorf("enqueue of RuleReactionEvent failed: %s", err)
+			log.WithError(err).WithField(logfields.PolicyRevision, rev).Error("enqueue of RuleReactionEvent failed")
 		}
 	} else {
+		ipcache.ReleaseCIDRs(prefixes)
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
 	}
 
 	err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev))
 	if err != nil {
-		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
+		log.WithError(err).WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	return

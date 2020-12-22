@@ -18,8 +18,11 @@ the network.
 .. image:: masquerade.png
     :align: center
 
-This behavior can be disabled with the option ``masquerade: false`` in which
-case no masquerading will be performed.
+For IPv6 addresses masquerading is performed only when using iptables
+implementation mode.
+
+This behavior can be disabled with the option ``enable-ipv4-masquerade: false``
+for IPv4 and ``enable-ipv6-masquerade: false`` for IPv6 traffic leaving the host.
 
 Configuration
 -------------
@@ -44,17 +47,17 @@ eBPF-based
 
 The eBPF-based implementation is the most efficient
 implementation. It requires Linux kernel 4.19 and can be enabled with
-the ``config.bpfMasquerade=true`` helm option (enabled by default).
+the ``bpf.masquerade=true`` helm option (enabled by default).
 
 The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-free>`.
-The dependency will be removed in the Cilium v1.9 release.
+The dependency will be removed in the future (`GH-13732 <https://github.com/cilium/cilium/issues/13732>`_).
 
 Masquerading can take place only on those devices which run the eBPF masquerading
 program. This means that a packet sent from a pod to an outside will be masqueraded
 (to an output device IPv4 address), if the output device runs the program. If not
 specified, the program will be automatically attached to the devices selected by
 :ref:`the BPF NodePort device detection metchanism <Nodeport Devices>`.
-To manually change this, use the ``global.devices`` helm option. Use ``cilium status``
+To manually change this, use the ``devices`` helm option. Use ``cilium status``
 to determine which devices the program is running on:
 
 ::
@@ -75,7 +78,7 @@ By default, any packet from a pod destined to an IP address outside of the
 ``native-routing-cidr`` range is masqueraded. The exclusion CIDR is shown in the above
 output of ``cilium status`` (``10.0.0.0.16``).  To allow more fine-grained control,
 Cilium implements `ip-masq-agent <https://github.com/kubernetes-sigs/ip-masq-agent>`_
-in eBPF which can be enabled with the ``global.ipMasqAgent.enabled=true`` helm option.
+in eBPF which can be enabled with the ``ipMasqAgent.enabled=true`` helm option.
 
 The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs`` and
 ``masqLinkLocal`` options set in a configuration file. A packet sent from a pod to
@@ -123,6 +126,9 @@ The example below shows how to configure the agent via `ConfigMap` and to verify
     172.16.0.0/12
     192.168.0.0/16
 
+.. note::
+
+    eBPF based masquerading is currently not supported for IPv6 traffic.
 
 iptables-based
 **************

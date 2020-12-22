@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "Policy to test matchExpressions key"
 metadata:
   name: "cnp-matchexpressions"
 spec:
+  description: "Policy to test matchExpressions key"
   endpointSelector:
     matchLabels:
       id: app1

@@ -10,7 +10,7 @@
 #include "maps.h"
 
 static __always_inline __maybe_unused struct endpoint_info *
-lookup_ip6_endpoint_from_daddr(const union v6addr *ip6)
+__lookup_ip6_endpoint(const union v6addr *ip6)
 {
 	struct endpoint_key key = {};
 
@@ -23,7 +23,7 @@ lookup_ip6_endpoint_from_daddr(const union v6addr *ip6)
 static __always_inline __maybe_unused struct endpoint_info *
 lookup_ip6_endpoint(struct ipv6hdr *ip6)
 {
-	return lookup_ip6_endpoint_from_daddr((union v6addr *)&ip6->daddr);
+	return __lookup_ip6_endpoint((union v6addr *)&ip6->daddr);
 }
 
 static __always_inline __maybe_unused struct endpoint_info *

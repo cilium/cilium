@@ -4,10 +4,6 @@
 
 Run cilium-operator-generic
 
-### Synopsis
-
-Run cilium-operator-generic
-
 ```
 cilium-operator-generic [flags]
 ```
@@ -26,7 +22,6 @@ cilium-operator-generic [flags]
       --cnp-status-update-interval duration       Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                         Configuration directory that contains a file for each option
-      --crd-wait-timeout duration                 Operator will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                     Enable debugging mode
       --enable-ipv4                               Enable IPv4 support (default true)
       --enable-ipv6                               Enable IPv6 support (default true)
@@ -34,11 +29,12 @@ cilium-operator-generic [flags]
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
+      --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator-generic
       --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration             GC interval for security identities (default 15m0s)
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
-      --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 250)
+      --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
       --ipam string                               Backend to use for IPAM (default "cluster-pool")
       --k8s-api-server string                     Kubernetes API server URL

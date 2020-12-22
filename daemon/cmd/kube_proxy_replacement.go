@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,7 @@ import (
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
@@ -42,15 +44,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
 		log.Fatalf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
-	}
-
-	if option.Config.DisableK8sServices {
-		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-			log.Warnf("Service handling disabled. Auto-disabling --%s from \"%s\" to \"%s\"",
-				option.KubeProxyReplacement, option.Config.KubeProxyReplacement,
-				option.KubeProxyReplacementDisabled)
-			option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
-		}
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
@@ -88,7 +81,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
 		option.Config.EnableSessionAffinity = true
-		option.Config.DisableK8sServices = false
 	}
 
 	if option.Config.EnableNodePort {
@@ -108,6 +100,55 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
+			option.Config.NodePortMode == option.NodePortModeHybrid &&
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
+			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
+		}
+
+		if option.Config.LoadBalancerRSSv4CIDR != "" {
+			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
+			if ip.To4() == nil {
+				err = fmt.Errorf("CIDR is not IPv4 based")
+			}
+			if err == nil {
+				if ones, _ := cidr.Mask.Size(); ones == 0 {
+					err = fmt.Errorf("CIDR length must be in (0,32]")
+				}
+			}
+			if err != nil {
+				log.WithError(err).Fatalf("Invalid value for --%s: %s",
+					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
+			}
+			option.Config.LoadBalancerRSSv4 = *cidr
+		}
+
+		if option.Config.LoadBalancerRSSv6CIDR != "" {
+			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv6CIDR)
+			if ip.To4() != nil {
+				err = fmt.Errorf("CIDR is not IPv6 based")
+			}
+			if err == nil {
+				if ones, _ := cidr.Mask.Size(); ones == 0 {
+					err = fmt.Errorf("CIDR length must be in (0,128]")
+				}
+			}
+			if err != nil {
+				log.WithError(err).Fatalf("Invalid value for --%s: %s",
+					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
+			}
+			option.Config.LoadBalancerRSSv6 = *cidr
+		}
+
+		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
+			(option.Config.NodePortMode != option.NodePortModeDSR ||
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
+			log.Fatalf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
+				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
+		}
+
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
 			option.Config.NodePortAlg != option.NodePortAlgMaglev {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
@@ -119,7 +160,12 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 
-		if !option.Config.NodePortBindProtection {
+		if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
+			// We let kube-proxy do the less efficient bind-protection in
+			// this case to avoid the latter throwing (harmless) warnings
+			// to its log that bind request is rejected.
+			option.Config.NodePortBindProtection = false
+		} else if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
@@ -139,7 +185,9 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
 					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
 			}
-			maglev.InitMaglevSeeds()
+			if err := maglev.InitMaglevSeeds(option.Config.MaglevHashSeed); err != nil {
+				log.WithError(err).Fatalf("Failed to initialize maglev hash seeds")
+			}
 		}
 	}
 
@@ -165,7 +213,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				log.Fatal(err)
 			} else {
 				disableNodePort()
-				log.Warn(fmt.Sprintf("%s. Disabling BPF NodePort.", err))
+				log.WithError(err).Warn("Disabling BPF NodePort.")
 			}
 		}
 	}
@@ -238,6 +286,39 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 	}
 
+	if !option.Config.EnableHostLegacyRouting {
+		msg := ""
+		switch {
+		case !option.Config.EnableNodePort:
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableNodePort)
+		case option.Config.Tunnel != option.TunnelDisabled:
+			msg = fmt.Sprintf("BPF host routing is only available in native routing mode.")
+		// Needs host stack for packet handling.
+		case option.Config.EnableEndpointRoutes:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableEndpointRoutes)
+		case option.Config.EnableIPSec:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case (option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade) &&
+			!option.Config.EnableBPFMasquerade:
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		default:
+			foundNeigh := false
+			foundPeer := false
+			if h := probesManager.GetHelpers("sched_cls"); h != nil {
+				_, foundNeigh = h["bpf_redirect_neigh"]
+				_, foundPeer = h["bpf_redirect_peer"]
+			}
+			if !foundNeigh || !foundPeer {
+				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
+			}
+		}
+		if msg != "" {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
+		}
+	}
+
 	if option.Config.EnableNodePort {
 		if option.Config.Tunnel != option.TunnelDisabled &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
@@ -253,13 +334,23 @@ func initKubeProxyReplacementOptions() (strict bool) {
 					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 			}
 		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
+			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+				log.Fatalf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+			}
+			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
+				log.Fatalf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+			}
+		}
 	}
 
 	return
 }
 
-// detectNativeDevices tries to detect bpf_host devices (if needed).
-func detectNativeDevices(strict bool) {
+// handleNativeDevices tries to detect bpf_host devices (if needed).
+func handleNativeDevices(strict bool) {
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
 		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
@@ -283,6 +374,22 @@ func detectNativeDevices(strict bool) {
 			}
 			l.Info("Using auto-derived devices for BPF node port")
 		}
+	} else if option.Config.EnableNodePort { // both --devices and --direct-routing-device are specified by user
+		// Check whether the DirectRoutingDevice (if specified) is
+		// defined within devices and if not, add it.
+		if option.Config.DirectRoutingDevice != "" {
+			directDev := option.Config.DirectRoutingDevice
+			directDevFound := false
+			for _, iface := range option.Config.Devices {
+				if iface == directDev {
+					directDevFound = true
+					break
+				}
+			}
+			if !directDevFound {
+				option.Config.Devices = append(option.Config.Devices, directDev)
+			}
+		}
 	}
 }
 
@@ -290,7 +397,7 @@ func detectNativeDevices(strict bool) {
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
+		if err := node.InitNodePortAddrs(option.Config.Devices, option.Config.LBDevInheritIPAddr); err != nil {
 			msg := "Failed to initialize NodePort addrs."
 			if isKubeProxyReplacementStrict {
 				log.WithError(err).Fatal(msg)

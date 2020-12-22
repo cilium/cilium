@@ -4,10 +4,6 @@
 
 Manage XDP CIDR filters
 
-### Synopsis
-
-Manage XDP CIDR filters
-
 ### Options
 
 ```

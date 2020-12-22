@@ -7,7 +7,7 @@
 .. _encryption:
 
 ************************************
-Transparent Encryption (stable/beta)
+Transparent Encryption
 ************************************
 
 This guide explains how to configure Cilium to use IPsec based transparent
@@ -19,9 +19,8 @@ distributed, but that is not shown here.
 
 .. note::
 
-    The encryption feature is stable in combination with the direct-routing and
-    ENI datapath mode. In combination with encapsulation/tunneling, the feature
-    is still in beta phase.
+    ``Secret`` resources need to be deployed in the same namespace as Cilium!
+    In our example, we use ``kube-system``.
 
 .. note::
 
@@ -62,8 +61,8 @@ Deploy Cilium release via Helm with the following options to enable encryption:
 
     helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.encryption.enabled=true \\
-      --set global.encryption.nodeEncryption=false
+      --set encryption.enabled=true \\
+      --set encryption.nodeEncryption=false
 
 These options can be provided along with other options, such as when deploying
 to GKE, with VXLAN tunneling:
@@ -71,14 +70,38 @@ to GKE, with VXLAN tunneling:
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
-      --namespace cilium \
-      --set global.nodeinit.enabled=true \
-      --set nodeinit.reconfigureKubelet=true \
-      --set nodeinit.removeCbrBridge=true \
-      --set global.cni.binPath=/home/kubernetes/bin \
-      --set global.tunnel=vxlan \
-      --set global.encryption.enabled=true \
-      --set global.encryption.nodeEncryption=false
+      --namespace cilium \\
+      --set nodeinit.enabled=true \\
+      --set nodeinit.reconfigureKubelet=true \\
+      --set nodeinit.removeCbrBridge=true \\
+      --set cni.binPath=/home/kubernetes/bin \\
+      --set tunnel=vxlan \\
+      --set encryption.enabled=true \\
+      --set encryption.nodeEncryption=false
+
+On GKE, Cilium can also be deployed with direct routing instead of tunneling.
+This requires us to enable the GKE integration and specify the native routing
+CIDR. As a bonus, node encryption (for transparently encrypting node-to-node
+traffic) can be enabled as well. See :ref:`node_to_node_encryption` below.
+
+.. note::
+
+    This example builds on the steps outlined in :ref:`k8s_install_gke`.
+
+.. parsed-literal::
+
+    export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
+    helm install cilium |CHART_RELEASE| \\
+      --namespace cilium \\
+      --set nodeinit.enabled=true \\
+      --set nodeinit.reconfigureKubelet=true \\
+      --set nodeinit.removeCbrBridge=true \\
+      --set cni.binPath=/home/kubernetes/bin \\
+      --set gke.enabled=true \\
+      --set ipam.mode=kubernetes \\
+      --set nativeRoutingCIDR=$NATIVE_CIDR \\
+      --set encryption.enabled=true \\
+      --set encryption.nodeEncryption=true
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
@@ -86,15 +109,17 @@ information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
 Encryption interface
 --------------------
 
-If direct routing is being used, an additional argument can be used to identify
-the network-facing interface. If no interface is specified, the default route
+An additional argument can be used to identify the network-facing interface.
+If direct routing is used and no interface is specified, the default route
 link is chosen by inspecting the routing tables. This will work in many cases,
 but depending on routing rules, users may need to specify the encryption
 interface as follows:
 
 .. code:: bash
 
-    --set global.encryption.interface=ethX
+    --set encryption.interface=ethX
+
+.. _node_to_node_encryption:
 
 Node to node encryption
 -----------------------
@@ -104,8 +129,16 @@ In order to enable node-to-node encryption, add:
 .. code:: bash
 
     [...]
-    --set global.encryption.enabled=true \
-    --set global.encryption.nodeEncryption=true
+    --set encryption.enabled=true \
+    --set encryption.nodeEncryption=true \
+    --set tunnel=disabled
+
+.. note::
+
+    Node to node encryption feature is tested and supported with direct routing
+    modes. Using with encapsulation/tunneling is not currently tested or supported.
+
+    Support with tunneling mode is tracked at `#13663 <https://github.com/cilium/cilium/issues/13663>`_.
 
 Validate the Setup
 ==================
@@ -161,6 +194,9 @@ Cilium agent will default to KEYID of zero if its not specified in the secret.
 Troubleshooting
 ===============
 
+ * If the ``cilium`` Pods fail to start after enabling encryption, double-check if
+   the IPSec ``Secret`` and Cilium are deployed in the same namespace together.
+
  * Make sure that the Cilium pods have kvstore connectivity:
 
    .. code:: bash
@@ -170,6 +206,11 @@ Troubleshooting
       [...]
 
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
+
+   * If there is a warning message similar to ``Device eth0 does not exist``,
+     use ``--set encryption.interface=ethX`` to set the encryption
+     interface.
+
  * Run a ``bash`` in a Cilium and validate the following:
 
    * Routing rules matching on fwmark:
@@ -234,4 +275,4 @@ Disabling Encryption
 ====================
 
 To disable the encryption, regenerate the YAML with the option
-``global.encryption.enabled=false``
+``encryption.enabled=false``

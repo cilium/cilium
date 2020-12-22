@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rand"
-	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -111,7 +111,7 @@ func (b *Exponential) Wait(ctx context.Context) error {
 // Duration returns the wait duration for the nth attempt
 func (b *Exponential) Duration(attempt int) time.Duration {
 	if b.Name == "" {
-		b.Name = uuid.NewUUID().String()
+		b.Name = uuid.New().String()
 	}
 
 	min := time.Duration(1) * time.Second

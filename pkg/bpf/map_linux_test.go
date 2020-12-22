@@ -598,3 +598,31 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exist, Equals, false)
 }
+
+func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
+	m := NewMap("cilium_test_create_unpinned",
+		MapTypeHash,
+		&TestKey{},
+		int(unsafe.Sizeof(TestKey{})),
+		&TestValue{},
+		int(unsafe.Sizeof(TestValue{})),
+		maxEntries,
+		BPF_F_NO_PREALLOC,
+		0,
+		ConvertKeyValue).WithCache()
+	err := m.CreateUnpinned()
+	c.Assert(err, IsNil)
+	exist, err := m.exist()
+	c.Assert(err, IsNil)
+	c.Assert(exist, Equals, false)
+
+	key1 := &TestKey{Key: 105}
+	value1 := &TestValue{Value: 205}
+	err = m.Update(key1, value1)
+	c.Assert(err, IsNil)
+
+	var value2 TestValue
+	err = LookupElement(m.fd, unsafe.Pointer(key1), unsafe.Pointer(&value2))
+	c.Assert(err, IsNil)
+	c.Assert(*value1, Equals, value2)
+}

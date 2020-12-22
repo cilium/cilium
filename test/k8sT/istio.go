@@ -30,7 +30,7 @@ import (
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
 var _ = SkipContextIf(func() bool {
-	return helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19"
+	return helpers.SkipQuarantined() && (helpers.GetCurrentK8SEnv() == "1.19" || helpers.GetCurrentK8SEnv() == "1.20")
 }, "K8sIstioTest", func() {
 
 	var (
@@ -48,10 +48,10 @@ var _ = SkipContextIf(func() bool {
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
 		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.5.9" +
-		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.5.9" +
-		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.5.9"
+		// " --set values.proxy.image=docker.io/cilium/istio_proxy:1.5.9" +
+		// " --set values.proxy_init.image=docker.io/cilium/istio_proxy:1.5.9"
 		ciliumOptions = map[string]string{
-			// "global.proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
+			// "proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
 		}
 
 		// Map of tested runtimes for cilium-istioctl
@@ -119,7 +119,7 @@ var _ = SkipContextIf(func() bool {
 		_ = kubectl.Exec(fmt.Sprintf("./cilium-istioctl manifest generate | %s delete -f -", helpers.KubectlCmd))
 
 		By("Waiting all terminating PODs to disappear")
-		err := kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
+		err := kubectl.WaitTerminatingPods(teardownTimeout)
 		ExpectWithOffset(1, err).To(BeNil(), "terminating Istio PODs are not deleted after timeout")
 
 		By("Deleting the istio-system namespace")

@@ -52,7 +52,7 @@ To observe policy audit messages, follow these steps:
             helm upgrade cilium |CHART_RELEASE| \\
                --namespace $CILIUM_NAMESPACE \\
                --reuse-values \\
-               --set config.policyAuditMode=true
+               --set policyAuditMode=true
 
 #. Apply a default-deny policy:
 
@@ -193,7 +193,7 @@ after deploying the policy is to disable Policy Audit Mode again:
             helm upgrade cilium |CHART_RELEASE| \\
                --namespace $CILIUM_NAMESPACE \\
                --reuse-values \\
-               --set config.policyAuditMode=false
+               --set policyAuditMode=false
 
 Now if we run the landing requests again, only the *tiefighter* pods with the
 label ``org=empire`` will succeed. The *xwing* pods will be blocked!

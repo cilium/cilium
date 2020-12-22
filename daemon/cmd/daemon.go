@@ -50,7 +50,9 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -74,7 +76,10 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -110,9 +115,6 @@ type Daemon struct {
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
-
-	// dnsPoller polls DNS names and sends them to dnsNameManager
-	dnsPoller *fqdn.DNSPoller
 
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
@@ -158,6 +160,10 @@ type Daemon struct {
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
+
+	redirectPolicyManager *redirectpolicy.Manager
+
+	apiLimiterSet *rate.APILimiterSet
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -267,6 +273,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		}
 	}
 
+	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, &apiRateLimitingMetrics{})
+	if err != nil {
+		log.WithError(err).Fatal("Unable to configure API rate limiting")
+	}
+
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
@@ -299,13 +310,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	identity.IterateReservedIdentities(func(_ string, _ identity.NumericIdentity) {
 		metrics.Identity.Inc()
-		metrics.IdentityCount.Inc()
 	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config)
 		metrics.Identity.Add(float64(num))
-		metrics.IdentityCount.Add(float64(num))
 	}
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
@@ -321,6 +330,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		datapath:          dp,
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
+		apiLimiterSet:     apiLimiterSet,
 	}
 
 	d.svc = service.NewService(&d)
@@ -341,6 +351,8 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	d.endpointManager = epMgr
 	d.endpointManager.InitMetrics()
 
+	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
 		d.nodeDiscovery.Manager,
@@ -348,11 +360,15 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.policy,
 		d.svc,
 		d.datapath,
+		d.redirectPolicyManager,
 	)
+
+	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
 
 	bootstrapStats.daemonInit.End(true)
 
-	// Cleanup on exit if running in tandem with Flannel.
+	// Delete BPF programs on exit if running in tandem with Flannel.
 	if option.Config.FlannelUninstallOnExit {
 		cleaner.cleanupFuncs.Add(func() {
 			for _, ep := range d.endpointManager.GetEndpoints() {
@@ -360,6 +376,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			}
 		})
 	}
+	// Stop all endpoints (its goroutines) on exit.
+	cleaner.cleanupFuncs.Add(func() {
+		for _, ep := range d.endpointManager.GetEndpoints() {
+			ep.Stop()
+		}
+	})
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
@@ -409,19 +431,50 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
 	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
+	// Start the proxy before we restore endpoints so that we can inject the
+	// daemon's proxy into each endpoint.
+	bootstrapStats.proxyStart.Start()
+	// FIXME: Make the port range configurable.
+	if option.Config.EnableL7Proxy {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+	} else {
+		log.Info("L7 proxies are disabled")
+	}
+	bootstrapStats.proxyStart.End(true)
+
+	bootstrapStats.restore.Start()
+	// fetch old endpoints before k8s is configured.
+	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
+	if err != nil {
+		log.WithError(err).Error("Unable to read existing endpoints")
+	}
+	bootstrapStats.restore.End(true)
+
+	bootstrapStats.fqdn.Start()
+	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	if err != nil {
+		bootstrapStats.fqdn.EndError(err)
+		return nil, restoredEndpoints, err
+	}
+	bootstrapStats.fqdn.End(true)
+
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
-		if err := k8s.RegisterCRDs(); err != nil {
-			log.WithError(err).Fatal("Unable to register CRDs")
+		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
+		// context deadline or if the context has been cancelled, the context's
+		// error will be returned. Otherwise, it succeeded.
+		if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+			return nil, restoredEndpoints, err
 		}
 
-		if option.Config.IPAM == ipamOption.IPAMOperator {
+		if option.Config.IPAM == ipamOption.IPAMClusterPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()
 		}
 
-		if err := k8s.GetNodeSpec(); err != nil {
+		if err := k8s.WaitForNodeInformation(); err != nil {
 			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}
 
@@ -438,7 +491,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	}
 
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
-	// can be supported or not. This needs to be done before detectNativeDevices()
+	// can be supported or not. This needs to be done before handleNativeDevices()
 	// as BandwidthManager needs these to be available for setup.
 	bandwidth.ProbeBandwidthManager()
 
@@ -447,13 +500,21 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	detectNativeDevices(isKubeProxyReplacementStrict)
+	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
+
+	// Launch the K8s watchers in parallel as we continue to process other
+	// daemon options.
+	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
+		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
+		bootstrapStats.k8sInit.End(true)
+	}
 
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
-	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
 		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" ||
 			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
 
@@ -475,10 +536,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.EnableBPFMasquerade = false
 		log.Warn(msg + " Falling back to iptables-based masquerading.")
 	}
-	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
+		}
+		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+			log.WithError(err).Fatal("Failed to determine BPF masquerade IPv4 addrs")
 		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
@@ -502,8 +566,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.Devices = []string{device}
 	}
 
-	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
-
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths()
 	bootstrapStats.cleanup.EndError(err)
@@ -511,25 +573,49 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
 	}
 
-	d.bootstrapIPAM()
-
-	// Start the proxy before we restore endpoints so that we can inject the
-	// daemon's proxy into each endpoint.
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+	// Must init kvstore before starting node discovery
+	if option.Config.KVStore == "" {
+		log.Info("Skipping kvstore configuration")
 	} else {
-		log.Info("L7 proxies are disabled")
+		bootstrapStats.kvstore.Start()
+		d.initKVStore()
+		bootstrapStats.kvstore.End(true)
 	}
-	bootstrapStats.proxyStart.End(true)
 
-	bootstrapStats.restore.Start()
+	// Configure IPAM without using the configuration yet.
+	d.configureIPAM()
+
+	if option.Config.JoinCluster {
+		if k8s.IsEnabled() {
+			log.Fatalf("Cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
+		}
+		if option.Config.KVStore == "" {
+			log.Fatalf("Joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
+		}
+		agentLabels := labels.NewLabelsFromModel(option.Config.AgentLabels).K8sStringMap()
+		if option.Config.K8sNamespace != "" {
+			agentLabels[k8sConst.PodNamespaceLabel] = option.Config.K8sNamespace
+		}
+		agentLabels[k8sConst.PodNameLabel] = nodeTypes.GetName()
+		agentLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
+		// Set configured agent labels to local node for node registration
+		node.SetLabels(agentLabels)
+
+		// This can override node addressing config, so do this before starting IPAM
+		log.WithField(logfields.NodeName, nodeTypes.GetName()).Debug("Calling JoinCluster()")
+		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
+
+		// Start services watcher
+		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache)
+	}
+
+	// Start IPAM
+	d.startIPAM()
+
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	restoredEndpoints, err := d.restoreOldEndpoints(option.Config.StateDir, true)
+	err = d.restoreOldEndpoints(restoredEndpoints, true)
 	if err != nil {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
@@ -538,6 +624,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	if err := d.allocateIPs(); err != nil {
 		return nil, nil, err
 	}
+
+	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
+	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
@@ -565,8 +654,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		log.Debug("Annotate k8s node is disabled.")
 	}
 
-	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
-
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
 	if option.Config.IPAM == ipamOption.IPAMCRD || option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
@@ -578,20 +665,28 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		}
 	}
 
-	// This needs to be done after the node addressing has been configured
-	// as the node address is required as suffix.
-	// well known identities have already been initialized above.
-	// Ignore the channel returned by this function, as we want the global
-	// identity allocator to run asynchronously.
-	d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		// This needs to be done after the node addressing has been configured
+		// as the node address is required as suffix.
+		// well known identities have already been initialized above.
+		// Ignore the channel returned by this function, as we want the global
+		// identity allocator to run asynchronously.
+		d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
 
-	d.bootstrapClusterMesh(nodeMngr)
+		d.bootstrapClusterMesh(nodeMngr)
+	}
 
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
 	bootstrapStats.bpfBase.EndError(err)
 	if err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
+		return nil, restoredEndpoints, err
+	}
+
+	// iptables rules can be updated only after d.init() intializes the iptables above.
+	err = d.updateDNSDatapathRules()
+	if err != nil {
 		return nil, restoredEndpoints, err
 	}
 
@@ -636,19 +731,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
-
-	bootstrapStats.fqdn.Start()
-	if err := fqdn.ConfigFromResolvConf(); err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, nil, err
-	}
-
-	err = d.bootstrapFQDN(restoredEndpoints, option.Config.ToFQDNsPreCache)
-	if err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, restoredEndpoints, err
-	}
-	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Comment for the '--set config.identityChangeGracePeriod="0s"'
+# Comment for the '--set identityChangeGracePeriod="0s"'
 # We need to change the identity as quickly as possible as there
 # is a k8s upstream test that relies on the policy to be enforced
 # once a new label is added to a pod. If we delay the identity change
@@ -10,19 +10,19 @@
 # Cluster.
 helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
-  --set global.registry=k8s1:5000/cilium \
-  --set global.tag=latest \
-  --set agent.image=cilium-dev \
-  --set operator.image=operator \
-  --set global.debug.enabled=true \
-  --set global.k8s.requireIPv4PodCIDR=true \
-  --set global.pprof.enabled=true \
-  --set global.logSystemLoad=true \
-  --set global.bpf.preallocateMaps=true \
-  --set global.etcd.leaseTTL=30s \
-  --set global.ipv4.enabled=true \
-  --set global.ipv6.enabled=true \
-  --set config.identityChangeGracePeriod="0s" \
+  --set image.tag=latest \
+  --set image.repository=k8s1:5000/cilium/cilium-dev \
+  --set operator.image.repository=k8s1:5000/cilium/operator \
+  --set operator.image.tag=latest \
+  --set debug.enabled=true \
+  --set k8s.requireIPv4PodCIDR=true \
+  --set pprof.enabled=true \
+  --set logSystemLoad=true \
+  --set bpf.preallocateMaps=true \
+  --set etcd.leaseTTL=30s \
+  --set ipv4.enabled=true \
+  --set ipv6.enabled=true \
+  --set identityChangeGracePeriod="0s" \
   > cilium.yaml
 
 kubectl apply -f cilium.yaml
@@ -61,7 +61,7 @@ test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 
-GO_VERSION="1.15.2"
+GO_VERSION="1.15.6"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
@@ -73,12 +73,20 @@ export KUBE_MASTER=192.168.36.11
 export KUBE_MASTER_IP=192.168.36.11
 export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
+echo "Running upstream services conformance tests"
+${HOME}/go/bin/kubetest --provider=local --test \
+  --test_args="--ginkgo.focus=Services.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
+
 # We currently skip the following tests:
 # should not allow access by TCP when a policy specifies only SCTP
+# NetworkPolicy between server and client using SCTP
 #  - Cilium does not support SCTP yet
 # should allow egress access to server in CIDR block and
 # should ensure an IP overlapping both IPBlock.CIDR and IPBlock.Except is allowed
+# should enforce except clause while egress access to server in CIDR block
 #  - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
 #    because it conflicts with the pod's security identity.
 #  - More info at https://github.com/cilium/cilium/issues/9209
-${HOME}/go/bin/kubetest --provider=local --test --test_args="--ginkgo.focus=NetworkPolicy.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)"
+echo "Running upstream NetworkPolicy tests"
+${HOME}/go/bin/kubetest --provider=local --test \
+  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)"

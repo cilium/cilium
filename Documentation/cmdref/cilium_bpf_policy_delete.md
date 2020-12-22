@@ -4,10 +4,6 @@
 
 Delete a policy entry
 
-### Synopsis
-
-Delete a policy entry
-
 ```
 cilium bpf policy delete <endpoint id> <identity> [port/proto] [flags]
 ```
@@ -15,6 +11,7 @@ cilium bpf policy delete <endpoint id> <identity> [port/proto] [flags]
 ### Options
 
 ```
+      --deny   Sets deny mode
   -h, --help   help for delete
 ```
 

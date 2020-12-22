@@ -22,10 +22,7 @@ verified. These tests must always pass.
 
 The configuration for this job is contained within ``ginkgo.Jenkinsfile``.
 
-It first runs unit tests using docker-compose using a YAML located at
-``test/docker-compose.yaml``.
-
-The next steps happens in parallel:
+The job runs the following steps in parallel:
 
     - Runs the single-node e2e tests using the Docker runtime.
     - Runs the multi-node Kubernetes e2e tests against the latest default
@@ -37,40 +34,51 @@ After you don't need to run tests on your branch, please remove the branch from 
 
 .. note::
 
-   It is also possible to run specific tests from this suite via ``test-focus`` and ``test-gke``. It takes trailing words as a regex. If you want to run only one ``It`` block, you need to prepend it with a test suite and create a regex, e.g ``test-focus K8sDatapathConfig.*Check connectivity with automatic direct nodes routes``
+   It is also possible to run specific tests from this suite via ``test-only``.
+   The comment can contain 3 arguments: ``--focus`` which specifies which tests
+   should be run, ``--kernel_version`` for supported kernel version
+   (net-next, 49, 419 are possible values right now), ``--k8s_version`` for k8s
+   version. If you want to run only one ``It`` block, you need to prepend it
+   with a test suite and create a regex, e.g
+   ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next``
+   will run specified test in 1.18 Kubernetes cluster running on net-next nodes.
+   Kubernetes version defaults to 1.20, kernel version defaults to 4.19.
 
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8s``                    | Runs all kubernetes tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sBandwidthTest``       | Runs all k8s bandwidth tests              |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sConformance``         | Runs all k8s conformance tests            |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sChaos``               | Runs all k8s chaos tests                  |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sDatapathConfig``      | Runs all k8s datapath configuration tests |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sDemos``               | Runs all k8s demo tests                   |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sKubeProxyFreeMatrix`` | Runs all k8s kube-proxy free matrix tests |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sFQDNTest``            | Runs all k8s fqdn tests                   |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sHealthTest``          | Runs all k8s health tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sHubbleTest``          | Runs all k8s Hubble tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sIdentity``            | Runs all k8s identity tests               |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sIstioTest``           | Runs all k8s Istio tests                  |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sKafkaPolicyTest``     | Runs all k8s Kafka tests                  |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sPolicyTest``          | Runs all k8s policy tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sServicesTest``        | Runs all k8s services tests               |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sUpdates``             | Runs k8s update tests                     |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sConformance"``         | Runs all k8s conformance tests            |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sChaos"``               | Runs all k8s chaos tests                  |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sDatapathConfig"``      | Runs all k8s datapath configuration tests |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sDemos"``               | Runs all k8s demo tests                   |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sKubeProxyFreeMatrix"`` | Runs all k8s kube-proxy free matrix tests |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sFQDNTest"``            | Runs all k8s fqdn tests                   |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sHealthTest"``          | Runs all k8s health tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sHubbleTest"``          | Runs all k8s Hubble tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sIdentity"``            | Runs all k8s identity tests               |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sIstioTest"``           | Runs all k8s Istio tests                  |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sKafkaPolicyTest"``     | Runs all k8s Kafka tests                  |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sPolicyTest"``          | Runs all k8s policy tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sServicesTest"``        | Runs all k8s services tests               |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sUpdates"``             | Runs k8s update tests                     |
+   +------------------------------------------------+-------------------------------------------+
+
+
+   Running Runtime test suite is still done via ``test-focus`` command.
+
    +---------------------------------------+-------------------------------------------+
    | ``test-focus Runtime``                | Runs all runtime tests                    |
    +---------------------------------------+-------------------------------------------+
@@ -89,8 +97,8 @@ Cilium-PR-Ginkgo-Tests-k8s
 
 Runs the Kubernetes e2e tests against all Kubernetes versions that are not
 currently not tested as part of each pull-request, but which Cilium still
-supports, as well as the the most-recently-released versions of Kubernetes that
-that might not be declared stable by Kubernetes upstream. Check the contents of
+supports, as well as the most-recently-released versions of Kubernetes that
+might not be declared stable by Kubernetes upstream. Check the contents of
 ``ginkgo-kubernetes-all.Jenkinsfile`` in the branch of Cilium for which you are
 running tests to see which Kubernetes versions will be tested against.
 
@@ -98,34 +106,6 @@ Ginkgo-CI-Tests-Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 `Ginkgo-CI-Tests-Pipeline`_
-
-Cilium-Nightly-Tests-PR
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Runs long-lived tests which take extended time. Some of these tests have an
-expected failure rate.
-
-Nightly tests run once per day in the `Cilium-Nightly-Tests-PR`_ job.  The
-configuration for this job is stored in ``Jenkinsfile.nightly``.
-
-To see the results of these tests, you can view the JUnit Report for an individual job:
-
-1. Click on the build number you wish to get test results from on the left hand
-   side of the `Cilium-Nightly-Tests-PR`_ job.
-2. Click on 'Test Results' on the left side of the page to view the results from the build.
-   This will give you a report of which tests passed and failed. You can click on each test
-   to view its corresponding output created from Ginkgo.
-
-This first runs the Nightly tests with the following setup:
-
-    - 4 Kubernetes 1.8 nodes
-    - 4 GB of RAM per node.
-    - 4 vCPUs per node.
-
-Then, it runs tests Kubernetes tests against versions of Kubernetes that are currently not tested against
-as part of each pull-request, but that Cilium still supports.
-
-It also runs a variety of tests against Envoy to ensure that proxy functionality is working correctly.
 
 .. _packer_ci:
 
@@ -168,6 +148,8 @@ packet.net before the branch is merged.
 .. _Jenkins Packer Build: Vagrant-Master-Boxes-Packer-Build_
 .. _job: Vagrant-Master-Boxes-Packer-Build_
 
+.. _test_matrix:
+
 Testing matrix
 ^^^^^^^^^^^^^^
 
@@ -178,16 +160,16 @@ We are currently testing following kernel - k8s version pairs in our CI:
 +====================+==================+
 | Vagrant k8s clusters per PR           |
 +--------------------+------------------+
-| 1.12               | 5.x.x (net-next) |
+| 1.13               | 5.x.x (net-next) |
 +--------------------+------------------+
-| 1.18               | 4.19.57          |
+| 1.19               | 4.19.57          |
 +--------------------+------------------+
-| 1.19               | 4.9              |
+| 1.20               | 4.9              |
 +--------------------+------------------+
 | Vagrant k8s clusters per backport     |
 | (in addition to PR)                   |
 +--------------------+------------------+
-| 1.{12-18}          | 4.9              |
+| 1.{13-19}          | 4.9              |
 +--------------------+------------------+
 | GKE clusters                          |
 +--------------------+------------------+
@@ -226,15 +208,15 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
+| `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                          | test-missed-k8s   | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                        | test-nightly      | No                 |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Flannel <https://jenkins.cilium.io/job/Cilium-PR-Flannel-hook/>`_                                   | test-flannel      | No                 |
+| `Cilium-kubernetes-upstream-test <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_      | test-upstream-k8s | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please,   | Yes                |
 |                                                                                                                | test-gke          |                    |
@@ -253,6 +235,27 @@ are the following:
   for testing on a different kernel, to merge a PR it must pass the CI
   without this flag.
 
+
+Testing with race condition detection enabled
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to run test suite with race condition detection enabled, enter following trigger phrases. These jobs are not required to merge.
+
++------------------------------------------------------------------------------------+------------------------+
+| Jenkins Job                                                                        | Trigger Phrase         |
++====================================================================================+========================+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Kernel-Race-Detection | test-race-4.19         |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.13-net-next-Race-Detection   | test-race-net-next     |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.20-kernel-4.9-Race-Detection | test-race-4.9          |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-GKE-Race-Detection             | test-race-gke          |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream-Race-Detection | test-race-upstream-k8s |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Runtime-4.9-Race-Detection         | test-race-runtime      |
++------------------------------------------------------------------------------------+------------------------+
 
 
 Using Jenkins for testing
@@ -298,6 +301,8 @@ example patch that shows how this can be achieved.
 
                             //This test should run in each PR for now.
 
+.. _ci_failure_triage:
+
 CI Failure Triage
 ~~~~~~~~~~~~~~~~~
 
@@ -331,8 +336,6 @@ GitHub issues using the process below:
 +---------------------------------------+------------------------------------------------------------------+
 | `Ginkgo-CI-Tests-Pipeline`_           | Runs every two hours on the master branch                        |
 +---------------------------------------+------------------------------------------------------------------+
-| `Master-Nightly`_                     | Runs durability tests every night                                |
-+---------------------------------------+------------------------------------------------------------------+
 | `Vagrant-Master-Boxes-Packer-Build`_  | Runs on merge into `packer-ci-build`_ repository.                |
 +---------------------------------------+------------------------------------------------------------------+
 | :jenkins-branch:`Release-branch <>`   | Runs various Ginkgo tests on merge into branch "\ |SCM_BRANCH|"  |
@@ -340,7 +343,6 @@ GitHub issues using the process below:
 
 .. _Ginkgo-Tests-Validated-master: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/
 .. _Ginkgo-CI-Tests-Pipeline: https://jenkins.cilium.io/job/Ginkgo-CI-Tests-Pipeline/
-.. _Master-Nightly: https://jenkins.cilium.io/job/Cilium-Master-Nightly/
 .. _Vagrant-Master-Boxes-Packer-Build: https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/
 .. _packer-ci-build: https://github.com/cilium/packer-ci-build/
 

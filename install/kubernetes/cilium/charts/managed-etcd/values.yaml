@@ -1,5 +1,0 @@
-image: cilium-etcd-operator
-tag: v2.0.7
-
-serviceAccount:
-  annotations: {}

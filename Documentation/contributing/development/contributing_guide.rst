@@ -23,7 +23,7 @@ Clone and Provision Environment
       git clone https://github.com/cilium/cilium.git
       cd cilium
 
-#. Set up your :ref:`dev_env`
+#. Set up your :ref:`dev_env`.
 #. Check the GitHub issues for `good tasks to get started
    <https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Agood-first-issue>`_.
 
@@ -77,6 +77,11 @@ requirements have been met:
        Make sure to include a blank line in between commit title and commit
        description.
 
+   .. note:
+
+       Passing the ``-s`` option to ``git commit`` will add the
+       ``Signed-of-by:`` line to your commit message automatically.
+
 #. If any of the commits fixes a particular commit already in the tree, that
    commit is referenced in the commit message of the bugfix. This ensures that
    whoever performs a backport will pull in all required fixes:
@@ -96,6 +101,8 @@ requirements have been met:
       as seen above without breaking the line.
 
 #. All commits are signed off. See the section :ref:`dev_coo`.
+
+#. Document any user-facing or breaking changes in ``Documentation/install/upgrade.rst``.
 
 #. (optional) Pick the appropriate milestone for which this PR is being
    targeted, e.g. ``1.6``, ``1.7``. This is in particular important in the time
@@ -205,6 +212,9 @@ Getting a pull request merged
       #. Single node runtime tests
       #. Multi node Kubernetes tests
 
+      If a CI test fails which seems unrelated to your PR, it may be a flaky
+      test. Follow the process described in :ref:`ci_failure_triage`.
+
 #. As part of the submission, GitHub will have requested a review from the
    respective code owners according to the ``CODEOWNERS`` file in the
    repository.
@@ -257,8 +267,10 @@ Pull requests review process for committers
 #. Once a PR is open, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
    should review the PR using the ``CODEOWNERS`` file. Each committer can see
    the PRs they need to review by filtering by reviews requested.
-   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_
-   so make sure to bookmark it.
+   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+assignee%3A%40me+sort%3Aupdated-asc>`_
+   so make sure to bookmark it. If a PR review is assigned to one or more
+   committers, they are expected to review that PR. Once they have performed
+   their review, they should remove themselves from the list of assignees.
 
 #. Belonging to a team does not mean that a committer should know every single
    line of code the team is maintaining. For this reason it is recommended
@@ -315,6 +327,12 @@ steps 1 to 2 times per day. Works best if done first thing in the working day.
 #. If this PR was opened by a non-committer (e.g. external contributor) please
    assign yourself to that PR and make sure to keep track the PR gets reviewed
    and merged. This may extend beyond your assigned week for Janitor duty.
+
+   If the contributor is a Cilium committer, then they are responsible for
+   getting the PR in a ready to be merged state by adding the ``ready-to-merge``
+   label, once all reviews have been addressed and CI checks are successful, so
+   that the janitor can merge it (see below).
+
    If this PR is a backport PR (e.g. with the label ``kind/backport``) and
    no-one else has reviewed the PR, review the changes as a sanity check.
    If any individual commits deviate from the original patch, request review from
@@ -407,7 +425,12 @@ day. Works best if done first thing in the working day.
        #. Assign a member that is responsible for that code section to that GitHub
           issue;
        #. If it is a relevant bug to the rest of the committers, bring the issue
-          up in the weekly meeting.
+          up in the weekly meeting. For example:
+
+          * The issue may impact an upcoming release; or
+          * The resolution is unclear and assistance is needed to make progress; or
+          * The issue needs additional attention from core contributors to
+            confirm the resolution is the right path.
 
    #. `Issues recently commented are not left out unanswered <https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Akind%2Fcommunity-report>`_:
 

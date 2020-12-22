@@ -15,14 +15,17 @@
 package monitor
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -58,8 +61,8 @@ type TraceNotifyV0 struct {
 	OrigLen  uint32
 	CapLen   uint16
 	Version  uint16
-	SrcLabel uint32
-	DstLabel uint32
+	SrcLabel identity.NumericIdentity
+	DstLabel identity.NumericIdentity
 	DstID    uint16
 	Reason   uint8
 	Flags    uint8
@@ -90,6 +93,7 @@ const (
 	TraceReasonCtEstablished
 	TraceReasonCtReply
 	TraceReasonCtRelated
+	TraceReasonCtReopened
 )
 
 var traceReasons = map[uint8]string{
@@ -97,6 +101,7 @@ var traceReasons = map[uint8]string{
 	TraceReasonCtEstablished: "established",
 	TraceReasonCtReply:       "reply",
 	TraceReasonCtRelated:     "related",
+	TraceReasonCtReopened:    "reopened",
 }
 
 func connState(reason uint8) string {
@@ -134,6 +139,16 @@ func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 		err = fmt.Errorf("Unrecognized trace event (version %d)", version)
 	}
 	return err
+}
+
+// dumpIdentity dumps the source and destination identities in numeric or
+// human-readable format.
+func (n *TraceNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+	if numeric {
+		fmt.Fprintf(buf, "identity %d->%d", n.SrcLabel, n.DstLabel)
+	} else {
+		fmt.Fprintf(buf, "identity %s->%s", n.SrcLabel, n.DstLabel)
+	}
 }
 
 func (n *TraceNotify) encryptReason() string {
@@ -196,44 +211,48 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(data []byte) {
+func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat) {
+	buf := bufio.NewWriter(os.Stdout)
 	hdrLen := n.DataOffset()
 	if n.encryptReason() != "" {
-		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
-			n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+		fmt.Fprintf(buf, "%s %s flow %#x ",
+			n.traceSummary(), n.encryptReason(), n.Hash)
 	} else {
-		fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
-			n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+		fmt.Fprintf(buf, "%s flow %#x ", n.traceSummary(), n.Hash)
 	}
+	n.dumpIdentity(buf, numeric)
+	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReason(),
+		ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+	buf.Flush()
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
+func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat) {
+	buf := bufio.NewWriter(os.Stdout)
+	fmt.Fprintf(buf, "%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
 		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, connState(n.Reason))
 
 	if n.Ifindex != 0 {
-		fmt.Printf(", interface %s", ifname(int(n.Ifindex)))
+		fmt.Fprintf(buf, ", interface %s", ifname(int(n.Ifindex)))
 	}
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
-		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
+		n.dumpIdentity(buf, numeric)
 	}
 
-	fmt.Printf(", orig-ip " + n.OriginalIP().String())
+	fmt.Fprintf(buf, ", orig-ip %s", n.OriginalIP().String())
 
 	if n.DstID != 0 {
-		fmt.Printf(", to endpoint %d\n", n.DstID)
+		fmt.Fprintf(buf, ", to endpoint %d\n", n.DstID)
 	} else {
-		fmt.Printf("\n")
+		fmt.Fprintf(buf, "\n")
 	}
 
 	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
 		Dissect(dissect, data[hdrLen:])
 	}
+	buf.Flush()
 }
 
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
@@ -266,11 +285,11 @@ type TraceNotifyVerbose struct {
 	ObservationPoint string `json:"observationPoint"`
 	TraceSummary     string `json:"traceSummary"`
 
-	Source   uint16 `json:"source"`
-	Bytes    uint32 `json:"bytes"`
-	SrcLabel uint32 `json:"srcLabel"`
-	DstLabel uint32 `json:"dstLabel"`
-	DstID    uint16 `json:"dstID"`
+	Source   uint16                   `json:"source"`
+	Bytes    uint32                   `json:"bytes"`
+	SrcLabel identity.NumericIdentity `json:"srcLabel"`
+	DstLabel identity.NumericIdentity `json:"dstLabel"`
+	DstID    uint16                   `json:"dstID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }

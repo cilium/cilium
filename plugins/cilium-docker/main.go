@@ -69,7 +69,7 @@ connected to a Docker network of type "cilium".`,
 func main() {
 	if err := RootCmd.Execute(); err != nil {
 		log.Fatal(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }
 

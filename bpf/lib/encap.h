@@ -124,7 +124,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * received.
 	 */
 	if (seclabel == HOST_ID)
-		seclabel = REMOTE_NODE_ID;
+		seclabel = LOCAL_NODE_ID;
 
 	node_id = bpf_htonl(tunnel_endpoint);
 	key.tunnel_id = seclabel;

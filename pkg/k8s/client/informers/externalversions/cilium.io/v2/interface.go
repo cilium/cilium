@@ -26,8 +26,12 @@ type Interface interface {
 	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
 	CiliumEndpoints() CiliumEndpointInformer
+	// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
+	CiliumExternalWorkloads() CiliumExternalWorkloadInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
 	CiliumIdentities() CiliumIdentityInformer
+	// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
+	CiliumLocalRedirectPolicies() CiliumLocalRedirectPolicyInformer
 	// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
 	CiliumNetworkPolicies() CiliumNetworkPolicyInformer
 	// CiliumNodes returns a CiliumNodeInformer.
@@ -55,9 +59,19 @@ func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
+// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
+func (v *version) CiliumExternalWorkloads() CiliumExternalWorkloadInformer {
+	return &ciliumExternalWorkloadInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // CiliumIdentities returns a CiliumIdentityInformer.
 func (v *version) CiliumIdentities() CiliumIdentityInformer {
 	return &ciliumIdentityInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
+func (v *version) CiliumLocalRedirectPolicies() CiliumLocalRedirectPolicyInformer {
+	return &ciliumLocalRedirectPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.

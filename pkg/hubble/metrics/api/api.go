@@ -15,9 +15,10 @@
 package api
 
 import (
+	"context"
 	"strings"
 
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -73,7 +74,7 @@ type Handler interface {
 
 	// ProcessFlow must processes a flow event and perform metrics
 	// accounting
-	ProcessFlow(flow v1.Flow)
+	ProcessFlow(ctx context.Context, flow *pb.Flow)
 
 	// Status returns the configuration status of the metric handler
 	Status() string
@@ -81,9 +82,9 @@ type Handler interface {
 
 // ProcessFlow processes a flow by calling ProcessFlow it on to all enabled
 // metric handlers
-func (h Handlers) ProcessFlow(flow v1.Flow) {
+func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) {
 	for _, mh := range h {
-		mh.ProcessFlow(flow)
+		mh.ProcessFlow(ctx, flow)
 	}
 }
 

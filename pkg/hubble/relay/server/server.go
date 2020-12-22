@@ -15,6 +15,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -24,24 +25,21 @@ import (
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
 var (
-	// ErrNoTransportCredentials is returned when no transport credentials is
-	// set for the server unless WithInsecureServer() is provided.
-	ErrNoTransportCredentials = errors.New("no transport credentials configured")
-
 	// ErrNoClientTLSConfig is returned when no client TLS config is set unless
 	// WithInsecureClient() is provided.
 	ErrNoClientTLSConfig = errors.New("no client TLS config is set")
+	// ErrNoServerTLSConfig is returned when no server TLS config is set unless
+	// WithInsecureServer() is provided.
+	ErrNoServerTLSConfig = errors.New("no server TLS config is set")
 )
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
@@ -49,7 +47,6 @@ var (
 type Server struct {
 	server *grpc.Server
 	pm     *pool.PeerManager
-	log    logrus.FieldLogger
 	opts   options
 	stop   chan struct{}
 }
@@ -65,11 +62,9 @@ func New(options ...Option) (*Server, error) {
 	if opts.clientTLSConfig == nil && !opts.insecureClient {
 		return nil, ErrNoClientTLSConfig
 	}
-	if opts.serverCredentials == nil && !opts.insecureServer {
-		return nil, ErrNoTransportCredentials
+	if opts.serverTLSConfig == nil && !opts.insecureServer {
+		return nil, ErrNoServerTLSConfig
 	}
-	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
-	logging.ConfigureLogLevel(opts.debug)
 
 	pm, err := pool.NewPeerManager(
 		pool.WithPeerServiceAddress(opts.hubbleTarget),
@@ -80,18 +75,24 @@ func New(options ...Option) (*Server, error) {
 		),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
 			DialTimeout: opts.dialTimeout,
-			Options:     []grpc.DialOption{grpc.WithBlock()},
-			TLSConfig:   opts.clientTLSConfig,
+			Options: []grpc.DialOption{
+				grpc.WithBlock(),
+				grpc.FailOnNonTempDialError(true),
+				// TODO: uncomment the line below once grpc-go is >= v1.30.0
+				// currently blocked on v1.29.1, see the following PR for details
+				// https://github.com/cilium/cilium/pull/13405
+				// grpc.WithReturnConnectionError(),
+			},
+			TLSConfig: opts.clientTLSConfig,
 		}),
 		pool.WithRetryTimeout(opts.retryTimeout),
-		pool.WithLogger(logger),
+		pool.WithLogger(opts.log),
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &Server{
 		pm:   pm,
-		log:  logger,
 		stop: make(chan struct{}),
 		opts: opts,
 	}, nil
@@ -101,19 +102,24 @@ func New(options ...Option) (*Server, error) {
 // listening fails with fatal errors. Serve will return a non-nil error if
 // Stop() is not called.
 func (s *Server) Serve() error {
-	s.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
+	s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
 
 	switch {
 	case s.opts.insecureServer:
 		s.server = grpc.NewServer()
-	case s.opts.serverCredentials != nil:
-		s.server = grpc.NewServer(grpc.Creds(s.opts.serverCredentials))
+	case s.opts.serverTLSConfig != nil:
+		tlsConfig := s.opts.serverTLSConfig.ServerConfig(&tls.Config{
+			MinVersion: MinTLSVersion,
+		})
+		creds := credentials.NewTLS(tlsConfig)
+		s.server = grpc.NewServer(grpc.Creds(creds))
 	default:
-		return ErrNoTransportCredentials
+		return ErrNoServerTLSConfig
 	}
 
 	s.pm.Start()
-	observerSrv, err := observer.NewServer(s.pm, append(s.opts.observerOptions, observer.WithLogger(s.log))...)
+	observerOptions := s.observerOptions()
+	observerSrv, err := observer.NewServer(s.pm, observerOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to create observer server: %v", err)
 	}
@@ -135,9 +141,18 @@ func (s *Server) Serve() error {
 
 // Stop terminates the hubble-relay server.
 func (s *Server) Stop() {
-	s.log.Info("Stopping server...")
+	s.opts.log.Info("Stopping server...")
 	close(s.stop)
 	s.server.Stop()
 	s.pm.Stop()
-	s.log.Info("Server stopped")
+	s.opts.log.Info("Server stopped")
+}
+
+// observerOptions returns the configured hubble-relay observer options along
+// with the hubble-relay logger.
+func (s *Server) observerOptions() []observer.Option {
+	observerOptions := make([]observer.Option, len(s.opts.observerOptions), len(s.opts.observerOptions)+1)
+	copy(observerOptions, s.opts.observerOptions)
+	observerOptions = append(observerOptions, observer.WithLogger(s.opts.log))
+	return observerOptions
 }

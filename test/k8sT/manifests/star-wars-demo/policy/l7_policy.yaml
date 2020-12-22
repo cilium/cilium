@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "Protect deathstar APIs"
 metadata:
   name: "deathstar-api-protection"
 spec:
+  description: "Protect deathstar APIs"
   endpointSelector:
     matchLabels:
       class: deathstar

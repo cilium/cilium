@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -46,6 +47,14 @@ type Owner interface {
 
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
+
+	// GetDNSRules creates a fresh copy of DNS rules that can be used when
+	// endpoint is restored on a restart.
+	GetDNSRules(epID uint16) restore.DNSRules
+
+	// RemoveRestoredDNSRules removes any restored DNS rules for
+	// this endpoint from the DNS proxy.
+	RemoveRestoredDNSRules(epID uint16)
 }
 
 // EndpointInfoSource returns information about an endpoint being proxied.

@@ -24,10 +24,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -39,9 +38,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
 // version, the Kubernetes discovery API, or probing of individual API
 // endpoints.
 type ServerCapabilities struct {
-	// Patch is the ability to use PATCH to modify a resource
-	Patch bool
-
 	// MinimalVersionMet is true when the minimal version of Kubernetes
 	// required to run Cilium has been met
 	MinimalVersionMet bool
@@ -56,18 +52,38 @@ type ServerCapabilities struct {
 	// This capability was introduced in K8s version 1.14, prior to which
 	// we don't support HA mode for the cilium-operator.
 	LeasesResourceLock bool
+
+	// APIExtensionsV1CRD is set to true when the K8s server supports
+	// apiextensions/v1 CRDs. TODO: Add link to docs
+	//
+	// This capability was introduced in K8s version 1.16, prior to which
+	// apiextensions/v1beta1 CRDs were used exclusively.
+	APIExtensionsV1CRD bool
+
+	// WatchPartialObjectMetadata is set to true when the K8s server supports a
+	// watch operation on the metav1.PartialObjectMetadata (and metav1.Table)
+	// resource.
+	//
+	// This capability was introduced in K8s version 1.15, prior to which
+	// watches cannot be performed on the aforementioned resources.
+	//
+	// Source:
+	//   - KEP:
+	//   https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/20190322-server-side-get-to-ga.md#goals
+	//   - PR: https://github.com/kubernetes/kubernetes/pull/71548
+	WatchPartialObjectMetadata bool
 }
 
 type cachedVersion struct {
 	mutex        lock.RWMutex
 	capabilities ServerCapabilities
-	version      go_version.Version
+	version      semver.Version
 }
 
 const (
 	// MinimalVersionConstraint is the minimal version that Cilium supports to
 	// run kubernetes.
-	MinimalVersionConstraint = "1.12.0"
+	MinimalVersionConstraint = "1.13.0"
 )
 
 var (
@@ -78,10 +94,17 @@ var (
 	endpointSliceKind      = "EndpointSlice"
 	leaseKind              = "Lease"
 
-	isGEThanPatchConstraint = versioncheck.MustCompile(">=1.13.0")
 	// Constraint to check support for Lease type from coordination.k8s.io/v1.
 	// Support for Lease resource was introduced in K8s version 1.14.
 	isGEThanLeaseSupportConstraint = versioncheck.MustCompile(">=1.14.0")
+
+	// Constraint to check support for apiextensions/v1 CRD types. Support for
+	// v1 CRDs was introduced in K8s version 1.16.
+	isGEThanAPIExtensionsV1CRD = versioncheck.MustCompile(">=1.16.0")
+
+	// Constraint to check support for watching metav1.PartialObjectMetadata
+	// and metav1.Table types. Support was introduced in K8s 1.15.
+	isGEThanWatchPartialObjectMeta = versioncheck.MustCompile(">=1.15.0")
 
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
@@ -89,7 +112,7 @@ var (
 )
 
 // Version returns the version of the Kubernetes apiserver
-func Version() go_version.Version {
+func Version() semver.Version {
 	cached.mutex.RLock()
 	c := cached.version
 	cached.mutex.RUnlock()
@@ -104,14 +127,15 @@ func Capabilities() ServerCapabilities {
 	return c
 }
 
-func updateVersion(version go_version.Version) {
+func updateVersion(version semver.Version) {
 	cached.mutex.Lock()
 	defer cached.mutex.Unlock()
 
 	cached.version = version
 
-	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
+	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
+	cached.capabilities.WatchPartialObjectMetadata = isGEThanWatchPartialObjectMeta(version)
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
@@ -222,6 +246,8 @@ func leasesFallbackDiscovery(client kubernetes.Interface, conf k8sconfig.Configu
 }
 
 func updateK8sServerVersion(client kubernetes.Interface) error {
+	var ver semver.Version
+
 	sv, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return err
@@ -230,7 +256,7 @@ func updateK8sServerVersion(client kubernetes.Interface) error {
 	// Try GitVersion first. In case of error fallback to MajorMinor
 	if sv.GitVersion != "" {
 		// This is a string like "v1.9.0"
-		ver, err := versioncheck.Version(sv.GitVersion)
+		ver, err = versioncheck.Version(sv.GitVersion)
 		if err == nil {
 			updateVersion(ver)
 			return nil
@@ -238,18 +264,14 @@ func updateK8sServerVersion(client kubernetes.Interface) error {
 	}
 
 	if sv.Major != "" && sv.Minor != "" {
-		ver, err := versioncheck.Version(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
+		ver, err = versioncheck.Version(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
 		if err == nil {
 			updateVersion(ver)
 			return nil
 		}
 	}
 
-	if err != nil {
-		return fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
-	}
-
-	return fmt.Errorf("cannot parse k8s server version from %+v", sv)
+	return fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
 }
 
 // Update retrieves the version of the Kubernetes apiserver and derives the

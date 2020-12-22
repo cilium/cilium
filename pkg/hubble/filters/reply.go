@@ -26,9 +26,18 @@ func filterByReplyField(replyParams []bool) FilterFunc {
 		if len(replyParams) == 0 {
 			return true
 		}
-		switch ev.Event.(type) {
-		case v1.Flow:
-			reply := ev.GetFlow().GetReply()
+		switch f := ev.Event.(type) {
+		case *flowpb.Flow:
+			// FIXME: For dropped flows, we handle `is_reply=unknown` as
+			// `is_reply=false`. This is for compatibility with older clients
+			// (such as Hubble UI) which assume this filter applies to the
+			// deprecated `reply` field, where dropped flows always have
+			// `reply=false`.
+			if f.GetIsReply() == nil && f.GetVerdict() != flowpb.Verdict_DROPPED {
+				return false
+			}
+
+			reply := f.GetIsReply().GetValue()
 			for _, replyParam := range replyParams {
 				if reply == replyParam {
 					return true

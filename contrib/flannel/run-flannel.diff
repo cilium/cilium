@@ -3,8 +3,6 @@ index 15def2284..f6a4f43f6 100755
 --- a/contrib/vagrant/start.sh
 +++ b/contrib/vagrant/start.sh
 @@ -42,7 +42,7 @@ export 'VM_BASENAME'=${K8S+"k8s"}
- # Set VAGRANT_DEFAULT_PROVIDER to virtualbox
- export 'VAGRANT_DEFAULT_PROVIDER'=${VAGRANT_DEFAULT_PROVIDER:-"virtualbox"}
  # Sets the default cilium TUNNEL_MODE to "vxlan"
 -export 'TUNNEL_MODE_STRING'=${TUNNEL_MODE_STRING:-"-t vxlan"}
 +export 'TUNNEL_MODE_STRING'=${TUNNEL_MODE_STRING:-"-t disabled"}

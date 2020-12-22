@@ -17,8 +17,9 @@ package watchers
 import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,13 +75,20 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController, K8sAPIGroupServiceV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController.HasSynced, K8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(K8sAPIGroupServiceV1Core)
+	k.k8sAPIGroups.AddAPI(K8sAPIGroupServiceV1Core)
 }
 
 func (k *K8sWatcher) addK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
-	k.K8sSvcCache.UpdateService(svc, swg)
+	svcID := k.K8sSvcCache.UpdateService(svc, swg)
+	if option.Config.EnableLocalRedirectPolicy {
+		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
+			// The local redirect policies currently support services of type
+			// clusterIP only.
+			k.redirectPolicyManager.OnAddService(svcID)
+		}
+	}
 	return nil
 }
 
@@ -90,5 +98,11 @@ func (k *K8sWatcher) updateK8sServiceV1(oldSvc, newSvc *slim_corev1.Service, swg
 
 func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.DeleteService(svc, swg)
+	svcID := k8s.ParseServiceID(svc)
+	if option.Config.EnableLocalRedirectPolicy {
+		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
+			k.redirectPolicyManager.OnDeleteService(svcID)
+		}
+	}
 	return nil
 }

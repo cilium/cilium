@@ -16,10 +16,12 @@ package constants
 
 const (
 	// NetperfImage is the Docker image used for performance testing
-	NetperfImage = "docker.io/tgraf/netperf:v1.0"
+	// NB: this image includes netperf and a utility named xping that works
+	// like ping but it also allows to specify the ICMP id.
+	NetperfImage = "quay.io/cilium/net-test:v1.0.0"
 
 	// HttpdImage is the image used for starting an HTTP server.
-	HttpdImage = "docker.io/cilium/demo-httpd:latest"
+	HttpdImage = "docker.io/cilium/demo-httpd:1.0"
 
 	// DNSSECContainerImage is the image used for starting a DNSSec client.
 	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.2"
@@ -28,7 +30,7 @@ const (
 	BindContainerImage = "docker.io/cilium/docker-bind:v0.3"
 
 	// KafkaClientImage is the image used for Kafka clients.
-	KafkaClientImage = "docker.io/cilium/kafkaclient2:latest"
+	KafkaClientImage = "docker.io/cilium/kafkaclient2:1.0"
 
 	// Zookeeper image is the image used for running Zookeeper.
 	ZookeeperImage = "docker.io/digitalwonderland/zookeeper:latest"

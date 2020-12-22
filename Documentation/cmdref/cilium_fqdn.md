@@ -4,10 +4,6 @@
 
 Manage fqdn proxy
 
-### Synopsis
-
-Manage fqdn proxy
-
 ```
 cilium fqdn [flags]
 ```

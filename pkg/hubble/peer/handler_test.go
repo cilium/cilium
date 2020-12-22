@@ -135,6 +135,20 @@ func TestNodeAdd(t *testing.T) {
 					ServerName: "my-very-long-node-name.cluster.hubble-grpc.cilium.io",
 				},
 			},
+		}, {
+			name: "node name with dots in the cluster name section",
+			arg: types.Node{
+				Name:    "my.very.long.node.name",
+				Cluster: "cluster.name.with.dots",
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster.name.with.dots/my.very.long.node.name",
+				Address: "",
+				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				Tls: &peerpb.TLS{
+					ServerName: "my-very-long-node-name.cluster-name-with-dots.hubble-grpc.cilium.io",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {

@@ -29,8 +29,9 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )
@@ -55,6 +56,7 @@ func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 // observerpb.ObserverClient interface.
 type FakeObserverClient struct {
 	OnGetFlows     func(ctx context.Context, in *observerpb.GetFlowsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error)
+	OnGetNodes     func(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error)
 	OnServerStatus func(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error)
 }
 
@@ -64,6 +66,14 @@ func (c *FakeObserverClient) GetFlows(ctx context.Context, in *observerpb.GetFlo
 		return c.OnGetFlows(ctx, in, opts...)
 	}
 	panic("OnGetFlows not set")
+}
+
+// GetNodes implements observerpb.ObserverClient.GetNodes.
+func (c *FakeObserverClient) GetNodes(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error) {
+	if c.OnGetNodes != nil {
+		return c.OnGetNodes(ctx, in, opts...)
+	}
+	panic("OnGetNodes not set")
 }
 
 // ServerStatus implements observerpb.ObserverClient.ServerStatus.
@@ -353,139 +363,6 @@ var NoopIdentityGetter = FakeIdentityGetter{
 	},
 }
 
-// FakeFlow implements v1.Flow for unit tests. All interface methods
-// return values exposed in the fields.
-type FakeFlow struct {
-	Time               *timestamp.Timestamp
-	Verdict            flowpb.Verdict
-	DropReason         uint32
-	Ethernet           *flowpb.Ethernet
-	IP                 *flowpb.IP
-	L4                 *flowpb.Layer4
-	Source             *flowpb.Endpoint
-	Destination        *flowpb.Endpoint
-	Type               flowpb.FlowType
-	NodeName           string
-	SourceNames        []string
-	DestinationNames   []string
-	L7                 *flowpb.Layer7
-	Reply              bool
-	EventType          *flowpb.CiliumEventType
-	SourceService      *flowpb.Service
-	DestinationService *flowpb.Service
-	TrafficDirection   flowpb.TrafficDirection
-	PolicyMatchType    uint32
-}
-
-// Reset implements flowpb.Message for the FakeFlow.
-func (f *FakeFlow) Reset() {}
-
-// ProtoMessage implements flowpb.Message for the FakeFlow.
-func (f *FakeFlow) ProtoMessage() {}
-
-// String implements flowpb.Message for the FakeFlow.
-func (f *FakeFlow) String() string { return "fake flow message" }
-
-// GetTime implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetTime() *timestamp.Timestamp {
-	return f.Time
-}
-
-// GetVerdict implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetVerdict() flowpb.Verdict {
-	return f.Verdict
-}
-
-// GetDropReason implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetDropReason() uint32 {
-	return f.DropReason
-}
-
-// GetEthernet implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetEthernet() *flowpb.Ethernet {
-	return f.Ethernet
-}
-
-// GetIP implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetIP() *flowpb.IP {
-	return f.IP
-}
-
-// GetL4 implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetL4() *flowpb.Layer4 {
-	return f.L4
-}
-
-// GetSource implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetSource() *flowpb.Endpoint {
-	return f.Source
-}
-
-// GetDestination implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetDestination() *flowpb.Endpoint {
-	return f.Destination
-}
-
-// GetType implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetType() flowpb.FlowType {
-	return f.Type
-}
-
-// GetNodeName implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetNodeName() string {
-	return f.NodeName
-}
-
-// GetSourceNames implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetSourceNames() []string {
-	return f.SourceNames
-}
-
-// GetDestinationNames implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetDestinationNames() []string {
-	return f.DestinationNames
-}
-
-// GetL7 implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetL7() *flowpb.Layer7 {
-	return f.L7
-}
-
-// GetReply implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetReply() bool {
-	return f.Reply
-}
-
-// GetEventType implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetEventType() *flowpb.CiliumEventType {
-	return f.EventType
-}
-
-// GetSourceService implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetSourceService() *flowpb.Service {
-	return f.SourceService
-}
-
-// GetDestinationService implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetDestinationService() *flowpb.Service {
-	return f.DestinationService
-}
-
-// GetTrafficDirection implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetTrafficDirection() flowpb.TrafficDirection {
-	return f.TrafficDirection
-}
-
-// GetPolicyMatchType implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetPolicyMatchType() uint32 {
-	return f.PolicyMatchType
-}
-
-// GetSummary implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetSummary() string {
-	return "deprecated"
-}
-
 // FakeEndpointInfo implements v1.EndpointInfo for unit tests. All interface
 // methods return values exposed in the fields.
 type FakeEndpointInfo struct {
@@ -497,6 +374,9 @@ type FakeEndpointInfo struct {
 	PodName      string
 	PodNamespace string
 	Labels       []string
+
+	PolicyMap      map[policy.Key]labels.LabelArrayList
+	PolicyRevision uint64
 }
 
 // GetID returns the ID of the endpoint.
@@ -522,4 +402,13 @@ func (e *FakeEndpointInfo) GetK8sNamespace() string {
 // GetLabels returns the labels of the endpoint.
 func (e *FakeEndpointInfo) GetLabels() []string {
 	return e.Labels
+}
+
+func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+	derivedFrom labels.LabelArrayList,
+	revision uint64,
+	ok bool,
+) {
+	derivedFrom, ok = e.PolicyMap[key]
+	return derivedFrom, e.PolicyRevision, ok
 }

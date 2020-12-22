@@ -14,10 +14,14 @@
 
 package kvstore
 
-import (
-	"context"
+import "context"
 
-	"github.com/cilium/cilium/pkg/common"
+const (
+	// OperationalPath is the base path to store the operational details in the kvstore.
+	OperationalPath = "cilium-net/operational"
+
+	// servicePathV1 is the base path for the services stored in the kvstore.
+	servicePathV1 = OperationalPath + "/Services/"
 )
 
 // deleteLegacyPrefixes removes old kvstore prefixes of non-persistent keys
@@ -35,5 +39,5 @@ import (
 //
 func deleteLegacyPrefixes(ctx context.Context) {
 	// Delete all keys in old services prefix
-	Client().DeletePrefix(ctx, common.ServicePathV1)
+	Client().DeletePrefix(ctx, servicePathV1)
 }

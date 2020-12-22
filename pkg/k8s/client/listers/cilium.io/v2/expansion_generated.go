@@ -28,9 +28,21 @@ type CiliumEndpointListerExpansion interface{}
 // CiliumEndpointNamespaceLister.
 type CiliumEndpointNamespaceListerExpansion interface{}
 
+// CiliumExternalWorkloadListerExpansion allows custom methods to be added to
+// CiliumExternalWorkloadLister.
+type CiliumExternalWorkloadListerExpansion interface{}
+
 // CiliumIdentityListerExpansion allows custom methods to be added to
 // CiliumIdentityLister.
 type CiliumIdentityListerExpansion interface{}
+
+// CiliumLocalRedirectPolicyListerExpansion allows custom methods to be added to
+// CiliumLocalRedirectPolicyLister.
+type CiliumLocalRedirectPolicyListerExpansion interface{}
+
+// CiliumLocalRedirectPolicyNamespaceListerExpansion allows custom methods to be added to
+// CiliumLocalRedirectPolicyNamespaceLister.
+type CiliumLocalRedirectPolicyNamespaceListerExpansion interface{}
 
 // CiliumNetworkPolicyListerExpansion allows custom methods to be added to
 // CiliumNetworkPolicyLister.

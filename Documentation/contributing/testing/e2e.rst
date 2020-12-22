@@ -106,6 +106,8 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 The output has been truncated. For more information about this functionality,
 consult the aforementioned Ginkgo documentation.
 
+.. _running_k8s_tests:
+
 Running Kubernetes Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -115,6 +117,12 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
     ginkgo --focus="K8s" -noColor
 
+To run a specific test from the Kubernetes tests suite, run the following command
+from the ``test`` directory:
+
+::
+
+    ginkgo --focus="K8s.*Check iptables masquerading with random-fully"
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "K8s" and
@@ -122,7 +130,6 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.12
 * 1.13
 * 1.14
 * 1.15
@@ -130,8 +137,9 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.17
 * 1.18
 * 1.19
+* 1.20
 
-By default, the Vagrant VMs are provisioned with Kubernetes 1.19. To run with any other
+By default, the Vagrant VMs are provisioned with Kubernetes 1.20. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
 ::
@@ -196,6 +204,8 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             On failure, hold the environment in its current state
       -cilium.hubble-relay-image string
             Specifies which image of hubble-relay to use during tests
+      -cilium.hubble-relay-tag string
+            Specifies which tag of hubble-relay to use during tests
       -cilium.image string
             Specifies which image of cilium to use during tests
       -cilium.kubeconfig string
@@ -204,26 +214,28 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Enable tests across multiple nodes. If disabled, such tests may silently pass (default true)
       -cilium.operator-image string
             Specifies which image of cilium-operator to use during tests
+      -cilium.operator-tag string
+            Specifies which tag of cilium-operator to use during tests
       -cilium.passCLIEnvironment
             Pass the environment invoking ginkgo, including PATH, to subcommands
       -cilium.provision
             Provision Vagrant boxes and Cilium before running test (default true)
       -cilium.provision-k8s
             Specifies whether Kubernetes should be deployed and installed via kubeadm or not (default true)
-      -cilium.registry string
-            docker registry hostname for Cilium image
       -cilium.runQuarantined
             Run tests that are under quarantine.
       -cilium.showCommands
             Output which commands are ran to stdout
       -cilium.skipLogs
             skip gathering logs if a test fails
+      -cilium.tag string
+            Specifies which tag of cilium to use during tests
       -cilium.testScope string
             Specifies scope of test to be ran (k8s, Nightly, runtime)
       -cilium.timeout duration
             Specifies timeout for test run (default 24h0m0s)
 
-    Ginkgo ran 1 suite in 5.04417992s
+    Ginkgo ran 1 suite in 4.312100241s
     Test Suite Failed
 
 For more information about other built-in options to Ginkgo, consult the
@@ -333,7 +345,7 @@ JustAfterEach
 ^^^^^^^^^^^^^
 
 This method will run just after each test and before ``AfterFailed`` and
-``AfterEach``. The main reason of this method is to to perform some assertions
+``AfterEach``. The main reason of this method is to perform some assertions
 for a group of tests.  A good example of using a global ``JustAfterEach``
 function is for deadlock detection, which checks the Cilium logs for deadlocks
 that may have occurred in the duration of the tests.
@@ -479,10 +491,10 @@ An example invocation is
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
 
-GKE (experimental)
-^^^^^^^^^^^^^^^^^^^^^^
+Running in GKE
+^^^^^^^^^^^^^^
 
 1- Setup a cluster as in :ref:`k8s_install_gke` or utilize an existing
 cluster.
@@ -503,7 +515,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.18 but can be configured with
           versions between 1.13 and 1.18. Version should match the server
@@ -522,7 +534,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-aws:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
 
 Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
 

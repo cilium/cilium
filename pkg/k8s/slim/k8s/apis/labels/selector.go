@@ -16,7 +16,6 @@
 package labels
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
@@ -263,59 +262,59 @@ func (r *Requirement) Values() sets.String {
 }
 
 // Empty returns true if the internalSelector doesn't restrict selection space
-func (lsel internalSelector) Empty() bool {
-	if lsel == nil {
+func (s internalSelector) Empty() bool {
+	if s == nil {
 		return true
 	}
-	return len(lsel) == 0
+	return len(s) == 0
 }
 
 // String returns a human-readable string that represents this
 // Requirement. If called on an invalid Requirement, an error is
 // returned. See NewRequirement for creating a valid Requirement.
 func (r *Requirement) String() string {
-	var buffer bytes.Buffer
+	var sb strings.Builder
 	if r.operator == selection.DoesNotExist {
-		buffer.WriteString("!")
+		sb.WriteString("!")
 	}
-	buffer.WriteString(r.key)
+	sb.WriteString(r.key)
 
 	switch r.operator {
 	case selection.Equals:
-		buffer.WriteString("=")
+		sb.WriteString("=")
 	case selection.DoubleEquals:
-		buffer.WriteString("==")
+		sb.WriteString("==")
 	case selection.NotEquals:
-		buffer.WriteString("!=")
+		sb.WriteString("!=")
 	case selection.In:
-		buffer.WriteString(" in ")
+		sb.WriteString(" in ")
 	case selection.NotIn:
-		buffer.WriteString(" notin ")
+		sb.WriteString(" notin ")
 	case selection.GreaterThan:
-		buffer.WriteString(">")
+		sb.WriteString(">")
 	case selection.LessThan:
-		buffer.WriteString("<")
+		sb.WriteString("<")
 	case selection.Exists, selection.DoesNotExist:
-		return buffer.String()
+		return sb.String()
 	}
 
 	switch r.operator {
 	case selection.In, selection.NotIn:
-		buffer.WriteString("(")
+		sb.WriteString("(")
 	}
 	if len(r.strValues) == 1 {
-		buffer.WriteString(r.strValues[0])
+		sb.WriteString(r.strValues[0])
 	} else { // only > 1 since == 0 prohibited by NewRequirement
 		// normalizes value order on output, without mutating the in-memory selector representation
 		// also avoids normalization when it is not required, and ensures we do not mutate shared data
-		buffer.WriteString(strings.Join(safeSort(r.strValues), ","))
+		sb.WriteString(strings.Join(safeSort(r.strValues), ","))
 	}
 
 	switch r.operator {
 	case selection.In, selection.NotIn:
-		buffer.WriteString(")")
+		sb.WriteString(")")
 	}
-	return buffer.String()
+	return sb.String()
 }
 
 // safeSort sort input strings without modification
@@ -330,51 +329,51 @@ func safeSort(in []string) []string {
 }
 
 // Add adds requirements to the selector. It copies the current selector returning a new one
-func (lsel internalSelector) Add(reqs ...Requirement) Selector {
-	var sel internalSelector
-	for ix := range lsel {
-		sel = append(sel, lsel[ix])
+func (s internalSelector) Add(reqs ...Requirement) Selector {
+	var ret internalSelector
+	for ix := range s {
+		ret = append(ret, s[ix])
 	}
 	for _, r := range reqs {
-		sel = append(sel, r)
+		ret = append(ret, r)
 	}
-	sort.Sort(ByKey(sel))
-	return sel
+	sort.Sort(ByKey(ret))
+	return ret
 }
 
 // Matches for a internalSelector returns true if all
 // its Requirements match the input Labels. If any
 // Requirement does not match, false is returned.
-func (lsel internalSelector) Matches(l Labels) bool {
-	for ix := range lsel {
-		if matches := lsel[ix].Matches(l); !matches {
+func (s internalSelector) Matches(l Labels) bool {
+	for ix := range s {
+		if matches := s[ix].Matches(l); !matches {
 			return false
 		}
 	}
 	return true
 }
 
-func (lsel internalSelector) Requirements() (Requirements, bool) { return Requirements(lsel), true }
+func (s internalSelector) Requirements() (Requirements, bool) { return Requirements(s), true }
 
 // String returns a comma-separated string of all
 // the internalSelector Requirements' human-readable strings.
-func (lsel internalSelector) String() string {
+func (s internalSelector) String() string {
 	var reqs []string
-	for ix := range lsel {
-		reqs = append(reqs, lsel[ix].String())
+	for ix := range s {
+		reqs = append(reqs, s[ix].String())
 	}
 	return strings.Join(reqs, ",")
 }
 
 // RequiresExactMatch introspect whether a given selector requires a single specific field
 // to be set, and if so returns the value it requires.
-func (lsel internalSelector) RequiresExactMatch(label string) (value string, found bool) {
-	for ix := range lsel {
-		if lsel[ix].key == label {
-			switch lsel[ix].operator {
+func (s internalSelector) RequiresExactMatch(label string) (value string, found bool) {
+	for ix := range s {
+		if s[ix].key == label {
+			switch s[ix].operator {
 			case selection.Equals, selection.DoubleEquals, selection.In:
-				if len(lsel[ix].strValues) == 1 {
-					return lsel[ix].strValues[0], true
+				if len(s[ix].strValues) == 1 {
+					return s[ix].strValues[0], true
 				}
 			}
 			return "", false

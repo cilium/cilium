@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+
 	"github.com/spf13/cobra"
 )
 
@@ -34,9 +35,10 @@ var kernelCheckCmd = &cobra.Command{
 
 // KernelParamSupport contains fields required for dumping JSON output
 type KernelParamSupport struct {
-	Feature   probes.KernelParam
-	Supported bool
-	Required  bool
+	Feature     probes.KernelParam
+	Supported   bool
+	Required    bool
+	Description string
 }
 
 func kernelCheck() {
@@ -45,17 +47,19 @@ func kernelCheck() {
 	requiredParams := probeManager.GetRequiredConfig()
 	for f, s := range requiredParams {
 		listParams = append(listParams, KernelParamSupport{
-			Feature:   f,
-			Supported: s,
-			Required:  true,
+			Feature:     f,
+			Supported:   s.Enabled,
+			Required:    true,
+			Description: s.Description,
 		})
 	}
 	optionalParams := probeManager.GetOptionalConfig()
 	for f, s := range optionalParams {
 		listParams = append(listParams, KernelParamSupport{
-			Feature:   f,
-			Supported: s,
-			Required:  false,
+			Feature:     f,
+			Supported:   s.Enabled,
+			Required:    false,
+			Description: s.Description,
 		})
 	}
 	if command.OutputJSON() {
@@ -66,9 +70,9 @@ func kernelCheck() {
 		return
 	}
 	w := tabwriter.NewWriter(os.Stdout, 30, 8, 0, ' ', 0)
-	fmt.Fprintln(w, "FEATURE\tSUPPORTED\tREQUIRED")
+	fmt.Fprintln(w, "FEATURE\tSUPPORTED\tREQUIRED\tDESCRIPTION")
 	for _, p := range listParams {
-		fmt.Fprintf(w, "%s\t%t\t%t\n", p.Feature, p.Supported, p.Required)
+		fmt.Fprintf(w, "%s\t%t\t%t\t%s\n", p.Feature, p.Supported, p.Required, p.Description)
 	}
 	w.Flush()
 }

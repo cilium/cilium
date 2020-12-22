@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
 package RuntimeTest
 
 import (
+	"context"
+	"sync"
+	"time"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -142,14 +146,16 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 					assert:      BeFalse,
 				},
 				{
+					// see comment below about ICMP ids
 					from:        helpers.Client,
-					to:          helpers.Ping6(serverDockerNetworking[helpers.IPv6]),
+					to:          helpers.Ping6WithID(serverDockerNetworking[helpers.IPv6], 1111),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
+					// see comment below about ICMP ids
 					from:        helpers.Client,
-					to:          helpers.Ping(serverDockerNetworking[helpers.IPv4]),
+					to:          helpers.PingWithID(serverDockerNetworking[helpers.IPv4], 1111),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
@@ -201,13 +207,19 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 			By("Testing bidirectional connectivity from client to server")
 
+			// NB: Previous versions of this test did not specify the ICMP id, which
+			// presumably caused transient errors (see #12891) when the ICMP ids for the
+			// valid direction (client->server) matched the ICMP ids for the invalid
+			// direction (server->client). We now ensure that the ICMP ids do not match.
+			// Furthermore, the original issue can be now easily reproduced by changing
+			// 2222 to 1111 below.
 			By("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client)
-			res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
+			res = vm.ContainerExec(helpers.Server, helpers.Ping6WithID(clientDockerNetworking[helpers.IPv6], 2222))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
 
 			By("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client)
-			res = vm.ContainerExec(helpers.Server, helpers.Ping(clientDockerNetworking[helpers.IPv4]))
+			res = vm.ContainerExec(helpers.Server, helpers.PingWithID(clientDockerNetworking[helpers.IPv4], 2222))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
 
@@ -386,6 +398,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 		AfterFailed(func() {
 			vm.ReportFailed("cilium policy get")
+			vm.ReportFailed("cilium bpf policy get --all")
 		})
 
 		It("Conntrack-related configuration options for endpoints", func() {
@@ -444,4 +457,74 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 		})
 
 	}
+}
+
+var restartChaosTest = func() {
+	var vm *helpers.SSHMeta
+
+	BeforeAll(func() {
+		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+	})
+
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
+	It("Checking that during restart no traffic is dropped using Egress + Ingress Traffic", func() {
+		By("Installing sample containers")
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		vm.PolicyDelAll().ExpectSuccess("Cannot deleted all policies")
+
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL4Json), helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "Cannot install L4 policy")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+		By("Starting background connection from app2 to httpd1 container")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		srvIP, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).Should(BeNil(), "Cannot get httpd1 server address")
+		type BackgroundTestAsserts struct {
+			res  *helpers.CmdRes
+			time time.Time
+		}
+		backgroundChecks := []*BackgroundTestAsserts{}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			for {
+				select {
+				default:
+					res := vm.ContainerExec(
+						helpers.App1,
+						helpers.CurlFail("http://%s/", srvIP[helpers.IPv4]))
+					assert := &BackgroundTestAsserts{
+						res:  res,
+						time: time.Now(),
+					}
+					backgroundChecks = append(backgroundChecks, assert)
+				case <-ctx.Done():
+					wg.Done()
+					return
+				}
+			}
+		}()
+		// Sleep a bit to make sure that the goroutine starts.
+		time.Sleep(50 * time.Millisecond)
+
+		err = vm.RestartCilium()
+		Expect(err).Should(BeNil(), "restarting Cilium failed")
+
+		By("Stopping background connections")
+		cancel()
+		wg.Wait()
+
+		GinkgoPrint("Made %d connections in total", len(backgroundChecks))
+		Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
+		for _, check := range backgroundChecks {
+			check.res.ExpectSuccess("Curl from app2 to httpd1 should work but it failed at %s", check.time)
+		}
+	})
 }

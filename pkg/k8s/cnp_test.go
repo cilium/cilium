@@ -478,7 +478,6 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 				updateContext := &CNPStatusUpdateContext{
 					CiliumNPClient: ciliumNPClients[i],
 					NodeName:       "k8s" + strconv.Itoa(i),
-					CiliumV2Store:  cnpStore,
 					WaitForEndpointsAtPolicyRev: func(ctx context.Context, rev uint64) error {
 						return nil
 					},

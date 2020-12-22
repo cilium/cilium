@@ -4,10 +4,6 @@
 
 Manage the IPCache mappings for IP/CIDR <-> Identity
 
-### Synopsis
-
-Manage the IPCache mappings for IP/CIDR <-> Identity
-
 ### Options
 
 ```

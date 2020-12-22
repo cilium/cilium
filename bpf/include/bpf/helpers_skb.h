@@ -14,6 +14,9 @@
 
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, __u32 flags);
+static int BPF_FUNC(redirect_neigh, int ifindex, struct bpf_redir_neigh *params,
+		    int plen, __u32 flags);
+static int BPF_FUNC(redirect_peer, int ifindex, __u32 flags);
 
 /* Packet manipulation */
 static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, __u32 off,
@@ -51,9 +54,6 @@ static int BPF_FUNC_REMAP(skb_event_output, struct __sk_buff *skb, void *map,
 
 /* Socket lookup, assign, release */
 static struct bpf_sock *BPF_FUNC(skc_lookup_tcp, struct __sk_buff *skb,
-				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
-				 __u64 netns, __u64 flags);
-static struct bpf_sock *BPF_FUNC(sk_lookup_udp, struct __sk_buff *skb,
 				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
 				 __u64 netns, __u64 flags);
 static int BPF_FUNC(sk_release, struct bpf_sock *sk);

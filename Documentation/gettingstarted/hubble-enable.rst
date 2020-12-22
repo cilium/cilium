@@ -1,97 +1,82 @@
-Enable Hubble
-==============
+Enable Hubble for Cluster-Wide Visibility
+=========================================
 
-Hubble is a fully distributed networking and security observability platform
-for cloud native workloads. It is built on top of Cilium and eBPF to enable
-deep visibility into the communication and behavior of services as well as the
-networking infrastructure in a completely transparent manner.
+Hubble is the component for observability in Cilium. To obtain cluster-wide
+visibility into your network traffic, deploy Hubble Relay and the UI as follows
+on your existing installation:
 
-* Hubble can be configured to be in **local mode** or **distributed mode (beta)**.
+.. tabs::
 
-  .. tabs::
+    .. group-tab:: Installation via Helm
 
-     .. group-tab:: Local Mode
-
-        In **local mode**, Hubble listens on a UNIX domain socket. You can connect to a
-        Hubble instance by running ``hubble`` command from inside the Cilium pod. This
-        provides networking visibility for traffic observed by the local Cilium agent.
+        If you installed Cilium via ``helm install``, you may enable Hubble
+        Relay and UI with the following command:
 
         .. parsed-literal::
 
            helm upgrade cilium |CHART_RELEASE| \\
               --namespace $CILIUM_NAMESPACE \\
               --reuse-values \\
-              --set global.hubble.enabled=true \\
-              --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+              --set hubble.relay.enabled=true \\
+              --set hubble.ui.enabled=true
 
-     .. group-tab:: Distributed Mode (beta)
+    .. group-tab:: Installation via ``quick-hubble-install.yaml``
 
-
-        In **distributed mode (beta)**, Hubble listens on a TCP port on the host network.
-        This allows :ref:`hubble_relay` to communicate with all the Hubble instances in
-        the cluster. Hubble CLI and Hubble UI in turn connect to Hubble Relay to provide
-        cluster-wide networking visibility.
-
-        .. warning::
-
-           In Distributed mode, Hubble runs a gRPC service over plain-text HTTP on the host
-           network without any authentication/authorization. The main consequence is that
-           anybody who can reach the Hubble gRPC service can obtain all the networking
-           metadata from the host. It is therefore **strongly discouraged** to enable
-           distributed mode in a production environment.
+        If you installed Cilium via the provided ``quick-install.yaml``,
+        you may deploy Hubble Relay and UI on top of your existing installation
+        with the following command:
 
         .. parsed-literal::
 
-           helm upgrade cilium |CHART_RELEASE| \\
-              --namespace $CILIUM_NAMESPACE \\
-              --reuse-values \\
-              --set global.hubble.enabled=true \\
-              --set global.hubble.listenAddress=":4244" \\
-              --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \\
-              --set global.hubble.relay.enabled=true \\
-              --set global.hubble.ui.enabled=true
+            kubectl apply -f |SCM_WEB|/install/kubernetes/quick-hubble-install.yaml
 
-* Restart the Cilium daemonset to allow Cilium agent to pick up the ConfigMap changes:
+Once the Hubble UI pod is started, use port forwarding for the ``hubble-ui``
+service. This allows opening the UI locally on a browser:
 
-  .. parsed-literal::
+.. code:: bash
 
-      kubectl rollout restart -n $CILIUM_NAMESPACE ds/cilium
+   kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui --address 0.0.0.0 --address :: 12000:80
 
-* To pick one Cilium instance and validate that Hubble is properly configured to listen on
-  a UNIX domain socket:
+And then open http://localhost:12000/ to access the UI.
 
-  .. parsed-literal::
+Hubble UI is not the only way to get access to Hubble data. A command line
+tool, the Hubble CLI, is also available. It can be installed by following the
+instructions below:
 
-      kubectl exec -n $CILIUM_NAMESPACE -t ds/cilium -- hubble observe
+.. include:: hubble-install.rst
 
-* **(Distributed mode only)** To validate that Hubble Relay is running, install the ``hubble``
-  CLI:
+Similarly to the UI, use port forwarding for the ``hubble-relay`` service to
+make it available locally:
 
-  .. include:: hubble-install.rst
+.. code:: bash
 
-  Once the ``hubble`` CLI is installed, set up a port forwarding for ``hubble-relay`` service and
-  run ``hubble observe`` command:
+   kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay --address 0.0.0.0 --address :: 4245:80
 
-  .. parsed-literal::
+In a separate terminal window, run the ``hubble status`` command specifying the
+Hubble Relay address:
 
-      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay 4245:80
-      hubble observe --server localhost:4245
+.. code:: shell-session
 
-  (**For Linux / MacOS**) For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
-  environment variable:
+   $ hubble --server localhost:4245 status
+   Healthcheck (via localhost:4245): Ok
+   Current/Max Flows: 5455/16384 (33.29%)
+   Flows/s: 11.30
+   Connected Nodes: 4/4
 
-  .. code:: bash
+If Hubble Relay reports that all nodes are connected, as in the example output
+above, you can now use the CLI to observe flows of the entire cluster:
 
-    $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+.. code:: bash
 
-  This will allow you to use ``hubble status`` and ``hubble observe`` commands
-  without having to specify the server address via the ``--server`` flag.
+   hubble --server localhost:4245 observe
 
-* **(Distributed mode only)** To validate that Hubble UI is properly configured, set up a port forwarding for
-  ``hubble-ui`` service:
+If you encounter any problem at this point, you may seek help on :ref:`slack`.
 
-  .. parsed-literal::
+.. tip::
+   Hubble CLI configuration can be persisted using a configuration file or
+   environment variables. This avoids having to specify options specific to a
+   particular environment every time a command is run. Run ``hubble help
+   config`` for more information.
 
-      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui 12000:80
-
-  and then open http://localhost:12000/.
+For more information about Hubble and its components, see the
+:ref:`concepts_observability` section.

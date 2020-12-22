@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,7 +57,23 @@ func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
 				res = append(res, GetPrefixesFromCIDRSet(ir.FromCIDRSet)...)
 			}
 		}
+		for _, ir := range r.IngressDeny {
+			if len(ir.FromCIDR) > 0 {
+				res = append(res, getPrefixesFromCIDR(ir.FromCIDR)...)
+			}
+			if len(ir.FromCIDRSet) > 0 {
+				res = append(res, GetPrefixesFromCIDRSet(ir.FromCIDRSet)...)
+			}
+		}
 		for _, er := range r.Egress {
+			if len(er.ToCIDR) > 0 {
+				res = append(res, getPrefixesFromCIDR(er.ToCIDR)...)
+			}
+			if len(er.ToCIDRSet) > 0 {
+				res = append(res, GetPrefixesFromCIDRSet(er.ToCIDRSet)...)
+			}
+		}
+		for _, er := range r.EgressDeny {
 			if len(er.ToCIDR) > 0 {
 				res = append(res, getPrefixesFromCIDR(er.ToCIDR)...)
 			}

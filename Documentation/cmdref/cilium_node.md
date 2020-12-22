@@ -4,10 +4,6 @@
 
 Manage cluster nodes
 
-### Synopsis
-
-Manage cluster nodes
-
 ### Options
 
 ```

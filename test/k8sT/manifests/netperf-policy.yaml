@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "netperf-policy"
 metadata:
   name: "netperf-policy"
 spec:
+  description: "netperf-policy"
   endpointSelector:
     matchLabels:
       id: netperf-server

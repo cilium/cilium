@@ -26,7 +26,7 @@ import (
 	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,6 +45,7 @@ const (
 func waitForNodeInformation(ctx context.Context, nodeName string) *nodeTypes.Node {
 	backoff := backoff.Exponential{
 		Min:    time.Duration(200) * time.Millisecond,
+		Max:    2 * time.Minute,
 		Factor: 2.0,
 		Name:   "k8s-node-retrieval",
 	}
@@ -74,7 +74,7 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 	mightAutoDetectDevices := option.MightAutoDetectDevices()
 	var n *nodeTypes.Node
 
-	if option.Config.IPAM == ipamOption.IPAMOperator {
+	if option.Config.IPAM == ipamOption.IPAMClusterPool {
 		ciliumNode, err := CiliumClient().CiliumV2().CiliumNodes().Get(context.TODO(), nodeName, v1.GetOptions{})
 		if err != nil {
 			// If no CIDR is required, retrieving the node information is
@@ -83,8 +83,7 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 				return nil, nil
 			}
 
-			return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
-
+			return nil, fmt.Errorf("unable to retrieve CiliumNode: %s", err)
 		}
 
 		no := nodeTypes.ParseCiliumNode(ciliumNode)
@@ -118,11 +117,11 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 	}
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {
-		return nil, fmt.Errorf("required IPv4 pod CIDR not present in node resource")
+		return nil, fmt.Errorf("required IPv4 PodCIDR not available")
 	}
 
 	if requireIPv6CIDR && n.IPv6AllocCIDR == nil {
-		return nil, fmt.Errorf("required IPv6 pod CIDR not present in node resource")
+		return nil, fmt.Errorf("required IPv6 PodCIDR not available")
 	}
 
 	return n, nil
@@ -150,6 +149,10 @@ func Init(conf k8sconfig.Configuration) error {
 	closeAllCiliumClientConns, err := createDefaultCiliumClient()
 	if err != nil {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
+	}
+
+	if err := createAPIExtensionsClient(); err != nil {
+		return fmt.Errorf("unable to create k8s apiextensions client: %s", err)
 	}
 
 	heartBeat := func(ctx context.Context) error {
@@ -191,9 +194,10 @@ func Init(conf k8sconfig.Configuration) error {
 	return nil
 }
 
-// GetNodeSpec retrieves this node spec from kubernetes. This node information
-// can either be derived from a CiliumNode or a Kubernetes node.
-func GetNodeSpec() error {
+// WaitForNodeInformation retrieves the node information via the CiliumNode or
+// Kubernetes Node resource. This function will block until the information is
+// received.
+func WaitForNodeInformation() error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
@@ -247,7 +251,7 @@ func GetNodeSpec() error {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
-			log.Fatal("Unable to derive PodCIDR from Kubernetes node resource, giving up")
+			log.Fatal("Unable to derive PodCIDR via Node or CiliumNode resource, giving up")
 		}
 	}
 
@@ -256,24 +260,13 @@ func GetNodeSpec() error {
 	return nil
 }
 
-// RegisterCRDs registers all CRDs
+// RegisterCRDs registers all CRDs with the K8s apiserver.
 func RegisterCRDs() error {
 	if option.Config.SkipCRDCreation {
 		return nil
 	}
 
-	restConfig, err := CreateConfig()
-	if err != nil {
-		return fmt.Errorf("Unable to create rest configuration: %s", err)
-	}
-
-	apiextensionsclientset, err := apiextensionsclient.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
-	}
-
-	err = cilium_v2_client.CreateCustomResourceDefinitions(apiextensionsclientset)
-	if err != nil {
+	if err := cilium_v2_client.CreateCustomResourceDefinitions(APIExtClient()); err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}
 

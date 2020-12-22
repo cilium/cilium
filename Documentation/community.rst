@@ -20,6 +20,7 @@ SIG                    Meeting                               Slack         Descr
 Datapath               Wednesdays, 08:00 PT                  #sig-datapath Owner of all eBPF- and Linux-kernel-related datapath code.
 Documentation          None                                  #sig-docs     All documentation related discussions
 Envoy                  Biweekly on Thursdays, 09:00 PT       #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
+Hubble                 Thursdays, 09:00 PT                   #sig-hubble   Owner of all Hubble-related code: Server, UI, CLI and Relay.
 Policy                 None                                  #sig-policy   All topics related to policy. The SIG is responsible for all security relevant APIs and the enforcement logic.
 Release Management     None                                  #launchpad    Responsible for the release management and backport process.
 ====================== ===================================== ============= ================================================================================

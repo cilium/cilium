@@ -112,7 +112,7 @@ the Cassandra cluster identified by the 'cassandra-svc' DNS name:
 
 ::
 
-    $ kubectl exec -it $OUTPOST_POD cqlsh -- cassandra-svc
+    $ kubectl exec -it $OUTPOST_POD -- cqlsh cassandra-svc
     Connected to Test Cluster at cassandra-svc:9042.
     [cqlsh 5.0.1 | Cassandra 3.11.3 | CQL spec 3.4.4 | Native protocol v4]
     Use HELP for help.
@@ -246,7 +246,7 @@ Use another window to confirm that the *empire-hq* pod still has full access to 
 
 ::
 
-    $ kubectl exec -it $HQ_POD cqlsh -- cassandra-svc
+    $ kubectl exec -it $HQ_POD -- cqlsh cassandra-svc
     Connected to Test Cluster at cassandra-svc:9042.
     [cqlsh 5.0.1 | Cassandra 3.11.3 | CQL spec 3.4.4 | Native protocol v4]
     Use HELP for help.

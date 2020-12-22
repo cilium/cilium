@@ -16,7 +16,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: netcat
-        image: docker.io/cilium/demo-client:latest
+        image: docker.io/cilium/demo-client:1.0
         imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
@@ -32,10 +32,10 @@ spec:
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "L7 policy for incoming http "
 metadata:
   name: "netcat-ds"
 spec:
+  description: "L7 policy for incoming http "
   endpointSelector:
     matchLabels:
       zgroup: netcatds

@@ -20,11 +20,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
@@ -685,11 +689,17 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	return err
 }
 
-// syncToAPIServer is called to synchronize the node content with the custom
-// resource in the apiserver
+// syncToAPIServer synchronizes the contents of the CiliumNode resource
+// [(*Node).resource)] with the K8s apiserver. This operation occurs on an
+// interval to refresh the CiliumNode resource.
+//
+// For Azure and ENI IPAM modes, this function serves two purposes: (1) as the
+// entry point to initialize the CiliumNode resource and (2) to keep the
+// resource up-to-date with K8s.
+//
+// To initialize, or seed, the CiliumNode resource, the PreAllocate field is
+// populated with a default value and then is adjusted as necessary.
 func (n *Node) syncToAPIServer() (err error) {
-	var updatedNode *v2.CiliumNode
-
 	scopedLog := n.logger()
 	scopedLog.Debug("Refreshing node")
 
@@ -713,20 +723,9 @@ func (n *Node) syncToAPIServer() (err error) {
 		}
 
 		n.ops.PopulateStatusFields(node)
-		updatedNode, err = n.manager.k8sAPI.UpdateStatus(origNode, node)
-		if updatedNode != nil && updatedNode.Name != "" {
-			node = updatedNode.DeepCopy()
-			if err == nil {
-				break
-			}
-		} else if err != nil {
-			node, err = n.manager.k8sAPI.Get(node.Name)
-			if err != nil {
-				break
-			}
-			node = node.DeepCopy()
-			origNode = node.DeepCopy()
-		} else {
+
+		err = n.update(origNode, node, retry, true)
+		if err == nil {
 			break
 		}
 	}
@@ -745,23 +744,11 @@ func (n *Node) syncToAPIServer() (err error) {
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
 		if node.Spec.IPAM.PreAllocate == 0 {
-			node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+			adjustPreAllocateIfNeeded(node)
 		}
 
-		updatedNode, err = n.manager.k8sAPI.Update(origNode, node)
-		if updatedNode != nil && updatedNode.Name != "" {
-			node = updatedNode.DeepCopy()
-			if err == nil {
-				break
-			}
-		} else if err != nil {
-			node, err = n.manager.k8sAPI.Get(node.Name)
-			if err != nil {
-				break
-			}
-			node = node.DeepCopy()
-			origNode = node.DeepCopy()
-		} else {
+		err = n.update(origNode, node, retry, false)
+		if err == nil {
 			break
 		}
 	}
@@ -771,4 +758,92 @@ func (n *Node) syncToAPIServer() (err error) {
 	}
 
 	return err
+}
+
+// update is a helper function for syncToAPIServer(). This function updates the
+// CiliumNode resource spec or status depending on `status`. The resource is
+// updated from `origNode` to `node`.
+//
+// Note that the `origNode` and `node` pointers will have their underlying
+// values modified in this function! The following is an outline of when
+// `origNode` and `node` pointers are updated:
+//  * `node` is updated when we succeed in updating to update the resource to
+//     the apiserver.
+//  * `origNode` and `node` are updated when we fail to update the resource,
+//     but we succeed in retrieving the latest version of it from the
+//     apiserver.
+func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) error {
+	scopedLog := n.logger()
+
+	var (
+		updatedNode    *v2.CiliumNode
+		updateErr, err error
+	)
+
+	if status {
+		updatedNode, updateErr = n.manager.k8sAPI.UpdateStatus(origNode, node)
+	} else {
+		updatedNode, updateErr = n.manager.k8sAPI.Update(origNode, node)
+	}
+
+	if updatedNode != nil && updatedNode.Name != "" {
+		*node = *updatedNode
+		if updateErr == nil {
+			return nil
+		}
+	} else if updateErr != nil {
+		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
+			logfields.Attempt: attempts,
+		}).Warning("Failed to update CiliumNode spec")
+
+		var newNode *v2.CiliumNode
+		newNode, err = n.manager.k8sAPI.Get(node.Name)
+		if err != nil {
+			return err
+		}
+
+		// Propagate the error in the case that we are on our last attempt and
+		// we never succeeded in updating the resource.
+		//
+		// Also, propagate the reference to the nodes in the case we've
+		// succeeded in updating the CiliumNode status. The reason is because
+		// the subsequent run will be to update the CiliumNode spec and we need
+		// to ensure we have the most up-to-date CiliumNode references before
+		// doing that operation, hence the deep copies.
+		err = updateErr
+		*node = *newNode
+		*origNode = *node
+	} else /* updateErr == nil */ {
+		err = updateErr
+	}
+
+	return err
+}
+
+// adjustPreAllocateIfNeeded adjusts IPAM values depending on the instance
+// type. This is needed when the instance type is on the smaller side which
+// requires us to lower the PreAllocate value and include eth0 as an ENI device
+// because the instance type does not allow for additional ENIs to be attached
+// (hence limited).
+//
+// For now, this function is only needed in ENI IPAM mode. In the future, this
+// may also be needed for Azure IPAM as well.
+func adjustPreAllocateIfNeeded(node *v2.CiliumNode) {
+	if option.Config.IPAM != ipamOption.IPAMENI {
+		return
+	}
+
+	// Auto set the PreAllocate to the default value and we'll determine if we
+	// need to adjust it below.
+	node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+
+	if lim, ok := limits.Get(node.Spec.ENI.InstanceType); ok {
+		max := lim.Adapters * lim.IPv4
+		if node.Spec.IPAM.PreAllocate > max {
+			node.Spec.IPAM.PreAllocate = max
+
+			var i int = 0
+			node.Spec.ENI.FirstInterfaceIndex = &i // Include eth0
+		}
+	}
 }

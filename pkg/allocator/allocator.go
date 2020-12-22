@@ -28,8 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -173,6 +173,14 @@ func NewAllocatorForGC(backend Backend) *Allocator {
 	return &Allocator{backend: backend}
 }
 
+type GCStats struct {
+	// Alive is the number of identities alive
+	Alive int
+
+	// Deleted is the number of identities deleted
+	Deleted int
+}
+
 // Backend represents clients to remote ID allocation systems, such as KV
 // Stores. These are used to coordinate key->ID allocation between cilium
 // nodes.
@@ -243,7 +251,7 @@ type Backend interface {
 	// by cilium-agent.
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
-	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
+	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *GCStats, error)
 
 	// RunLocksGC reaps stale or unused locks within the Backend. It is used by
 	// the cilium-operator and is not invoked by cilium-agent. Returns
@@ -278,7 +286,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}),
-		suffix:       uuid.NewUUID().String()[:10],
+		suffix:       uuid.New().String()[:10],
 		remoteCaches: map[*RemoteCache]struct{}{},
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
@@ -704,6 +712,68 @@ func (a *Allocator) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, er
 	return a.backend.GetByID(ctx, id)
 }
 
+// GetIncludeRemoteCaches returns the ID which is allocated to a key. Includes the
+// caches of watched remote kvstores in the query. Returns an ID of NoID if no
+// ID has been allocated in any remote kvstore to this key yet.
+func (a *Allocator) GetIncludeRemoteCaches(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
+	encoded := a.encodeKey(key)
+
+	// check main cache first
+	if id := a.mainCache.get(encoded); id != idpool.NoID {
+		return id, nil
+	}
+
+	// check remote caches
+	a.remoteCachesMutex.RLock()
+	for rc := range a.remoteCaches {
+		if id := rc.cache.get(encoded); id != idpool.NoID {
+			a.remoteCachesMutex.RUnlock()
+			return id, nil
+		}
+	}
+	a.remoteCachesMutex.RUnlock()
+
+	// check main backend
+	if id, err := a.backend.Get(ctx, key); id != idpool.NoID || err != nil {
+		return id, err
+	}
+
+	// we skip checking remote backends explicitly here, to avoid
+	// accidentally overloading them in case of lookups for invalid identities
+
+	return idpool.NoID, nil
+}
+
+// GetByIDIncludeRemoteCaches returns the key associated with an ID. Includes
+// the caches of watched remote kvstores in the query.
+// Returns nil if no key is associated with the ID.
+func (a *Allocator) GetByIDIncludeRemoteCaches(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
+	// check main cache first
+	if key := a.mainCache.getByID(id); key != nil {
+		return key, nil
+	}
+
+	// check remote caches
+	a.remoteCachesMutex.RLock()
+	for rc := range a.remoteCaches {
+		if key := rc.cache.getByID(id); key != nil {
+			a.remoteCachesMutex.RUnlock()
+			return key, nil
+		}
+	}
+	a.remoteCachesMutex.RUnlock()
+
+	// check main backend
+	if key, err := a.backend.GetByID(ctx, id); key != nil || err != nil {
+		return key, err
+	}
+
+	// we skip checking remote backends explicitly here, to avoid
+	// accidentally overloading them in case of lookups for invalid identities
+
+	return nil, nil
+}
+
 // Release releases the use of an ID associated with the provided key. After
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
@@ -740,7 +810,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (a *Allocator) RunGC(rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (a *Allocator) RunGC(rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, *GCStats, error) {
 	return a.backend.RunGC(context.TODO(), rateLimit, staleKeysPrevRound)
 }
 

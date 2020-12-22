@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +32,7 @@ import (
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
@@ -424,7 +423,7 @@ func DNSDeployment(base string) string {
 
 // getK8sSupportedConstraints returns the Kubernetes versions supported by
 // a specific Cilium version.
-func getK8sSupportedConstraints(ciliumVersion string) (go_version.Range, error) {
+func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 	cst, err := versioncheck.Version(ciliumVersion)
 	if err != nil {
 		return nil, err
@@ -440,6 +439,8 @@ func getK8sSupportedConstraints(ciliumVersion string) (go_version.Range, error) 
 		return versioncheck.MustCompile(">=1.10.0 <1.19.0"), nil
 	case IsCiliumV1_9(cst):
 		return versioncheck.MustCompile(">=1.12.0 <1.20.0"), nil
+	case IsCiliumV1_10(cst):
+		return versioncheck.MustCompile(">=1.13.0 <1.21.0"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}
@@ -462,7 +463,7 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 // failIfContainsBadLogMsg makes a test case to fail if any message from
 // given log messages contains an entry from the blacklist (map key) AND
 // does not contain ignore messages (map value).
-func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
+func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) {
 	uniqueFailures := make(map[string]int)
 	for _, msg := range strings.Split(logs, "\n") {
 		for fail, ignoreMessages := range blacklist {
@@ -488,7 +489,7 @@ func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
 			fmt.Fprintf(CheckLogs, "⚠️  Found %q in logs %d times\n", f, c)
 		}
 		failureMsgs := strings.Join(failures, "\n")
-		Fail(fmt.Sprintf("Found %d Cilium logs matching list of errors that must be investigated:\n%s", len(uniqueFailures), failureMsgs))
+		Fail(fmt.Sprintf("Found %d %s logs matching list of errors that must be investigated:\n%s", len(uniqueFailures), label, failureMsgs))
 	}
 }
 
@@ -528,6 +529,16 @@ func DoesNotRunOnNetNextOr419Kernel() bool {
 	return !RunsOnNetNextOr419Kernel()
 }
 
+// RunsOnGKE returns true if the tests are running on GKE.
+func RunsOnGKE() bool {
+	return GetCurrentIntegration() == CIIntegrationGKE
+}
+
+// DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
+func DoesNotRunOnGKE() bool {
+	return !RunsOnGKE()
+}
+
 // DoesNotHaveHosts returns a function which returns true if a CI job
 // has less VMs than the given count.
 func DoesNotHaveHosts(count int) func() bool {
@@ -542,7 +553,7 @@ func DoesNotHaveHosts(count int) func() bool {
 
 // RunsWithHostFirewall returns true is Cilium runs with the host firewall enabled.
 func RunsWithHostFirewall() bool {
-	return os.Getenv("HOST_FIREWALL") != "0"
+	return os.Getenv("HOST_FIREWALL") != "0" && os.Getenv("HOST_FIREWALL") != ""
 }
 
 // RunsWithKubeProxy returns true if cilium runs together with k8s' kube-proxy.
@@ -589,43 +600,10 @@ func GetNodeWithoutCilium() string {
 	return os.Getenv("NO_CILIUM_ON_NODE")
 }
 
-// ContainerURLRE matches and splits container image URLs. The protocol and tag
-// are optional.
-// Note: The groups can be simplified but that is less readable.
-// Group #    Contains
-//    1       http protocol
-//    2       registry domain
-//    3       registry path
-//    4       - tag w/ ":"
-//    5       tag
-var containerURLRE = regexp.MustCompile(`(https?://)?([^/]+)/([^:]+)(:(.+))?`)
-
-// SplitContainerURL returns url split into the registry (with protocol), image
-// path and tag.
-// If this split is successful success is true.
-// Note: tag may be empty when not present. success is true in this case.
-func SplitContainerURL(url string) (registry, image, tag string, success bool) {
-	parts := containerURLRE.FindStringSubmatch(url)
-	if parts == nil {
-		return "", "", "", false
-	}
-
-	registryProto := parts[1]
-	registryDomain := parts[2]
-	registry = registryProto + registryDomain
-
-	image = parts[3]
-	tag = parts[5]
-
-	return registry, image, tag, true
-}
-
 // GetLatestImageVersion infers which docker tag should be used
 func GetLatestImageVersion() string {
-	_, _, tag, success := SplitContainerURL(config.CiliumTestConfig.CiliumImage)
-
-	if success && len(tag) > 0 {
-		return tag
+	if len(config.CiliumTestConfig.CiliumTag) > 0 {
+		return config.CiliumTestConfig.CiliumTag
 	}
 	return "latest"
 }
@@ -638,4 +616,22 @@ func SkipQuarantined() bool {
 // SkipGKEQuarantined returns whether test under quarantine on GKE should be skipped
 func SkipGKEQuarantined() bool {
 	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
+}
+
+// SkipRaceDetectorEnabled returns whether tests failing with race detector
+// enabled should be skipped.
+func SkipRaceDetectorEnabled() bool {
+	race := os.Getenv("RACE")
+	return race == "1" || race == "true"
+}
+
+// SkipK8sVersions returns true if the current K8s versions matched the
+// constraints passed in argument.
+func SkipK8sVersions(k8sVersions string) bool {
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		return false
+	}
+	constraint := versioncheck.MustCompile(k8sVersions)
+	return constraint(k8sVersion)
 }

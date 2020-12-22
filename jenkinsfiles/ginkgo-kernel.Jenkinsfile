@@ -16,10 +16,17 @@ pipeline {
                 returnStdout: true,
                 script: 'if [ "${RunQuarantined}" = "" ]; then echo -n "false"; else echo -n "${RunQuarantined}"; fi'
             )}"""
-        // fix escaped quotes
-        COMMENT_BODY="""${sh(
+        RACE="""${sh(
                 returnStdout: true,
-                script: "echo ${ghprbCommentBody} | sed 's;\\\\;;' | xargs echo -n"
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        LOCKDEBUG="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        BASE_IMAGE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2020-12-10@sha256:ee6f0f81fa73125234466c13fd16bed30cc3209daa2f57098f63e0285779e5f3"; fi'
             )}"""
     }
 
@@ -30,6 +37,12 @@ pipeline {
     }
 
     stages {
+        stage('Print env vars') {
+            steps {
+                sh 'env'
+
+            }
+        }
         stage('Set build name') {
             when {
                 not {environment name: 'GIT_BRANCH', value: 'origin/master'}
@@ -46,7 +59,6 @@ pipeline {
             }
 
             steps {
-                sh 'env'
                 checkout scm
                 sh 'mkdir -p ${PROJ_PATH}'
                 sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
@@ -55,20 +67,21 @@ pipeline {
         }
         stage('Set programmatic env vars') {
             steps {
-                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.18 for k8s, 419 for kernel
+                // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.19 for k8s, 419 for kernel
                 script {
+                    flags = env.ghprbCommentBody?.replace("\\", "")
                     env.K8S_VERSION = sh script: '''
-                        if [ "${COMMENT_BODY}" != "" ]; then
-                            python ${TESTDIR}/get-gh-comment-info.py ${COMMENT_BODY} --retrieve="k8s_version" | \
-                            sed "s/^$/${JobK8sVersion:-1.18}/" | \
+                        if [ "${ghprbCommentBody}" != "" ]; then
+                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
+                            sed "s/^$/${JobK8sVersion:-1.19}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
                         else
-                            echo -n ${JobK8sVersion:-1.18}
+                            echo -n ${JobK8sVersion:-1.19}
                         fi''', returnStdout: true
                     env.KERNEL = sh script: '''
-                        if [ "${COMMENT_BODY}" != "" ]; then
-                            python ${TESTDIR}/get-gh-comment-info.py ${COMMENT_BODY} --retrieve="kernel_version" | \
+                        if [ "${ghprbCommentBody}" != "" ]; then
+                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="kernel_version" | \
                             sed "s/^$/${JobKernelVersion:-419}/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
@@ -76,38 +89,23 @@ pipeline {
                              echo -n ${JobKernelVersion:-419}
                         fi''', returnStdout: true
                     env.FOCUS = sh script: '''
-                        if [ "${COMMENT_BODY}" != "" ]; then
-                            python ${TESTDIR}/get-gh-comment-info.py ${COMMENT_BODY} --retrieve="focus" | \
+                        if [ "${ghprbCommentBody}" != "" ]; then
+                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="focus" | \
                             sed "s/^$/K8s/" | \
                             sed "s/Runtime.*/NoTests/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
-                         fi''', returnStdout: true
+                        else
+                            echo -n "K8s"
+                        fi''', returnStdout: true
                 }
             }
         }
-        stage('Precheck') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
-
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-               sh "cd ${TESTDIR}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
-               }
-               unsuccessful {
-                   script {
-                       if  (!currentBuild.displayName.contains('fail')) {
-                           currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
-                       }
-                   }
-               }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                }
             }
         }
         stage('Make Cilium images') {
@@ -177,9 +175,11 @@ pipeline {
                     )}"""
             }
             steps {
-                retry(3) {
-                    dir("${TESTDIR}") {
-                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    retry(3) {
+                        dir("${TESTDIR}") {
+                            sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                        }
                     }
                 }
             }
@@ -225,10 +225,25 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
                     )}"""
+                CILIUM_IMAGE = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/cilium'
+                        )}"""
+                CILIUM_TAG = "latest"
+                CILIUM_OPERATOR_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator'
+                        )}"""
+                CILIUM_OPERATOR_TAG = "latest"
+                HUBBLE_RELAY_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/hubble-relay'
+                        )}"""
+                HUBBLE_RELAY_TAG = "latest"
             }
             steps {
                 sh 'env'
-                sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.runQuarantined=${RUN_QUARANTINED}'
+                sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.runQuarantined=${RUN_QUARANTINED} -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG}'
             }
             post {
                 always {

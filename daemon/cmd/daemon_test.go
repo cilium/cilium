@@ -26,11 +26,11 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -117,6 +117,9 @@ type dummyEpSyncher struct{}
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 }
 
+func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+}
+
 func (ds *DaemonSuite) SetUpSuite(c *C) {
 	// Register metrics once before running the suite
 	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
@@ -143,7 +146,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	ds.d = d
 
-	kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
+	kvstore.Client().DeletePrefix(context.TODO(), kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 
 	ds.OnGetPolicyRepository = d.GetPolicyRepository
@@ -172,7 +175,7 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	}
 
 	if ds.kvstoreInit {
-		kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
+		kvstore.Client().DeletePrefix(context.TODO(), kvstore.OperationalPath)
 		kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 	}
 
@@ -270,6 +273,13 @@ func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
 
 func (ds *DaemonSuite) Datapath() datapath.Datapath {
 	return ds.d.datapath
+}
+
+func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
+	return nil
+}
+
+func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {
 }
 
 func (ds *DaemonSuite) GetNodeSuffix() string {

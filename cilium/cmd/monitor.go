@@ -70,6 +70,7 @@ func init() {
 	monitorCmd.Flags().BoolSliceVarP(&verbosity, "verbose", "v", nil, "Enable verbose output (-v, -vv)")
 	monitorCmd.Flags().Lookup("verbose").NoOptDefVal = "false"
 	monitorCmd.Flags().BoolVarP(&printer.JSONOutput, "json", "j", false, "Enable json output. Shadows -v flag")
+	monitorCmd.Flags().BoolVarP(&printer.Numeric, "numeric", "n", false, "Display all security identities as numeric values")
 	monitorCmd.Flags().StringVar(&socketPath, "monitor-socket", "", "Configure monitor socket path")
 	viper.BindEnv("monitor-socket", "CILIUM_MONITOR_SOCK")
 	viper.BindPFlags(monitorCmd.Flags())
@@ -180,7 +181,6 @@ func getMonitorParser(conn net.Conn, version listener.Version) (parser eventPars
 }
 
 func endpointsExist(endpoints format.Uint16Flags, existingEndpoints []*models.Endpoint) bool {
-
 	endpointsFound := format.Uint16Flags{}
 	for _, ep := range existingEndpoints {
 		if endpoints.Has(uint16(ep.ID)) {
@@ -196,11 +196,7 @@ func endpointsExist(endpoints format.Uint16Flags, existingEndpoints []*models.En
 		}
 	}
 
-	if len(endpointsFound) == 0 {
-		return false
-	}
-
-	return true
+	return len(endpointsFound) > 0
 }
 
 func validateEndpointsFilters() {

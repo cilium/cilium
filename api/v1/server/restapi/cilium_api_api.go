@@ -122,6 +122,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		PolicyGetIdentityIDHandler: policy.GetIdentityIDHandlerFunc(func(params policy.GetIdentityIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetIdentityID has not yet been implemented")
 		}),
+		ServiceGetLrpHandler: service.GetLrpHandlerFunc(func(params service.GetLrpParams) middleware.Responder {
+			return middleware.NotImplemented("operation service.GetLrp has not yet been implemented")
+		}),
 		DaemonGetMapHandler: daemon.GetMapHandlerFunc(func(params daemon.GetMapParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetMap has not yet been implemented")
 		}),
@@ -259,6 +262,8 @@ type CiliumAPIAPI struct {
 	PolicyGetIdentityEndpointsHandler policy.GetIdentityEndpointsHandler
 	// PolicyGetIdentityIDHandler sets the operation handler for the get identity ID operation
 	PolicyGetIdentityIDHandler policy.GetIdentityIDHandler
+	// ServiceGetLrpHandler sets the operation handler for the get lrp operation
+	ServiceGetLrpHandler service.GetLrpHandler
 	// DaemonGetMapHandler sets the operation handler for the get map operation
 	DaemonGetMapHandler daemon.GetMapHandler
 	// DaemonGetMapNameHandler sets the operation handler for the get map name operation
@@ -441,6 +446,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.PolicyGetIdentityIDHandler == nil {
 		unregistered = append(unregistered, "policy.GetIdentityIDHandler")
+	}
+	if o.ServiceGetLrpHandler == nil {
+		unregistered = append(unregistered, "service.GetLrpHandler")
 	}
 	if o.DaemonGetMapHandler == nil {
 		unregistered = append(unregistered, "daemon.GetMapHandler")
@@ -679,6 +687,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/identity/{id}"] = policy.NewGetIdentityID(o.context, o.PolicyGetIdentityIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/lrp"] = service.NewGetLrp(o.context, o.ServiceGetLrpHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

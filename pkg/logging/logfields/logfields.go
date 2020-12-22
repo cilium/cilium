@@ -83,6 +83,12 @@ const (
 	// DeletedPolicyID is the .NumericIdentity, or set or them
 	DeletedPolicyID = "policyID.Deleted"
 
+	// AddedPolicyDenyID is the .NumericIdentity, or set or them
+	AddedPolicyDenyID = "policyID.Deny.Added"
+
+	// DeletedPolicyDenyID is the .NumericIdentity, or set or them
+	DeletedPolicyDenyID = "policyID.Deny.Deleted"
+
 	// L3PolicyID is the identifier of a L3 Policy
 	L3PolicyID = "policyID.L3"
 
@@ -110,14 +116,8 @@ const (
 	// IPv6 is an IPv6 address
 	IPv6 = "ipv6"
 
-	// BuildDuration is the time elapsed to build a BPF program
-	BuildDuration = "buildDuration"
-
 	// BPFCompilationTime is the time elapsed to build a BPF endpoint program
 	BPFCompilationTime = "BPFCompilationTime"
-
-	// EndpointRegenerationTime is the time elapsed to generate an endpoint
-	EndpointRegenerationTime = "endpointRegenerationTime"
 
 	// StartTime is the start time of an event
 	StartTime = "startTime"
@@ -167,6 +167,12 @@ const (
 	// V6Prefix is a IPv6 subnet/CIDR prefix
 	V6Prefix = "v6Prefix"
 
+	// IPv4CIDRs is a list of IPv4 CIDRs
+	IPv4CIDRs = "ipv4CIDRs"
+
+	// IPv6CIDRs is a list of IPv6 CIDRs
+	IPv6CIDRs = "ipv6CIDRs"
+
 	// CIDR is a IPv4/IPv4 subnet/CIDR
 	CIDR = "cidr"
 
@@ -187,6 +193,9 @@ const (
 
 	// NetNSName is a name of a network namespace
 	NetNSName = "netNSName"
+
+	// HardwareAddr is L2 addr of a network iface
+	HardwareAddr = "hardwareAddr"
 
 	// Hash is a hash of something
 	Hash = "hash"
@@ -261,6 +270,9 @@ const (
 	// BPFInsnSet denotes the instruction set version
 	BPFInsnSet = "bpfInsnSet"
 
+	// CiliumLocalRedirectPolicyName is the name of a CiliumLocalRedirectPolicy
+	CiliumLocalRedirectName = "ciliumLocalRedirectPolicyName"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 
@@ -304,6 +316,9 @@ const (
 
 	// Line is a line number within a file
 	Line = "line"
+
+	// LinkIndex is a network iface index
+	LinkIndex = "linkIndex"
 
 	// Object is used when "%+v" printing Go objects for debug or error handling.
 	// It is often paired with logfields.Repr to render the object.
@@ -369,6 +384,9 @@ const (
 	// K8sSvcName is the name of a K8s service
 	K8sSvcName = "k8sSvcName"
 
+	// K8sSvcID is the K8s service name and namespace
+	K8sSvcID = "k8sSvcID"
+
 	// K8sSvcType is the k8s service type (e.g. NodePort, Loadbalancer etc.)
 	K8sSvcType = "k8sSvcType"
 
@@ -398,6 +416,9 @@ const (
 
 	// K8sNodeIP is the k8s Node IP (either InternalIP or ExternalIP)
 	K8sNodeIP = "k8sNodeIP"
+
+	// K8sUID is the UID of a K8s object
+	K8sUID = "k8sUID"
 
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
@@ -429,6 +450,12 @@ const (
 	// performed
 	Reason = "reason"
 
+	// Limit is a numerical limit that has been exceeded
+	Limit = "limit"
+
+	// Count is a measure being compared to the Limit
+	Count = "count"
+
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
 
@@ -456,4 +483,19 @@ const (
 	// HelpMessage is the help message corresponding to a log message.
 	// This is to make sure we keep separate contexts for logs and help messages.
 	HelpMessage = "helpMessage"
+
+	// LRPName is the parsed name of the Local Redirect Policy.
+	LRPName = "lrpName"
+
+	// LRPFrontend is the parsed frontend mappings of the Local Redirect Policy.
+	LRPFrontends = "lrpFrontends"
+
+	// LRPLocalEndpointSelector is the local endpoint selector of the Local Redirect Policy.
+	LRPLocalEndpointSelector = "lrpLocalEndpointSelector"
+
+	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
+	LRPBackendPorts = "lrpBackendPorts"
+
+	// Mode describes an operations mode
+	Mode = "mode"
 )

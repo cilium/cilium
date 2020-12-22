@@ -24,6 +24,8 @@ source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
 source $TOOL_LIB_PATH/gitlib.sh
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
+require_linux
+
 # Validate command-line
 common::argc_validate 2
 
@@ -126,6 +128,7 @@ generate_commit_list_for_pr () {
   local entry_id
   local entry_sha
   local entry_sub
+  local entry_sub_re
   local upstream
 
   url="https://api.github.com/repos/cilium/cilium/pulls/$pr/commits"
@@ -152,7 +155,8 @@ generate_commit_list_for_pr () {
     entry_id=${entry_array[0]}
     entry_sha=${entry_array[1]}
     entry_sub=${entry_array[@]:2}
-    upstream="$(git log -F --since="1year" --pretty="%H" --no-merges --grep "$entry_sub" $REMOTE/master)"
+    entry_sub_re="^$(sed 's/[.^$*+?()[{\|]/\\&/g' <<< "$entry_sub")$" # adds backslashes for extended regex
+    upstream="$(git log --since="1year" --pretty="%H" --no-merges --extended-regexp --grep "$entry_sub_re" $REMOTE/master)"
     upstream="$(git show $upstream | git patch-id)"
     upstream=($upstream)
     if [ "$entry_id" == "${upstream[0]}" ]; then

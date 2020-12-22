@@ -104,13 +104,13 @@ func init() {
 	var defaultIPAM string
 	switch binaryName {
 	case "cilium-operator":
-		defaultIPAM = ipamOption.IPAMOperator
+		defaultIPAM = ipamOption.IPAMClusterPool
 	case "cilium-operator-aws":
 		defaultIPAM = ipamOption.IPAMENI
 	case "cilium-operator-azure":
 		defaultIPAM = ipamOption.IPAMAzure
 	case "cilium-operator-generic":
-		defaultIPAM = ipamOption.IPAMOperator
+		defaultIPAM = ipamOption.IPAMClusterPool
 	}
 
 	flags.String(option.IPAM, defaultIPAM, "Backend to use for IPAM")
@@ -129,7 +129,7 @@ func init() {
 				return "cilium-operator-aws"
 			case ipamOption.IPAMAzure:
 				return "cilium-operator-azure"
-			case ipamOption.IPAMKubernetes, ipamOption.IPAMOperator, ipamOption.IPAMCRD:
+			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMCRD:
 				return "cilium-operator-generic"
 			default:
 				return ""
@@ -173,30 +173,30 @@ func init() {
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(option.EnableIPv4Name)
 
-	flags.String(operatorOption.IPAMOperatorV4CIDR, "",
+	flags.String(operatorOption.ClusterPoolIPv4CIDR, "",
 		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
-	option.BindEnv(operatorOption.IPAMOperatorV4CIDR)
+	option.BindEnv(operatorOption.ClusterPoolIPv4CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
 		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(operatorOption.NodeCIDRMaskSizeIPv4)
 
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
-	flags.String(operatorOption.IPAMOperatorV6CIDR, "",
+	flags.String(operatorOption.ClusterPoolIPv6CIDR, "",
 		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
-	option.BindEnv(operatorOption.IPAMOperatorV6CIDR)
+	option.BindEnv(operatorOption.ClusterPoolIPv6CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
 		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(operatorOption.NodeCIDRMaskSizeIPv6)
 
@@ -210,7 +210,7 @@ func init() {
 		"Interval used for rate limiting the GC of security identities")
 	option.BindEnv(operatorOption.IdentityGCRateInterval)
 
-	flags.Int(operatorOption.IdentityGCRateLimit, 250,
+	flags.Int(operatorOption.IdentityGCRateLimit, 2500,
 		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", operatorOption.IdentityGCRateInterval))
 	option.BindEnv(operatorOption.IdentityGCRateLimit)
 
@@ -242,7 +242,7 @@ func init() {
 	flags.Duration(operatorOption.NodesGCInterval, 2*time.Minute, "GC interval for nodes store in the kvstore")
 	option.BindEnv(operatorOption.NodesGCInterval)
 
-	flags.String(operatorOption.OperatorPrometheusServeAddr, ":6942", "Address to serve Prometheus metrics")
+	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
 	option.BindEnv(operatorOption.OperatorPrometheusServeAddr)
 
 	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
@@ -264,11 +264,11 @@ func init() {
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(option.CMDRef)
 
+	flags.Int(option.GopsPort, defaults.GopsPortOperator, "Port for gops server to listen on")
+	option.BindEnv(option.GopsPort)
+
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	option.BindEnv(option.K8sHeartbeatTimeout)
-
-	flags.Duration(operatorOption.CRDWaitTimeout, 5*time.Minute, "Operator will exit if CRDs are not available within this duration upon startup")
-	option.BindEnv(operatorOption.CRDWaitTimeout)
 
 	flags.Duration(operatorOption.LeaderElectionLeaseDuration, 15*time.Second,
 		"Duration that non-leader operator candidates will wait before forcing to acquire leadership")

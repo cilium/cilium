@@ -1,608 +1,1482 @@
-# Include the cilium-agent DaemonSet
-agent:
-  enabled: true
-  # Do not run Cilium agent when running with clean mode. Useful to completely
-  # uninstall Cilium as it will stop Cilium from starting and create artifacts
-  # in the node.
-  sleepAfterInit: false
-  # Keep the deprecated selector labels when deploying Cilium DaemonSet
-  keepDeprecatedLabels: false
-  # Keep the deprecated probes when deploying Cilium DaemonSet
-  keepDeprecatedProbes: false
+# upgradeCompatibility helps users upgrading to ensure that the configMap for
+#
+# Cilium will not change critical values to ensure continued operation
+# This is flag is not required for new installations.
+# ex: 1.7, 1.8, 1.9
+# upgradeCompatibility: '1.8'
 
-# Include the cilium-config ConfigMap
-config:
-  enabled: true
-
-# Include the cilium-operator Deployment
-operator:
-  enabled: true
-
-  # Number of replicas to run for cilium-operator deployment.
-  numReplicas: 2
-
-# Include the PreFlight DaemonSet
-preflight:
+debug:
+  # -- Enable debug logging
   enabled: false
-  # Path to write the --tofqdns-pre-cache file to. When empty no file is
-  # generated.
-  tofqdnsPreCache: ""
-  # By default we should always validate the installed CNPs before upgrading
-  # Cilium. This will make sure the user will have the policies deployed in the
-  # cluster with the right schema.
-  validateCNPs: true
+  # verbose:
 
-# Configure sub-chart values for hubble-relay
-hubble-relay:
-  # # Hubble-relay is enabled using global.hubble.relay.enabled
-  # # TODO: Develop a plan to migrate global.hubble.relay.enabled and other
-  # # global values
-  #
-  # # Configuration for Hubble Relay
-  # image:
-  #   # repository of the docker image
-  #   name: hubble-relay
-  #   # tag is the container image tag to use
-  #   tag: latest
-  #   # pullPolicy is the container image pull policy
-  #   pullPolicy: Always
-  #
-  # # Specifies the resources for the hubble-relay pods
-  # resources: {}
-  #
-  # # Number of replicas run for the hubble-relay deployment.
-  numReplicas: 1
-  #
-  # # Host to listen to. Specify an empty string to bind to all the interfaces.
-  # listenHost: ""
-  #
-  # # Port to listen to.
-  # listenPort: "4245"
-  #
-  # # Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
-  # dialTimeout: ~
-  #
-  # # Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
-  # retryTimeout: ~
-  #
-  # Max number of flows that can be buffered for sorting before being sent to
-  # the client (per request) (e.g. 100).
-  # sortBufferLenMax: ~
-  #
-  # When the per-request flows sort buffer is not full, a flow is drained every
-  # time this timeout is reached (only affects requests in follow-mode)
-  # sortBufferDrainTimeout: ~
-  #
-  # # Port to use for the k8s service backed by hubble-relay pods.
-  # servicePort: 80
+rbac:
+  # -- Enable creation of Resource-Based Access Control configuration.
+  create: true
 
-# global groups all configuration options that have effect on all sub-charts
-global:
-  # registry is the address of the registry and organization for all container images
-  registry: docker.io/cilium
+# -- Configure image pull secrets for pulling container images
+imagePullSecrets:
+# - name: "image-pull-secret"
 
-  # tag is the container image tag to use
+# kubeConfigPath: ~/.kube/config
+# k8sServiceHost:
+# k8sServicePort:
+
+cluster:
+  # -- Name of the cluster. Only required for Cluster Mesh.
+  name: default
+  # -- (int) Unique ID of the cluster. Must be unique across all connected
+  # clusters and in the range of 1 to 255. Only required for Cluster Mesh.
+  id:
+
+# -- Define serviceAccount names for components.
+# @default -- Component's fully qualified name.
+serviceAccounts:
+  cilium:
+    create: true
+    annotations: {}
+  etcd:
+    create: true
+    annotations: {}
+  operator:
+    create: true
+    annotations: {}
+  preflight:
+    create: true
+    annotations: {}
+  relay:
+    create: true
+    annotations: {}
+  ui:
+    create: true
+    annotations: {}
+  clustermeshApiserver:
+    create: true
+    annotations: {}
+  # -- Certgen is used if hubble.tls.auto.method=cronJob
+  certgen:
+    create: true
+    annotations: {}
+
+# -- Install the cilium agent resources.
+agent: true
+
+# -- Agent container name.
+name: cilium
+
+# -- Agent container image.
+image:
+  repository: quay.io/cilium/cilium
   tag: latest
-
-  # pullPolicy is the container image pull policy
   pullPolicy: Always
 
-  # etcd is the etcd configuration
-  etcd:
-    # enabled enables use of etcd
-    enabled: false
+# -- Pod affinity for cilium-agent.
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: k8s-app
+          operator: In
+          values:
+          - cilium
+      topologyKey: kubernetes.io/hostname
 
-    # If etcd is behind a k8s service set this option to true so that Cilium
-    # does the service translation automatically without requiring a DNS to be
-    # running. Requires disable-k8s-services=false
-    k8sService: false
+priorityClassName: ""
 
-    # managed turns on managed etcd mode based on the cilium-etcd-operator
-    managed: false
+# -- Additional agent container arguments
+extraArgs: {}
 
-    # sets cluster domain for cilium-etcd-operator
-    clusterDomain: cluster.local
+# -- Additional agent container environment variables
+extraEnv: {}
 
-    # defines the size of the etcd cluster
-    clusterSize: 3
+# -- Additional InitContainers to initialize the pod
+extraInitContainers: []
 
-    # endpoints is the list of etcd endpoints (not needed when using
-    # managed=true)
-    endpoints:
-      - https://CHANGE-ME:2379
+# -- Additional agent hostPath mounts
+extraHostPathMounts: []
+  # - name: host-mnt-data
+  #   mountPath: /host/mnt/data
+  #   hostPath: /mnt/data
+  #   hostPathType: Directory
+  #   readOnly: true
+  #   mountPropagation: HostToContainer
 
-    # ssl enables use of TLS/SSL for connectivity to etcd. (auto-enabled if
-    # managed=true)
-    ssl: false
+# -- Additional agent ConfigMap mounts
+extraConfigmapMounts: []
+  # - name: certs-configmap
+  #   mountPath: /certs
+  #   configMap: certs-configmap
+  #   readOnly: true
 
-  # identityAllocationMode is the method to use for identity allocation.
-  # Supported modes:
-  #  crd: Kubernetes CRD backing
-  #  kvstore: Key-value store backend (better scalability)
-  identityAllocationMode: crd
+# -- extraConfig allows you to specify additional configuration parameters to be
+# included in the cilium-config configmap.
+extraConfig: {}
+#  my-config-a: "1234"
+#  my-config-b: |-
+#    test 1
+#    test 2
+#    test 3
 
-  # ipv4 is the IPv4 addressing configuration
-  ipv4:
-    enabled: true
+# -- Node tolerations for agent scheduling to nodes with taints
+# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+tolerations:
+- operator: Exists
+  # - key: "key"
+  #   operator: "Equal|Exists"
+  #   value: "value"
+  #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
-  # ipv6 is the IPv6 addressing configuration
-  ipv6:
-    enabled: false
+# -- Annotations to be added to agent pods
+podAnnotations: {}
 
-  # debug enables debugging mode
-  debug:
-    enabled: false
+# -- Labels to be added to agent pods
+podLabels: {}
 
-  # verbose allows additional levels of debug/trace messaging
-  # verbose: flow
+# -- PodDisruptionBudget settings
+# ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 2
 
-  agent:
-    # TCP port for the agent health API. This is not the port for cilium-health.
-    healthPort: 9876
+# -- Agent resource limits & requests
+# ref: https://kubernetes.io/docs/user-guide/compute-resources/
+resources: {}
+  # limits:
+  #   cpu: 4000m
+  #   memory: 4Gi
+  # requests:
+  #   cpu: 100m
+  #   memory: 512Mi
 
-  # prometheus enables
-  prometheus:
-    enabled: false
-    port: 9090
-    serviceMonitor:
-      enabled: false
+# -- Security context to be added to agent pods
+securityContext: {}
+  # runAsUser: 0
 
-  # operatorPrometheus enables
-  operatorPrometheus:
-    enabled: false
-    port: 6942
+# -- Cilium agent update strategy
+updateStrategy:
+  rollingUpdate:
+    maxUnavailable: 2
+  type: RollingUpdate
 
-  # enableXTSocketFallback enables the fallback compatibility solution
-  # when the xt_socket kernel module is missing and it is needed for
-  # the datapath L7 redirection to work properly.  See documentation
-  # for details on when this can be disabled:
-  # http://docs.cilium.io/en/latest/install/system_requirements/#admin-kernel-version.
-  enableXTSocketFallback: true
+# Configuration Values for cilium-agent
 
-  # installIptablesRules enables installation of iptables rules to allow for
-  # TPROXY (L7 proxy injection), itpables based masquerading and compatibility
-  # with kube-proxy. See documentation for details on when this can be
-  # disabled.
-  installIptablesRules: true
+# -- Enable installation of PodCIDR routes between worker
+# nodes if worker nodes share a common L2 network segment.
+autoDirectNodeRoutes: false
 
-  # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
-  # iptablesLockTimeout: "5s"
+azure:
+  # -- Enable Azure integration
+  enabled: false
+  # resourceGroup: group1
+  # subscriptionID: 00000000-0000-0000-0000-000000000000
+  # tenantID: 00000000-0000-0000-0000-000000000000
+  # clientID: 00000000-0000-0000-0000-000000000000
+  # clientSecret: 00000000-0000-0000-0000-000000000000
+  # userAssignedIdentityID: 00000000-0000-0000-0000-000000000000
 
-  # masquerade enables masquerading of traffic leaving the node for
-  # destinations outside of the cluster.
-  masquerade: true
+# -- Optimize TCP and UDP workloads and enable rate-limiting traffic from
+# individual Pods with EDT (Earliest Departure Time)
+# through the "kubernetes.io/egress-bandwidth" Pod annotation.
+bandwidthManager: true
 
-  # ipMasqAgent enables and controls BPF ip-masq-agent
-  ipMasqAgent:
-    enabled: false
+bpf:
+  clockProbe: false
 
-  # autoDirectNodeRoutes enables installation of PodCIDR routes between worker
-  # nodes if worker nodes share a common L2 network segment.
-  autoDirectNodeRoutes: false
+  # -- Force the cilium-agent DaemonSet to wait in an initContainer until the
+  # eBPF filesystem has been mounted.
+  waitForMount: false
 
-  # nativeRoutingCIDR allows to explicitly specify the CIDR for native routing. This
-  # value corresponds to the configured cluster-cidr.
-  nativeRoutingCIDR: ""
+  # -- Enables pre-allocation of eBPF map values. This increases
+  # memory usage but can reduce latency.
+  preallocateMaps: false
 
-  # endpointRoutes enables use of per endpoint routes instead of routing vis
-  # the cilium_host interface
-  endpointRoutes:
-    enabled: false
+  # -- Configure the maximum number of entries in the TCP connection tracking
+  # table.
+  # ctTcpMax: '524288'
 
-  # cni is the CNI configuration
-  cni:
-    # install determines whether to install the CNI configuration and binary
-    # files into the filesystem.
-    install: true
+  # -- Configure the maximum number of entries for the non-TCP connection
+  # tracking table.
+  # ctAnyMax: '262144'
 
-    # chainingMode enables chaining on top of other CNI plugins. Possible
-    # values:
-    #  - none
-    #  - generic-veth
-    #  - aws-cni
-    #  - portmap
-    chainingMode: none
+  # -- Configure the maximum number of service entries in the
+  # load balancer maps.
+  lbMapMax: 65536
 
-    # customConf skips writing of the CNI configuration. This can be used if
-    # writing of the CNI configuration is performed by external automation.
-    customConf: false
+  # -- Configure the maximum number of entries for the NAT table.
+  # natMax: 524288
 
-    # confPath is the path to the CNI configuration directory on the host
-    confPath: /etc/cni/net.d
+  # -- Configure the maximum number of entries for the neighbor table.
+  # neighMax: 524288
 
-    # binPath si the path to the CNI binary directory on the host
-    binPath: /opt/cni/bin
+  # -- Configure the maximum number of entries in endpoint policy map.
+  # (per endpoint)
+  policyMapMax: 16384
 
-    # readCniConf allows you to specifiy the path to a CNI config to read from on agent start
-    # This can be useful it you want to manage your CNI configuration outside of a Kubernetes
-    # This parameter is mutually exclusive with the following configMap parameter
-    # readCniConf: /host/etc/cni/net.d/05-cilium.conf
+  # -- Configure auto-sizing for all BPF maps based on available memory.
+  # ref: https://docs.cilium.io/en/v1.9/concepts/ebpf/maps/#ebpf-maps
+  #mapDynamicSizeRatio: 0.0025
 
-    # configMap when defined, will mount the provided value as ConfigMap  and
-    # interpret the cniConf variable as CNI configuration file and write it
-    # when the agent starts up
-    # configMap: cni-configuration
+  # -- Configure the level of aggregation for monitor notifications.
+  # Valid options are none, low, medium, maximum
+  monitorAggregation: medium
 
-    # configMapKey is the key in the CNI ConfigMap to read the contents of the
-    # CNI configuration from
-    configMapKey: cni-config
+  # -- Configure the typical time between monitor notifications for
+  # active connections.
+  monitorInterval: "5s"
 
-    # confFileMountPath is the path to where to mount the ConfigMap inside the
-    # pod
-    confFileMountPath: /tmp/cni-configuration
+  # -- Configure which TCP flags trigger notifications when seen for the
+  # first time in a connection.
+  monitorFlags: "all"
 
-    # hostConfDirMountPath is the path to where the CNI configuration directory
-    # is mounted inside the  pod
-    hostConfDirMountPath: /host/etc/cni/net.d
+  # -- Enable native IP masquerade support in eBPF
+  #masquerade: true
 
-  # cluster is the clustermesh related configuration
-  cluster:
-    # name is the human readable name of the cluster when setting up
-    # clustermesh
-    name: default
+  # -- Configure whether direct routing mode should route traffic via
+  # host stack (true) or directly and more efficiently out of BPF (false) if
+  # the kernel supports it. The latter has the implication that it will also
+  # bypass netfilter in the host namespace.
+  #hostRouting: true
 
-  # id is a 8 bits unique cluster identifier when setting up clustermesh
-  # id: "1"
+  # -- Configure the eBPF-based TPROXY to reduce reliance on iptables rules
+  # for implementing Layer 7 policy.
+  # tproxy: true
 
-  # tunnel is the encapsulation configuration for communication between nodes
-  # Possible values:
-  #   - disabled
-  #   - vxlan (default)
-  #   - geneve
-  tunnel: "vxlan"
+# -- Clean all eBPF datapath state from the initContainer of the cilium-agent
+# DaemonSet.
+#
+# WARNING: Use with care!
+cleanBpfState: false
 
-  # containerRuntime enables container runtime specific integration. Supported
-  # values:
+# -- Clean all local Cilium state from the initContainer of the cilium-agent
+# DaemonSet. Implies cleanBpfState: true.
+#
+# WARNING: Use with care!
+cleanState: false
+
+cni:
+  # -- Install the CNI configuration and binary files into the filesystem.
+  install: true
+
+  # -- Configure chaining on top of other CNI plugins. Possible values:
+  #  - none
+  #  - generic-veth
+  #  - aws-cni
+  #  - portmap
+  chainingMode: none
+
+  # -- Skip writing of the CNI configuration. This can be used if
+  # writing of the CNI configuration is performed by external automation.
+  customConf: false
+
+  # -- Configure the path to the CNI configuration directory on the host.
+  confPath: /etc/cni/net.d
+
+  # -- Configure the path to the CNI binary directory on the host.
+  binPath: /opt/cni/bin
+
+  # -- Specify the path to a CNI config to read from on agent start.
+  # This can be useful if you want to manage your CNI
+  # configuration outside of a Kubernetes environment. This parameter is
+  # mutually exclusive with the 'cni.configMap' parameter.
+  # readCniConf: /host/etc/cni/net.d/05-cilium.conf
+
+  # -- When defined, configMap will mount the provided value as ConfigMap and
+  # interpret the cniConf variable as CNI configuration file and write it
+  # when the agent starts up
+  # configMap: cni-configuration
+
+  # -- Configure the key in the CNI ConfigMap to read the contents of
+  # the CNI configuration from.
+  configMapKey: cni-config
+
+  # -- Configure the path to where to mount the ConfigMap inside the agent pod.
+  confFileMountPath: /tmp/cni-configuration
+
+  # -- Configure the path to where the CNI configuration directory is mounted
+  # inside the agent pod.
+  hostConfDirMountPath: /host/etc/cni/net.d
+
+# -- Configure how frequently garbage collection should occur for the datapath
+# connection tracking table.
+# conntrackGCInterval: "0s"
+
+# -- Configure container runtime specific integration.
+containerRuntime:
+  # -- Enables specific integrations for container runtimes.
+  # Supported values:
   # - containerd
   # - crio
   # - docker
   # - none
   # - auto (automatically detect the container runtime)
-  containerRuntime:
-    integration: none
+  integration: none
+  # -- Configure the path to the container runtime control socket.
+  # socketPath: /path/to/runtime.sock
 
-    # socketPath can be used to configure the path to the container runtime
-    # control socket, if it is on a non-standard path.
-    # socketPath:
+# crdWaitTimeout: ""
 
-  # bpf is the BPF datapath specific configuration
-  bpf:
-    # waitForMount instructs the cilium-agent DaemoNSet to wait in an
-    # initContainer until the BPF filesystem has been mounted.
-    waitForMount: false
+# -- Configure which datapath mode should be used for configuring container
+# connectivity. Valid options are "veth" or "ipvlan".
+datapathMode: veth
 
-    # preallocateMaps enables pre allocation of BPF map values. This increases
-    # memory usage but can reduce latency.
-    preallocateMaps: false
+daemon:
+  # -- Configure where Cilium runtime state should be stored.
+  runPath: "/var/run/cilium"
 
-    # ctTcpMax is the maximum number of entries in the TCP connection tracking
-    # table
-    #ctTcpMax: 524288
+# -- Specify which network interfaces can run the eBPF datapath. This means
+# that a packet sent from a pod to a destination outside the cluster will be
+# masqueraded (to an output device IPv4 address), if the output device runs the
+# program. When not specified, probing will automatically detect devices.
+# devices: ""
 
-    # ctAnyMax is the maximum number of entries for the non-TCP connection
-    # tracking table
-    #ctAnyMax: 262144
+# TODO: Add documentation
+# disableIptablesFeederRules: ""
 
-    # natMax is the maximum number of entries for the NAT table
-    #natMax: 524288
+# TODO: Add documentation
+# egressMasqueradeInterfaces: ""
 
-    # neighMax is the maximum number of entries for the neighbor table
-    #neighMax: 524288
+enableCnpStatusUpdates: false
 
-    # policyMapMax is the maximum number of entries in endpoint policy map (per endpoint)
-    policyMapMax: 16384
+# TODO: Add documentation
+# enableIdentityMark: false
 
-    # lbMapMax is the maximum number of entries in cilium lb service, backend and affinity
-    # maps.
-    lbMapMax: 65536
+# enableK8sEndpointSlice: false
 
-    # monitorAggregation is the level of aggregation for datapath trace events
-    monitorAggregation: medium
+# -- Enables the fallback compatibility solution for when the xt_socket kernel
+# module is missing and it is needed for the datapath L7 redirection to work
+# properly. See documentation for details on when this can be disabled:
+# http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version.
+enableXTSocketFallback: true
 
-    # monitorInterval is the typical time between monitor notifications for
-    # active connections
-    monitorInterval: "5s"
+encryption:
+  # -- Enable transparent network encryption.
+  enabled: false
 
-    # monitorFlags are TCP flags that trigger notifications when seen for the
-    # first time
-    monitorFlags: "all"
+  # -- Name of the key file inside the Kubernetes secret configured via secretName.
+  keyFile: keys
 
-  # encryption is the encryption specific configuration
-  encryption:
-    # enabled enables encryption
-    enabled: false
+  # -- Path to mount the secret inside the Cilium pod.
+  mountPath: /etc/ipsec
 
-    # keyFile is the name of the key file inside the Kubernetes secret
-    # configured via secretName
-    keyFile: keys
+  # -- Name of the Kubernetes secret containing the encryption keys.
+  secretName: cilium-ipsec-keys
 
-    # mountPath is the path where to mount the secret inside the Cilium pod
-    mountPath: /etc/ipsec
+  # -- Enable encryption for pure node to node traffic.
+  nodeEncryption: false
 
-    # secretName is the name of the Kubernetes secret containing the encryption
-    # keys
-    secretName: cilium-ipsec-keys
+  # -- The interface to use for encrypted traffic.
+  # interface: eth0
 
-    # nodeEncryption enables encryption for pure node to node traffic
-    nodeEncryption: false
+# TODO: Add documentation
+endpointHealthChecking:
+  enabled: true
 
-    # interface is the interface to use for encryption
-    # interface: eth0
+endpointRoutes:
+  # -- Enable use of per endpoint routes instead of routing via
+  # the cilium_host interface.
+  enabled: false
 
-  # fragmentTracking enables IPv4 fragment tracking support in the datapath.
-  fragmentTracking: true
+# -- Enable Elastic Network Interface (ENI) integration.
+eni: false
 
-  # hostFirewall enables the enforcement of host policies in the BPF datapath
-  hostFirewall: false
+externalIPs:
+  # -- Enable ExternalIPs service support.
+  enabled: false
 
-  # bandwidthManager enables BBR and FQ + EDT + BPF based rate-limiting for
-  # Pods that are annotated with kubernetes.io/egress-bandwidth.
-  bandwidthManager: true
+# flannel is the flannel specific configuration
+flannel:
+  # enabled enables the flannel integration
+  enabled: false
 
-  # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
-  kubeProxyReplacement: "probe"
+  # masterDevice is the name of the flannel bridge
+  masterDevice: cni0
 
-  # hostServices is the configuration for ClusterIP service handling in host namespace
-  hostServices:
-    # enabled enables host reachable functionality
-    enabled: false
+  # uninstallOnExt enables uninstallation of Cilium BPF programs on flannel
+  # managed pods when the Cilium pod is terminated
+  uninstallOnExit: false
 
-    # protocols is the list of protocols to support
-    protocols: tcp,udp
+# fragmentTracking enables IPv4 fragment tracking support in the datapath.
+# fragmentTracking: true
 
-  # nodePort is the configuration for NodePort service handling
-  nodePort:
-    # enabled enables NodePort functionality
-    enabled: false
+gke:
+  # -- Enable Google Kubernetes Engine integration
+  enabled: false
 
-    # range is the port range to use for NodePort
-    # range:
+# TODO: Add documentation
+healthChecking: true
 
-    # device is the name of the device handling NodePort requests
-    # device:
+# -- TCP port for the agent health API. This is not the port for cilium-health.
+healthPort: 9876
 
-    # mode is the mode of NodePort feature
-    # mode:
+# -- Enables the enforcement of host policies in the eBPF datapath.
+hostFirewall: false
 
-    # algorithm is the name of the load-balancing algorithm for backend selection
-    # e.g. random or maglev
-    # algorithm:
+hostPort:
+  # -- Enable hostPort service support.
+  enabled: false
 
-    # acceleration is the option to accelerate NodePort via XDP
-    # acceleration:
+# -- Configure ClusterIP service handling in the host namespace (the node).
+hostServices:
+  # -- Enable host reachable services.
+  enabled: false
 
-    # bindProtection is the option to enable or disable prevention of
-    # applications binding to service ports
-    bindProtection: true
+  # -- Supported list of protocols to apply ClusterIP translation to.
+  protocols: tcp,udp
 
-    # Append NodePort range to ip_local_reserved_ports if clash with ephemeral
-    # ports is detected
-    autoProtectPortRange: true
 
-    # enableHealthCheck enables healthcheck nodePort server for NodePort services
-    enableHealthCheck: true
+# -- Configure certificate generation for Hubble integration.
+# If hubble.tls.auto.method=cronJob, these values are used
+# for the Kubernetes CronJob which will be scheduled regularly to
+# (re)generate any certificates not provided manually.
+certgen:
+  image:
+    repository: quay.io/cilium/certgen
+    tag: v0.1.3
+    pullPolicy: Always
+  # -- Seconds after which the completed job pod will be deleted
+  ttlSecondsAfterFinished: 1800
 
-  # hostPort is the configuration for container hostPort mapping
-  hostPort:
-    # enabled enables the hostPort functionality
-    enabled: false
+hubble:
+  # -- Enable Hubble (true by default).
+  enabled: true
 
-  # externalIPs is the configuration for ExternalIPs service handling
-  externalIPs:
-    # enabled enables ExternalIPs functionality
-    enabled: false
+  # -- Buffer size of the channel Hubble uses to receive monitor events. If this
+  # value is not set, the queue size is set to the default monitor queue size.
+  # eventQueueSize: ""
 
-  # maglev is the configuration for consistent hashing
-  # maglev:
-    # tableSize is the size (parameter M) for the backend table of one service entry
-    # tableSize:
+  # -- Number of recent flows for Hubble to cache. Defaults to 4095.
+  # Possible values are:
+  #   1, 3, 7, 15, 31, 63, 127, 255, 511, 1023,
+  #   2047, 4095, 8191, 16383, 32767, 65535
+  # eventBufferCapacity: "4095"
 
-    # hashSeed is the cluster-wide base64 encoded seed for the hashing
-    # hashSeed:
+  # -- Hubble metrics configuration.
+  # See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics
+  # for more comprehensive documentation about Hubble metrics.
+  metrics:
+    # -- Configures the list of metrics to collect. If empty or null, metrics
+    # are disabled.
+    # Example:
+    #
+    #   enabled:
+    #   - dns:query;ignoreAAAA
+    #   - drop
+    #   - tcp
+    #   - flow
+    #   - icmp
+    #   - http
+    #
+    # You can specify the list of metrics from the helm CLI:
+    #
+    #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
+    #
+    enabled: ~
+    # -- Configure the port the hubble metric server listens on.
+    port: 9091
+    serviceMonitor:
+      # -- Create ServiceMonitor resources for Prometheus Operator.
+      # This requires the prometheus CRDs to be available.
+      # ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      enabled: false
 
-  # flannel is the flannel specific configuration
-  flannel:
-    # enabled enables the flannel integration
-    enabled: false
+  metricsServer: ""
 
-    # masterDevice is the name of the flannel bridge
-    masterDevice: cni0
+  # -- Unix domain socket path to listen to when Hubble is enabled.
+  socketPath: /var/run/cilium/hubble.sock
 
-    # uninstallOnExt enables uninstallation of Cilium BPF programs on flannel
-    # managed pods when the Cilium pod is terminated
-    uninstallOnExit: false
+  # -- An additional address for Hubble to listen to.
+  # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
+  # Hubble is listening on port 4244.
+  listenAddress: ":4244"
 
-  # ipvlan is the IPVLAN configuration
-  ipvlan:
-    # enabled enables use of the IPVLAN datapath
-    enabled: false
-
-    # masterDevice is the name of the device to use to attach secondary IPVLAN
-    # devices
-    # masterDevice: eth0
-
-  # pprof is the GO pprof configuration
-  pprof:
-    # enabled enables go pprof debugging
-    enabled: false
-
-  # logSytemLoad enables logging of system load
-  logSystemLoad: false
-
-  # logOptions allows you to define logging options. eg:
-  # logOptions:
-  #   format: json
-
-  # sockops is the BPF socket operations configuration
-  sockops:
-    # enabled enables installation of socket level functionality.
-    enabled: false
-
-  # k8s is the Kubernetes specific configuration
-  k8s:
-    # requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR
-    # range via the Kubernetes node resource
-    requireIPv4PodCIDR: false
-
-    # Service proxy name to use for Cilium components. This name makes sure
-    # that Cilium only manages service objects that contains the matching
-    # service.kubernetes.io/service-proxy-name label value.
-    # Defaults to empty string, in which case Cilium manages all services
-    # without the mentioned label.
-    serviceProxyName: ""
-
-  # ENI mode configures the options required to run with ENI
-  eni: false
-
-  # Google Kubernetes Engine
-  gke:
-    enabled: false
-    # Provide the same functionality as the --disable-default-snat flag
-    # for existing GKE clusters that want to disable masquerade
-    disableDefaultSnat: false
-
-  azure:
-    enabled: false
-    # resourceGroup: group1
-    # subscriptionID: 00000000-0000-0000-0000-000000000000
-    # tenantID: 00000000-0000-0000-0000-000000000000
-    # clientID: 00000000-0000-0000-0000-000000000000
-    # clientSecret: 00000000-0000-0000-0000-000000000000
-
-  # cleanState instructs the cilium-agent DaemonSet to clean all state in the
-  # initContainer
-  #
-  # WARNING: Use with care!
-  cleanState: false
-
-  # cleanBpfState instructs the cilium-agent DaemonSet to clean all BPF
-  # datapath state in the initContainer
-  #
-  # WARNING: Use with care!
-  cleanBpfState: false
-
-  nodeinit:
-    # enabled enables inclusion of the nodeinit DaemonSet
-    enabled: false
-
-    # bootstrapFile is the location of the file where the bootstrap timestamp is
-    # written by the node-init DaemonSet
-    bootstrapFile: "/tmp/cilium-bootstrap-time"
-
-  daemon:
-    runPath: "/var/run/cilium"
-
-  wellKnownIdentities:
-    # enabled enables the use of well-known identities
-    enabled: false
-
+  # -- TLS configuration for Hubble
   tls:
-    secretsBackend: local
-
-  # remoteNodeIdentity enables use of the remote node identity
-  remoteNodeIdentity: true
-
-  # hubble configures Hubble.
-  hubble:
-    enabled: false
-    ui:
-      enabled: false
-    # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".
-    socketPath: /var/run/cilium/hubble.sock
-    # An additional address to listen to, for example:
-    #
-    #   listenAddress: ":4244"
-    #
-    # Set this field ":4244" if you are enabling hubble-relay, as it assumes that Hubble is listening
-    # on port 4244.
-    listenAddress: ""
-    tls:
-      # Enable mutual TLS for listenAddress. Setting this value to false is
-      # highly discouraged as the Hubble API provides access to potentially
-      # sensitive network flow metadata and is exposed on the host network.
-      enabled: true
-      # Configure automatic TLS certificates generation.
-      auto:
-        # When set to true, automatically generate a CA and certificates to
-        # enable mTLS between Hubble server and Hubble Relay. If set to false,
-        # the certs for Hubble server need to be provided by setting
-        # appropriate values in the hubble-tls chart.
-        enabled: true
-        # Sets the method to auto-generate certificates. Currently, only "helm"
-        # is supported. This method uses Helm to generate certificates.
-        method: "helm"
-        # Generated certificates validity duration in days.
-        certValidityDuration: 1095
-    # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
-    # the queue size is set to the default monitor queue size.
-    eventQueueSize: ~
-    # Number of recent flows for Hubble to cache. Defaults to 4096.
-    flowBufferSize: ~
-    # Hubble metrics configuration.
-    # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
-    # documentation about Hubble's metric collection.
-    metrics:
-      # List of metrics to collect. If empty or null, metrics are disabled.
-      # Example:
-      #
-      #   enabled:
-      #   - dns:query;ignoreAAAA
-      #   - drop
-      #   - tcp
-      #   - flow
-      #   - port-distribution
-      #   - icmp
-      #   - http
-      #
-      # You can specify the list of metrics from the helm CLI:
-      #
-      #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"
-      #
-      enabled: ~
-      # Specifies the port the metric server listens on (e.g. 9091).
-      port: 9091
-      # Creates ServiceMonitor resources for Prometheus Operator
-      serviceMonitor:
-        enabled: false
-
-    # Configures the hubble-relay subchart
-    relay:
-      enabled: false
-      tls:
-        # Enable TLS on the server address.
-        enabled: false
-
-  # CI specific options: DO NOT USE IN PRODUCTION.
-  ci:
-    # Make Cilium panic if objects received by k8s are modified.
-    kubeCacheMutationDetector: false
-
-  ipam:
-    operator:
-      clusterPoolIPv4PodCIDR: "10.0.0.0/8"
-      clusterPoolIPv4MaskSize: 24
-      clusterPoolIPv6PodCIDR: "fd00::/104"
-      clusterPoolIPv6MaskSize: 120
-
-  proxy:
-    # Regular expression matching compatible Istio sidecar istio-proxy
-    # container image names
-    sidecarImageRegex: "cilium/istio_proxy"
-
-    prometheus:
-      # Port to expose Envoy metrics on (e.g. "9095"). Prometheus metrics will be exposed on "/metrics".
-      port: "9095"
-
-  endpointHealthChecking:
+    # -- Enable mutual TLS for listenAddress. Setting this value to false is
+    # highly discouraged as the Hubble API provides access to potentially
+    # sensitive network flow metadata and is exposed on the host network.
     enabled: true
+    # -- Configure automatic TLS certificates generation.
+    auto:
+      # -- Auto-generate certificates.
+      # When set to true, automatically generate a CA and certificates to
+      # enable mTLS between Hubble server and Hubble Relay instances. If set to
+      # false, the certs for Hubble server need to be provided by setting
+      # appropriate values below.
+      enabled: true
+      # -- Set the method to auto-generate certificates. Supported values:
+      # - helm:      This method uses Helm to generate all certificates.
+      # - cronJob:   This method uses a Kubernetes CronJob the generate any
+      #              certificates not provided by the user at installation
+      #              time.
+      method: helm
+      # -- Generated certificates validity duration in days.
+      certValidityDuration: 1095
+      # -- Schedule for certificates regeneration (regardless of their expiration date).
+      # Only used if method is "cronJob". If nil, then no recurring job will be created.
+      # Instead, only the one-shot job is deployed to generate the certificates at
+      # installation time.
+      #
+      # Defaults to midnight of the first day of every fourth month. For syntax, see
+      # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
+      schedule: "0 0 1 */4 *"
+    # -- base64 encoded PEM values for the Hubble CA certificate and private key.
+    ca:
+      cert: ""
+      # -- The CA private key (optional). If it is provided, then it will be
+      # used by hubble.tls.auto.method=cronJob to generate all other certificates.
+      # Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
+      key: ""
+    # -- base64 encoded PEM values for the Hubble server certificate and private key
+    server:
+      cert: ""
+      key: ""
 
+  relay:
+    # -- Enable Hubble Relay (requires hubble.enabled=true)
+    enabled: false
+
+    # -- Hubble-relay container image.
+    image:
+      repository: quay.io/cilium/hubble-relay
+      tag: latest
+      pullPolicy: Always
+
+    # -- Specifies the resources for the hubble-relay pods
+    resources: {}
+
+    # -- Number of replicas run for the hubble-relay deployment.
+    replicas: 1
+
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    nodeSelector: {}
+
+    # -- Annotations to be added to hubble-relay pods
+    #
+    podAnnotations: {}
+
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    #
+    tolerations: []
+
+    # -- hubble-relay update strategy
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+      type: RollingUpdate
+
+    # -- Host to listen to. Specify an empty string to bind to all the interfaces.
+    listenHost: ""
+
+    # -- Port to listen to.
+    listenPort: "4245"
+
+    # -- TLS configuration for Hubble Relay
+    tls:
+      # -- base64 encoded PEM values for the hubble-relay client certificate and private key
+      # This keypair is presented to Hubble server instances for mTLS
+      # authentication and is required when hubble.tls.enabled is true.
+      # These values need to be set manually if hubble.tls.auto.enabled is false.
+      client:
+        cert: ""
+        key: ""
+      # -- base64 encoded PEM values for the hubble-relay server certificate and private key
+      server:
+        # When set to true, enable TLS on for Hubble Relay server
+        # (ie: for clients connecting to the Hubble Relay API).
+        enabled: false
+        # These values need to be set manually if hubble.tls.auto.enabled is false.
+        cert: ""
+        key: ""
+
+    # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
+    dialTimeout: ~
+
+    # -- Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
+    retryTimeout: ~
+
+    # -- Max number of flows that can be buffered for sorting before being sent to the
+    # client (per request) (e.g. 100).
+    sortBufferLenMax: ~
+
+    # -- When the per-request flows sort buffer is not full, a flow is drained every
+    # time this timeout is reached (only affects requests in follow-mode) (e.g. "1s").
+    sortBufferDrainTimeout: ~
+
+    # -- Port to use for the k8s service backed by hubble-relay pods.
+    # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
+    # port 80 if not.
+    # servicePort: 80
+
+  ui:
+    enabled: false
+
+    backend:
+      # -- Hubble-ui backend image.
+      image:
+        repository: quay.io/cilium/hubble-ui-backend
+        tag: latest
+        pullPolicy: Always
+      # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
+      #     resources:
+      #       limits:
+      #         cpu: 1000m
+      #         memory: 1024M
+      #       requests:
+      #         cpu: 100m
+      #         memory: 64Mi
+      resources: {}
+
+    frontend:
+      # -- Hubble-ui frontend image.
+      image:
+        repository: quay.io/cilium/hubble-ui
+        tag: latest
+        pullPolicy: Always
+      # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
+      #     resources:
+      #       limits:
+      #         cpu: 1000m
+      #         memory: 1024M
+      #       requests:
+      #         cpu: 100m
+      #         memory: 64Mi
+      resources: {}
+
+    proxy:
+      # -- Hubble-ui ingress proxy image.
+      image:
+        repository: docker.io/envoyproxy/envoy
+        tag: v1.14.5
+        pullPolicy: Always
+      # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
+      #     resources:
+      #       limits:
+      #         cpu: 1000m
+      #         memory: 1024M
+      #       requests:
+      #         cpu: 100m
+      #         memory: 64Mi
+      resources: {}
+
+    replicas: 1
+
+    # -- Annotations to be added to hubble-ui pods
+    #
+    podAnnotations: {}
+
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    nodeSelector: {}
+
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    #
+    tolerations: []
+
+    # -- hubble-ui update strategy.
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+      type: RollingUpdate
+
+    securityContext:
+      enabled: true
+
+    # -- hubble-ui ingress configuration.
+    ingress:
+      enabled: false
+      annotations: {}
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+      hosts:
+        - chart-example.local
+      tls: []
+      #  - secretName: chart-example-tls
+      #    hosts:
+      #      - chart-example.local
+
+
+# TODO: Add documentation
+identityAllocationMode: "crd"
+
+# TODO: Add documentation
+# identityChangeGracePeriod: "5s"
+
+# TODO: Add documentation
+# identityGCInterval:
+
+# TODO: Add documentation
+# identityHeartbeatTimeout: ""
+
+
+# -- Configure whether to install iptables rules to allow for TPROXY
+# (L7 proxy injection), iptables-based masquerading and compatibility
+# with kube-proxy.
+installIptablesRules: true
+
+ipam:
+  # -- Configure IP Address Management mode.
+  # ref: https://docs.cilium.io/en/stable/concepts/networking/ipam/
+  mode: "cluster-pool"
+  operator:
+    # -- IPv4 CIDR range to delegate to individual nodes for IPAM.
+    clusterPoolIPv4PodCIDR: "10.0.0.0/8"
+    # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
+    clusterPoolIPv4MaskSize: 24
+    # -- IPv6 CIDR range to delegate to individual nodes for IPAM.
+    clusterPoolIPv6PodCIDR: "fd00::/104"
+    # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
+    clusterPoolIPv6MaskSize: 120
+
+# -- Configure the eBPF-based ip-masq-agent
+ipMasqAgent:
+  enabled: false
+
+# iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
+# iptablesLockTimeout: "5s"
+
+ipv4:
+  # -- Enable IPv4 support.
+  enabled: true
+
+ipv6:
+  # -- Enable IPv6 support.
+  enabled: false
+
+ipvlan:
+  # -- Enable the IPVLAN datapath
+  enabled: false
+
+  # -- masterDevice is the name of the device to use to attach secondary IPVLAN
+  # devices
+  # masterDevice: eth0
+
+# -- Configure Kubernetes specific configuration
+k8s: {}
+  # -- requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR
+  # range via the Kubernetes node resource
+  # requireIPv4PodCIDR: false
+
+  # -- requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR
+  # range via the Kubernetes node resource
+  # requireIPv46PodCIDR: false
+
+# -- Keep the deprecated selector labels when deploying Cilium DaemonSet
+keepDeprecatedLabels: false
+
+# -- Keep the deprecated probes when deploying Cilium DaemonSet
+keepDeprecatedProbes: false
+
+# -- Configure the kube-proxy replacement in Cilium BPF datapath
+# Valid options are "disabled", "probe", "partial", "strict".
+# ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+kubeProxyReplacement: "probe"
+
+# -- healthz server bind address for the kube-proxy replacement.
+# To enable set the value to '0.0.0.0:10256' for all ipv4
+# addresses and this '[::]:10256' for all ipv6 addresses.
+# By default it is disabled.
+kubeProxyReplacementHealthzBindAddr: ""
+
+# -- Enable Layer 7 network policy.
+l7Proxy: true
+
+localRedirectPolicy: false
+
+# To include or exclude matched resources from cilium identity evaluation
+# labels: ""
+
+# logOptions allows you to define logging options. eg:
+# logOptions:
+#   format: json
+
+# -- Enables periodic logging of system load
+logSystemLoad: false
+
+
+# -- Configure maglev consistent hashing
+maglev: {}
+  # -- tableSize is the size (parameter M) for the backend table of one
+  # service entry
+  # tableSize:
+
+  # -- hashSeed is the cluster-wide base64 encoded seed for the hashing
+  # hashSeed:
+
+# -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
+enableIPv4Masquerade: true
+
+# -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
+enableIPv6Masquerade: true
+
+# -- Specify the CIDR for native routing (ie to avoid IP masquerade for).
+# This value corresponds to the configured cluster-cidr.
+# nativeRoutingCIDR:
+
+# -- Configure cilium-monitor sidecar
+monitor:
+  enabled: false
+
+# -- Configure service load balancing
+# loadBalancer:
+  # algorithm is the name of the load balancing algorithm for backend
+  # selection e.g. random or maglev
+  # algorithm: "random"
+
+  # mode is the operation mode of load balancing for remote backends
+  # e.g. snat, dsr, hybrid
+  # mode: snat
+
+  # acceleration is the option to accelerate service handling via XDP
+  # e.g. native, disabled
+  # acceleration: disabled
+
+nodePort:
+  # -- Enable the Cilium NodePort service implementation.
+  enabled: false
+
+  # -- Port range to use for NodePort services.
+  # range: "30000,32767"
+
+  # -- Set to true to prevent applications binding to service ports.
+  bindProtection: true
+
+  # -- Append NodePort range to ip_local_reserved_ports if clash with ephemeral
+  # ports is detected.
+  autoProtectPortRange: true
+
+  # -- Enable healthcheck nodePort server for NodePort services
+  enableHealthCheck: true
+
+# policyAuditMode: false
+
+# -- The agent can be put into one of the three policy enforcement modes:
+# default, always and never.
+# ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
+policyEnforcementMode: "default"
+
+pprof:
+  # -- Enable Go pprof debugging
+  enabled: false
+
+# -- Configure prometheus metrics on the configured port at /metrics
+prometheus:
+  enabled: false
+  port: 9090
+  serviceMonitor:
+    # -- Enable service monitors.
+    # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+    #
+    enabled: false
+    # -- Specify the Kubernetes namespace where Prometheus expects to find
+    # service monitors configured.
+    # namespace: ""
+
+# -- Configure Istio proxy options.
+proxy:
+  prometheus:
+    port: "9095"
+  # -- Regular expression matching compatible Istio sidecar istio-proxy
+  # container image names
+  sidecarImageRegex: "cilium/istio_proxy"
+
+# -- Enable use of the remote node identity.
+# ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
+remoteNodeIdentity: true
+
+# -- Enable resource quotas for priority classes used in the cluster.
+resourceQuotas:
+  enabled: false
+  cilium:
+    hard:
+      # 5k nodes * 2 DaemonSets (Cilium and cilium node init)
+      pods: "10k"
+  operator:
+    hard:
+      # 15 "clusterwide" Cilium Operator pods for HA
+      pods: "15"
+
+# Need to document default
+##################
+#sessionAffinity: false
+
+# -- Do not run Cilium agent when running with clean mode. Useful to completely
+# uninstall Cilium as it will stop Cilium from starting and create artifacts
+# in the node.
+sleepAfterInit: false
+
+# -- Configure BPF socket operations configuration
+sockops:
+  # enabled enables installation of socket options acceleration.
+  enabled: false
+
+# TODO: Add documentation, default value
+# svcSourceRangeCheck:
+
+# synchronizeK8sNodes: true
+
+# -- Configure TLS configuration in the agent.
+tls:
+  enabled: true
+  secretsBackend: local
+
+# -- Configure the encapsulation configuration for communication between nodes.
+# Possible values:
+#   - disabled
+#   - vxlan (default)
+#   - geneve
+tunnel: "vxlan"
+
+etcd:
+  # -- Enable etcd mode for the agent.
+  enabled: false
+
+  # -- cilium-etcd-operator image.
+  image:
+    repository: quay.io/cilium/cilium-etcd-operator
+    tag: v2.0.7
+    pullPolicy: Always
+
+  # -- cilium-etcd-operator priorityClassName
+  #
+  priorityClassName: ""
+
+  # -- Additional cilium-etcd-operator container arguments
+  #
+  extraArgs: {}
+
+  # -- Additional InitContainers to initialize the pod
+  #
+  extraInitContainers: []
+
+  # -- Additional cilium-etcd-operator hostPath mounts
+  #
+  extraHostPathMounts: []
+    # - name: textfile-dir
+    #   mountPath: /srv/txt_collector
+    #   hostPath: /var/lib/cilium-etcd-operator
+    #   readOnly: true
+    #   mountPropagation: HostToContainer
+
+  # -- Additional cilium-etcd-operator ConfigMap mounts
+  #
+  extraConfigmapMounts: []
+    # - name: certs-configmap
+    #   mountPath: /certs
+    #   configMap: certs-configmap
+    #   readOnly: true
+
+  # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  #
+  tolerations:
+  - operator: Exists
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- Node labels for cilium-etcd-operator pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
+  # -- Annotations to be added to cilium-etcd-operator pods
+  #
+  podAnnotations: {}
+
+  # -- Labels to be added to cilium-etcd-operator pods
+  #
+  podLabels: {}
+
+  # -- PodDisruptionBudget settings
+  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  #
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 2
+
+  # -- cilium-etcd-operator resource limits & requests
+  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  #
+  resources: {}
+    # limits:
+    #   cpu: 4000m
+    #   memory: 4Gi
+    # requests:
+    #   cpu: 100m
+    #   memory: 512Mi
+
+  # -- Security context to be added to cilium-etcd-operator pods
+  #
+  securityContext: {}
+    # runAsUser: 0
+
+  # -- cilium-etcd-operator update strategy
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+
+  # -- If etcd is behind a k8s service set this option to true so that Cilium
+  # does the service translation automatically without requiring a DNS to be
+  # running.
+  k8sService: false
+
+  # -- Enable managed etcd mode based on the cilium-etcd-operator.
+  managed: false
+
+  # -- Cluster domain for cilium-etcd-operator.
+  clusterDomain: cluster.local
+
+  # -- Size of the managed etcd cluster.
+  clusterSize: 3
+
+  # -- List of etcd endpoints (not needed when using managed=true).
+  endpoints:
+    - https://CHANGE-ME:2379
+
+  # -- Enable use of TLS/SSL for connectivity to etcd. (auto-enabled if
+  # managed=true)
+  ssl: false
+
+operator:
+  # -- Enable the cilium-operator component (required).
+  enabled: true
+
+  # -- cilium-operator image.
+  image:
+    repository: quay.io/cilium/operator
+    tag: latest
+    pullPolicy: Always
+
+  # -- Number of replicas to run for the cilium-operator deployment
+  replicas: 2
+
+  # -- cilium-operator priorityClassName
+  priorityClassName: ""
+
+  # -- cilium-operator update strategy
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+
+  # -- cilium-operator affinity
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
       - labelSelector:
           matchExpressions:
-          - key: k8s-app
+          - key: io.cilium/app
             operator: In
             values:
-            - cilium
-        topologyKey: "kubernetes.io/hostname"
+            - operator
+        topologyKey: kubernetes.io/hostname
+
+
+  # -- Additional cilium-etcd-operator container arguments
+  #
+  extraArgs: {}
+
+  extraEnv: {}
+
+  # -- Additional InitContainers to initialize the pod
+  #
+  extraInitContainers: []
+
+  # -- Additional cilium-operator hostPath mounts
+  extraHostPathMounts: []
+    # - name: host-mnt-data
+    #   mountPath: /host/mnt/data
+    #   hostPath: /mnt/data
+    #   hostPathType: Directory
+    #   readOnly: true
+    #   mountPropagation: HostToContainer
+
+  extraConfigmapMounts: []
+    # - name: certs-configmap
+    #   mountPath: /certs
+    #   configMap: certs-configmap
+    #   readOnly: true
+
+  # -- Node tolerations for cilium-operator scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  #
+  tolerations:
+  - operator: Exists
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- Node labels for cilium-operator pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
+  # -- Annotations to be added to cilium-operator pods
+  #
+  podAnnotations: {}
+
+  # -- Labels to be added to cilium-operator pods
+  #
+  podLabels: {}
+
+  # -- PodDisruptionBudget settings
+  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  #
+  podDisruptionBudget:
+    enabled: false
+    maxUnavailable: 1
+
+  # -- cilium-operator resource limits & requests
+  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  #
+  resources: {}
+    # limits:
+    #   cpu: 1000m
+    #   memory: 1Gi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # -- Security context to be added to cilium-operator pods
+  #
+  securityContext: {}
+    # runAsUser: 0
+
+  endpointGCInterval: "5m0s"
+  identityGCInterval: "15m0s"
+  identityHeartbeatTimeout: "30m0s"
+
+  # -- Enable prometheus metrics for cilium-operator on the configured port at
+  # /metrics
+  prometheus:
+    enabled: false
+    port: 6942
+    serviceMonitor:
+      # -- Enable service monitors.
+      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      ##
+      enabled: false
+
+
+nodeinit:
+  # -- Enable the node initialization DaemonSet
+  enabled: false
+
+  # -- node-init image.
+  image:
+    repository: quay.io/cilium/startup-script
+    tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
+    pullPolicy: Always
+
+  priorityClassName: ""
+
+  # -- node-init update strategy
+  updateStrategy:
+    type: RollingUpdate
+
+  extraArgs: {}
+
+  extraEnv: {}
+
+  extraInitContainers: []
+
+  extraHostPathMounts: []
+    # - name: textfile-dir
+    #   mountPath: /srv/txt_collector
+    #   hostPath: /var/lib/nodeinit
+    #   readOnly: true
+    #   mountPropagation: HostToContainer
+
+  extraConfigmapMounts: []
+    # - name: certs-configmap
+    #   mountPath: /certs
+    #   configMap: certs-configmap
+    #   readOnly: true
+
+  # -- Node tolerations for nodeinit scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  #
+  tolerations:
+  - operator: Exists
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- Node labels for nodeinit pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
+  # -- Annotations to be added to node-init pods
+  #
+  podAnnotations: {}
+
+  # -- Labels to be added to node-init pods
+  #
+  podLabels: {}
+
+  # -- PodDisruptionBudget settings
+  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  #
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 2
+
+  # -- nodeinit resource limits & requests
+  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  #
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+
+  # -- Security context to be added to nodeinit pods
+  #
+  securityContext: {}
+    # runAsUser: 0
+
+  # -- bootstrapFile is the location of the file where the bootstrap timestamp is
+  # written by the node-init DaemonSet
+  bootstrapFile: "/tmp/cilium-bootstrap-time"
+
+preflight:
+  # -- Enable Cilium pre-flight resources (required for upgrade)
+  enabled: false
+
+  # -- Cilium pre-flight image.
+  image:
+    repository: quay.io/cilium/cilium
+    tag: latest
+    pullPolicy: Always
+
+  priorityClassName: ""
+
+  # -- preflight update strategy
+  updateStrategy:
+    type: RollingUpdate
+
+  extraArgs: {}
+
+  extraEnv: {}
+
+  extraInitContainers: []
+
+  extraHostPathMounts: []
+    # - name: textfile-dir
+    #   mountPath: /srv/txt_collector
+    #   hostPath: /var/lib/preflight
+    #   readOnly: true
+    #   mountPropagation: HostToContainer
+
+  extraConfigmapMounts: []
+    # - name: certs-configmap
+    #   mountPath: /certs
+    #   configMap: certs-configmap
+    #   readOnly: true
+
+  # -- Node tolerations for preflight scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  #
+  tolerations:
+  - effect: NoSchedule
+    key: node.kubernetes.io/not-ready
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+  - effect: NoSchedule
+    key: node.cloudprovider.kubernetes.io/uninitialized
+    value: "true"
+  - key: CriticalAddonsOnly
+    operator: "Exists"
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- Node labels for preflight pod assignment
+  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  #
+  nodeSelector: {}
+
+  # -- Annotations to be added to preflight pods
+  #
+  podAnnotations: {}
+
+  # Labels to be added to preflight pods
+  #
+  podLabels: {}
+
+  # -- PodDisruptionBudget settings
+  # ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  #
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 2
+
+  # -- preflight resource limits & requests
+  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  #
+  resources: {}
+    # limits:
+    #   cpu: 4000m
+    #   memory: 4Gi
+    # requests:
+    #   cpu: 100m
+    #   memory: 512Mi
+
+  # -- Security context to be added to preflight pods
+  #
+  securityContext: {}
+    # runAsUser: 0
+
+  # -- Path to write the --tofqdns-pre-cache file to.
+  tofqdnsPreCache: ""
+  # -- By default we should always validate the installed CNPs before upgrading
+  # Cilium. This will make sure the user will have the policies deployed in the
+  # cluster with the right schema.
+  validateCNPs: true
+
+# -- Explicitly enable or disable priority class.
+# .Capabilities.KubeVersion is unsettable in `helm template` calls,
+# it depends on k8s libriaries version that Helm was compiled against.
+# This option allows to explicitly disable setting the priority class, which
+# is useful for rendering charts for gke clusters in advance.
+enableCriticalPriorityClass: true
+
+# disableEnvoyVersionCheck removes the check for Envoy, which can be useful
+# on AArch64 as the images do not currently ship a version of Envoy.
+#disableEnvoyVersionCheck: false
+
+clustermesh:
+  # -- Deploy clustermesh-apiserver for clustermesh
+  useAPIServer: false
+
+  apiserver:
+    # -- Clustermesh API server image.
+    image:
+      repository: quay.io/cilium/clustermesh-apiserver
+      tag: latest
+      pullPolicy: Always
+
+    etcd:
+      # -- Clustermesh API server etcd image.
+      image:
+        repository: quay.io/coreos/etcd
+        tag: v3.4.13
+        pullPolicy: Always
+
+    service:
+      type: NodePort
+      # -- Optional port to use as the node port for apiserver access.
+      nodePort: 32379
+      # -- Optional loadBalancer IP address to use with type LoadBalancer.
+      # loadBalancerIP:
+
+      # -- Annotations for the clustermesh-apiserver
+      # For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal"
+      # For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+      annotations: {}
+
+    # -- Number of replicas run for the clustermesh-apiserver deployment.
+    replicas: 1
+
+    # -- Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    nodeSelector: {}
+
+    # -- Annotations to be added to clustermesh-apiserver pods
+    podAnnotations: {}
+
+    # -- Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
+    #     resources:
+    #       limits:
+    #         cpu: 1000m
+    #         memory: 1024M
+    #       requests:
+    #         cpu: 100m
+    #         memory: 64Mi
+    resources: {}
+
+    # -- Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    tolerations: []
+
+    # -- clustermesh-apiserver update strategy
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+      type: RollingUpdate
+
+    tls:
+      # -- Configure automatic TLS certificates generation.
+      # A Kubernetes CronJob is used the generate any
+      # certificates not provided by the user at installation
+      # time.
+      auto:
+        # -- When set to true, automatically generate a CA and certificates to
+        # enable mTLS between clustermesh-apiserver and external workload instances.
+        # If set to false, the certs to be provided by setting appropriate values below.
+        enabled: true
+        # Sets the method to auto-generate certificates. Supported values:
+        # - helm:      This method uses Helm to generate all certificates.
+        # - cronJob:   This method uses a Kubernetes CronJob the generate any
+        #              certificates not provided by the user at installation
+        #              time.
+        method: helm
+        # -- Generated certificates validity duration in days.
+        certValidityDuration: 1095
+        # -- Schedule for certificates regeneration (regardless of their expiration date).
+        # Only used if method is "cronJob". If nil, then no recurring job will be created.
+        # Instead, only the one-shot job is deployed to generate the certificates at
+        # installation time.
+        #
+        # Due to the out-of-band distribution of client certs to external workloads the
+        # CA is (re)regenerated only if it is not provided as a helm value and the k8s
+        # secret is manually deleted.
+        #
+        # Defaults to none. Commented syntax gives midnight of the first day of every
+        # fourth month. For syntax, see
+        # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
+        # schedule: "0 0 1 */4 *"
+      # -- base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
+      ca:
+        # -- Optional CA cert. If it is provided, it will be used by the 'cronJob' method to
+        # generate all other certificates. Otherwise, an ephemeral CA is generated.
+        cert: ""
+        # -- Optional CA private key. If it is provided, it will be used by the 'cronJob' method to
+        # generate all other certificates. Otherwise, an ephemeral CA is generated.
+        key: ""
+      # -- base64 encoded PEM values for the clustermesh-apiserver server certificate and private key
+      # Used if 'auto' is not enabled.
+      server:
+        cert: ""
+        key: ""
+      # -- base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key
+      # Used if 'auto' is not enabled.
+      admin:
+        cert: ""
+        key: ""
+      # -- base64 encoded PEM values for the clustermesh-apiserver client certificate and private key
+      # Used if 'auto' is not enabled.
+      client:
+        cert: ""
+        key: ""
+      # -- base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key
+      # Used if 'auto' is not enabled.
+      remote:
+        cert: ""
+        key: ""
+
+# -- Configure external workloads support
+externalWorkloads:
+  # -- Enable support for external workloads, such as VMs (false by default).
+  enabled: false

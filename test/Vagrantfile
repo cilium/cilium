@@ -1,6 +1,5 @@
 # -*- mode: ruby -*-
-# vi: set ft=ruby
-Vagrant.require_version ">= 2.2.0"
+# vi: set ft=ruby Vagrant.require_version ">= 2.2.0"
 
 # The source of truth for vagrant box versions.
 # Sets SERVER_BOX, SERVER_VERSION, NETNEXT_SERVER_BOXET and NEXT_SERVER_VERSION
@@ -13,20 +12,29 @@ $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSI
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.19"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.20"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
-$NFS = ENV['NFS']=="1"? true : false
+$NFS = ENV['NFS']=="0"? false : true
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 $CNI_INTEGRATION=(ENV['CNI_INTEGRATION'] || "")
 $CILIUM_IMAGE = ENV['CILIUM_IMAGE'] || ""
+$CILIUM_TAG = ENV['CILIUM_TAG'] || ""
 $CILIUM_OPERATOR_IMAGE = ENV['CILIUM_OPERATOR_IMAGE'] || ""
+$CILIUM_OPERATOR_TAG = ENV['CILIUM_OPERATOR_TAG'] || ""
 $HUBBLE_RELAY_IMAGE = ENV['HUBBLE_RELAY_IMAGE'] || ""
-$CILIUM_REGISTRY = ENV['CILIUM_REGISTRY'] || ""
+$HUBBLE_RELAY_TAG = ENV['HUBBLE_RELAY_TAG'] || ""
 $PRELOAD_VM = ENV['PRELOAD_VM'] || "false"
+$PROVISION_EXTERNAL_WORKLOAD = ENV['PROVISION_EXTERNAL_WORKLOAD'] || "false"
 $SKIP_K8S_PROVISION = ENV['SKIP_K8S_PROVISION'] || "false"
 $NO_CILIUM_ON_NODE = ENV['NO_CILIUM_ON_NODE'] || ""
 $KUBEPROXY = (ENV['KUBEPROXY'] || "1")
+$RACE = ENV['RACE'] || ""
+$LOCKDEBUG = ENV['LOCKDEBUG'] || ""
+$BASE_IMAGE = ENV['BASE_IMAGE'] || ""
+$DOCKER_LOGIN = ENV['DOCKER_LOGIN'] || ""
+$DOCKER_PASSWORD = ENV['DOCKER_PASSWORD'] || ""
+$CILIUM_REGISTRY = ENV['CILIUM_REGISTRY'] || ""
 
 # RAM and CPU settings
 $MEMORY = (ENV['VM_MEMORY'] || "4096").to_i
@@ -48,8 +56,28 @@ class VagrantPlugins::ProviderVirtualBox::Action::Network
   end
 end
 
-ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
+$bootstrap = <<SCRIPT
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [ -x /home/vagrant/go/src/github.com/cilium/cilium/.devvmrc ] ; then
+   echo "----------------------------------------------------------------"
+   echo "Executing .devvmrc"
+   /home/vagrant/go/src/github.com/cilium/cilium/.devvmrc || true
+fi
+echo "----------------------------------------------------------------"
+sudo sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile
+echo 'export GOPATH=$(go env GOPATH)' >> /home/vagrant/.bashrc
+SCRIPT
+
 Vagrant.configure("2") do |config|
+    cilium_dir = '../'
+    cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'
+    if ENV["SHARE_PARENT"] then
+        cilium_dir = '../..'
+        cilium_path = '/home/vagrant/go/src/github.com/cilium'
+    end
 
     config.vm.define "runtime" do |server|
         server.vm.provider "virtualbox" do |vb|
@@ -67,26 +95,43 @@ Vagrant.configure("2") do |config|
         server.vm.boot_timeout = 600
         server.vm.hostname = "runtime"
 
+        server.vm.network "private_network",
+            ip: "192.168.36.10",
+            virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
+        server.vm.network "private_network",
+            ip: "192.168.37.10",
+            virtualbox__intnet: "cilium-k8s-2#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
+
+        # @TODO: Clean this one when https://github.com/hashicorp/vagrant/issues/9822 is fixed.
+        server.vm.provision "ipv6-config-primary",
+            type: "shell",
+            run: "always",
+            inline: "ip -6 a a fd04::1/96 dev enp0s8 || true"
+        server.vm.provision "ipv6-config-secondary",
+            type: "shell",
+            run: "always",
+            inline: "ip -6 a a fd05::1/96 dev enp0s9 || true"
+
         # This network is only used by NFS
-        server.vm.network "private_network", type: "dhcp"
-        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-            nfs: $NFS
+        if $NFS
+            # This network is only used by NFS
+            server.vm.network "private_network", ip: "192.168.38.10"
+            server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+        else
+            server.vm.synced_folder cilium_dir, cilium_path
+        end
 
         # Provision section
-        server.vm.provision :shell,
-            :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-        # Disable unattended-upgrades to prevent it from holding the dpkg frontend lock
-        # To be removed once this has been added through packer-ci-build
-        server.vm.provision :shell,
-            :inline => "sudo systemctl disable unattended-upgrades.service"
-        server.vm.provision :shell,
-            :inline => "sudo systemctl stop unattended-upgrades.service"
-        server.vm.provision :shell,
-            :inline => "echo 'export GOPATH=$(go env GOPATH)' >> /home/vagrant/.bashrc"
+        server.vm.provision "bootstrap", type: "shell", inline: $bootstrap
         server.vm.provision "file", source: "provision/", destination: "/tmp/"
         server.vm.provision "shell" do |sh|
             sh.path = "./provision/runtime_install.sh"
-            sh.env = {}
+            sh.env = {
+              "RACE" => "#{$RACE}",
+              "LOCKDEBUG" => "#{$LOCKDEBUG}",
+              "BASE_IMAGE" => "#{$BASE_IMAGE}",
+              "PROVISION_EXTERNAL_WORKLOAD" => "#{$PROVISION_EXTERNAL_WORKLOAD}"
+            }
         end
     end
 
@@ -116,6 +161,9 @@ Vagrant.configure("2") do |config|
             server.vm.hostname = "k8s#{i}"
             server.vm.boot_timeout = 600
             if i == 1 then
+                # grafana
+                server.vm.network "forwarded_port", guest: 3000, host: 3000,
+                  auto_correct: true
                 server.vm.network "forwarded_port", guest: 6443, host: 9443,
                   auto_correct: true
             end
@@ -127,30 +175,26 @@ Vagrant.configure("2") do |config|
                 virtualbox__intnet: "cilium-k8s-2#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
 
             # @TODO: Clean this one when https://github.com/hashicorp/vagrant/issues/9822 is fixed.
-            server.vm.provision "ipv6-config",
+            server.vm.provision "ipv6-config-primary",
                 type: "shell",
                 run: "always",
                 inline: "ip -6 a a fd04::1#{i}/96 dev enp0s8 || true"
-            server.vm.provision "ipv6-config",
+            server.vm.provision "ipv6-config-secondary",
                 type: "shell",
                 run: "always",
                 inline: "ip -6 a a fd05::1#{i}/96 dev enp0s9 || true"
 
-            # This network is only used by NFS
-            server.vm.network "private_network", type: "dhcp"
-            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-                nfs: $NFS
+            if $NFS
+                # This network is only used by NFS
+                server.vm.network "private_network", ip: "192.168.38.1#{i}"
+                server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+            else
+                server.vm.synced_folder cilium_dir, cilium_path
+            end
             # Provision section
+            server.vm.provision "bootstrap", type: "shell", inline: $bootstrap
             server.vm.provision :shell,
                 :inline => "sudo sysctl -w net.ipv6.conf.all.forwarding=1"
-            server.vm.provision :shell,
-                :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-            # Disable unattended-upgrades to prevent it from holding the dpkg frontend lock
-            # To be removed once this has been added through packer-ci-build
-            server.vm.provision :shell,
-                :inline => "sudo systemctl disable unattended-upgrades.service"
-            server.vm.provision :shell,
-                :inline => "sudo systemctl stop unattended-upgrades.service"
             server.vm.provision "file", source: "provision/", destination: "/tmp/"
             server.vm.provision "shell" do |sh|
                 sh.path = "./provision/k8s_install.sh"
@@ -158,12 +202,21 @@ Vagrant.configure("2") do |config|
                     "k8s#{i}", "192.168.36.1#{i}", "#{$K8S_VERSION}",
                     "#{$IPv6}", "#{$CONTAINER_RUNTIME}", "#{$CNI_INTEGRATION}"]
                 sh.env = {"CILIUM_IMAGE" => "#{$CILIUM_IMAGE}",
+                          "CILIUM_TAG" => "#{$CILIUM_TAG}",
                           "CILIUM_OPERATOR_IMAGE" => "#{$CILIUM_OPERATOR_IMAGE}",
+                          "CILIUM_OPERATOR_TAG" => "#{$CILIUM_OPERATOR_TAG}",
                           "HUBBLE_RELAY_IMAGE" => "#{$HUBBLE_RELAY_IMAGE}",
-                          "CILIUM_REGISTRY" => "#{$CILIUM_REGISTRY}",
+                          "HUBBLE_RELAY_TAG" => "#{$HUBBLE_RELAY_TAG}",
                           "PRELOAD_VM" => "#{$PRELOAD_VM}",
                           "SKIP_K8S_PROVISION" => "#{$SKIP_K8S_PROVISION}",
-                          "KUBEPROXY" => "#{$KUBEPROXY}"}
+                          "KUBEPROXY" => "#{$KUBEPROXY}",
+                          "RACE" => "#{$RACE}",
+                          "LOCKDEBUG" => "#{$LOCKDEBUG}",
+                          "BASE_IMAGE" => "#{$BASE_IMAGE}",
+                          "DOCKER_LOGIN" => "#{$DOCKER_LOGIN}",
+                          "DOCKER_PASSWORD" => "#{$DOCKER_PASSWORD}",
+                          "CILIUM_REGISTRY" => "#{$CILIUM_REGISTRY}"
+                }
             end
         end
     end

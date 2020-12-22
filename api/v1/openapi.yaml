@@ -556,6 +556,18 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/SelectorCache"
+  "/lrp":
+    get:
+      summary: Retrieve list of all local redirect policies
+      tags:
+      - service
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/LRPSpec"
   "/service":
     get:
       summary: Retrieve list of all services
@@ -1250,9 +1262,21 @@ definitions:
         type: array
         items:
           type: integer
+      denied-ingress-identities:
+        description: |
+          List of identities not allowed to communicate to this endpoint
+        type: array
+        items:
+          type: integer
       allowed-egress-identities:
         description: |
           List of identities to which this endpoint is allowed to communicate
+        type: array
+        items:
+          type: integer
+      denied-egress-identities:
+        description: |
+          List of identities to which this endpoint is not allowed to communicate
         type: array
         items:
           type: integer
@@ -1603,6 +1627,12 @@ definitions:
       masquerading:
         description: Status of masquerading
         "$ref": "#/definitions/Masquerading"
+      host-routing:
+        description: Status of host routing
+        "$ref": "#/definitions/HostRouting"
+      clock-source:
+        description: Status of clock source
+        "$ref": "#/definitions/ClockSource"
       stale:
         description: List of stale information in the status
         type: object
@@ -1724,9 +1754,28 @@ definitions:
         - Probe
         - Partial
       devices:
-          type: array
-          items:
-            type: string
+        description: |-
+
+
+          +k8s:deepcopy-gen=true
+        type: array
+        items:
+          description: |-
+
+
+            +k8s:deepcopy-gen=true
+          type: object
+          properties:
+            name:
+              type: string
+            ip:
+              description: |-
+
+
+                +k8s:deepcopy-gen=true
+              type: array
+              items:
+                type: string
       directRoutingDevice:
         type: string
       features:
@@ -1750,7 +1799,7 @@ definitions:
                 enum:
                 - SNAT
                 - DSR
-                - HYBRID
+                - Hybrid
               algorithm:
                 type: string
                 enum:
@@ -2009,7 +2058,14 @@ definitions:
         type: string
       masquerade:
         description: Status of masquerading feature
-        type: boolean
+        type: object
+        properties:
+          ipv4:
+            description: Status of masquerading for IPv4 traffic
+            type: boolean
+          ipv6:
+            description: Status of masquerading for IPv6 traffic
+            type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
@@ -2241,6 +2297,53 @@ definitions:
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string
+  LRPBackend:
+    description: Pod backend of an LRP
+    type: object
+    properties:
+      pod-id:
+        description: Namespace and name of the backend pod
+        type: string
+      backend-address:
+        "$ref": "#/definitions/BackendAddress"
+  FrontendMapping:
+    description: Mapping of frontend to backend pods of an LRP
+    type: object
+    properties:
+      frontend-address:
+        "$ref": "#/definitions/FrontendAddress"
+      backends:
+        description: Pod backends of an LRP
+        type: array
+        items:
+          "$ref": "#/definitions/LRPBackend"
+  LRPSpec:
+    description: Configuration of an LRP
+    type: object
+    properties:
+      uid:
+        description: Unique identification
+        type: string
+      name:
+        description: LRP service name
+        type: string
+      namespace:
+        description: LRP service namespace
+        type: string
+      frontend-type:
+        description: LRP frontend type
+        type: string
+      lrp-type:
+        description: LRP config type
+        type: string
+      service-id:
+        description: matching k8s service namespace and name
+        type: string
+      frontend-mappings:
+        description: mapping of frontends to pod backends
+        type: array
+        items:
+          "$ref": "#/definitions/FrontendMapping"
   Service:
     description: Collection of endpoints to be served
     type: object
@@ -2279,6 +2382,7 @@ definitions:
             - ExternalIPs
             - HostPort
             - LoadBalancer
+            - LocalRedirect
           trafficPolicy:
             description: Service traffic policy
             type: string
@@ -2413,7 +2517,14 @@ definitions:
     properties:
       enabled:
         description: Is masquerading enabled
-        type: boolean
+        type: object
+        properties:
+          ipv4:
+            description: Is masquerading enabled for IPv4 traffic
+            type: boolean
+          ipv6:
+            description: Is masquerading enabled for IPv6 traffic
+            type: boolean
       mode:
         type: string
         enum:
@@ -2422,9 +2533,46 @@ definitions:
       ip-masq-agent:
         description: Is BPF ip-masq-agent enabled
         type: boolean
-      snat-exclusion-cidr:
-        description: Any packet sent to IP addr belonging to CIDR will not be SNAT'd
+      snat-exclusion-cidr-v4:
+        description: |-
+          SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to
+          an IPv4 address that belongs to this CIDR.
         type: string
+      snat-exclusion-cidr-v6:
+        description: |-
+          SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent to
+          an IPv6 address that belongs to this CIDR.
+          For IPv6 we only do masquerading in iptables mode.
+        type: string
+  ClockSource:
+    description: |-
+      Status of BPF clock source
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      mode:
+        description: Datapath clock source
+        type: string
+        enum:
+        - ktime
+        - jiffies
+      hertz:
+        description: Kernel Hz
+        type: integer
+  HostRouting:
+    description: |-
+      Status of host routing
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      mode:
+        description: Datapath routing mode
+        type: string
+        enum:
+        - BPF
+        - Legacy
   ControllerStatuses:
     description: Collection of controller statuses
     type: array

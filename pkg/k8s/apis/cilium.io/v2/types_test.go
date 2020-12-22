@@ -48,13 +48,15 @@ var (
 	apiRule = api.Rule{
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("role=frontend"),
-					),
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("reserved:world"),
-					),
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("role=frontend"),
+						),
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("reserved:world"),
+						),
+					},
 				},
 				ToPorts: []api.PortRule{
 					{
@@ -73,9 +75,13 @@ var (
 					},
 				},
 			}, {
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"10.0.0.1"},
+				},
 			}, {
-				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				},
 			},
 		},
 	}
@@ -83,13 +89,15 @@ var (
 	apiRuleWithLabels = api.Rule{
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("role=frontend"),
-					),
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("reserved:world"),
-					),
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("role=frontend"),
+						),
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("reserved:world"),
+						),
+					},
 				},
 				ToPorts: []api.PortRule{
 					{
@@ -108,9 +116,13 @@ var (
 					},
 				},
 			}, {
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"10.0.0.1"},
+				},
 			}, {
-				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				},
 			},
 		},
 		Labels: labels.LabelArray{{Key: "uuid", Value: "98678-9868976-78687678887678", Source: ""}},
@@ -119,14 +131,16 @@ var (
 	expectedSpecRule = api.NewRule().
 				WithIngressRules([]api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("role=frontend"),
-						labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"),
-					),
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("reserved:world"),
-					),
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("role=frontend"),
+							labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"),
+						),
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("reserved:world"),
+						),
+					},
 				},
 				ToPorts: []api.PortRule{
 					{
@@ -146,9 +160,13 @@ var (
 				},
 			},
 			{
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"10.0.0.1"},
+				},
 			}, {
-				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				},
 			},
 		}).
 		WithLabels(k8sUtils.GetPolicyLabels("default", "rule1", uuidRule, "CiliumNetworkPolicy"))
@@ -330,6 +348,26 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
 	c.Assert(cnpl, checker.DeepEquals, *expectedPolicyRuleWithLabel)
+
+	empty := &CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule1",
+			UID:       uuidRule,
+		},
+	}
+	_, err = empty.Parse()
+	c.Assert(err, checker.DeepEquals, ErrEmptyCNP)
+
+	emptyCCNP := &CiliumClusterwideNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "rule1",
+			UID:  uuidRule,
+		},
+		CiliumNetworkPolicy: empty,
+	}
+	_, err = emptyCCNP.Parse()
+	c.Assert(err, checker.DeepEquals, ErrEmptyCCNP)
 }
 
 func (s *CiliumV2Suite) TestParseRules(c *C) {
@@ -412,13 +450,15 @@ func (s *CiliumV2Suite) TestParseWithNodeSelector(c *C) {
 		EndpointSelector: api.NewESFromLabels(),
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("role=frontend"),
-					),
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("reserved:world"),
-					),
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("role=frontend"),
+						),
+						api.NewESFromLabels(
+							labels.ParseSelectLabel("reserved:world"),
+						),
+					},
 				},
 				ToPorts: []api.PortRule{
 					{
@@ -435,9 +475,13 @@ func (s *CiliumV2Suite) TestParseWithNodeSelector(c *C) {
 					},
 				},
 			}, {
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"10.0.0.1"},
+				},
 			}, {
-				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				},
 			},
 		},
 	}
@@ -529,22 +573,27 @@ func BenchmarkSpecEquals(b *testing.B) {
 			},
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"foo3": "bar3",
-									"foo4": "bar4",
-								},
-								MatchExpressions: []slim_metav1.LabelSelectorRequirement{
-									{
-										Key:      "any.foo",
-										Operator: "NotIn",
-										Values:   []string{"default"},
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							{
+								LabelSelector: &slim_metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"foo3": "bar3",
+										"foo4": "bar4",
+									},
+									MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+										{
+											Key:      "any.foo",
+											Operator: "NotIn",
+											Values:   []string{"default"},
+										},
 									},
 								},
 							},
 						},
+						FromCIDR:     nil,
+						FromCIDRSet:  nil,
+						FromEntities: nil,
 					},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
@@ -581,9 +630,6 @@ func BenchmarkSpecEquals(b *testing.B) {
 							},
 						},
 					}},
-					FromCIDR:     nil,
-					FromCIDRSet:  nil,
-					FromEntities: nil,
 				},
 			},
 		},

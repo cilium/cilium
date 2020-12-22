@@ -48,6 +48,9 @@ run:
 
 # all available settings of specific linters
 linters-settings:
+  govet:
+    enable:
+      - nilness
   misspell:
     # Correct spellings using locale preferences for US or UK.
     # Default is to use a neutral variety of English.
@@ -67,9 +70,15 @@ issues:
       text: "SA2001: empty critical section"
     - linters: [goerr113]
       text: "do not define dynamic errors, use wrapped static errors instead" # This rule to avoid opinionated check fmt.Errorf("text")
-    - path: _test\.go                # Skip 1.13 errors check for test files
+    # Skip 1.13 errors check and unused for test files
+    - path: _test\.go
       linters:
         - goerr113
+        - unused
+    # Skip unused check for /test directory
+    - path: test/
+      linters:
+        - unused
 linters:
   disable-all: true
   enable:
@@ -79,6 +88,7 @@ linters:
     - ineffassign
     - misspell
     - staticcheck
+    - unused
     - varcheck
 
 # To enable later if makes sense
@@ -95,4 +105,3 @@ linters:
 #    - prealloc
 #    - structcheck
 #    - typecheck
-#    - unused

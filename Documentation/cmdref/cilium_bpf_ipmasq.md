@@ -4,10 +4,6 @@
 
 ip-masq-agent CIDRs
 
-### Synopsis
-
-ip-masq-agent CIDRs
-
 ### Options
 
 ```

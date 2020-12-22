@@ -19,8 +19,8 @@ usage() {
     echo -e "options:"
     echo -e "\t-a\t\tuse aria2c instead of curl"
     echo -e "\t-b <box>\tdownload selected box (defaults: ubuntu ubuntu-next)"
+    echo -e "\t-d <dir>\tdownload to dir instead of /tmp/"
     echo -e "\t-l\t\tdownload latest versions instead of using vagrant_box_defaults"
-    echo -e "\t-t\t\tdownload to /tmp/ instead of current directory"
     echo -e "\t-h\t\tdisplay this help"
     echo -e ""
     echo -e "examples:"
@@ -41,11 +41,11 @@ version=0
 custom_types=0
 latest=0
 use_aria2=0
-outdir="."
+outdir="/tmp/"
 path=/dev/null
 
 OPTIND=1
-while getopts "ab:hlt" opt; do
+while getopts "ab:hld:" opt; do
     case "$opt" in
     h)
         usage 0
@@ -58,8 +58,8 @@ while getopts "ab:hlt" opt; do
         check_cmd jq
         latest=1
         ;;
-    t)
-        outdir="/tmp"
+    d)
+        outdir="$OPTARG"
         ;;
     b)
         if [[ $custom_types -eq 0 ]] ; then
@@ -112,6 +112,8 @@ check_latest_version() {
     fi
 }
 
+mkdir -p "$outdir"
+
 for box in $boxes; do
     if [[ latest -eq 1 ]] ; then
         check_latest_version $box
@@ -137,7 +139,7 @@ for box in $boxes; do
 
     if [[ $download_from_cache == true ]]; then
         echo "adding box from cache"
-        curl --fail "$vagrant_url$box/$version/metadata.json" -o $outdir/metadata.json
+        curl --fail "$vagrant_url$box/$version/metadata.json" -o "$outdir/metadata.json"
         ret=$?
         if [[ $ret -eq 0 ]]; then
             url="$vagrant_url$box/$version/package.box"

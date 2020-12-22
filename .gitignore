@@ -33,6 +33,7 @@ vagrant.kubeconfig
 coverage.out
 coverage-all.out
 coverage-all.html
+coverage-all-tmp.out
 
 .DS_Store
 .idea/
@@ -64,9 +65,14 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
+examples/getting-started/.env
+
 # generated test files
 test/k8sT/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
+external-workload-ca.crt
+external-workload-tls.crt
+external-workload-tls.key
 
 # GKE temporary files
 test/gke/cluster-name
@@ -82,11 +88,15 @@ test/gke/registry-adder.yaml
 # generated from make targets
 *.ok
 *.build_all
+LICENSE.all
 
 # Temporary files that allow build containers/VMs work without git
 # Not to be ignored by docker.
 GIT_VERSION
 
-# During image builds following files get created
+# The following files get created during image builds
 .buildx
 .buildx_builder
+
+# Local developer config to be executed in the dev VM and CI VMs started locally
+.devvmrc

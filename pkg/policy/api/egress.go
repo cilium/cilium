@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,22 +20,10 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-// EgressRule contains all rule types which can be applied at egress, i.e.
-// network traffic that originates inside the endpoint and exits the endpoint
-// selected by the endpointSelector.
-//
-// - All members of this structure are optional. If omitted or empty, the
-//   member will have no effect on the rule.
-//
-// - If multiple members of the structure are specified, then all members
-//   must match in order for the rule to take effect. The exception to this
-//   rule is the ToRequires member; the effects of any Requires field in any
-//   rule will apply to all other rules as well.
-//
-// - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
-//   mutually exclusive. Only one of these members may be present within an
-//   individual rule.
-type EgressRule struct {
+// EgressCommonRule is a rule that shares some of its fields across the
+// EgressRule and EgressDenyRule. It's publicly exported so the code generators
+// can generate code for this structure.
+type EgressCommonRule struct {
 	// ToEndpoints is a list of endpoints identified by an EndpointSelector to
 	// which the endpoints subject to the rule are allowed to communicate.
 	//
@@ -58,17 +46,6 @@ type EgressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToRequires []EndpointSelector `json:"toRequires,omitempty"`
-
-	// ToPorts is a list of destination ports identified by port number and
-	// protocol which the endpoint subject to the rule is allowed to
-	// connect to.
-	//
-	// Example:
-	// Any endpoint with the label "role=frontend" is allowed to initiate
-	// connections to destination port 8080/tcp
-	//
-	// +kubebuilder:validation:Optional
-	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// ToCIDR is a list of IP blocks which the endpoint subject to the rule
 	// is allowed to initiate connections. Only connections destined for
@@ -120,6 +97,61 @@ type EgressRule struct {
 	// +kubebuilder:validation:Optional
 	ToServices []Service `json:"toServices,omitempty"`
 
+	// ToGroups is a directive that allows the integration with multiple outside
+	// providers. Currently, only AWS is supported, and the rule can select by
+	// multiple sub directives:
+	//
+	// Example:
+	// toGroups:
+	// - aws:
+	//     securityGroupsIds:
+	//     - 'sg-XXXXXXXXXXXXX'
+	//
+	// +kubebuilder:validation:Optional
+	ToGroups []ToGroups `json:"toGroups,omitempty"`
+
+	// TODO: Move this to the policy package
+	// (https://github.com/cilium/cilium/issues/8353)
+
+	// TODO: The following field was exported to stop govet warnings. The govet
+	// warnings were because the CRD generation tool needs every struct field
+	// that's within a CRD, to have a json tag. JSON tags cannot be applied to
+	// unexported fields, hence this change. Refactor these fields out of this
+	// struct. GH issue: https://github.com/cilium/cilium/issues/12697. Once
+	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
+	// would no longer be required.
+	AggregatedSelectors EndpointSelectorSlice `json:"-"`
+}
+
+// EgressRule contains all rule types which can be applied at egress, i.e.
+// network traffic that originates inside the endpoint and exits the endpoint
+// selected by the endpointSelector.
+//
+// - All members of this structure are optional. If omitted or empty, the
+//   member will have no effect on the rule.
+//
+// - If multiple members of the structure are specified, then all members
+//   must match in order for the rule to take effect. The exception to this
+//   rule is the ToRequires member; the effects of any Requires field in any
+//   rule will apply to all other rules as well.
+//
+// - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
+//   mutually exclusive. Only one of these members may be present within an
+//   individual rule.
+type EgressRule struct {
+	EgressCommonRule `json:",inline"`
+
+	// ToPorts is a list of destination ports identified by port number and
+	// protocol which the endpoint subject to the rule is allowed to
+	// connect to.
+	//
+	// Example:
+	// Any endpoint with the label "role=frontend" is allowed to initiate
+	// connections to destination port 8080/tcp
+	//
+	// +kubebuilder:validation:Optional
+	ToPorts PortRules `json:"toPorts,omitempty"`
+
 	// ToFQDN allows whitelisting DNS names in place of IPs. The IPs that result
 	// from DNS resolution of `ToFQDN.MatchName`s are added to the same
 	// EgressRule object as ToCIDRSet entries, and behave accordingly. Any L4 and
@@ -145,32 +177,55 @@ type EgressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToFQDNs FQDNSelectorSlice `json:"toFQDNs,omitempty"`
+}
 
-	// ToGroups is a directive that allows the integration with multiple outside
-	// providers. Currently, only AWS is supported, and the rule can select by
-	// multiple sub directives:
+// EgressDenyRule contains all rule types which can be applied at egress, i.e.
+// network traffic that originates inside the endpoint and exits the endpoint
+// selected by the endpointSelector.
+//
+// - All members of this structure are optional. If omitted or empty, the
+//   member will have no effect on the rule.
+//
+// - If multiple members of the structure are specified, then all members
+//   must match in order for the rule to take effect. The exception to this
+//   rule is the ToRequires member; the effects of any Requires field in any
+//   rule will apply to all other rules as well.
+//
+// - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
+//   mutually exclusive. Only one of these members may be present within an
+//   individual rule.
+type EgressDenyRule struct {
+	EgressCommonRule `json:",inline"`
+
+	// ToPorts is a list of destination ports identified by port number and
+	// protocol which the endpoint subject to the rule is not allowed to connect
+	// to.
 	//
 	// Example:
-	// toGroups:
-	// - aws:
-	//     securityGroupsIds:
-	//     - 'sg-XXXXXXXXXXXXX'
+	// Any endpoint with the label "role=frontend" is not allowed to initiate
+	// connections to destination port 8080/tcp
 	//
 	// +kubebuilder:validation:Optional
-	ToGroups []ToGroups `json:"toGroups,omitempty"`
+	ToPorts PortDenyRules `json:"toPorts,omitempty"`
+}
 
-	// TODO: Move this to the policy package
-	// (https://github.com/cilium/cilium/issues/8353)
-
-	// TODO: The following field was exported to stop govet warnings. The govet
-	// warnings were because the CRD generation tool needs every struct field
-	// that's within a CRD, to have a json tag. JSON tags cannot be applied to
-	// unexported fields, hence this change. Refactor these fields out of this
-	// struct. GH issue: https://github.com/cilium/cilium/issues/12697. Once
-	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
-	// would no longer be required.
-
-	AggregatedSelectors EndpointSelectorSlice `json:"-"`
+// SetAggregatedSelectors creates a single slice containing all of the following
+// fields within the EgressCommonRule, converted to EndpointSelector, to be
+// stored by the caller of the EgressCommonRule for easy lookup while performing
+// policy evaluation for the rule:
+// * ToEntities
+// * ToCIDR
+// * ToCIDRSet
+// * ToFQDNs
+//
+// ToEndpoints is not aggregated due to requirement folding in
+// GetDestinationEndpointSelectorsWithRequirements()
+func (e *EgressCommonRule) getAggregatedSelectors() EndpointSelectorSlice {
+	res := make(EndpointSelectorSlice, 0, len(e.ToEntities)+len(e.ToCIDR)+len(e.ToCIDRSet))
+	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
+	return res
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
@@ -185,14 +240,24 @@ type EgressRule struct {
 // ToEndpoints is not aggregated due to requirement folding in
 // GetDestinationEndpointSelectorsWithRequirements()
 func (e *EgressRule) SetAggregatedSelectors() {
-	res := make(EndpointSelectorSlice, 0, len(e.ToEntities)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToFQDNs))
-	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
-	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
-	// Goroutines can race setting this, but they will all compute
-	// the same result, so it does not matter.
-	e.AggregatedSelectors = res
+	ess := e.getAggregatedSelectors()
+	ess = append(ess, e.ToFQDNs.GetAsEndpointSelectors()...)
+	e.AggregatedSelectors = ess
+}
+
+// SetAggregatedSelectors creates a single slice containing all of the following
+// fields within the EgressRule, converted to EndpointSelector, to be stored
+// within the EgressRule for easy lookup while performing policy evaluation
+// for the rule:
+// * ToEntities
+// * ToCIDR
+// * ToCIDRSet
+// * ToFQDNs
+//
+// ToEndpoints is not aggregated due to requirement folding in
+// GetDestinationEndpointSelectorsWithRequirements()
+func (e *EgressCommonRule) SetAggregatedSelectors() {
+	e.AggregatedSelectors = e.getAggregatedSelectors()
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
@@ -201,6 +266,24 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 	if e.AggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
+	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
+}
+
+// GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
+// all L3 source selectors of the ingress rule
+func (e *EgressDenyRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+	if e.AggregatedSelectors == nil {
+		e.SetAggregatedSelectors()
+	}
+	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
+}
+
+// GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
+// all L3 source selectors of the ingress rule
+func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
+	requirements []slim_metav1.LabelSelectorRequirement,
+) EndpointSelectorSlice {
+
 	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.AggregatedSelectors))
 
 	if len(requirements) > 0 && len(e.ToEndpoints) > 0 {
@@ -220,14 +303,21 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 }
 
 // AllowsWildcarding returns true if wildcarding should be performed upon
-//// policy evaluation for the given rule.
+// policy evaluation for the given rule.
 func (e *EgressRule) AllowsWildcarding() bool {
-	return len(e.ToRequires)+len(e.ToServices)+len(e.ToFQDNs) == 0
+	return e.EgressCommonRule.AllowsWildcarding() && len(e.ToFQDNs) == 0
 }
 
-// RequiresDerivative returns true when the EgressRule contains sections that
-// need a derivative policy created in order to be enforced (e.g. ToGroups).
-func (e *EgressRule) RequiresDerivative() bool {
+// AllowsWildcarding returns true if wildcarding should be performed upon
+// policy evaluation for the given rule.
+func (e *EgressCommonRule) AllowsWildcarding() bool {
+	return len(e.ToRequires)+len(e.ToServices) == 0
+}
+
+// RequiresDerivative returns true when the EgressCommonRule contains sections
+// that need a derivative policy created in order to be enforced
+// (e.g. ToGroups).
+func (e *EgressCommonRule) RequiresDerivative() bool {
 	return len(e.ToGroups) > 0
 }
 
@@ -240,7 +330,7 @@ func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) 
 	if !e.RequiresDerivative() {
 		return newRule, nil
 	}
-	newRule.ToCIDRSet = CIDRRuleSlice{}
+	newRule.ToCIDRSet = make(CIDRRuleSlice, 0, len(e.ToGroups))
 	for _, group := range e.ToGroups {
 		cidrSet, err := group.GetCidrSet(ctx)
 		if err != nil {
@@ -248,6 +338,31 @@ func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) 
 		}
 		if len(cidrSet) == 0 {
 			return &EgressRule{}, nil
+		}
+		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	}
+	newRule.ToGroups = nil
+	e.SetAggregatedSelectors()
+	return newRule, nil
+}
+
+// CreateDerivative will return a new rule based on the data gathered by the
+// rules that creates a new derivative policy.
+// In the case of ToGroups will call outside using the groups callback and this
+// function can take a bit of time.
+func (e *EgressDenyRule) CreateDerivative(ctx context.Context) (*EgressDenyRule, error) {
+	newRule := e.DeepCopy()
+	if !e.RequiresDerivative() {
+		return newRule, nil
+	}
+	newRule.ToCIDRSet = make(CIDRRuleSlice, 0, len(e.ToGroups))
+	for _, group := range e.ToGroups {
+		cidrSet, err := group.GetCidrSet(ctx)
+		if err != nil {
+			return &EgressDenyRule{}, err
+		}
+		if len(cidrSet) == 0 {
+			return &EgressDenyRule{}, nil
 		}
 		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	}

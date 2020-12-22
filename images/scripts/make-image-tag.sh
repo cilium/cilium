@@ -50,19 +50,25 @@ else
   image_dir="${root_dir}"
   git_tag="$(git name-rev --name-only --tags HEAD)"
   if printf "%s" "${git_tag}" | grep -q -E '^[v]?[0-9]+\.[0-9]+\.[0-9]+.*$' ; then
-    # ensure version tag always has the v prefix
-    image_tag="$(printf "%s" "${git_tag}" | sed 's/^[v]*/v/')"
+    # get tag in conventional format, since name-rev use the format with ^0 suffix,
+    # however name-rev is required to determine presence of a tag
+    git_tag="$(git tag --sort tag --points-at "${git_tag}")"
+    # ensure version tag always has the v prefix and drop duplicates
+    image_tag="$(printf "%s" "${git_tag}" | sed 's/^[v]*/v/' | uniq)"
   else
     # if no version tag is given, use commit hash
     image_tag="$(git rev-parse --short HEAD)"
+    # only append -dev suffix when no version tag is used, since tags
+    # can be set on release branches
+    if [ -z "${WITHOUT_SUFFIX+x}" ] ; then
+      if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/master ; then
+        image_tag="${image_tag}-dev"
+      fi
+    fi
   fi
 fi
 
 if [ -z "${WITHOUT_SUFFIX+x}" ] ; then
-  if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/master ; then
-    image_tag="${image_tag}-dev"
-  fi
-
   if [ "$(git status --porcelain "${image_dir}" | wc -l)" -gt 0 ] ; then
     image_tag="${image_tag}-wip"
   fi

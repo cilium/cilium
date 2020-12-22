@@ -32,7 +32,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 
 	state := traceState{}
 	var matchedRules ruleSlice
-	var requirements []slim_metav1.LabelSelectorRequirement
+	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
 
 	// Iterate over all FromRequires which select ctx.To. These requirements
 	// will be appended to each EndpointSelector's MatchExpressions in
@@ -46,6 +46,11 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
 				}
 			}
+			for _, ingressRule := range r.IngressDeny {
+				for _, requirement := range ingressRule.FromRequires {
+					requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
+				}
+			}
 		}
 	}
 
@@ -54,14 +59,11 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	ctx.rulesSelect = true
 
 	for _, r := range matchedRules {
-		found, err := r.resolveIngressPolicy(policyCtx, ctx, &state, result, requirements)
+		_, err := r.resolveIngressPolicy(policyCtx, ctx, &state, result, requirements, requirementsDeny)
 		if err != nil {
 			return nil, err
 		}
 		state.ruleID++
-		if found != nil {
-			state.matchedRules++
-		}
 	}
 
 	state.trace(len(rules), ctx)
@@ -80,7 +82,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 
 	state := traceState{}
 	var matchedRules ruleSlice
-	var requirements []slim_metav1.LabelSelectorRequirement
+	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
 
 	// Iterate over all ToRequires which select ctx.To. These requirements will
 	// be appended to each EndpointSelector's MatchExpressions in each
@@ -94,6 +96,11 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
 				}
 			}
+			for _, egressRule := range r.EgressDeny {
+				for _, requirement := range egressRule.ToRequires {
+					requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
+				}
+			}
 		}
 	}
 
@@ -103,14 +110,11 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 
 	for i, r := range matchedRules {
 		state.ruleID = i
-		found, err := r.resolveEgressPolicy(policyCtx, ctx, &state, result, requirements)
+		_, err := r.resolveEgressPolicy(policyCtx, ctx, &state, result, requirements, requirementsDeny)
 		if err != nil {
 			return nil, err
 		}
 		state.ruleID++
-		if found != nil {
-			state.matchedRules++
-		}
 	}
 
 	state.trace(len(rules), ctx)

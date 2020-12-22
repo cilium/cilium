@@ -4,10 +4,6 @@
 
 List all endpoints
 
-### Synopsis
-
-List all endpoints
-
 ```
 cilium endpoint list [flags]
 ```

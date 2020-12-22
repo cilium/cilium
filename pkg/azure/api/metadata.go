@@ -64,7 +64,7 @@ func getMetadataString(ctx context.Context, path string) (string, error) {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Errorf("Failed to close body for request %s: %+v", url, err)
+			log.WithError(err).Errorf("Failed to close body for request %s", url)
 		}
 	}()
 

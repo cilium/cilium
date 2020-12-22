@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -121,6 +122,13 @@ func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 // Datapath returns a nil datapath.
 func (d *DummyOwner) Datapath() datapath.Datapath {
 	return nil
+}
+
+func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
+	return nil
+}
+
+func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {
 }
 
 // GetNodeSuffix does nothing.

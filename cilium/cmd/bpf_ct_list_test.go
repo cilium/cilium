@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 
@@ -120,7 +121,7 @@ func dumpAndRead(maps []interface{}, dump dumpCallback, c *C, args ...interface{
 func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 
 	ctMaps := [2]ctmap.CtMap{
-		ctmap.NewCtMockMap(
+		mockmaps.NewCtMockMap(
 			[]ctmap.CtMapRecord{
 				{
 					Key:   &ctKey4,
@@ -132,7 +133,7 @@ func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 				},
 			},
 		),
-		ctmap.NewCtMockMap(
+		mockmaps.NewCtMockMap(
 			[]ctmap.CtMapRecord{
 				{
 					Key:   &ctKey4,
@@ -158,13 +159,13 @@ func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 		Key:   &ctmap.CtKey4{TupleKey4: ctDump[0].Key},
 		Value: ctDump[0].Value,
 	}
-	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*ctmap.CtMockMap).Entries[0])
+	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
 }
 
 func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 
 	ctMaps := [2]ctmap.CtMap{
-		ctmap.NewCtMockMap(
+		mockmaps.NewCtMockMap(
 			[]ctmap.CtMapRecord{
 				{
 					Key:   &ctKey6,
@@ -176,7 +177,7 @@ func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 				},
 			},
 		),
-		ctmap.NewCtMockMap(
+		mockmaps.NewCtMockMap(
 			[]ctmap.CtMapRecord{
 				{
 					Key:   &ctKey6,
@@ -202,5 +203,5 @@ func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 		Key:   &ctmap.CtKey6{TupleKey6: ctDump[0].Key},
 		Value: ctDump[0].Value,
 	}
-	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*ctmap.CtMockMap).Entries[0])
+	c.Assert(ctRecordDump, checker.DeepEquals, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
 }

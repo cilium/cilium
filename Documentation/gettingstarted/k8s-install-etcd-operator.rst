@@ -39,8 +39,8 @@ Deploy Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.etcd.enabled=true \\
-      --set global.etcd.managed=true
+      --set etcd.enabled=true \\
+      --set etcd.managed=true
 
 
 Validate the Installation
@@ -74,6 +74,8 @@ should be healthy and ready:
     coredns-86c58d9df4-4l6b2                1/1     Running   0          13m
     etcd-operator-5cf67779fd-hd9j7          1/1     Running   0          2m42s
 
+.. include:: namespace-kube-system.rst
+.. include:: hubble-enable.rst
 
 Troubleshooting
 ===============

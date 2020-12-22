@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -43,7 +44,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// getCiliumVersionString returns the first line containing common.CiliumCHeaderPrefix.
+// getCiliumVersionString returns the first line containing ciliumCHeaderPrefix.
 func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 	f, err := os.Open(epCHeaderFilePath)
 	if err != nil {
@@ -59,14 +60,17 @@ func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 		if err != nil {
 			return []byte{}, err
 		}
-		if bytes.Contains(b, []byte(common.CiliumCHeaderPrefix)) {
+		if bytes.Contains(b, []byte(ciliumCHeaderPrefix)) {
 			return b, nil
 		}
 	}
 }
 
+// hostObjFileName is the name of the host object file.
+const hostObjFileName = "bpf_host.o"
+
 func hasHostObjectFile(epDir string) bool {
-	hostObjFilepath := filepath.Join(epDir, common.HostObjFileName)
+	hostObjFilepath := filepath.Join(epDir, hostObjFileName)
 	_, err := os.Stat(hostObjFilepath)
 	return err == nil
 }
@@ -100,7 +104,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 		// the new.
 		// We can switch this to use the new header file once v1.8 is the
 		// oldest supported version.
-		cHeaderFile := filepath.Join(epDir, common.OldCHeaderFileName)
+		cHeaderFile := filepath.Join(epDir, oldCHeaderFileName)
 		if isHost {
 			// Host endpoint doesn't have an old header file so that it's not
 			// restored on downgrades.
@@ -403,6 +407,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		NodeMAC:               e.nodeMAC,
 		SecurityIdentity:      e.SecurityIdentity,
 		Options:               e.Options,
+		DNSRules:              e.DNSRules,
 		DNSHistory:            e.DNSHistory,
 		DNSZombies:            e.DNSZombies,
 		K8sPodName:            e.K8sPodName,
@@ -477,6 +482,9 @@ type serializableEndpoint struct {
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 
+	// DNSRules is the collection of current DNS rules for this endpoint.
+	DNSRules restore.DNSRules
+
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
 	DNSHistory *fqdn.DNSCache
@@ -523,6 +531,7 @@ func (ep *Endpoint) MarshalJSON() ([]byte, error) {
 
 func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
+	ep.createdAt = time.Now()
 	ep.containerName = r.ContainerName
 	ep.containerID = r.ContainerID
 	ep.dockerNetworkID = r.DockerNetworkID
@@ -536,6 +545,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.IPv4 = r.IPv4
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
+	ep.DNSRules = r.DNSRules
 	ep.DNSHistory = r.DNSHistory
 	ep.DNSZombies = r.DNSZombies
 	ep.K8sPodName = r.K8sPodName

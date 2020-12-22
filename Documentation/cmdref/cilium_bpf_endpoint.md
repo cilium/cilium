@@ -4,10 +4,6 @@
 
 Local endpoint map
 
-### Synopsis
-
-Local endpoint map
-
 ### Options
 
 ```

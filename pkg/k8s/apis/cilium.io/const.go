@@ -50,6 +50,9 @@ const (
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
 	PodNamespaceLabel = "io.kubernetes.pod.namespace"
+	// PodNameLabel is the label used in kubernetes containers to
+	// specify the POD name.
+	PodNameLabel = "io.kubernetes.pod.name"
 	// AppKubernetes is the label which is recommended by the official k8s
 	// documentation ad the lablel for every resource object.
 	AppKubernetes = "app.kubernetes.io"

@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -69,8 +69,8 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 	)
 
 	k.namespaceStore = namespaceStore
-	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, namespaceController, k8sAPIGroupNamespaceV1Core)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, namespaceController.HasSynced, k8sAPIGroupNamespaceV1Core)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNamespaceV1Core)
 	asyncControllers.Done()
 	namespaceController.Run(wait.NeverStop)
 }

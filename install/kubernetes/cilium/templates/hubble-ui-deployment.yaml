@@ -1,0 +1,83 @@
+{{- if .Values.hubble.ui.enabled }}
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-ui
+  name: hubble-ui
+spec:
+  replicas: {{ .Values.hubble.ui.replicas }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+  template:
+    metadata:
+{{- with .Values.hubble.ui.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+{{- end }}
+      labels:
+        k8s-app: hubble-ui
+    spec:
+      {{- if .Values.hubble.ui.securityContext.enabled }}
+      securityContext:
+        runAsUser: 1001
+      {{- end }}
+      serviceAccount: hubble-ui
+      serviceAccountName: hubble-ui
+{{- with .Values.hubble.ui.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+{{- with .Values.hubble.ui.tolerations }}
+      tolerations:
+      {{- toYaml . | trim | nindent 6 }}
+{{- end }}
+      containers:
+        - name: frontend
+          image: "{{ .Values.hubble.ui.frontend.image.repository }}:{{ .Values.hubble.ui.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.hubble.ui.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            {{- toYaml .Values.hubble.ui.frontend.resources | trim | nindent 12 }}
+        - name: backend
+          image: "{{ .Values.hubble.ui.backend.image.repository }}:{{ .Values.hubble.ui.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
+          env:
+            - name: EVENTS_SERVER_PORT
+              value: "8090"
+            - name: FLOWS_API_ADDR
+              value: "hubble-relay:80"
+          ports:
+            - containerPort: 8090
+              name: grpc
+          resources:
+            {{- toYaml .Values.hubble.ui.backend.resources  | trim | nindent 12 }}
+        - name: proxy
+          image: "{{ .Values.hubble.ui.proxy.image.repository }}:{{ .Values.hubble.ui.proxy.image.tag }}"
+          imagePullPolicy: {{ .Values.hubble.ui.proxy.image.pullPolicy }}
+          ports:
+            - containerPort: 8081
+              name: http
+          resources:
+          {{- toYaml .Values.hubble.ui.proxy.resources | trim | nindent 12 }}
+          command: ["envoy"]
+          args:
+            [
+              "-c",
+              "/etc/envoy.yaml",
+              "-l",
+              "info"
+            ]
+          volumeMounts:
+            - name: hubble-ui-envoy-yaml
+              mountPath: /etc/envoy.yaml
+              subPath: envoy.yaml
+      volumes:
+        - name: hubble-ui-envoy-yaml
+          configMap:
+            name: hubble-ui-envoy
+{{- end }}

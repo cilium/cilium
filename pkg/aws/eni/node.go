@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -42,11 +43,11 @@ const (
 // Node represents a Kubernetes node running Cilium with an associated
 // CiliumNode custom resource
 type Node struct {
-	// mutex protects all members of this structure
-	mutex lock.RWMutex
-
 	// node contains the general purpose fields of a node
 	node *ipam.Node
+
+	// mutex protects members below this field
+	mutex lock.RWMutex
 
 	// enis is the list of ENIs attached to the node indexed by ENI ID.
 	// Protected by Node.mutex.
@@ -102,7 +103,7 @@ func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 // getLimitsLocked is the same function as getLimits, but assumes the n.mutex
 // is read locked.
 func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
-	return getLimits(n.k8sObj.Spec.ENI.InstanceType)
+	return limits.Get(n.k8sObj.Spec.ENI.InstanceType)
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
@@ -228,12 +229,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int64(a.AvailableForAllocation))
 }
 
-func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
+func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec) ([]string, error) {
 	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
 	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
 	// 3. if 1 and 2 give no results derive the security groups from eth0
 
-	eniSpec := n.k8sObj.Spec.ENI
 	if len(eniSpec.SecurityGroups) > 0 {
 		return eniSpec.SecurityGroups, nil
 	}
@@ -336,18 +336,31 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, errUnableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
 	}
 
-	bestSubnet := n.manager.FindSubnetByTags(n.k8sObj.Spec.ENI.VpcID, n.k8sObj.Spec.ENI.AvailabilityZone, n.k8sObj.Spec.ENI.SubnetTags)
+	n.mutex.RLock()
+	resource := *n.k8sObj
+	n.mutex.RUnlock()
+
+	bestSubnet := n.manager.FindSubnetByTags(resource.Spec.ENI.VpcID, resource.Spec.ENI.AvailabilityZone, resource.Spec.ENI.SubnetTags)
 	if bestSubnet == nil {
-		return 0, errUnableToFindSubnet, fmt.Errorf("No matching subnet available for interface creation (VPC=%s AZ=%s SubnetTags=%s",
-			n.k8sObj.Spec.ENI.VpcID, n.k8sObj.Spec.ENI.AvailabilityZone, n.k8sObj.Spec.ENI.SubnetTags)
+		return 0,
+			errUnableToFindSubnet,
+			fmt.Errorf(
+				"No matching subnet available for interface creation (VPC=%s AZ=%s SubnetTags=%s",
+				resource.Spec.ENI.VpcID,
+				resource.Spec.ENI.AvailabilityZone,
+				resource.Spec.ENI.SubnetTags,
+			)
 	}
 
-	securityGroupIDs, err := n.getSecurityGroupIDs(ctx)
+	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.ENI)
 	if err != nil {
-		return 0, errUnableToGetSecurityGroups, fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
+		return 0,
+			errUnableToGetSecurityGroups,
+			fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
 	}
 
 	desc := "Cilium-CNI (" + n.node.InstanceID() + ")"
+
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
 	toAllocate := math.IntMin(allocation.MaxIPsToAllocate, limits.IPv4-1)
 	// Validate whether request has already been fulfilled in the meantime
@@ -355,7 +368,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, "", nil
 	}
 
-	index := n.findNextIndex(int64(*n.k8sObj.Spec.ENI.FirstInterfaceIndex))
+	index := n.findNextIndex(int64(*resource.Spec.ENI.FirstInterfaceIndex))
 
 	scopedLog = scopedLog.WithFields(logrus.Fields{
 		"securityGroupIDs": securityGroupIDs,
@@ -396,7 +409,9 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 			return toAllocate, "", nil
 		}
 
-		return 0, errUnableToAttachENI, fmt.Errorf("%s at index %d: %s", errUnableToAttachENI, index, err)
+		return 0,
+			errUnableToAttachENI,
+			fmt.Errorf("%s at index %d: %s", errUnableToAttachENI, index, err)
 	}
 
 	scopedLog = scopedLog.WithFields(logrus.Fields{
@@ -408,7 +423,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	scopedLog.Info("Attached ENI to instance")
 
-	if n.k8sObj.Spec.ENI.DeleteOnTermination == nil || *n.k8sObj.Spec.ENI.DeleteOnTermination {
+	if resource.Spec.ENI.DeleteOnTermination == nil || *resource.Spec.ENI.DeleteOnTermination {
 		// We have an attachment ID from the last API, which lets us mark the
 		// interface as delete on termination
 		err = n.manager.api.ModifyNetworkInterface(ctx, eniID, attachmentID, true)

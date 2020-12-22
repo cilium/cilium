@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -74,12 +73,10 @@ func (s *regenerationStatistics) SendMetrics() {
 
 	if !s.success {
 		// Endpoint regeneration failed, increase on failed metrics
-		metrics.EndpointRegenerationCount.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		metrics.EndpointRegenerationTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		return
 	}
 
-	metrics.EndpointRegenerationCount.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	metrics.EndpointRegenerationTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 	sendMetrics(s, metrics.EndpointRegenerationTimeStats)
@@ -96,7 +93,7 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 		"proxyWaitForAck":        &s.proxyWaitForAck,
 		"mapSync":                &s.mapSync,
 		"prepareBuild":           &s.prepareBuild,
-		logfields.BuildDuration:  &s.totalTime,
+		"total":                  &s.totalTime,
 	}
 	for k, v := range s.datapathRealization.GetMap() {
 		result[k] = v
@@ -123,7 +120,7 @@ func (ps *policyRegenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 		"waitingForIdentityCache":    &ps.waitingForIdentityCache,
 		"waitingForPolicyRepository": &ps.waitingForPolicyRepository,
 		"policyCalculation":          &ps.policyCalculation,
-		logfields.BuildDuration:      &ps.totalTime,
+		"total":                      &ps.totalTime,
 	}
 }
 

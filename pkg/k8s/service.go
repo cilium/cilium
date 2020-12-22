@@ -25,14 +25,14 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
@@ -71,8 +71,18 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 
 	svcID := ParseServiceID(svc)
 
+	var svcType loadbalancer.SVCType
 	switch svc.Spec.Type {
-	case slim_corev1.ServiceTypeClusterIP, slim_corev1.ServiceTypeNodePort, slim_corev1.ServiceTypeLoadBalancer:
+	case slim_corev1.ServiceTypeClusterIP:
+		svcType = loadbalancer.SVCTypeClusterIP
+		break
+
+	case slim_corev1.ServiceTypeNodePort:
+		svcType = loadbalancer.SVCTypeNodePort
+		break
+
+	case slim_corev1.ServiceTypeLoadBalancer:
+		svcType = loadbalancer.SVCTypeLoadBalancer
 		break
 
 	case slim_corev1.ServiceTypeExternalName:
@@ -107,10 +117,16 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
 		}
 	}
+	lbSrcRanges := make([]string, 0, len(svc.Spec.LoadBalancerSourceRanges))
+	for _, cidrString := range svc.Spec.LoadBalancerSourceRanges {
+		cidrStringTrimmed := strings.TrimSpace(cidrString)
+		lbSrcRanges = append(lbSrcRanges, cidrStringTrimmed)
+	}
 
-	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs,
-		loadBalancerIPs, svc.Spec.LoadBalancerSourceRanges, headless,
-		trafficPolicy, uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector)
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs,
+		lbSrcRanges, headless, trafficPolicy,
+		uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector,
+		svc.GetNamespace(), svcType)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -257,6 +273,9 @@ type Service struct {
 	SessionAffinity bool
 	// SessionAffinityTimeoutSeconds denotes session affinity timeout
 	SessionAffinityTimeoutSec uint32
+
+	// Type is the internal service type
+	Type loadbalancer.SVCType
 }
 
 // String returns the string representation of a service resource
@@ -293,7 +312,8 @@ func (s *Service) DeepEquals(o *Service) bool {
 		s.HealthCheckNodePort == o.HealthCheckNodePort &&
 		s.FrontendIP.Equal(o.FrontendIP) &&
 		comparator.MapStringEquals(s.Labels, o.Labels) &&
-		comparator.MapStringEquals(s.Selector, o.Selector) {
+		comparator.MapStringEquals(s.Selector, o.Selector) &&
+		s.SessionAffinity == o.SessionAffinity {
 
 		if ((s.Ports == nil) != (o.Ports == nil)) ||
 			len(s.Ports) != len(o.Ports) {
@@ -364,6 +384,11 @@ func (s *Service) DeepEquals(o *Service) bool {
 				return false
 			}
 		}
+
+		if s.SessionAffinity && s.SessionAffinityTimeoutSec != o.SessionAffinityTimeoutSec {
+			return false
+		}
+
 		return true
 	}
 	return false
@@ -381,10 +406,10 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 }
 
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, externalIPs []string,
-	loadBalancerIPs []string, loadBalancerSourceRanges []string,
+func NewService(ip net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
 	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
-	healthCheckNodePort uint16, labels, selector map[string]string) *Service {
+	healthCheckNodePort uint16, labels, selector map[string]string,
+	namespace string, svcType loadbalancer.SVCType) *Service {
 
 	var (
 		k8sExternalIPs     map[string]net.IP
@@ -418,6 +443,7 @@ func NewService(ip net.IP, externalIPs []string,
 
 		Labels:   labels,
 		Selector: selector,
+		Type:     svcType,
 	}
 }
 
@@ -462,6 +488,105 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	return svc
 }
 
+// ParseClusterService parses a ClusterService and returns a Service.
+// ClusterService is a subset of what a Service can express,
+// especially, ClusterService does not have:
+// - other service types than ClusterIP
+// - an explicit traffic policy, SVCTrafficPolicyCluster is assumed
+// - health check node ports
+// - NodePorts
+// - external IPs
+// - LoadBalancerIPs
+// - LoadBalancerSourceRanges
+// - SessionAffinity
+//
+// ParseClusterService() is paired with EqualsClusterService() that
+// has the above wired in.
+func ParseClusterService(svc *serviceStore.ClusterService) *Service {
+	var ip net.IP
+	var ipStr string
+	ports := serviceStore.PortConfiguration{}
+	for ipStr, ports = range svc.Frontends {
+		ip = net.ParseIP(ipStr)
+		break
+	}
+	svcInfo := &Service{
+		FrontendIP:      ip,
+		IsHeadless:      len(svc.Frontends) == 0,
+		IncludeExternal: true,
+		Shared:          true,
+		TrafficPolicy:   loadbalancer.SVCTrafficPolicyCluster,
+		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		Labels:          svc.Labels,
+		Selector:        svc.Selector,
+		Type:            loadbalancer.SVCTypeClusterIP,
+	}
+
+	for name, port := range ports {
+		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+		portName := loadbalancer.FEPortName(name)
+		if _, ok := svcInfo.Ports[portName]; !ok {
+			svcInfo.Ports[portName] = p
+		}
+	}
+
+	return svcInfo
+}
+
+// EqualsClusterService returns true the given ClusterService would parse into Service if
+// ParseClusterService() would be called. This is necessary to avoid memory allocations that
+// would be performed by ParseClusterService() when the service already exists.
+func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
+	switch {
+	case (s == nil) != (svc == nil):
+		return false
+	case (s == nil) && (svc == nil):
+		return true
+	}
+
+	var ip net.IP
+	var ipStr string
+	ports := serviceStore.PortConfiguration{}
+	for ipStr, ports = range svc.Frontends {
+		ip = net.ParseIP(ipStr)
+		break
+	}
+
+	// These comparisons must match the ParseClusterService() function above.
+	if s.FrontendIP.Equal(ip) &&
+		s.IsHeadless == (len(svc.Frontends) == 0) &&
+		s.IncludeExternal == true &&
+		s.Shared == true &&
+		s.TrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
+		s.HealthCheckNodePort == 0 &&
+		len(s.NodePorts) == 0 &&
+		len(s.K8sExternalIPs) == 0 &&
+		len(s.LoadBalancerIPs) == 0 &&
+		len(s.LoadBalancerSourceRanges) == 0 &&
+		comparator.MapStringEquals(s.Labels, svc.Labels) &&
+		comparator.MapStringEquals(s.Selector, svc.Selector) &&
+		s.SessionAffinity == false &&
+		s.SessionAffinityTimeoutSec == 0 &&
+		s.Type == loadbalancer.SVCTypeClusterIP {
+
+		if ((s.Ports == nil) != (ports == nil)) ||
+			len(s.Ports) != len(ports) {
+			return false
+		}
+		for portName, port := range s.Ports {
+			oPort, ok := ports[string(portName)]
+			if !ok {
+				return false
+			}
+			if port.Protocol != oPort.Protocol || port.Port != oPort.Port {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 type ServiceIPGetter interface {
 	GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr
 }
@@ -487,7 +612,7 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(s string, dur
 			}
 			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
 		} else {
-			log.Errorf("Unable to parse etcd service URL %s", err)
+			log.WithError(err).Error("Unable to parse etcd service URL")
 		}
 		return net.Dial("tcp", s)
 	}

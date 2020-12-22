@@ -4,10 +4,6 @@
 
 List fqdn cache contents
 
-### Synopsis
-
-List fqdn cache contents
-
 ```
 cilium fqdn cache list [flags]
 ```

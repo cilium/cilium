@@ -17,6 +17,7 @@ package ipcache
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -82,6 +83,9 @@ type IPCache struct {
 
 	listeners []IPIdentityMappingListener
 
+	// controllers manages the async controllers for this IPCache
+	controllers *controller.Manager
+
 	// needNamedPorts is initially 'false', but will be changd to 'true' when the
 	// clusterwide named port mappings are needed for network policy computation
 	// for the first time. This avoids the overhead of maintaining 'namedPorts' map
@@ -107,6 +111,7 @@ func NewIPCache() *IPCache {
 		ipToK8sMetadata:   map[string]K8sMetadata{},
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
+		controllers:       controller.NewManager(),
 		namedPorts:        nil,
 	}
 }
@@ -152,6 +157,11 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	defer ipc.mutex.RUnlock()
 	// Initialize new listener with the current mappings
 	ipc.DumpToListenerLocked(listener)
+}
+
+// Update a controller for this IPCache
+func (ipc *IPCache) UpdateController(name string, params controller.ControllerParams) {
+	ipc.controllers.UpdateController(name, params)
 }
 
 // endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
@@ -554,13 +564,20 @@ func (ipc *IPCache) LookupByPrefix(IP string) (Identity, bool) {
 }
 
 // LookupByIdentity returns the set of IPs (endpoint or CIDR prefix) that have
-// security identity ID, as well as whether the corresponding entry exists in
-// the IPCache.
-func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]struct{}, bool) {
+// security identity ID, or nil if the entry does not exist.
+func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (ips []string) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	ips, exists := ipc.identityToIPCache[id]
-	return ips, exists
+	// Can't return the internal map as it may be modified at any time when the
+	// lock is not held, so return a slice of strings instead
+	length := len(ipc.identityToIPCache[id])
+	if length > 0 {
+		ips = make([]string, 0, length)
+		for ip := range ipc.identityToIPCache[id] {
+			ips = append(ips, ip)
+		}
+	}
+	return ips
 }
 
 // GetIPIdentityMapModel returns all known endpoint IP to security identity mappings

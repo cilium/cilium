@@ -7,6 +7,8 @@
 #include <ep_config.h>
 #include <node_config.h>
 
+#include <bpf/verifier.h>
+
 #include <linux/icmpv6.h>
 
 #define EVENT_SOURCE LXC_ID
@@ -35,6 +37,7 @@
 #include "lib/encap.h"
 #include "lib/eps.h"
 #include "lib/nat.h"
+#include "lib/fib.h"
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
@@ -46,7 +49,7 @@
 static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 {
 	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
-	       (dir == CT_NEW || dir == CT_ESTABLISHED);
+	       (dir == CT_NEW || dir == CT_ESTABLISHED ||  dir == CT_REOPENED);
 }
 #endif
 
@@ -85,7 +88,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + hdrlen;
 
-#if defined(ENABLE_SERVICES) && !defined(ENABLE_HOST_SERVICES_FULL)
+#ifndef ENABLE_HOST_SERVICES_FULL
 	{
 		struct lb6_service *svc;
 		struct lb6_key key = {};
@@ -93,7 +96,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off,
 				      CT_EGRESS);
 		if (IS_ERR(ret)) {
-			if (ret == DROP_UNKNOWN_L4)
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
@@ -109,7 +112,8 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, tuple, svc, &ct_state_new);
+					&csum_off, &key, tuple, svc, &ct_state_new,
+					false);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
@@ -117,7 +121,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-#endif /* ENABLE_SERVICES && !ENABLE_HOST_SERVICES_FULL */
+#endif /* !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -201,6 +205,10 @@ ct_recreate6:
 		monitor = TRACE_PAYLOAD_LEN;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+					   tuple->nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
@@ -315,13 +323,15 @@ ct_recreate6:
 			return ret;
 	}
 #endif
-
 #ifdef ENABLE_NAT46
 	if (unlikely(ipv6_addr_is_mapped(daddr))) {
 		ep_tail_call(ctx, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
+	if (is_defined(ENABLE_REDIRECT_FAST))
+		return redirect_direct_v6(ctx, l3_off, ip6);
+
 	goto pass_to_stack;
 
 #ifdef ENABLE_ROUTING
@@ -452,9 +462,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	bool has_l4_header = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	tuple.nexthdr = ip4->protocol;
 
@@ -466,7 +478,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-#if defined(ENABLE_SERVICES) && !defined(ENABLE_HOST_SERVICES_FULL)
+#ifndef ENABLE_HOST_SERVICES_FULL
 	{
 		struct lb4_service *svc;
 		struct lb4_key key = {};
@@ -474,7 +486,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
 				      CT_EGRESS);
 		if (IS_ERR(ret)) {
-			if (ret == DROP_UNKNOWN_L4)
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
@@ -484,7 +496,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		if (svc) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr);
+					ip4->saddr, has_l4_header, false);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
@@ -492,7 +504,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-#endif /* ENABLE_SERVICES && !ENABLE_HOST_SERVICES_FULL */
+#endif /* !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -575,6 +587,10 @@ ct_recreate4:
 			return ret;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
@@ -597,7 +613,7 @@ ct_recreate4:
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			ret = xlate_dsr_v4(ctx, &tuple, l4_off);
+			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
 			if (ret != 0)
 				return ret;
 		}
@@ -606,7 +622,7 @@ ct_recreate4:
 
 		if (ct_state.rev_nat_index) {
 			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
-					  &ct_state, &tuple, 0);
+					  &ct_state, &tuple, 0, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -685,9 +701,11 @@ ct_recreate4:
 		else
 			return ret;
 	}
-#else
-	goto pass_to_stack;
 #endif
+	if (is_defined(ENABLE_REDIRECT_FAST))
+		return redirect_direct_v4(ctx, l3_off, ip4);
+
+	goto pass_to_stack;
 
 #ifdef ENABLE_ROUTING
 to_host:
@@ -851,7 +869,7 @@ out:
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    struct ipv6_ct_tuple *tuple_out, __u16 *proxy_port)
+	    struct ipv6_ct_tuple *tuple_out, __u16 *proxy_port, bool from_host)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -936,10 +954,13 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (skip_ingress_proxy)
 		verdict = 0;
 
-	if (ret == CT_NEW) {
+	if (ret == CT_NEW || ret == CT_REOPENED) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
 					   verdict, policy_match_type, audited);
+	}
+
+	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
@@ -980,7 +1001,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
-		return redirect_peer(ifindex, 0);
+		return redirect_ep(ifindex, from_host);
 
 	return CTX_ACT_OK;
 }
@@ -999,7 +1020,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &tuple, &proxy_port);
+	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &tuple,
+			  &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 	if (IS_ERR(ret))
@@ -1060,7 +1082,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv6_policy(ctx, 0, src_identity, &reason, NULL, &proxy_port);
+	ret = ipv6_policy(ctx, 0, src_identity, &reason, NULL,
+			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
 out:
@@ -1074,7 +1097,7 @@ out:
 #ifdef ENABLE_IPV4
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    struct ipv4_ct_tuple *tuple_out, __u16 *proxy_port)
+	    struct ipv4_ct_tuple *tuple_out, __u16 *proxy_port, bool from_host)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1085,6 +1108,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
+	bool has_l4_header = false;
 	__u32 monitor = 0;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1092,6 +1116,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	policy_clear_mark(ctx);
 	tuple.nexthdr = ip4->protocol;
@@ -1106,7 +1131,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	orig_sip = ip4->saddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 #ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
@@ -1124,6 +1150,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
 	 */
+	relax_verifier();
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
 	    !tc_index_skip_egress_proxy(ctx)) {
 		/* This is a reply, the proxy port does not need to be embedded
@@ -1148,7 +1175,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
-				   REV_NAT_F_TUPLE_SADDR);
+				   REV_NAT_F_TUPLE_SADDR, has_l4_header);
 		if (IS_ERR(ret2))
 			return ret2;
 	}
@@ -1171,10 +1198,13 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (skip_ingress_proxy)
 		verdict = 0;
 
-	if (ret == CT_NEW) {
+	if (ret == CT_NEW || ret == CT_REOPENED) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
 					   verdict, policy_match_type, audited);
+	}
+
+	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
@@ -1215,7 +1245,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
-		return redirect_peer(ifindex, 0);
+		return redirect_ep(ifindex, from_host);
 
 	return CTX_ACT_OK;
 }
@@ -1234,7 +1264,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &tuple, &proxy_port);
+	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &tuple,
+			  &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 	if (IS_ERR(ret))
@@ -1294,7 +1325,8 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv4_policy(ctx, 0, src_identity, &reason, NULL, &proxy_port);
+	ret = ipv4_policy(ctx, 0, src_identity, &reason, NULL,
+			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
 out:

@@ -45,10 +45,6 @@ type NameManager struct {
 	// It is read-only once set
 	config Config
 
-	// namesToPoll is the set of names that need to be polled. These do not
-	// include regexes, as those are not polled directly.
-	namesToPoll map[string]struct{}
-
 	// allSelectors contains all FQDNSelectors which are present in all policy. We
 	// use these selectors to map selectors --> IPs.
 	allSelectors map[api.FQDNSelector]*regexp.Regexp
@@ -64,11 +60,6 @@ func (n *NameManager) GetModel() *models.NameManager {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	namesToPoll := make([]string, 0, len(n.namesToPoll))
-	for name := range n.namesToPoll {
-		namesToPoll = append(namesToPoll, name)
-	}
-
 	allSelectors := make([]*models.SelectorEntry, 0, len(n.allSelectors))
 	for fqdnSel, regex := range n.allSelectors {
 		pair := &models.SelectorEntry{
@@ -79,7 +70,6 @@ func (n *NameManager) GetModel() *models.NameManager {
 	}
 
 	return &models.NameManager{
-		DNSPollNames:        namesToPoll,
 		FQDNPolicySelectors: allSelectors,
 	}
 }
@@ -118,11 +108,6 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		return nil
 	}
 
-	// Update names to poll for DNS poller since we now care about this selector.
-	if len(selector.MatchName) > 0 {
-		n.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
-	}
-
 	n.allSelectors[selector] = regex
 	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, n.cache)
 
@@ -133,7 +118,12 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		"ips":          selectorIPs,
 	}).Debug("getting identities for IPs associated with FQDNSelector")
 	var currentlyAllocatedIdentities []*identity.Identity
-	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+	// TODO: Consider if upserts to ipcache should be delayed until endpoint policies have been
+	// updated. This is the path from policy updates rather than for DNS proxy results. Hence
+	// any existing IPs would typically already have been pushed to the ipcache as they would
+	// not be newly allocated. We need the 'allocation' here to get a reference count on the
+	// allocations.
+	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs, nil); err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")
 		return nil
@@ -151,9 +141,6 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 // which correspond to said selector are propagated.
 func (n *NameManager) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
 	delete(n.allSelectors, selector)
-	if len(selector.MatchName) > 0 {
-		delete(n.namesToPoll, prepareMatchName(selector.MatchName))
-	}
 }
 
 // NewNameManager creates an initialized NameManager.
@@ -165,14 +152,13 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
-			return &sync.WaitGroup{}, nil
+		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, map[string]*identity.Identity, error) {
+			return &sync.WaitGroup{}, nil, nil
 		}
 	}
 
 	return &NameManager{
 		config:       config,
-		namesToPoll:  make(map[string]struct{}),
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
 	}
@@ -184,22 +170,9 @@ func (n *NameManager) GetDNSCache() *DNSCache {
 	return n.cache
 }
 
-// GetDNSNames returns a snapshot of the DNS names managed by this NameManager
-func (n *NameManager) GetDNSNames() (dnsNames []string) {
-	n.Lock()
-	defer n.Unlock()
-
-	for name := range n.namesToPoll {
-		dnsNames = append(dnsNames, name)
-	}
-
-	return dnsNames
-}
-
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
-// have changed for a name, store which rules must be updated in rulesToUpdate,
-// regenerate them, and emit via UpdateSelectors.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, err error) {
+// have changed for a name they will be reflected in updatedDNSIPs.
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
@@ -225,6 +198,8 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
+// Note: This is used only when DNS entries are cleaned up, not when new results
+// are ingested.
 func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
@@ -244,9 +219,10 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	// emit the new rules
-	return n.config.
-		UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	// Emit the new rules.
+	// Ignore newly allocated IDs (2nd result) as this is only used for deletes.
+	wg, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	return wg, err
 }
 
 func (n *NameManager) CompleteBootstrap() {

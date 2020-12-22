@@ -4,10 +4,6 @@
 
 List BPF template objects.
 
-### Synopsis
-
-List BPF template objects.
-
 ```
 cilium bpf sha list [flags]
 ```

@@ -139,6 +139,35 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 			},
 			want: false,
 		},
+		{
+			name: "Element #0 is greater than #1 because it is not an allow (denies take precedence)",
+			p: PolicyEntriesDump{
+				{
+					Key: PolicyKey{
+						Identity:         uint32(1),
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: uint8(trafficdirection.Egress),
+					},
+				},
+				{
+					Key: PolicyKey{
+						Identity:         uint32(0),
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: uint8(trafficdirection.Egress),
+					},
+					PolicyEntry: PolicyEntry{
+						Flags: policyFlagDeny,
+					},
+				},
+			},
+			args: args{
+				i: 0,
+				j: 1,
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		got := tt.p.Less(tt.args.i, tt.args.j)

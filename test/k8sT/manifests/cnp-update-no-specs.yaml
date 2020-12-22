@@ -1,6 +1,5 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "Policy with the same name as cnp-update-allow-all to test CNP update"
 metadata:
   name: "cnp-update"
 spec:

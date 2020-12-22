@@ -57,6 +57,11 @@ const (
 	dirEgress  = "egress"
 )
 
+const (
+	SecctxFromIpcacheDisabled = iota + 1
+	SecctxFromIpcacheEnabled
+)
+
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
 
 // Loader is a wrapper structure around operations related to compiling,
@@ -134,7 +139,8 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
 func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
-	nodePortIPv4Addrs, nodePortIPv6Addrs map[string]net.IP) error {
+	bpfMasqIPv4Addrs map[string]net.IP) error {
+
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
 		return err
@@ -156,18 +162,20 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 		return err
 	}
 
-	if option.Config.EnableNodePort && nodePortIPv4Addrs != nil && nodePortIPv6Addrs != nil {
+	if !option.Config.EnableHostLegacyRouting ||
+		option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+		opts["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheEnabled)
+	} else {
+		opts["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheDisabled)
+	}
+
+	if option.Config.EnableNodePort {
 		opts["NATIVE_DEV_IFINDEX"] = ifIndex
+	}
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
 		if option.Config.EnableIPv4 {
-			ipv4 := nodePortIPv4Addrs[ifName]
-			opts["IPV4_NODEPORT"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
-		}
-		if option.Config.EnableIPv6 {
-			nodePortIPv6 := nodePortIPv6Addrs[ifName]
-			opts["IPV6_NODEPORT_1"] = sliceToBe32(nodePortIPv6[0:4])
-			opts["IPV6_NODEPORT_2"] = sliceToBe32(nodePortIPv6[4:8])
-			opts["IPV6_NODEPORT_3"] = sliceToBe32(nodePortIPv6[8:12])
-			opts["IPV6_NODEPORT_4"] = sliceToBe32(nodePortIPv6[12:16])
+			ipv4 := bpfMasqIPv4Addrs[ifName]
+			opts["IPV4_MASQUERADE"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
 		}
 	}
 
@@ -212,15 +220,14 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			symbols = append(symbols, symbolToHostEp)
 			directions = append(directions, dirIngress)
 			secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-			if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
+			if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil); err != nil {
 				return err
 			}
 			objPaths = append(objPaths, secondDevObjPath)
 		}
 	}
 
-	nodePortIPv4Addrs := node.GetNodePortIPv4AddrsWithDevices()
-	nodePortIPv6Addrs := node.GetNodePortIPv6AddrsWithDevices()
+	bpfMasqIPv4Addrs := node.GetMasqIPv4AddrsWithDevices()
 
 	for _, device := range option.Config.Devices {
 		if _, err := netlink.LinkByName(device); err != nil {
@@ -229,7 +236,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 
 		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device, nodePortIPv4Addrs, nodePortIPv6Addrs); err != nil {
+		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device, bpfMasqIPv4Addrs); err != nil {
 			return err
 		}
 		objPaths = append(objPaths, netdevObjPath)
@@ -244,8 +251,11 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			objPaths = append(objPaths, netdevObjPath)
 		} else {
 			// Remove any previously attached device from egress path if BPF
-			// NodePort is disabled.
-			l.DeleteDatapath(ctx, device, dirEgress)
+			// NodePort and host firewall are disabled.
+			err := RemoveTCFilters(device, netlink.HANDLE_MIN_EGRESS)
+			if err != nil {
+				log.WithField("device", device).Error(err)
+			}
 		}
 	}
 
@@ -344,9 +354,8 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 }
 
 func (l *Loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
-	debug := option.Config.BPFCompilationDebug
 	stats.BpfCompilation.Start()
-	err := compileDatapath(ctx, dirs, ep.IsHost(), debug, ep.Logger(Subsystem))
+	err := compileDatapath(ctx, dirs, ep.IsHost(), ep.Logger(Subsystem))
 	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return err

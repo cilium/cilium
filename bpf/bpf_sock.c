@@ -264,6 +264,55 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	return svc;
 }
 
+/* Service translation logic for a local-redirect service can cause packets to
+ * be looped back to a service node-local backend after translation. This can
+ * happen when the node-local backend itself tries to connect to the service
+ * frontend for which it acts as a backend. There are cases where this can break
+ * traffic flow if the backend needs to forward the redirected traffic to the
+ * actual service frontend. Hence, allow service translation for pod traffic
+ * getting redirected to backend (across network namespaces), but skip service
+ * translation for backend to itself or another service backend within the same
+ * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
+ *
+ * For example, in EKS cluster, a local-redirect service exists with the AWS
+ * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
+ * backend Pod. When traffic destined to the frontend originates from the kiam
+ * Pod in namespace ns1 (host ns when the kiam proxy Pod is deployed in
+ * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
+ * traffic would get looped back to the proxy Pod. Identify such cases by doing
+ * a socket lookup for the backend <ip, port> in its namespace, ns1, and skip
+ * service translation.
+ */
+static __always_inline bool
+sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
+			       const struct lb4_backend *backend __maybe_unused)
+{
+#ifdef BPF_HAVE_SOCKET_LOOKUP
+	struct bpf_sock_tuple tuple = {
+		.ipv4.daddr = backend->address,
+		.ipv4.dport = backend->port,
+	};
+	struct bpf_sock *sk = NULL;
+
+	switch (ctx->protocol) {
+	case IPPROTO_TCP:
+		sk = sk_lookup_tcp(ctx, &tuple, sizeof(tuple.ipv4),
+				   BPF_F_CURRENT_NETNS, 0);
+		break;
+	case IPPROTO_UDP:
+		sk = sk_lookup_udp(ctx, &tuple, sizeof(tuple.ipv4),
+				   BPF_F_CURRENT_NETNS, 0);
+		break;
+	}
+
+	if (sk) {
+		sk_release(sk);
+		return true;
+	}
+#endif /* BPF_HAVE_SOCKET_LOOKUP */
+	return false;
+}
+
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
 					     const bool udp_only)
@@ -344,6 +393,10 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
 		return -ENOENT;
 	}
+
+	if (lb4_svc_is_localredirect(svc) &&
+	    sock4_skip_xlate_if_same_netns(ctx_full, backend))
+		return -ENXIO;
 
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);

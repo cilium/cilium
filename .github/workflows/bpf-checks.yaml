@@ -16,8 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run checkpatch.pl
-        run:
-          make -C bpf checkpatch
+        uses: docker://cilium/cilium-checkpatch:71bf805000d58c07c45eb6e436640a4dc0ca6c84
   coccicheck:
     name: coccicheck
     runs-on: ubuntu-latest
@@ -26,3 +25,28 @@ jobs:
       - uses: docker://cilium/coccicheck:1.0
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
+  build_all:
+    name: build datapath
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: $HOME/.clang
+          key: llvm-10.0
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "10.0"
+          directory: $HOME/.clang
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Build all BPF datapath permutations
+        env:
+          V: 0
+        run: |
+          make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)

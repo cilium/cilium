@@ -24,6 +24,18 @@ pipeline {
 				returnStdout: true,
 				script: 'if [ "${RunQuarantined}" = "" ]; then echo -n "false"; else echo -n "${RunQuarantined}"; fi'
             )}"""
+        RACE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        LOCKDEBUG="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        BASE_IMAGE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2020-12-10@sha256:ee6f0f81fa73125234466c13fd16bed30cc3209daa2f57098f63e0285779e5f3"; fi'
+            )}"""
     }
 
     options {
@@ -56,30 +68,6 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Precheck') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
-
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-               sh "cd ${TESTDIR}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
-               }
-               unsuccessful {
-                   script {
-                       if  (!currentBuild.displayName.contains('fail')) {
-                           currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
-                       }
-                   }
-               }
-            }
-        }
         stage('Preload vagrant boxes') {
             steps {
                 sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
@@ -91,6 +79,13 @@ pipeline {
                             currentBuild.displayName = 'preload vagrant boxes fail' + currentBuild.displayName
                         }
                     }
+                }
+            }
+        }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
                 }
             }
         }
@@ -108,11 +103,13 @@ pipeline {
             steps {
                 sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                 sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                retry(3) {
-                    timeout(time: 30, unit: 'MINUTES'){
-                        dir("${TESTDIR}") {
-                            sh 'vagrant destroy runtime --force'
-                            sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    retry(3) {
+                        timeout(time: 30, unit: 'MINUTES'){
+                            dir("${TESTDIR}") {
+                                sh 'vagrant destroy runtime --force'
+                                sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
+                            }
                         }
                     }
                 }

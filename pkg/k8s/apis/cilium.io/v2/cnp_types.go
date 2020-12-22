@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -36,6 +37,7 @@ import (
 // +kubebuilder:resource:singular="ciliumnetworkpolicy",path="ciliumnetworkpolicies",scope="Namespaced",shortName={cnp,ciliumnp}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended
 // version of NetworkPolicy.
@@ -78,21 +80,11 @@ func sharedCNPDeepEqual(in, other *CiliumNetworkPolicy) bool {
 		return false
 	}
 
-	// Ignore v1.LastAppliedConfigAnnotation annotation
-	lastAppliedCfgAnnotation1, ok1 := in.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	lastAppliedCfgAnnotation2, ok2 := other.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	defer func() {
-		if ok1 && in.GetAnnotations() != nil {
-			in.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
-		}
-		if ok2 && other.GetAnnotations() != nil {
-			other.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
-		}
-	}()
-	delete(in.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-	delete(other.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-
-	return comparator.MapStringEquals(in.GetAnnotations(), other.GetAnnotations())
+	return comparator.MapStringEqualsIgnoreKeys(
+		in.GetAnnotations(),
+		other.GetAnnotations(),
+		// Ignore v1.LastAppliedConfigAnnotation annotation
+		[]string{v1.LastAppliedConfigAnnotation})
 }
 
 // +deepequal-gen=true
@@ -233,6 +225,10 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	retRules := api.Rules{}
 
+	if r.Spec == nil && r.Specs == nil {
+		return nil, ErrEmptyCNP
+	}
+
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
@@ -256,6 +252,10 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	return retRules, nil
 }
+
+// ErrEmptyCNP is an error representing a CNP that is empty, which means it is
+// missing both a `spec` and `specs` (both are nil).
+var ErrEmptyCNP = errors.New("Invalid CiliumNetworkPolicy spec(s): empty policy")
 
 // GetControllerName returns the unique name for the controller manager.
 func (r *CiliumNetworkPolicy) GetControllerName() string {

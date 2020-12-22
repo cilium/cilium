@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -374,7 +374,7 @@ func (ipam *IPAM) StartExpirationTimer(ip net.IP, timeout time.Duration) (string
 		return "", fmt.Errorf("expiration timer already registered")
 	}
 
-	allocationUUID := uuid.NewUUID().String()
+	allocationUUID := uuid.New().String()
 	ipam.expirationTimers[ipString] = allocationUUID
 
 	go func(ip net.IP, allocationUUID string, timeout time.Duration) {

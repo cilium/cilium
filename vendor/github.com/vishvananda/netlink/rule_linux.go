@@ -142,10 +142,10 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 		}
 	}
 	if rule.IifName != "" {
-		req.AddData(nl.NewRtAttr(nl.FRA_IIFNAME, []byte(rule.IifName)))
+		req.AddData(nl.NewRtAttr(nl.FRA_IIFNAME, []byte(rule.IifName+"\x00")))
 	}
 	if rule.OifName != "" {
-		req.AddData(nl.NewRtAttr(nl.FRA_OIFNAME, []byte(rule.OifName)))
+		req.AddData(nl.NewRtAttr(nl.FRA_OIFNAME, []byte(rule.OifName+"\x00")))
 	}
 	if rule.Goto >= 0 {
 		msg.Type = nl.FR_ACT_GOTO

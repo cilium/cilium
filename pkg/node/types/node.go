@@ -53,6 +53,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		ClusterID:     option.Config.ClusterID,
 		Source:        source.CustomResource,
 		Labels:        n.ObjectMeta.Labels,
+		NodeIdentity:  uint32(n.Spec.NodeIdentity),
 	}
 
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
@@ -128,8 +129,26 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 			IPAM: ipamTypes.IPAMSpec{
 				PodCIDRs: podCIDRs,
 			},
+			NodeIdentity: uint64(n.NodeIdentity),
 		},
 	}
+}
+
+// RegisterNode overloads GetKeyName to ignore the cluster name, as cluster name may not be stable during node registration.
+//
+// +k8s:deepcopy-gen=true
+type RegisterNode struct {
+	Node
+}
+
+// GetKeyName Overloaded key name w/o cluster name
+func (n *RegisterNode) GetKeyName() string {
+	return n.Name
+}
+
+// DeepKeyCopy creates a deep copy of the LocalKey
+func (n *RegisterNode) DeepKeyCopy() store.LocalKey {
+	return n.DeepCopy()
 }
 
 // Node contains the nodes name, the list of addresses to this address
@@ -171,6 +190,9 @@ type Node struct {
 
 	// Node labels
 	Labels map[string]string
+
+	// NodeIdentity is the numeric identity allocated for the node
+	NodeIdentity uint32
 }
 
 // Fullname returns the node's full name including the cluster name if a

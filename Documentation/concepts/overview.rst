@@ -71,10 +71,10 @@ Relay
   in the cluster.
 
 Client (CLI)
-  The Hubble CLI (``hubble``) connect to the gRPC API of relay or the server
-  and retrieves flow events.
+  The Hubble CLI (``hubble``) is a command-line tool able to connect to either
+  the gRPC API of ``hubble-relay`` or the local server to retrieve flow events.
 
-Graphical UI
+Graphical UI (GUI)
   The graphical user interface (``hubble-ui``) utilizes relay-based visibility
   to provide a graphical service dependency and connectivity map.
 

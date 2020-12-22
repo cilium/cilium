@@ -16,6 +16,23 @@ log "Installing kubernetes kubectl..."
 
 set -e
 
+# Add aliases and bash completion for kubectl
+cat <<EOF >> /home/vagrant/.bashrc
+# kubectl
+source <(kubectl completion bash)
+alias k='kubectl'
+complete -F __start_kubectl k
+alias ks='kubectl -n kube-system'
+complete -F __start_kubectl ks
+alias wk='watch -n2 kubectl get pods -o wide'
+alias wks='watch -n2 kubectl -n kube-system get pods -o wide'
+alias wka='watch -n2 kubectl get all --all-namespaces -o wide'
+cilium_pod() {
+    kubectl -n kube-system get pods -l k8s-app=cilium \
+            -o jsonpath="{.items[?(@.spec.nodeName == \"\$1\")].metadata.name}"
+}
+EOF
+
 if [ -n "${INSTALL}" ]; then
     download_to "${cache_dir}" "kubectl" \
         "https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/kubectl"
@@ -57,7 +74,7 @@ sudo chmod 755 /home/vagrant/.kube/config
 
 sudo chown vagrant.vagrant -R /home/vagrant/.kube
 
-until kubectl get componentstatuses
+until kubectl get services
 do
 log "Waiting for kubectl to connect to api-server"
 sleep 1s

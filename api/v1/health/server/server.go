@@ -76,7 +76,7 @@ type Server struct {
 	MaxHeaderSize    int
 
 	SocketPath    string
-	domainSocketL net.Listener
+	domainSocketL *net.UnixListener
 
 	Host         string
 	Port         int
@@ -184,10 +184,10 @@ func (s *Server) Serve() (err error) {
 			domainSocket.IdleTimeout = s.CleanupTimeout
 		}
 
-		configureServer(domainSocket, "unix", string(s.SocketPath))
+		configureServer(domainSocket, "unix", s.SocketPath)
 
 		if os.Getuid() == 0 {
-			err := api.SetDefaultPermissions(string(s.SocketPath))
+			err := api.SetDefaultPermissions(s.SocketPath)
 			if err != nil {
 				return err
 			}
@@ -367,7 +367,11 @@ func (s *Server) Listen() error {
 	}
 
 	if s.hasScheme(schemeUnix) {
-		domSockListener, err := net.Listen("unix", string(s.SocketPath))
+		addr, err := net.ResolveUnixAddr("unix", s.SocketPath)
+		if err != nil {
+			return err
+		}
+		domSockListener, err := net.ListenUnix("unix", addr)
 		if err != nil {
 			return err
 		}
@@ -469,7 +473,7 @@ func (s *Server) SetHandler(handler http.Handler) {
 }
 
 // UnixListener returns the domain socket listener
-func (s *Server) UnixListener() (net.Listener, error) {
+func (s *Server) UnixListener() (*net.UnixListener, error) {
 	if !s.hasListeners {
 		if err := s.Listen(); err != nil {
 			return nil, err

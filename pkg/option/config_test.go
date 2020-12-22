@@ -494,7 +494,8 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "with native routing cidr",
 			d: &DaemonConfig{
-				Masquerade:            true,
+				EnableIPv4Masquerade:  true,
+				EnableIPv6Masquerade:  true,
 				Tunnel:                TunnelDisabled,
 				IPAM:                  ipamOption.IPAMAzure,
 				ipv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
@@ -505,40 +506,44 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and no masquerade",
 			d: &DaemonConfig{
-				Masquerade: false,
-				Tunnel:     TunnelDisabled,
-				IPAM:       ipamOption.IPAMAzure,
-				EnableIPv4: true,
+				EnableIPv4Masquerade: false,
+				EnableIPv6Masquerade: false,
+				Tunnel:               TunnelDisabled,
+				IPAM:                 ipamOption.IPAMAzure,
+				EnableIPv4:           true,
 			},
 			wantErr: false,
 		},
 		{
 			name: "without native routing cidr and tunnel enabled",
 			d: &DaemonConfig{
-				Masquerade: true,
-				Tunnel:     TunnelVXLAN,
-				IPAM:       ipamOption.IPAMAzure,
-				EnableIPv4: true,
+				EnableIPv4Masquerade: true,
+				EnableIPv6Masquerade: true,
+				Tunnel:               TunnelVXLAN,
+				IPAM:                 ipamOption.IPAMAzure,
+				EnableIPv4:           true,
 			},
 			wantErr: false,
 		},
 		{
 			name: "without native routing cidr and tunnel enabled",
 			d: &DaemonConfig{
-				Masquerade: true,
-				Tunnel:     TunnelDisabled,
-				IPAM:       ipamOption.IPAMENI,
-				EnableIPv4: true,
+				EnableIPv4Masquerade: true,
+				EnableIPv6Masquerade: true,
+				Tunnel:               TunnelDisabled,
+				IPAM:                 ipamOption.IPAMENI,
+				EnableIPv4:           true,
 			},
 			wantErr: false,
 		},
 		{
 			name: "without native routing cidr and with masquerade and tunnel disabled and ipam not eni",
 			d: &DaemonConfig{
-				Masquerade: true,
-				Tunnel:     TunnelDisabled,
-				IPAM:       ipamOption.IPAMAzure,
-				EnableIPv4: true,
+				EnableIPv4Masquerade: true,
+				EnableIPv6Masquerade: true,
+				Tunnel:               TunnelDisabled,
+				IPAM:                 ipamOption.IPAMAzure,
+				EnableIPv4:           true,
 			},
 			wantErr: true,
 		},
@@ -917,6 +922,22 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NATMapSize:        LimitTableMax,
 				NeighMapSize:      LimitTableMax,
 				SockRevNatMapSize: LimitTableMax,
+			},
+		},
+		{
+			name:        "dynamic size NAT size above limit with static CT sizes (issue #13843)",
+			totalMemory: 128 * GiB,
+			ratio:       0.0025,
+			want: sizes{
+				CTMapSizeTCP:      524288,
+				CTMapSizeAny:      262144,
+				NATMapSize:        (524288 + 262144) * 2 / 3,
+				NeighMapSize:      524288,
+				SockRevNatMapSize: 607062,
+			},
+			preTestRun: func() {
+				viper.Set(CTMapEntriesGlobalTCPName, 524288)
+				viper.Set(CTMapEntriesGlobalAnyName, 262144)
 			},
 		},
 	}

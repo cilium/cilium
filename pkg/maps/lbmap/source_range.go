@@ -35,7 +35,17 @@ const (
 type SourceRangeKey interface {
 	GetCIDR() *cidr.CIDR
 	GetRevNATID() uint16
+
+	// Convert fields to network byte order.
+	ToNetwork() SourceRangeKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() SourceRangeKey
 }
+
+// The compile-time check for whether the structs implement the interface
+var _ SourceRangeKey = (*SourceRangeKey4)(nil)
+var _ SourceRangeKey = (*SourceRangeKey6)(nil)
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -49,13 +59,21 @@ type SourceRangeKey4 struct {
 func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *SourceRangeKey4) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
 func (k *SourceRangeKey4) String() string            { return fmt.Sprintf("%s", k.Address) }
-func (k *SourceRangeKey4) ToNetwork() *SourceRangeKey4 {
+func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
 	n.RevNATID = byteorder.HostToNetwork(n.RevNATID).(uint16)
 	return &n
 }
+
+// ToHost returns the key in the host byte order
+func (k *SourceRangeKey4) ToHost() SourceRangeKey {
+	h := *k
+	h.RevNATID = byteorder.NetworkToHost(h.RevNATID).(uint16)
+	return &h
+}
+
 func (k *SourceRangeKey4) GetCIDR() *cidr.CIDR {
 	var (
 		c  net.IPNet
@@ -82,13 +100,21 @@ type SourceRangeKey6 struct {
 func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *SourceRangeKey6) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
 func (k *SourceRangeKey6) String() string            { return fmt.Sprintf("%s", k.Address) }
-func (k *SourceRangeKey6) ToNetwork() *SourceRangeKey6 {
+func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
 	n.RevNATID = byteorder.HostToNetwork(n.RevNATID).(uint16)
 	return &n
 }
+
+// ToHost returns the key in the host byte order
+func (k *SourceRangeKey6) ToHost() SourceRangeKey {
+	h := *k
+	h.RevNATID = byteorder.NetworkToHost(h.RevNATID).(uint16)
+	return &h
+}
+
 func (k *SourceRangeKey6) GetCIDR() *cidr.CIDR {
 	var (
 		c  net.IPNet
@@ -119,13 +145,7 @@ var SourceRange4Map = bpf.NewMap(
 	&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
 	MaxEntries,
 	bpf.BPF_F_NO_PREALLOC, 0,
-	func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-		sKey, sVal := mapKey.(*SourceRangeKey4), mapValue.(*SourceRangeValue)
-		if _, _, err := bpf.ConvertKeyValue(key, value, sKey, sVal); err != nil {
-			return nil, nil, err
-		}
-		return sKey.ToNetwork(), sVal, nil
-	},
+	bpf.ConvertKeyValue,
 ).WithCache()
 
 var SourceRange6Map = bpf.NewMap(
@@ -135,13 +155,7 @@ var SourceRange6Map = bpf.NewMap(
 	&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
 	MaxEntries,
 	bpf.BPF_F_NO_PREALLOC, 0,
-	func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-		sKey, sVal := mapKey.(*SourceRangeKey6), mapValue.(*SourceRangeValue)
-		if _, _, err := bpf.ConvertKeyValue(key, value, sKey, sVal); err != nil {
-			return nil, nil, err
-		}
-		return sKey.ToNetwork(), sVal, nil
-	},
+	bpf.ConvertKeyValue,
 ).WithCache()
 
 func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {

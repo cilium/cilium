@@ -16,69 +16,58 @@ package maglev
 
 import (
 	"encoding/base64"
+	"fmt"
 
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/sirupsen/logrus"
-	"github.com/spaolacci/murmur3"
+	"github.com/cilium/cilium/pkg/murmur3"
 )
 
 const (
-	subsystem = "maglev"
-
 	DefaultTableSize = 16381
 
-	// seed=$(head -c16 /dev/urandom | base64 -w0)
-	DefaultHashSeed = "FYJf2hrSynYxcZrkMWTGYA=="
+	// seed=$(head -c12 /dev/urandom | base64 -w0)
+	DefaultHashSeed = "JLfvgnHc2kaSUFaI"
 )
 
 var (
-	seedMurmur0 uint32
-	seedMurmur1 uint32
+	seedMurmur uint32
 
 	SeedJhash0 uint32
 	SeedJhash1 uint32
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
-
-func InitMaglevSeeds() {
-	d, err := base64.StdEncoding.DecodeString(option.Config.MaglevHashSeed)
+func InitMaglevSeeds(seed string) error {
+	d, err := base64.StdEncoding.DecodeString(seed)
 	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.HashSeed: option.Config.MaglevHashSeed,
-		}).Fatal("Cannot decode base64 Maglev hash seed.")
+		return fmt.Errorf("Cannot decode base64 Maglev hash seed %q: %w", seed, err)
 	}
-	if len(d) != 16 {
-		log.WithFields(logrus.Fields{
-			logfields.HashSeed: option.Config.MaglevHashSeed,
-		}).Fatal("Decoded Maglev hash seed is not 16 bytes.")
+	if len(d) != 12 {
+		return fmt.Errorf("Decoded hash seed is %d bytes (not 12 bytes)", len(d))
 	}
 
-	seedMurmur0 = uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
-	seedMurmur1 = uint32(d[4])<<24 | uint32(d[5])<<16 | uint32(d[6])<<8 | uint32(d[7])
+	seedMurmur = uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
 
-	SeedJhash0 = uint32(d[8])<<24 | uint32(d[9])<<16 | uint32(d[10])<<8 | uint32(d[11])
-	SeedJhash1 = uint32(d[12])<<24 | uint32(d[13])<<16 | uint32(d[14])<<8 | uint32(d[15])
+	SeedJhash0 = uint32(d[4])<<24 | uint32(d[5])<<16 | uint32(d[6])<<8 | uint32(d[7])
+	SeedJhash1 = uint32(d[8])<<24 | uint32(d[9])<<16 | uint32(d[10])<<8 | uint32(d[11])
+
+	return nil
 }
 
 func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
-	offset := murmur3.Sum64WithSeed([]byte(backend), seedMurmur0) % m
-	skip := (murmur3.Sum64WithSeed([]byte(backend), seedMurmur1) % (m - 1)) + 1
+	h1, h2 := murmur3.Hash128([]byte(backend), seedMurmur)
+	offset := h1 % m
+	skip := (h2 % (m - 1)) + 1
 
 	return offset, skip
 }
 
-func getPermutation(backends []string, m uint64) [][]uint64 {
-	perm := make([][]uint64, len(backends))
+func getPermutation(backends []string, m uint64) []uint64 {
+	perm := make([]uint64, len(backends)*int(m))
 
 	for i, backend := range backends {
 		offset, skip := getOffsetAndSkip(backend, m)
-		perm[i] = make([]uint64, m)
-		perm[i][0] = offset % m
+		perm[i*int(m)] = offset % m
 		for j := uint64(1); j < m; j++ {
-			perm[i][j] = (perm[i][j-1] + skip) % m
+			perm[i*int(m)+int(j)] = (perm[i*int(m)+int(j-1)] + skip) % m
 		}
 	}
 
@@ -99,21 +88,19 @@ func GetLookupTable(backends []string, m uint64) []int {
 	for j := uint64(0); j < m; j++ {
 		entry[j] = -1
 	}
-	n := uint64(0)
 
-	for {
-		for i := 0; i < len(backends); i++ {
-			c := perm[i][next[i]]
-			for entry[c] >= 0 {
-				next[i] += 1
-				c = perm[i][next[i]]
-			}
-			entry[c] = i
+	l := len(backends)
+
+	for n := uint64(0); n < m; n++ {
+		i := int(n) % l
+		c := perm[i*int(m)+next[i]]
+		for entry[c] >= 0 {
 			next[i] += 1
-			n += 1
-			if n == m {
-				return entry
-			}
+			c = perm[i*int(m)+next[i]]
 		}
+		entry[c] = i
+		next[i] += 1
 	}
+
+	return entry
 }

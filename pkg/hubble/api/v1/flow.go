@@ -15,12 +15,13 @@
 package v1
 
 import (
+	pb "github.com/cilium/cilium/api/v1/flow"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 // FlowProtocol returns the protocol best describing the flow. If available,
 // this is the L7 protocol name, then the L4 protocol name.
-func FlowProtocol(flow Flow) string {
+func FlowProtocol(flow *pb.Flow) string {
 	switch flow.GetEventType().Type {
 	case monitorAPI.MessageTypeAccessLog:
 		if l7 := flow.GetL7(); l7 != nil {

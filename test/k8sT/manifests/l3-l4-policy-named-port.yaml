@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "L3-L4 policy with named l4 port"
 metadata:
   name: "l3-l4-policy"
 spec:
+  description: "L3-L4 policy with named l4 port"
   endpointSelector:
     matchLabels:
       id: app1

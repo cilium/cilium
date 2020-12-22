@@ -33,9 +33,13 @@ var (
 
 // buildServer opens a listener socket at path. It exits with logging on all
 // errors.
-func buildServer(path string) (net.Listener, error) {
+func buildServer(path string) (*net.UnixListener, error) {
+	addr, err := net.ResolveUnixAddr("unix", path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve unix address %s: %s", path, err)
+	}
 	os.Remove(path)
-	server, err := net.Listen("unix", path)
+	server, err := net.ListenUnix("unix", addr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot listen on unix socket %s: %s", path, err)
 	}
@@ -43,6 +47,7 @@ func buildServer(path string) (net.Listener, error) {
 	if os.Getuid() == 0 {
 		err := api.SetDefaultPermissions(path)
 		if err != nil {
+			server.Close()
 			return nil, fmt.Errorf("cannot set default permissions on socket %s: %s", path, err)
 		}
 	}

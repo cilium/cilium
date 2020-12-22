@@ -25,7 +25,7 @@ As depicted above, this framework allows a developer to write a small amount of 
 code (green box) focused on parsing a new API protocol, and this Go code is able to  
 take full advantage of Cilium features including high-performance redirection to/from Envoy, 
 rich L7-aware policy language
-and access logging, and visibility into encrypted traffic traffic via kTLS (coming soon!).  
+and access logging, and visibility into encrypted traffic via kTLS (coming soon!).
 In sum, you as the developer need only worry about the logic of parsing the protocol, 
 and Cilium + Envoy + eBPF do the heavy-lifting.  
 
@@ -187,7 +187,7 @@ should be processed, with four primary outcomes:
   needs to see at least x additional bytes beyond the current data to make a decision.  
   In some cases, the full request must be read to understand framing and filtering, but in others a decision 
   can be made simply by reading a protocol header.   When parsing data, be defensive, and recognize that it is technically possible that 
-  data arrives one byte byte at a time.   Two common scenarios exist here:  
+  data arrives one byte at a time. Two common scenarios exist here:
 
   - **Text-based Protocols** : For text-based protocols
     that use a delimiter like "\r\n", it is common to simply check if the delimiter exists, and return 

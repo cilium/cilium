@@ -99,6 +99,10 @@ func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 }
 
+func (e *IdentityAllocatorEtcdSuite) TearDownTest(c *C) {
+	kvstore.Client().Close()
+}
+
 type IdentityAllocatorConsulSuite struct {
 	IdentityAllocatorSuite
 }
@@ -107,6 +111,10 @@ var _ = Suite(&IdentityAllocatorConsulSuite{})
 
 func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("consul")
+}
+
+func (e *IdentityAllocatorConsulSuite) TearDownTest(c *C) {
+	kvstore.Client().Close()
 }
 
 type dummyOwner struct {
@@ -174,7 +182,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 	owner := newDummyOwner()
 	events := make(allocator.AllocatorEventChan, 1024)
 	watcher := identityWatcher{
-		stopChan: make(chan bool),
+		stopChan: make(chan struct{}),
 		owner:    owner,
 	}
 

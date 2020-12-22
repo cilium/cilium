@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumClusterwideNetworkPolicy
-description: "Lock down the development VMs. USE ELSEWHERE AT YOUR OWN RISK."
 metadata:
   name: "lock-down-dev-vms"
 spec:
+  description: "Lock down the development VMs. USE ELSEWHERE AT YOUR OWN RISK."
   nodeSelector:
     {}
   ingress:

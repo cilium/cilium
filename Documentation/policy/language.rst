@@ -226,6 +226,26 @@ be only accessible if the source endpoint also has the label ``env=prod``.
 
         .. literalinclude:: ../../examples/policies/l3/requires/requires.json
 
+This ``fromRequires`` rule doesn't allow anything on its own and needs to be
+combined with other rules to allow traffic. For example, when combined with the
+example policy below, the endpoint with label ``env=prod`` will become
+accessible from endpoints that have both labels ``env=prod`` and
+``role=frontend``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/requires/endpoints.json
+
 .. _Services based:
 
 Services based
@@ -513,8 +533,8 @@ IPs to be allowed are selected via:
 
 ``toFQDNs.matchPattern``
   Inserts IPs of domains that match the pattern in ``matchPattern``, accounting
-  for wildcards. Patterns are composed of literal characters that that are
-  allowed in domain names: a-z, 0-9, ``.`` and ``-``.
+  for wildcards. Patterns are composed of literal characters that are allowed
+  in domain names: a-z, 0-9, ``.`` and ``-``.
 
   ``*`` is allowed as a wildcard with a number of convenience behaviors:
 
@@ -525,6 +545,12 @@ IPs to be allowed are selected via:
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.
 
+The example below allows all DNS traffic on port 53 to the DNS service and
+intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
+a DNS application behind a Kubernetes service, the port must match the backend
+port. When the application makes a request for my-remote-service.com, Cilium
+learns the IP address and will allow traffic due to the match on the name under
+the ``toFQDNs.matchName`` rule.
 
 Example
 ~~~~~~~
@@ -828,11 +854,12 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 
         .. literalinclude:: ../../examples/policies/l7/http/http.json
 
+.. _kafka_policy:
 
 Kafka (beta)
 ------------
 
-.. note:: Kafka support is currently in beta phase.
+.. include:: ../beta.rst
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
@@ -1069,6 +1096,113 @@ that do not need it. See the `Kubernetes documentation <https://kubernetes.io/do
 for instructions.
 
 
+.. _deny_policies:
+
+Deny Policies
+=============
+
+.. include:: ../beta.rst
+
+Deny policies, available and enabled by default since Cilium 1.9, allows to
+explicitly restrict certain traffic to and from a Pod.
+
+Deny policies take precedence over allow policies, regardless of whether they
+are a Cilium Network Policy, a Clusterwide Cilium Network Policy or even a
+Kubernetes Network Policy.
+
+Similarly to "allow" policies, Pods will enter default-deny mode as soon a
+single policy selects it.
+
+If multiple allow and deny policies are applied to the same pod, the following
+table represents the expected enforcement for that Pod:
+
++--------------------------------------------------------------------------------------------+
+| **Ingress Policies Deployed to Server Pod (Yes / No)**                                     |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 7 (HTTP)        | Yes     | Yes     | Yes    | Yes    | No     |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 4 (80/TCP)      | Yes     | Yes     | Yes    | Yes    | No     |
+| **Allow Policies**  +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 4 (81/TCP)      | Yes     | Yes     | Yes    | Yes    | No     |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 3 (Pod: Client) | Yes     | Yes     | Yes    | Yes    | No     |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 4 (80/TCP)      | No      | Yes     | No     | Yes    | Yes    |
+| **Deny Policies**   +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 3 (Pod: Client) | No      | No      | Yes    | Yes    | No     |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+| **Traffic connection (Allowed / Denied)**                                                  |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+|                     | curl server:81        | Allowed | Allowed | Denied | Denied | Denied |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+| **Client → Server** | curl server:80        | Allowed | Denied  | Denied | Denied | Denied |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+|                     | ping server           | Allowed | Allowed | Denied | Denied | Denied |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+
+If we pick the second column in the above table, the bottom section shows the
+forwarding behaviour for a policy that selects curl or ping traffic between the
+client and server:
+
+* Curl to port 81 is allowed because there is an allow policy on port 81, and
+  no deny policy on that port;
+* Curl to port 80 is denied because there is a deny policy on that port;
+* Ping to the server is allowed because there is a Layer 3 allow policy and no deny.
+
+The following policy will deny ingress from "world" on all namespaces on all
+Pods managed by Cilium. Existing inter-cluster policies will still be allowed
+as this policy is allowing traffic from everywhere except from "world".
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/entities/from_world_deny.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/entities/from_world_deny.yaml
+
+Deny policies do not support: policy enforcement at L7, i.e., specifically
+denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
+domain name.
+
+Limitations and known issues
+----------------------------
+
+The current known limitation is a deny policy with ``toEntities`` "world" for
+which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
+considered external to the cluster.
+
+.. code-block:: yaml
+
+  apiVersion: "cilium.io/v2"
+  kind: CiliumNetworkPolicy
+  metadata:
+    name: "deny-egress-to-world"
+  spec:
+    endpointSelector:
+      matchLabels:
+        k8s-app.guestbook: web
+    egressDeny:
+    - toEntities:
+      - "world"
+    egress:
+      - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            "k8s:k8s-app": kube-dns
+        toPorts:
+          - ports:
+             - port: "53"
+               protocol: ANY
+            rules:
+              dns:
+                - matchPattern: "*"
+      - toFQDNs:
+          - matchName: "www.google.com"
+
 .. _HostPolicies:
 
 Host Policies
@@ -1086,19 +1220,19 @@ each selected node, they apply only to the host namespace, including
 host-networking pods. They therefore don't apply to communications between
 non-host-networking pods and locations outside of the cluster.
 
-Installation of Host Policies requires the the addition of the following ``helm``
+Installation of Host Policies requires the addition of the following ``helm``
 flags when installing Cilium:
 
-* ``--set global.devices='{interface}'`` where ``interface`` refers to the
+* ``--set devices='{interface}'`` where ``interface`` refers to the
   network device Cilium is configured on such as ``eth0``. Omitting this option
   leads Cilium to auto-detect what interface the host firewall applies to.
-* ``--set global.hostFirewall=true``
+* ``--set hostFirewall=true``
 
 The following policy will allow ingress traffic for any node with the label
 ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240
 (health checks), as well as UDP port 8472 (VXLAN).
 
-Replace the ``port:`` value with ports used in your environment. 
+Replace the ``port:`` value with ports used in your environment.
 
 .. only:: html
 
@@ -1124,11 +1258,10 @@ is labeled correctly in your environment. In the example configuration, you can
 run ``kubectl get nodes -o wide|grep type=ingress-worker`` to verify labels
 match the policy.
 
-You can verify the policy was properly parsed and applied by ``exec``ing into
-the Cilium agent pod and running ``cilium policy get``. Verify that the host is
-selected by the policy using ``cilium endpoint list`` and look for the endpoint
-with ``reserved:host`` as the label and ensure that policy is enabled in the
-selected direction. Ensure the traffic is arriving on the device visible on the
-``NodePort`` field of the ``cilium status list`` output. Use ``cilium monitor``
-with ``--related-to`` and the endpoint ID of the ``reserved:host`` endpoint to
-view traffic.
+You can verify the policy was applied by running ``kubectl exec -n $CILIUM_NAMESPACE cilium-xxxx -- cilium policy get``
+for the Cilium agent pod. Verify that the host is selected by the policy using
+``cilium endpoint list`` and look for the endpoint with ``reserved:host`` as the
+label and ensure that policy is enabled in the selected direction. Ensure the
+traffic is arriving on the device visible on the ``NodePort`` field of the
+``cilium status list`` output. Use ``cilium monitor`` with ``--related-to`` and
+the endpoint ID of the ``reserved:host`` endpoint to view traffic.

@@ -7,7 +7,7 @@
 /* Only compile in if host firewall is enabled and file is included from
  * bpf_host.
  */
-#if defined(ENABLE_HOST_FIREWALL) && defined(HOST_EP_ID)
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 
 # include "policy.h"
 # include "policy_log.h"
@@ -79,6 +79,10 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
 			return ret;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -167,6 +171,10 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		if (IS_ERR(ret))
 			return ret;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -298,6 +306,10 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 			return ret;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -343,7 +355,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-#  ifndef IPV4_FRAGMENTS
+#  ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
@@ -389,6 +401,10 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		if (IS_ERR(ret))
 			return ret;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -405,5 +421,5 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	return CTX_ACT_OK;
 }
 # endif /* ENABLE_IPV4 */
-#endif /* ENABLE_HOST_FIREWALL && HOST_EP_ID */
+#endif /* ENABLE_HOST_FIREWALL && IS_BPF_HOST */
 #endif /* __LIB_HOST_FIREWALL_H_ */

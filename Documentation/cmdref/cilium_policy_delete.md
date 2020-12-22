@@ -4,10 +4,6 @@
 
 Delete policy rules
 
-### Synopsis
-
-Delete policy rules
-
 ```
 cilium policy delete [<labels>] [flags]
 ```

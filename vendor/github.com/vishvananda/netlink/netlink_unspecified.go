@@ -16,7 +16,7 @@ func LinkSetMTU(link Link, mtu int) error {
 	return ErrNotImplemented
 }
 
-func LinkSetMaster(link Link, master *Bridge) error {
+func LinkSetMaster(link Link, master Link) error {
 	return ErrNotImplemented
 }
 

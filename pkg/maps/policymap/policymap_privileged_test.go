@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -138,4 +138,60 @@ func (pm *PolicyMapTestSuite) TestDeleteNonexistentKey(c *C) {
 	var errno unix.Errno
 	c.Assert(errors.As(err, &errno), Equals, true)
 	c.Assert(errno, Equals, unix.ENOENT)
+}
+
+func (pm *PolicyMapTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
+	c.Assert(testMap, NotNil)
+
+	fooEntry := newKey(1, 1, 1, 1)
+	fooValue := newEntry(0, NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true}))
+	err := testMap.DenyKey(fooEntry)
+	c.Assert(err, IsNil)
+
+	dump, err := testMap.DumpToSlice()
+	c.Assert(err, IsNil)
+	c.Assert(len(dump), Equals, 1)
+
+	// FIXME: It's weird that AllowKey() does the implicit byteorder
+	//        conversion above. But not really a bug, so work around it.
+	fooEntry = fooEntry.ToNetwork()
+	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
+	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooValue)
+
+	// Special case: deny-all entry
+	barEntry := newKey(0, 0, 0, 0)
+	err = testMap.DenyKey(barEntry)
+	c.Assert(err, IsNil)
+
+	dump, err = testMap.DumpToSlice()
+	c.Assert(err, IsNil)
+	c.Assert(len(dump), Equals, 2)
+}
+
+func (pm *PolicyMapTestSuite) TestDenyPolicyMapDumpKeysToSlice(c *C) {
+	c.Assert(testMap, NotNil)
+
+	fooEntry := newKey(1, 1, 1, 1)
+	fooValue := newEntry(0, NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true}))
+	err := testMap.DenyKey(fooEntry)
+	c.Assert(err, IsNil)
+
+	dump, err := testMap.DumpToSlice()
+	c.Assert(err, IsNil)
+	c.Assert(len(dump), Equals, 1)
+
+	// FIXME: It's weird that AllowKey() does the implicit byteorder
+	//        conversion above. But not really a bug, so work around it.
+	fooEntry = fooEntry.ToNetwork()
+	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
+	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooValue)
+
+	// Special case: deny-all entry
+	barEntry := newKey(0, 0, 0, 0)
+	err = testMap.DenyKey(barEntry)
+	c.Assert(err, IsNil)
+
+	dump, err = testMap.DumpToSlice()
+	c.Assert(err, IsNil)
+	c.Assert(len(dump), Equals, 2)
 }

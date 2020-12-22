@@ -15,9 +15,13 @@
 package utils
 
 import (
+	"sort"
+
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/option"
+
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -102,4 +106,51 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
 	}, nil
+}
+
+// GetLatestPodReadiness returns the lastest podReady condition on a given pod.
+func GetLatestPodReadiness(podStatus slim_corev1.PodStatus) slim_corev1.ConditionStatus {
+	for _, cond := range podStatus.Conditions {
+		if cond.Type == slim_corev1.PodReady {
+			return cond.Status
+		}
+	}
+	return slim_corev1.ConditionUnknown
+}
+
+// ValidIPs return a sorted slice of unique IP addresses retrieved from the given PodStatus.
+// Returns an error when no IPs are found.
+func ValidIPs(podStatus slim_corev1.PodStatus) []string {
+	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
+		return nil
+	}
+
+	// make it a set first to avoid repeated IP addresses
+	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
+	if podStatus.PodIP != "" {
+		ipsMap[podStatus.PodIP] = struct{}{}
+	}
+	for _, podIP := range podStatus.PodIPs {
+		if podIP.IP != "" {
+			ipsMap[podIP.IP] = struct{}{}
+		}
+	}
+
+	ips := make([]string, 0, len(ipsMap))
+	for ipStr := range ipsMap {
+		ips = append(ips, ipStr)
+	}
+	sort.Strings(ips)
+	return ips
+}
+
+// IsPodRunning returns true if the pod is considered to be in running state.
+// We consider a Running pod a pod that does not report a Failed nor a Succeeded
+// pod Phase.
+func IsPodRunning(status slim_corev1.PodStatus) bool {
+	switch status.Phase {
+	case slim_corev1.PodFailed, slim_corev1.PodSucceeded:
+		return false
+	}
+	return true
 }

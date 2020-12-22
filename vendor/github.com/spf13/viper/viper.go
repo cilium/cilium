@@ -287,7 +287,7 @@ func NewWithOptions(opts ...Option) *Viper {
 func Reset() {
 	v = New()
 	SupportedExts = []string{"json", "toml", "yaml", "yml", "properties", "props", "prop", "hcl", "dotenv", "env", "ini"}
-	SupportedRemoteProviders = []string{"etcd", "consul"}
+	SupportedRemoteProviders = []string{"etcd", "consul", "firestore"}
 }
 
 type defaultRemoteProvider struct {
@@ -328,7 +328,7 @@ type RemoteProvider interface {
 var SupportedExts = []string{"json", "toml", "yaml", "yml", "properties", "props", "prop", "hcl", "dotenv", "env", "ini"}
 
 // SupportedRemoteProviders are universally supported remote providers.
-var SupportedRemoteProviders = []string{"etcd", "consul"}
+var SupportedRemoteProviders = []string{"etcd", "consul", "firestore"}
 
 func OnConfigChange(run func(in fsnotify.Event)) { v.OnConfigChange(run) }
 func (v *Viper) OnConfigChange(run func(in fsnotify.Event)) {
@@ -477,7 +477,7 @@ func (v *Viper) AddConfigPath(in string) {
 
 // AddRemoteProvider adds a remote configuration source.
 // Remote Providers are searched in the order they are added.
-// provider is a string value, "etcd" or "consul" are currently supported.
+// provider is a string value: "etcd", "consul" or "firestore" are currently supported.
 // endpoint is the url.  etcd requires http://ip:port  consul requires ip:port
 // path is the path in the k/v store to retrieve configuration
 // To retrieve a config file called myapp.json from /configs/myapp.json
@@ -506,14 +506,14 @@ func (v *Viper) AddRemoteProvider(provider, endpoint, path string) error {
 
 // AddSecureRemoteProvider adds a remote configuration source.
 // Secure Remote Providers are searched in the order they are added.
-// provider is a string value, "etcd" or "consul" are currently supported.
+// provider is a string value: "etcd", "consul" or "firestore" are currently supported.
 // endpoint is the url.  etcd requires http://ip:port  consul requires ip:port
 // secretkeyring is the filepath to your openpgp secret keyring.  e.g. /etc/secrets/myring.gpg
 // path is the path in the k/v store to retrieve configuration
 // To retrieve a config file called myapp.json from /configs/myapp.json
 // you should set path to /configs and set config name (SetConfigName()) to
 // "myapp"
-// Secure Remote Providers are implemented with github.com/xordataexchange/crypt
+// Secure Remote Providers are implemented with github.com/bketelsen/crypt
 func AddSecureRemoteProvider(provider, endpoint, path, secretkeyring string) error {
 	return v.AddSecureRemoteProvider(provider, endpoint, path, secretkeyring)
 }
@@ -996,11 +996,6 @@ func (v *Viper) BindFlagValues(flags FlagValueSet) (err error) {
 }
 
 // BindFlagValue binds a specific key to a FlagValue.
-// Example (where serverCmd is a Cobra instance):
-//
-//	 serverCmd.Flags().Int("port", 1138, "Port to run Application server on")
-//	 Viper.BindFlagValue("port", serverCmd.Flags().Lookup("port"))
-//
 func BindFlagValue(key string, flag FlagValue) error { return v.BindFlagValue(key, flag) }
 func (v *Viper) BindFlagValue(key string, flag FlagValue) error {
 	if flag == nil {
@@ -1088,6 +1083,8 @@ func (v *Viper) find(lcaseKey string, flagDefault bool) interface{} {
 			s = strings.TrimSuffix(s, "]")
 			res, _ := readAsCSV(s)
 			return cast.ToIntSlice(res)
+		case "stringToString":
+			return stringToStringConv(flag.ValueString())
 		default:
 			return flag.ValueString()
 		}
@@ -1163,6 +1160,8 @@ func (v *Viper) find(lcaseKey string, flagDefault bool) interface{} {
 				s = strings.TrimSuffix(s, "]")
 				res, _ := readAsCSV(s)
 				return cast.ToIntSlice(res)
+			case "stringToString":
+				return stringToStringConv(flag.ValueString())
 			default:
 				return flag.ValueString()
 			}
@@ -1180,6 +1179,30 @@ func readAsCSV(val string) ([]string, error) {
 	stringReader := strings.NewReader(val)
 	csvReader := csv.NewReader(stringReader)
 	return csvReader.Read()
+}
+
+// mostly copied from pflag's implementation of this operation here https://github.com/spf13/pflag/blob/master/string_to_string.go#L79
+// alterations are: errors are swallowed, map[string]interface{} is returned in order to enable cast.ToStringMap
+func stringToStringConv(val string) interface{} {
+	val = strings.Trim(val, "[]")
+	// An empty string would cause an empty map
+	if len(val) == 0 {
+		return map[string]interface{}{}
+	}
+	r := csv.NewReader(strings.NewReader(val))
+	ss, err := r.Read()
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(ss))
+	for _, pair := range ss {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			return nil
+		}
+		out[kv[0]] = kv[1]
+	}
+	return out
 }
 
 // IsSet checks to see if the key has been set in any of the data locations.
@@ -1418,11 +1441,18 @@ func (v *Viper) SafeWriteConfigAs(filename string) error {
 
 func (v *Viper) writeConfig(filename string, force bool) error {
 	jww.INFO.Println("Attempting to write configuration to file.")
+	var configType string
+
 	ext := filepath.Ext(filename)
-	if len(ext) <= 1 {
-		return fmt.Errorf("filename: %s requires valid extension", filename)
+	if ext != "" {
+		configType = ext[1:]
+	} else {
+		configType = v.configType
 	}
-	configType := ext[1:]
+	if configType == "" {
+		return fmt.Errorf("config type could not be determined for %s", filename)
+	}
+
 	if !stringInSlice(configType, SupportedExts) {
 		return UnsupportedConfigError(configType)
 	}
@@ -1619,7 +1649,7 @@ func (v *Viper) marshalWriter(f afero.File, configType string) error {
 			if sectionName == "default" {
 				sectionName = ""
 			}
-			cfg.Section(sectionName).Key(keyName).SetValue(Get(key).(string))
+			cfg.Section(sectionName).Key(keyName).SetValue(v.Get(key).(string))
 		}
 		cfg.WriteTo(f)
 	}
@@ -1976,8 +2006,10 @@ func (v *Viper) searchInPath(in string) (filename string) {
 		}
 	}
 
-	if b, _ := exists(v.fs, filepath.Join(in, v.configName)); b {
-		return filepath.Join(in, v.configName)
+	if v.configType != "" {
+		if b, _ := exists(v.fs, filepath.Join(in, v.configName)); b {
+			return filepath.Join(in, v.configName)
+		}
 	}
 
 	return ""

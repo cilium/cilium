@@ -21,15 +21,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,6 +42,12 @@ const (
 	// subsysEndpointSync is the value for logfields.LogSubsys
 	subsysEndpointSync = "endpointsynchronizer"
 )
+
+// controllerNameOf returns the controller name to synchronize endpoint in to
+// kubernetes.
+func controllerNameOf(epID uint16) string {
+	return fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", epID)
+}
 
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
 // of CiliumEndpoint resources.
@@ -52,7 +61,7 @@ type EndpointSynchronizer struct{}
 func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 	var (
 		endpointID     = e.ID
-		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
+		controllerName = controllerNameOf(endpointID)
 		scopedLog      = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 	)
 
@@ -90,11 +99,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// was created.
 				scopedLog = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 
-				if k8sversion.Version().Equals(go_version.Version{}) {
+				if k8sversion.Version().Equals(semver.Version{}) {
 					return fmt.Errorf("Kubernetes apiserver is not available")
 				}
-
-				capabilities := k8sversion.Capabilities()
 
 				// K8sPodName and K8sNamespace are not always available when an
 				// endpoint is first created, so we collect them here.
@@ -219,38 +226,28 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					}
 				}
 
-				switch {
-				case capabilities.Patch:
-					// For json patch we don't need to perform a GET for endpoints
+				// For json patch we don't need to perform a GET for endpoints
 
-					// If it fails it means the test from the previous patch failed
-					// so we can safely replace this node in the CNP status.
-					replaceCEPStatus := []k8s.JSONPatch{
-						{
-							OP:    "replace",
-							Path:  "/status",
-							Value: mdl,
-						},
-					}
-					var createStatusPatch []byte
-					createStatusPatch, err = json.Marshal(replaceCEPStatus)
-					if err != nil {
-						return err
-					}
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
-						ctx, podName,
-						types.JSONPatchType,
-						createStatusPatch,
-						meta_v1.PatchOptions{},
-						"status")
-				default:
-					// We have an object to reuse. Update and push it up. In the case of an
-					// update error, we retry in the next iteration of the controller using
-					// the copy returned by Update.
-					scopedLog.Debug("Updating CEP from local copy")
-					mdl.DeepCopyInto(&localCEP.Status)
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(ctx, localCEP, meta_v1.UpdateOptions{})
+				// If it fails it means the test from the previous patch failed
+				// so we can safely replace this node in the CNP status.
+				replaceCEPStatus := []k8s.JSONPatch{
+					{
+						OP:    "replace",
+						Path:  "/status",
+						Value: mdl,
+					},
 				}
+				var createStatusPatch []byte
+				createStatusPatch, err = json.Marshal(replaceCEPStatus)
+				if err != nil {
+					return err
+				}
+				localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
+					ctx, podName,
+					types.JSONPatchType,
+					createStatusPatch,
+					meta_v1.PatchOptions{},
+					"status")
 
 				// Handle Update errors or return successfully
 				switch {
@@ -280,5 +277,58 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 			},
+			StopFunc: func(ctx context.Context) error {
+				return deleteCEP(ctx, scopedLog, ciliumClient, e)
+			},
 		})
+}
+
+// DeleteK8sCiliumEndpointSync replaces the endpoint controller to remove the
+// CEP from Kubernetes once the endpoint is stopped / removed from the
+// Cilium agent.
+func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+	controllerName := controllerNameOf(e.ID)
+
+	scopedLog := e.Logger(subsysEndpointSync).WithField("controller", controllerName)
+
+	if !k8s.IsEnabled() {
+		scopedLog.Debug("Not starting controller because k8s is disabled")
+		return
+	}
+	ciliumClient := k8s.CiliumClient().CiliumV2()
+
+	// The health endpoint doesn't really exist in k8s and updates to it caused
+	// arbitrary errors. Disable the controller for these endpoints.
+	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
+		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
+		return
+	}
+
+	// NOTE: The controller functions do NOT hold the endpoint locks
+	e.UpdateController(controllerName,
+		controller.ControllerParams{
+			StopFunc: func(ctx context.Context) error {
+				return deleteCEP(ctx, scopedLog, ciliumClient, e)
+			},
+		},
+	)
+}
+
+func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.CiliumV2Interface, e *endpoint.Endpoint) error {
+	podName := e.GetK8sPodName()
+	if podName == "" {
+		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s pod name")
+		return nil
+	}
+	namespace := e.GetK8sNamespace()
+	if namespace == "" {
+		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s namespace")
+		return nil
+	}
+	if err := ciliumClient.CiliumEndpoints(namespace).Delete(ctx, podName, meta_v1.DeleteOptions{}); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			scopedLog.WithError(err).Warning("Unable to delete CEP")
+		}
+	}
+	return nil
 }

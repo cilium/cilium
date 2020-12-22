@@ -21,22 +21,23 @@ IP6_HOST=$4
 MODE=$5
 # Only set if MODE = "direct", "ipvlan", "flannel"
 NATIVE_DEVS=$6
-XDP_DEV=$7
-XDP_MODE=$8
-MTU=$9
-IPSEC=${10}
-ENCRYPT_DEV=${11}
-HOSTLB=${12}
-HOSTLB_UDP=${13}
-HOSTLB_PEER=${14}
-CGROUP_ROOT=${15}
-BPFFS_ROOT=${16}
-NODE_PORT=${17}
-NODE_PORT_BIND=${18}
-MCPU=${19}
-NODE_PORT_IPV4_ADDRS=${20}
-NODE_PORT_IPV6_ADDRS=${21}
+HOST_DEV1=$7
+HOST_DEV2=$8
+XDP_DEV=$9
+XDP_MODE=${10}
+MTU=${11}
+IPSEC=${12}
+ENCRYPT_DEV=${13}
+HOSTLB=${14}
+HOSTLB_UDP=${15}
+HOSTLB_PEER=${16}
+CGROUP_ROOT=${17}
+BPFFS_ROOT=${18}
+NODE_PORT=${19}
+NODE_PORT_BIND=${20}
+MCPU=${21}
 NR_CPUS=${22}
+ENDPOINT_ROUTES=${23}
 
 ID_HOST=1
 ID_WORLD=2
@@ -77,37 +78,6 @@ function setup_dev()
 		echo 1 > /proc/sys/net/ipv4/conf/${NAME}/accept_local
 		echo 0 > /proc/sys/net/ipv4/conf/${NAME}/send_redirects
 	fi
-}
-
-function setup_veth_pair()
-{
-	local -r NAME1=$1
-	local -r NAME2=$2
-
-	# Only recreate the veth pair if it does not exist already.
-	# This avoids problems with changing MAC addresses.
- 	if [ "$(ip link show $NAME1 type veth | cut -d ' ' -f 2)" != "${NAME1}@${NAME2}:" ] ; then
-		ip link del $NAME1 2> /dev/null || true
-		ip link add name $NAME1 address $(rnd_mac_addr) type veth \
-            peer name $NAME2 address $(rnd_mac_addr)
-	fi
-
-	setup_dev $NAME1
-	setup_dev $NAME2
-}
-
-function setup_ipvlan_slave()
-{
-	local -r NATIVE_DEV=$1
-	local -r HOST_DEV=$2
-
-	# No issues with changing MAC addresses since all ipvlan
-	# slaves always inherits MAC from native device.
-	ip link del $HOST_DEV 2> /dev/null || true
-
-	ip link add link $NATIVE_DEV name $HOST_DEV type ipvlan mode l3
-
-	setup_dev $HOST_DEV
 }
 
 function move_local_rules_af()
@@ -173,33 +143,27 @@ function setup_proxy_rules()
 			if [ -z "$(ip -4 rule list $to_proxy_rulespec)" ]; then
 				ip -4 rule add $to_proxy_rulespec
 			fi
-			case "${MODE}" in
-			"routed")
+			if [ "$ENDPOINT_ROUTES" = "true" ]; then
 				if [ ! -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
 					ip -4 rule delete $from_ingress_rulespec
 				fi
-				;;
-			*)
+			else
 				if [ -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
 					ip -4 rule add $from_ingress_rulespec
 				fi
-				;;
-			esac
+			fi
 		fi
 
 		# Traffic to the host proxy is local
 		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
 		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-		case "${MODE}" in
-		"routed")
+		if [ "$ENDPOINT_ROUTES" = "true" ]; then
 			ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
 			ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
-			;;
-		*)
+		else
 			ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
 			ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
-			;;
-		esac
+		fi
 	else
 		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
 		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
@@ -215,18 +179,15 @@ function setup_proxy_rules()
 					if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
 						ip -6 rule add $to_proxy_rulespec
 					fi
-					case "${MODE}" in
-					"routed")
+					if [ "$ENDPOINT_ROUTES" = "true" ]; then
 						if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
 							ip -6 rule delete $from_ingress_rulespec
 						fi
-						;;
-					*)
+					else
 						if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
 							ip -6 rule add $from_ingress_rulespec
 						fi
-						;;
-					esac
+					fi
 				fi
 
 				IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
@@ -234,16 +195,13 @@ function setup_proxy_rules()
 					# Traffic to the host proxy is local
 					ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
 					# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-					case "${MODE}" in
-					"routed")
+					if [ "$ENDPOINT_ROUTES" = "true" ]; then
 						ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
 						ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
-						;;
-					*)
+					else
 						ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
 						ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-						;;
-					esac
+					fi
 				fi
 			else
 				ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
@@ -273,7 +231,7 @@ function bpf_compile()
 	EXTRA_OPTS=$4
 
 	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm	\
-	      -Wall -Wextra -Werror -Wshadow			\
+	      -g -Wall -Wextra -Werror -Wshadow			\
 	      -Wno-address-of-packed-member			\
 	      -Wno-unknown-warning-option			\
 	      -Wno-gnu-variable-sized-type-not-at-end		\
@@ -407,36 +365,6 @@ function encap_fail()
 	exit 1
 }
 
-# Base device setup
-case "${MODE}" in
-	"flannel")
-		HOST_DEV1="${NATIVE_DEVS}"
-		HOST_DEV2="${NATIVE_DEVS}"
-
-		setup_dev "${NATIVE_DEVS}"
-		;;
-	"ipvlan")
-		HOST_DEV1="cilium_host"
-		HOST_DEV2="${HOST_DEV1}"
-
-		setup_ipvlan_slave $NATIVE_DEVS $HOST_DEV1
-
-		ip link set $HOST_DEV1 mtu $MTU
-		;;
-	*)
-		HOST_DEV1="cilium_host"
-		HOST_DEV2="cilium_net"
-
-		setup_veth_pair $HOST_DEV1 $HOST_DEV2
-
-		ip link set $HOST_DEV1 arp off
-		ip link set $HOST_DEV2 arp off
-
-		ip link set $HOST_DEV1 mtu $MTU
-		ip link set $HOST_DEV2 mtu $MTU
-        ;;
-esac
-
 # node_config.h header generation
 case "${MODE}" in
 	*)
@@ -522,8 +450,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	}
 	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 
-	setup_dev $ENCAP_DEV
-	ip link set $ENCAP_DEV up || encap_fail
+	setup_dev $ENCAP_DEV || encap_fail
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
@@ -542,29 +469,13 @@ else
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
-if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] || [ "$NODE_PORT" = "true" ] ; then
+if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ] ; then
 	if [ "$NATIVE_DEVS" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
 		if [ "$IP6_HOST" != "<nil>" ]; then
 			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 		fi
-
-		if [ "$NODE_PORT_IPV4_ADDRS" != "<nil>" ]; then
-			declare -A v4_addrs
-			for a in ${NODE_PORT_IPV4_ADDRS//;/ }; do
-				IFS== read iface addr <<< "$a"
-				v4_addrs[$iface]=$addr
-			done
-		fi
-		if [ "$NODE_PORT_IPV6_ADDRS" != "<nil>" ]; then
-			declare -A v6_addrs
-			for a in ${NODE_PORT_IPV6_ADDRS//;/ }; do
-				IFS== read iface addr <<< "$a"
-				v6_addrs[$iface]=$addr
-			done
-		fi
-
 		echo "$NATIVE_DEVS" > $RUNDIR/device.state
 	fi
 else
@@ -668,7 +579,7 @@ if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 fi
 
 # Remove bpf_xdp.o from previously used devices
-for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
+for iface in $(ip -o -a l | grep prog/xdp | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
 	[ "$iface" == "$XDP_DEV" ] && continue
 	for mode in xdpdrv xdpgeneric; do
 		xdp_unload "$iface" "$mode"
@@ -689,17 +600,10 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 	if [ "$NODE_PORT" = "true" ]; then
 		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
 		COPTS="${COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
-		# Currently it assumes that XDP_DEV is listed among NATIVE_DEVS
-		if [ "$IP4_HOST" != "<nil>" ]; then
-			COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$XDP_DEV]}"
-		fi
-		if [ "$IP6_HOST" != "<nil>" ]; then
-			COPTS="${COPTS} -DIPV6_NODEPORT_VAL={.addr={${v6_addrs[$XDP_DEV]}}}"
-		fi
 	fi
 	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
 
 # Compile dummy BPF file containing all shared struct definitions used by
 # pkg/alignchecker to validate C and Go equivalent struct alignments
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj "-g"
+bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""

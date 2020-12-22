@@ -17,15 +17,8 @@ package intstr
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math"
-	"runtime/debug"
 	"strconv"
-	"strings"
-
-	"github.com/google/gofuzz"
-	"k8s.io/klog/v2"
 )
 
 // IntOrString is a type that can hold an int32 or a string.  When used in
@@ -51,32 +44,6 @@ const (
 	String             // The IntOrString holds a string.
 )
 
-// FromInt creates an IntOrString object with an int32 value. It is
-// your responsibility not to call this method with a value greater
-// than int32.
-// TODO: convert to (val int32)
-func FromInt(val int) IntOrString {
-	if val > math.MaxInt32 || val < math.MinInt32 {
-		klog.Errorf("value: %d overflows int32\n%s\n", val, debug.Stack())
-	}
-	return IntOrString{Type: Int, IntVal: int32(val)}
-}
-
-// FromString creates an IntOrString object with a string value.
-func FromString(val string) IntOrString {
-	return IntOrString{Type: String, StrVal: val}
-}
-
-// Parse the given string and try to convert it to an integer before
-// setting it as a string value.
-func Parse(val string) IntOrString {
-	i, err := strconv.Atoi(val)
-	if err != nil {
-		return FromString(val)
-	}
-	return FromInt(i)
-}
-
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (intstr *IntOrString) UnmarshalJSON(value []byte) error {
 	if value[0] == '"' {
@@ -89,6 +56,9 @@ func (intstr *IntOrString) UnmarshalJSON(value []byte) error {
 
 // String returns the string value, or the Itoa of the int value.
 func (intstr *IntOrString) String() string {
+	if intstr == nil {
+		return "<nil>"
+	}
 	if intstr.Type == String {
 		return intstr.StrVal
 	}
@@ -116,69 +86,4 @@ func (intstr IntOrString) MarshalJSON() ([]byte, error) {
 	default:
 		return []byte{}, fmt.Errorf("impossible IntOrString.Type")
 	}
-}
-
-// OpenAPISchemaType is used by the kube-openapi generator when constructing
-// the OpenAPI spec of this type.
-//
-// See: https://github.com/kubernetes/kube-openapi/tree/master/pkg/generators
-func (IntOrString) OpenAPISchemaType() []string { return []string{"string"} }
-
-// OpenAPISchemaFormat is used by the kube-openapi generator when constructing
-// the OpenAPI spec of this type.
-func (IntOrString) OpenAPISchemaFormat() string { return "int-or-string" }
-
-func (intstr *IntOrString) Fuzz(c fuzz.Continue) {
-	if intstr == nil {
-		return
-	}
-	if c.RandBool() {
-		intstr.Type = Int
-		c.Fuzz(&intstr.IntVal)
-		intstr.StrVal = ""
-	} else {
-		intstr.Type = String
-		intstr.IntVal = 0
-		c.Fuzz(&intstr.StrVal)
-	}
-}
-
-func ValueOrDefault(intOrPercent *IntOrString, defaultValue IntOrString) *IntOrString {
-	if intOrPercent == nil {
-		return &defaultValue
-	}
-	return intOrPercent
-}
-
-func GetValueFromIntOrPercent(intOrPercent *IntOrString, total int, roundUp bool) (int, error) {
-	if intOrPercent == nil {
-		return 0, errors.New("nil value for IntOrString")
-	}
-	value, isPercent, err := getIntOrPercentValue(intOrPercent)
-	if err != nil {
-		return 0, fmt.Errorf("invalid value for IntOrString: %v", err)
-	}
-	if isPercent {
-		if roundUp {
-			value = int(math.Ceil(float64(value) * (float64(total)) / 100))
-		} else {
-			value = int(math.Floor(float64(value) * (float64(total)) / 100))
-		}
-	}
-	return value, nil
-}
-
-func getIntOrPercentValue(intOrStr *IntOrString) (int, bool, error) {
-	switch intOrStr.Type {
-	case Int:
-		return intOrStr.IntValue(), false, nil
-	case String:
-		s := strings.Replace(intOrStr.StrVal, "%", "", -1)
-		v, err := strconv.Atoi(s)
-		if err != nil {
-			return 0, false, fmt.Errorf("invalid value %q: %v", intOrStr.StrVal, err)
-		}
-		return int(v), true, nil
-	}
-	return 0, false, fmt.Errorf("invalid type: neither int nor percentage")
 }

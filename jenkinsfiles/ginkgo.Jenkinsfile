@@ -51,28 +51,11 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Precheck') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
-
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-               sh "cd ${TESTDIR}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
-               }
-               unsuccessful {
-                   script {
-                       if  (!currentBuild.displayName.contains('fail')) {
-                           currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
-                       }
-                   }
-               }
+        stage('Log in to dockerhub') {
+            steps{
+                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
+                }
             }
         }
         stage('Make Cilium images') {
@@ -125,9 +108,11 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
-                            sh 'cd ${TESTDIR}; timeout 30m vagrant up runtime --provision'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
+                                sh 'cd ${TESTDIR}; timeout 30m vagrant up runtime --provision'
+                            }
                         }
                     }
                     post {
@@ -140,13 +125,13 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms K8s-1.12 net-next kubeproxy-free') {
+                stage('Boot vms K8s-1.13 net-next kubeproxy-free') {
                     environment {
-                        TESTED_SUITE="k8s-1.12"
+                        TESTED_SUITE="k8s-1.13"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="1"
-                        K8S_VERSION="1.12"
+                        K8S_VERSION="1.13"
                         K8S_NODES="3"
                         NO_CILIUM_ON_NODE="k8s3"
                         KUBEPROXY="0"
@@ -155,9 +140,11 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            dir("${TESTDIR}") {
-                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 45m ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                dir("${TESTDIR}") {
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 45m ./vagrant-ci-start.sh'
+                                }
                             }
                         }
                     }
@@ -165,26 +152,28 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.12 net-next vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.13 net-next vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
                     }
                 }
-                stage('Boot vms K8s-1.19') {
+                stage('Boot vms K8s-1.20') {
                     environment {
-                        TESTED_SUITE="k8s-1.19"
+                        TESTED_SUITE="k8s-1.20"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        K8S_VERSION="1.19"
+                        K8S_VERSION="1.20"
                         KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        retry(3) {
-                            dir("${TESTDIR}") {
-                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 45m ./vagrant-ci-start.sh'
+                        withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            retry(3) {
+                                dir("${TESTDIR}") {
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 45m ./vagrant-ci-start.sh'
+                                }
                             }
                         }
                     }
@@ -192,7 +181,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.19 vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.20 vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -207,6 +196,21 @@ pipeline {
             environment {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+                CILIUM_IMAGE = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${WORKSPACE}/${PROJ_PATH}/test/print-node-ip.sh)/cilium/cilium'
+                        )}"""
+                CILIUM_TAG = "latest"
+                CILIUM_OPERATOR_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${WORKSPACE}/${PROJ_PATH}/test/print-node-ip.sh)/cilium/operator'
+                        )}"""
+                CILIUM_OPERATOR_TAG = "latest"
+                HUBBLE_RELAY_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${WORKSPACE}/${PROJ_PATH}/test/print-node-ip.sh)/cilium/hubble-relay'
+                        )}"""
+                HUBBLE_RELAY_TAG = "latest"
             }
             parallel {
                 stage('BDD-Test-PR-runtime') {
@@ -235,21 +239,21 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.12-net-next-kubeproxy-free') {
+                stage('BDD-Test-PR-K8s-1.13-net-next-kubeproxy-free') {
                     environment {
-                        TESTED_SUITE="k8s-1.12"
+                        TESTED_SUITE="k8s-1.13"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="1"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                        K8S_VERSION="1.12"
+                        K8S_VERSION="1.13"
                         K8S_NODES="3"
                         KUBEPROXY="0"
                         NO_CILIUM_ON_NODE="k8s3"
                         HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG}'
                     }
                     post {
                         always {
@@ -262,23 +266,23 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.12-net-next fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.13-net-next fail\n' + currentBuild.displayName
                                 }
                             }
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.19') {
+                stage('BDD-Test-PR-K8s-1.20') {
                     environment {
-                        TESTED_SUITE="k8s-1.19"
+                        TESTED_SUITE="k8s-1.20"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                        K8S_VERSION="1.19"
+                        K8S_VERSION="1.20"
                         HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG}'
                     }
                     post {
                         always {
@@ -291,7 +295,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.19 fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.20 fail\n' + currentBuild.displayName
                                 }
                             }
                         }

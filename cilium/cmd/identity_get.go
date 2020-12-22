@@ -37,25 +37,24 @@ func printIdentities(identities []*models.Identity) {
 		if err := command.PrintOutput(identities); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}
-	} else {
-		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
+		return
+	}
 
-		fmt.Fprintf(w, "ID\tLABELS\n")
-		for _, identity := range identities {
-			lbls := labels.NewLabelsFromModel(identity.Labels)
-			first := true
-			for _, lbl := range lbls.GetPrintableModel() {
-				if first {
-					fmt.Fprintf(w, "%d\t%s\n", identity.ID, lbl)
-					first = false
-				} else {
-					fmt.Fprintf(w, "\t%s\n", lbl)
-				}
+	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
+	fmt.Fprintf(w, "ID\tLABELS\n")
+	for _, identity := range identities {
+		lbls := labels.NewLabelsFromModel(identity.Labels)
+		first := true
+		for _, lbl := range lbls.GetPrintableModel() {
+			if first {
+				fmt.Fprintf(w, "%d\t%s\n", identity.ID, lbl)
+				first = false
+			} else {
+				fmt.Fprintf(w, "\t%s\n", lbl)
 			}
 		}
-
-		w.Flush()
 	}
+	w.Flush()
 }
 
 // identityGetCmd represents the identity_get command
@@ -77,7 +76,7 @@ var identityGetCmd = &cobra.Command{
 
 			params := identityApi.NewGetIdentityIDParams().WithID(args[0]).WithTimeout(api.ClientTimeout)
 			if id, err := client.Policy.GetIdentityID(params); err != nil {
-				Fatalf("Cannot get identity for given ID %s: %s\n", id, err)
+				Fatalf("Cannot get identity for given ID %s: %s\n", args[0], err)
 			} else {
 				printIdentities([]*models.Identity{id.Payload})
 			}

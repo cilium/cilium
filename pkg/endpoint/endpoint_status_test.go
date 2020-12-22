@@ -238,7 +238,7 @@ func prepareExpectedList(want []apiResult) cilium_v2.AllowedIdentityList {
 	if want != nil {
 		expectedList = cilium_v2.AllowedIdentityList{}
 		for _, w := range want {
-			entry := cilium_v2.AllowedIdentityTuple{
+			entry := cilium_v2.IdentityTuple{
 				Identity: w.identity,
 				DestPort: w.dport,
 				Protocol: w.proto,

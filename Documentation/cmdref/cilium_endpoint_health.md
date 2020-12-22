@@ -4,10 +4,6 @@
 
 View endpoint health
 
-### Synopsis
-
-View endpoint health
-
 ```
 cilium endpoint health <endpoint id> [flags]
 ```

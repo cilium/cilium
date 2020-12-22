@@ -17,11 +17,11 @@
 package flow
 
 import (
+	"context"
 	"testing"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	"github.com/cilium/cilium/pkg/hubble/testutils"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -44,7 +44,7 @@ func TestFlowHandler(t *testing.T) {
 	})
 
 	t.Run("ProcessFlow", func(t *testing.T) {
-		flow := &testutils.FakeFlow{
+		flow1 := &pb.Flow{
 			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
 			L7: &pb.Layer7{
 				Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
@@ -53,7 +53,7 @@ func TestFlowHandler(t *testing.T) {
 			Destination: &pb.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_FORWARDED,
 		}
-		h.ProcessFlow(flow)
+		h.ProcessFlow(context.TODO(), flow1)
 
 		metricFamilies, err := registry.Gather()
 		require.NoError(t, err)
@@ -80,5 +80,28 @@ func TestFlowHandler(t *testing.T) {
 
 		assert.Equal(t, "verdict", *metric.Label[5].Name)
 		assert.Equal(t, "FORWARDED", *metric.Label[5].Value)
+
+		flow2 := &pb.Flow{
+			EventType: &pb.CiliumEventType{
+				// flow events cannot be derived from agent events
+				Type: monitorAPI.MessageTypeAgent,
+			},
+		}
+
+		h.ProcessFlow(context.TODO(), flow2)
+
+		metricFamilies, err = registry.Gather()
+		require.NoError(t, err)
+		require.Len(t, metricFamilies, 1)
+
+		assert.Equal(t, "hubble_flows_processed_total", *metricFamilies[0].Name)
+		require.Len(t, metricFamilies[0].Metric, 2)
+		metric = metricFamilies[0].Metric[0]
+
+		assert.Equal(t, "subtype", *metric.Label[3].Name)
+		assert.Equal(t, "130", *metric.Label[3].Value)
+
+		assert.Equal(t, "type", *metric.Label[4].Name)
+		assert.Equal(t, "Unknown", *metric.Label[4].Value)
 	})
 }

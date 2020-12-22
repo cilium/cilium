@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then
+    echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_LOGIN}" --password-stdin
+fi
+
 HOST=$(hostname)
 PROVISIONSRC="/tmp/provision"
 
@@ -12,5 +16,10 @@ sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
 "${PROVISIONSRC}"/dns.sh
-"${PROVISIONSRC}"/compile.sh
-"${PROVISIONSRC}"/wait-cilium.sh
+
+if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
+    "${PROVISIONSRC}"/compile.sh
+    "${PROVISIONSRC}"/wait-cilium.sh
+else
+    "${PROVISIONSRC}"/externalworkload_install.sh
+fi

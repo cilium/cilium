@@ -1,8 +1,0 @@
-apiVersion: v2
-name: managed-etcd
-version: 1.8.90
-appVersion: 1.8.90
-description: Helm chart for managed etcd
-keywords:
-sources:
-  - https://github.com/cilium/cilium

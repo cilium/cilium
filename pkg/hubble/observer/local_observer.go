@@ -27,9 +27,9 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
-	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -37,8 +37,9 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // DefaultOptions to include in the server. Other packages may extend this
@@ -155,8 +156,6 @@ nextEvent:
 			}
 
 			atomic.AddUint64(&s.numObservedFlows, 1)
-			// FIXME: Convert metrics into an OnDecodedFlow function
-			metrics.ProcessFlow(flow)
 		}
 
 		s.GetRingBuffer().Write(ev)
@@ -199,11 +198,17 @@ func (s *LocalObserverServer) ServerStatus(
 	ctx context.Context, req *observerpb.ServerStatusRequest,
 ) (*observerpb.ServerStatusResponse, error) {
 	return &observerpb.ServerStatusResponse{
+		Version:   build.ServerVersion.String(),
 		MaxFlows:  s.GetRingBuffer().Cap(),
 		NumFlows:  s.GetRingBuffer().Len(),
 		SeenFlows: atomic.LoadUint64(&s.numObservedFlows),
 		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
 	}, nil
+}
+
+// GetNodes implements observerpb.ObserverClient.GetNodes.
+func (s *LocalObserverServer) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) (*observerpb.GetNodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "GetNodes not implemented")
 }
 
 // GetFlows implements the proto method for client requests.
@@ -256,6 +261,7 @@ func (s *LocalObserverServer) GetFlows(
 		}
 		return err
 	}
+
 	flowsReader, err := newFlowsReader(ringReader, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
@@ -288,16 +294,8 @@ nextFlow:
 	}
 }
 
-func getUntil(req *observerpb.GetFlowsRequest, defaultTime *timestamp.Timestamp) (time.Time, error) {
-	until := req.GetUntil()
-	if until == nil {
-		until = defaultTime
-	}
-	return ptypes.Timestamp(until)
-}
-
 func logFilters(filters []*flowpb.FlowFilter) string {
-	var s []string
+	s := make([]string, 0, len(filters))
 	for _, f := range filters {
 		s = append(s, f.String())
 	}
@@ -312,7 +310,7 @@ type flowsReader struct {
 	maxFlows             uint64
 	follow, timeRange    bool
 	flowsCount           uint64
-	start, end           time.Time
+	since, until         *time.Time
 }
 
 // newFlowsReader creates a new flowsReader that uses the given RingReader to
@@ -331,19 +329,25 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 		blacklist:  blacklist,
 		maxFlows:   req.Number,
 		follow:     req.Follow,
-		timeRange:  !req.Follow && req.Number == 0,
+		timeRange:  req.Since != nil || req.Until != nil,
 	}
-	if reader.timeRange { // apply time range filtering
-		var err error
-		reader.start, err = ptypes.Timestamp(req.GetSince())
+
+	if req.Since != nil {
+		since, err := ptypes.Timestamp(req.Since)
 		if err != nil {
 			return nil, err
 		}
-		reader.end, err = getUntil(req, ptypes.TimestampNow())
+		reader.since = &since
+	}
+
+	if req.Until != nil {
+		until, err := ptypes.Timestamp(req.Until)
 		if err != nil {
 			return nil, err
 		}
+		reader.until = &until
 	}
+
 	return reader, nil
 }
 
@@ -375,37 +379,59 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 		if e == nil {
 			return nil, io.EOF
 		}
-		if r.timeRange {
-			ts, err := ptypes.Timestamp(e.GetFlow().GetTime())
-			if err != nil {
-				return nil, err
+
+		// Treat LostEvent as a special case as callers will never explicitly
+		// request them. This means that no regular filter nor time range
+		// filter should be applied.
+		// Note: lost events don't respect the assumption that "ring buffer
+		// timestamps are supposed to be monotonic" as their timestamp
+		// corresponds to when a LostEvent was detected.
+		_, isLostEvent := e.Event.(*flowpb.LostEvent)
+		if !isLostEvent {
+			if r.timeRange {
+				ts, err := ptypes.Timestamp(e.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+
+				if r.until != nil && ts.After(*r.until) {
+					return nil, io.EOF
+				}
+
+				if r.since != nil && ts.Before(*r.since) {
+					continue
+				}
 			}
-			if ts.After(r.end) {
-				return nil, io.EOF
-			}
-			if ts.Before(r.start) {
+
+			if !filters.Apply(r.whitelist, r.blacklist, e) {
 				continue
 			}
 		}
 
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
-			if filters.Apply(r.whitelist, r.blacklist, e) {
-				r.flowsCount++
-				return &observerpb.GetFlowsResponse{
-					Time:     ev.GetTime(),
-					NodeName: ev.GetNodeName(),
-					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
-						Flow: ev,
-					},
-				}, nil
-			}
+			r.flowsCount++
+			return &observerpb.GetFlowsResponse{
+				Time:     ev.GetTime(),
+				NodeName: ev.GetNodeName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+					Flow: ev,
+				},
+			}, nil
 		case *flowpb.LostEvent:
 			return &observerpb.GetFlowsResponse{
 				Time:     e.Timestamp,
 				NodeName: nodeTypes.GetName(),
 				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
 					LostEvents: ev,
+				},
+			}, nil
+		case *flowpb.AgentEvent:
+			return &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_AgentEvent{
+					AgentEvent: ev,
 				},
 			}, nil
 		}
@@ -415,15 +441,15 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 // newRingReader creates a new RingReader that starts at the correct ring
 // offset to match the flow request.
 func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
-	if req.Follow && req.Number == 0 { // no need to rewind
+	if req.Follow && req.Number == 0 && req.Since == nil {
+		// no need to rewind
 		return container.NewRingReader(ring, ring.LastWriteParallel()), nil
 	}
 
 	var err error
-	var start time.Time
-	since := req.GetSince()
-	if since != nil {
-		start, err = ptypes.Timestamp(since)
+	var since time.Time
+	if req.Since != nil {
+		since, err = ptypes.Timestamp(req.Since)
 		if err != nil {
 			return nil, err
 		}
@@ -446,17 +472,19 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		} else if err != nil {
 			return nil, err
 		}
+		// Note: LostEvent type is ignored here and this is expected as lost
+		// events will never be explicitly requested by the caller
 		_, ok := e.Event.(*flowpb.Flow)
 		if !ok || !filters.Apply(whitelist, blacklist, e) {
 			continue
 		}
 		flowsCount++
-		if since != nil {
-			ts, err := ptypes.Timestamp(e.GetFlow().GetTime())
+		if req.Since != nil {
+			ts, err := ptypes.Timestamp(e.Timestamp)
 			if err != nil {
 				return nil, err
 			}
-			if ts.Before(start) {
+			if ts.Before(since) {
 				idx++ // we went backward 1 too far
 				break
 			}

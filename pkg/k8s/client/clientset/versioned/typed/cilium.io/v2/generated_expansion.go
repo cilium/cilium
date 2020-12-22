@@ -20,7 +20,11 @@ type CiliumClusterwideNetworkPolicyExpansion interface{}
 
 type CiliumEndpointExpansion interface{}
 
+type CiliumExternalWorkloadExpansion interface{}
+
 type CiliumIdentityExpansion interface{}
+
+type CiliumLocalRedirectPolicyExpansion interface{}
 
 type CiliumNetworkPolicyExpansion interface{}
 

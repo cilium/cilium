@@ -80,6 +80,27 @@ func (e *ErrCIDRAllocated) Error() string {
 	return fmt.Sprintf("requested CIDR (%s) is already allocated", e.cidr)
 }
 
+// ErrNoAllocators is an error that returned if no allocators are available to
+// allocate a CIDR. This can often be a configuration problem.
+type ErrNoAllocators struct {
+	// name is the name of the node.
+	name string
+	// v4 and v6 are strings retrieved from getCIDRAllocatorsInfo() for v4 and
+	// v6 CIDRs respectively.
+	v4, v6 string
+}
+
+// Error returns the human-readable error for the ErrNoAllocators.
+func (e ErrNoAllocators) Error() string {
+	return fmt.Sprintf(
+		"Unable to allocate node CIDR for node %s. IPAMInfo: {IPv4: %s, IPv6: %s}. "+
+			"Please check that your configuration is correct.",
+		e.name,
+		e.v4,
+		e.v6,
+	)
+}
+
 // parsePodCIDRs will return the v4 and v6 CIDRs found in the podCIDRs.
 // Returns an error in case one of the CIDRs are not valid.
 func parsePodCIDRs(podCIDRs []string) (*nodeCIDRs, error) {
@@ -171,6 +192,8 @@ type NodesPodCIDRManager struct {
 }
 
 type CIDRAllocator interface {
+	fmt.Stringer
+
 	Occupy(cidr *net.IPNet) error
 	AllocateNext() (*net.IPNet, error)
 	Release(cidr *net.IPNet) error
@@ -825,9 +848,10 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		}
 	}()
 
-	var v4CIDR, v6CIDR *net.IPNet
-
-	nCIDRs := &nodeCIDRs{}
+	var (
+		cidrs          nodeCIDRs
+		v4CIDR, v6CIDR *net.IPNet
+	)
 
 	// Only allocate a v4 CIDR if the v4CIDR allocator is available
 	if len(n.v4CIDRAllocators) != 0 {
@@ -835,24 +859,48 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		if err != nil {
 			return nil, false, err
 		}
+
+		log.WithField("CIDR", v4CIDR).Debug("v4 allocated CIDR")
+		cidrs.v4PodCIDRs = []*net.IPNet{v4CIDR}
+
 		revertStack.Push(revertFunc)
-		log.Debug("v4CIDR", v4CIDR)
-		nCIDRs.v4PodCIDRs = []*net.IPNet{v4CIDR}
 	}
 	if len(n.v6CIDRAllocators) != 0 {
 		revertFunc, v6CIDR, err = allocateFirstFreeCIDR(n.v6CIDRAllocators)
 		if err != nil {
 			return nil, false, err
 		}
+
+		log.WithField("CIDR", v6CIDR).Debug("v6 allocated CIDR")
+		cidrs.v6PodCIDRs = []*net.IPNet{v6CIDR}
+
 		revertStack.Push(revertFunc)
-		log.Debug("v6CIDR", v6CIDR)
-		nCIDRs.v6PodCIDRs = []*net.IPNet{v6CIDR}
 	}
 
-	n.nodes[nodeName] = nCIDRs
+	if cidrs.v4PodCIDRs == nil && cidrs.v6PodCIDRs == nil {
+		return nil, false, ErrNoAllocators{
+			name: nodeName,
+			v4:   getCIDRAllocatorsInfo(n.v4CIDRAllocators, v4AllocatorType),
+			v6:   getCIDRAllocatorsInfo(n.v6CIDRAllocators, v6AllocatorType),
+		}
+	}
 
-	return nCIDRs, true, nil
+	n.nodes[nodeName] = &cidrs
 
+	return &cidrs, true, nil
+}
+
+func getCIDRAllocatorsInfo(cidrAllocators []CIDRAllocator, netTypes string) string {
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, cidrAllocator := range cidrAllocators {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(cidrAllocator.String())
+	}
+	sb.WriteByte(']')
+	return sb.String()
 }
 
 // allocateFirstFreeCIDR allocates the first CIDR available from the slice of

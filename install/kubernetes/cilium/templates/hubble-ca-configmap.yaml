@@ -1,0 +1,18 @@
+{{- if and (not .Values.preflight.enabled) .Values.agent .Values.hubble.enabled .Values.hubble.tls.enabled }}
+{{- $hubbleCAProvided := .Values.hubble.tls.ca.cert }}
+{{- $hubbleCAGenerate := and .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "helm") .Values.hubble.relay.enabled -}}
+{{- if or $hubbleCAProvided $hubbleCAGenerate }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-ca-cert
+  namespace: {{ .Release.Namespace }}
+data:
+{{- if $hubbleCAGenerate }}
+{{ include "hubble.ca.gen-cert-only" . | indent 2 }}
+{{- else }}
+  ca.crt: |-
+{{ .Values.hubble.tls.ca.cert | b64dec | indent 4 -}}
+{{- end }}
+{{- end }}
+{{- end }}

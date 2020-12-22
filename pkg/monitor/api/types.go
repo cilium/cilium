@@ -170,6 +170,22 @@ func TraceObservationPoint(obsPoint uint8) string {
 	return fmt.Sprintf("%d", obsPoint)
 }
 
+// TraceObservationPointHasConnState returns true if the observation point
+// obsPoint populates the TraceNotify.Reason field with connection tracking
+// information.
+func TraceObservationPointHasConnState(obsPoint uint8) bool {
+	switch obsPoint {
+	case TraceToLxc,
+		TraceToProxy,
+		TraceToHost,
+		TraceToStack,
+		TraceToNetwork:
+		return true
+	default:
+		return false
+	}
+}
+
 // AgentNotify is a notification from the agent. The notification is stored
 // in its JSON-encoded representation
 type AgentNotify struct {
@@ -177,9 +193,9 @@ type AgentNotify struct {
 	Text string
 }
 
-// AgentNotify is a notification from the agent. It is similar to AgentNotify,
-// but the notification is an unencoded struct. See the *Message constructors
-// in this package for possible values.
+// AgentNotifyMessage is a notification from the agent. It is similar to
+// AgentNotify, but the notification is an unencoded struct. See the *Message
+// constructors in this package for possible values.
 type AgentNotifyMessage struct {
 	Type         AgentNotification
 	Notification interface{}
@@ -216,7 +232,8 @@ const (
 	AgentNotifyServiceDeleted
 )
 
-var notifyTable = map[AgentNotification]string{
+// AgentNotifications is a map of all supported agent notification types.
+var AgentNotifications = map[AgentNotification]string{
 	AgentNotifyUnspec:                    "unspecified",
 	AgentNotifyGeneric:                   "Message",
 	AgentNotifyStart:                     "Cilium agent started",
@@ -233,7 +250,7 @@ var notifyTable = map[AgentNotification]string{
 }
 
 func resolveAgentType(t AgentNotification) string {
-	if n, ok := notifyTable[t]; ok {
+	if n, ok := AgentNotifications[t]; ok {
 		return n
 	}
 
@@ -315,8 +332,8 @@ func EndpointRegenMessage(e notifications.RegenNotificationInfo, err error) Agen
 	}
 }
 
-// EndpointCreateNotification structures the endpoint create notification
-type EndpointCreateNotification struct {
+// EndpointNotification structures the endpoint create or delete notification
+type EndpointNotification struct {
 	EndpointRegenNotification
 	PodName   string `json:"pod-name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
@@ -324,7 +341,7 @@ type EndpointCreateNotification struct {
 
 // EndpointCreateMessage constructs an agent notification message for endpoint creation
 func EndpointCreateMessage(e notifications.RegenNotificationInfo) AgentNotifyMessage {
-	notification := EndpointCreateNotification{
+	notification := EndpointNotification{
 		EndpointRegenNotification: EndpointRegenNotification{
 			ID:     e.GetID(),
 			Labels: e.GetOpLabels(),
@@ -339,16 +356,9 @@ func EndpointCreateMessage(e notifications.RegenNotificationInfo) AgentNotifyMes
 	}
 }
 
-// EndpointDeleteNotification structures the an endpoint delete notification
-type EndpointDeleteNotification struct {
-	EndpointRegenNotification
-	PodName   string `json:"pod-name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-}
-
 // EndpointDeleteMessage constructs an agent notification message for endpoint deletion
 func EndpointDeleteMessage(e notifications.RegenNotificationInfo) AgentNotifyMessage {
-	notification := EndpointDeleteNotification{
+	notification := EndpointNotification{
 		EndpointRegenNotification: EndpointRegenNotification{
 			ID:     e.GetID(),
 			Labels: e.GetOpLabels(),
@@ -422,10 +432,10 @@ type TimeNotification struct {
 	Time string `json:"time"`
 }
 
-// AgentStartMessage constructs an agent notification message when the agent starts
+// StartMessage constructs an agent notification message when the agent starts
 func StartMessage(t time.Time) AgentNotifyMessage {
 	notification := TimeNotification{
-		Time: t.String(),
+		Time: t.Format(time.RFC3339Nano),
 	}
 
 	return AgentNotifyMessage{

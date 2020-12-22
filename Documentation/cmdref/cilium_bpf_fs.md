@@ -4,10 +4,6 @@
 
 BPF filesystem mount
 
-### Synopsis
-
-BPF filesystem mount
-
 ### Options
 
 ```

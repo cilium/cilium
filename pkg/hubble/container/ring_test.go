@@ -20,19 +20,26 @@ import (
 	"container/list"
 	"container/ring"
 	"context"
+	"fmt"
 	"io"
 	"reflect"
+	"sync"
 	"testing"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
 
 func BenchmarkRingWrite(b *testing.B) {
 	entry := &v1.Event{}
-	s := NewRing(b.N)
+	s := NewRing(capacity(b.N))
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -42,7 +49,7 @@ func BenchmarkRingWrite(b *testing.B) {
 
 func BenchmarkRingRead(b *testing.B) {
 	entry := &v1.Event{}
-	s := NewRing(b.N)
+	s := NewRing(capacity(b.N))
 	a := make([]*v1.Event, b.N, b.N)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -86,6 +93,84 @@ func BenchmarkTimeLibRingRead(b *testing.B) {
 		a[i], _ = e.(*v1.Event)
 		i++
 	})
+}
+
+func TestNewCapacity(t *testing.T) {
+	// check all valid values according to the doc string
+	// ie: value of n MUST satisfy n=2^i -1 for i = [1, 16]
+	for i := 1; i <= 16; i++ {
+		n := (1 << i) - 1
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			c, err := NewCapacity(n)
+			assert.NoError(t, err)
+			assert.Equal(t, capacity(n), c)
+		})
+	}
+	// validate CapacityN constants
+	capacityN := []capacity{
+		Capacity1,
+		Capacity3,
+		Capacity7,
+		Capacity15,
+		Capacity31,
+		Capacity63,
+		Capacity127,
+		Capacity255,
+		Capacity511,
+		Capacity1023,
+		Capacity2047,
+		Capacity4095,
+		Capacity8191,
+		Capacity16383,
+		Capacity32767,
+		Capacity65535,
+	}
+	for _, n := range capacityN {
+		t.Run(fmt.Sprintf("n=Capacity%d", n.AsInt()), func(t *testing.T) {
+			c, err := NewCapacity(n.AsInt())
+			assert.NoError(t, err)
+			assert.Equal(t, n, c)
+		})
+	}
+
+	// test invalid values
+	for _, n := range []int{-127, -10, 0, 2, 128, 131071} {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			c, err := NewCapacity(n)
+			assert.Nil(t, c)
+			assert.NotNil(t, err)
+		})
+	}
+}
+
+func TestNewRing(t *testing.T) {
+	for i := 1; i <= 16; i++ {
+		n := (1 << i) - 1
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			r := NewRing(capacity(n))
+			require.NotNil(t, r)
+			assert.Equal(t, uint64(0), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+			// fill half the buffer
+			for j := 0; j < n/2; j++ {
+				r.Write(&v1.Event{})
+			}
+			assert.Equal(t, uint64(n/2), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+			// fill the buffer to max capacity
+			for j := 0; j <= n/2; j++ {
+				r.Write(&v1.Event{})
+			}
+			assert.Equal(t, uint64(n), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+			// write more events
+			for j := 0; j < n; j++ {
+				r.Write(&v1.Event{})
+			}
+			assert.Equal(t, uint64(n), r.Len())
+			assert.Equal(t, uint64(n), r.Cap())
+		})
+	}
 }
 
 func TestRing_Read(t *testing.T) {
@@ -474,7 +559,7 @@ func TestRing_LastWrite(t *testing.T) {
 }
 
 func TestRingFunctionalityInParallel(t *testing.T) {
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -519,7 +604,7 @@ func TestRingFunctionalityInParallel(t *testing.T) {
 }
 
 func TestRingFunctionalitySerialized(t *testing.T) {
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -562,8 +647,9 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		t,
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -588,9 +674,16 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := r.readFrom(ctx, 0)
+	ch := make(chan *v1.Event, 30)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		r.readFrom(ctx, 0, ch)
+		wg.Done()
+	}()
 	i := int64(0)
 	for entry := range ch {
+		require.NotNil(t, entry)
 		want := &timestamp.Timestamp{Seconds: i}
 		if entry.Timestamp.Seconds != want.Seconds {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
@@ -606,12 +699,8 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 		t.Errorf("Read Event %v received when channel should be empty", entry)
 	default:
 	}
-
 	cancel()
-	event, ok := <-ch
-	if ok {
-		t.Errorf("Channel should have been closed, received %+v", event)
-	}
+	wg.Wait()
 }
 
 func TestRing_ReadFrom_Test_2(t *testing.T) {
@@ -619,8 +708,10 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		t,
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	r := NewRing(0xf)
+
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -647,9 +738,16 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
-	ch := r.readFrom(ctx, 1)
-	i := int64(0)
-	for entry := range ch {
+	ch := make(chan *v1.Event, 30)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.readFrom(ctx, 1, ch)
+	}()
+	i := int64(1) // ReadFrom
+	for event := range ch {
+		require.NotNil(t, event)
 		// Given the buffer length is 16 and there are no more writes being made,
 		// we will receive 15 non-nil events, after that the channel must stall.
 		//
@@ -659,11 +757,23 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 		// write:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
 		// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 		// cycle:  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1
-		want := &timestamp.Timestamp{Seconds: 4 + i}
-		if entry.Timestamp.Seconds != want.Seconds {
-			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
+		switch {
+		case i < 4:
+			want := &flowpb.LostEvent{
+				Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           nil,
+			}
+			if diff := cmp.Diff(want, event.GetLostEvent(), cmpopts.IgnoreUnexported(flowpb.LostEvent{})); diff != "" {
+				t.Errorf("LostEvent mismatch (-want +got):\n%s", diff)
+			}
+		default:
+			want := &timestamp.Timestamp{Seconds: i}
+			if diff := cmp.Diff(want, event.Timestamp, cmpopts.IgnoreUnexported(timestamp.Timestamp{})); diff != "" {
+				t.Errorf("Event timestamp mismatch (-want +got):\n%s", diff)
+			}
 		}
-		if i == 14 {
+		if i == 18 {
 			break
 		}
 		i++
@@ -688,12 +798,8 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
 		}
 	}
-
 	cancel()
-	event, ok := <-ch
-	if ok {
-		t.Errorf("Channel should have been closed, received %+v", event)
-	}
+	wg.Wait()
 }
 
 func TestRing_ReadFrom_Test_3(t *testing.T) {
@@ -701,8 +807,9 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 		t,
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
-	r := NewRing(0xf)
+	r := NewRing(Capacity15)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
 	}
@@ -729,23 +836,42 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// We should be able to read from a previous 'cycles' and ReadFrom will
 	// be able to catch up with the writer.
-	ch := r.readFrom(ctx, ^uint64(0)-15)
-	i := int64(0)
+	ch := make(chan *v1.Event, 30)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		r.readFrom(ctx, ^uint64(0)-15, ch)
+		wg.Done()
+	}()
+	i := ^uint64(0) - 15
 	for entry := range ch {
+		require.NotNil(t, entry)
 		// Given the buffer length is 16 and there are no more writes being made,
 		// we will receive 15 non-nil events, after that the channel must stall.
 		//
-		//   ReadFrom +           +----------------valid read------------+  +position possibly being written
-		//            |           |                                      |  |  +next position to be written (r.write)
-		//            v           V                                      V  V  V
+		//   ReadFrom +        +-------------------valid read------------+  +position possibly being written
+		//            |        |                                         |  |  +next position to be written (r.write)
+		//            v        V                                         V  V  V
 		// write: f0 f1 //  3  4  5  6  7  8  9  a  b  c  d  e  f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
 		// index:  0  1 //  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 		// cycle: ff ff //  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1
-		want := &timestamp.Timestamp{Seconds: 4 + i}
-		if entry.Timestamp.Seconds != want.Seconds {
-			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
+		switch {
+		case i < 4, i > 18:
+			want := &flowpb.LostEvent{
+				Source:        flowpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           nil,
+			}
+			if diff := cmp.Diff(want, entry.GetLostEvent(), cmpopts.IgnoreUnexported(flowpb.LostEvent{})); diff != "" {
+				t.Errorf("%d LostEvent mismatch (-want +got):\n%s", i, diff)
+			}
+		default:
+			want := &timestamp.Timestamp{Seconds: int64(i)}
+			if diff := cmp.Diff(want, entry.Timestamp, cmpopts.IgnoreUnexported(timestamp.Timestamp{})); diff != "" {
+				t.Errorf("Event timestamp mismatch (-want +got):\n%s", diff)
+			}
 		}
-		if i == 14 {
+		if i == 18 {
 			break
 		}
 		i++
@@ -770,10 +896,6 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
 		}
 	}
-
 	cancel()
-	event, ok := <-ch
-	if ok {
-		t.Errorf("Channel should have been closed, received %+v", event)
-	}
+	wg.Wait()
 }

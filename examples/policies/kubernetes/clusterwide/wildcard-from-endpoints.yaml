@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumClusterwideNetworkPolicy
-description: "Policy for ingress allow to kube-dns from all Cilium managed endpoints in the cluster"
 metadata:
   name: "wildcard-from-endpoints"
 spec:
+  description: "Policy for ingress allow to kube-dns from all Cilium managed endpoints in the cluster"
   endpointSelector:
     matchLabels:
       k8s:io.kubernetes.pod.namespace: kube-system

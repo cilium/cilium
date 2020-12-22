@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 
 func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
-	portrule := api.PortRule{
+	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
 		Rules: &api.L7Rules{
 			HTTP: []api.PortRuleHTTP{
@@ -64,7 +64,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 
 func (s *PolicyTestSuite) TestCreateL4FilterMissingSecret(c *C) {
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
-	portrule := api.PortRule{
+	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
 		TerminatingTLS: &api.TLSContext{
 			Secret: &api.Secret{

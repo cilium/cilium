@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,8 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
@@ -35,8 +38,9 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/mattn/go-shellwords"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -60,6 +64,18 @@ const (
 var (
 	isWaitMinVersion        = versioncheck.MustCompile(">=1.4.20")
 	isWaitSecondsMinVersion = versioncheck.MustCompile(">=1.4.22")
+	noTrackPorts            = func(port uint16) []*lb.L4Addr {
+		return []*lb.L4Addr{
+			{
+				Protocol: lb.TCP,
+				Port:     port,
+			},
+			{
+				Protocol: lb.UDP,
+				Port:     port,
+			},
+		}
+	}
 )
 
 const (
@@ -74,15 +90,15 @@ type customChain struct {
 	ipv6       bool // ip6tables chain in addition to iptables chain
 }
 
-func getVersion(prog string) (go_version.Version, error) {
+func getVersion(prog string) (semver.Version, error) {
 	b, err := exec.WithTimeout(defaults.ExecTimeout, prog, "--version").CombinedOutput(log, false)
 	if err != nil {
-		return go_version.Version{}, err
+		return semver.Version{}, err
 	}
 	v := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
 	vString := v.FindStringSubmatch(string(b))
 	if vString == nil {
-		return go_version.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
+		return semver.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
 	}
 	return versioncheck.Version(vString[1])
 }
@@ -298,6 +314,7 @@ var ciliumChains = []customChain{
 		table:      "nat",
 		hook:       "POSTROUTING",
 		feederArgs: []string{""},
+		ipv6:       true,
 	},
 	{
 		name:       ciliumOutputNatChain,
@@ -453,7 +470,7 @@ func (m *IptablesManager) RemoveRules(quiet bool) {
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.haveIp6tables {
-		tables6 := []string{"mangle", "raw", "filter"}
+		tables6 := []string{"nat", "mangle", "raw", "filter"}
 		for _, t := range tables6 {
 			m.removeCiliumRules(t, "ip6tables", ciliumPrefix)
 		}
@@ -692,6 +709,88 @@ func (m *IptablesManager) iptProxyRules(cmd string, proxyPort uint16, ingress bo
 	return nil
 }
 
+func noTrackRules(prog string, cmd string, IP string, port *lb.L4Addr, ingress bool) error {
+	protocol := strings.ToLower(port.Protocol)
+	p := strconv.FormatUint(uint64(port.Port), 10)
+	if ingress {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "PREROUTING", "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+			return err
+		}
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, "INPUT", "-p", protocol, "-d", IP, "--dport", p, "-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "OUTPUT", "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+			return err
+		}
+	} else {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "OUTPUT", "-p", protocol, "-s", IP, "--sport", p, "-j", "NOTRACK"}, false); err != nil {
+			return err
+		}
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, "OUTPUT", "-p", protocol, "-s", IP, "--sport", p, "-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	prog := "iptables"
+	ipField := logfields.IPv4
+	if ipv6 {
+		prog = "ip6tables"
+		ipField = logfields.IPv6
+	}
+	ports := noTrackPorts(port)
+	for _, p := range ports {
+		if err := noTrackRules(prog, "-A", IP, p, true); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to install ingress NOTRACK rules")
+			return err
+		}
+		if err := noTrackRules(prog, "-A", IP, p, false); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to install egress NOTRACK rules")
+			return err
+		}
+	}
+	return nil
+}
+
+func RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	prog := "iptables"
+	ipField := logfields.IPv4
+	if ipv6 {
+		prog = "ip6tables"
+		ipField = logfields.IPv6
+	}
+	ports := noTrackPorts(port)
+	for _, p := range ports {
+		if err := noTrackRules(prog, "-D", IP, p, true); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to remove ingress NOTRACK rules")
+			return err
+		}
+		if err := noTrackRules(prog, "-D", IP, p, false); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to remove egress NOTRACK rules")
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
 	if m.haveBPFSocketAssign {
 		log.WithField("port", proxyPort).
@@ -699,6 +798,31 @@ func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name
 		return nil
 	}
 	return m.iptProxyRules("-A", proxyPort, ingress, name)
+}
+
+// GetProxyPort finds a proxy port used for redirect 'name' installed earlier with InstallProxyRules.
+// By convention "ingress" or "egress" is part of 'name' so it does not need to be specified explicitly.
+// Returns 0 a TPROXY entry with 'name' can not be found.
+func (m *IptablesManager) GetProxyPort(name string) uint16 {
+	prog := "iptables"
+	if !option.Config.EnableIPv4 {
+		prog = "ip6tables"
+	}
+
+	res, err := runProgCombinedOutput(prog, []string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain}, false)
+	if err != nil {
+		return 0
+	}
+
+	re := regexp.MustCompile(name + ".*TPROXY redirect 0.0.0.0:([1-9][0-9]*) mark")
+	str := re.FindString(string(res))
+	portStr := re.ReplaceAllString(str, "$1")
+	portInt, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.WithError(err).Debugf("Port number cannot be parsed: %s", portStr)
+		return 0
+	}
+	return uint16(portInt)
 }
 
 func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
@@ -801,6 +925,191 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 	return nil
 }
 
+func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInterface,
+	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
+	// Masquerade all egress traffic leaving the node
+	//
+	// This rule must be first as it has different exclusion criteria
+	// than the other rules in this table.
+	//
+	// The following conditions must be met:
+	// * May not leave on a cilium_ interface, this excludes all
+	//   tunnel traffic
+	// * Must originate from an IP in the local allocation range
+	// * Must not be reply if BPF NodePort is enabled
+	// * Tunnel mode:
+	//   * May not be targeted to an IP in the local allocation
+	//     range
+	// * Non-tunnel mode:
+	//   * May not be targeted to an IP in the cluster range
+	progArgs := append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-d", snatDstExclusionCIDR,
+	)
+
+	if option.Config.EgressMasqueradeInterfaces != "" {
+		progArgs = append(
+			progArgs,
+			"-o", option.Config.EgressMasqueradeInterfaces)
+	} else {
+		progArgs = append(
+			progArgs,
+			"-s", allocRange,
+			"!", "-o", "cilium_+")
+	}
+	progArgs = append(
+		progArgs,
+		"-m", "comment", "--comment", "cilium masquerade non-cluster",
+		"-j", "MASQUERADE")
+	if option.Config.IPTablesRandomFully {
+		progArgs = append(progArgs, "--random-fully")
+	}
+	if err := runProg(prog, progArgs, false); err != nil {
+		return err
+	}
+
+	// The following rules exclude traffic from the remaining rules in this chain.
+	// If any of these rules match, none of the remaining rules in this chain
+	// are considered.
+	// Exclude traffic for other than interface from the masquarade rules.
+	// RETURN fro the chain as it is possible that other rules need to be matched.
+	if err := runProg(prog, append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-o", localDeliveryInterface,
+		"-m", "comment", "--comment", "exclude non-"+ifName+" traffic from masquerade",
+		"-j", "RETURN"), false); err != nil {
+		return err
+	}
+
+	// Exclude proxy return traffic from the masquarade rules
+	if err := runProg(prog, append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		// Don't match proxy (return) traffic
+		"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask),
+		"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
+		"-j", "ACCEPT"), false); err != nil {
+		return err
+	}
+
+	if option.Config.Tunnel != option.TunnelDisabled {
+		// Masquerade all traffic from the host into the ifName
+		// interface if the source is not the internal IP
+		//
+		// The following conditions must be met:
+		// * Must be targeted for the ifName interface
+		// * Must be targeted to an IP that is not local
+		// * Tunnel mode:
+		//   * May not already be originating from the masquerade IP
+		// * Non-tunnel mode:
+		//   * May not orignate from any IP inside of the cluster range
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"!", "-s", hostMasqueradeIP,
+			"!", "-d", allocRange,
+			"-o", "cilium_host",
+			"-m", "comment", "--comment", "cilium host->cluster masquerade",
+			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
+			return err
+		}
+	}
+
+	loopbackAddr := "127.0.0.1"
+	if prog == "ip6tables" {
+		loopbackAddr = "::1"
+	}
+
+	// Masquerade all traffic from the host into local
+	// endpoints if the source is 127.0.0.1. This is
+	// required to force replies out of the endpoint's
+	// network namespace.
+	//
+	// The following conditions must be met:
+	// * Must be targeted for local endpoint
+	// * Must be from 127.0.0.1
+	if err := runProg(prog, append(
+		m.waitArgs,
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"-s", loopbackAddr,
+		"-o", localDeliveryInterface,
+		"-m", "comment", "--comment", "cilium host->cluster from "+loopbackAddr+" masquerade",
+		"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
+		return err
+	}
+
+	// Masquerade all traffic that originated from a local
+	// pod and thus carries a security identity and that
+	// was also DNAT'ed. It must be masqueraded to ensure
+	// that reverse NAT can be performed. Otherwise the
+	// reply traffic would be sent directly to the pod
+	// without traversing the Linux stack again.
+	//
+	// This is only done if EnableEndpointRoutes is
+	// disabled, if EnableEndpointRoutes is enabled, then
+	// all traffic always passes through the stack anyway.
+	//
+	// This is required for:
+	//  - portmap/host if both source and destination are
+	//    on the same node
+	//  - kiam if source and server are on the same node
+	if !option.Config.EnableEndpointRoutes {
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
+			"-o", localDeliveryInterface,
+			"-m", "conntrack", "--ctstate", "DNAT",
+			"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
+			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *IptablesManager) installHostTrafficMarkRule(prog string) error {
+	// Mark all packets sourced from processes running on the host with a
+	// special marker so that we can differentiate traffic sourced locally
+	// vs. traffic from the outside world that was masqueraded to appear
+	// like it's from the host.
+	//
+	// Originally we set this mark only for traffic destined to the
+	// ifName device, to ensure that any traffic directly reaching
+	// to a Cilium-managed IP could be classified as from the host.
+	//
+	// However, there's another case where a local process attempts to
+	// reach a service IP which is backed by a Cilium-managed pod. The
+	// service implementation is outside of Cilium's control, for example,
+	// handled by kube-proxy. We can tag even this traffic with a magic
+	// mark, then when the service implementation proxies it back into
+	// Cilium the BPF will see this mark and understand that the packet
+	// originated from the host.
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
+	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
+	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
+
+	return runProg(prog, append(
+		m.waitArgs,
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
+		"-m", "comment", "--comment", "cilium: host->any mark as from host",
+		"-j", "MARK", "--set-xmark", markAsFromHost), false)
+}
+
 // TransientRulesStart installs iptables rules for Cilium that need to be
 // kept in-tact during agent restart which removes/installs its main rules.
 // Transient rules are then removed once iptables rule update cycle has
@@ -835,9 +1144,6 @@ func (m *IptablesManager) TransientRulesEnd(quiet bool) {
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *IptablesManager) InstallRules(ifName string) error {
-	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
-	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
-
 	for _, c := range ciliumChains {
 		if err := c.add(m.waitArgs); err != nil {
 			// do not return error for chain creation that are linked to disabled feeder rules
@@ -872,173 +1178,33 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 
-		// Mark all packets sourced from processes running on the host with a
-		// special marker so that we can differentiate traffic sourced locally
-		// vs. traffic from the outside world that was masqueraded to appear
-		// like it's from the host.
-		//
-		// Originally we set this mark only for traffic destined to the
-		// ifName device, to ensure that any traffic directly reaching
-		// to a Cilium-managed IP could be classified as from the host.
-		//
-		// However, there's another case where a local process attempts to
-		// reach a service IP which is backed by a Cilium-managed pod. The
-		// service implementation is outside of Cilium's control, for example,
-		// handled by kube-proxy. We can tag even this traffic with a magic
-		// mark, then when the service implementation proxies it back into
-		// Cilium the BPF will see this mark and understand that the packet
-		// originated from the host.
-		matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
-		markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-t", "filter",
-			"-A", ciliumOutputChain,
-			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
-			"-m", "comment", "--comment", "cilium: host->any mark as from host",
-			"-j", "MARK", "--set-xmark", markAsFromHost), false); err != nil {
+		if err := m.installHostTrafficMarkRule("iptables"); err != nil {
 			return err
 		}
 
-		if option.Config.Masquerade && !option.Config.EnableBPFMasquerade {
-			// Masquerade all egress traffic leaving the node
-			//
-			// This rule must be first as it has different exclusion criteria
-			// than the other rules in this table.
-			//
-			// The following conditions must be met:
-			// * May not leave on a cilium_ interface, this excludes all
-			//   tunnel traffic
-			// * Must originate from an IP in the local allocation range
-			// * Must not be reply if BPF NodePort is enabled
-			// * Tunnel mode:
-			//   * May not be targeted to an IP in the local allocation
-			//     range
-			// * Non-tunnel mode:
-			//   * May not be targeted to an IP in the cluster range
-			if option.Config.EgressMasqueradeInterfaces != "" {
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
-					"-o", option.Config.EgressMasqueradeInterfaces,
-					"-m", "comment", "--comment", "cilium masquerade non-cluster",
-					"-j", "MASQUERADE"), false); err != nil {
-					return err
-				}
-			} else {
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"-s", node.GetIPv4AllocRange().String(),
-					"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
-					"!", "-o", "cilium_+",
-					"-m", "comment", "--comment", "cilium masquerade non-cluster",
-					"-j", "MASQUERADE"), false); err != nil {
-					return err
-				}
-			}
-
-			// The following rules exclude traffic from the remaining rules in this chain.
-			// If any of these rules match, none of the remaining rules in this chain
-			// are considered.
-			// Exclude traffic for other than interface from the masquarade rules.
-			// RETURN fro the chain as it is possible that other rules need to be matched.
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"!", "-o", localDeliveryInterface,
-				"-m", "comment", "--comment", "exclude non-"+ifName+" traffic from masquerade",
-				"-j", "RETURN"), false); err != nil {
+		if option.Config.EnableIPv4Masquerade && !option.Config.EnableBPFMasquerade {
+			if err := m.installMasqueradeRules("iptables", ifName, localDeliveryInterface,
+				datapath.RemoteSNATDstAddrExclusionCIDRv4().String(),
+				node.GetIPv4AllocRange().String(),
+				node.GetHostMasqueradeIPv4().String(),
+			); err != nil {
 				return err
 			}
+		}
+	}
 
-			// Exclude proxy return traffic from the masquarade rules
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-m", "mark", "--mark", matchFromProxy, // Don't match proxy (return) traffic
-				"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
-				"-j", "ACCEPT"), false); err != nil {
+	if option.Config.EnableIPv6 {
+		if err := m.installHostTrafficMarkRule("ip6tables"); err != nil {
+			return err
+		}
+
+		if option.Config.EnableIPv6Masquerade && !option.Config.EnableBPFMasquerade {
+			if err := m.installMasqueradeRules("ip6tables", ifName, localDeliveryInterface,
+				datapath.RemoteSNATDstAddrExclusionCIDRv6().String(),
+				node.GetIPv6AllocRange().String(),
+				node.GetHostMasqueradeIPv6().String(),
+			); err != nil {
 				return err
-			}
-
-			if option.Config.Tunnel != option.TunnelDisabled {
-				// Masquerade all traffic from the host into the ifName
-				// interface if the source is not the internal IP
-				//
-				// The following conditions must be met:
-				// * Must be targeted for the ifName interface
-				// * Must be targeted to an IP that is not local
-				// * Tunnel mode:
-				//   * May not already be originating from the masquerade IP
-				// * Non-tunnel mode:
-				//   * May not orignate from any IP inside of the cluster range
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"!", "-s", node.GetHostMasqueradeIPv4().String(),
-					"!", "-d", node.GetIPv4AllocRange().String(),
-					"-o", "cilium_host",
-					"-m", "comment", "--comment", "cilium host->cluster masquerade",
-					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-					return err
-				}
-			}
-
-			// Masquerade all traffic from the host into local
-			// endpoints if the source is 127.0.0.1. This is
-			// required to force replies out of the endpoint's
-			// network namespace.
-			//
-			// The following conditions must be met:
-			// * Must be targeted for local endpoint
-			// * Must be from 127.0.0.1
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-s", "127.0.0.1",
-				"-o", localDeliveryInterface,
-				"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
-				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-				return err
-			}
-
-			// Masquerade all traffic that originated from a local
-			// pod and thus carries a security identity and that
-			// was also DNAT'ed. It must be masqueraded to ensure
-			// that reverse NAT can be performed. Otherwise the
-			// reply traffic would be sent directly to the pod
-			// without traversing the Linux stack again.
-			//
-			// This is only done if EnableEndpointRoutes is
-			// disabled, if EnableEndpointRoutes is enabled, then
-			// all traffic always passes through the stack anyway.
-			//
-			// This is required for:
-			//  - portmap/host if both source and destination are
-			//    on the same node
-			//  - kiam if source and server are on the same node
-			if !option.Config.EnableEndpointRoutes {
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
-					"-o", localDeliveryInterface,
-					"-m", "conntrack", "--ctstate", "DNAT",
-					"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
-					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-					return err
-				}
 			}
 		}
 	}
@@ -1159,13 +1325,26 @@ func (m *IptablesManager) addCiliumNoTrackXfrmRules() error {
 }
 
 func (m *IptablesManager) addCiliumENIRules() error {
+	if !option.Config.EnableIPv4 {
+		return nil
+	}
+
+	iface, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	if err != nil {
+		return fmt.Errorf("failed to find interface with default route: %w", err)
+	}
+
 	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
 	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
+
+	// Note: these rules need the xt_connmark module (iptables usually
+	// loads it when required, unless loading modules after boot has been
+	// disabled).
 	if err := runProg("iptables", append(
 		m.waitArgs,
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
-		"-i", "eth0",
+		"-i", iface.Attrs().Name,
 		"-m", "comment", "--comment", "cilium: primary ENI",
 		"-m", "addrtype", "--dst-type", "LOCAL", "--limit-iface-in",
 		"-j", "CONNMARK", "--set-xmark", nfmask+"/"+ctmask),

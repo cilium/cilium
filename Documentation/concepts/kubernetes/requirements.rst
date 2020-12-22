@@ -18,7 +18,6 @@ with this Cilium version. Older Kubernetes versions not listed here do not have
 Cilium support. Newer Kubernetes versions, while not listed, will depend on the
 backward compatibility offered by Kubernetes.
 
-* 1.12
 * 1.13
 * 1.14
 * 1.15
@@ -26,6 +25,7 @@ backward compatibility offered by Kubernetes.
 * 1.17
 * 1.18
 * 1.19
+* 1.20
 
 System Requirements
 ===================
@@ -41,50 +41,6 @@ delegate networking configuration. CNI must be enabled in your Kubernetes
 cluster in order to install Cilium. This is done by passing
 ``--network-plugin=cni`` to kubelet on all nodes. For more information, see
 the `Kubernets CNI network-plugins documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
-
-.. _admin_mount_bpffs:
-
-Mounted eBPF filesystem
-=======================
-
-.. Note::
-
-        Some distributions mount the bpf filesystem automatically. Check if the
-        bpf filesystem is mounted by running the command.
-
-        .. code:: shell-session
-
-                  mount | grep /sys/fs/bpf
-                  # if present should output, e.g. "none on /sys/fs/bpf type bpf"...
-
-This step is **required for production** environments but optional for testing
-and development. It allows the ``cilium-agent`` to pin eBPF resources to a
-persistent filesystem and make them persistent across restarts of the agent.
-If the eBPF filesystem is not mounted in the host filesystem, Cilium will
-automatically mount the filesystem but it will be unmounted and re-mounted when
-the Cilium pod is restarted. This in turn will cause eBPF resources to be
-re-created which will cause network connectivity to be disrupted. Mounting the
-eBPF filesystem in the host mount namespace will ensure that the agent can be
-restarted without affecting connectivity of any pods.
-
-In order to mount the eBPF filesystem, the following command must be run in the
-host mount namespace. The command must only be run once during the boot process
-of the machine.
-
-.. code:: bash
-
-	mount bpffs /sys/fs/bpf -t bpf
-
-A portable way to achieve this with persistence is to add the following line to
-``/etc/fstab`` and then run ``mount /sys/fs/bpf``. This will cause the
-filesystem to be automatically mounted when the node boots.
-
-.. code:: bash
-
-     bpffs			/sys/fs/bpf		bpf	defaults 0 0
-
-If you are using systemd to manage the kubelet, see the section
-:ref:`bpffs_systemd`.
 
 .. _k8s_req_kubedns:
 

@@ -294,6 +294,41 @@ func (s *LabelsSuite) TestLabelsCompare(c *C) {
 	c.Assert(lblsLb22.Equals(lblsLa22), Equals, false)
 }
 
+func (s *LabelsSuite) TestLabelsK8sStringMap(c *C) {
+	laKa1 := NewLabel("a", "1", LabelSourceK8s)
+	laUa1 := NewLabel("a", "1", LabelSourceUnspec)
+	laCa2 := NewLabel("a", "2", LabelSourceContainer)
+	lbAb2 := NewLabel("b", "2", LabelSourceAny)
+	lbRb2 := NewLabel("b", "2", LabelSourceReserved)
+
+	lblsKa1 := Labels{laKa1.Key: laKa1}
+	lblsUa1 := Labels{laUa1.Key: laUa1}
+	lblsCa2 := Labels{laCa2.Key: laCa2}
+	lblsAb2 := Labels{lbAb2.Key: lbAb2}
+	lblsRb2 := Labels{lbRb2.Key: lbRb2}
+	lblsOverlap := Labels{laKa1.Key: laKa1, laUa1.Key: laUa1}
+	lblsAll := Labels{laKa1.Key: laKa1, laUa1.Key: laUa1, laCa2.Key: laCa2, lbAb2.Key: lbAb2, lbRb2.Key: lbRb2}
+	lblsFewer := Labels{laKa1.Key: laKa1, laCa2.Key: laCa2, lbAb2.Key: lbAb2, lbRb2.Key: lbRb2}
+
+	c.Assert(lblsKa1.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
+	c.Assert(lblsUa1.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
+	c.Assert(lblsCa2.K8sStringMap(), checker.Equals, map[string]string{"container.a": "2"})
+	c.Assert(lblsAb2.K8sStringMap(), checker.Equals, map[string]string{"b": "2"})
+	c.Assert(lblsRb2.K8sStringMap(), checker.Equals, map[string]string{"reserved.b": "2"})
+	c.Assert(lblsOverlap.K8sStringMap(), checker.Equals, map[string]string{"a": "1"})
+
+	c.Assert(lblsFewer.K8sStringMap(), checker.Equals, lblsAll.K8sStringMap())
+
+	// Unfortunately Labels key does not contain the source, which
+	// makes the last entry with the same key, but maybe from
+	// different source, overwrite the previous value with the
+	// same key. This makes the Labels contents dependent on the
+	// label insertion order. In this example, "a" from container
+	// overwrites "a" from K8s and "a" from Unspec, and "b" from
+	// reserved overwrites "b" from any.
+	c.Assert(lblsAll.K8sStringMap(), checker.Equals, map[string]string{"container.a": "2", "reserved.b": "2"})
+}
+
 func TestLabels_GetFromSource(t *testing.T) {
 	type args struct {
 		source string

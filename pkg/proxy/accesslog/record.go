@@ -257,10 +257,6 @@ type LogRecordKafka struct {
 type DNSDataSource string
 
 const (
-	// DNSSourceAgentPoller indicates that the DNS record was created by a poll
-	// from cilium-agent.
-	DNSSourceAgentPoller DNSDataSource = "agent-poller"
-
 	// DNSSourceProxy indicates that the DNS record was created by a proxy
 	// intercepting a DNS request/response.
 	DNSSourceProxy DNSDataSource = "proxy"

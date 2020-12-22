@@ -257,13 +257,12 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []str
 		if entries, exists := c.forward[name]; exists {
 			affectedNames = append(affectedNames, name)
 			for ip, entry := range c.removeExpired(entries, c.lastCleanup, time.Time{}) {
-				affectedNames = append(affectedNames, name)
 				removed[ip] = append(removed[ip], entry)
 			}
 		}
 	}
 
-	return KeepUniqueNames(affectedNames), removed
+	return affectedNames, removed
 }
 
 // cleanupOverLimitEntries returns the names that has reached the max number of
@@ -758,9 +757,43 @@ func (zombies *DNSZombieMappings) Upsert(now time.Time, ipStr string, qname ...s
 // alive. This occurs when:
 //  DeletePendingAt <= lastCTGCUpdate (i.e. CT GC has not happened yet), or
 //  AliveAt is not 0 and AliveAt >= lastCTGCUpdate (i.e it is marked by the CT GC run)
-func (zombies *DNSZombieMappings) isAlive(zombie *DNSZombieMapping) bool {
+func (zombies *DNSZombieMappings) isConnectionAlive(zombie *DNSZombieMapping) bool {
 	// These are opposite because there is no BeforeEquals with time.Time :/
 	return !(zombies.lastCTGCUpdate.After(zombie.DeletePendingAt) && zombies.lastCTGCUpdate.After(zombie.AliveAt))
+}
+
+// getAliveNames returns all the names that are alive
+//   a name is alive if at least one of the IPs that resolve to it are alive
+func (zombies *DNSZombieMappings) getAliveNames() map[string]struct{} {
+	var aliveNames map[string]struct{} = map[string]struct{}{}
+	for _, z := range zombies.deletes {
+		if zombies.isConnectionAlive(z) {
+			for _, name := range z.Names {
+				aliveNames[name] = struct{}{}
+			}
+		}
+	}
+
+	return aliveNames
+}
+
+// isZombieAlive returns true if zombie is alive
+//
+// A zombie is alive if its connection is alive or if one of its names is
+// alive. The function takes an argument that contains the aliveNames (can be
+// obtained via getAliveNames())
+func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveNames map[string]struct{}) bool {
+	if zombies.isConnectionAlive(zombie) {
+		return true
+	}
+
+	for _, name := range zombie.Names {
+		if _, ok := aliveNames[name]; ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GC returns alive and dead DNSZombieMapping entries. This removes dead
@@ -775,9 +808,11 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
+	var aliveNames map[string]struct{} = zombies.getAliveNames()
+
 	// Collect zombies we can delete
 	for _, zombie := range zombies.deletes {
-		if zombies.isAlive(zombie) {
+		if zombies.isZombieAlive(zombie, aliveNames) {
 			alive = append(alive, zombie.DeepCopy())
 		} else {
 			// Emit the actual object here since we will no longer update it
@@ -920,13 +955,22 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 	return nil
 }
 
-// DumpAlive returns copies of still-alive zombies
-func (zombies *DNSZombieMappings) DumpAlive() (alive []*DNSZombieMapping) {
+// CIDRMatcherFunc is a function passed to (*DNSZombieMappings).DumpAlive,
+// called on each zombie to determine whether it should be returned.
+type CIDRMatcherFunc func(ip net.IP) bool
+
+// DumpAlive returns copies of still-alive zombies matching cidrMatcher.
+func (zombies *DNSZombieMappings) DumpAlive(cidrMatcher CIDRMatcherFunc) (alive []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
+	aliveNames := zombies.getAliveNames()
 	for _, zombie := range zombies.deletes {
-		if !zombies.isAlive(zombie) {
+		if !zombies.isZombieAlive(zombie, aliveNames) {
+			continue
+		}
+		// only proceed if zombie is alive and the IP matches the CIDR selector
+		if cidrMatcher != nil && !cidrMatcher(zombie.IP) {
 			continue
 		}
 

@@ -94,7 +94,7 @@ static void test___ct_lookup(void)
 	void *tuple = (void *)__TUPLE_EXIST;
 
 	struct ct_state ct_state;
-	union tcp_flags seen_flags;
+	union tcp_flags seen_flags = {0};
 	__u32 monitor;
 	int res;
 
@@ -165,6 +165,16 @@ static void test___ct_lookup(void)
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
 	assert(timeout_in(entry, CT_CLOSE_TIMEOUT - 1));
+
+	/* A connection is reopened due to a newly seen SYN.*/
+	advance_time();
+	monitor = 0;
+	seen_flags.value = TCP_FLAG_SYN;
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_EGRESS,
+			  &ct_state, true, seen_flags, &monitor);
+	assert(res == CT_REOPENED);
+	assert(monitor == TRACE_PAYLOAD_LEN);
+	assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
 	/* Label connection as new if the tuple wasn't previously tracked */
 	tuple = (void *)__TUPLE_NOEXIST;

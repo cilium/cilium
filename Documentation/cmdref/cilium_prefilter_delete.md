@@ -4,10 +4,6 @@
 
 Delete CIDR filters
 
-### Synopsis
-
-Delete CIDR filters
-
 ```
 cilium prefilter delete [flags]
 ```

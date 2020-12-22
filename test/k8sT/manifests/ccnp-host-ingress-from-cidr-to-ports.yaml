@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumClusterwideNetworkPolicy
-description: "Host policy to allow traffic external to cluster inwards via CIDR and port"
 metadata:
   name: "host-ingress-from-cidr-to-ports"
 spec:
+  description: "Host policy to allow traffic external to cluster inwards via CIDR and port"
   nodeSelector: {}
   ingress:
   - toPorts:

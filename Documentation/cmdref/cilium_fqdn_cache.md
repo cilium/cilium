@@ -4,10 +4,6 @@
 
 Manage fqdn proxy cache
 
-### Synopsis
-
-Manage fqdn proxy cache
-
 ```
 cilium fqdn cache [flags]
 ```

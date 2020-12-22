@@ -224,7 +224,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	if driver.conf.Addressing.IPV6 != nil && driver.conf.Addressing.IPV6.Enabled {
 		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
-			log.Fatalf("Unable to generate IPv6 routes: %s", err)
+			log.WithError(err).Fatal("Unable to generate IPv6 routes")
 		} else {
 			for _, r := range routes {
 				driver.routes = append(driver.routes, newLibnetworkRoute(r))
@@ -236,7 +236,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	if driver.conf.Addressing.IPV4 != nil && driver.conf.Addressing.IPV4.Enabled {
 		if routes, err := connector.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
-			log.Fatalf("Unable to generate IPv4 routes: %s", err)
+			log.WithError(err).Fatal("Unable to generate IPv4 routes")
 		} else {
 			for _, r := range routes {
 				driver.routes = append(driver.routes, newLibnetworkRoute(r))

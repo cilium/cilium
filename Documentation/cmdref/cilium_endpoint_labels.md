@@ -4,10 +4,6 @@
 
 Manage label configuration of endpoint
 
-### Synopsis
-
-Manage label configuration of endpoint
-
 ```
 cilium endpoint labels [flags]
 ```

@@ -398,78 +398,43 @@ func lookupRule(spec Rule, family int) (bool, error) {
 // `filter` is nil, this function will return all rules, "unfiltered". This
 // function is meant to replicate the behavior of `ip rule list`.
 func ListRules(family int, filter *Rule) ([]netlink.Rule, error) {
-	rules, err := netlink.RuleList(family)
-	if err != nil {
-		return nil, err
-	}
-
-	if filter == nil {
-		return rules, nil
-	}
-
-	const (
-		// RT_FILTER_PRIORITY is a flag that can be specified to signal
-		// filtering against rules with 'Priority' specified. Note: this count
-		// starts from where netlink stops, see
-		// https://github.com/vishvananda/netlink/blob/d71301a47b607450337d920f260f3dc76481298e/route_linux.go#L25
-		//
-		// TODO: Remove this function when the upstream PR has been merged:
-		// https://github.com/vishvananda/netlink/pull/538
-		RT_FILTER_PRIORITY uint64 = 1 << (12 + 1 + iota)
-
-		// RT_FILTER_MARK is a flag that can be specified to signal
-		// filtering against rules with 'Mark' specified.
-		RT_FILTER_MARK
-
-		// RT_FILTER_MASK is a flag that can be specified to signal filtering
-		// against rules with 'Mask' specified.
-		RT_FILTER_MASK
-	)
-
+	var nlFilter netlink.Rule
 	var mask uint64
-	if filter.From != nil {
-		mask |= netlink.RT_FILTER_SRC
-	}
-	if filter.To != nil {
-		mask |= netlink.RT_FILTER_DST
-	}
-	if filter.Table != 0 {
-		mask |= netlink.RT_FILTER_TABLE
-	}
-	if filter.Priority != 0 {
-		mask |= RT_FILTER_PRIORITY
-	}
-	if filter.Mark != 0 {
-		mask |= RT_FILTER_MARK
-	}
-	if filter.Mask != 0 {
-		mask |= RT_FILTER_MASK
-	}
 
-	candidates := make([]netlink.Rule, 0, len(rules))
-	for _, rule := range rules {
-		switch {
-		case mask&netlink.RT_FILTER_SRC != 0 &&
-			(rule.Src == nil || rule.Src.String() != filter.From.String()):
-			continue
-		case mask&netlink.RT_FILTER_DST != 0 &&
-			(rule.Dst == nil || rule.Dst.String() != filter.To.String()):
-			continue
-		case mask&netlink.RT_FILTER_TABLE != 0 &&
-			filter.Table != unix.RT_TABLE_UNSPEC && rule.Table != filter.Table:
-			continue
-		case mask&RT_FILTER_PRIORITY != 0 && rule.Priority != filter.Priority:
-			continue
-		case mask&RT_FILTER_MARK != 0 && rule.Mark != filter.Mark:
-			continue
-		case mask&RT_FILTER_MASK != 0 && rule.Mask != filter.Mask:
-			continue
+	if filter != nil {
+		if filter.From != nil {
+			mask |= netlink.RT_FILTER_SRC
+			nlFilter.Src = filter.From
+		}
+		if filter.To != nil {
+			mask |= netlink.RT_FILTER_DST
+			nlFilter.Dst = filter.To
+		}
+		if filter.Table != 0 {
+			mask |= netlink.RT_FILTER_TABLE
+			nlFilter.Table = filter.Table
+		}
+		if filter.Priority != 0 {
+			mask |= netlink.RT_FILTER_PRIORITY
+			nlFilter.Priority = filter.Priority
+		}
+		if filter.Mark != 0 {
+			mask |= netlink.RT_FILTER_MARK
+			nlFilter.Mark = filter.Mark
+		}
+		if filter.Mask != 0 {
+			mask |= netlink.RT_FILTER_MASK
+			nlFilter.Mask = filter.Mask
 		}
 
-		candidates = append(candidates, rule)
+		nlFilter.Priority = filter.Priority
+		nlFilter.Mark = filter.Mark
+		nlFilter.Mask = filter.Mask
+		nlFilter.Src = filter.From
+		nlFilter.Dst = filter.To
+		nlFilter.Table = filter.Table
 	}
-
-	return candidates, nil
+	return netlink.RuleListFiltered(family, &nlFilter, mask)
 }
 
 // ReplaceRule add or replace rule in the routing table using a mark to indicate

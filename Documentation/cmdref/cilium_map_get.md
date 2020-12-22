@@ -4,10 +4,6 @@
 
 Display cached content of given BPF map
 
-### Synopsis
-
-Display cached content of given BPF map
-
 ```
 cilium map get <name> [flags]
 ```

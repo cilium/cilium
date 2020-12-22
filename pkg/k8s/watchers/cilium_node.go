@@ -30,7 +30,6 @@ import (
 )
 
 func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
-
 	// CiliumNode objects are used for node discovery until the key-value
 	// store is connected
 	var once sync.Once
@@ -91,14 +90,14 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
+		k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer.HasSynced, k8sAPIGroupCiliumNodeV2)
 
 		once.Do(func() {
 			// Signalize that we have put node controller in the wait group
 			// to sync resources.
 			asyncControllers.Done()
 		})
-		k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNodeV2)
+		k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumNodeV2)
 		go ciliumNodeInformer.Run(isConnected)
 
 		<-kvstore.Connected()
@@ -107,7 +106,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		log.Info("Connected to key-value store, stopping CiliumNode watcher")
 
 		k.cancelWaitGroupToSyncResources(k8sAPIGroupCiliumNodeV2)
-		k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumNodeV2)
+		k.k8sAPIGroups.RemoveAPI(k8sAPIGroupCiliumNodeV2)
 		// Create a new node controller when we are disconnected with the
 		// kvstore
 		<-kvstore.Client().Disconnected()

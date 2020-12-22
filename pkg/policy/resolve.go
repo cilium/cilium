@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -64,6 +65,7 @@ type EndpointPolicy struct {
 	// It maps each Key to the proxy port if proxy redirection is needed.
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the Key and the proxy port must be in host byte-order.
+	// Must only be accessed with PolicyOwner (aka Endpoint) lock taken.
 	PolicyMapState MapState
 
 	// policyMapChanges collects pending changes to the PolicyMapState
@@ -141,7 +143,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// after the computation of PolicyMapState has started.
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	if !isHost {
-		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
+		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
 
 	return calculatedPolicy
@@ -154,11 +156,11 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Egress, trafficdirection.Egress)
+	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Ingress, trafficdirection.Ingress)
+	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress, trafficdirection.Egress)
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
 		lookupDone := false
 		proxyport := uint16(0)
@@ -182,7 +184,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 					continue
 				}
 			}
-			p.PolicyMapState[keyFromFilter] = entry
+			policyMapState.DenyPreferredInsert(keyFromFilter, entry)
 		}
 	}
 }
@@ -190,10 +192,42 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 // ConsumeMapChanges transfers the changes from MapChanges to the caller,
 // locking the selector cache to make sure concurrent identity updates
 // have completed.
+// PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	return p.policyMapChanges.consumeMapChanges()
+	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState)
+}
+
+// AllowsIdentity returns whether the specified policy allows
+// ingress and egress traffic for the specified numeric security identity.
+// If the 'secID' is zero, it will check if all traffic is allowed.
+//
+// Returning true for either return value indicates all traffic is allowed.
+func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingress, egress bool) {
+	key := Key{
+		Identity: uint32(identity),
+	}
+
+	if !p.IngressPolicyEnabled {
+		ingress = true
+	} else {
+		key.TrafficDirection = trafficdirection.Ingress.Uint8()
+		if v, exists := p.PolicyMapState[key]; exists && !v.IsDeny {
+			ingress = true
+		}
+	}
+
+	if !p.EgressPolicyEnabled {
+		egress = true
+	} else {
+		key.TrafficDirection = trafficdirection.Egress.Uint8()
+		if v, exists := p.PolicyMapState[key]; exists && !v.IsDeny {
+			egress = true
+		}
+	}
+
+	return ingress, egress
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.

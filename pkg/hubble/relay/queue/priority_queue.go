@@ -16,6 +16,7 @@ package queue
 
 import (
 	"container/heap"
+	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 )
@@ -57,6 +58,26 @@ func (pq *PriorityQueue) Push(resp *observerpb.GetFlowsResponse) {
 func (pq *PriorityQueue) Pop() *observerpb.GetFlowsResponse {
 	resp := heap.Pop(&pq.h).(*observerpb.GetFlowsResponse)
 	return resp
+}
+
+// PopOlderThan removes and returns objects in the queue that are older than t.
+// Objects in the returned list are sorted chronologically from the oldest to
+// the more recent.
+func (pq *PriorityQueue) PopOlderThan(t time.Time) []*observerpb.GetFlowsResponse {
+	// pre-allocate enough memory for the slice to hold every element in the
+	// queue as flushing the entire queue is a common pattern
+	ret := make([]*observerpb.GetFlowsResponse, 0, pq.Len())
+	for {
+		resp := pq.Pop()
+		if resp == nil {
+			return ret
+		}
+		if t.Before(resp.GetTime().AsTime()) {
+			pq.Push(resp)
+			return ret
+		}
+		ret = append(ret, resp)
+	}
 }
 
 func (h minHeap) Len() int {

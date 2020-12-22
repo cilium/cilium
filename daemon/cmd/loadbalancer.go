@@ -70,6 +70,8 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		svcType = loadbalancer.SVCTypeLoadBalancer
 	case models.ServiceSpecFlagsTypeHostPort:
 		svcType = loadbalancer.SVCTypeHostPort
+	case models.ServiceSpecFlagsTypeLocalRedirect:
+		svcType = loadbalancer.SVCTypeLocalRedirect
 	default:
 		svcType = loadbalancer.SVCTypeClusterIP
 	}

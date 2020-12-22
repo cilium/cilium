@@ -49,7 +49,6 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -292,7 +291,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 
 	case datapathOption.DatapathModeIpvlan:
-		mapFD, err := connector.CreateAndSetupIpvlanSlave("",
+		m, err := connector.CreateAndSetupIpvlanSlave("",
 			epIfaceName, netNS, mtuConfig.GetDeviceMTU(),
 			option.Config.Ipvlan.MasterDeviceIndex,
 			option.Config.Ipvlan.OperationMode, info)
@@ -303,8 +302,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			}
 			return nil, err
 		}
-		defer unix.Close(mapFD)
-
+		defer m.Close()
 	}
 
 	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address); err != nil {
@@ -340,15 +338,15 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
-	// Set up the endpoint routes
+	// Set up the endpoint routes.
 	if err = configureHealthRouting(info.ContainerName, epIfaceName, node.GetNodeAddressing(), mtuConfig); err != nil {
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
+		// ENI mode does not support IPv6.
 		if err := routingConfig.Configure(healthIP,
-			mtuConfig.GetDeviceMTU(),
-			option.Config.Masquerade); err != nil {
+			mtuConfig.GetDeviceMTU(), option.Config.EnableIPv4Masquerade); err != nil {
 
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
 		}

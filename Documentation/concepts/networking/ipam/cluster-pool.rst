@@ -38,6 +38,13 @@ Field                  Description
 ``Spec.IPAM.PodCIDRs`` IPv4 and/or IPv6 PodCIDR range
 ====================== ==============================
 
+*************
+Configuration
+*************
+
+For a practical tutorial on how to enable this mode in Cilium, see
+:ref:`gsg_ipam_crd_cluster_pool`.
+
 ***************
 Troubleshooting
 ***************

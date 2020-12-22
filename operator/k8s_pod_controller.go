@@ -23,9 +23,10 @@ import (
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -39,8 +40,8 @@ var (
 
 func enableUnmanagedKubeDNSController() {
 	// These functions will block until the resources are synced with k8s.
-	watchers.CiliumEndpointsInit(k8s.CiliumClient().CiliumV2())
-	watchers.UnmanagedPodsInit(k8s.WatcherCli())
+	watchers.CiliumEndpointsInit(k8s.CiliumClient().CiliumV2(), wait.NeverStop)
+	watchers.UnmanagedPodsInit(k8s.WatcherClient())
 
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{

@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumClusterwideNetworkPolicy
-description: "Allow a minimum set of required ports on ingress of worker nodes"
 metadata:
   name: "lock-down-ingress-worker-node"
 spec:
+  description: "Allow a minimum set of required ports on ingress of worker nodes"
   nodeSelector:
     matchLabels:
       type: ingress-worker

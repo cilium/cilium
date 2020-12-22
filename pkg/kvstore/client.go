@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -49,7 +51,9 @@ func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) e
 		if isErr && err != nil {
 			scopedLog.WithError(err).Fatal("Unable to connect to kvstore")
 		}
-		deleteLegacyPrefixes(ctx)
+		if !option.Config.JoinCluster {
+			deleteLegacyPrefixes(ctx)
+		}
 	}()
 
 	return nil

@@ -4,10 +4,6 @@
 
 Retrieve information about an identity
 
-### Synopsis
-
-Retrieve information about an identity
-
 ```
 cilium identity get [flags]
 ```

@@ -3,13 +3,14 @@
 # development environmennt
 FROM quay.io/cilium/cilium-envoy:63de0bd958d05d82e2396125dcf6286d92464c56 as cilium-envoy
 
-FROM quay.io/cilium/cilium-runtime:2020-09-10@sha256:fa45d7a600a9b4baeee64f9c017898fe0eba5425ffac2ba5b3bafacc319544fa
+FROM quay.io/cilium/cilium-runtime:2020-12-10@sha256:ee6f0f81fa73125234466c13fd16bed30cc3209daa2f57098f63e0285779e5f3
 LABEL maintainer="maintainer@cilium.io"
 RUN apt-get update && apt-get install make -y
 WORKDIR /go/src/github.com/cilium/cilium
 ARG LOCKDEBUG
 ARG V
 ARG LIBNETWORK_PLUGIN
+ARG RACE
 COPY --from=cilium-envoy / /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
@@ -25,7 +26,7 @@ COPY ./proxylib ./proxylib
 COPY ./Makefile* ./
 RUN for i in proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health bugtool; \
      do LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
-            SKIP_DOCS=true DESTDIR= \
+            SKIP_DOCS=true DESTDIR= RACE=$RACE \
             make -C $i install; done
 RUN groupadd -f cilium \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc

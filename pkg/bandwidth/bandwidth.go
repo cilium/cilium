@@ -67,7 +67,7 @@ func ProbeBandwidthManager() {
 		}
 	}
 	if !kernelGood {
-		log.Warn("BPF bandwidth manager needs kernel 5.0 or newer. Disabling the feature.")
+		log.Warn("BPF bandwidth manager needs kernel 5.1 or newer. Disabling the feature.")
 		option.Config.EnableBandwidthManager = false
 		return
 	}

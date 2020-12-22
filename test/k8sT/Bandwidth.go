@@ -25,72 +25,69 @@ import (
 )
 
 var _ = Describe("K8sBandwidthTest", func() {
-	const (
-		testDS10       = "run=netperf-10"
-		testDS25       = "run=netperf-25"
-		testClientPod  = "run=netperf-client-pod"
-		testClientHost = "run=netperf-client-host"
-
-		maxRateDeviation = 7
-	)
-
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
-
-		backgroundCancel       context.CancelFunc = func() {}
-		backgroundError        error
-		enableBackgroundReport = true
-
-		podLabels = []string{
-			testDS10,
-			testDS25,
-		}
+		demoYAML       string
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
-	})
 
-	AfterFailed(func() {
-		kubectl.CiliumReport("cilium bpf bandwidth list", "cilium endpoint list")
-	})
-
-	JustBeforeEach(func() {
-		if enableBackgroundReport {
-			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-		}
-	})
-
-	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		backgroundCancel()
-	})
-
-	AfterEach(func() {
-		ExpectAllPodsTerminated(kubectl)
+		demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_bw.yaml")
+		res := kubectl.ApplyDefault(demoYAML)
+		res.ExpectSuccess("Unable to apply %s", demoYAML)
 	})
 
 	AfterAll(func() {
+		_ = kubectl.Delete(demoYAML)
+		ExpectAllPodsTerminated(kubectl)
+
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
-	SkipContextIf(func() bool {
-		return !helpers.RunsOnNetNextKernel()
-	}, "Checks Bandwidth Rate-Limiting", func() {
-		var demoYAML string
+	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "Checks Bandwidth Rate-Limiting", func() {
+		const (
+			testDS10       = "run=netperf-10"
+			testDS25       = "run=netperf-25"
+			testClientPod  = "run=netperf-client-pod"
+			testClientHost = "run=netperf-client-host"
 
-		BeforeAll(func() {
-			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_bw.yaml")
+			maxRateDeviation = 5
+			minBandwidth     = 1
+		)
 
-			res := kubectl.ApplyDefault(demoYAML)
-			res.ExpectSuccess("unable to apply %s", demoYAML)
+		var (
+			backgroundCancel       context.CancelFunc = func() {}
+			backgroundError        error
+			enableBackgroundReport = true
 
+			podLabels = []string{
+				testDS10,
+				testDS25,
+			}
+		)
+
+		AfterFailed(func() {
+			kubectl.CiliumReport("cilium bpf bandwidth list", "cilium endpoint list")
+		})
+
+		JustBeforeEach(func() {
+			if enableBackgroundReport {
+				backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+				Expect(backgroundError).To(BeNil(), "Cannot start background report process")
+			}
+		})
+
+		JustAfterEach(func() {
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			backgroundCancel()
+		})
+
+		waitForTestPods := func() {
 			podLabels := []string{
 				testDS10,
 				testDS25,
@@ -102,11 +99,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 					fmt.Sprintf("-l %s", label), helpers.HelperTimeout)
 				Expect(err).Should(BeNil())
 			}
-		})
-
-		AfterAll(func() {
-			_ = kubectl.Delete(demoYAML)
-		})
+		}
 
 		testNetperfFromPods := func(clientPodLabel, targetIP string, maxSessions, rate int) {
 			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
@@ -122,7 +115,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 						"Request from %s pod to pod with IP %s failed", pod, targetIP)
 					By("Session test completed, netperf result raw: %s", res.SingleOut())
 					if rate > 0 {
-						ExpectWithOffset(1, res.InRange(rate, maxRateDeviation)).To(BeNil(),
+						ExpectWithOffset(1, res.InRange(minBandwidth, rate+maxRateDeviation)).To(BeNil(),
 							"Rate mismatch")
 					}
 				}
@@ -144,23 +137,29 @@ var _ = Describe("K8sBandwidthTest", func() {
 
 		It("Checks Pod to Pod bandwidth, vxlan tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"global.tunnel": "vxlan",
+				"bandwidthManager": "true",
+				"tunnel":           "vxlan",
 			})
+			waitForTestPods()
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, geneve tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"global.tunnel": "geneve",
+				"bandwidthManager": "true",
+				"tunnel":           "geneve",
 			})
+			waitForTestPods()
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, direct routing", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"global.tunnel":               "disabled",
-				"global.autoDirectNodeRoutes": "true",
+				"bandwidthManager":     "true",
+				"tunnel":               "disabled",
+				"autoDirectNodeRoutes": "true",
 			})
+			waitForTestPods()
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})

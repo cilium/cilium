@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
-// listenerv1_2 implements the ciliim-node-monitor API protocol compatible with
+// listenerv1_2 implements the cilium-node-monitor API protocol compatible with
 // cilium 1.2
 // cleanupFn is called on exit
 type listenerv1_2 struct {

@@ -1,9 +1,0 @@
-apiVersion: v2
-name: prometheus-crd
-version: 1.8.90
-appVersion: 1.8.90
-description: Helm chart to install required Prometheus CRDs
-keywords:
-sources:
-  - https://github.com/cilium/cilium
-  - https://github.com/helm/charts/tree/master/stable/prometheus-operator

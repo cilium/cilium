@@ -16,15 +16,12 @@ package k8s
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"path"
 	"strings"
 	"time"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -271,27 +268,10 @@ func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimC
 		default:
 		}
 
-		var (
-			cnp *types.SlimCNP
-			err error
-		)
-
-		switch {
-		// Patching doesn't need us to get the CNP from
-		// the store because we can perform patches without
-		// needing the actual CNP object itself.
-		case k8sversion.Capabilities().Patch:
-		default:
-			cnp, err = getUpdatedCNPFromStore(c.k8sStore, namespace, name)
-			if err != nil {
-				scopedLog.WithError(err).Error("error getting updated cnp from store")
-			}
-		}
-
 		// Now that we have collected all events for
 		// the given CNP, update the status for all nodes
 		// which have sent us updates.
-		if err = updateStatusesByCapabilities(CiliumClient(), k8sversion.Capabilities(), cnp, namespace, name, nodeStatusMap); err != nil {
+		if err := updateStatusesByCapabilities(CiliumClient(), namespace, name, nodeStatusMap); err != nil {
 			scopedLog.WithError(err).Error("error updating status for CNP")
 		}
 	}
@@ -320,26 +300,4 @@ func getKeyFromObject(t K8sMetaObject) string {
 		return path.Join(string(t.GetUID()), ns, t.GetName())
 	}
 	return path.Join(string(t.GetUID()), t.GetName())
-}
-
-func getUpdatedCNPFromStore(ciliumStore cache.Store, namespace, name string) (*types.SlimCNP, error) {
-	nameNamespace := name
-	if namespace != "" {
-		nameNamespace = fmt.Sprintf("%s/%s", namespace, name)
-	}
-
-	serverRuleStore, exists, err := ciliumStore.GetByKey(nameNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err)
-	}
-	if !exists {
-		return nil, errors.New("v2.CiliumNetworkPolicy does not exist in local cache")
-	}
-
-	serverRule, ok := serverRuleStore.(*types.SlimCNP)
-	if !ok {
-		return nil, errors.New("received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
-	}
-
-	return serverRule, nil
 }

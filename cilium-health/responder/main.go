@@ -62,7 +62,7 @@ func main() {
 		defer pidfile.Clean()
 		if err := pidfile.Write(pidfilePath); err != nil {
 			fmt.Fprintf(os.Stderr, "cannot write pidfile: %s: %s\n", pidfilePath, err.Error())
-			os.Exit(-1)
+			os.Exit(1)
 		}
 	}
 

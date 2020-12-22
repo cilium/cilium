@@ -30,6 +30,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium ip](../cilium_ip)	 - Manage IP addresses and associated information
 * [cilium kernel-check](../cilium_kernel-check)	 - Checks whether the system has required kernel capabilities
 * [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
+* [cilium lrp](../cilium_lrp)	 - Manage local redirect policies
 * [cilium map](../cilium_map)	 - Access userspace cached content of BPF maps
 * [cilium metrics](../cilium_metrics)	 - Access metric status
 * [cilium monitor](../cilium_monitor)	 - Display BPF program events

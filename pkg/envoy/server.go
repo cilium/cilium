@@ -211,7 +211,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 				}),
 			},
 		}, {
-			Name: "envoy.router",
+			Name: "envoy.filters.http.router",
 		}},
 		StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -271,7 +271,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
 		}, {
-			Name: "envoy.http_connection_manager",
+			Name: "envoy.filters.network.http_connection_manager",
 			ConfigType: &envoy_config_listener.Filter_TypedConfig{
 				TypedConfig: toAny(hcmConfig),
 			},
@@ -336,7 +336,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 
 	// 3. Add the TCP proxy filter.
 	filters = append(filters, &envoy_config_listener.Filter{
-		Name: "envoy.tcp_proxy",
+		Name: "envoy.filters.network.tcp_proxy",
 		ConfigType: &envoy_config_listener.Filter_TypedConfig{
 			TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
 				StatPrefix: "tcp_proxy",
@@ -378,7 +378,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 		hcmConfig := &envoy_config_http.HttpConnectionManager{
 			StatPrefix: metricsListenerName,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
-				Name: "envoy.router",
+				Name: "envoy.filters.http.router",
 			}},
 			StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -418,7 +418,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 			},
 			FilterChains: []*envoy_config_listener.FilterChain{{
 				Filters: []*envoy_config_listener.Filter{{
-					Name: "envoy.http_connection_manager",
+					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &envoy_config_listener.Filter_TypedConfig{
 						TypedConfig: toAny(hcmConfig),
 					},
@@ -539,7 +539,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	if kind == policy.ParserTypeHTTP {
 		// Use tls_inspector only with HTTP, insert as the first filter
 		listenerConf.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{{
-			Name: "envoy.listener.tls_inspector",
+			Name: "envoy.filters.listener.tls_inspector",
 		}}, listenerConf.ListenerFilters...)
 
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
@@ -562,7 +562,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 
 		// Experimental TCP chain for MongoDB
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
-			"envoy.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
+			"envoy.filters.network.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
 				StatPrefix:          "mongo",
 				EmitDynamicMetadata: true,
 			})))
@@ -1143,7 +1143,10 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			remoteMap[uint64(id)] = struct{}{}
 		}
 
-		if l7 != nil {
+		if !l7.IsEmpty() {
+			// If it is not empty then we issue the warning.
+			// Deny rules don't support L7 therefore for the deny case
+			// l7.IsEmpty() will always return true.
 			log.Warningf("L3-only rule for selector %v surprisingly has L7 rules (%v)!", sel, *l7)
 		}
 	}

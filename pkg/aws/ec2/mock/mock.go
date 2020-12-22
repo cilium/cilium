@@ -25,9 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/aws/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/cilium/ipam/service/ipallocator"
+	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 )
 
@@ -186,7 +186,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnetID)
 	}
 
-	eniID := uuid.NewUUID().String()
+	eniID := uuid.New().String()
 	eni := &eniTypes.ENI{
 		ID:          eniID,
 		Description: desc,

@@ -45,7 +45,6 @@ type prober struct {
 	// finished, then prober.Done() will be notified.
 	stop         chan bool
 	proberExited chan bool
-	done         chan bool
 
 	// The lock protects multiple requests attempting to update the status
 	// at the same time - ie, serialize updates between the periodic prober
@@ -308,12 +307,6 @@ func (p *prober) runHTTPProbe() {
 	}
 }
 
-// Done returns a channel that is closed when RunLoop() is stopped by an error.
-// It must be called after the RunLoop() call.
-func (p *prober) Done() <-chan bool {
-	return p.done
-}
-
 // Run sends a single probes out to all of the other cilium nodes to gather
 // connectivity status for the cluster.
 func (p *prober) Run() error {
@@ -328,7 +321,6 @@ func (p *prober) Stop() {
 	p.Pinger.Stop()
 	close(p.stop)
 	<-p.proberExited
-	close(p.done)
 }
 
 // RunLoop periodically sends probes out to all of the other cilium nodes to
@@ -363,7 +355,6 @@ func newProber(s *Server, nodes nodeMap) *prober {
 	prober := &prober{
 		Pinger:       fastping.NewPinger(),
 		server:       s,
-		done:         make(chan bool),
 		proberExited: make(chan bool),
 		stop:         make(chan bool),
 		results:      make(map[ipString]*models.PathStatus),

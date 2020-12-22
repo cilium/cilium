@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 func getEndpointStatusControllers(mdlControllers models.ControllerStatuses) (controllers cilium_v2.ControllerList) {
@@ -151,7 +150,7 @@ func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking
 
 // updateLabels inserts the labels correnspoding to the specified identity into
 // the AllowedIdentityTuple.
-func updateLabels(allocator cache.IdentityAllocator, allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
+func updateLabels(allocator cache.IdentityAllocator, allowedIdentityTuple *cilium_v2.IdentityTuple, secID identity.NumericIdentity) {
 	// IdentityUnknown denotes that this is an L4-only BPF
 	// allow, so it applies to all identities. In this case
 	// we should skip resolving the labels, because the
@@ -173,108 +172,119 @@ func updateLabels(allocator cache.IdentityAllocator, allowedIdentityTuple *ciliu
 	}
 }
 
-// populateResponseWithPolicyKey inserts an AllowedIdentityTuple element into 'policy'
-// which corresponds to the specified 'desiredPolicy'.
-func populateResponseWithPolicyKey(allocator cache.IdentityAllocator, policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
-	allowedIdentityTuple := cilium_v2.AllowedIdentityTuple{
+// populateResponseWithPolicyKey inserts an AllowedIdentityTuple element into
+// 'policy' which corresponds to the specified 'desiredPolicy'. If 'isDeny' is
+// true, it will insert the policyKey into the 'Denied'.
+func populateResponseWithPolicyKey(
+	allocator cache.IdentityAllocator,
+	policy *cilium_v2.EndpointPolicy,
+	policyKey *policy.Key,
+	isDeny bool,
+) {
+	identityTuple := cilium_v2.IdentityTuple{
 		DestPort: policyKey.DestPort,
 		Protocol: policyKey.Nexthdr,
 		Identity: uint64(policyKey.Identity),
 	}
 
 	secID := identity.NumericIdentity(policyKey.Identity)
-	updateLabels(allocator, &allowedIdentityTuple, secID)
+	updateLabels(allocator, &identityTuple, secID)
 
 	switch {
 	case policyKey.IsIngress():
-		if policy.Ingress.Allowed == nil {
-			policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
+		if isDeny {
+			if policy.Ingress.Denied == nil {
+				policy.Ingress.Denied = cilium_v2.DenyIdentityList{identityTuple}
+			} else {
+				policy.Ingress.Denied = append(policy.Ingress.Denied, identityTuple)
+			}
 		} else {
-			policy.Ingress.Allowed = append(policy.Ingress.Allowed, allowedIdentityTuple)
+			if policy.Ingress.Allowed == nil {
+				policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{identityTuple}
+			} else {
+				policy.Ingress.Allowed = append(policy.Ingress.Allowed, identityTuple)
+			}
 		}
 	case policyKey.IsEgress():
-		if policy.Egress.Allowed == nil {
-			policy.Egress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
+		if isDeny {
+			if policy.Egress.Denied == nil {
+				policy.Egress.Denied = cilium_v2.DenyIdentityList{identityTuple}
+			} else {
+				policy.Egress.Denied = append(policy.Egress.Denied, identityTuple)
+			}
 		} else {
-			policy.Egress.Allowed = append(policy.Egress.Allowed, allowedIdentityTuple)
+			if policy.Egress.Allowed == nil {
+				policy.Egress.Allowed = cilium_v2.AllowedIdentityList{identityTuple}
+			} else {
+				policy.Egress.Allowed = append(policy.Egress.Allowed, identityTuple)
+			}
 		}
 	}
-}
-
-// desiredPolicyAllowsIdentity returns whether the specified policy allows
-// ingress and egress traffic for the specified numeric security identity.
-// If the 'secID' is zero, it will check if all traffic is allowed.
-//
-// Returing true for either return value indicates all traffic is allowed.
-func desiredPolicyAllowsIdentity(desired *policy.EndpointPolicy, identity identity.NumericIdentity) (ingress, egress bool) {
-	key := policy.Key{
-		Identity: uint32(identity),
-	}
-
-	key.TrafficDirection = trafficdirection.Ingress.Uint8()
-	if _, ok := desired.PolicyMapState[key]; ok || !desired.IngressPolicyEnabled {
-		ingress = true
-	}
-	key.TrafficDirection = trafficdirection.Egress.Uint8()
-	if _, ok := desired.PolicyMapState[key]; ok || !desired.EgressPolicyEnabled {
-		egress = true
-	}
-
-	return ingress, egress
 }
 
 // getEndpointPolicy returns an API representation of the policy that the
 // received Endpoint intends to apply.
-func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
-	if e.desiredPolicy != nil {
-		policy = &cilium_v2.EndpointPolicy{
-			Ingress: &cilium_v2.EndpointPolicyDirection{
-				Enforcing: !e.Options.IsEnabled(option.PolicyAuditMode) && e.desiredPolicy.IngressPolicyEnabled,
-			},
-			Egress: &cilium_v2.EndpointPolicyDirection{
-				Enforcing: !e.Options.IsEnabled(option.PolicyAuditMode) && e.desiredPolicy.EgressPolicyEnabled,
-			},
-		}
+func (e *Endpoint) getEndpointPolicy() (ep *cilium_v2.EndpointPolicy) {
+	if e.desiredPolicy == nil {
+		return
+	}
+	ep = &cilium_v2.EndpointPolicy{
+		Ingress: &cilium_v2.EndpointPolicyDirection{
+			Enforcing: !e.Options.IsEnabled(option.PolicyAuditMode) &&
+				e.desiredPolicy.IngressPolicyEnabled,
+		},
+		Egress: &cilium_v2.EndpointPolicyDirection{
+			Enforcing: !e.Options.IsEnabled(option.PolicyAuditMode) &&
+				e.desiredPolicy.EgressPolicyEnabled,
+		},
+	}
 
-		// Handle allow-all cases
-		allowsAllIngress, allowsAllEgress := desiredPolicyAllowsIdentity(e.desiredPolicy, identity.IdentityUnknown)
-		if allowsAllIngress {
-			policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{{}}
-		}
-		if allowsAllEgress {
-			policy.Egress.Allowed = cilium_v2.AllowedIdentityList{{}}
-		}
+	// Handle allow-all cases
+	allowsAllIngress, allowsAllEgress := e.desiredPolicy.AllowsIdentity(identity.IdentityUnknown)
+	if allowsAllIngress {
+		ep.Ingress.Allowed = cilium_v2.AllowedIdentityList{{}}
+		ep.Ingress.Denied = cilium_v2.DenyIdentityList{{}}
+	}
+	if allowsAllEgress {
+		ep.Egress.Allowed = cilium_v2.AllowedIdentityList{{}}
+		ep.Egress.Denied = cilium_v2.DenyIdentityList{{}}
+	}
 
-		// If either ingress or egress policy is enabled, go through
-		// the desired policy to populate the values.
-		if !allowsAllIngress || !allowsAllEgress {
-			allowsWorldIngress, allowsWorldEgress := desiredPolicyAllowsIdentity(e.desiredPolicy, identity.ReservedIdentityWorld)
+	// If either ingress or egress policy is enabled, go through
+	// the desired policy to populate the values.
+	if !allowsAllIngress || !allowsAllEgress {
+		allowsWorldIngress, allowsWorldEgress := e.desiredPolicy.AllowsIdentity(identity.ReservedIdentityWorld)
 
-			for policyKey := range e.desiredPolicy.PolicyMapState {
-				// Skip listing identities if enforcement is disabled in direction,
-				// or if the identity corresponds to a CIDR identity and the world is allowed.
-				id := identity.NumericIdentity(policyKey.Identity)
-				switch {
-				case policyKey.IsIngress():
-					if allowsAllIngress || (id.HasLocalScope() && allowsWorldIngress) {
-						continue
-					}
-				case policyKey.IsEgress():
-					if allowsAllEgress || (id.HasLocalScope() && allowsWorldEgress) {
-						continue
-					}
+		for policyKey, policyValue := range e.desiredPolicy.PolicyMapState {
+			// Skip listing identities if enforcement is disabled in direction,
+			// or if the identity corresponds to a CIDR identity and the world is allowed.
+			id := identity.NumericIdentity(policyKey.Identity)
+			switch {
+			case policyKey.IsIngress():
+				if allowsAllIngress || (id.HasLocalScope() && allowsWorldIngress) {
+					continue
 				}
-
-				populateResponseWithPolicyKey(e.allocator, policy, &policyKey)
+			case policyKey.IsEgress():
+				if allowsAllEgress || (id.HasLocalScope() && allowsWorldEgress) {
+					continue
+				}
 			}
-		}
 
-		if policy.Ingress.Allowed != nil {
-			policy.Ingress.Allowed.Sort()
+			populateResponseWithPolicyKey(e.allocator, ep, &policyKey, policyValue.IsDeny)
 		}
-		if policy.Egress.Allowed != nil {
-			policy.Egress.Allowed.Sort()
-		}
+	}
+
+	if ep.Ingress.Allowed != nil {
+		ep.Ingress.Allowed.Sort()
+	}
+	if ep.Ingress.Denied != nil {
+		ep.Ingress.Denied.Sort()
+	}
+	if ep.Egress.Allowed != nil {
+		ep.Egress.Allowed.Sort()
+	}
+	if ep.Egress.Denied != nil {
+		ep.Egress.Denied.Sort()
 	}
 
 	return

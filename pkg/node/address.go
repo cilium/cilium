@@ -33,11 +33,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const preferPublicIP bool = true
+
 var (
 	ipv4Loopback        net.IP
 	ipv4ExternalAddress net.IP
 	ipv4InternalAddress net.IP
 	ipv4NodePortAddrs   map[string]net.IP // iface name => ip addr
+	ipv4MasqAddrs       map[string]net.IP // iface name => ip addr
 	ipv6Address         net.IP
 	ipv6RouterAddress   net.IP
 	ipv6NodePortAddrs   map[string]net.IP // iface name => ip addr
@@ -66,7 +69,7 @@ func makeIPv6HostIP() net.IP {
 // scope will be regarded as the system's node address.
 func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv4 {
-		ip, err := firstGlobalV4Addr(device, GetInternalIPv4())
+		ip, err := firstGlobalV4Addr(device, GetInternalIPv4(), preferPublicIP)
 		if err != nil {
 			return
 		}
@@ -101,7 +104,7 @@ func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv6 {
 		if ipv6Address == nil {
 			// Find a IPv6 node address first
-			ipv6Address, _ = firstGlobalV6Addr(device, GetIPv6Router())
+			ipv6Address, _ = firstGlobalV6Addr(device, GetIPv6Router(), preferPublicIP)
 			if ipv6Address == nil {
 				ipv6Address = makeIPv6HostIP()
 			}
@@ -124,27 +127,69 @@ func InitDefaultPrefix(device string) {
 	}
 }
 
-// InitNodePortAddrs initializes NodePort IPv{4,6} addrs from the given devices.
-func InitNodePortAddrs(devices []string) error {
+// InitNodePortAddrs initializes NodePort IPv{4,6} addrs for the given devices.
+// If inheritIPAddrFromDevice is non-empty, then the IP addr for the devices
+// will be derived from it.
+func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
+	var inheritedIP net.IP
+	var err error
+
 	if option.Config.EnableIPv4 {
+		if inheritIPAddrFromDevice != "" {
+			inheritedIP, err = firstGlobalV4Addr(inheritIPAddrFromDevice, GetK8sNodeIP(), !preferPublicIP)
+			if err != nil {
+				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", inheritIPAddrFromDevice)
+			}
+		}
 		ipv4NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV4Addr(device, nil)
-			if err != nil {
-				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
+			if inheritIPAddrFromDevice != "" {
+				ipv4NodePortAddrs[device] = inheritedIP
+			} else {
+				ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), !preferPublicIP)
+				if err != nil {
+					return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
+				}
+				ipv4NodePortAddrs[device] = ip
 			}
-			ipv4NodePortAddrs[device] = ip
 		}
 	}
 
 	if option.Config.EnableIPv6 {
+		if inheritIPAddrFromDevice != "" {
+			inheritedIP, err = firstGlobalV6Addr(inheritIPAddrFromDevice, GetK8sNodeIP(), !preferPublicIP)
+			if err != nil {
+				return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", inheritIPAddrFromDevice)
+			}
+		}
 		ipv6NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV6Addr(device, nil)
-			if err != nil {
-				return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", device)
+			if inheritIPAddrFromDevice != "" {
+				ipv6NodePortAddrs[device] = inheritedIP
+			} else {
+				ip, err := firstGlobalV6Addr(device, GetK8sNodeIP(), !preferPublicIP)
+				if err != nil {
+					return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", device)
+				}
+				ipv6NodePortAddrs[device] = ip
 			}
-			ipv6NodePortAddrs[device] = ip
+		}
+	}
+
+	return nil
+}
+
+// InitBPFMasqueradeAddrs initializes BPF masquerade addrs for the given devices.
+func InitBPFMasqueradeAddrs(devices []string) error {
+	if option.Config.EnableIPv4 {
+		ipv4MasqAddrs = make(map[string]net.IP, len(devices))
+		for _, device := range devices {
+			ip, err := firstGlobalV4Addr(device, nil, preferPublicIP)
+			if err != nil {
+				return fmt.Errorf("Failed to determine IPv4 of %s for BPF masq", device)
+			}
+
+			ipv4MasqAddrs[device] = ip
 		}
 	}
 
@@ -210,7 +255,7 @@ func Uninitialize() {
 	ipv6AllocRange = nil
 }
 
-// GetNodePortIPv4 returns the node-port IPv4 address for NAT
+// GetNodePortIPv4Addrs returns the node-port IPv4 address for NAT
 func GetNodePortIPv4Addrs() []net.IP {
 	addrs := make([]net.IP, 0, len(ipv4NodePortAddrs))
 	for _, addr := range ipv4NodePortAddrs {
@@ -221,16 +266,10 @@ func GetNodePortIPv4Addrs() []net.IP {
 
 // GetNodePortIPv4AddrsWithDevices returns the map iface => NodePort IPv4.
 func GetNodePortIPv4AddrsWithDevices() map[string]net.IP {
-	out := make(map[string]net.IP, len(ipv4NodePortAddrs))
-	for iface, ip := range ipv4NodePortAddrs {
-		dup := make(net.IP, len(ip))
-		copy(dup, ip)
-		out[iface] = dup
-	}
-	return out
+	return copyStringToNetIPMap(ipv4NodePortAddrs)
 }
 
-// GetNodePortIPv6 returns the node-port IPv6 address for NAT
+// GetNodePortIPv6Addrs returns the node-port IPv6 address for NAT
 func GetNodePortIPv6Addrs() []net.IP {
 	addrs := make([]net.IP, 0, len(ipv6NodePortAddrs))
 	for _, addr := range ipv6NodePortAddrs {
@@ -239,15 +278,14 @@ func GetNodePortIPv6Addrs() []net.IP {
 	return addrs
 }
 
-// GetNodePortIPv4AddrsWithDevices returns the map iface => NodePort IPv6.
+// GetNodePortIPv6AddrsWithDevices returns the map iface => NodePort IPv6.
 func GetNodePortIPv6AddrsWithDevices() map[string]net.IP {
-	out := make(map[string]net.IP, len(ipv6NodePortAddrs))
-	for iface, ip := range ipv6NodePortAddrs {
-		dup := make(net.IP, len(ip))
-		copy(dup, ip)
-		out[iface] = dup
-	}
-	return out
+	return copyStringToNetIPMap(ipv6NodePortAddrs)
+}
+
+// GetMasqIPv4AddrsWithDevices returns the map iface => BPF masquerade IPv4.
+func GetMasqIPv4AddrsWithDevices() map[string]net.IP {
+	return copyStringToNetIPMap(ipv4MasqAddrs)
 }
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
@@ -308,6 +346,12 @@ func SetIPv6(ip net.IP) {
 
 // GetIPv6 returns the IPv6 address of the node
 func GetIPv6() net.IP {
+	return ipv6Address
+}
+
+// GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
+// any traffic that is being forwarded from the host into the Cilium cluster.
+func GetHostMasqueradeIPv6() net.IP {
 	return ipv6Address
 }
 
@@ -460,4 +504,14 @@ func GetK8sNodeIP() net.IP {
 // SetK8sNodeIP sets k8s Node IP addr.
 func SetK8sNodeIP(ip net.IP) {
 	k8sNodeIP = ip
+}
+
+func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {
+	out := make(map[string]net.IP, len(in))
+	for iface, ip := range in {
+		dup := make(net.IP, len(ip))
+		copy(dup, ip)
+		out[iface] = dup
+	}
+	return out
 }

@@ -101,6 +101,7 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 				IPv4: "1.1.1.1",
 				IPv6: "c0de::1",
 			},
+			NodeIdentity: uint64(12345),
 		},
 	}
 
@@ -119,6 +120,7 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 		IPv6AllocCIDR: cidr.MustParseCIDR("c0de::/96"),
 		IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 		IPv6HealthIP:  net.ParseIP("c0de::1"),
+		NodeIdentity:  uint32(12345),
 	})
 }
 
@@ -137,6 +139,7 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 		IPv6AllocCIDR: cidr.MustParseCIDR("c0de::/96"),
 		IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 		IPv6HealthIP:  net.ParseIP("c0de::1"),
+		NodeIdentity:  uint32(12345),
 	}
 
 	n := nodeResource.ToCiliumNode()
@@ -162,6 +165,7 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 				IPv4: "1.1.1.1",
 				IPv6: "c0de::1",
 			},
+			NodeIdentity: uint64(12345),
 		},
 	})
 }

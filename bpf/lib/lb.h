@@ -333,8 +333,16 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
+static __always_inline
+bool lb4_svc_is_localredirect(const struct lb4_service *svc __maybe_unused)
+{
+	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
+}
+
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-					   int l4_off, __be16 *port,
+					   int l4_off,
+					   int dir __maybe_unused,
+					   __be16 *port,
 					   __maybe_unused struct iphdr *ip4)
 {
 	int ret;
@@ -346,14 +354,12 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 		if (ip4) {
 			struct ipv4_frag_l4ports ports = { };
 
-			if (unlikely(ipv4_is_fragment(ip4))) {
-				ret = ipv4_handle_fragment(ctx, ip4, l4_off,
-							   &ports);
-				if (IS_ERR(ret))
-					return ret;
-				*port = ports.dport;
-				break;
-			}
+			ret = ipv4_handle_fragmentation(ctx, ip4, l4_off,
+							dir, &ports, NULL);
+			if (IS_ERR(ret))
+				return ret;
+			*port = ports.dport;
+			break;
 		}
 #endif
 		/* Port offsets for UDP and TCP are the same */
@@ -364,7 +370,8 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 
 	case IPPROTO_ICMPV6:
 	case IPPROTO_ICMP:
-		break;
+		/* No need to perform a service lookup for ICMP packets */
+		return DROP_NO_SERVICE;
 
 	default:
 		/* Pass unknown L4 to stack */
@@ -401,7 +408,7 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 
 	case IPPROTO_ICMPV6:
 	case IPPROTO_ICMP:
-		break;
+		return CTX_ACT_OK;
 
 	default:
 		return DROP_UNKNOWN_L4;
@@ -506,7 +513,8 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
-	return extract_l4_port(ctx, tuple->nexthdr, l4_off, &key->dport, NULL);
+	return extract_l4_port(ctx, tuple->nexthdr, l4_off, dir, &key->dport,
+			       NULL);
 }
 
 static __always_inline
@@ -686,7 +694,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 		};
 
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
+		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -764,7 +772,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
-				     struct ct_state *state)
+				     struct ct_state *state, const bool skip_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	union v6addr *addr;
@@ -809,6 +817,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_no_service;
 		goto update_state;
+	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -872,9 +881,9 @@ update_state:
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
+	return skip_xlate ? CTX_ACT_OK :
+	       lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, backend);
-
 drop_no_service:
 	tuple->flags = flags;
 	return DROP_NO_SERVICE;
@@ -908,14 +917,14 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
-					 const struct ct_state *ct_state)
+					 const struct ct_state *ct_state, bool has_l4_header)
 {
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
-	if (nat->port) {
+	if (nat->port && has_l4_header) {
 		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
 		if (IS_ERR(ret))
 			return ret;
@@ -986,7 +995,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 				       struct csum_offset *csum_off,
 				       struct ct_state *ct_state,
-				       struct ipv4_ct_tuple *tuple, int flags)
+				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
 {
 	struct lb4_reverse_nat *nat;
 
@@ -996,7 +1005,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 		return 0;
 
 	return __lb4_rev_nat(ctx, l3_off, l4_off, csum_off, tuple, flags, nat,
-			     ct_state);
+			     ct_state, has_l4_header);
 }
 
 /** Extract IPv4 LB key from packet
@@ -1022,9 +1031,10 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 	/* FIXME: set after adding support for different L4 protocols in LB */
 	key->proto = 0;
 	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
-	csum_l4_offset_and_flags(ip4->protocol, csum_off);
+	if (ipv4_has_l4_header(ip4))
+		csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
-	return extract_l4_port(ctx, ip4->protocol, l4_off, &key->dport, ip4);
+	return extract_l4_port(ctx, ip4->protocol, l4_off, dir, &key->dport, ip4);
 }
 
 static __always_inline
@@ -1156,7 +1166,7 @@ static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
 	  int l4_off, struct csum_offset *csum_off, struct lb4_key *key,
-	  const struct lb4_backend *backend __maybe_unused)
+	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header)
 {
 	__be32 sum;
 	int ret;
@@ -1187,8 +1197,10 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
+
 	if (backend->port && key->dport != backend->port &&
-	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
+	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP) &&
+	    has_l4_header) {
 		__be16 tmp = backend->port;
 
 		/* Port offsets for UDP and TCP are the same */
@@ -1220,8 +1232,13 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			.backend_id	= val->backend_id,
 		};
 
+		/* We have seconds granularity for timing values here.
+		 * To ensure that session affinity timeout works properly we don't include
+		 * the upper bound from the time range.
+		 * Session is sticky for range [current, last_used + affinity_timeout)
+		 */
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
+		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1299,7 +1316,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
-				     struct ct_state *state, __be32 saddr)
+				     struct ct_state *state, __be32 saddr,
+				     bool has_l4_header, const bool skip_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 new_saddr = 0, new_daddr;
@@ -1343,6 +1361,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_no_service;
 		goto update_state;
+	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -1436,9 +1455,10 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
-	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
+	return skip_xlate ? CTX_ACT_OK :
+	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 backend);
+			 backend, has_l4_header);
 drop_no_service:
 		tuple->flags = flags;
 		return DROP_NO_SERVICE;

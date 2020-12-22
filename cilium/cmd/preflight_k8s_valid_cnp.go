@@ -24,6 +24,7 @@ import (
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -41,12 +42,12 @@ var validateCNP = &cobra.Command{
 	Long: `Before upgrading Cilium it is recommended to run this validation checker
 to make sure the policies deployed are valid. The validator will verify if all policies
 deployed in the cluster are valid, in case they are not, an error is printed and the
-has an exit code -1 is returned.`,
+has an exit code 1 is returned.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := validateCNPs()
 		if err != nil {
 			log.Error(err)
-			os.Exit(-1)
+			os.Exit(1)
 		}
 	},
 }
@@ -111,8 +112,21 @@ func validateNPResources(
 	name,
 	shortName string,
 ) error {
-	// check if the crd is installed at all
-	_, err := apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(ctx, name+"."+ciliumGroup, metav1.GetOptions{})
+	// Check if the crd is installed at all.
+	var err error
+	if k8sversion.Capabilities().APIExtensionsV1CRD {
+		_, err = apiExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(
+			ctx,
+			name+"."+ciliumGroup,
+			metav1.GetOptions{},
+		)
+	} else {
+		_, err = apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
+			ctx,
+			name+"."+ciliumGroup,
+			metav1.GetOptions{},
+		)
+	}
 	switch {
 	case err == nil:
 	case k8sErrors.IsNotFound(err):

@@ -1,23 +1,31 @@
-FROM docker.io/library/golang:1.15.2-alpine3.12 as builder
+# Copyright 2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+ARG GOLANG_IMAGE=docker.io/library/golang:1.15.6-alpine3.12
+ARG ALPINE_IMAGE=docker.io/library/alpine:3.12
+
+FROM ${GOLANG_IMAGE} as builder
 
 RUN apk add --no-cache \
-    curl \
-    bash \
-    make \
-    && true
+  curl \
+  bash \
+  make \
+  && true
 
 COPY install-protoplugins.sh /tmp/install-protoplugins.sh
 RUN /tmp/install-protoplugins.sh
 
 #------------------------------------------------------------------------------
 
-FROM docker.io/library/alpine:3.12
+FROM ${ALPINE_IMAGE}
+
+WORKDIR /proto
 
 RUN apk add --no-cache \
-    curl \
-    bash \
-    make \
-    && true
+  curl \
+  bash \
+  make \
+  && true
 
 COPY install-glibc.sh /tmp/install-glibc.sh
 RUN /tmp/install-glibc.sh
@@ -25,12 +33,11 @@ RUN /tmp/install-glibc.sh
 COPY install-protoc.sh /tmp/install-protoc.sh
 RUN /tmp/install-protoc.sh
 
-RUN mkdir /proto
-COPY --from=builder /proto/protoc-gen-go /proto
-COPY --from=builder /proto/protoc-gen-go-grpc /proto
-COPY --from=builder /proto/protoc-gen-go-json /proto
+COPY --from=builder /proto/protoc-gen-go .
+COPY --from=builder /proto/protoc-gen-go-grpc .
+COPY --from=builder /proto/protoc-gen-go-json .
 
-COPY Makefile.docker /proto/Makefile
+COPY Makefile.docker ./Makefile
 
 WORKDIR /source
 

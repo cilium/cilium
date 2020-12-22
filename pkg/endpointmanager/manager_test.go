@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -91,6 +92,13 @@ func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
 	return nil
 }
 
+func (s *EndpointManagerSuite) GetDNSRules(epID uint16) restore.DNSRules {
+	return nil
+}
+
+func (s *EndpointManagerSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
 type DummyRuleCacheOwner struct{}
 
 func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
@@ -100,6 +108,9 @@ func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
 type dummyEpSyncher struct{}
 
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
+}
+
+func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {

@@ -105,9 +105,8 @@ func getLPMValue(ip net.IP, entries map[string][]string) (interface{}, bool) {
 	lpmEntries := make([]lpmEntry, 0, len(entries))
 	for cidr, identity := range entries {
 		currIP, subnet, err := net.ParseCIDR(cidr)
-
 		if err != nil {
-			log.Warnf("unable to parse ipcache entry '%s' as a CIDR: %s", cidr, err)
+			log.WithError(err).Warnf("unable to parse ipcache entry %q as a CIDR", cidr)
 			continue
 		}
 

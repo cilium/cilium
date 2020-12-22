@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -406,11 +406,13 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 		WithEndpointSelector(epSelector).
 		WithIngressRules([]api.IngressRule{
 			{
-				FromCIDRSet: []api.CIDRRule{
-					{
-						Cidr: api.CIDR("10.0.0.0/8"),
-						ExceptCIDRs: []api.CIDR{
-							"10.96.0.0/12",
+				IngressCommonRule: api.IngressCommonRule{
+					FromCIDRSet: []api.CIDRRule{
+						{
+							Cidr: api.CIDR("10.0.0.0/8"),
+							ExceptCIDRs: []api.CIDR{
+								"10.96.0.0/12",
+							},
 						},
 					},
 				},

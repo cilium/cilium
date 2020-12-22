@@ -36,7 +36,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -60,7 +62,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
-				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Rules: &L7Rules{
 						DNS: []PortRuleDNS{
@@ -80,7 +84,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
-				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "53", Protocol: ProtoTCP},
@@ -104,7 +110,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoUDP},
@@ -127,7 +135,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "53", Protocol: ProtoAny},
@@ -150,7 +160,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoAny},
@@ -174,7 +186,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -199,7 +213,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoUDP},
@@ -229,7 +245,9 @@ func (s *PolicyAPITestSuite) TestHTTPRuleRegexes(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -252,7 +270,9 @@ func (s *PolicyAPITestSuite) TestHTTPRuleRegexes(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -322,11 +342,13 @@ func (s *PolicyAPITestSuite) TestToServicesSanitize(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
-				ToServices: []Service{
-					{
-						K8sServiceSelector: &K8sServiceSelectorNamespace{
-							Selector:  selector,
-							Namespace: "",
+				EgressCommonRule: EgressCommonRule{
+					ToServices: []Service{
+						{
+							K8sServiceSelector: &K8sServiceSelectorNamespace{
+								Selector:  selector,
+								Namespace: "",
+							},
 						},
 					},
 				},
@@ -352,7 +374,9 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -377,7 +401,9 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -399,7 +425,9 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -428,7 +456,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
 		NodeSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
@@ -449,7 +479,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
 		NodeSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
-				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "53", Protocol: ProtoUDP},
@@ -470,7 +502,9 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
 		NodeSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 			},
 		},
 	}
@@ -508,7 +542,9 @@ func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{invalidSel},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{invalidSel},
+				},
 			},
 		},
 	}
@@ -520,7 +556,9 @@ func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromRequires: []EndpointSelector{invalidSel},
+				IngressCommonRule: IngressCommonRule{
+					FromRequires: []EndpointSelector{invalidSel},
+				},
 			},
 		},
 	}
@@ -532,7 +570,9 @@ func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
-				ToEndpoints: []EndpointSelector{invalidSel},
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{invalidSel},
+				},
 			},
 		},
 	}
@@ -544,7 +584,9 @@ func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
-				ToRequires: []EndpointSelector{invalidSel},
+				EgressCommonRule: EgressCommonRule{
+					ToRequires: []EndpointSelector{invalidSel},
+				},
 			},
 		},
 	}
@@ -604,7 +646,9 @@ func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: portProtocols,
 				}},

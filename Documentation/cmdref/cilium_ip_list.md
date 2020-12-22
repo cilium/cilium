@@ -4,10 +4,6 @@
 
 List IP addresses in the userspace IPcache
 
-### Synopsis
-
-List IP addresses in the userspace IPcache
-
 ```
 cilium ip list [flags]
 ```
@@ -16,6 +12,7 @@ cilium ip list [flags]
 
 ```
   -h, --help            help for list
+  -n, --numeric         Print numeric identities
   -o, --output string   json| jsonpath='{}'
   -v, --verbose         Print all fields of ipcache
 ```

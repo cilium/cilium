@@ -16,6 +16,7 @@ package watchers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -30,6 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -41,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -49,7 +53,6 @@ import (
 )
 
 const (
-	k8sAPIGroupCRD                              = "CustomResourceDefinition"
 	k8sAPIGroupNodeV1Core                       = "core/v1::Node"
 	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
 	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
@@ -60,6 +63,7 @@ const (
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
+	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 
 	metricCNP            = "CiliumNetworkPolicy"
@@ -70,6 +74,7 @@ const (
 	metricNS             = "Namespace"
 	metricCiliumNode     = "CiliumNode"
 	metricCiliumEndpoint = "CiliumEndpoint"
+	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricPod            = "Pod"
 	metricNode           = "Node"
 	metricService        = "Service"
@@ -133,32 +138,38 @@ type svcManager interface {
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 }
 
-type K8sWatcher struct {
-	// k8sResourceSyncedMu protects the k8sResourceSynced map.
-	k8sResourceSyncedMu lock.RWMutex
+type redirectPolicyManager interface {
+	AddRedirectPolicy(config redirectpolicy.LRPConfig) (bool, error)
+	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
+	OnAddService(svcID k8s.ServiceID)
+	OnDeleteService(svcID k8s.ServiceID)
+	OnUpdatePod(pod *slim_corev1.Pod, needsReassign bool, ready bool)
+	OnDeletePod(pod *slim_corev1.Pod)
+	OnAddPod(pod *slim_corev1.Pod)
+}
 
+type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
-	k8sResourceSynced map[string]<-chan struct{}
-	// k8sResourceSyncedStopWait contains the result of
-	k8sResourceSyncedStopWait map[string]bool
+	k8sResourceSynced synced.Resources
 
-	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
+	// k8sAPIGroups is a set of k8s API in use. They are setup in EnableK8sWatcher,
 	// and may be disabled while the agent runs.
 	// This is on this object, instead of a global, because EnableK8sWatcher is
 	// on Daemon.
-	k8sAPIGroups k8sAPIGroupsUsed
+	k8sAPIGroups synced.APIGroups
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
 	K8sSvcCache k8s.ServiceCache
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager nodeDiscoverManager
-	policyManager       policyManager
-	policyRepository    policyRepository
-	svcManager          svcManager
+	nodeDiscoverManager   nodeDiscoverManager
+	policyManager         policyManager
+	policyRepository      policyRepository
+	svcManager            svcManager
+	redirectPolicyManager redirectPolicyManager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -184,53 +195,20 @@ func NewK8sWatcher(
 	policyRepository policyRepository,
 	svcManager svcManager,
 	datapath datapath.Datapath,
+	redirectPolicyManager redirectPolicyManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		k8sResourceSynced:         map[string]<-chan struct{}{},
-		k8sResourceSyncedStopWait: map[string]bool{},
-		K8sSvcCache:               k8s.NewServiceCache(datapath.LocalNodeAddressing()),
-		endpointManager:           endpointManager,
-		nodeDiscoverManager:       nodeDiscoverManager,
-		policyManager:             policyManager,
-		policyRepository:          policyRepository,
-		svcManager:                svcManager,
-		controllersStarted:        make(chan struct{}),
-		podStoreSet:               make(chan struct{}),
-		datapath:                  datapath,
+		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
+		endpointManager:       endpointManager,
+		nodeDiscoverManager:   nodeDiscoverManager,
+		policyManager:         policyManager,
+		policyRepository:      policyRepository,
+		svcManager:            svcManager,
+		controllersStarted:    make(chan struct{}),
+		podStoreSet:           make(chan struct{}),
+		datapath:              datapath,
+		redirectPolicyManager: redirectPolicyManager,
 	}
-}
-
-// k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
-// enabled/in-use
-// Note: We can replace it with a Go 1.9 map once we require that version
-type k8sAPIGroupsUsed struct {
-	lock.RWMutex
-	apis map[string]bool
-}
-
-func (m *k8sAPIGroupsUsed) addAPI(api string) {
-	m.Lock()
-	defer m.Unlock()
-	if m.apis == nil {
-		m.apis = make(map[string]bool)
-	}
-	m.apis[api] = true
-}
-
-func (m *k8sAPIGroupsUsed) removeAPI(api string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.apis, api)
-}
-
-func (m *k8sAPIGroupsUsed) getGroups() []string {
-	m.RLock()
-	defer m.RUnlock()
-	groups := make([]string, 0, len(m.apis))
-	for k := range m.apis {
-		groups = append(groups, k)
-	}
-	return groups
 }
 
 // k8sMetrics implements the LatencyMetric and ResultMetric interface from
@@ -242,7 +220,6 @@ func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
 }
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
-	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc() //TODO(sayboras): Remove deprecated metric in 1.10
 	metrics.KubernetesAPICallsTotal.WithLabelValues(host, method, code).Inc()
 	// The 'code' is set to '<error>' in case an error is returned from k8s
 	// more info:
@@ -257,108 +234,49 @@ func (*k8sMetrics) Increment(code string, method string, host string) {
 	k8smetrics.LastInteraction.Reset()
 }
 
-func (k *K8sWatcher) GetAPIGroups() []string {
-	return k.k8sAPIGroups.getGroups()
+func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
+	k.k8sResourceSynced.WaitForCacheSync(resourceNames...)
 }
 
 func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
-	k.k8sResourceSyncedMu.Lock()
-	delete(k.k8sResourceSynced, resourceName)
-	k.k8sResourceSyncedMu.Unlock()
+	k.k8sResourceSynced.CancelWaitGroupToSyncResources(resourceName)
 }
 
-// blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
-// waits until all objects of the specified resource stored in Kubernetes are
-// received by the informer and processed by controller.
-// Fatally exits if syncing these initial objects fails.
-// If the given stop channel is closed, it does not fatal.
-// Once the k8s caches are synced against k8s, k8sCacheSynced is also closed.
 func (k *K8sWatcher) blockWaitGroupToSyncResources(
 	stop <-chan struct{},
 	swg *lock.StoppableWaitGroup,
-	informer cache.Controller,
+	hasSyncedFunc cache.InformerSynced,
 	resourceName string,
 ) {
-
-	ch := make(chan struct{})
-	k.k8sResourceSyncedMu.Lock()
-	k.k8sResourceSynced[resourceName] = ch
-	k.k8sResourceSyncedMu.Unlock()
-	go func() {
-		scopedLog := log.WithField("kubernetesResource", resourceName)
-		scopedLog.Debug("waiting for cache to synchronize")
-		if ok := cache.WaitForCacheSync(stop, informer.HasSynced); !ok {
-			select {
-			case <-stop:
-				// do not fatal if the channel was stopped
-				scopedLog.Debug("canceled cache synchronization")
-				k.k8sResourceSyncedMu.Lock()
-				// Since the wait for cache sync was canceled we need
-				// to mark that k8sResourceSyncedStopWait was canceled and it
-				// should not stop waiting for this resource to be synchronized.
-				k.k8sResourceSyncedStopWait[resourceName] = false
-				k.k8sResourceSyncedMu.Unlock()
-			default:
-				// Fatally exit it resource fails to sync
-				scopedLog.Fatalf("failed to wait for cache to sync")
-			}
-		} else {
-			scopedLog.Debug("cache synced")
-			k.k8sResourceSyncedMu.Lock()
-			// Since the wait for cache sync was not canceled we need
-			// to mark that k8sResourceSyncedStopWait not canceled and it
-			// should stop waiting for this resource to be synchronized.
-			k.k8sResourceSyncedStopWait[resourceName] = true
-			k.k8sResourceSyncedMu.Unlock()
-		}
-		if swg != nil {
-			swg.Stop()
-			swg.Wait()
-		}
-		close(ch)
-	}()
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(stop, swg, hasSyncedFunc, resourceName)
 }
 
-// WaitForCacheSync waits for k8s caches to be synchronized for the given
-// resource. Returns once all resourcesNames are synchronized with cilium-agent.
-func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
-	for _, resourceName := range resourceNames {
-		k.k8sResourceSyncedMu.RLock()
-		c, ok := k.k8sResourceSynced[resourceName]
-		k.k8sResourceSyncedMu.RUnlock()
-		if !ok {
-			continue
-		}
-		for {
-			scopedLog := log.WithField("kubernetesResource", resourceName)
-			<-c
-			k.k8sResourceSyncedMu.RLock()
-			stopWait := k.k8sResourceSyncedStopWait[resourceName]
-			k.k8sResourceSyncedMu.RUnlock()
-			if stopWait {
-				scopedLog.Debug("stopped waiting for caches to be synced")
-				break
-			}
-			scopedLog.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...")
-			time.Sleep(100 * time.Millisecond)
-			k.k8sResourceSyncedMu.RLock()
-			c, ok = k.k8sResourceSynced[resourceName]
-			k.k8sResourceSyncedMu.RUnlock()
-			if !ok {
-				break
-			}
-		}
-	}
+func (k *K8sWatcher) GetAPIGroups() []string {
+	return k.k8sAPIGroups.GetGroups()
+}
+
+// WaitForCRDsToRegister will wait for the Cilium Operator to register the CRDs
+// with the apiserver. This step is required before launching the full K8s
+// watcher, as those resource controllers need the resources to be registered
+// with K8s first.
+func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
+	return synced.SyncCRDs(ctx, synced.AgentCRDResourceNames, &k.k8sResourceSynced, &k.k8sAPIGroups)
 }
 
 // InitK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
-func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
-	if err := k.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
-		log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
-	}
-
+// To be called after WaitForCRDsToRegister() so that all needed CRDs have
+// already been registered.
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	cachesSynced := make(chan struct{})
+	if err := k.EnableK8sWatcher(ctx); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
+		}
+		// If the context was canceled it means the daemon is being stopped
+		// so we can return a non-closed channel.
+		return cachesSynced
+	}
 
 	go func() {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
@@ -390,6 +308,9 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 			// Pods can contain labels which are essential for endpoints
 			// being restored to have the right identity.
 			K8sAPIGroupPodV1Core,
+			// We need to know about active local redirect policy services
+			// before BPF LB datapath is synced.
+			k8sAPIGroupCiliumLocalRedirectPolicyV2,
 		)
 		// CiliumEndpoint is used to synchronize the ipcache, wait for
 		// it unless it is disabled
@@ -413,22 +334,19 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
-// queueSize specifies the queue length used to serialize k8s events.
-func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
+func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
 	}
 	log.Info("Enabling k8s event listener")
 
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
-
 	ciliumNPClient := k8s.CiliumClient()
 	asyncControllers := &sync.WaitGroup{}
 
 	// kubernetes network policies
 	swgKNP := lock.NewStoppableWaitGroup()
-	k.networkPoliciesInit(k8s.WatcherCli(), swgKNP)
+	k.networkPoliciesInit(k8s.WatcherClient(), swgKNP)
 
 	serviceOptModifier, err := utils.GetServiceListOptionsModifier()
 	if err != nil {
@@ -437,7 +355,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes services
 	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.WatcherCli(), swgSvcs, serviceOptModifier)
+	k.servicesInit(k8s.WatcherClient(), swgSvcs, serviceOptModifier)
 
 	// kubernetes endpoints
 	swgEps := lock.NewStoppableWaitGroup()
@@ -447,14 +365,14 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	case k8s.SupportsEndpointSlice():
 		// We don't add the service option modifier here, as endpointslices do not
 		// mirror service proxy name label present in the corresponding service.
-		connected := k.endpointSlicesInit(k8s.WatcherCli(), swgEps)
+		connected := k.endpointSlicesInit(k8s.WatcherClient(), swgEps)
 		// The cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.WatcherCli(), swgEps, serviceOptModifier)
+		k.endpointsInit(k8s.WatcherClient(), swgEps, serviceOptModifier)
 	}
 
 	// cilium network policies
@@ -468,19 +386,28 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
 
 	// cilium endpoints
-	asyncControllers.Add(1)
-	go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+	// Don't watch for CiliumEndpoints to avoid populating ipcache with dangling
+	// CiliumEndpoints.
+	if !option.Config.DisableCiliumEndpointCRD {
+		asyncControllers.Add(1)
+		go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+	}
+
+	// cilium local redirect policies
+	if option.Config.EnableLocalRedirectPolicy {
+		k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
+	}
 
 	// kubernetes pods
 	asyncControllers.Add(1)
-	go k.podsInit(k8s.WatcherCli(), asyncControllers)
+	go k.podsInit(k8s.WatcherClient(), asyncControllers)
 
 	// kubernetes nodes
-	k.nodesInit(k8s.WatcherCli())
+	k.nodesInit(k8s.WatcherClient())
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)
-	go k.namespacesInit(k8s.WatcherCli(), asyncControllers)
+	go k.namespacesInit(k8s.WatcherClient(), asyncControllers)
 
 	asyncControllers.Wait()
 	close(k.controllersStarted)
@@ -519,7 +446,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
-				log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+				log.WithError(err).Error("Unable to repopulate egress policies from ToService rules")
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
@@ -538,7 +465,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
-				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+				log.WithError(err).Error("Unable to depopulate egress policies from ToService rules")
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
@@ -560,12 +487,6 @@ func (k *K8sWatcher) RunK8sServiceHandler() {
 }
 
 func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
-	// If east-west load balancing is disabled, we should not sync(add or delete)
-	// K8s service to a cilium service.
-	if option.Config.DisableK8sServices {
-		return nil
-	}
-
 	// Headless services do not need any datapath implementation
 	if svcInfo.IsHeadless {
 		return nil
@@ -763,12 +684,6 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 }
 
 func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
-	// If east-west load balancing is disabled, we should not sync(add or delete)
-	// K8s service to a cilium service.
-	if option.Config.DisableK8sServices {
-		return nil
-	}
-
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {
 		return nil

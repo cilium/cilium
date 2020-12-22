@@ -56,6 +56,7 @@ import (
 
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
 func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
+	<-d.nodeDiscovery.Registered
 	return &d.nodeDiscovery.LocalConfig
 }
 

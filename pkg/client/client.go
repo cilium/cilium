@@ -256,6 +256,8 @@ type StatusDetails struct {
 	BPFMapDetails bool
 	// KubeProxyReplacementDetails causes BPF kube-proxy details to be printed by FormatStatusResponse.
 	KubeProxyReplacementDetails bool
+	// ClockSourceDetails causes BPF time-keeping internals to be printed by FormatStatusResponse.
+	ClockSourceDetails bool
 }
 
 var (
@@ -271,6 +273,7 @@ var (
 		AllClusters:                 true,
 		BPFMapDetails:               true,
 		KubeProxyReplacementDetails: true,
+		ClockSourceDetails:          true,
 	}
 )
 
@@ -293,25 +296,26 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			sort.Strings(sr.Kubernetes.K8sAPIVersions)
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
-		if sr.KubeProxyReplacement != nil {
-			devices := ""
-			if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
-				for i, dev := range sr.KubeProxyReplacement.Devices {
-					kubeProxyDevices += dev
-					if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
-						kubeProxyDevices += " (Direct Routing)"
-					}
-					if i+1 != len(sr.KubeProxyReplacement.Devices) {
-						kubeProxyDevices += ", "
-					}
+
+	}
+	if sr.KubeProxyReplacement != nil {
+		devices := ""
+		if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
+			for i, dev := range sr.KubeProxyReplacement.Devices {
+				kubeProxyDevices += fmt.Sprintf("%s %s", dev.Name, strings.Join(dev.IP, " "))
+				if dev.Name == sr.KubeProxyReplacement.DirectRoutingDevice {
+					kubeProxyDevices += " (Direct Routing)"
 				}
-				if len(sr.KubeProxyReplacement.Devices) > 0 {
-					devices = "[" + kubeProxyDevices + "]"
+				if i+1 != len(sr.KubeProxyReplacement.Devices) {
+					kubeProxyDevices += ", "
 				}
 			}
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
-				sr.KubeProxyReplacement.Mode, devices)
+			if len(sr.KubeProxyReplacement.Devices) > 0 {
+				devices = "[" + kubeProxyDevices + "]"
+			}
 		}
+		fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
+			sr.KubeProxyReplacement.Mode, devices)
 	}
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
@@ -390,26 +394,61 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "BandwidthManager:\t%s\n", status)
 	}
 
+	if sr.HostRouting != nil {
+		fmt.Fprintf(w, "Host Routing:\t%s\n", sr.HostRouting.Mode)
+	}
+
 	if sr.Masquerading != nil {
 		var status string
-		if !sr.Masquerading.Enabled {
-			status = "Disabled"
-		} else if sr.Masquerading.Mode == models.MasqueradingModeBPF {
-			if sr.Masquerading.IPMasqAgent {
-				status = "BPF (ip-masq-agent)"
-			} else {
-				status = "BPF"
+
+		enabled := func(enabled bool) string {
+			if enabled {
+				return "Enabled"
 			}
-			if sr.KubeProxyReplacement != nil {
-				status += fmt.Sprintf("\t[%s]\t%s",
-					strings.Join(sr.KubeProxyReplacement.Devices, ", "),
-					sr.Masquerading.SnatExclusionCidr)
+			return "Disabled"
+		}
+
+		if !sr.Masquerading.Enabled.IPV4 && !sr.Masquerading.Enabled.IPV6 {
+			status = enabled(false)
+		} else {
+			if sr.Masquerading.Mode == models.MasqueradingModeBPF {
+				if sr.Masquerading.IPMasqAgent {
+					status = "BPF (ip-masq-agent)"
+				} else {
+					status = "BPF"
+				}
+				if sr.KubeProxyReplacement != nil {
+					// When BPF Masquerading is enabled we don't do any masquerading for IPv6
+					// traffic so no SNAT Exclusion IPv6 CIDR is listed in status output.
+					devStr := ""
+					for i, dev := range sr.KubeProxyReplacement.Devices {
+						devStr += dev.Name
+						if i+1 != len(sr.KubeProxyReplacement.Devices) {
+							devStr += ", "
+						}
+					}
+					status += fmt.Sprintf("\t[%s]\t%s",
+						devStr,
+						sr.Masquerading.SnatExclusionCidrV4)
+				}
+
+			} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
+				status = "IPTables"
 			}
 
-		} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
-			status = "IPTables"
+			status = fmt.Sprintf("%s [IPv4: %s, IPv6: %s]", status,
+				enabled(sr.Masquerading.Enabled.IPV4), enabled(sr.Masquerading.Enabled.IPV6))
 		}
 		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
+	}
+
+	if sd.ClockSourceDetails && sr.ClockSource != nil {
+		status := sr.ClockSource.Mode
+		if sr.ClockSource.Mode == models.ClockSourceModeJiffies {
+			status = fmt.Sprintf("%s\t[%d Hz]",
+				sr.ClockSource.Mode, sr.ClockSource.Hertz)
+		}
+		fmt.Fprintf(w, "Clock Source for BPF:\t%s\n", status)
 	}
 
 	if sr.Controllers != nil {
@@ -513,12 +552,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			if selection == models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev {
 				selection = fmt.Sprintf("%s (Table Size: %d)", np.Algorithm, np.LutSize)
 			}
-			selection = strings.Title(strings.ToLower(selection))
+			xdp = np.Acceleration
 			mode = np.Mode
-			if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
-				mode = strings.Title(strings.ToLower(mode))
-			}
-			xdp = strings.Title(strings.ToLower(np.Acceleration))
 			nPort = fmt.Sprintf("Enabled (Range: %d-%d)", np.PortMin, np.PortMax)
 			lb = "Enabled"
 		}

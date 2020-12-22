@@ -4,10 +4,6 @@
 
 Manage policy related BPF maps
 
-### Synopsis
-
-Manage policy related BPF maps
-
 ### Options
 
 ```

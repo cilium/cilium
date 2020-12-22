@@ -24,7 +24,9 @@ DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--volume $(CURDIR)/../../..:/src \
 	--user "$(shell id -u):$(shell id -g)"
 
-CUE_IMAGE := "docker.io/cuelang/cue:v0.2.2@sha256:2ea932c771212db140c9996c6fff1d236f3f84ae82add914374cee553b6fc60c"
+CUE_VERSION := "v0.2.2"
+CUE_SHA := "2ea932c771212db140c9996c6fff1d236f3f84ae82add914374cee553b6fc60c"
+CUE_IMAGE := "docker.io/cuelang/cue:$(CUE_VERSION)@sha256:$(CUE_SHA)"
 CUE := $(DOCKER_RUN) $(CUE_IMAGE)
 
 all: $(ALL_TARGETS)
@@ -88,6 +90,8 @@ inspect:
 
 help:
 	$(QUIET)$(CUE) cmd help
+	@echo "The cue CLI may be installed via the following command:"
+	@echo "$$ go get cuelang.org/go@$(CUE_VERSION)"
 
 list:
 	$(QUIET)$(CUE) cmd ls

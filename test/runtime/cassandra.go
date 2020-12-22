@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"fmt"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -126,7 +127,7 @@ var _ = Describe("RuntimeCassandra", func() {
 		vm.ReportFailed("cilium policy get")
 	})
 
-	It("Tests policy allowing all actions", func() {
+	SkipItIf(helpers.SkipRaceDetectorEnabled, "Tests policy allowing all actions", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-cassandra-allow-all.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Failed to import policy")
 
@@ -147,7 +148,7 @@ var _ = Describe("RuntimeCassandra", func() {
 		r.ExpectContains("alice", "Did not get inserted data in select")
 	})
 
-	It("Tests policy disallowing Insert action", func() {
+	SkipItIf(helpers.SkipRaceDetectorEnabled, "Tests policy disallowing Insert action", func() {
 
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-cassandra-no-insert-posts.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Failed to import policy")
@@ -169,5 +170,4 @@ var _ = Describe("RuntimeCassandra", func() {
 		r.ExpectContains("alice", "Did not get inserted data in select")
 		r.ExpectDoesNotContain("bob", "Got value on select that should not have been inserted")
 	})
-
 })

@@ -22,17 +22,17 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 
 	. "gopkg.in/check.v1"
 )
 
 type ManagerTestSuite struct {
 	svc                       *Service
-	lbmap                     *lbmap.LBMockMap // for accessing public fields
+	lbmap                     *mockmaps.LBMockMap // for accessing public fields
 	svcHealth                 *healthserver.MockHealthHTTPServerFactory
 	prevOptionSessionAffinity bool
 	prevOptionLBSourceRanges  bool
@@ -45,8 +45,8 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	backendIDAlloc.resetLocalID()
 
 	m.svc = NewService(nil)
-	m.svc.lbmap = lbmap.NewLBMockMap()
-	m.lbmap = m.svc.lbmap.(*lbmap.LBMockMap)
+	m.svc.lbmap = mockmaps.NewLBMockMap()
+	m.lbmap = m.svc.lbmap.(*mockmaps.LBMockMap)
 
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
@@ -227,7 +227,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 
 	// Restart service, but keep the lbmap to restore services from
-	lbmap := m.svc.lbmap.(*lbmap.LBMockMap)
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
 
@@ -309,7 +309,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
 
 	// Restart service, but keep the lbmap to restore services from
-	lbmap := m.svc.lbmap.(*lbmap.LBMockMap)
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
 	err = m.svc.RestoreServices()
@@ -454,6 +454,46 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
 }
 
+func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
+	// NewService sets healthServer to nil if EnableHealthCheckNodePort is
+	// false at start time. We emulate this here by temporarily setting it nil.
+	enableHealthCheckNodePort := option.Config.EnableHealthCheckNodePort
+	healthServer := m.svc.healthServer
+	option.Config.EnableHealthCheckNodePort = false
+	m.svc.healthServer = nil
+	defer func() {
+		option.Config.EnableHealthCheckNodePort = enableHealthCheckNodePort
+		m.svc.healthServer = healthServer
+	}()
+
+	p1 := &lb.SVC{
+		Frontend:            frontend1,
+		Backends:            backends1,
+		Type:                lb.SVCTypeNodePort,
+		TrafficPolicy:       lb.SVCTrafficPolicyLocal,
+		HealthCheckNodePort: 32000,
+	}
+	_, id1, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+
+	// Unset HealthCheckNodePort for that service
+	p1.HealthCheckNodePort = 0
+	p1.TrafficPolicy = lb.SVCTrafficPolicyCluster
+	_, _, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+
+	// Set HealthCheckNodePort for that service
+	p1.HealthCheckNodePort = 32000
+	p1.TrafficPolicy = lb.SVCTrafficPolicyLocal
+	_, _, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+
+	// Delete service with active HealthCheckNodePort
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+}
+
 func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	fe := frontend1.DeepCopy()
 	be := make([]lb.Backend, 0, len(backends1))
@@ -483,4 +523,130 @@ func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	c.Assert(ok, Equals, true)
 	_, _, ok = m.svc.GetServiceNameByAddr(frontend2.L3n4Addr)
 	c.Assert(ok, Equals, false)
+}
+
+func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	localBackends := []lb.Backend{localBackend}
+	// Create two remote backends.
+	remoteBackends := make([]lb.Backend, 0, len(backends2))
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	allBackends := make([]lb.Backend, 0, 1+len(remoteBackends))
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	// Create a service entry of type Local Redirect.
+	p1 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeLocalRedirect,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+	// Insert the service entry of type Local Redirect.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok := m.svc.svcByID[id]
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.svcNamespace, Equals, "ns1")
+	c.Assert(svc.svcName, Equals, "svc1")
+	// Only node-local backends are selected
+	c.Assert(len(svc.backends), Equals, len(localBackends))
+
+	svcFromLbMap, ok := m.lbmap.ServiceByID[uint16(id)]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(svcFromLbMap.Backends), Equals, len(svc.backends))
+}
+
+// Local redirect service should be able to override a ClusterIP service with same
+// frontend, but reverse should produce an error. Also, it should not override
+// any other type besides itself or clusterIP type.
+func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	localBackends := []lb.Backend{localBackend}
+	// Create two remote backends.
+	remoteBackends := make([]lb.Backend, 0, len(backends2))
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	allBackends := make([]lb.Backend, 0, 1+len(remoteBackends))
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok := m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+
+	// Insert the service entry of type Local Redirect.
+	p1.Type = lb.SVCTypeLocalRedirect
+	created, id, err = m.svc.UpsertService(p1)
+
+	// Local redirect service should override the ClusterIP service with node-local backends.
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id, Not(Equals), lb.ID(0))
+	svc, _ = m.svc.svcByID[id]
+	// Only node-local backends are selected.
+	c.Assert(len(svc.backends), Equals, len(localBackends))
+
+	// Insert the service entry of type ClusterIP.
+	p1.Type = lb.SVCTypeClusterIP
+	created, _, err = m.svc.UpsertService(p1)
+
+	c.Assert(err, NotNil)
+	c.Assert(created, Equals, false)
+
+	p2 := &lb.SVC{
+		Frontend:      frontend2,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeNodePort,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc2",
+		Namespace:     "ns1",
+	}
+
+	// Insert the service entry of type NodePort.
+	created, id, err = m.svc.UpsertService(p2)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+
+	// Insert the service entry of type Local Redirect.
+	p2.Type = lb.SVCTypeLocalRedirect
+	created, _, err = m.svc.UpsertService(p2)
+
+	// Local redirect service should not override the NodePort service.
+	c.Assert(err, NotNil)
+	c.Assert(created, Equals, false)
 }

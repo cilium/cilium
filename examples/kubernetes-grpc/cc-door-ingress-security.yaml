@@ -1,12 +1,12 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "L7 policy to allow public terminals to call GetName, GetLocation, and RequestMaintenance, but not GetState, or SetAccessCode on the Door Manager Service"
 metadata:
   name: "rule1"
 spec:
+  description: L7 policy to allow public terminals to call GetName, GetLocation, and RequestMaintenance, but not GetState, or SetAccessCode on the Door Manager Service
   endpointSelector:
     matchLabels:
-      app: cc-door-mgr 
+      app: cc-door-mgr
   ingress:
   - fromEndpoints:
     - matchLabels:
@@ -17,9 +17,9 @@ spec:
         protocol: TCP
       rules:
         http:
-        - method: "POST" 
+        - method: "POST"
           path: "/cloudcity.DoorManager/GetName"
-        - method: "POST" 
+        - method: "POST"
           path: "/cloudcity.DoorManager/GetLocation"
-        - method: "POST" 
+        - method: "POST"
           path: "/cloudcity.DoorManager/RequestMaintenance"

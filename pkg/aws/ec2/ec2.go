@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
+	"github.com/cilium/cilium/pkg/aws/endpoints"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -26,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
@@ -51,6 +54,25 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 		limiter:        helpers.NewApiLimiter(metrics, rateLimit, burst),
 		subnetsFilters: subnetsFilters,
 	}
+}
+
+// NewConfig returns a new aws.Config configured with the correct region + endpoint resolver
+func NewConfig() (aws.Config, error) {
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return aws.Config{}, fmt.Errorf("unable to load AWS configuration: %w", err)
+	}
+
+	metadataClient := ec2metadata.New(cfg)
+	instance, err := metadataClient.GetInstanceIdentityDocument(context.TODO())
+	if err != nil {
+		return aws.Config{}, fmt.Errorf("unable to retrieve instance identity document: %w", err)
+	}
+
+	cfg.Region = instance.Region
+	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
+
+	return cfg, nil
 }
 
 // NewSubnetsFilters transforms a map of tags and values and a slice of subnets
@@ -519,4 +541,35 @@ func (c *Client) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap,
 	}
 
 	return securityGroups, nil
+}
+
+// GetInstanceTypes returns all the known EC2 instance types in the configured region
+func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2.InstanceTypeInfo, error) {
+	c.limiter.Limit(ctx, "DescribeInstanceTypes")
+	sinceStart := spanstat.Start()
+	instanceTypeInfos := []ec2.InstanceTypeInfo{}
+	describeInstanceTypes := &ec2.DescribeInstanceTypesInput{}
+	req := c.ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
+	describeInstanceTypesResponse, err := req.Send(ctx)
+	c.metricsAPI.ObserveAPICall("DescribeInstanceTypes", deriveStatus(req.Request, err), sinceStart.Seconds())
+	if err != nil {
+		return instanceTypeInfos, err
+	}
+
+	instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
+
+	for describeInstanceTypesResponse.NextToken != nil {
+		describeInstanceTypes := &ec2.DescribeInstanceTypesInput{
+			NextToken: describeInstanceTypesResponse.NextToken,
+		}
+		req = c.ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
+		describeInstanceTypesResponse, err = req.Send(ctx)
+		if err != nil {
+			return instanceTypeInfos, err
+		}
+
+		instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
+	}
+
+	return instanceTypeInfos, nil
 }

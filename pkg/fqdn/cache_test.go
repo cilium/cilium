@@ -623,6 +623,31 @@ func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string
 	}
 }
 
+func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+
+	// Siblings are IPs that resolve to the same name.
+	zombies.Upsert(now, "1.1.1.1", "test.com")
+	zombies.Upsert(now, "1.1.1.2", "test.com")
+	zombies.Upsert(now, "3.3.3.3", "pizza.com")
+
+	// Mark 1.1.1.2 alive which should also keep 1.1.1.1 alive since they
+	// have the same name
+	now = now.Add(time.Second)
+	zombies.MarkAlive(now, net.ParseIP("1.1.1.2"))
+	zombies.SetCTGCTime(now)
+
+	alive, dead := zombies.GC()
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"1.1.1.2": {"test.com"},
+	})
+	assertZombiesContain(c, dead, map[string][]string{
+		"3.3.3.3": {"pizza.com"},
+	})
+}
+
 func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	now := time.Now()
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
@@ -854,4 +879,67 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 		"2.2.2.2": {"test.com"},
 		"3.3.3.3": {"test.com"},
 	})
+}
+
+func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+
+	alive := zombies.DumpAlive(nil)
+	c.Assert(alive, HasLen, 0)
+
+	zombies.Upsert(now, "1.1.1.1", "test.com")
+	zombies.Upsert(now, "2.2.2.2", "example.com")
+	zombies.Upsert(now, "3.3.3.3", "example.org")
+
+	alive = zombies.DumpAlive(nil)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"example.com"},
+		"3.3.3.3": {"example.org"},
+	})
+
+	now = now.Add(time.Second)
+	zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
+	zombies.MarkAlive(now, net.ParseIP("2.2.2.2"))
+	zombies.SetCTGCTime(now)
+
+	alive = zombies.DumpAlive(nil)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"example.com"},
+	})
+
+	cidrMatcher := func(ip net.IP) bool { return false }
+	alive = zombies.DumpAlive(cidrMatcher)
+	c.Assert(len(alive), checker.Equals, 0)
+
+	cidrMatcher = func(ip net.IP) bool { return true }
+	alive = zombies.DumpAlive(cidrMatcher)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"example.com"},
+	})
+
+	_, cidr, err := net.ParseCIDR("1.1.1.0/24")
+	c.Assert(err, IsNil)
+	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
+	alive = zombies.DumpAlive(cidrMatcher)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+	})
+
+	zombies.Upsert(now, "1.1.1.2", "test2.com")
+
+	alive = zombies.DumpAlive(cidrMatcher)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"1.1.1.2": {"test2.com"},
+	})
+
+	_, cidr, err = net.ParseCIDR("4.4.0.0/16")
+	c.Assert(err, IsNil)
+	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
+	alive = zombies.DumpAlive(cidrMatcher)
+	c.Assert(len(alive), checker.Equals, 0)
 }

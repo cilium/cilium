@@ -158,7 +158,7 @@ var _ = Describe("RuntimeKafka", func() {
 		vm.ReportFailed("cilium policy get")
 	})
 
-	It("Kafka Policy Ingress", func() {
+	SkipItIf(helpers.SkipRaceDetectorEnabled, "Kafka Policy Ingress", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
@@ -190,7 +190,7 @@ var _ = Describe("RuntimeKafka", func() {
 		monitorRes.ExpectContains("verdict Denied offsetfetch topic disallowTopic => 29")
 	})
 
-	It("Kafka Policy Role Egress", func() {
+	SkipItIf(helpers.SkipRaceDetectorEnabled, "Kafka Policy Role Egress", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka-Role.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Expected nil got %s while importing policy Policies-kafka-Role.json", err)
 

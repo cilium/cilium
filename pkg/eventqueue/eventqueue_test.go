@@ -213,3 +213,27 @@ func (s *EventQueueSuite) TestEnqueueTwice(c *C) {
 	q.Stop()
 	q.WaitToBeDrained()
 }
+
+func (s *EventQueueSuite) TestForcefulDraining(c *C) {
+	// This will test enqueuing an event when the queue was never run and was
+	// stopped and drained. The behavior expected is that the event will
+	// successfully be enqueued (channel returned is non-nil & no error), and
+	// after the event is stopped and drained, the returned channel will
+	// unblock.
+
+	q := NewEventQueue()
+
+	ev := NewEvent(&DummyEvent{})
+	res, err := q.Enqueue(ev)
+	c.Assert(res, Not(IsNil))
+	c.Assert(err, IsNil)
+
+	q.Stop()
+	q.WaitToBeDrained()
+
+	select {
+	case <-res:
+	case <-time.After(5 * time.Second):
+		c.Fail()
+	}
+}

@@ -26,6 +26,10 @@ const (
 	// LostEventSourceEventsQueue indicates that an event has been dropped
 	// because the events queue was full.
 	LostEventSourceEventsQueue
+	// LostEventSourceHubbleRingBuffer  indicates that an event was dropped
+	// because it could not be read from Hubble's ring buffer in time before
+	// being overwritten.
+	LostEventSourceHubbleRingBuffer
 )
 
 // MonitorEvent is the top-level type for all events consumed by the observer
@@ -42,7 +46,7 @@ type MonitorEvent struct {
 type AgentEvent struct {
 	// Type is a monitorAPI.MessageType* value
 	Type int
-	// Message is the agent message, e.g. accesslog.LogRecord, monitorAPI.AgentNotify
+	// Message is the agent message, e.g. accesslog.LogRecord, monitorAPI.AgentNotifyMessage
 	Message interface{}
 }
 

@@ -22,6 +22,8 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func Test_filterByReplyField(t *testing.T) {
@@ -47,7 +49,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "empty-param",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Reply: true}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: true}}},
 			},
 			want: true,
 		},
@@ -55,7 +57,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "empty-param-2",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: false}}},
 			},
 			want: true,
 		},
@@ -63,7 +65,35 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-reply",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: false}}},
+			},
+			want: true,
+		},
+		{
+			name: "trace-event-from-endpoint",
+			args: args{
+				f: []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					EventType: &flowpb.CiliumEventType{
+						Type:    monitorAPI.MessageTypeTrace,
+						SubType: monitorAPI.TraceFromLxc,
+					},
+					IsReply: nil,
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "trace-event-to-endpoint",
+			args: args{
+				f: []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					EventType: &flowpb.CiliumEventType{
+						Type:    monitorAPI.MessageTypeTrace,
+						SubType: monitorAPI.TraceToLxc,
+					},
+					IsReply: &wrappers.BoolValue{Value: false},
+				}},
 			},
 			want: true,
 		},
@@ -71,7 +101,15 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "reply",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Reply: true}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: true}}},
+			},
+			want: true,
+		},
+		{
+			name: "drop implies reply=false",
+			args: args{
+				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Verdict: flowpb.Verdict_DROPPED, IsReply: nil}},
 			},
 			want: true,
 		},
@@ -79,7 +117,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: false}}},
 			},
 			want: false,
 		},
@@ -87,7 +125,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-match-2",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Reply: true}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: true}}},
 			},
 			want: false,
 		},

@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -114,6 +114,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
 
 	k8sSvc = &slim_corev1.Service{
@@ -139,6 +140,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
 
 	k8sSvc = &slim_corev1.Service{
@@ -165,6 +167,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		Type:                     loadbalancer.SVCTypeNodePort,
 	})
 }
 
@@ -582,6 +585,88 @@ func TestService_Equals(t *testing.T) {
 					Selector: map[string]string{
 						"baz": "foz",
 					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "session affinity was added",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: false,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+					loadbalancer.FEPortName("foo"): {
+						Protocol: loadbalancer.NONE,
+						Port:     1,
+					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+				SessionAffinity: false,
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: false,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+						loadbalancer.FEPortName("foo"): {
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+					SessionAffinity: true,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "session affinity timeout changed",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: false,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+					loadbalancer.FEPortName("foo"): {
+						Protocol: loadbalancer.NONE,
+						Port:     1,
+					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+				SessionAffinity:           true,
+				SessionAffinityTimeoutSec: 1,
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: false,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+						loadbalancer.FEPortName("foo"): {
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+					SessionAffinity:           true,
+					SessionAffinityTimeoutSec: 2,
 				},
 			},
 			want: false,

@@ -31,9 +31,4 @@ type Datapath interface {
 	// Loader must return the implementation of the loader, which is responsible
 	// for loading, reloading, and compiling datapath programs.
 	Loader() Loader
-
-	// SetupIPVLAN sets up IPVLAN in the specified network namespace. Returns
-	// the file descriptor for the tail call map / ID, and an error if any
-	// operation while configuring said namespace fails.
-	SetupIPVLAN(netNS string) (int, int, error)
 }

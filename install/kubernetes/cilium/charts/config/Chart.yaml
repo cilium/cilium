@@ -1,8 +1,0 @@
-apiVersion: v2
-name: config
-version: 1.8.90
-appVersion: 1.8.90
-description: Helm chart for Cilium configuration
-keywords:
-sources:
-  - https://github.com/cilium/cilium

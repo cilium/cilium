@@ -53,11 +53,11 @@ are running.
 The metrics for Cilium, Hubble, and Cilium Operator can all be enabled
 independently of each other with the following Helm values:
 
- - ``global.prometheus.enabled=true``: Enables metrics for ``cilium-agent``.
- - ``global.operatorPrometheus.enabled=true``: Enables metrics for ``cilium-operator``.
- - ``global.hubble.metrics.enabled``: Enables the provided list of Hubble metrics.
+ - ``prometheus.enabled=true``: Enables metrics for ``cilium-agent``.
+ - ``operator.prometheus.enabled=true``: Enables metrics for ``cilium-operator``.
+ - ``hubble.metrics.enabled``: Enables the provided list of Hubble metrics.
    For Hubble metrics to work, Hubble itself needs to be enabled with
-   ``global.hubble.enabled=true``. See
+   ``hubble.enabled=true``. See
    :ref:`Hubble exported metrics<hubble_exported_metrics>` for the list of
    available Hubble metrics.
 
@@ -71,10 +71,10 @@ Deploy Cilium via Helm as follows to enable all metrics:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.prometheus.enabled=true \\
-      --set global.operatorPrometheus.enabled=true \\
-      --set global.hubble.enabled=true \\
-      --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+      --set prometheus.enabled=true \\
+      --set operator.prometheus.enabled=true \\
+      --set hubble.enabled=true \\
+      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
 .. note::
 
@@ -89,7 +89,7 @@ Expose the port on your local machine
 
 .. code:: bash
 
-    kubectl -n cilium-monitoring port-forward service/grafana 3000:3000
+    kubectl -n cilium-monitoring port-forward service/grafana --address 0.0.0.0 --address :: 3000:3000
 
 Access it via your browser: http://localhost:3000
 
@@ -100,7 +100,7 @@ Expose the port on your local machine
 
 .. code:: bash
 
-    kubectl -n cilium-monitoring port-forward service/prometheus 9090:9090
+    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9090:9090
 
 Access it via your browser: http://localhost:9090
 
@@ -145,6 +145,10 @@ Hubble General Processing
 
 Hubble Networking
 -----------------
+.. note::
+
+   The ``port-distribution`` metric is disabled by default.
+   Refer to :ref:`metrics` for more details about the individual metrics.
 
 .. image:: images/grafana_hubble_network.png
 .. image:: images/grafana_hubble_tcp.png

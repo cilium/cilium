@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -525,80 +525,6 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 			},
 			want: false,
 		},
-		{
-			name: "Pods with the same container statuses",
-			args: args{
-				o1: &slim_corev1.Pod{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name: "pod1",
-					},
-					Status: slim_corev1.PodStatus{
-						ContainerStatuses: []slim_corev1.ContainerStatus{
-							{
-								Name: "my-container",
-								State: slim_corev1.ContainerState{
-									Running: &slim_corev1.ContainerStateRunning{
-										StartedAt: slim_metav1.Time{},
-									},
-								},
-							},
-						},
-					},
-				},
-				o2: &slim_corev1.Pod{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name: "pod1",
-					},
-					Status: slim_corev1.PodStatus{
-						ContainerStatuses: []slim_corev1.ContainerStatus{
-							{
-								Name: "my-container",
-								State: slim_corev1.ContainerState{
-									Running: &slim_corev1.ContainerStateRunning{
-										StartedAt: slim_metav1.Time{},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "Pods with different container statuses",
-			args: args{
-				o1: &slim_corev1.Pod{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name: "pod1",
-					},
-					Status: slim_corev1.PodStatus{
-						ContainerStatuses: []slim_corev1.ContainerStatus{
-							{
-								Name: "my-container",
-								State: slim_corev1.ContainerState{
-									Running: &slim_corev1.ContainerStateRunning{},
-								},
-							},
-						},
-					},
-				},
-				o2: &slim_corev1.Pod{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name: "pod1",
-					},
-					Status: slim_corev1.PodStatus{
-						ContainerStatuses: []slim_corev1.ContainerStatus{
-							{
-								Name:  "my-container",
-								State: slim_corev1.ContainerState{},
-							},
-						},
-					},
-				},
-			},
-			want: false,
-		},
 	}
 	for _, tt := range tests {
 		got := tt.args.o1.DeepEqual(tt.args.o2)
@@ -1043,130 +969,6 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToCNPWithStatus(c *C) {
-	type args struct {
-		obj interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want interface{}
-	}{
-		{
-			name: "normal conversion",
-			args: args{
-				obj: &v2.CiliumNetworkPolicy{},
-			},
-			want: &types.SlimCNP{
-				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-			},
-		},
-		{
-			name: "delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v2.CiliumNetworkPolicy{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
-			},
-		},
-		{
-			name: "unknown object type in delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: 100,
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
-		},
-		{
-			name: "unknown object type in conversion",
-			args: args{
-				obj: 100,
-			},
-			want: 100,
-		},
-	}
-	for _, tt := range tests {
-		got := ConvertToCNPWithStatus(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
-
-func (s *K8sSuite) Test_ConvertToCCNPWithStatus(c *C) {
-	type args struct {
-		obj interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want interface{}
-	}{
-		{
-			name: "normal conversion",
-			args: args{
-				obj: &v2.CiliumClusterwideNetworkPolicy{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
-			},
-			want: &types.SlimCNP{
-				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-			},
-		},
-		{
-			name: "delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v2.CiliumClusterwideNetworkPolicy{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-					},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
-			},
-		},
-		{
-			name: "unknown object type in delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: 100,
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
-		},
-		{
-			name: "unknown object type in conversion",
-			args: args{
-				obj: 100,
-			},
-			want: 100,
-		},
-	}
-	for _, tt := range tests {
-		got := ConvertToCCNPWithStatus(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
-
 func (s *K8sSuite) Test_ConvertToCNP(c *C) {
 	type args struct {
 		obj interface{}
@@ -1242,6 +1044,15 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 				obj: &v2.CiliumClusterwideNetworkPolicy{
 					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 				},
+			},
+			want: &types.SlimCNP{
+				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
+			},
+		},
+		{
+			name: "A CCNP where it doesn't contain neither a spec nor specs",
+			args: args{
+				obj: &v2.CiliumClusterwideNetworkPolicy{},
 			},
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},

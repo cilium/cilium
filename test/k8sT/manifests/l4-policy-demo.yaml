@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "L4 policy for allowing all traffic in demo DS"
 metadata:
   name: "l4-policy-demo"
 spec:
+  description: "L4 policy for allowing all traffic in demo DS"
   endpointSelector:
     matchLabels:
       zgroup: testDS

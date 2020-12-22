@@ -1,0 +1,18 @@
+{{/* validate hubble config */}}
+{{- if .Values.hubble.ui.enabled }}
+  {{- if not .Values.hubble.relay.enabled }}
+    {{ fail "Hubble UI requires .Values.hubble.relay.enabled=true" }}
+  {{- end }}
+{{- end }}
+{{- if .Values.hubble.relay.enabled }}
+  {{- if not .Values.hubble.enabled }}
+    {{ fail "Hubble Relay requires .Values.hubble.enabled=true" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate service monitoring CRDs */}}
+{{- if and (.Values.prometheus.enabled) (or (.Values.prometheus.serviceMonitor.enabled) (.Values.operator.prometheus.serviceMonitor.enabled)) }}
+  {{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+      {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml" }}
+  {{- end }}
+{{- end }}

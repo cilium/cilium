@@ -237,7 +237,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 // CachingIdentityAllocator.
 func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
 	watcher := identityWatcher{
-		stopChan: make(chan bool),
+		stopChan: make(chan struct{}),
 		owner:    owner,
 	}
 
@@ -309,7 +309,6 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		if err == nil {
 			if allocated || isNewLocally {
 				metrics.Identity.Inc()
-				metrics.IdentityCount.Inc()
 			}
 
 			if allocated && notifyOwner {
@@ -379,7 +378,6 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	defer func() {
 		if released {
 			metrics.Identity.Dec()
-			metrics.IdentityCount.Dec()
 		}
 	}()
 

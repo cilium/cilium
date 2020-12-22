@@ -1,7 +1,0 @@
-apiVersion: v2
-name: hubble-relay
-version: 1.8.90
-appVersion: 1.8.90
-description: Helm chart for running Hubble Relay
-sources:
-  - https://github.com/cilium/cilium

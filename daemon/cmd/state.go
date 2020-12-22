@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -34,12 +33,20 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type endpointRestoreState struct {
+	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
 	toClean  []*endpoint.Endpoint
+}
+
+// checkLink returns an error if a link with linkName does not exist.
+func checkLink(linkName string) error {
+	_, err := netlink.LinkByName(linkName)
+	return err
 }
 
 // validateEndpoint attempts to determine that the restored endpoint is valid, ie it
@@ -74,10 +81,16 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
 		}
 
+		// Initialize the endpoint's event queue because the following call to
+		// execute the metadata resolver will emit events for the endpoint.
+		// After this endpoint is validated, it'll eventually be restored, in
+		// which the endpoint manager will begin processing the events off the
+		// queue.
+		ep.InitEventQueue()
 		ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
 	}
 
-	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {
+	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
 		return false, err
 	}
 
@@ -90,18 +103,23 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	return true, nil
 }
 
-// restoreOldEndpoints reads the list of existing endpoints previously managed by
-// Cilium when it was last run and associated it with container workloads. This
-// function performs the first step in restoring the endpoint structure,
-// allocating their existing IPs out of the CIDR block and then inserting the
-// endpoints into the endpoints list. It needs to be followed by a call to
-// regenerateRestoredEndpoints() once the endpoint builder is ready.
+// fetchOldEndpoints reads the list of existing endpoints previously managed by Cilium when it was
+// last run and associated it with container workloads. This function performs the first step in
+// restoring the endpoint structure.  It needs to be followed by a call to restoreOldEndpoints()
+// once k8s has been initialized and regenerateRestoredEndpoints() once the endpoint builder is
+// ready. In summary:
 //
-// If clean is true, endpoints which cannot be associated with a container
-// workloads are deleted.
-func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreState, error) {
-	failed := 0
+// 1. fetchOldEndpoints(): Unmarshal old endpoints
+//    - used to start DNS proxy with restored DNS history and rules
+// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
+//    - IP allocation
+//    - some endpoints may be rejected and not regnerated in the 3rd step
+// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
+//    - recreate endpoint's policy, as well as bpf programs and maps
+//
+func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	state := &endpointRestoreState{
+		possible: nil,
 		restored: []*endpoint.Endpoint{},
 		toClean:  []*endpoint.Endpoint{},
 	}
@@ -109,6 +127,40 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	if !option.Config.RestoreState {
 		log.Info("Endpoint restore is disabled, skipping restore step")
 		return state, nil
+	}
+
+	log.Info("Reading old endpoints...")
+
+	dirFiles, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return state, err
+	}
+	eptsID := endpoint.FilterEPDir(dirFiles)
+
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, dir, eptsID)
+
+	if len(state.possible) == 0 {
+		log.Info("No old endpoints found.")
+	}
+	return state, nil
+}
+
+// restoreOldEndpoints performs the second step in restoring the endpoint structure,
+// allocating their existing IPs out of the CIDR block and then inserting the
+// endpoints into the endpoints list. It needs to be followed by a call to
+// regenerateRestoredEndpoints() once the endpoint builder is ready.
+//
+// If clean is true, endpoints which cannot be associated with a container
+// workloads are deleted.
+func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) error {
+	failed := 0
+	defer func() {
+		state.possible = nil
+	}()
+
+	if !option.Config.RestoreState {
+		log.Info("Endpoint restore is disabled, skipping restore step")
+		return nil
 	}
 
 	log.Info("Restoring endpoints...")
@@ -125,20 +177,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		}
 	}
 
-	dirFiles, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return state, err
-	}
-	eptsID := endpoint.FilterEPDir(dirFiles)
-
-	possibleEPs := endpoint.ReadEPsFromDirNames(d.ctx, d, dir, eptsID)
-
-	if len(possibleEPs) == 0 {
-		log.Info("No old endpoints found.")
-		return state, nil
-	}
-
-	for _, ep := range possibleEPs {
+	for _, ep := range state.possible {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		if k8s.IsEnabled() {
 			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodName())
@@ -159,6 +198,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		if err != nil {
 			// Disconnected EPs are not failures, clean them silently below
 			if !ep.IsDisconnecting() {
+				d.endpointManager.DeleteK8sCiliumEndpointSync(ep)
 				scopedLog.WithError(err).Warningf("Unable to restore endpoint, ignoring")
 				failed++
 			}
@@ -202,7 +242,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		}
 	}
 
-	return state, nil
+	return nil
 }
 
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (restoreComplete chan struct{}) {

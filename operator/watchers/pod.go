@@ -16,7 +16,7 @@ package watchers
 
 import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 
 	v1 "k8s.io/api/core/v1"
@@ -30,7 +30,7 @@ import (
 var (
 	// PodStore has a minimal copy of all pods running in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
-	// operations in k8s as some of its fields were are not populated.
+	// operations in k8s as some of its fields are not populated.
 	PodStore cache.Store
 
 	// PodStoreSynced is closed once the PodStore is synced with k8s.
@@ -39,7 +39,7 @@ var (
 	// UnmanagedPodStore has a minimal copy of the unmanaged kube-dns pods running
 	// in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
-	// operations in k8s as some of its fields were are not populated.
+	// operations in k8s as some of its fields are not populated.
 	UnmanagedPodStore cache.Store
 
 	// UnmanagedPodStoreSynced is closed once the UnmanagedPodStore is synced
@@ -47,7 +47,7 @@ var (
 	UnmanagedPodStoreSynced = make(chan struct{})
 )
 
-func PodsInit(k8sClient kubernetes.Interface) {
+func PodsInit(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
 	var podInformer cache.Controller
 	PodStore, podInformer = informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
@@ -57,9 +57,9 @@ func PodsInit(k8sClient kubernetes.Interface) {
 		cache.ResourceEventHandlerFuncs{},
 		convertToPod,
 	)
-	go podInformer.Run(wait.NeverStop)
+	go podInformer.Run(stopCh)
 
-	cache.WaitForCacheSync(wait.NeverStop, podInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, podInformer.HasSynced)
 	close(PodStoreSynced)
 }
 
@@ -75,6 +75,9 @@ func convertToPod(obj interface{}) interface{} {
 				Name:            concreteObj.Name,
 				Namespace:       concreteObj.Namespace,
 				ResourceVersion: concreteObj.ResourceVersion,
+			},
+			Status: slim_corev1.PodStatus{
+				Phase: concreteObj.Status.Phase,
 			},
 		}
 		*concreteObj = slim_corev1.Pod{}
@@ -92,6 +95,9 @@ func convertToPod(obj interface{}) interface{} {
 					Name:            pod.Name,
 					Namespace:       pod.Namespace,
 					ResourceVersion: pod.ResourceVersion,
+				},
+				Status: slim_corev1.PodStatus{
+					Phase: pod.Status.Phase,
 				},
 			},
 		}

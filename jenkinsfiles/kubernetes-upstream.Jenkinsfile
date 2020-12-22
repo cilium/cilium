@@ -35,13 +35,26 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
-        K8S_VERSION="1.19"
-        SERVER_BOX = "cilium/ubuntu"
+        K8S_VERSION="1.20"
+        KERNEL="419"
+        SERVER_BOX = "cilium/ubuntu-4-19"
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
+        RACE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        LOCKDEBUG="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        BASE_IMAGE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2020-12-10@sha256:ee6f0f81fa73125234466c13fd16bed30cc3209daa2f57098f63e0285779e5f3"; fi'
+            )}"""
     }
 
     options {
-        timeout(time: 180, unit: 'MINUTES')
+        timeout(time: 300, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -92,7 +105,7 @@ pipeline {
 
         stage('BDD-tests'){
             options {
-                timeout(time: 90, unit: 'MINUTES')
+                timeout(time: 150, unit: 'MINUTES')
             }
 
             steps {
@@ -107,7 +120,7 @@ pipeline {
             }
 
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 300, unit: 'MINUTES')
             }
 
             environment {

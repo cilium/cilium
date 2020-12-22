@@ -20,9 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
@@ -33,17 +33,16 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -73,6 +72,20 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 				var valid bool
 				if pod := k8s.ObjTov1Pod(obj); pod != nil {
 					valid = true
+					podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
+					// If ep is not nil then we have received the CNI event
+					// first and the k8s event afterwards, if this happens it's
+					// likely the Kube API Server is getting behind the event
+					// handling.
+					if ep := k.endpointManager.LookupPodName(podNSName); ep != nil {
+						epCreatedAt := ep.GetCreatedAt()
+						timeSinceEpCreated := time.Since(epCreatedAt)
+						if timeSinceEpCreated <= 0 {
+							metrics.EventLagK8s.Set(0)
+						} else {
+							metrics.EventLagK8s.Set(timeSinceEpCreated.Round(time.Second).Seconds())
+						}
+					}
 					err := k.addK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
 				}
@@ -122,10 +135,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 			close(k.podStoreSet)
 		})
 
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 		return isConnected
@@ -151,10 +164,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 
@@ -194,7 +207,32 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		"hostIP":               pod.Status.PodIP,
 	})
 
-	skipped, err := k.updatePodHostData(pod)
+	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
+	// is deleted. If the Job is never deleted, Cilium will never receive a Pod
+	// delete event, causing the IP to be left in the ipcache.
+	// For this reason we should delete the ipcache entries whenever the pod
+	// status is either PodFailed or PodSucceeded as it means the IP address
+	// is no longer in use.
+	if !k8sUtils.IsPodRunning(pod.Status) {
+		return k.deleteK8sPodV1(pod)
+	}
+
+	skipped := false
+	var err error
+	podIPs := k8sUtils.ValidIPs(pod.Status)
+
+	if len(podIPs) > 0 {
+		skipped, err = k.updatePodHostData(pod, podIPs)
+
+		// There might be duplicate callbacks here since this function is also
+		// called from updateK8sPodV1, the consumer will need to handle the duplicate
+		// events accordingly.
+		// GH issue #13136.
+		if option.Config.EnableLocalRedirectPolicy {
+			k.redirectPolicyManager.OnAddPod(pod)
+		}
+	}
+
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
@@ -217,6 +255,16 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		return nil
 	}
 
+	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
+	// is deleted. If the Job is never deleted, Cilium will never receive a Pod
+	// delete event, causing the IP to be left in the ipcache.
+	// For this reason we should delete the ipcache entries whenever the pod
+	// status is either PodFailed or PodSucceeded as it means the IP address
+	// is no longer in use.
+	if !k8sUtils.IsPodRunning(newK8sPod.Status) {
+		return k.deleteK8sPodV1(newK8sPod)
+	}
+
 	// The pod IP can never change, it can only switch from unassigned to
 	// assigned
 	// Process IP updates
@@ -227,12 +275,37 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	newAnno := newK8sPod.ObjectMeta.Annotations
 	annoChangedProxy := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
-	annotationsChanged := annoChangedProxy || annoChangedBandwidth
+	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack}, oldAnno, newAnno)
+	annotationsChanged := annoChangedProxy || annoChangedBandwidth || annoChangedNoTrack
 
 	// Check label updates too.
 	oldPodLabels := oldK8sPod.ObjectMeta.Labels
 	newPodLabels := newK8sPod.ObjectMeta.Labels
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
+
+	lrpNeedsReassign := false
+	// The relevant updates are : podIPs and label updates.
+	oldPodIPLen := len(oldK8sPod.Status.PodIP)
+	newPodIPLen := len(newK8sPod.Status.PodIP)
+	switch {
+	case oldPodIPLen == 0 && newPodIPLen > 0:
+		// PodIPs assigned update
+		fallthrough
+	case oldPodIPLen > 0 && newPodIPLen > 0 && oldPodIPLen != newPodIPLen:
+		// PodIPs update
+		fallthrough
+	case labelsChanged:
+		lrpNeedsReassign = true
+	}
+
+	if option.Config.EnableLocalRedirectPolicy {
+		oldPodReady := k8sUtils.GetLatestPodReadiness(oldK8sPod.Status)
+		newPodReady := k8sUtils.GetLatestPodReadiness(newK8sPod.Status)
+
+		if lrpNeedsReassign || (oldPodReady != newPodReady) {
+			k.redirectPolicyManager.OnUpdatePod(newK8sPod, lrpNeedsReassign, newPodReady == slim_corev1.ConditionTrue)
+		}
+	}
 
 	// Nothing changed.
 	if !annotationsChanged && !labelsChanged {
@@ -276,6 +349,15 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 				return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], nil
 			})
 		}
+		if annoChangedNoTrack {
+			podEP.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
+				p, err := k.GetCachedPod(ns, podName)
+				if err != nil {
+					return "", nil
+				}
+				return p.ObjectMeta.Annotations[annotation.NoTrack], nil
+			})
+		}
 		realizePodAnnotationUpdate(podEP)
 	}
 	return nil
@@ -308,59 +390,31 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 	ep.UpdateController(controllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) (err error) {
-				capabilities := k8sversion.Capabilities()
 				pod := ep.GetPod()
 				ciliumClient := k8s.CiliumClient().CiliumV2()
 
-				switch {
-				case capabilities.Patch:
-					replaceLabels := []k8s.JSONPatch{
-						{
-							OP:    "replace",
-							Path:  "/metadata/labels",
-							Value: labels,
-						},
-					}
+				replaceLabels := []k8s.JSONPatch{
+					{
+						OP:    "replace",
+						Path:  "/metadata/labels",
+						Value: labels,
+					},
+				}
 
-					labelsPatch, err := json.Marshal(replaceLabels)
-					if err != nil {
-						scopedLog.WithError(err).Debug("Error marshalling Pod labels")
-						return err
-					}
+				labelsPatch, err := json.Marshal(replaceLabels)
+				if err != nil {
+					scopedLog.WithError(err).Debug("Error marshalling Pod labels")
+					return err
+				}
 
-					_, err = ciliumClient.CiliumEndpoints(pod.GetNamespace()).Patch(
-						ctx, pod.GetName(),
-						types.JSONPatchType,
-						labelsPatch,
-						meta_v1.PatchOptions{})
-					if err != nil {
-						scopedLog.WithError(err).Debug("Error while updating CiliumEndpoint object with new Pod labels")
-						return err
-					}
-
-				default:
-					status := ep.GetCiliumEndpointStatus(option.Config).DeepCopy()
-					_, err := ciliumClient.CiliumEndpoints(pod.GetNamespace()).Update(ctx, &v2.CiliumEndpoint{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: pod.GetName(),
-							OwnerReferences: []meta_v1.OwnerReference{
-								{
-									APIVersion:         "v1",
-									Kind:               "Pod",
-									Name:               pod.GetName(),
-									UID:                pod.GetUID(),
-									BlockOwnerDeletion: func() *bool { a := true; return &a }(),
-								},
-							},
-							Labels: labels,
-						},
-						Status: *status,
-					}, meta_v1.UpdateOptions{})
-
-					if err != nil {
-						scopedLog.WithError(err).Debug("Error while updating CiliumEndpoint object with new Pod labels")
-						return err
-					}
+				_, err = ciliumClient.CiliumEndpoints(pod.GetNamespace()).Patch(
+					ctx, pod.GetName(),
+					types.JSONPatchType,
+					labelsPatch,
+					meta_v1.PatchOptions{})
+				if err != nil {
+					scopedLog.WithError(err).Debug("Error while updating CiliumEndpoint object with new Pod labels")
+					return err
 				}
 
 				scopedLog.WithFields(logrus.Fields{
@@ -401,6 +455,10 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 		"podIPs":               pod.Status.PodIPs,
 		"hostIP":               pod.Status.HostIP,
 	})
+
+	if option.Config.EnableLocalRedirectPolicy {
+		k.redirectPolicyManager.OnDeletePod(pod)
+	}
 
 	skipped, err := k.deletePodHostData(pod)
 	switch {
@@ -525,7 +583,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 }
 
 func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
-	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+	if !option.Config.EnableHostPort {
 		return nil
 	}
 
@@ -561,7 +619,7 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 }
 
 func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
-	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+	if !option.Config.EnableHostPort {
 		return nil
 	}
 
@@ -587,17 +645,12 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	return nil
 }
 
-func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod) (bool, error) {
+func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) (bool, error) {
 	if pod.Spec.HostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIPs, err := validIPs(pod.Status)
-	if err != nil {
-		return true, err
-	}
-
-	err = k.UpsertHostPortMapping(pod, podIPs)
+	err := k.UpsertHostPortMapping(pod, podIPs)
 	if err != nil {
 		return true, fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
 	}
@@ -666,9 +719,9 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIPs, err := validIPs(pod.Status)
-	if err != nil {
-		return true, err
+	podIPs := k8sUtils.ValidIPs(pod.Status)
+	if len(podIPs) == 0 {
+		return true, nil
 	}
 
 	k.DeleteHostPortMapping(pod, podIPs)
@@ -703,30 +756,6 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	}
 
 	return skipped, nil
-}
-
-func validIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
-	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
-		return nil, fmt.Errorf("empty PodIPs")
-	}
-
-	// make it a set first to avoid repeated IP addresses
-	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
-	if podStatus.PodIP != "" {
-		ipsMap[podStatus.PodIP] = struct{}{}
-	}
-	for _, podIP := range podStatus.PodIPs {
-		if podIP.IP != "" {
-			ipsMap[podIP.IP] = struct{}{}
-		}
-	}
-
-	ips := make([]string, 0, len(ipsMap))
-	for ipStr := range ipsMap {
-		ips = append(ips, ipStr)
-	}
-	sort.Strings(ips)
-	return ips, nil
 }
 
 // GetCachedPod returns a pod from the local store. Depending if the Cilium

@@ -18,7 +18,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -160,5 +159,11 @@ func (s *MonitorAPISuite) TestStartMessage(c *C) {
 	repr, err := msg.ToJSON()
 	c.Assert(err, IsNil)
 	c.Assert(repr.Type, Equals, AgentNotifyStart)
-	c.Assert(repr.Text, Equals, fmt.Sprintf(`{"time":"%s"}`, t.String()))
+
+	var timeNotification TimeNotification
+	json.Unmarshal([]byte(repr.Text), &timeNotification)
+	parsedTS, err := time.Parse(time.RFC3339Nano, timeNotification.Time)
+	c.Assert(err, IsNil)
+	// Truncate with duration <=0 will strip any monotonic clock reading
+	c.Assert(parsedTS.Equal(t.Truncate(0)), Equals, true)
 }

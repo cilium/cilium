@@ -64,7 +64,8 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
-	Context("Kafka Policy Tests", func() {
+	// Tests involving the L7 proxy do not work when built with -race, see issue #13757.
+	SkipContextIf(helpers.SkipRaceDetectorEnabled, "Kafka Policy Tests", func() {
 		createTopicCmd := func(topic string) string {
 			return fmt.Sprintf("/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --create "+
 				"--zookeeper localhost:2181 --replication-factor 1 "+

@@ -878,6 +878,25 @@ func init() {
         }
       }
     },
+    "/lrp": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Retrieve list of all local redirect policies",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/LRPSpec"
+              }
+            }
+          }
+        }
+      }
+    },
     "/map": {
       "get": {
         "tags": [
@@ -1483,6 +1502,24 @@ func init() {
         }
       }
     },
+    "ClockSource": {
+      "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "hertz": {
+          "description": "Kernel Hz",
+          "type": "integer"
+        },
+        "mode": {
+          "description": "Datapath clock source",
+          "type": "string",
+          "enum": [
+            "ktime",
+            "jiffies"
+          ]
+        }
+      }
+    },
     "ClusterMeshStatus": {
       "description": "Status of ClusterMesh\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -1750,7 +1787,17 @@ func init() {
         },
         "masquerade": {
           "description": "Status of masquerading feature",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Status of masquerading for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Status of masquerading for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
@@ -2104,6 +2151,20 @@ func init() {
         "cidr-policy": {
           "$ref": "#/definitions/CIDRPolicy"
         },
+        "denied-egress-identities": {
+          "description": "List of identities to which this endpoint is not allowed to communicate\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "denied-ingress-identities": {
+          "description": "List of identities not allowed to communicate to this endpoint\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "id": {
           "description": "Own identity of endpoint",
           "type": "integer"
@@ -2290,6 +2351,36 @@ func init() {
           "enum": [
             "external",
             "internal"
+          ]
+        }
+      }
+    },
+    "FrontendMapping": {
+      "description": "Mapping of frontend to backend pods of an LRP",
+      "type": "object",
+      "properties": {
+        "backends": {
+          "description": "Pod backends of an LRP",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LRPBackend"
+          }
+        },
+        "frontend-address": {
+          "$ref": "#/definitions/FrontendAddress"
+        }
+      }
+    },
+    "HostRouting": {
+      "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Datapath routing mode",
+          "type": "string",
+          "enum": [
+            "BPF",
+            "Legacy"
           ]
         }
       }
@@ -2572,9 +2663,23 @@ func init() {
       "type": "object",
       "properties": {
         "devices": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "array",
           "items": {
-            "type": "string"
+            "description": "\n\n+k8s:deepcopy-gen=true",
+            "type": "object",
+            "properties": {
+              "ip": {
+                "description": "\n\n+k8s:deepcopy-gen=true",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "type": "string"
+              }
+            }
           }
         },
         "directRoutingDevice": {
@@ -2647,7 +2752,7 @@ func init() {
                   "enum": [
                     "SNAT",
                     "DSR",
-                    "HYBRID"
+                    "Hybrid"
                   ]
                 },
                 "portMax": {
@@ -2697,6 +2802,56 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "LRPBackend": {
+      "description": "Pod backend of an LRP",
+      "type": "object",
+      "properties": {
+        "backend-address": {
+          "$ref": "#/definitions/BackendAddress"
+        },
+        "pod-id": {
+          "description": "Namespace and name of the backend pod",
+          "type": "string"
+        }
+      }
+    },
+    "LRPSpec": {
+      "description": "Configuration of an LRP",
+      "type": "object",
+      "properties": {
+        "frontend-mappings": {
+          "description": "mapping of frontends to pod backends",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FrontendMapping"
+          }
+        },
+        "frontend-type": {
+          "description": "LRP frontend type",
+          "type": "string"
+        },
+        "lrp-type": {
+          "description": "LRP config type",
+          "type": "string"
+        },
+        "name": {
+          "description": "LRP service name",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "LRP service namespace",
+          "type": "string"
+        },
+        "service-id": {
+          "description": "matching k8s service namespace and name",
+          "type": "string"
+        },
+        "uid": {
+          "description": "Unique identification",
+          "type": "string"
         }
       }
     },
@@ -2759,7 +2914,17 @@ func init() {
       "properties": {
         "enabled": {
           "description": "Is masquerading enabled",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Is masquerading enabled for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Is masquerading enabled for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "ip-masq-agent": {
           "description": "Is BPF ip-masq-agent enabled",
@@ -2772,8 +2937,12 @@ func init() {
             "iptables"
           ]
         },
-        "snat-exclusion-cidr": {
-          "description": "Any packet sent to IP addr belonging to CIDR will not be SNAT'd",
+        "snat-exclusion-cidr-v4": {
+          "description": "SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to\nan IPv4 address that belongs to this CIDR.",
+          "type": "string"
+        },
+        "snat-exclusion-cidr-v6": {
+          "description": "SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent to\nan IPv6 address that belongs to this CIDR.\nFor IPv6 we only do masquerading in iptables mode.",
           "type": "string"
         }
       }
@@ -3264,7 +3433,8 @@ func init() {
                 "NodePort",
                 "ExternalIPs",
                 "HostPort",
-                "LoadBalancer"
+                "LoadBalancer",
+                "LocalRedirect"
               ]
             }
           }
@@ -3328,6 +3498,10 @@ func init() {
           "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
           "type": "integer"
         },
+        "clock-source": {
+          "description": "Status of clock source",
+          "$ref": "#/definitions/ClockSource"
+        },
         "cluster": {
           "description": "Status of cluster",
           "$ref": "#/definitions/ClusterStatus"
@@ -3343,6 +3517,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "host-routing": {
+          "description": "Status of host routing",
+          "$ref": "#/definitions/HostRouting"
         },
         "hubble": {
           "description": "Status of Hubble server",
@@ -4536,6 +4714,25 @@ func init() {
         }
       }
     },
+    "/lrp": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Retrieve list of all local redirect policies",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/LRPSpec"
+              }
+            }
+          }
+        }
+      }
+    },
     "/map": {
       "get": {
         "tags": [
@@ -5186,6 +5383,24 @@ func init() {
         }
       }
     },
+    "ClockSource": {
+      "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "hertz": {
+          "description": "Kernel Hz",
+          "type": "integer"
+        },
+        "mode": {
+          "description": "Datapath clock source",
+          "type": "string",
+          "enum": [
+            "ktime",
+            "jiffies"
+          ]
+        }
+      }
+    },
     "ClusterMeshStatus": {
       "description": "Status of ClusterMesh\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -5505,7 +5720,17 @@ func init() {
         },
         "masquerade": {
           "description": "Status of masquerading feature",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Status of masquerading for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Status of masquerading for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
@@ -5518,6 +5743,20 @@ func init() {
         "routeMTU": {
           "description": "MTU for network facing routes",
           "type": "integer"
+        }
+      }
+    },
+    "DaemonConfigurationStatusMasquerade": {
+      "description": "Status of masquerading feature",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "Status of masquerading for IPv4 traffic",
+          "type": "boolean"
+        },
+        "ipv6": {
+          "description": "Status of masquerading for IPv6 traffic",
+          "type": "boolean"
         }
       }
     },
@@ -5859,6 +6098,20 @@ func init() {
         "cidr-policy": {
           "$ref": "#/definitions/CIDRPolicy"
         },
+        "denied-egress-identities": {
+          "description": "List of identities to which this endpoint is not allowed to communicate\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "denied-ingress-identities": {
+          "description": "List of identities not allowed to communicate to this endpoint\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "id": {
           "description": "Own identity of endpoint",
           "type": "integer"
@@ -6045,6 +6298,36 @@ func init() {
           "enum": [
             "external",
             "internal"
+          ]
+        }
+      }
+    },
+    "FrontendMapping": {
+      "description": "Mapping of frontend to backend pods of an LRP",
+      "type": "object",
+      "properties": {
+        "backends": {
+          "description": "Pod backends of an LRP",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LRPBackend"
+          }
+        },
+        "frontend-address": {
+          "$ref": "#/definitions/FrontendAddress"
+        }
+      }
+    },
+    "HostRouting": {
+      "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Datapath routing mode",
+          "type": "string",
+          "enum": [
+            "BPF",
+            "Legacy"
           ]
         }
       }
@@ -6366,9 +6649,10 @@ func init() {
       "type": "object",
       "properties": {
         "devices": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/KubeProxyReplacementDevicesItems0"
           }
         },
         "directRoutingDevice": {
@@ -6441,7 +6725,7 @@ func init() {
                   "enum": [
                     "SNAT",
                     "DSR",
-                    "HYBRID"
+                    "Hybrid"
                   ]
                 },
                 "portMax": {
@@ -6471,6 +6755,22 @@ func init() {
             "Probe",
             "Partial"
           ]
+        }
+      }
+    },
+    "KubeProxyReplacementDevicesItems0": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
         }
       }
     },
@@ -6541,7 +6841,7 @@ func init() {
               "enum": [
                 "SNAT",
                 "DSR",
-                "HYBRID"
+                "Hybrid"
               ]
             },
             "portMax": {
@@ -6626,7 +6926,7 @@ func init() {
           "enum": [
             "SNAT",
             "DSR",
-            "HYBRID"
+            "Hybrid"
           ]
         },
         "portMax": {
@@ -6663,6 +6963,56 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "LRPBackend": {
+      "description": "Pod backend of an LRP",
+      "type": "object",
+      "properties": {
+        "backend-address": {
+          "$ref": "#/definitions/BackendAddress"
+        },
+        "pod-id": {
+          "description": "Namespace and name of the backend pod",
+          "type": "string"
+        }
+      }
+    },
+    "LRPSpec": {
+      "description": "Configuration of an LRP",
+      "type": "object",
+      "properties": {
+        "frontend-mappings": {
+          "description": "mapping of frontends to pod backends",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FrontendMapping"
+          }
+        },
+        "frontend-type": {
+          "description": "LRP frontend type",
+          "type": "string"
+        },
+        "lrp-type": {
+          "description": "LRP config type",
+          "type": "string"
+        },
+        "name": {
+          "description": "LRP service name",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "LRP service namespace",
+          "type": "string"
+        },
+        "service-id": {
+          "description": "matching k8s service namespace and name",
+          "type": "string"
+        },
+        "uid": {
+          "description": "Unique identification",
+          "type": "string"
         }
       }
     },
@@ -6725,7 +7075,17 @@ func init() {
       "properties": {
         "enabled": {
           "description": "Is masquerading enabled",
-          "type": "boolean"
+          "type": "object",
+          "properties": {
+            "ipv4": {
+              "description": "Is masquerading enabled for IPv4 traffic",
+              "type": "boolean"
+            },
+            "ipv6": {
+              "description": "Is masquerading enabled for IPv6 traffic",
+              "type": "boolean"
+            }
+          }
         },
         "ip-masq-agent": {
           "description": "Is BPF ip-masq-agent enabled",
@@ -6738,9 +7098,27 @@ func init() {
             "iptables"
           ]
         },
-        "snat-exclusion-cidr": {
-          "description": "Any packet sent to IP addr belonging to CIDR will not be SNAT'd",
+        "snat-exclusion-cidr-v4": {
+          "description": "SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to\nan IPv4 address that belongs to this CIDR.",
           "type": "string"
+        },
+        "snat-exclusion-cidr-v6": {
+          "description": "SnatExclusionCIDRv6 exempts SNAT from being performed on any packet sent to\nan IPv6 address that belongs to this CIDR.\nFor IPv6 we only do masquerading in iptables mode.",
+          "type": "string"
+        }
+      }
+    },
+    "MasqueradingEnabled": {
+      "description": "Is masquerading enabled",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "Is masquerading enabled for IPv4 traffic",
+          "type": "boolean"
+        },
+        "ipv6": {
+          "description": "Is masquerading enabled for IPv6 traffic",
+          "type": "boolean"
         }
       }
     },
@@ -7230,7 +7608,8 @@ func init() {
                 "NodePort",
                 "ExternalIPs",
                 "HostPort",
-                "LoadBalancer"
+                "LoadBalancer",
+                "LocalRedirect"
               ]
             }
           }
@@ -7278,7 +7657,8 @@ func init() {
             "NodePort",
             "ExternalIPs",
             "HostPort",
-            "LoadBalancer"
+            "LoadBalancer",
+            "LocalRedirect"
           ]
         }
       }
@@ -7332,6 +7712,10 @@ func init() {
           "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
           "type": "integer"
         },
+        "clock-source": {
+          "description": "Status of clock source",
+          "$ref": "#/definitions/ClockSource"
+        },
         "cluster": {
           "description": "Status of cluster",
           "$ref": "#/definitions/ClusterStatus"
@@ -7347,6 +7731,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "host-routing": {
+          "description": "Status of host routing",
+          "$ref": "#/definitions/HostRouting"
         },
         "hubble": {
           "description": "Status of Hubble server",

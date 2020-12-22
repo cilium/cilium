@@ -15,16 +15,18 @@
 package ctmap
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 	"unsafe"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -34,8 +36,10 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -88,6 +92,9 @@ const (
 
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
+
+	metricsIngress = "ingress"
+	metricsEgress  = "egress"
 )
 
 type action int
@@ -103,6 +110,10 @@ type NatMap interface {
 	Open() error
 	Close() error
 	DeleteMapping(key tuple.TupleKey) error
+	DumpWithCallback(bpf.DumpCallback) error
+	DumpReliablyWithCallback(bpf.DumpCallback, *bpf.DumpStats) error
+	Delete(bpf.MapKey) error
+	DumpStats() *bpf.DumpStats
 }
 
 type mapAttributes struct {
@@ -251,27 +262,70 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
-func doDumpEntries(m CtMap) (string, error) {
-	var buffer bytes.Buffer
+// DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
+// ct entries in m to a string. If clockSource is not nil, it uses it to
+// compute the time difference of each entry from now and prints that too.
+func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, error) {
+	var toRemSecs func(uint32) string
 
+	if clockSource == nil {
+		toRemSecs = nil
+	} else if clockSource.Mode == models.ClockSourceModeKtime {
+		now, err := bpf.GetMtime()
+		if err != nil {
+			return "", err
+		}
+		now = now / 1000000000
+		toRemSecs = func(t uint32) string {
+			diff := int64(t) - int64(now)
+			return fmt.Sprintf("remaining: %d sec(s)", diff)
+		}
+	} else if clockSource.Mode == models.ClockSourceModeJiffies {
+		now, err := bpf.GetJtime()
+		if err != nil {
+			return "", err
+		}
+		if clockSource.Hertz == 0 {
+			return "", fmt.Errorf("invalid clock Hertz value (0)")
+		}
+		toRemSecs = func(t uint32) string {
+			diff := int64(t) - int64(now)
+			diff = diff << 8
+			diff = diff / int64(clockSource.Hertz)
+			return fmt.Sprintf("remaining: %d sec(s)", diff)
+		}
+	} else {
+		return "", fmt.Errorf("unknown clock source: %s", clockSource.Mode)
+	}
+
+	var sb strings.Builder
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
 		// No need to deep copy as the values are used to create new strings
 		key := k.(CtKey)
-		if !key.ToHost().Dump(&buffer, true) {
+		if !key.ToHost().Dump(&sb, true) {
 			return
 		}
 		value := v.(*CtEntry)
-		buffer.WriteString(value.String())
+		sb.WriteString(value.StringWithTimeDiff(toRemSecs))
 	}
-	// DumpWithCallback() must be called before buffer.String().
+	// DumpWithCallback() must be called before sb.String().
 	err := m.DumpWithCallback(cb)
-	return buffer.String(), err
+	if err != nil {
+		return "", err
+	}
+	return sb.String(), err
+}
+
+// DoDumpEntries iterates through Map m and writes the values of the ct entries
+// in m to a string.
+func DoDumpEntries(m CtMap) (string, error) {
+	return DumpEntriesWithTimeDiff(m, nil)
 }
 
 // DumpEntries iterates through Map m and writes the values of the ct entries
 // in m to a string.
 func (m *Map) DumpEntries() (string, error) {
-	return doDumpEntries(m)
+	return DoDumpEntries(m)
 }
 
 // newMap creates a new CT map of the specified type with the specified name.
@@ -506,6 +560,83 @@ func GC(m *Map, filter *GCFilter) int {
 	}
 
 	return doGC(m, filter)
+}
+
+// PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
+// orphan if it does not have a corresponding CT entry.
+//
+// This can happen when the CT entry is removed by the LRU eviction which
+// happens when the CT map becomes full.
+//
+// PurgeOrphanNATEntries() is triggered by the datapath via the GC signaling
+// mechanism. When the datapath SNAT fails to find free mapping after
+// SNAT_SIGNAL_THRES attempts, it sends the signal via the perf ring buffer.
+// The consumer of the buffer invokes the function.
+//
+// The SNAT is being used for the following cases:
+// 1. By NodePort BPF on an intermediate node before fwd'ing request from outside
+//     to a destination node.
+// 2. A packet from local endpoint sent to outside (BPF-masq).
+// 3. A packet from a host local application (i.e. running in the host netns)
+//    This is needed to prevent SNAT from hijacking such connections.
+// 4. By DSR on a backend node to SNAT responses with service IP+port before
+//    sending to a client.
+//
+// In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
+// CT GC to remove corresponding SNAT entries. In the case of 4, will create
+// CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
+//
+// The function only handles 1-3 cases, the 4. case is TODO(brb).
+func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
+	if option.Config.NodePortMode == option.NodePortModeDSR ||
+		option.Config.NodePortMode == option.NodePortModeHybrid {
+		return nil
+	}
+
+	// Both CT maps should point to the same natMap, so use the first one
+	// to determine natMap
+	natMap := mapInfo[ctMapTCP.mapType].natMap
+	if natMap == nil {
+		return nil
+	}
+
+	family := gcFamilyIPv4
+	if ctMapTCP.mapType.isIPv6() {
+		family = gcFamilyIPv6
+	}
+	stats := newNatGCStats(natMap, family)
+	defer stats.finish()
+
+	cb := func(key bpf.MapKey, value bpf.MapValue) {
+		natKey := key.(nat.NatKey)
+		natVal := value.(nat.NatEntry)
+
+		ctMap := ctMapAny
+		if natKey.GetNextHeader() == u8proto.TCP {
+			ctMap = ctMapTCP
+		}
+
+		if natKey.GetFlags()&tuple.TUPLE_F_IN == 1 { // natKey is r(everse)tuple
+			ctKey := egressCTKeyFromIngressNatKeyAndVal(natKey, natVal)
+			if _, err := ctMap.Lookup(ctKey); errors.Is(err, unix.ENOENT) {
+				// No CT entry is found, so delete SNAT for both original and
+				// reverse flows
+				oNatKey := oNatKeyFromReverse(natKey, natVal)
+				if err := natMap.Delete(oNatKey); err == nil {
+					stats.EgressDeleted += 1
+				}
+				if err := natMap.Delete(natKey); err == nil {
+					stats.IngressDeleted += 1
+				}
+			} else {
+				stats.IngressAlive += 1
+			}
+		}
+	}
+
+	natMap.DumpReliablyWithCallback(cb, stats.DumpStats)
+
+	return &stats
 }
 
 // Flush runs garbage collection for map m with the name mapType, deleting all

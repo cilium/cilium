@@ -31,4 +31,9 @@
 # define BPF_HAVE_CSUM_LEVEL 1
 #endif
 
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_sk_lookup_tcp) && \
+    HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_sk_lookup_udp)
+# define BPF_HAVE_SOCKET_LOOKUP 1
+#endif
+
 #endif /* ____BPF_FEATURES____ */

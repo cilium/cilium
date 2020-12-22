@@ -156,8 +156,12 @@ func (a *IPMasqAgent) Start() {
 			case event := <-a.watcher.Events:
 				log.Debugf("Received fsnotify event: %+v", event)
 
-				switch event.Op {
-				case fsnotify.Create, fsnotify.Write, fsnotify.Chmod, fsnotify.Remove, fsnotify.Rename:
+				switch {
+				case event.Op&fsnotify.Create == fsnotify.Create,
+					event.Op&fsnotify.Write == fsnotify.Write,
+					event.Op&fsnotify.Chmod == fsnotify.Chmod,
+					event.Op&fsnotify.Remove == fsnotify.Remove,
+					event.Op&fsnotify.Rename == fsnotify.Rename:
 					if err := a.Update(); err != nil {
 						log.WithError(err).Warn("Failed to update")
 					}

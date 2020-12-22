@@ -33,9 +33,9 @@ type CIDR string
 var CIDRMatchAll = []CIDR{CIDR("0.0.0.0/0"), CIDR("::/0")}
 
 // MatchesAll determines whether the CIDR matches all traffic.
-func (c *CIDR) MatchesAll() bool {
+func (c CIDR) MatchesAll() bool {
 	for _, wildcard := range CIDRMatchAll {
-		if *c == wildcard {
+		if c == wildcard {
 			return true
 		}
 	}

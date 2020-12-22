@@ -15,10 +15,11 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/dns"               // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/drop"              // invoke init
@@ -39,14 +40,14 @@ var (
 )
 
 // ProcessFlow processes a flow and updates metrics
-func ProcessFlow(flow v1.Flow) {
+func ProcessFlow(ctx context.Context, flow *pb.Flow) {
 	if enabledMetrics != nil {
-		enabledMetrics.ProcessFlow(flow)
+		enabledMetrics.ProcessFlow(ctx, flow)
 	}
 }
 
-// Init initialies the metrics system
-func Init(address string, enabled api.Map) (<-chan error, error) {
+// initMetrics initialies the metrics system
+func initMetrics(address string, enabled api.Map) (<-chan error, error) {
 	e, err := api.DefaultRegistry().ConfigureHandlers(registry, enabled)
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func Init(address string, enabled api.Map) (<-chan error, error) {
 // EnableMetrics starts the metrics server with a given list of metrics. This is the
 // function Cilium uses to configure Hubble metrics in embedded mode.
 func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string) error {
-	errChan, err := Init(metricsServer, api.ParseMetricList(m))
+	errChan, err := initMetrics(metricsServer, api.ParseMetricList(m))
 	if err != nil {
 		return fmt.Errorf("unable to setup metrics: %v", err)
 	}

@@ -30,7 +30,7 @@ Prerequisites
   being connected together may not conflict with each other.
 
 * Cilium must be configured to use etcd as the kvstore, along with the identity
-  allocation mode (``global.identityAllocationMode``). With the identity
+  allocation mode (``identityAllocationMode``). With the identity
   allocation mode set to ``kvstore``, this allows direct etcd connections,
   identity propagation across the clusters, and enables cross-cluster policy
   functionality. Consul is not currently supported with cluster mesh.
@@ -73,8 +73,8 @@ Repeat this step for each cluster.
 
 .. note::
 
-   This can also be done by passing ``--set global.cluster.id=<id>`` and
-   ``--set global.cluster.name=<name>`` to ``helm install`` when installing or
+   This can also be done by passing ``--set cluster.id=<id>`` and
+   ``--set cluster.name=<name>`` to ``helm install`` when installing or
    updating Cilium.
 
 .. _gs_clustermesh_expose_etcd:
@@ -99,6 +99,8 @@ using their internal IPs):
         name: cilium-etcd-external
         annotations:
           cloud.google.com/load-balancer-type: "Internal"
+          # if all the clusters are in the same region you can comment out this annotation
+          networking.gke.io/internal-load-balancer-allow-global-access: "true"
       spec:
         type: LoadBalancer
         ports:
@@ -408,8 +410,8 @@ the ``--cluster-name`` agent option or ``cluster-name`` ConfigMap option.
     kind: CiliumNetworkPolicy
     metadata:
       name: "allow-cross-cluster"
-      description: "Allow x-wing in cluster1 to contact rebel-base in cluster2"
     spec:
+      description: "Allow x-wing in cluster1 to contact rebel-base in cluster2"
       endpointSelector:
         matchLabels:
           name: x-wing
@@ -420,6 +422,18 @@ the ``--cluster-name`` agent option or ``cluster-name`` ConfigMap option.
             name: rebel-base
             io.cilium.k8s.policy.cluster: cluster2
 
+Setting up Hubble
+#################
+
+In a ClusterMesh context, Hubble Relay provides cross-cluster visibility
+without any particular configuration.
+
+When mutual TLS (mTLS) is enabled (default), TLS certificates for Hubble and
+Hubble Relay need to be signed by the same Certificate Authority (CA) for both
+clusters. This can be achieved by disabling automatic TLS certificate
+generation and manually providing certificates as instructed in
+:ref:`hubble_configure_tls_certs`.
+
 Troubleshooting
 ###############
 
@@ -428,7 +442,7 @@ Use the following list of steps to troubleshoot issues with ClusterMesh:
 Generic
 =======
 
- #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx` pods
+ #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx`` pods
     are healthy and ready. It is important that the ``cilium-operator`` is
     healthy as well as it is responsible for synchronizing state from the local
     cluster into the kvstore. If this fails, check the logs of these pods to

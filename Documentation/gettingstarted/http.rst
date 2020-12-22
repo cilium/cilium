@@ -209,7 +209,7 @@ API call, but disallowing all other calls (including PUT /v1/exhaust-port).
 
 .. literalinclude:: ../../examples/minikube/sw_l3_l4_l7_policy.yaml
 
-Update the existing rule to apply L7-aware policy to protect *app1* using:
+Update the existing rule to apply L7-aware policy to protect *deathstar* using:
 
 .. parsed-literal::
 
@@ -232,10 +232,22 @@ and
     $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Access denied
 
+As this rule builds on the identity-aware rule, traffic from pods without the label
+``org=empire`` will continue to be dropped causing the connection to time out:
+
+.. parsed-literal::
+    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+
+
 As you can see, with Cilium L7 security policies, we are able to permit
 *tiefighter* to access only the required API resources on *deathstar*, thereby
 implementing a "least privilege" security approach for communication between
-microservices.
+microservices. Note that ``path`` matches the exact url, if for example you want
+to allow anything under /v1/, you need to use a regular expression:
+
+::
+
+    path: "/v1/.*"
 
 You can observe the L7 policy via ``kubectl``:
 
@@ -364,6 +376,15 @@ and ``cilium`` CLI:
     ]
     Revision: 11
 
+It is also possible to monitor the HTTP requests live by using ``cilium monitor``:
+
+::
+
+    $ kubectl exec -it -n kube-system cilium-kzgdx -- cilium monitor -v --type l7
+    <- Response http to 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) from 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Forwarded POST http://deathstar.default.svc.cluster.local/v1/request-landing => 200
+    <- Request http from 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) to 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Denied PUT http://deathstar.default.svc.cluster.local/v1/request-landing => 403
+
+The above output demonstrates a successful response to a POST request followed by a PUT request that is denied by the L7 policy.
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium

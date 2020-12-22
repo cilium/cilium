@@ -7,6 +7,8 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
+#include <bpf/verifier.h>
+
 #include "common.h"
 #include "utils.h"
 #include "ipv4.h"
@@ -35,6 +37,14 @@ enum {
 static __always_inline bool conn_is_dns(__u16 dport)
 {
 	return dport == bpf_htons(53);
+}
+
+static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry)
+{
+	bool rx_syn = entry->rx_flags_seen & TCP_FLAG_SYN;
+	bool tx_syn = entry->tx_flags_seen & TCP_FLAG_SYN;
+
+	return rx_syn && tx_syn;
 }
 
 union tcp_flags {
@@ -207,6 +217,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	struct ct_entry *entry;
 	int reopen;
 
+	relax_verifier();
+
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
@@ -219,6 +231,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->ifindex = entry->ifindex;
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
+			/* See the ct_create4 comments re the rx_bytes hack */
 			if (dir == CT_SERVICE)
 				ct_state->backend_id = entry->rx_bytes;
 		}
@@ -245,14 +258,26 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			if (unlikely(reopen == (TCP_FLAG_SYN|0x1))) {
 				ct_reset_closing(entry);
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
+				return CT_REOPENED;
 			}
 			break;
+
 		case ACTION_CLOSE:
-			/* RST or similar, immediately delete ct entry */
-			if (dir == CT_INGRESS)
+			/* If we got an RST and have not seen both SYNs,
+			 * terminate the connection. (For CT_SERVICE, we do not
+			 * see both directions, so flags of established
+			 * connections would not include both SYNs.)
+			 */
+			if (!ct_entry_seen_both_syns(entry) &&
+			    (seen_flags.value & TCP_FLAG_RST) &&
+			    dir != CT_SERVICE) {
 				entry->rx_closing = 1;
-			else
 				entry->tx_closing = 1;
+			} else if (dir == CT_INGRESS) {
+				entry->rx_closing = 1;
+			} else {
+				entry->tx_closing = 1;
+			}
 
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
@@ -435,7 +460,7 @@ static __always_inline int ct_lookup6(const void *map,
 	ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
 			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
-		if (likely(ret == CT_ESTABLISHED)) {
+		if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
 			else
@@ -516,7 +541,9 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
-						    struct ipv4_ct_tuple *tuple)
+						    int dir __maybe_unused,
+						    struct ipv4_ct_tuple *tuple,
+						    bool *has_l4_header __maybe_unused)
 {
 #ifdef ENABLE_IPV4_FRAGMENTS
 	void *data, *data_end;
@@ -526,14 +553,18 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 	 * after data has been invalidated (see handle_ipv4_from_lxc())
 	 */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+		return DROP_CT_INVALID_HDR;
 
-	if (unlikely(ipv4_is_fragment(ip4)))
-		return ipv4_handle_fragment(ctx, ip4, off,
-					    (struct ipv4_frag_l4ports *)&tuple->dport);
-#endif
+	return ipv4_handle_fragmentation(ctx, ip4, off, dir,
+				    (struct ipv4_frag_l4ports *)&tuple->dport,
+				    has_l4_header);
+#else
 	/* load sport + dport into tuple */
-	return ctx_load_bytes(ctx, off, &tuple->dport, 4);
+	if (ctx_load_bytes(ctx, off, &tuple->dport, 4) < 0)
+		return DROP_CT_INVALID_HDR;
+#endif
+
+	return CTX_ACT_OK;
 }
 
 static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 type,
@@ -551,8 +582,9 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct __ctx_buff *ctx, int off, int dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
-	int ret = CT_NEW, action = ACTION_UNSPEC;
-	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
+	int err, ret = CT_NEW, action = ACTION_UNSPEC;
+	bool is_tcp = tuple->nexthdr == IPPROTO_TCP,
+	     has_l4_header = true;
 	union tcp_flags tcp_flags = { .value = 0 };
 
 	/* The tuple is created in reverse order initially to find a
@@ -609,23 +641,25 @@ static __always_inline int ct_lookup4(const void *map,
 		break;
 
 	case IPPROTO_TCP:
-		if (1) {
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, &has_l4_header);
+		if (err < 0)
+			return err;
+
+		action = ACTION_CREATE;
+
+		if (has_l4_header) {
 			if (ctx_load_bytes(ctx, off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
 				action = ACTION_CLOSE;
-			else
-				action = ACTION_CREATE;
 		}
-
-		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
-			return DROP_CT_INVALID_HDR;
 		break;
 
 	case IPPROTO_UDP:
-		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
-			return DROP_CT_INVALID_HDR;
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
+		if (err < 0)
+			return err;
 
 		action = ACTION_CREATE;
 		break;
@@ -647,7 +681,7 @@ static __always_inline int ct_lookup4(const void *map,
 	ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
 			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
-		if (likely(ret == CT_ESTABLISHED)) {
+		if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
 			else
@@ -655,6 +689,8 @@ static __always_inline int ct_lookup4(const void *map,
 		}
 		goto out;
 	}
+
+	relax_verifier();
 
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {

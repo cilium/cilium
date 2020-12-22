@@ -2,6 +2,10 @@
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+restart_env=$(env | grep -f $dir/restart-vars | tr '\n' ' ')
+echo "$restart_env $0 $@" > "$dir/restart.sh"
+chmod a+x "$dir/restart.sh"
+
 # Master's IPv4 address. Workers' IPv4 address will have their IP incremented by
 # 1. The netmask used will be /24
 export 'MASTER_IPV4'=${MASTER_IPV4:-"192.168.33.11"}
@@ -39,8 +43,6 @@ export 'VM_CPUS'=${VM_CPUS:-2}
 # VM_BASENAME tag is only set if K8S option is active
 export 'VM_BASENAME'="runtime"
 export 'VM_BASENAME'=${K8S+"k8s"}
-# Set VAGRANT_DEFAULT_PROVIDER to virtualbox
-export 'VAGRANT_DEFAULT_PROVIDER'=${VAGRANT_DEFAULT_PROVIDER:-"virtualbox"}
 # Sets the default cilium TUNNEL_MODE to "vxlan"
 export 'TUNNEL_MODE_STRING'=${TUNNEL_MODE_STRING:-"-t vxlan"}
 # Replies Yes to all prompts asked in this script
@@ -431,13 +433,14 @@ function set_vagrant_env(){
     split_ipv4 ipv4_array_nfs "${MASTER_IPV4_NFS}"
     export 'IPV4_BASE_ADDR_NFS'="$(printf "%d.%d.%d." "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
     export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
-    if [[ -n "${NFS}" ]]; then
-        echo "# NFS enabled. don't forget to enable this ports on your host"
-        echo "# before starting the VMs in order to have nfs working"
-        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
-        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
-        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
-    fi
+    echo "# NFS enabled. don't forget to enable these ports on your host"
+    echo "# before starting the VMs in order to have nfs working"
+    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
+    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
+    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
+
+    echo "# To use kubectl on the host, you need to add the following route:"
+    echo "# ip route add $MASTER_IPV4 via $MASTER_IPV4_NFS"
 
     temp=$(printf " %s" "${ipv6_public_workers_addrs[@]}")
     export 'IPV6_PUBLIC_WORKERS_ADDRS'="${temp:1}"
@@ -481,10 +484,6 @@ function vboxnet_add_ipv4(){
 
 # vboxnet_addr_finder checks if any vboxnet interface has the IPv6 public CIDR
 function vboxnet_addr_finder(){
-    if [ -z "${IPV6_EXT}" ] && [ -z "${NFS}" ]; then
-        return
-    fi
-
     all_vbox_interfaces=$(VBoxManage list hostonlyifs | grep -E "^Name|IPV6Address|IPV6NetworkMaskPrefixLength" | awk -F" " '{print $2}')
     # all_vbox_interfaces format example:
     # vboxnet0
@@ -577,9 +576,7 @@ function vboxnet_addr_finder(){
     vboxnet_add_ipv4 "${vboxnetname}" "${IPV4_BASE_ADDR_NFS}" "255.255.255.0"
 }
 
-if [[ "${VAGRANT_DEFAULT_PROVIDER}" -eq "virtualbox" ]]; then
-     vboxnet_addr_finder
-fi
+vboxnet_addr_finder
 
 ipv6_public_workers_addrs=()
 
@@ -606,7 +603,7 @@ elif [ -n "${PROVISION}" ]; then
 else
     vagrant up $PROVISION_ARGS $1
     if [ "$?" -eq "0" -a -n "${K8S}" ]; then
-        host_port=$(vagrant port --guest 6443)
+        host_port=$(vagrant port --guest 6443 k8s1)
         vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
         echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
     fi

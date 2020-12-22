@@ -15,9 +15,12 @@
 package monitor
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -34,38 +37,53 @@ type DropNotify struct {
 	Hash     uint32
 	OrigLen  uint32
 	CapLen   uint32
-	SrcLabel uint32
-	DstLabel uint32
+	SrcLabel identity.NumericIdentity
+	DstLabel identity.NumericIdentity
 	DstID    uint32
 	Unused   uint32
 	// data
 }
 
+// dumpIdentity dumps the source and destination identities in numeric or
+// human-readable format.
+func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
+	if numeric {
+		fmt.Fprintf(buf, "identity %d->%d", n.SrcLabel, n.DstLabel)
+	} else {
+		fmt.Fprintf(buf, "identity %s->%s", n.SrcLabel, n.DstLabel)
+	}
+}
+
 // DumpInfo prints a summary of the drop messages.
-func (n *DropNotify) DumpInfo(data []byte) {
-	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
-		api.DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
-		GetConnectionSummary(data[DropNotifyLen:]))
+func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
+	buf := bufio.NewWriter(os.Stdout)
+	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ",
+		api.DropReason(n.SubType), n.Hash, n.DstID)
+	n.dumpIdentity(buf, numeric)
+	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[DropNotifyLen:]))
+	buf.Flush()
 }
 
 // DumpVerbose prints the drop notification in human readable form
-func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s",
+func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numeric DisplayFormat) {
+	buf := bufio.NewWriter(os.Stdout)
+	fmt.Fprintf(buf, "%s MARK %#x FROM %d DROP: %d bytes, reason %s",
 		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
-		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
+		n.dumpIdentity(buf, numeric)
 	}
 
 	if n.DstID != 0 {
-		fmt.Printf(", to endpoint %d\n", n.DstID)
+		fmt.Fprintf(buf, ", to endpoint %d\n", n.DstID)
 	} else {
-		fmt.Printf("\n")
+		fmt.Fprintf(buf, "\n")
 	}
 
 	if n.CapLen > 0 && len(data) > DropNotifyLen {
 		Dissect(dissect, data[DropNotifyLen:])
 	}
+	buf.Flush()
 }
 
 func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
@@ -95,11 +113,11 @@ type DropNotifyVerbose struct {
 	Mark      string `json:"mark,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 
-	Source   uint16 `json:"source"`
-	Bytes    uint32 `json:"bytes"`
-	SrcLabel uint32 `json:"srcLabel"`
-	DstLabel uint32 `json:"dstLabel"`
-	DstID    uint32 `json:"dstID"`
+	Source   uint16                   `json:"source"`
+	Bytes    uint32                   `json:"bytes"`
+	SrcLabel identity.NumericIdentity `json:"srcLabel"`
+	DstLabel identity.NumericIdentity `json:"dstLabel"`
+	DstID    uint32                   `json:"dstID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }

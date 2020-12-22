@@ -33,7 +33,7 @@ import (
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 
-	"github.com/russross/blackfriday"
+	"github.com/russross/blackfriday/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -114,7 +114,6 @@ func validateInput() []outputType {
 }
 
 func validateOutputOpts() []outputType {
-
 	var outputTypes []outputType
 	for _, outputOpt := range outputOpts {
 		switch strings.ToLower(outputOpt) {
@@ -179,7 +178,6 @@ func rootWarningMessage() {
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
-
 	outputTypes := validateInput()
 
 	resp, err := client.Daemon.GetDebuginfo(nil)
@@ -262,7 +260,6 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		section(w, p)
 	}
 	writeToOutput(buf, STDOUT, "", "")
-
 }
 
 func addHeader(w *tabwriter.Writer) {
@@ -340,22 +337,21 @@ func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPat
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error unmarshaling binary: %s\n", err)
 	}
-	jsonBytes, err := command.DumpJSONToSlice(db, jsonPath)
+	jsonStr, err := command.DumpJSONToString(db, jsonPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error printing JSON: %s\n", err)
 	}
 
 	if path == "" {
-		fmt.Println(string(jsonBytes[:]))
+		fmt.Println(jsonStr)
 		return
 	}
 
 	fileName := fileName(path, suffix)
-	writeFile(jsonBytes, fileName)
+	writeFile([]byte(jsonStr), fileName)
 
 	fmt.Printf("%s output at %s\n", jsonpathOutput, fileName)
 	return
-
 }
 
 func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix string) {
@@ -437,7 +433,7 @@ func printTicks(w io.Writer) {
 }
 
 func writeHTML(data []byte, path string) {
-	output := blackfriday.MarkdownCommon(data)
+	output := blackfriday.Run(data)
 	if err := ioutil.WriteFile(path, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
 		return
@@ -484,5 +480,4 @@ func writeJSON(data []byte, path string) {
 		os.Exit(1)
 	}
 	f.Write(result)
-
 }

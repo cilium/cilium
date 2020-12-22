@@ -42,7 +42,7 @@ func setOpts(opts map[string]string, supportedOpts backendOptions) error {
 
 		if opt.validate != nil {
 			if err := opt.validate(val); err != nil {
-				log.Errorf("invalid value for key %s: %s", key, err)
+				log.WithError(err).Errorf("invalid value for key %s", key)
 				errors++
 			}
 		}

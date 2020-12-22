@@ -1,0 +1,127 @@
+{{- if .Values.hubble.relay.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-relay
+  labels:
+    k8s-app: hubble-relay
+  namespace: {{ .Release.Namespace }}
+spec:
+
+  replicas: {{ .Values.hubble.relay.replicas }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+{{- with .Values.hubble.relay.updateStrategy }}
+  strategy:
+{{ toYaml .  | trim | indent 4 }}
+{{- end }}
+  template:
+    metadata:
+{{- with .Values.hubble.relay.podAnnotations }}
+      annotations:
+        {{ toYaml . | trim | indent 8 }}
+{{- end }}
+      labels:
+        k8s-app: hubble-relay
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: "k8s-app"
+                  operator: In
+                  values:
+                    - cilium
+            topologyKey: "kubernetes.io/hostname"
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+{{- end }}
+      containers:
+        - name: hubble-relay
+          image: {{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}
+          imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
+          command:
+            - hubble-relay
+          args:
+            - serve
+{{- if .Values.debug.enabled }}
+            - "--debug"
+{{- end }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.hubble.relay.listenPort }}
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+{{- with .Values.hubble.relay.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+{{- end }}
+          volumeMounts:
+          - mountPath: {{ dir .Values.hubble.socketPath }}
+            name: hubble-sock-dir
+            readOnly: true
+          - mountPath: /etc/hubble-relay
+            name: config
+            readOnly: true
+{{- if .Values.hubble.tls.enabled }}
+          - mountPath: /var/lib/hubble-relay/tls
+            name: tls
+            readOnly: true
+{{- end }}
+      restartPolicy: Always
+      serviceAccount: hubble-relay
+      serviceAccountName: hubble-relay
+      terminationGracePeriodSeconds: 0
+{{- with .Values.hubble.relay.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+{{- with .Values.hubble.relay.tolerations }}
+      tolerations:
+      {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+      volumes:
+      - configMap:
+          name: hubble-relay-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+        name: config
+      - hostPath:
+          path: {{ dir .Values.hubble.socketPath }}
+          type: Directory
+        name: hubble-sock-dir
+{{- if .Values.hubble.tls.enabled }}
+      - projected:
+          sources:
+          - secret:
+              name: hubble-relay-client-certs
+              items:
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: ca.crt
+                  path: hubble-server-ca.crt
+{{- if .Values.hubble.relay.tls.server.enabled }}
+          - secret:
+              name: hubble-relay-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+{{- end }}
+        name: tls
+{{- end }}
+{{- end }}

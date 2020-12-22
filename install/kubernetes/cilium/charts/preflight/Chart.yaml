@@ -1,8 +1,0 @@
-apiVersion: v2
-name: preflight
-version: 1.8.90
-appVersion: 1.8.90
-description: Helm chart for pre-flight functionality
-keywords:
-sources:
-  - https://github.com/cilium/cilium

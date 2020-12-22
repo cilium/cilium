@@ -342,7 +342,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
 	for i := range pr.Ports {
-		if err := pr.Ports[i].sanitize(); err != nil {
+		if err := pr.Ports[i].Sanitize(); err != nil {
 			return err
 		}
 
@@ -369,7 +369,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	return nil
 }
 
-func (pp *PortProtocol) sanitize() error {
+func (pp *PortProtocol) Sanitize() error {
 	if pp.Port == "" {
 		return fmt.Errorf("Port must be specified")
 	}
@@ -400,8 +400,8 @@ func (pp *PortProtocol) sanitize() error {
 
 // sanitize the given CIDR. If successful, returns the prefixLength specified
 // in the cidr and nil. Otherwise, returns (0, nil).
-func (cidr CIDR) sanitize() (prefixLength int, err error) {
-	strCIDR := string(cidr)
+func (c CIDR) sanitize() (prefixLength int, err error) {
+	strCIDR := string(c)
 	if strCIDR == "" {
 		return 0, fmt.Errorf("IP must be specified")
 	}

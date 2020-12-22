@@ -511,41 +511,36 @@ func (r Request) finalURLTemplate() url.URL {
 	}
 	r.params = newParams
 	url := r.URL()
-	segments := strings.Split(r.URL().Path, "/")
+
+	segments := strings.Split(url.Path, "/")
 	groupIndex := 0
 	index := 0
-	if r.URL() != nil && r.c.base != nil && strings.Contains(r.URL().Path, r.c.base.Path) {
-		// only add baseURL path length if it is different than `/`
-		// as strings.Split("/", "/") returns length of 2
-		if r.c.base.Path != "/" {
-			// We need to perform a `path.Join` as path.Join appends `/` to a
-			// path that does not contain `/` and removes duplicate `/` if they
-			// exist.
-			groupIndex += len(strings.Split(path.Join("/", r.c.base.Path), "/"))
-		} else {
-			groupIndex += 1
+	trimmedBasePath := ""
+	if url != nil && r.c.base != nil && strings.Contains(url.Path, r.c.base.Path) {
+		p := strings.TrimPrefix(url.Path, r.c.base.Path)
+		if !strings.HasPrefix(p, "/") {
+			p = "/" + p
 		}
+		// store the base path that we have trimmed so we can append it
+		// before returning the URL
+		trimmedBasePath = r.c.base.Path
+		segments = strings.Split(p, "/")
+		groupIndex = 1
 	}
-	if groupIndex >= len(segments) {
+	if len(segments) <= 2 {
 		return *url
 	}
 
 	const CoreGroupPrefix = "api"
 	const NamedGroupPrefix = "apis"
-	const Version = "version"
 	isCoreGroup := segments[groupIndex] == CoreGroupPrefix
 	isNamedGroup := segments[groupIndex] == NamedGroupPrefix
-	isVersion := segments[groupIndex] == Version
 	if isCoreGroup {
 		// checking the case of core group with /api/v1/... format
 		index = groupIndex + 2
 	} else if isNamedGroup {
 		// checking the case of named group with /apis/apps/v1/... format
 		index = groupIndex + 3
-	} else if isVersion {
-		url.Path = "/version"
-		url.RawQuery = ""
-		return *url
 	} else {
 		// this should not happen that the only two possibilities are /api... and /apis..., just want to put an
 		// outlet here in case more API groups are added in future if ever possible:
@@ -578,7 +573,7 @@ func (r Request) finalURLTemplate() url.URL {
 			segments[index+3] = "{name}"
 		}
 	}
-	url.Path = strings.Join(segments, "/")
+	url.Path = path.Join(trimmedBasePath, path.Join(segments...))
 	return *url
 }
 
@@ -653,7 +648,7 @@ func (b *throttledLogger) attemptToLog() (klog.Level, bool) {
 	return -1, false
 }
 
-// Infof will write a log message at each logLevel specified by the reciever's throttleSettings
+// Infof will write a log message at each logLevel specified by the receiver's throttleSettings
 // as long as it hasn't written a log message more recently than minLogInterval.
 func (b *throttledLogger) Infof(message string, args ...interface{}) {
 	if logLevel, ok := b.attemptToLog(); ok {

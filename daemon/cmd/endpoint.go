@@ -16,8 +16,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"runtime"
 	"sync"
 	"time"
@@ -30,19 +32,23 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/proxy"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 )
+
+var errEndpointNotFound = errors.New("endpoint not found")
 
 type getEndpoint struct {
 	d *Daemon
@@ -54,9 +60,17 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
+
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointList)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	resEPs := h.d.getEndpointList(params)
 
 	if params.Labels != nil && len(resEPs) == 0 {
+		r.Error(errEndpointNotFound)
 		return NewGetEndpointNotFound()
 	}
 
@@ -135,11 +149,19 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	ep, err := h.d.endpointManager.Lookup(params.ID)
 
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewGetEndpointIDNotFound()
 	} else {
 		return NewGetEndpointIDOK().WithPayload(ep.GetModel())
@@ -454,6 +476,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			}
 			return p.Annotations[bandwidth.EgressBandwidth], nil
 		})
+		ep.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
+			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+			if err != nil {
+				return "", err
+			}
+			return p.Annotations[annotation.NoTrack], nil
+		})
 	}
 
 	regenTriggered := ep.UpdateLabels(ctx, addLabels, infoLabels, true)
@@ -507,7 +536,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	return ep, 0, nil
 }
 
-func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
+func (h *putEndpointID) Handle(params PutEndpointIDParams) (resp middleware.Responder) {
 	if ep := params.Endpoint; ep != nil {
 		log.WithField("endpoint", logfields.Repr(*ep)).Debug("PUT /endpoint/{id} request")
 	} else {
@@ -515,8 +544,15 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 	epTemplate := params.Endpoint
 
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointCreate)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	ep, code, err := h.d.createEndpoint(params.HTTPRequest.Context(), h.d, epTemplate)
 	if err != nil {
+		r.Error(err)
 		return api.Error(code, err)
 	}
 
@@ -551,6 +587,12 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	}
 	scopedLog.Debug("PATCH /endpoint/{id} request")
 
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointPatch)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	epTemplate := params.Endpoint
 
 	log.WithFields(logrus.Fields{
@@ -567,6 +609,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// Note: newEp's labels are ignored.
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.ctx, h.d, h.d.l7Proxy, h.d.identityAllocator, epTemplate)
 	if err2 != nil {
+		r.Error(err2)
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}
 
@@ -582,12 +625,15 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	ep, err := h.d.endpointManager.Lookup(params.ID)
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewPatchEndpointIDNotFound()
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
+		r.Error(err)
 		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 
@@ -599,6 +645,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//  Support arbitrary changes? Support only if unset?
 	reason, err := ep.ProcessChangeRequest(newEp, validStateTransition)
 	if err != nil {
+		r.Error(err)
 		return NewPatchEndpointIDNotFound()
 	}
 
@@ -608,9 +655,11 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 		}
 		if !<-ep.Regenerate(regenMetadata) {
-			return api.Error(PatchEndpointIDFailedCode,
+			err := api.Error(PatchEndpointIDFailedCode,
 				fmt.Errorf("error while regenerating endpoint."+
 					" For more info run: 'cilium endpoint get %d'", ep.ID))
+			r.Error(err)
+			return err
 		}
 		// FIXME: Special return code to indicate regeneration happened?
 	}
@@ -675,8 +724,15 @@ func NewDeleteEndpointIDHandler(d *Daemon) DeleteEndpointIDHandler {
 func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointDelete)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	d := h.daemon
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
+		r.Error(err)
 		if apierr, ok := err.(*api.APIError); ok {
 			return apierr
 		}
@@ -725,8 +781,15 @@ func NewPatchEndpointIDConfigHandler(d *Daemon) PatchEndpointIDConfigHandler {
 func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointPatch)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	d := h.daemon
 	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
+		r.Error(err)
 		if apierr, ok := err.(*api.APIError); ok {
 			return apierr
 		}
@@ -747,10 +810,18 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
 
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	ep, err := h.daemon.endpointManager.Lookup(params.ID)
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewGetEndpointIDConfigNotFound()
 	} else {
 		cfgStatus := ep.GetConfigurationStatus()
@@ -770,17 +841,25 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	ep, err := h.daemon.endpointManager.Lookup(params.ID)
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
 	cfg, err := ep.GetLabelsModel()
-
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
 
@@ -798,11 +877,19 @@ func NewGetEndpointIDLogHandler(d *Daemon) GetEndpointIDLogHandler {
 func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	ep, err := h.d.endpointManager.Lookup(params.ID)
 
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDLogInvalidCode, err)
 	} else if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewGetEndpointIDLogNotFound()
 	} else {
 		return NewGetEndpointIDLogOK().WithPayload(ep.GetStatusModel())
@@ -820,11 +907,19 @@ func NewGetEndpointIDHealthzHandler(d *Daemon) GetEndpointIDHealthzHandler {
 func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	ep, err := h.d.endpointManager.Lookup(params.ID)
 
 	if err != nil {
+		r.Error(err)
 		return api.Error(GetEndpointIDHealthzInvalidCode, err)
 	} else if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewGetEndpointIDHealthzNotFound()
 	} else {
 		return NewGetEndpointIDHealthzOK().WithPayload(ep.GetHealthModel())
@@ -876,24 +971,34 @@ func NewPatchEndpointIDLabelsHandler(d *Daemon) PatchEndpointIDLabelsHandler {
 func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
 
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointPatch)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
 	d := h.daemon
 	mod := params.Configuration
 	lbls := labels.NewLabelsFromModel(mod.User)
 
 	ep, err := d.endpointManager.Lookup(params.ID)
 	if err != nil {
+		r.Error(err)
 		return api.Error(PutEndpointIDInvalidCode, err)
 	} else if ep == nil {
+		r.Error(errEndpointNotFound)
 		return NewPatchEndpointIDLabelsNotFound()
 	}
 
 	add, del, err := ep.ApplyUserLabelChanges(lbls)
 	if err != nil {
+		r.Error(err)
 		return api.Error(PutEndpointIDInvalidCode, err)
 	}
 
 	code, err := d.modifyEndpointIdentityLabelsFromAPI(params.ID, add, del)
 	if err != nil {
+		r.Error(err)
 		return api.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
@@ -934,4 +1039,20 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 		})
 	}
 	return doneFunc, nil
+}
+
+func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
+	// Many unit tests do not initialize the DNS proxy
+	if proxy.DefaultDNSProxy == nil {
+		return nil
+	}
+	return proxy.DefaultDNSProxy.GetRules(epID)
+}
+
+func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
+	// Many unit tests do not initialize the DNS proxy
+	if proxy.DefaultDNSProxy == nil {
+		return
+	}
+	proxy.DefaultDNSProxy.RemoveRestoredRules(epID)
 }

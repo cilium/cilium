@@ -61,7 +61,7 @@ metadata:
 spec:
   containers:
     - name: web
-      image: nginx
+      image: docker.io/library/nginx:1.19.4
       ports:
         - name: web
           containerPort: 80

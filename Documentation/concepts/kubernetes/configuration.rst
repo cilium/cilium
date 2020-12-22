@@ -117,7 +117,7 @@ CNI configuration is automatically being taken care of when deploying Cilium
 via the provided `DaemonSet`. The script ``cni-install.sh`` is automatically run
 via the ``postStart`` mechanism when the ``cilium`` pod is started.
 
-.. note:: In order for the the ``cni-install.sh`` script to work properly, the
+.. note:: In order for the ``cni-install.sh`` script to work properly, the
           ``kubelet`` task must either be running on the host filesystem of the
           worker node, or the ``/etc/cni/net.d`` and ``/opt/cni/bin``
           directories must be mounted into the container where ``kubelet`` is
@@ -258,10 +258,10 @@ will return an error, e.g.:
 	cat <<EOF > ./bad-cnp.yaml
 	apiVersion: "cilium.io/v2"
 	kind: CiliumNetworkPolicy
-	description: "Policy to test multiple rules in a single file"
 	metadata:
 	  name: my-new-cilium-object
 	spec:
+	  description: "Policy to test multiple rules in a single file"
 	  endpointSelector:
 	    matchLabels:
 	      app: details
@@ -333,14 +333,14 @@ If you want to use CRIO, generate the YAML using:
 
 .. note::
 
-   The helm ``--set global.containerRuntime.integration=crio`` might not be
+   The helm ``--set containerRuntime.integration=crio`` might not be
    required for your setup. For more info see :ref:`crio-known-issues`.
 
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set global.containerRuntime.integration=crio
+     --set containerRuntime.integration=crio
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the
@@ -367,7 +367,7 @@ Common CRIO issues
 
 Some CRI-O environments automatically mount the bpf filesystem in the pods,
 which is something that Cilium avoids doing when
-``--set global.containerRuntime.integration=crio`` is set. However, some
+``--set containerRuntime.integration=crio`` is set. However, some
 CRI-O environments do not mount the bpf filesystem automatically which causes
 Cilium to print the follow message:
 
@@ -382,5 +382,5 @@ Cilium to print the follow message:
         level=info msg="Mounting BPF filesystem at /sys/fs/bpf" subsys=bpf
 
 If you see this warning in the Cilium pod logs with your CRI-O environment,
-please remove the flag ``--set global.containerRuntime.integration=crio`` from
+please remove the flag ``--set containerRuntime.integration=crio`` from
 your helm setup and redeploy Cilium.

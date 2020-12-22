@@ -32,6 +32,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/gopacket/layers"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
@@ -72,6 +73,9 @@ func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.I
 
 // Decode decodes the data from 'payload' into 'decoded'
 func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
+	// Safety: This function and all the helpers it invokes are not allowed to
+	// mutate r in any way. We only have read access to the LogRecord, as it
+	// may be shared with other consumers
 	if r == nil {
 		return errors.ErrEmptyData
 	}
@@ -129,6 +133,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.Time = pbTimestamp
 	decoded.Verdict = decodeVerdict(r.Verdict)
 	decoded.DropReason = 0
+	decoded.DropReasonDesc = pb.DropReason_DROP_REASON_UNKNOWN
 	decoded.IP = ip
 	decoded.L4 = l4
 	decoded.Source = decodeEndpoint(sourceEndpoint, sourceNamespace, sourcePod)
@@ -138,7 +143,8 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.DestinationNames = destinationNames
 	decoded.L7 = decodeLayer7(r)
 	decoded.L7.LatencyNs = p.computeResponseTime(r, timestamp)
-	decoded.Reply = decodeIsReply(r.Type)
+	decoded.IsReply = decodeIsReply(r.Type)
+	decoded.Reply = decoded.GetIsReply().GetValue()
 	decoded.EventType = decodeCiliumEventType(api.MessageTypeAccessLog)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
@@ -265,7 +271,10 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 }
 
 func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *pb.Endpoint {
-	labels := endpoint.Labels
+	// Safety: We only have read access to endpoint, therefore we need to create
+	// a copy of the label list before we can sort it
+	labels := make([]string, len(endpoint.Labels))
+	copy(labels, endpoint.Labels)
 	sort.Strings(labels)
 	return &pb.Endpoint{
 		ID:        uint32(endpoint.ID),
@@ -315,7 +324,7 @@ func decodeDNS(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) *pb.Lay
 
 func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP) *pb.Layer7_Http {
 	var headers []*pb.HTTPHeader
-	var keys []string
+	keys := make([]string, 0, len(http.Headers))
 	for key := range http.Headers {
 		keys = append(keys, key)
 	}
@@ -392,8 +401,10 @@ func decodeLayer7(r *accesslog.LogRecord) *pb.Layer7 {
 	}
 }
 
-func decodeIsReply(t accesslog.FlowType) bool {
-	return t == accesslog.TypeResponse
+func decodeIsReply(t accesslog.FlowType) *wrappers.BoolValue {
+	return &wrappers.BoolValue{
+		Value: t == accesslog.TypeResponse,
+	}
 }
 
 func decodeCiliumEventType(eventType uint8) *pb.CiliumEventType {
@@ -468,8 +479,6 @@ func dnsSummary(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) string
 
 		sourceType := "Query"
 		switch dns.ObservationSource {
-		case accesslog.DNSSourceAgentPoller:
-			sourceType = "Poll"
 		case accesslog.DNSSourceProxy:
 			sourceType = "Proxy"
 		}

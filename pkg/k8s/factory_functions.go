@@ -18,10 +18,11 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
-	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -189,6 +190,46 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	return nil
 }
 
+func ObjToV1beta1CRD(obj interface{}) *slim_apiextensions_v1beta1.CustomResourceDefinition {
+	crd, ok := obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
+	if ok {
+		return crd
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		crd, ok := deletedObj.Obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
+		if ok {
+			return crd
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1beta1 CustomResourceDefinition")
+	return nil
+}
+
+func ObjToV1PartialObjectMetadata(obj interface{}) *slim_metav1.PartialObjectMetadata {
+	pom, ok := obj.(*slim_metav1.PartialObjectMetadata)
+	if ok {
+		return pom
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		pom, ok := deletedObj.Obj.(*slim_metav1.PartialObjectMetadata)
+		if ok {
+			return pom
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 PartialObjectMetadata")
+	return nil
+}
+
 func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datapath.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
@@ -350,83 +391,6 @@ func ConvertToK8sService(obj interface{}) interface{} {
 	}
 }
 
-// ConvertToCCNPWithStatus converts a *cilium_v2.CiliumClusterwideNetworkPolicy
-// into *types.SlimCNP or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.SlimCNP in its Obj.
-// If the given obj can't be cast into either *cilium_v2.CiliumClusterwideNetworkPolicy
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToCCNPWithStatus(obj interface{}) interface{} {
-	switch concreteObj := obj.(type) {
-	case *cilium_v2.CiliumClusterwideNetworkPolicy:
-		t := &types.SlimCNP{
-			CiliumNetworkPolicy: concreteObj.CiliumNetworkPolicy,
-		}
-		// Need to explicitly copy all the fields even though CNP is embedded
-		// inside CCNP. See comment inside CCNP type definition. This is
-		// required for Kubernetes versions < 1.13 because this conversion
-		// function is only used with Kubernetes < 1.13 due to missing Patch
-		// capability in those versions. See
-		// operator/ccnp_event.go:enableCCNPWatcher().
-		t.TypeMeta = concreteObj.TypeMeta
-		t.ObjectMeta = concreteObj.ObjectMeta
-		t.Status = concreteObj.Status
-		return t
-
-	case cache.DeletedFinalStateUnknown:
-		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
-		if !ok {
-			return obj
-		}
-		t := &types.SlimCNP{
-			CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
-		}
-		// Need to explicitly copy all the fields even though CNP is embedded
-		// inside CCNP. See comment inside CCNP type definition. This is
-		// required for Kubernetes versions < 1.13 because this conversion
-		// function is only used with Kubernetes < 1.13 due to missing Patch
-		// capability in those versions. See
-		// operator/ccnp_event.go:enableCCNPWatcher().
-		t.TypeMeta = cnp.TypeMeta
-		t.ObjectMeta = cnp.ObjectMeta
-		t.Status = cnp.Status
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: t,
-		}
-
-	default:
-		return obj
-	}
-}
-
-// ConvertToCNPWithStatus converts a *cilium_v2.CiliumNetworkPolicy or a
-// *cilium_v2.CiliumClusterwideNetworkPolicy into a
-// *types.SlimCNP or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.SlimCNP in its Obj.
-// If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToCNPWithStatus(obj interface{}) interface{} {
-	switch concreteObj := obj.(type) {
-	case *cilium_v2.CiliumNetworkPolicy:
-		return &types.SlimCNP{
-			CiliumNetworkPolicy: concreteObj,
-		}
-	case cache.DeletedFinalStateUnknown:
-		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
-		if !ok {
-			return obj
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.SlimCNP{
-				CiliumNetworkPolicy: cnp,
-			},
-		}
-	default:
-		return obj
-	}
-}
-
 // ConvertToCCNP converts a *cilium_v2.CiliumClusterwideNetworkPolicy into a
 // *types.SlimCNP without the Status field of the given CNP, or a
 // cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown with a
@@ -442,9 +406,11 @@ func ConvertToCCNP(obj interface{}) interface{} {
 			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 				TypeMeta:   concreteObj.TypeMeta,
 				ObjectMeta: concreteObj.ObjectMeta,
-				Spec:       concreteObj.Spec,
-				Specs:      concreteObj.Specs,
 			},
+		}
+		if concreteObj.CiliumNetworkPolicy != nil {
+			cnp.Spec = concreteObj.Spec
+			cnp.Specs = concreteObj.Specs
 		}
 		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return cnp
@@ -454,16 +420,19 @@ func ConvertToCCNP(obj interface{}) interface{} {
 		if !ok {
 			return obj
 		}
+		slimCNP := &types.SlimCNP{
+			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+				TypeMeta:   cnp.TypeMeta,
+				ObjectMeta: cnp.ObjectMeta,
+			},
+		}
+		if cnp.CiliumNetworkPolicy != nil {
+			slimCNP.Spec = cnp.Spec
+			slimCNP.Specs = cnp.Specs
+		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.SlimCNP{
-				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-					TypeMeta:   cnp.TypeMeta,
-					ObjectMeta: cnp.ObjectMeta,
-					Spec:       cnp.Spec,
-					Specs:      cnp.Specs,
-				},
-			},
+			Obj: slimCNP,
 		}
 		*cnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return dfsu
@@ -655,6 +624,54 @@ func ConvertToCiliumNode(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumExternalWorkload converts a *cilium_v2.CiliumExternalWorkload into a
+// *cilium_v2.CiliumExternalWorkload or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumExternalWorkload in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumExternalWorkload
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumExternalWorkload(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumExternalWorkload
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumExternalWorkload:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumExternalWorkload, ok := concreteObj.Obj.(*cilium_v2.CiliumExternalWorkload)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumExternalWorkload,
+		}
+	default:
+		return obj
+	}
+}
+
+// ConvertToCiliumLocalRedirectPolicy converts a *cilium_v2.CiliumLocalRedirectPolicy into a
+// *cilium_v2.CiliumLocalRedirectPolicy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumLocalRedirectPolicy in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumLocalRedirectPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumLocalRedirectPolicy(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumLocalRedirectPolicy
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumLocalRedirectPolicy:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumLocalRedirectPolicy, ok := concreteObj.Obj.(*cilium_v2.CiliumLocalRedirectPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumLocalRedirectPolicy,
+		}
+	default:
+		return obj
+	}
+}
+
 // ObjToCiliumNode attempts to cast object to a CiliumNode object and
 // returns a deep copy if the castin succeeds. Otherwise, nil is returned.
 func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
@@ -767,5 +784,27 @@ func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid v2 CiliumEndpoint")
+	return nil
+}
+
+// ObjToCLRP attempts to cast object to a CLRP object and
+// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+func ObjToCLRP(obj interface{}) *cilium_v2.CiliumLocalRedirectPolicy {
+	cLRP, ok := obj.(*cilium_v2.CiliumLocalRedirectPolicy)
+	if ok {
+		return cLRP
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cn, ok := deletedObj.Obj.(*cilium_v2.CiliumLocalRedirectPolicy)
+		if ok {
+			return cn
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 Cilium Local Redirect Policy")
 	return nil
 }

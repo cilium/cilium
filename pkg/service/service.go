@@ -17,6 +17,8 @@ package service
 import (
 	"fmt"
 	"net"
+	"sync/atomic"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -42,8 +44,7 @@ var (
 
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
-	UpsertService(uint16, net.IP, uint16, map[string]uint16, int, bool, lb.SVCType,
-		bool, uint8, bool, uint32, bool, bool) error
+	UpsertService(*lbmap.UpsertServiceParams) error
 	DeleteService(lb.L3n4AddrID, int, bool) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
@@ -102,8 +103,13 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	}
 }
 
+// requireNodeLocalBackends returns true if the frontend service traffic policy
+// is lb.SVCTrafficPolicyLocal and whether only local backends need to be filtered for the
+// given frontend.
 func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool) {
 	switch svc.svcType {
+	case lb.SVCTypeLocalRedirect:
+		return false, true
 	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
 		if svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal {
 			return true, frontend.Scope == lb.ScopeExternal
@@ -130,7 +136,8 @@ type Service struct {
 	healthServer  healthServer
 	monitorNotify monitorNotify
 
-	lbmap LBMap
+	lbmap         LBMap
+	lastUpdatedTs atomic.Value
 }
 
 // NewService creates a new instance of the service handler.
@@ -141,15 +148,34 @@ func NewService(monitorNotify monitorNotify) *Service {
 		localHealthServer = healthserver.New()
 	}
 
-	return &Service{
+	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
+	maglevTableSize := option.Config.MaglevTableSize
+
+	svc := &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
 		healthServer:    localHealthServer,
-		lbmap:           lbmap.New(),
+		lbmap:           lbmap.New(maglev, maglevTableSize),
 	}
+	svc.lastUpdatedTs.Store(time.Now())
+	return svc
+}
+
+func (s *Service) GetLastUpdatedTs() time.Time {
+	if val := s.lastUpdatedTs.Load(); val != nil {
+		ts, ok := val.(time.Time)
+		if ok {
+			return ts
+		}
+	}
+	return time.Now()
+}
+
+func (s *Service) GetCurrentTs() time.Time {
+	return time.Now()
 }
 
 // InitMaps opens or creates BPF maps used by services.
@@ -236,6 +262,20 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 			option.EnableSVCSourceRangeCheck)
 	}
 
+	// In case we do DSR + IPIP, then it's required that the backends use
+	// the same destination port as the frontend service.
+	if option.Config.NodePortMode == option.NodePortModeDSR &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP &&
+		params.Type != lb.SVCTypeClusterIP {
+		for _, b := range params.Backends {
+			if b.Port != params.Frontend.L3n4Addr.Port {
+				err := fmt.Errorf("Unable to upsert service due to frontend/backend port mismatch under DSR with IPIP: %d vs %d",
+					params.Frontend.L3n4Addr.Port, b.Port)
+				return false, lb.ID(0), err
+			}
+		}
+	}
+
 	// If needed, create svcInfo and allocate service ID
 	svc, new, prevSessionAffinity, prevLoadBalancerSourceRanges, err :=
 		s.createSVCInfoIfNotExist(params)
@@ -251,15 +291,19 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	backendsCopy := []lb.Backend{}
 	for _, b := range params.Backends {
-		// Services with trafficPolicy=Local may only use node-local backends
-		// for external scope. We implement this by filtering out all backend
-		// IPs which are not a local endpoint.
+		// Local redirect services or services with trafficPolicy=Local may
+		// only use node-local backends for external scope. We implement this by
+		// filtering out all backend IPs which are not a local endpoint.
 		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
 			continue
 		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
 	}
 
+	// TODO (Aditi) When we filter backends for LocalRedirect service, there
+	// might be some backend pods with active connections. We may need to
+	// defer filtering the backends list (thereby defer redirecting traffic)
+	// in such cases. GH #12859
 	// Update backends cache and allocate/release backend IDs
 	newBackends, obsoleteBackendIDs, obsoleteSVCBackendIDs, err :=
 		s.updateBackendsCacheLocked(svc, backendsCopy)
@@ -278,17 +322,17 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
-	if onlyLocalBackends && filterBackends {
-		localBackendCount := len(backendsCopy)
-		if option.Config.EnableHealthCheckNodePort {
+	if option.Config.EnableHealthCheckNodePort {
+		if onlyLocalBackends && filterBackends {
+			localBackendCount := len(backendsCopy)
 			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
 				localBackendCount, svc.svcHealthCheckNodePort)
+		} else if svc.svcHealthCheckNodePort == 0 {
+			// Remove the health check server in case this service used to have
+			// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
+			// version, but not anymore.
+			s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 		}
-	} else if svc.svcHealthCheckNodePort == 0 {
-		// Remove the health check server in case this service used to have
-		// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
-		// version, but not anymore.
-		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 	}
 
 	if new {
@@ -299,7 +343,6 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	s.notifyMonitorServiceUpsert(svc.frontend, svc.backends,
 		svc.svcType, svc.svcTrafficPolicy, svc.svcName, svc.svcNamespace)
-
 	return new, lb.ID(svc.frontend.ID), nil
 }
 
@@ -531,6 +574,23 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
+		// Local Redirect Policies with service matcher would have same frontend
+		// as the service clusterIP type. In such cases, if a Local redirect service
+		// exists, we shouldn't override it with clusterIP type (e.g., k8s event/sync, etc).
+		if svc.svcType == lb.SVCTypeLocalRedirect && p.Type == lb.SVCTypeClusterIP {
+			err := fmt.Errorf("local-redirect service exists for "+
+				"frontend %v, skip update for svc %v", p.Frontend, p.Name)
+			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
+
+		}
+		// Local-redirect service can only override clusterIP service type or itself.
+		if p.Type == lb.SVCTypeLocalRedirect &&
+			(svc.svcType != lb.SVCTypeClusterIP && svc.svcType != lb.SVCTypeLocalRedirect) {
+			err := fmt.Errorf("skip local-redirect service for "+
+				"frontend %v as it overlaps with svc %v of type %v",
+				p.Frontend, svc.svcName, svc.svcType)
+			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
+		}
 		prevSessionAffinity = svc.sessionAffinity
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type
@@ -667,15 +727,22 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		backends[b.String()] = uint16(b.ID)
 	}
 
-	err := s.lbmap.UpsertService(
-		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
-		svc.frontend.L3n4Addr.L4Addr.Port,
-		backends, prevBackendCount,
-		ipv6, svc.svcType, onlyLocalBackends,
-		svc.frontend.L3n4Addr.Scope,
-		svc.sessionAffinity, svc.sessionAffinityTimeoutSec,
-		checkLBSrcRange, svc.maglev)
-	if err != nil {
+	p := &lbmap.UpsertServiceParams{
+		ID:                        uint16(svc.frontend.ID),
+		IP:                        svc.frontend.L3n4Addr.IP,
+		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
+		Backends:                  backends,
+		PrevBackendCount:          prevBackendCount,
+		IPv6:                      ipv6,
+		Type:                      svc.svcType,
+		Local:                     onlyLocalBackends,
+		Scope:                     svc.frontend.L3n4Addr.Scope,
+		SessionAffinity:           svc.sessionAffinity,
+		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
+		CheckSourceRange:          checkLBSrcRange,
+		UseMaglev:                 svc.maglev,
+	}
+	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
 	}
 

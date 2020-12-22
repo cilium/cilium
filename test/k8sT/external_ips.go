@@ -243,11 +243,11 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 		"DirectRouting", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{
-					"global.tunnel":               "disabled",
-					"global.autoDirectNodeRoutes": "true",
-					"global.devices":              external_ips.PublicInterfaceName,
-					"global.nodePort.enabled":     "true",
-					"config.bpfMasquerade":        "false",
+					"tunnel":               "disabled",
+					"autoDirectNodeRoutes": "true",
+					"devices":              external_ips.PublicInterfaceName,
+					"nodePort.enabled":     "true",
+					"bpf.masquerade":       "false",
 				})
 			})
 			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
@@ -289,10 +289,10 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 		"VxLANMode", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{
-					"global.tunnel":           "vxlan",
-					"global.devices":          external_ips.PublicInterfaceName,
-					"global.nodePort.enabled": "true",
-					"config.bpfMasquerade":    "false",
+					"tunnel":           "vxlan",
+					"devices":          external_ips.PublicInterfaceName,
+					"nodePort.enabled": "true",
+					"bpf.masquerade":   "false",
 				})
 			})
 			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",

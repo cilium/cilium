@@ -483,7 +483,7 @@ func (s *SharedStore) deleteSharedKey(name string) {
 }
 
 func (s *SharedStore) listAndStartWatcher() error {
-	listDone := make(chan bool)
+	listDone := make(chan struct{})
 
 	go s.watcher(listDone)
 
@@ -496,7 +496,7 @@ func (s *SharedStore) listAndStartWatcher() error {
 	return nil
 }
 
-func (s *SharedStore) watcher(listDone chan bool) {
+func (s *SharedStore) watcher(listDone chan struct{}) {
 	s.kvstoreWatcher = s.backend.ListAndWatch(s.conf.Context, s.name+"-watcher", s.conf.Prefix, watcherChanSize)
 
 	for event := range s.kvstoreWatcher.Events {

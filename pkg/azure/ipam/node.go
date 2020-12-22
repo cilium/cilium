@@ -48,6 +48,9 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 // resource with Azure specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.Azure.Interfaces = []types.AzureInterface{}
+
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
 	n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
 		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
 		if ok {
@@ -71,6 +74,8 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
 	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
 		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
 		if !ok {
@@ -112,7 +117,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				}
 			}
 
-			poolID, available := n.manager.FindSubnetForAllocation(preferredPoolIDs)
+			poolID, available := n.manager.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)
 			if poolID != ipamTypes.PoolNotExists {
 				scopedLog.WithFields(logrus.Fields{
 					"subnetID":           poolID,
@@ -159,6 +164,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	}
 
 	available := ipamTypes.AllocationMap{}
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
 	n.manager.instances.ForeachAddress(n.node.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
 		address, ok := addressObj.(types.AzureAddress)
 		if !ok {

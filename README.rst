@@ -15,7 +15,7 @@ integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
-.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium_overview.png
+.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/cilium_overview.png
     :align: center
 
 Stable Releases
@@ -26,17 +26,17 @@ Cilium versions. Older Cilium stable versions from major releases prior to that
 are considered EOL.
 
 For upgrades to new major releases please consult the `Cilium Upgrade Guide
-<https://docs.cilium.io/en/stable/install/upgrade/>`_.
+<https://docs.cilium.io/en/stable/operations/upgrade/>`_.
 
 Listed below are the actively maintained release branches along with their latest
 minor release, corresponding image pull tags and their release notes:
 
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-09-04 | ``docker.io/cilium/cilium:v1.8.3``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.3>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
+| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__ | 2020-12-04 | ``docker.io/cilium/cilium:v1.9.1``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.1>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2020-09-01 | ``docker.io/cilium/cilium:v1.7.9``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.9>`__  | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
+| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-12-04 | ``docker.io/cilium/cilium:v1.8.6``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.6>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2020-08-03 | ``docker.io/cilium/cilium:v1.6.11``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.11>`__ | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
+| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2020-12-04 | ``docker.io/cilium/cilium:v1.7.12``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.12>`__ | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 
 Functionality Overview
@@ -118,16 +118,32 @@ The following multi node networking models are supported:
   - In conjunction with cloud network routers
   - If you are already running routing daemons
 
-Load balancing
+Load Balancing
 --------------
 
-Distributed load balancing for traffic between application containers and to
-external services. The loadbalancing is implemented using eBPF using efficient
-hashtables allowing for almost unlimited scale and supports direct server
-return (DSR) if the loadbalancing operation is not performed on the source
-host.
-*Note: load balancing requires connection tracking to be enabled. This is the
-default.*
+Cilium implements distributed load balancing for traffic between application
+containers and to external services and is able to fully replace components
+such as kube-proxy. The load balancing is implemented in eBPF using efficient
+hashtables allowing for almost unlimited scale.
+
+For north-south type load balancing, Cilium's eBPF implementation is optimized
+for maximum performance, can be attached to XDP (eXpress Data Path), and supports
+direct server return (DSR) as well as Maglev consistent hashing if the load
+balancing operation is not performed on the source host.
+
+For east-west type load balancing, Cilium performs efficient service-to-backend
+translation right in the Linux kernel's socket layer (e.g. at TCP connect time)
+such that per-packet NAT operations overhead can be avoided in lower layers.
+
+Bandwidth Management
+--------------------
+
+Cilium implements bandwidth management through efficient EDT-based (Earliest Departure
+Time) rate-limiting with eBPF for container traffic that is egressing a node. This
+allows to significantly reduce transmission tail latencies for applications and to
+avoid locking under multi-queue NICs compared to traditional approaches such as HTB
+(Hierarchy Token Bucket) or TBF (Token Bucket Filter) as used in the bandwidth CNI
+plugin, for example.
 
 Monitoring and Troubleshooting
 ------------------------------
@@ -215,7 +231,7 @@ Linux kernel 4.9.x or later.
 To read up on the necessary kernel versions to run the BPF runtime, see the
 section Prerequisites_.
 
-.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/bpf-overview.png
+.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/bpf-overview.png
     :align: center
 
 XDP is a further step in evolution and enables to run a specific flavor of BPF
@@ -266,12 +282,12 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _`Installing Cilium`: http://docs.cilium.io/en/stable/gettingstarted/#installation
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
 .. _Contributing: http://docs.cilium.io/en/stable/contributing/development/
-.. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
+.. _Prerequisites: http://docs.cilium.io/en/stable/operations/system_requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
 
-.. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
+.. |logo| image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo.svg
     :alt: Cilium Logo
     :width: 350px
 

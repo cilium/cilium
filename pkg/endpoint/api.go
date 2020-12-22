@@ -30,11 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -222,7 +220,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 // GetHealthModel returns the endpoint's health object.
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 	// Duplicated from GetModelRLocked.
 	currentState := models.EndpointState(e.state)
@@ -287,7 +285,7 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
 	k8sPorts := e.k8sPorts
 	// keep named ports ordered to avoid the unnecessary updates to
@@ -333,7 +331,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 
 // GetPolicyModel returns the endpoint's policy as an API model.
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	if e == nil {
 		return nil
@@ -343,49 +341,19 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	realizedIngressIdentities := make([]int64, 0)
-	realizedEgressIdentities := make([]int64, 0)
+	realizedLog := log.WithField("map-name", "realized").Logger
+	realizedIngressIdentities, realizedEgressIdentities :=
+		e.realizedPolicy.PolicyMapState.GetIdentities(realizedLog)
 
-	for policyMapKey := range e.realizedPolicy.PolicyMapState {
-		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the Key no longer only applies
-			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
-			// contain sets of which identities (i.e., label-based L3 only)
-			// are allowed, so anything which contains L4-related policy should
-			// not be added to these sets.
-			continue
-		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
-		case trafficdirection.Ingress:
-			realizedIngressIdentities = append(realizedIngressIdentities, int64(policyMapKey.Identity))
-		case trafficdirection.Egress:
-			realizedEgressIdentities = append(realizedEgressIdentities, int64(policyMapKey.Identity))
-		default:
-			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in realized PolicyMap state for endpoint")
-		}
-	}
+	realizedDenyIngressIdentities, realizedDenyEgressIdentities :=
+		e.realizedPolicy.PolicyMapState.GetDenyIdentities(realizedLog)
 
-	desiredIngressIdentities := make([]int64, 0)
-	desiredEgressIdentities := make([]int64, 0)
+	desiredLog := log.WithField("map-name", "desired").Logger
+	desiredIngressIdentities, desiredEgressIdentities :=
+		e.desiredPolicy.PolicyMapState.GetIdentities(desiredLog)
 
-	for policyMapKey := range e.desiredPolicy.PolicyMapState {
-		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the Key no longer only applies
-			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
-			// contain sets of which identities (i.e., label-based L3 only)
-			// are allowed, so anything which contains L4-related policy should
-			// not be added to these sets.
-			continue
-		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
-		case trafficdirection.Ingress:
-			desiredIngressIdentities = append(desiredIngressIdentities, int64(policyMapKey.Identity))
-		case trafficdirection.Egress:
-			desiredEgressIdentities = append(desiredEgressIdentities, int64(policyMapKey.Identity))
-		default:
-			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in desired PolicyMap state for endpoint")
-		}
-	}
+	desiredDenyIngressIdentities, desiredDenyEgressIdentities :=
+		e.desiredPolicy.PolicyMapState.GetDenyIdentities(desiredLog)
 
 	policyEnabled := e.policyStatus()
 
@@ -413,6 +381,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
+		DeniedIngressIdentities:  realizedDenyIngressIdentities,
+		DeniedEgressIdentities:   realizedDenyEgressIdentities,
 		CidrPolicy:               realizedCIDRPolicy.GetModel(),
 		L4:                       realizedL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
@@ -434,6 +404,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.nextPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
+		DeniedIngressIdentities:  desiredDenyIngressIdentities,
+		DeniedEgressIdentities:   desiredDenyEgressIdentities,
 		CidrPolicy:               desiredCIDRPolicy.GetModel(),
 		L4:                       desiredL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
@@ -450,7 +422,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 // policyStatus returns the endpoint's policy status
 //
-// Must be called with e.Mutex locked.
+// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
@@ -474,17 +446,6 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	}
 
 	return policyEnabled
-}
-
-// ValidPatchTransitionState checks whether the state to which the provided
-// model specifies is one to which an Endpoint can transition as part of a
-// call to PATCH on an Endpoint.
-func ValidPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
-	case "", StateWaitingForIdentity, StateReady:
-		return true
-	}
-	return false
 }
 
 // ProcessChangeRequest handles the update logic for performing a PATCH operation

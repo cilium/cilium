@@ -5,7 +5,7 @@ set -e
 # Ensure no prompts from apt & co.
 export DEBIAN_FRONTEND=noninteractive
 
-GOLANG_VERSION="1.15.2"
+GOLANG_VERSION="1.15.6"
 VAGRANT_VERSION="2.2.4"
 PACKER_VERSION="1.3.5"
 VIRTUALBOX_VERSION="6.0"
@@ -69,8 +69,5 @@ go get -u github.com/google/gops
 go get -u github.com/onsi/ginkgo/ginkgo
 go get -u github.com/onsi/gomega/...
 sudo ln -sf /go/bin/* /usr/local/bin/
-
-sudo curl -L https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
 
 echo 'cd /root/go/src/github.com/cilium/cilium' >> /root/.bashrc

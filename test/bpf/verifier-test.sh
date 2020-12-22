@@ -25,7 +25,7 @@ ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 CG_PROGS=${CG_PROGS:-$ALL_CG_PROGS}
 ALL_XDP_PROGS="bpf_xdp"
 XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
-IGNORED_PROGS="bpf_alignchecker"
+IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 VERBOSE=false
 RUN_ALL_TESTS=false
@@ -232,6 +232,14 @@ function load_cg {
 }
 
 function load_xdp {
+	# The verifier compares the type of the BPF program that created each
+	# pinned map to the type of the new program that is trying to use those
+	# maps. It errors if the two types (original map creator vs. map user)
+	# don't match.
+	# Since previous loaded programs are of TC type, we need to remove all maps
+	# before creating them again from XDP programs.
+	clean_maps
+
 	if $IPROUTE2 link set dev ${DEV} xdpgeneric off 2>/dev/null; then
 		for p in ${XDP_PROGS}; do
 			load_prog_dev "$IPROUTE2 link set" "xdpgeneric" ${p}

@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "L7 policy to test HTTP -> Kafka type change"
 metadata:
   name: "l7-policy"
 spec:
+  description: "L7 policy to test HTTP -> Kafka type change"
   endpointSelector:
     matchLabels:
       id: app1

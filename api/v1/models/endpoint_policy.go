@@ -35,6 +35,14 @@ type EndpointPolicy struct {
 	// cidr policy
 	CidrPolicy *CIDRPolicy `json:"cidr-policy,omitempty"`
 
+	// List of identities to which this endpoint is not allowed to communicate
+	//
+	DeniedEgressIdentities []int64 `json:"denied-egress-identities"`
+
+	// List of identities not allowed to communicate to this endpoint
+	//
+	DeniedIngressIdentities []int64 `json:"denied-ingress-identities"`
+
 	// Own identity of endpoint
 	ID int64 `json:"id,omitempty"`
 

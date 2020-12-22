@@ -36,7 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	client "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
@@ -698,28 +698,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	var s, ls concurrency.Session
 	errorChan := make(chan error)
 
-	// create session in parallel as this is a blocking operation
-	go func() {
-		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
-		if err != nil {
-			errorChan <- err
-			close(errorChan)
-			return
-		}
-		lockSession, err := concurrency.NewSession(c, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
-		if err != nil {
-			errorChan <- err
-			close(errorChan)
-			return
-		}
-		s = *session
-		ls = *lockSession
-
-		log.Infof("Got lease ID %x", s.Lease())
-		log.Infof("Got lock lease ID %x", ls.Lease())
-		close(errorChan)
-	}()
-
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -734,6 +712,31 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		limiter:              rate.NewLimiter(rate.Limit(clientOptions.RateLimit), clientOptions.RateLimit),
 		statusCheckErrors:    make(chan error, 128),
 	}
+
+	// create session in parallel as this is a blocking operation
+	go func() {
+		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
+		if err != nil {
+			errorChan <- err
+			close(errorChan)
+			return
+		}
+		lockSession, err := concurrency.NewSession(c, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
+		if err != nil {
+			errorChan <- err
+			close(errorChan)
+			return
+		}
+
+		ec.RWMutex.Lock()
+		s = *session
+		ls = *lockSession
+		ec.RWMutex.Unlock()
+
+		log.Infof("Got lease ID %x", s.Lease())
+		log.Infof("Got lock lease ID %x", ls.Lease())
+		close(errorChan)
+	}()
 
 	handleSessionError := func(err error) {
 		ec.RWMutex.Lock()
@@ -818,16 +821,16 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	return ec, nil
 }
 
-func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (go_version.Version, error) {
+func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (semver.Version, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
-		return go_version.Version{}, Hint(err)
+		return semver.Version{}, Hint(err)
 	}
 	v, err := versioncheck.Version(sr.Version)
 	if err != nil {
-		return go_version.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
+		return semver.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
 	}
 	return v, nil
 }
@@ -926,7 +929,7 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 
 	scopedLog := e.getLogger().WithFields(logrus.Fields{
 		fieldWatcher: w,
-		fieldPrefix:  w.prefix,
+		fieldPrefix:  w.Prefix,
 	})
 
 	err := <-e.Connected(ctx)
@@ -947,7 +950,7 @@ reList:
 		}
 
 		e.limiter.Wait(ctx)
-		res, err := e.client.Get(ctx, w.prefix, client.WithPrefix(),
+		res, err := e.client.Get(ctx, w.Prefix, client.WithPrefix(),
 			client.WithSerializable())
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
@@ -1007,7 +1010,7 @@ reList:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
 		e.limiter.Wait(ctx)
-		etcdWatch := e.client.Watch(ctx, w.prefix,
+		etcdWatch := e.client.Watch(ctx, w.Prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
@@ -1282,6 +1285,7 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 	defer func() { Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key}) }()
 
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
 	opDel := client.OpDelete(key)
 	cmp := lock.Comparator().(client.Cmp)
 	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opDel).Commit()

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build privileged_tests
+// +build !privileged_tests
 
 package cmd
 
@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"path"
 	"sort"
-	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
@@ -29,8 +28,6 @@ import (
 
 	. "gopkg.in/check.v1"
 )
-
-func Test(t *testing.T) { TestingT(t) }
 
 type CMDHelpersSuite struct{}
 
@@ -104,6 +101,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
         "ConntrackLocal": "Disabled",
         "Debug": "Enabled",
         "DebugLB": "Enabled",
+        "DebugPolicy": "Enabled",
         "DropNotification": "Enabled",
         "MonitorAggregationLevel": "None",
         "NAT46": "Disabled",
@@ -293,6 +291,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
           "ConntrackLocal": "Disabled",
           "Debug": "Enabled",
           "DebugLB": "Enabled",
+          "DebugPolicy": "Enabled",
           "DropNotification": "Enabled",
           "MonitorAggregationLevel": "None",
           "NAT46": "Disabled",
@@ -316,6 +315,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
         "ConntrackLocal": "Disabled",
         "Debug": "Enabled",
         "DebugLB": "Enabled",
+        "DebugPolicy": "Enabled",
         "DropNotification": "Enabled",
         "MonitorAggregationLevel": "None",
         "NAT46": "Disabled",
@@ -535,6 +535,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
           "ConntrackLocal": "Disabled",
           "Debug": "Enabled",
           "DebugLB": "Enabled",
+          "DebugPolicy": "Enabled",
           "DropNotification": "Enabled",
           "MonitorAggregationLevel": "None",
           "NAT46": "Disabled",
@@ -593,6 +594,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		peerLbl          uint32
 		port             uint16
 		protos           []uint8
+		isDeny           bool
 	}{
 		{
 			args:             []string{labels.IDNameHost, "ingress", "12345"},
@@ -631,10 +633,40 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 			args:    []string{"123", "invalid", "1/udt"},
 			invalid: true,
 		},
+		{
+			args:             []string{labels.IDNameHost, "ingress", "12345"},
+			invalid:          false,
+			isDeny:           true,
+			mapBaseName:      "cilium_policy_reserved_1",
+			trafficDirection: trafficdirection.Ingress,
+			peerLbl:          12345,
+			port:             0,
+			protos:           []uint8{0},
+		},
+		{
+			args:             []string{"123", "egress", "12345", "1/tcp"},
+			invalid:          false,
+			isDeny:           true,
+			mapBaseName:      "cilium_policy_00123",
+			trafficDirection: trafficdirection.Egress,
+			peerLbl:          12345,
+			port:             1,
+			protos:           []uint8{uint8(u8proto.TCP)},
+		},
+		{
+			args:             []string{"123", "ingress", "12345", "1"},
+			invalid:          false,
+			isDeny:           true,
+			mapBaseName:      "cilium_policy_00123",
+			trafficDirection: trafficdirection.Ingress,
+			peerLbl:          12345,
+			port:             1,
+			protos:           allProtos,
+		},
 	}
 
 	for _, tt := range tests {
-		args, err := parsePolicyUpdateArgsHelper(tt.args)
+		args, err := parsePolicyUpdateArgsHelper(tt.args, tt.isDeny)
 
 		if tt.invalid {
 			c.Assert(err, NotNil)

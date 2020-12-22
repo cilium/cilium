@@ -4,10 +4,6 @@
 
 Show bpf filesystem mount details
 
-### Synopsis
-
-Show bpf filesystem mount details
-
 ```
 cilium bpf fs show [flags]
 ```

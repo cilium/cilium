@@ -10,6 +10,22 @@
 
 #define SKIP_POLICY_MAP 1
 
+/* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
+ * bpf_lxc object file.
+ */
+#define SKIP_ICMPV6_NS_HANDLING
+
+/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED section
+ * in the bpf_lxc object file. This is needed for all callers of
+ * ipv6_local_delivery, which calls into the IPv6 L3 handling.
+ */
+#define SKIP_ICMPV6_HOPLIMIT_HANDLING
+
+/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
+ * the bpf_lxc object file.
+ */
+#define SKIP_ICMPV6_ECHO_HANDLING
+
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/eps.h"
@@ -195,7 +211,7 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 
 #ifdef CIDR6_FILTER
-	memcpy(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
+	__bpf_memcpy_builtin(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
 	pfx.lpm.prefixlen = 128;
 
 #ifdef CIDR6_LPM_PREFILTER

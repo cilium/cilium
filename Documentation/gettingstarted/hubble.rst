@@ -84,7 +84,8 @@ Relay and Hubble's graphical UI.
 
        .. parsed-literal::
 
-            kubectl apply -f |SCM_WEB|/install/kubernetes/experimental-install.yaml
+            kubectl apply -f |SCM_WEB|/install/kubernetes/quick-install.yaml
+            kubectl apply -f |SCM_WEB|/install/kubernetes/quick-hubble-install.yaml
 
     .. group-tab:: Multi-node cluster with ``kind``
 
@@ -96,23 +97,18 @@ Relay and Hubble's graphical UI.
 
                helm install cilium |CHART_RELEASE| \\
                   --namespace kube-system \\
-                  --set global.nodeinit.enabled=true \\
-                  --set global.kubeProxyReplacement=partial \\
-                  --set global.hostServices.enabled=false \\
-                  --set global.externalIPs.enabled=true \\
-                  --set global.nodePort.enabled=true \\
-                  --set global.hostPort.enabled=true \\
-                  --set global.pullPolicy=IfNotPresent \\
-                  --set config.ipam=kubernetes \\
-                  --set global.hubble.enabled=true \\
-                  --set global.hubble.listenAddress=":4244" \\
-                  --set global.hubble.relay.enabled=true \\
-                  --set global.hubble.ui.enabled=true
-
-.. note::
-
-    Please note that Hubble Relay and Hubble UI are currently in beta status
-    and are not yet recommended for production use.
+                  --set nodeinit.enabled=true \\
+                  --set kubeProxyReplacement=partial \\
+                  --set hostServices.enabled=false \\
+                  --set externalIPs.enabled=true \\
+                  --set nodePort.enabled=true \\
+                  --set hostPort.enabled=true \\
+                  --set image.pullPolicy=IfNotPresent \\
+                  --set ipam.mode=kubernetes \\
+                  --set hubble.enabled=true \\
+                  --set hubble.listenAddress=":4244" \\
+                  --set hubble.relay.enabled=true \\
+                  --set hubble.ui.enabled=true
 
 Validate the Installation
 =========================
@@ -182,7 +178,7 @@ your service dependencies. To access **Hubble UI**, you can use the following
 command to forward the port of the web frontend to your local machine:
 
 .. parsed-literal::
-   kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+   kubectl port-forward -n kube-system svc/hubble-ui --address 0.0.0.0 --address :: 12000:80
 
 Open http://localhost:12000 in your browser. You should
 see a screen with an invitation to select a namespace, use the namespace
@@ -195,8 +191,8 @@ guide. However you can apply the same techniques to observe application
 connectivity dependencies in your own namespace, and clusters for
 application of any type.
 
-Once the the deployment is ready, issue a request from both spaceships to
-emulate some traffic.
+Once the deployment is ready, issue a request from both spaceships to emulate
+some traffic.
 
 .. parsed-literal::
 
@@ -217,6 +213,17 @@ event in your current namespace individually.
     If you enable :ref:`proxy_visibility` on your pods, the Hubble UI service
     map will display the HTTP endpoints which are being accessed by the requests.
 
+Inspecting a wide variety of network traffic
+============================================
+
+The "connectivity-check" generates a wide variety of network traffic, including
+packets sent outside the cluster and packets dropped by policy.
+
+.. include:: k8s-install-connectivity-test.rst
+
+To see the traffic in Hubble, open http://localhost:12000/cilium-test in your
+browser.
+
 Inspecting the cluster's network traffic with Hubble Relay
 ==========================================================
 
@@ -230,7 +237,7 @@ port-forward the Hubble Relay service locally:
 
 .. parsed-literal::
 
-   $ kubectl port-forward -n kube-system svc/hubble-relay 4245:80
+   $ kubectl port-forward -n kube-system svc/hubble-relay --address 0.0.0.0 --address :: 4245:80
 
 .. note::
    This terminal window needs to be remain open to keep port-forwarding in
@@ -248,7 +255,7 @@ In order to avoid passing ``--server localhost:4245`` to every command, you may
 export the following environment variable:
 
 .. parsed-literal::
-   $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+   $ export HUBBLE_SERVER=localhost:4245
 
 Let's now issue some requests to emulate some traffic again. This first request
 is allowed by the policy.
@@ -275,7 +282,7 @@ Let's now inspect this traffic using the CLI. The command below filters all
 traffic on the application layer (L7, HTTP) to the ``deathstar`` pod:
 
 .. parsed-literal::
-    $ hubble observe --pod deathstar --protocol http 
+    $ hubble observe --pod deathstar --protocol http
     TIMESTAMP             SOURCE                                  DESTINATION                             TYPE            VERDICT     SUMMARY
     Jun 18 13:52:23.843   default/tiefighter:52568                default/deathstar-5b7489bc84-8wvng:80   http-request    FORWARDED   HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing
     Jun 18 13:52:23.844   default/deathstar-5b7489bc84-8wvng:80   default/tiefighter:52568                http-response   FORWARDED   HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing)

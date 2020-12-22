@@ -3,6 +3,16 @@ set -e
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
+require_linux
+
+cleanup () {
+  if [ -n "$TMPF" ]; then
+    rm $TMPF
+  fi
+}
+
+trap cleanup EXIT
+
 cherry_pick () {
   CID=$1
   BRANCHES=`git branch -q -r --contains $CID $REM/master 2> /dev/null`
@@ -19,7 +29,6 @@ cherry_pick () {
   git format-patch -1 $FULL_ID --stdout | sed -n '/^$/,$p' >> $TMPF
   echo "Applying: $(git log -1 --oneline $FULL_ID)"
   git am --quiet -3 --signoff $TMPF
-  rm $TMPF
 }
 
 main () {

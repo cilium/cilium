@@ -122,3 +122,30 @@ func (s *gcStats) finish() {
 	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
 	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family, proto).Add(float64(s.KeyFallback))
 }
+
+type NatGCStats struct {
+	*bpf.DumpStats
+
+	// family is the address family
+	Family gcFamily
+
+	IngressAlive   uint32
+	IngressDeleted uint32
+	EgressDeleted  uint32
+	// It's not possible with the current PurgeOrphanNATEntries implementation
+	// to correctly count EgressAlive, so skip it
+}
+
+func newNatGCStats(m NatMap, family gcFamily) NatGCStats {
+	return NatGCStats{
+		DumpStats: m.DumpStats(),
+		Family:    family,
+	}
+}
+
+func (s *NatGCStats) finish() {
+	family := s.Family.String()
+	metrics.NatGCSize.WithLabelValues(family, metricsIngress, metricsAlive).Set(float64(s.IngressAlive))
+	metrics.NatGCSize.WithLabelValues(family, metricsIngress, metricsDeleted).Set(float64(s.IngressDeleted))
+	metrics.NatGCSize.WithLabelValues(family, metricsEgress, metricsDeleted).Set(float64(s.EgressDeleted))
+}

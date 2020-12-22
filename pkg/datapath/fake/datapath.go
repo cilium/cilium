@@ -92,6 +92,10 @@ func (f *fakeDatapath) TransientRulesEnd(quiet bool) {
 	return
 }
 
+func (m *fakeDatapath) GetProxyPort(name string) uint16 {
+	return 0
+}
+
 func (f *fakeDatapath) Loader() datapath.Loader {
 	return f.loader
 }
@@ -116,10 +120,6 @@ func (f *fakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, e
 	panic("implement me")
 }
 
-func (f *fakeLoader) DeleteDatapath(ctx context.Context, ifName, direction string) error {
-	panic("implement me")
-}
-
 func (f *fakeLoader) Unload(ep datapath.Endpoint) {
 }
 
@@ -130,8 +130,4 @@ func (f *fakeLoader) CallsMapPath(id uint16) string {
 // Reinitialize does nothing.
 func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
-}
-
-func (f *fakeDatapath) SetupIPVLAN(netNS string) (int, int, error) {
-	return 0, 0, nil
 }

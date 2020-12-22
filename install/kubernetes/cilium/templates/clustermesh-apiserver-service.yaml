@@ -1,0 +1,24 @@
+{{- if (or .Values.externalWorkloads.enabled  .Values.clustermesh.useAPIServer) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "clustermesh-apiserver"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: clustermesh-apiserver
+{{- with .Values.clustermesh.apiserver.service.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+{{- end }}
+spec:
+  type: {{ .Values.clustermesh.apiserver.service.type }}
+  selector:
+    k8s-app: clustermesh-apiserver
+  ports:
+  - port: 2379
+{{- if and (eq "NodePort" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.nodePort }}
+    nodePort: {{ .Values.clustermesh.apiserver.service.nodePort }}
+{{- end }}
+{{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.clustermesh.apiserver.service.loadBalancerIP }}
+{{- end }}
+{{- end }}

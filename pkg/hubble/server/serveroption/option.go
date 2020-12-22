@@ -17,7 +17,6 @@ package serveroption
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -26,26 +25,26 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"golang.org/x/sys/unix"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// MinTLSVersion defines the minimum TLS version that is acceptable to
-// establish a connection with a client.
+// MinTLSVersion defines the minimum TLS version clients are expected to
+// support in order to establish a connection to the hubble server.
 const MinTLSVersion = tls.VersionTLS13
 
 // Options stores all the configuration values for the hubble server.
 type Options struct {
-	Listener             net.Listener
-	HealthService        healthpb.HealthServer
-	ObserverService      observerpb.ObserverServer
-	PeerService          peerpb.PeerServer
-	TransportCredentials credentials.TransportCredentials
-	Insecure             bool
+	Listener        net.Listener
+	HealthService   healthpb.HealthServer
+	ObserverService observerpb.ObserverServer
+	PeerService     peerpb.PeerServer
+	ServerTLSConfig certloader.ServerConfigBuilder
+	Insecure        bool
 }
 
 // Option customizes then configuration of the hubble server.
@@ -72,6 +71,9 @@ func WithTCPListener(address string) Option {
 // owner is set to socketGroup.
 func WithUnixSocketListener(path string) Option {
 	return func(o *Options) error {
+		if o.Listener != nil {
+			return fmt.Errorf("listener already configured")
+		}
 		socketPath := strings.TrimPrefix(path, "unix://")
 		unix.Unlink(socketPath)
 		socket, err := net.Listen("unix", socketPath)
@@ -80,13 +82,9 @@ func WithUnixSocketListener(path string) Option {
 		}
 		if os.Getuid() == 0 {
 			if err := api.SetDefaultPermissions(socketPath); err != nil {
+				socket.Close()
 				return err
 			}
-		}
-		if o.Listener != nil {
-			socket.Close()
-			unix.Unlink(socketPath)
-			return fmt.Errorf("listener already configured: %s", path)
 		}
 		o.Listener = socket
 		return nil
@@ -120,9 +118,7 @@ func WithPeerService(svc peerpb.PeerServer) Option {
 }
 
 // WithInsecure disables transport security. Transport security is required
-// unless WithInsecure is set.
-// Use one of WithTransportCredentials, WithTLSFromCert, WithTLSFromFile,
-// WithMTLSFromCert or WithMTLSFromFile to set transport credentials for
+// unless WithInsecure is set. Use WithTLS to set transport credentials for
 // transport security.
 func WithInsecure() Option {
 	return func(o *Options) error {
@@ -131,30 +127,10 @@ func WithInsecure() Option {
 	}
 }
 
-// WithTLS sets the transport credentials for the server based on TLS.
-func WithTLS(c *tls.Config) Option {
+// WithServerTLS sets the transport credentials for the server based on TLS.
+func WithServerTLS(cfg certloader.ServerConfigBuilder) Option {
 	return func(o *Options) error {
-		o.TransportCredentials = credentials.NewTLS(c)
+		o.ServerTLSConfig = cfg
 		return nil
 	}
-}
-
-// WithTLSFromCert constructs TLS credentials from the input certificate for
-// the server.
-func WithTLSFromCert(cert tls.Certificate) Option {
-	return WithTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   MinTLSVersion,
-	})
-}
-
-// WithMTLSFromCert constructs mutual TLS (mTLS) credentials from the input
-// certificate and the given client certificates for the server.
-func WithMTLSFromCert(cert tls.Certificate, clientCAs *x509.CertPool) Option {
-	return WithTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    clientCAs,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		MinVersion:   MinTLSVersion,
-	})
 }

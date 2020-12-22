@@ -24,7 +24,7 @@ type SuccessChan chan bool
 // NewConditionalTimeoutContext returns a context which is cancelled when
 // success is not reported within the specified timeout
 func NewConditionalTimeoutContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc, SuccessChan) {
-	ch := make(SuccessChan)
+	ch := make(SuccessChan, 1)
 	c, cancel := context.WithCancel(ctx)
 
 	go func() {

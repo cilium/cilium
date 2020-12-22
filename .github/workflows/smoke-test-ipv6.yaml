@@ -7,7 +7,7 @@ on:
       - master
 
 env:
-  KIND_VERSION: v0.8.1
+  KIND_VERSION: v0.9.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
@@ -25,7 +25,7 @@ jobs:
         run: |
           make -C examples/kubernetes/connectivity-check fmt
           make -C examples/kubernetes/connectivity-check all
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
 
       - name: Enable IPv6 in docker
         run: |
@@ -43,27 +43,31 @@ jobs:
           make docker-operator-generic-image
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.0.0-rc.1
+        uses: helm/kind-action@v1.0.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
       - name: Load local images into kind cluster
         run: |
-          kind load docker-image --name chart-testing cilium/cilium:latest
-          kind load docker-image --name chart-testing cilium/operator-generic:latest
+          kind load docker-image --name chart-testing quay.io/cilium/cilium:latest
+          kind load docker-image --name chart-testing quay.io/cilium/operator-generic:latest
 
       - name: Install cilium chart
         run: |
           helm upgrade -i cilium ./install/kubernetes/cilium \
             --namespace kube-system \
-            --set global.nodeinit.enabled=true \
-            --set global.kubeProxyReplacement=strict \
-            --set config.ipam=kubernetes \
-            --set global.ipv6.enabled=true \
-            --set global.ipv4.enabled=false \
-            --set global.tunnel=disabled \
-            --set global.autoDirectNodeRoutes=true
+            --set nodeinit.enabled=true \
+            --set kubeProxyReplacement=strict \
+            --set ipam.mode=kubernetes \
+            --set image.tag=latest \
+            --set image.pullPolicy=Never \
+            --set operator.image.tag=latest \
+            --set operator.image.pullPolicy=Never \
+            --set ipv6.enabled=true \
+            --set ipv4.enabled=false \
+            --set tunnel=disabled \
+            --set autoDirectNodeRoutes=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
           # To make sure that cilium CRD is available (default timeout is 5m)

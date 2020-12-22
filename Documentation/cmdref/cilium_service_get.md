@@ -4,10 +4,6 @@
 
 Display service information
 
-### Synopsis
-
-Display service information
-
 ```
 cilium service get <service id> [flags]
 ```

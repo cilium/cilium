@@ -165,7 +165,8 @@ func nodeAddress(n types.Node) string {
 //
 // When nodeName is not provided, an empty string is returned. All Dot (.) in
 // nodeName are replaced by Hyphen (-). When clusterName is not provided, it
-// defaults to the default cluster name.
+// defaults to the default cluster name. All Dot (.) in clusterName are
+// replaced by Hypen (-).
 func tlsServerName(nodeName, clusterName string) string {
 	if nodeName == "" {
 		return ""
@@ -176,9 +177,11 @@ func tlsServerName(nodeName, clusterName string) string {
 	if clusterName == "" {
 		clusterName = ciliumDefaults.ClusterName
 	}
+	// The cluster name may also contain dots.
+	cn := strings.ReplaceAll(clusterName, ".", "-")
 	return strings.Join([]string{
 		nn,
-		clusterName,
+		cn,
 		defaults.GRPCServiceName,
 		defaults.DomainName,
 	}, ".")

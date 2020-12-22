@@ -52,7 +52,7 @@ func dumpSVC(serviceList map[string][]string) {
 
 	parseBackendEntry := func(key bpf.MapKey, value bpf.MapValue) {
 		id := key.(lbmap.BackendKey).GetID()
-		backendMap[id] = value.DeepCopyMapValue().(lbmap.BackendValue)
+		backendMap[id] = value.DeepCopyMapValue().(lbmap.BackendValue).ToHost()
 	}
 	if err := lbmap.Backend4Map.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
@@ -65,8 +65,9 @@ func dumpSVC(serviceList map[string][]string) {
 		var entry string
 
 		svcKey := key.(lbmap.ServiceKey)
-		svcVal := value.(lbmap.ServiceValue)
+		svcVal := value.(lbmap.ServiceValue).ToHost()
 		svc := svcKey.String()
+		svcKey = svcKey.ToHost()
 		revNATID := svcVal.GetRevNat()
 		backendID := svcVal.GetBackendID()
 		flags := loadbalancer.ServiceFlags(svcVal.GetFlags())
@@ -99,7 +100,7 @@ func dumpSVC(serviceList map[string][]string) {
 	}
 }
 
-// bpfCtListCmd represents the bpf_ct_list command
+// bpfLBListCmd represents the bpf_lb_list command
 var bpfLBListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},

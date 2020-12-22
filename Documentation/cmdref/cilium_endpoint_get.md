@@ -4,10 +4,6 @@
 
 Display endpoint information
 
-### Synopsis
-
-Display endpoint information
-
 ```
 cilium endpoint get ( <endpoint identifier> | -l <endpoint labels> )  [flags]
 ```

@@ -65,6 +65,13 @@ var ignoredELFPrefixes = []string{
 	"from-host",                  // Prog name
 	"to-netdev",                  // Prog name
 	"to-host",                    // Prog name
+	".BTF",                       // Debug
+	".BTF.ext",                   // Debug
+	".debug_ranges",              // Debug
+	".debug_info",                // Debug
+	".debug_line",                // Debug
+	".debug_frame",               // Debug
+	".debug_loc",                 // Debug
 	// Endpoint IPv6 address. It's possible for the template object to have
 	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
 	// the endpoint restored.
@@ -337,7 +344,7 @@ func (o *objectCache) watchTemplatesDirectory(ctx context.Context) error {
 			if !open {
 				break
 			}
-			if event.Op&fsnotify.Remove != 0 {
+			if event.Op&fsnotify.Remove == fsnotify.Remove {
 				log.WithField(logfields.Path, event.Name).Debug("Detected template removal")
 				templateHash := filepath.Base(filepath.Dir(event.Name))
 				o.delete(templateHash)

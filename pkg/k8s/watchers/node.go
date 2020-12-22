@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	v1 "k8s.io/api/core/v1"
@@ -56,9 +56,9 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 		nil,
 	)
 
-	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController, k8sAPIGroupNodeV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 	go nodeController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
 }
 
 func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) error {

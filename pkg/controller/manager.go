@@ -21,7 +21,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/uuid"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -97,7 +98,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 	} else {
 		ctrl = &Controller{
 			name:       name,
-			uuid:       uuid.NewUUID().String(),
+			uuid:       uuid.New().String(),
 			stop:       make(chan struct{}),
 			update:     make(chan struct{}, 1),
 			terminated: make(chan struct{}),

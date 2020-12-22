@@ -54,6 +54,7 @@ type Client struct {
 	vmscalesets     compute.VirtualMachineScaleSetsClient
 	limiter         *helpers.ApiLimiter
 	metricsAPI      MetricsAPI
+	usePrimary      bool
 }
 
 // MetricsAPI represents the metrics maintained by the Azure API client
@@ -62,8 +63,8 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.Authorizer, error) {
-	if userAssignedIdentityName != "" {
+func constructAuthorizer(cloudName, userAssignedIdentityID string) (autorest.Authorizer, error) {
+	if userAssignedIdentityID != "" {
 		env, err := azure.EnvironmentFromName(cloudName)
 		if err != nil {
 			return nil, err
@@ -75,7 +76,7 @@ func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.A
 
 		spToken, err := adal.NewServicePrincipalTokenFromMSIWithUserAssignedID(msiEndpoint,
 			env.ServiceManagementEndpoint,
-			userAssignedIdentityName)
+			userAssignedIdentityID)
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +92,7 @@ func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.A
 }
 
 // NewClient returns a new Azure client
-func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityName string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
+func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
 	c := &Client{
 		resourceGroup:   resourceGroup,
 		interfaces:      network.NewInterfacesClient(subscriptionID),
@@ -100,9 +101,10 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityNam
 		vmscalesets:     compute.NewVirtualMachineScaleSetsClient(subscriptionID),
 		metricsAPI:      metrics,
 		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
+		usePrimary:      usePrimary,
 	}
 
-	authorizer, err := constructAuthorizer(cloudName, userAssignedIdentityName)
+	authorizer, err := constructAuthorizer(cloudName, userAssignedIdentityID)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +221,7 @@ func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface
 
 // parseInterfaces parses a network.Interface as returned by the Azure API
 // converts it into a types.AzureInterface
-func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap) (instanceID string, i *types.AzureInterface) {
+func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap, usePrimary bool) (instanceID string, i *types.AzureInterface) {
 	i = &types.AzureInterface{}
 
 	if iface.VirtualMachine != nil && iface.VirtualMachine.ID != nil {
@@ -247,6 +249,9 @@ func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap) (inst
 
 	if iface.IPConfigurations != nil {
 		for _, ip := range *iface.IPConfigurations {
+			if !usePrimary && ip.Primary != nil && *ip.Primary {
+				continue
+			}
 			if ip.PrivateIPAddress != nil {
 				addr := types.AzureAddress{
 					IP:    *ip.PrivateIPAddress,
@@ -289,7 +294,7 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 	}
 
 	for _, iface := range networkInterfaces {
-		if id, azureInterface := parseInterface(&iface, subnets); id != "" {
+		if id, azureInterface := parseInterface(&iface, subnets, c.usePrimary); id != "" {
 			instances.Update(id, ipamTypes.InterfaceRevision{Resource: azureInterface})
 		}
 	}

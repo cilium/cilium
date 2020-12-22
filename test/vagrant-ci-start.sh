@@ -18,7 +18,7 @@ for i in $(seq 1 $K8S_NODES); do
 done
 
 if [ -n "${KUBECONFIG}" ]; then
-    echo "getting vagrant kubeconfig from provisioned vagrant cluster"
+    echo "getting vagrant kubeconfig from provisioned vagrant cluster into ${KUBECONFIG}"
     ./get-vagrant-kubeconfig.sh > ${KUBECONFIG}
     KUBECTL="kubectl"
 else
@@ -37,8 +37,10 @@ done
 export HOME=${GOPATH}
 ${KUBECTL} get nodes
 
-echo "adding local docker registry to cluster"
-helm template registry-adder k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" | ${KUBECTL} apply -f -
+if [ -n "${CILIUM_REGISTRY}" ]; then
+    echo "adding local docker registry to cluster"
+    helm template registry-adder k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" | ${KUBECTL} apply -f -
+fi
 
 echo "labeling nodes"
 for i in $(seq 1 $K8S_NODES); do

@@ -51,6 +51,24 @@ If you intent to release a new feature release, see the
        instance, indentation mismatches) as well as duplicate contributor
        names, and correct them accordingly.
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/client`` by following these instructions:
+
+   If you are doing the first RC for a new minor version, the validation schema
+   version should be ``vX.Y.1`` regardless of the value set in
+   ``CustomResourceDefinitionSchemaVersion``. For example, when setting up the
+   first RC for Cilium ``1.11``, ``1.11.0-rc1``, the validation schema should be
+   ``vX.Y+1.1`` where ``X`` and ``Y`` are the major and minor versions used in
+   the schema version of Cilium ``1.10``.
+
+   If this is not the first RC run, and there is a branch for ``vX.Y``:
+
+   Run ``./Documentation/check-crd-compat-table.sh vX.Y``
+
+   If a branch for ``vX.Y`` doesn't exist yet, then ensure the CRD schema
+   version has not been incremented in the case there were no changes. If there
+   were changes to the CRD, then ensure it is incremented at most by 1 patch
+   version.
 
 #. Add all modified files using ``git add`` and create a pull request with the
    title ``Prepare for release vX.Y.Z-rcW+1``. Add the backport label to the PR which

@@ -17,7 +17,7 @@
 package v1beta1
 
 import (
-	v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
+	v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )

@@ -40,8 +40,6 @@ const (
 	defaultSecurityID = -1
 )
 
-type supportedKinds string
-
 var src, dst, dports []string
 var srcIdentity, dstIdentity int64
 var srcEndpoint, dstEndpoint, srcK8sPod, dstK8sPod, srcK8sYaml, dstK8sYaml string
@@ -72,23 +70,12 @@ If multiple sources and / or destinations are provided, each source is tested wh
 			Usagef(cmd, "Missing destination argument")
 		}
 
-		// Parse provided labels
 		if len(src) > 0 {
-			srcSlice, err = parseLabels(src)
-			if err != nil {
-				Fatalf("Invalid source: %s", err)
-			}
-
-			srcSlices = append(srcSlices, srcSlice)
+			srcSlices = append(srcSlices, src)
 		}
 
 		if len(dst) > 0 {
-			dstSlice, err = parseLabels(dst)
-			if err != nil {
-				Fatalf("Invalid destination: %s", err)
-			}
-
-			dstSlices = append(dstSlices, dstSlice)
+			dstSlices = append(dstSlices, dst)
 		}
 
 		if len(dports) > 0 {
@@ -223,13 +210,6 @@ func appendEpLabelsToSlice(labelSlice []string, epID string) []string {
 	}
 
 	return append(labelSlice, lbls...)
-}
-
-func parseLabels(slice []string) ([]string, error) {
-	if len(slice) == 0 {
-		return nil, fmt.Errorf("No labels provided")
-	}
-	return slice, nil
 }
 
 func getSecIDFromK8s(podName string) (string, error) {

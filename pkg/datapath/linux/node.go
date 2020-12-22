@@ -21,7 +21,9 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/arp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -32,7 +34,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/cilium/arping"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -51,17 +52,21 @@ type linuxNodeHandler struct {
 	datapathConfig       DatapathConfiguration
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
-	neighByNode          map[nodeTypes.Identity]*netlink.Neigh
+	neighNextHopByNode   map[nodeTypes.Identity]string // val = string(net.IP)
+	neighNextHopRefCount counter.StringCounter
+	neighByNextHop       map[string]*netlink.Neigh // key = string(net.IP)
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
 func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) datapath.NodeHandler {
 	return &linuxNodeHandler{
-		nodeAddressing: nodeAddressing,
-		datapathConfig: datapathConfig,
-		nodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
-		neighByNode:    map[nodeTypes.Identity]*netlink.Neigh{},
+		nodeAddressing:       nodeAddressing,
+		datapathConfig:       datapathConfig,
+		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
+		neighNextHopByNode:   map[nodeTypes.Identity]string{},
+		neighNextHopRefCount: counter.StringCounter{},
+		neighByNextHop:       map[string]*netlink.Neigh{},
 	}
 }
 
@@ -544,87 +549,112 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
-func neighborLog(spec, iface string, err error, ip *net.IP, hwAddr *net.HardwareAddr, link int) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Reason: spec,
-		"Interface":      iface,
-		logfields.IPAddr: ip,
-		"HardwareAddr":   hwAddr,
-		"LinkIndex":      link,
-	})
-
-	if err != nil {
-		scopedLog.WithError(err).Error("insertNeighbor failed")
-	} else {
-		scopedLog.Debug("insertNeighbor")
-	}
-}
-
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
 	if newNode.IsLocal() {
 		return
 	}
 
-	ciliumIPv4 := newNode.GetNodeIP(false)
-	var hwAddr net.HardwareAddr
-	link := 0
+	newNodeIP := newNode.GetNodeIP(false).To4()
+	nextHopIPv4 := make(net.IP, len(newNodeIP))
+	copy(nextHopIPv4, newNodeIP)
 
-	iface, err := net.InterfaceByName(ifaceName)
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Interface: ifaceName,
+		logfields.IPAddr:    nextHopIPv4,
+	})
+
+	// Figure out whether newNode is directly reachable (i.e. in the same L2)
+	routes, err := netlink.RouteGet(nextHopIPv4)
 	if err != nil {
-		neighborLog("InterfaceByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		scopedLog.WithError(err).Error("Failed to retrieve route for remote node IP")
 		return
 	}
 
-	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
-	if err != nil {
-		neighborLog("IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
+	if len(routes) == 0 {
+		scopedLog.Error("Remote node IP is not routable. Connectivity to pods on that node may be unavailable.")
 		return
 	}
 
-	linkAttr, err := netlink.LinkByName(ifaceName)
-	if err != nil {
-		neighborLog("LinkByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
-		return
-	}
-	link = linkAttr.Attrs().Index
+	// Use the first available route by default
+	srcIPv4 := make(net.IP, len(newNodeIP))
+	copy(srcIPv4, routes[0].Src)
 
-	if hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface); err == nil {
+	for _, route := range routes {
+		if route.Gw != nil {
+			// newNode is in a different L2 subnet, so it must be reachable through
+			// a gateway. Send arping to the gw IP addr instead of newNode IP addr.
+			// NOTE: we currently don't handle multipath, so only one gw can be used.
+			copy(srcIPv4, route.Src)
+			copy(nextHopIPv4, route.Gw)
+			break
+		}
+	}
+
+	nextHopStr := nextHopIPv4.String()
+	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
+	_, found := n.neighByNextHop[nextHopStr]
+
+	// nextHop hasn't been arpinged before OR the arping failed
+	if n.neighNextHopRefCount.Add(nextHopStr) || !found {
+		linkAttr, err := netlink.LinkByName(ifaceName)
+		if err != nil {
+			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
+			return
+		}
+		link := linkAttr.Attrs().Index
+
+		hwAddr, err := arp.PingOverLink(linkAttr, srcIPv4, nextHopIPv4)
+		if err != nil {
+			scopedLog.WithError(err).Error("arping failed")
+			return
+		}
+
+		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
+
 		neigh := netlink.Neigh{
 			LinkIndex:    link,
-			IP:           ciliumIPv4,
+			IP:           nextHopIPv4,
 			HardwareAddr: hwAddr,
 			State:        netlink.NUD_PERMANENT,
 		}
-		err := netlink.NeighSet(&neigh)
-		neighborLog("NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
-		if err == nil {
-			n.neighByNode[newNode.Identity()] = &neigh
-			if option.Config.NodePortHairpin {
-				neighborsmap.NeighRetire(ciliumIPv4)
-			}
+		if err := netlink.NeighSet(&neigh); err != nil {
+			scopedLog.WithError(err).Error("Failed to insert neighbor")
+			return
 		}
-	} else {
-		neighborLog("arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+
+		n.neighByNextHop[nextHopStr] = &neigh
+		if option.Config.NodePortHairpin {
+			neighborsmap.NeighRetire(nextHopIPv4)
+		}
 	}
 }
 
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
-	neigh, ok := n.neighByNode[oldNode.Identity()]
-	if !ok {
+	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
+	if !found {
 		return
 	}
+	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
 
-	if err := netlink.NeighDel(neigh); err != nil {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: neigh.IP,
-			"HardwareAddr":   neigh.HardwareAddr,
-			"LinkIndex":      neigh.LinkIndex,
-		}).WithError(err).Warn("Failed to remove neighbor entry")
-	} else {
-		if option.Config.NodePortHairpin {
-			neighborsmap.NeighRetire(neigh.IP)
+	if n.neighNextHopRefCount.Delete(nextHopStr) {
+		neigh, found := n.neighByNextHop[nextHopStr]
+		delete(n.neighByNextHop, nextHopStr)
+
+		if found {
+			if err := netlink.NeighDel(neigh); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.IPAddr:       neigh.IP,
+					logfields.HardwareAddr: neigh.HardwareAddr,
+					logfields.LinkIndex:    neigh.LinkIndex,
+				}).WithError(err).Warn("Failed to remove neighbor entry")
+				return
+			}
+
+			if option.Config.NodePortHairpin {
+				neighborsmap.NeighRetire(neigh.IP)
+			}
 		}
 	}
 }
@@ -704,7 +734,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey = oldNode.EncryptionKey
 	}
 
-	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
+	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() && !n.nodeConfig.EncryptNode {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
 	}

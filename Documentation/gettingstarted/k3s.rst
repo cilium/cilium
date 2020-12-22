@@ -42,7 +42,7 @@ replace the variables with values from your environment:
 
 .. parsed-literal::
 
-    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--no-flannel' K3S_URL='https://${MASTER_IP}:6443' K3S_TOKEN=${NODE_TOKEN} sh -
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--disable-network-policy --no-flannel' K3S_URL='https://${MASTER_IP}:6443' K3S_TOKEN=${NODE_TOKEN} sh -
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
@@ -60,6 +60,8 @@ On each node, run the following to mount the eBPF Filesystem:
 .. include:: quick-install.rst
 .. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
+.. include:: namespace-kube-system.rst
+.. include:: hubble-enable.rst
 
 Now that you have a Kubernetes cluster with Cilium up and running, you can take
 a couple of next steps to explore various capabilities:

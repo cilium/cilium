@@ -17,7 +17,7 @@ package watchers
 import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -80,10 +80,10 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 		nil,
 	)
 	k.networkpolicyStore = store
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNPs, policyController, k8sAPIGroupNetworkingV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNPs, policyController.HasSynced, k8sAPIGroupNetworkingV1Core)
 	go policyController.Run(wait.NeverStop)
 
-	k.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
 }
 
 func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {

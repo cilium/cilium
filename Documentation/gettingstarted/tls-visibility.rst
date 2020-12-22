@@ -101,17 +101,17 @@ requires four primary steps:
 1) Create an internal certificate authority by generating a CA private key and CA certificate.
 
 2) For any destination where TLS inspection is desired (e.g., artii.herokuapp.com in the example below),
-generate a private key and certificate signing request with a common name that matches the destination DNS
-name.
+   generate a private key and certificate signing request with a common name that matches the destination DNS
+   name.
 
 3) Use the CA private key to create a signed certificate.
 
 4) Ensure that all clients where TLS inspection is have the CA certificate installed so that they will
-trust all certificates signed by that CA.
+   trust all certificates signed by that CA.
 
 5) Given that Cilium will be terminating the initial TLS connection from the
-client and creating a new TLS connection to the destination, Cilium must be told the set of CAs that it
-should trust when validating the new TLS connection to the destination service.
+   client and creating a new TLS connection to the destination, Cilium must be told the set of CAs that it
+   should trust when validating the new TLS connection to the destination service.
 
 .. note::
 
@@ -247,7 +247,7 @@ certificate bundle and use it to validate outgoing TLS connections.
 
 .. parsed-literal::
 
-    $ kubectl create secret generic tls-orig-data -n kube-system --from-file=./ca-certificates.crt
+    $ kubectl create secret generic tls-orig-data -n kube-system --from-file=ca.crt=./ca-certificates.crt
 
 
 Apply DNS and TLS-aware Egress Policy
@@ -263,15 +263,16 @@ of communication between the ``mediabot`` pod to ``artii.herokuapp.com``.
 .. literalinclude:: ../../examples/kubernetes-tls-inspection/l7-visibility-tls.yaml
 
 Let's take a closer look at the policy:
+
 * The ``endpointSelector`` means that this policy will only apply to pods with labels ``class: mediabot, org:empire`` to have the egress access.
 * The first egress section uses ``toFQDNs: matchName`` specification to allow TCP port 443 egress to ``artii.herokuapp.com``.
 * The ``http`` section below the toFQDNs rule
-indicates that such connections should be parsed as HTTP, with a policy of ``{}`` which will allow all requests.
+  indicates that such connections should be parsed as HTTP, with a policy of ``{}`` which will allow all requests.
 * The ``terminatingTLS`` and ``originatingTLS`` sections indicate that TLS interception should be used to terminate the initial TLS connection
-from mediabot and initiate a new out-bound TLS connection to ``artii.herokuapp.com``.
+  from mediabot and initiate a new out-bound TLS connection to ``artii.herokuapp.com``.
 * The second egress section allows ``mediabot`` pods to access ``kube-dns`` service. Note that
-``rules: dns`` instructs Cilium to inspect and allow DNS lookups matching specified patterns.
-In this case, inspect and allow all DNS queries.
+  ``rules: dns`` instructs Cilium to inspect and allow DNS lookups matching specified patterns.
+  In this case, inspect and allow all DNS queries.
 
 Note that with this policy the ``mediabot`` doesn't have access to any internal cluster service other than ``kube-dns``
 and will have no access to any other external destinations either. Refer to :ref:`Network Policy`
@@ -316,9 +317,8 @@ Looking back at the cilium monitor window, you will see each individual HTTP req
 
 .. parsed-literal::
 
-    -> Request http from 1975 ([k8s:app=public-service k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=tenant-a]) to 0 ([reserved:world]), identity 56418->2, verdict Forwarded GET https://www.lyft.com/privacy => 0
-    -> Response http to 1975 ([k8s:app=public-service k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=tenant-a]) from 0 ([reserved:world]), identity 56418->2, verdict Forwarded GET https://www.lyft.com/privacy => 200
-
+    -> Request http from 2585 ([k8s:class=mediabot k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default]) to 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 0
+    -> Response http to 2585 ([k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=mediabot k8s:org=empire]) from 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 200
 
 Refer to :ref:`l4_policy` and :ref:`l7_policy` to learn more about Cilium L4 and L7 network policies.
 
@@ -329,4 +329,5 @@ Clean-up
 
    $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
    $ kubectl delete cnp l7-visibility-tls
-
+   $ kubectl delete secret -n kube-system tls-orig-data
+   $ kubectl delete secret -n kube-system artii-tls-data

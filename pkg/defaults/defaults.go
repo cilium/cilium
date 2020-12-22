@@ -22,6 +22,15 @@ const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9876
 
+	// GopsPortAgent is the default value for option.GopsPort in the agent
+	GopsPortAgent = 9890
+
+	// GopsPortOperator is the default value for option.GopsPort in the operator
+	GopsPortOperator = 9891
+
+	// GopsPortApiserver is the default value for option.GopsPort in the apiserver
+	GopsPortApiserver = 9892
+
 	// IPv6ClusterAllocCIDR is the default value for option.IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDR = IPv6ClusterAllocCIDRBase + "/64"
 
@@ -94,14 +103,13 @@ const (
 	// DefaultMapPrefix is the default prefix for all BPF maps.
 	DefaultMapPrefix = "tc/globals"
 
-	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
-	// This or ToFQDNsMinTTLPoller is used in DaemonConfig.Populate
-	ToFQDNsMinTTL = 3600 // 1 hour in seconds
+	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
+	// for each FQDN selector in endpoint's restored DNS rules.
+	DNSMaxIPsPerRestoredRule = 1000
 
-	// ToFQDNsMinTTLPoller is the default lower bound for TTLs used with ToFQDNs
-	// rules when the poller is enabled.
-	// This or ToFQDNsMinTTL is used in DaemonConfig.Populate
-	ToFQDNsMinTTLPoller = 600 // 10 minutes in seconds
+	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
+	// This is used in DaemonConfig.Populate
+	ToFQDNsMinTTL = 3600 // 1 hour in seconds
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
@@ -149,6 +157,9 @@ const (
 
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
+
+	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
+	EnableHostLegacyRouting = false
 
 	// EnableExternalIPs is the default value for k8s service with externalIPs feature.
 	EnableExternalIPs = true
@@ -391,4 +402,7 @@ const (
 	// for the support of Leases in Kubernetes when there is an error in discovering
 	// API groups using Discovery API.
 	K8sEnableLeasesFallbackDiscovery = false
+
+	// KubeProxyReplacementHealthzBindAddr is the default kubeproxyReplacement healthz server bind addr
+	KubeProxyReplacementHealthzBindAddr = ""
 )

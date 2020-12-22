@@ -4,10 +4,6 @@
 
 Retrieve identity for an ip
 
-### Synopsis
-
-Retrieve identity for an ip
-
 ```
 cilium bpf ipcache get [flags]
 ```

@@ -4,10 +4,6 @@
 
 Force regeneration of endpoint program
 
-### Synopsis
-
-Force regeneration of endpoint program
-
 ```
 cilium endpoint regenerate <endpoint-id> [flags]
 ```

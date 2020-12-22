@@ -13,14 +13,14 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.15.2
+          go-version: 1.15.6
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Check module vendoring
         run: |
           go mod tidy
           go mod vendor
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
 
   golangci:
     name: lint
@@ -28,9 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v1.2.1
+        uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.27
+          version: v1.31
 
   precheck:
     runs-on: ubuntu-latest
@@ -38,7 +38,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.15.2
+          go-version: 1.15.6
       - name: Checkout code
         uses: actions/checkout@v2
         with:
@@ -55,7 +55,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.15.2
+          go-version: 1.15.6
       - name: Checkout code
         uses: actions/checkout@v2
         with:
@@ -72,7 +72,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.15.2
+          go-version: 1.15.6
       - name: Checkout code
         uses: actions/checkout@v2
         with:
@@ -87,7 +87,7 @@ jobs:
           sudo chmod +x bin/protoc && sudo cp bin/protoc /usr/local/bin
       - name: Set GOPATH
         run: |
-          echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+          echo "GOPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
         shell: bash
       - name: Check k8s generated files
         run: |

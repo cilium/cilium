@@ -54,13 +54,13 @@ static __always_inline int eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac,
 }
 
 static __always_inline int eth_store_saddr_aligned(struct __ctx_buff *ctx,
-						   __u8 *mac, int off)
+						   const __u8 *mac, int off)
 {
 	return ctx_store_bytes(ctx, off + ETH_ALEN, mac, ETH_ALEN, 0);
 }
 
-static __always_inline int eth_store_saddr(struct __ctx_buff *ctx, __u8 *mac,
-					   int off)
+static __always_inline int eth_store_saddr(struct __ctx_buff *ctx,
+					   const __u8 *mac, int off)
 {
 #if !CTX_DIRECT_WRITE_OK
 	return eth_store_saddr_aligned(ctx, mac, off);
@@ -85,13 +85,13 @@ static __always_inline int eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac,
 }
 
 static __always_inline int eth_store_daddr_aligned(struct __ctx_buff *ctx,
-						   __u8 *mac, int off)
+						   const __u8 *mac, int off)
 {
 	return ctx_store_bytes(ctx, off, mac, ETH_ALEN, 0);
 }
 
-static __always_inline int eth_store_daddr(struct __ctx_buff *ctx, __u8 *mac,
-					   int off)
+static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
+					   const __u8 *mac, int off)
 {
 #if !CTX_DIRECT_WRITE_OK
 	return eth_store_daddr_aligned(ctx, mac, off);

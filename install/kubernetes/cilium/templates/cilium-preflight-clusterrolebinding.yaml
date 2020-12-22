@@ -1,0 +1,14 @@
+{{- if .Values.preflight.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium-pre-flight
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium-pre-flight
+subjects:
+- kind: ServiceAccount
+  name: cilium-pre-flight
+  namespace: {{ .Release.Namespace }}
+{{- end }}

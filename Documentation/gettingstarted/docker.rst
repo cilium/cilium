@@ -55,6 +55,15 @@ it will print:
     ==> default: Creating cilium-docker-plugin
     $
 
+By default the script will deploy Cilium ``1.9`` but it's possible to specify a
+different version with the ``CILIUM_VERSION`` environment variable.
+
+For example, the following command will start Vagrant with Cilium ``1.x``:
+
+::
+
+    $ CILIUM_VERSION=v1.x vagrant up
+
 If the script exits with an error message, do not attempt to proceed with the
 tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel`_.
@@ -94,11 +103,13 @@ it using the ``cilium`` CLI client. Check the status of the agent by running
     Cilium:                 Ok         OK
     NodeMonitor:            Disabled
     Cilium health daemon:   Ok
-    IPAM:                   IPv4: 2/65535 allocated from 10.15.0.0/16,
-    Controller Status:      14/14 healthy
-    Proxy Status:           OK, ip 10.15.225.211, 0 redirects active on ports 10000-20000
+    IPAM:                   IPv4: 3/65535 allocated from 10.15.0.0/16,
+    BandwidthManager:       Disabled
+    Masquerading:           IPTables
+    Controller Status:      21/21 healthy
+    Proxy Status:           OK, ip 10.15.55.93, 1 redirects active on ports 10000-20000
     Hubble:                 Disabled
-    Cluster health:         1/1 reachable   (2020-04-17T10:55:03Z)
+    Cluster health:         1/1 reachable   (2020-10-22T12:09:24Z)
 
 The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
@@ -135,7 +146,6 @@ Docker network managed by Cilium:
 ::
 
     $ docker run -d --name app1 --net cilium-net -l "id=app1" cilium/demo-httpd
-    e5723edaa2a1307e7aa7e71b4087882de0250973331bc74a37f6f80667bc5856
 
 
 This has launched a container running an HTTP server which Cilium is now
@@ -178,7 +188,7 @@ policy by running:
 ::
 
   $ cilium policy import l3_l4_policy.json
-  Revision: 1
+  Revision: 2
 
 
 Step 8: Test L3/L4 Policy
@@ -205,6 +215,7 @@ label "id=app3":
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id=app3" cilium/demo-client curl -m 10 http://app1
+    curl: (28) Connection timed out after 10001 milliseconds
 
 You will see no reply as all packets are dropped by the Cilium security policy.
 The request will time-out after 10 seconds.
@@ -268,21 +279,21 @@ import this policy to Cilium by running:
 ::
 
   $ cilium policy delete --all
-  Revision: 2
-  $ cilium policy import l7_aware_policy.json
   Revision: 3
+  $ cilium policy import l7_aware_policy.json
+  Revision: 4
 
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/public'
     HTTP/1.1 200 OK
-    Accept-Ranges: bytes
-    Content-Length: 28
-    Date: Tue, 31 Oct 2017 14:30:56 GMT
-    Etag: "1c-54bb868cec400"
-    Last-Modified: Mon, 27 Mar 2017 15:58:08 GMT
-    Server: Apache/2.4.25 (Unix)
-    Content-Type: text/plain; charset=utf-8
+    date: Thu, 19 Nov 2020 16:59:35 GMT
+    server: envoy
+    last-modified: Mon, 27 Mar 2017 15:58:08 GMT
+    etag: "1c-54bb868cec400"
+    accept-ranges: bytes
+    content-length: 28
+    x-envoy-upstream-service-time: 1
 
     { 'val': 'this is public' }
 
@@ -292,10 +303,10 @@ and
 
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/private'
     HTTP/1.1 403 Forbidden
-    Content-Type: text/plain; charset=utf-8
-    X-Content-Type-Options: nosniff
-    Date: Tue, 31 Oct 2017 14:31:09 GMT
-    Content-Length: 14
+    content-length: 15
+    content-type: text/plain
+    date: Thu, 19 Nov 2020 17:01:14 GMT
+    server: envoy
 
     Access denied
 

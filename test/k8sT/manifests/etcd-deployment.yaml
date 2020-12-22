@@ -4,7 +4,7 @@ metadata:
   name: "stateless-etcd"
 spec:
   ports:
-  - port: 2379
+  - port: 4379
     name: api
   type: ClusterIP
   selector:
@@ -41,8 +41,8 @@ spec:
           - "/usr/local/bin/etcd"
         args:
           - --name=clustermesh-apiserver
-          - --listen-client-urls=http://0.0.0.0:2379
-          - --advertise-client-urls=http://$(HOSTNAME_IP):2379
+          - --listen-client-urls=http://0.0.0.0:4379
+          - --advertise-client-urls=http://$(HOSTNAME_IP):4379
           - --initial-cluster-token=clustermesh-apiserver
           - --initial-cluster-state=new
           - --auto-compaction-retention=1

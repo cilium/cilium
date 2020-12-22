@@ -3,18 +3,23 @@ Validate the Installation
 
 You can monitor as Cilium and all required components are being installed:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    kubectl -n cilium get pods --watch
-    NAME                                    READY   STATUS              RESTARTS   AGE
-    cilium-operator-cb4578bc5-q52qk         0/1     Pending             0          8s
-    cilium-s8w5m                            0/1     PodInitializing     0          7s
+   $ kubectl -n cilium get pods --watch
+   cilium-2twr9                      0/1     Init:0/2            0          17s
+   cilium-fkhjv                      0/1     Init:0/2            0          17s
+   cilium-node-init-bhr5l            1/1     Running             0          17s
+   cilium-node-init-l77v9            1/1     Running             0          17s
+   cilium-operator-f8bd5cd96-qdspd   0/1     ContainerCreating   0          17s
+   cilium-operator-f8bd5cd96-tvdn6   0/1     ContainerCreating   0          17s
 
 It may take a couple of minutes for all components to come up:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    cilium-operator-cb4578bc5-q52qk         1/1     Running   0          4m13s
-    cilium-s8w5m                            1/1     Running   0          4m12s
+   cilium-operator-f8bd5cd96-tvdn6   1/1     Running             0          25s
+   cilium-operator-f8bd5cd96-qdspd   1/1     Running             0          26s
+   cilium-fkhjv                      1/1     Running             0          60s
+   cilium-2twr9                      1/1     Running             0          61s
 
 .. include:: k8s-install-connectivity-test.rst

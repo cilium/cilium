@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/sysctl"
-	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
@@ -45,6 +44,7 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
+	"github.com/cilium/ebpf"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -52,6 +52,7 @@ import (
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
 	gops "github.com/google/gops/agent"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -62,7 +63,6 @@ var (
 )
 
 func init() {
-	logging.SetLogLevel(logrus.DebugLevel)
 	runtime.LockOSThread()
 }
 
@@ -261,6 +261,17 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
+func setupLogging(n *types.NetConf) error {
+	f := n.LogFormat
+	if f == "" {
+		f = string(logging.DefaultLogFormat)
+	}
+	logOptions := logging.LogOptions{
+		logging.FormatOpt: f,
+	}
+	return logging.SetupLogging([]string{}, logOptions, "cilium-cni", n.EnableDebug)
+}
+
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	var (
 		ipConfig *cniTypesVer.IPConfig
@@ -270,19 +281,21 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		c        *client.Client
 		netNs    ns.NetNS
 	)
-	logger := log.WithField("eventUUID", uuid.NewUUID())
 
 	n, err = types.LoadNetConf(args.StdinData)
 	if err != nil {
-		// In case of an error is helpful to always print the processing CNI
-		// ADD request.
-		logger.Infof("Processing CNI ADD request %#v", args)
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return
 	}
-	if !n.EnableDebug {
-		logger.Logger.SetLevel(logrus.InfoLevel)
-	} else {
+
+	if innerErr := setupLogging(n); innerErr != nil {
+		err = fmt.Errorf("unable to setup logging: %w", innerErr)
+		return
+	}
+
+	logger := log.WithField("eventUUID", uuid.New())
+
+	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
 			log.WithError(err).Warn("Unable to start gops")
 		} else {
@@ -410,8 +423,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		ipvlanConf := *conf.IpvlanConfiguration
 		index := int(ipvlanConf.MasterDeviceIndex)
 
-		var mapFD int
-		mapFD, err = connector.CreateAndSetupIpvlanSlave(
+		var m *ebpf.Map
+		m, err = connector.CreateAndSetupIpvlanSlave(
 			ep.ContainerID, args.IfName, netNs,
 			int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep,
 		)
@@ -419,7 +432,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			err = fmt.Errorf("unable to setup ipvlan datapath: %s", err)
 			return
 		}
-		defer unix.Close(mapFD)
+		defer m.Close()
 	}
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
@@ -542,20 +555,19 @@ func cmdDel(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
-
-	logger := log.WithField("eventUUID", uuid.NewUUID())
-
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		// In case of an error is helpful to always print the processing CNI
-		// DEL request.
-		logger.Infof("Processing CNI DEL request %#v", args)
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return err
 	}
-	if !n.EnableDebug {
-		logger.Logger.SetLevel(logrus.InfoLevel)
-	} else {
+
+	if err := setupLogging(n); err != nil {
+		return fmt.Errorf("unable to setup logging: %w", err)
+	}
+
+	logger := log.WithField("eventUUID", uuid.New())
+
+	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
 			log.WithError(err).Warn("Unable to start gops")
 		} else {

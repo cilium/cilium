@@ -120,7 +120,7 @@ func bindUDP(addr string, ipv4, ipv6 bool) *net.IPConn {
 	// Mark outgoing packets as proxy egress return traffic (0x0b00)
 	conn, err := listenConfig(0xb00, ipv4, ipv6).ListenPacket(context.Background(), "ip:udp", addr)
 	if err != nil {
-		log.Errorf("bindUDP failed for address %s: %s", addr, err)
+		log.WithError(err).Errorf("bindUDP failed for address %s", addr)
 		return nil
 	}
 	return conn.(*net.IPConn)

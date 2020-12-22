@@ -4,10 +4,6 @@
 
 Import security policy in JSON format
 
-### Synopsis
-
-Import security policy in JSON format
-
 ```
 cilium policy import <path> [flags]
 ```

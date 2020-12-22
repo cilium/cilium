@@ -4,10 +4,6 @@
 
 Add/update policy entry
 
-### Synopsis
-
-Add/update policy entry
-
 ```
 cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto] [flags]
 ```
@@ -15,6 +11,7 @@ cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto] 
 ### Options
 
 ```
+      --deny   Sets deny mode
   -h, --help   help for add
 ```
 

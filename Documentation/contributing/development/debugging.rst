@@ -15,8 +15,8 @@ toFQDNs and DNS Debugging
 The interactions of L3 toFQDNs and L7 DNS rules can be difficult to debug
 around. Unlike many other policy rules, these are resolved at runtime with
 unknown data. Pods may create large numbers of IPs in the cache or the IPs
-returned returned may not be compatible with our datapath implementation.
-Sometimes we also just have bugs.
+returned may not be compatible with our datapath implementation. Sometimes
+we also just have bugs.
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,7 +40,7 @@ implementations, notably musl which is common in Alpine Linux images, terminate
 the whole DNS search in these cases. This often manifests as a connect error in
 applications, as the libc lookup returns no data.
 To work around this, denied responses can be configured to be NXDOMAIN by
-setting the ``--tofqdns-dns-reject-response-code`` command line argument.
+setting ``--tofqdns-dns-reject-response-code=nameError`` on the command line.
 
 
 Monitor Events

@@ -43,7 +43,6 @@ var policyDeleteCmd = &cobra.Command{
 		} else {
 			fmt.Printf("Revision: %d\n", resp.Revision)
 		}
-
 	},
 }
 

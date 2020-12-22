@@ -46,6 +46,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [ -x /home/vagrant/go/src/github.com/cilium/cilium/.devvmrc ] ; then
+   echo "----------------------------------------------------------------"
+   echo "Executing .devvmrc"
+   /home/vagrant/go/src/github.com/cilium/cilium/.devvmrc || true
+fi
+
 echo "----------------------------------------------------------------"
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 
@@ -171,23 +177,21 @@ Vagrant.configure(2) do |config|
         node_ip = "#{$master_ip}"
         cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
         cm.vm.network "forwarded_port", guest: 9081, host: 9081, auto_correct: true
+        # 2345 is the default delv server port
+        cm.vm.network "forwarded_port", guest: 2345, host: 2345, auto_correct: true
         cm.vm.network "private_network", ip: "#{$master_ip}",
-            virtualbox__intnet: "cilium-test-#{$build_id}",
-            :libvirt__guest_ipv6 => "yes",
-            :libvirt__dhcp_enabled => false
-        if ENV["NFS"] || ENV["IPV6_EXT"] then
-            if ENV['FIRST_IP_SUFFIX_NFS'] then
-                $nfs_ipv4_master_addr = $node_nfs_base_ip + "#{ENV['FIRST_IP_SUFFIX_NFS']}"
-            end
-            cm.vm.network "private_network", ip: "#{$nfs_ipv4_master_addr}", bridge: "enp0s9"
-            # Add IPv6 address this way or we get hit by a virtualbox bug
-            cm.vm.provision "ipv6-config",
-                type: "shell",
-                run: "always",
-                inline: "ip -6 a a #{$master_ipv6}/16 dev enp0s9"
-            if ENV["IPV6_EXT"] then
-                node_ip = "#{$master_ipv6}"
-            end
+            virtualbox__intnet: "cilium-test-#{$build_id}"
+        if ENV['FIRST_IP_SUFFIX_NFS'] then
+            $nfs_ipv4_master_addr = $node_nfs_base_ip + "#{ENV['FIRST_IP_SUFFIX_NFS']}"
+        end
+        cm.vm.network "private_network", ip: "#{$nfs_ipv4_master_addr}", bridge: "enp0s9"
+        # Add IPv6 address this way or we get hit by a virtualbox bug
+        cm.vm.provision "ipv6-config",
+            type: "shell",
+            run: "always",
+            inline: "ip -6 a a #{$master_ipv6}/16 dev enp0s9"
+        if ENV["IPV6_EXT"] then
+            node_ip = "#{$master_ipv6}"
         end
         cm.vm.hostname = "#{$vm_base_name}1"
         if ENV['CILIUM_TEMP'] then
@@ -227,21 +231,17 @@ Vagrant.configure(2) do |config|
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
             node.vm.network "private_network", ip: "#{node_ip}",
-                virtualbox__intnet: "cilium-test-#{$build_id}",
-                :libvirt__guest_ipv6 => 'yes',
-                :libvirt__dhcp_enabled => false
-            if ENV["NFS"] || ENV["IPV6_EXT"] then
-                nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
-                ipv6_addr = $workers_ipv6_addrs[n]
-                node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"
-                # Add IPv6 address this way or we get hit by a virtualbox bug
-                node.vm.provision "ipv6-config",
-                    type: "shell",
-                    run: "always",
-                    inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
-                if ENV["IPV6_EXT"] then
-                    node_ip = "#{ipv6_addr}"
-                end
+                virtualbox__intnet: "cilium-test-#{$build_id}"
+            nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
+            ipv6_addr = $workers_ipv6_addrs[n]
+            node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"
+            # Add IPv6 address this way or we get hit by a virtualbox bug
+            node.vm.provision "ipv6-config",
+                type: "shell",
+                run: "always",
+                inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
+            if ENV["IPV6_EXT"] then
+                node_ip = "#{ipv6_addr}"
             end
             node.vm.hostname = "#{node_hostname}"
             if ENV['CILIUM_TEMP'] then
@@ -268,18 +268,20 @@ Vagrant.configure(2) do |config|
             end
         end
     end
-    if ENV["NFS"] then
-        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs", nfs_udp: false
-        # Don't forget to enable this ports on your host before starting the VM
-        # in order to have nfs working
-        # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 111 -j ACCEPT
-        # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
-        # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
-        # if using nftables, in Fedora (with firewalld), use:
-        # nft -f ./contrib/vagrant/nftables.rules
-    else
-        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium'
+    cilium_dir = '.'
+    cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'
+    if ENV["SHARE_PARENT"] then
+      cilium_dir = '..'
+      cilium_path = '/home/vagrant/go/src/github.com/cilium'
     end
+    config.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+    # Don't forget to enable this ports on your host before starting the VM
+    # in order to have nfs working
+    # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 111 -j ACCEPT
+    # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
+    # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
+    # if using nftables, in Fedora (with firewalld), use:
+    # nft -f ./contrib/vagrant/nftables.rules
 
     if ENV['USER_MOUNTS'] then
         # Allow multiple mounts divided by commas
@@ -307,11 +309,7 @@ Vagrant.configure(2) do |config|
                     user_mount_from = "~/" + user_mount_from
                 end
             end
-            if ENV["NFS"] then
-                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: "nfs", nfs_udp: false
-            else
-                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}"
-            end
+            config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: "nfs", nfs_udp: false
         end
     end
 end

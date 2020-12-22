@@ -131,6 +131,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HEALTH_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHealth))
 	cDefinesMap["UNMANAGED_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameUnmanaged))
 	cDefinesMap["INIT_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameInit))
+	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.GetLocalNodeID())
 	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
 	cDefinesMap["CILIUM_LB_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.MaxEntries)
 	cDefinesMap["TUNNEL_MAP"] = tunnel.MapName
@@ -155,7 +156,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CT_REPORT_FLAGS"] = fmt.Sprintf("%#04x", int64(option.Config.MonitorAggregationFlags))
 
 	if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-		cDefinesMap["ENABLE_SECCTX_FROM_IPCACHE"] = "1"
 		cDefinesMap["ENABLE_EXTRA_HOST_DEV"] = "1"
 	}
 
@@ -189,6 +189,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	if option.Config.NeedsRelaxVerifier {
+		cDefinesMap["NEEDS_RELAX_VERIFIER"] = "1"
+	}
+
 	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.MtuConfig.GetDeviceMTU())
 
@@ -220,10 +224,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_PREFILTER"] = "1"
 	}
 
-	if !option.Config.DisableK8sServices {
-		cDefinesMap["ENABLE_SERVICES"] = "1"
-	}
-
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
 			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
@@ -251,11 +251,48 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 			cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 		}
+		const (
+			dsrEncapInv = iota
+			dsrEncapNone
+			dsrEncapIPIP
+		)
+		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
+		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
 		if option.Config.NodePortMode == option.NodePortModeDSR ||
 			option.Config.NodePortMode == option.NodePortModeHybrid {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.NodePortMode == option.NodePortModeHybrid {
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			}
+			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchOption {
+				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)
+			} else if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
+				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapIPIP)
+			}
+		} else {
+			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
+		}
+		if option.Config.EnableIPv4 {
+			if option.Config.LoadBalancerRSSv4CIDR != "" {
+				ipv4 := byteorder.HostSliceToNetwork(option.Config.LoadBalancerRSSv4.IP, reflect.Uint32).(uint32)
+				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
+				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
+				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
+			} else {
+				cDefinesMap["IPV4_RSS_PREFIX"] = "IPV4_DIRECT_ROUTING"
+				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = "32"
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if option.Config.LoadBalancerRSSv6CIDR != "" {
+				ipv6 := option.Config.LoadBalancerRSSv6.IP
+				ones, _ := option.Config.LoadBalancerRSSv6.Mask.Size()
+				extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6.String()
+				fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6))
+				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
+			} else {
+				cDefinesMap["IPV6_RSS_PREFIX"] = "IPV6_DIRECT_ROUTING"
+				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = "128"
 			}
 		}
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
@@ -270,7 +307,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHostPort {
 			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
-
+		if !option.Config.EnableHostLegacyRouting {
+			cDefinesMap["ENABLE_REDIRECT_FAST"] = "1"
+		}
 		if option.Config.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 			if option.Config.EnableIPv4 {
@@ -353,16 +392,20 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
 
-	if option.Config.EncryptInterface != "" {
-		link, err := netlink.LinkByName(option.Config.EncryptInterface)
+	if iface := option.Config.EncryptInterface; iface != "" {
+		link, err := netlink.LinkByName(iface)
 		if err == nil {
 			cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 
 			addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
-			if err == nil {
-				a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
-				cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
+			if err != nil {
+				return err
 			}
+			if len(addr) == 0 {
+				return fmt.Errorf("no IPv4 addresses available in encrypt interface %q", iface)
+			}
+			a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
+			cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 		}
 	}
 	if option.Config.IsPodSubnetsDefined() {
@@ -381,7 +424,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 		if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4 {
 			cDefinesMap["ENABLE_MASQUERADE"] = "1"
-			cidr := datapath.RemoteSNATDstAddrExclusionCIDR()
+			cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
 				fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(cidr.IP, reflect.Uint32).(uint32))
 			ones, _ := cidr.Mask.Size()
@@ -493,17 +536,15 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			// values for the native devices.
 			fmt.Fprint(fw, "/* Fake values, replaced by 0 for host device and by actual values for native devices. */\n")
 			fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
-			if option.Config.EnableIPv6 {
-				placeholderIPv6 := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv6("IPV6_NODEPORT", placeholderIPv6))
-			}
-			if option.Config.EnableIPv4 {
-				placeholderIPv4 := []byte{1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv4("IPV4_NODEPORT", placeholderIPv4))
-			}
 			fmt.Fprint(fw, "\n")
 		}
-
+		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
+			// NodePort comment above applies to IPV4_MASQUERADE too
+			placeholderIPv4 := []byte{1, 1, 1, 1}
+			fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
+		}
+		// Dummy value to avoid being optimized when 0
+		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 		fmt.Fprint(fw, defineUint32("HOST_EP_ID", uint32(e.GetID())))
 	} else {
 		// We want to ensure that the template BPF program always has "LXC_IP"
@@ -566,6 +607,18 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 
 	if e.RequireRouting() {
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
+	}
+
+	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
+		directRoutingIface := option.Config.DirectRoutingDevice
+		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
+		if len(option.Config.Devices) == 1 {
+			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+		}
 	}
 
 	if e.IsHost() {

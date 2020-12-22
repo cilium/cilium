@@ -39,6 +39,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv6",description="Endpoint IPv6 address",name="IPv6",type=string
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // CiliumEndpoint is the status of a Cilium policy rule.
 type CiliumEndpoint struct {
@@ -146,13 +147,15 @@ type EndpointPolicy struct {
 type EndpointPolicyDirection struct {
 	Enforcing bool                `json:"enforcing"`
 	Allowed   AllowedIdentityList `json:"allowed,omitempty"`
-	Removing  AllowedIdentityList `json:"removing,omitempty"`
-	Adding    AllowedIdentityList `json:"adding,omitempty"`
+	Denied    DenyIdentityList    `json:"denied,omitempty"`
+	// Deprecated
+	Removing AllowedIdentityList `json:"removing,omitempty"`
+	// Deprecated
+	Adding AllowedIdentityList `json:"adding,omitempty"`
 }
 
-// AllowedIdentityTuple specifies an allowed peer by identity, destination port
-// and protocol.
-type AllowedIdentityTuple struct {
+// IdentityTuple specifies a peer by identity, destination port and protocol.
+type IdentityTuple struct {
 	Identity       uint64            `json:"identity,omitempty"`
 	IdentityLabels map[string]string `json:"identity-labels,omitempty"`
 	DestPort       uint16            `json:"dest-port,omitempty"`
@@ -161,12 +164,11 @@ type AllowedIdentityTuple struct {
 
 // +k8s:deepcopy-gen=false
 
-// AllowedIdentityList is a list of AllowedIdentityTuple.
-type AllowedIdentityList []AllowedIdentityTuple
+// IdentityList is a list of IdentityTuple.
+type IdentityList []IdentityTuple
 
-// Sort sorts a list AllowedIdentityTuple by numeric identity, port and
-// protocol.
-func (a AllowedIdentityList) Sort() {
+// Sort sorts a list IdentityList by numeric identity, port and protocol.
+func (a IdentityList) Sort() {
 	sort.Slice(a, func(i, j int) bool {
 		if a[i].Identity < a[j].Identity {
 			return true
@@ -179,6 +181,28 @@ func (a AllowedIdentityList) Sort() {
 		}
 		return false
 	})
+}
+
+// +k8s:deepcopy-gen=false
+
+// AllowedIdentityList is a list of IdentityTuples that species peers that are
+// allowed.
+type AllowedIdentityList IdentityList
+
+// Sort sorts a list IdentityList by numeric identity, port and protocol.
+func (a AllowedIdentityList) Sort() {
+	IdentityList(a).Sort()
+}
+
+// +k8s:deepcopy-gen=false
+
+// DenyIdentityList is a list of IdentityTuples that species peers that are
+// denied.
+type DenyIdentityList IdentityList
+
+// Sort sorts a list IdentityList by numeric identity, port and protocol.
+func (d DenyIdentityList) Sort() {
+	IdentityList(d).Sort()
 }
 
 // EndpointIdentity is the identity information of an endpoint.
@@ -195,6 +219,7 @@ type EndpointIdentity struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // CiliumIdentity is a CRD that represents an identity managed by Cilium.
 // It is intended as a backing store for identity allocation, acting as the
@@ -289,6 +314,8 @@ type CiliumEndpointList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
+// +kubebuilder:storageversion
+// +kubebuilder:subresource:status
 
 // CiliumNode represents a node managed by Cilium. It contains a specification
 // to control various node specific configuration aspects and a status section
@@ -304,7 +331,9 @@ type CiliumNode struct {
 
 	// Status defines the realized specification/configuration and status
 	// of the node.
-	Status NodeStatus `json:"status"`
+	//
+	// +kubebuilder:validation:Optional
+	Status NodeStatus `json:"status,omitempty"`
 }
 
 // NodeAddress is a node address.
@@ -356,6 +385,11 @@ type NodeSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	IPAM ipamTypes.IPAMSpec `json:"ipam,omitempty"`
+
+	// NodeIdentity is the Cilium numeric identity allocated for the node, if any.
+	//
+	// +kubebuilder:validation:Optional
+	NodeIdentity uint64 `json:"nodeidentity,omitempty"`
 }
 
 // HealthAddressingSpec is the addressing information required to do

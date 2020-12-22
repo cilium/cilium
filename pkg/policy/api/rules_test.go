@@ -33,7 +33,9 @@ func (s *PolicyAPITestSuite) TestRulesDeepEqual(c *C) {
 	validPortRules := Rules{
 		NewRule().WithEndpointSelector(wcSelector1).
 			WithIngressRules([]IngressRule{{
-				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},

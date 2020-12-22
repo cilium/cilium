@@ -16,6 +16,7 @@ package watchers
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -93,20 +93,7 @@ func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata,
 }
 
 func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
-	var (
-		cnpEventStore    cache.Store
-		cnpConverterFunc informer.ConvertFunc
-	)
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	switch {
-	case k8sversion.Capabilities().Patch:
-		// k8s >= 1.13 does not require a store to update CNP status so
-		// we don't even need to keep the status of a CNP with us.
-		cnpConverterFunc = k8s.ConvertToCNP
-	default:
-		cnpEventStore = cnpStore
-		cnpConverterFunc = k8s.ConvertToCNPWithStatus
-	}
 
 	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
@@ -128,7 +115,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnpCpy)
+					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpCpy)
 					k.K8sEventProcessed(metricCNP, metricCreate, err == nil)
 				}
 			},
@@ -153,7 +140,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 						oldCNPCpy := oldCNP.DeepCopy()
 						newCNPCpy := newCNP.DeepCopy()
 
-						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNPCpy, newCNPCpy)
+						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, oldCNPCpy, newCNPCpy)
 						k.K8sEventProcessed(metricCNP, metricUpdate, err == nil)
 					}
 				}
@@ -170,15 +157,16 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 				k.K8sEventProcessed(metricCNP, metricDelete, err == nil)
 			},
 		},
-		cnpConverterFunc,
+		k8s.ConvertToCNP,
 		cnpStore,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
+
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, ciliumV2Controller.HasSynced, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 }
 
-func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) error {
+func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, cnp *types.SlimCNP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -214,7 +202,6 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 	if !option.Config.DisableCNPStatusUpdates {
 		updateContext := &k8s.CNPStatusUpdateContext{
 			CiliumNPClient:              ciliumNPClient,
-			CiliumV2Store:               ciliumV2Store,
 			NodeName:                    nodeTypes.GetName(),
 			NodeManager:                 k.nodeDiscoverManager,
 			UpdateDuration:              spanstat.Start(),
@@ -247,7 +234,7 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 	ctrlName := cnp.GetControllerName()
 	err := k8sCM.RemoveControllerAndWait(ctrlName)
 	if err != nil {
-		log.Debugf("Unable to remove controller %s: %s", ctrlName, err)
+		log.WithError(err).Debugf("Unable to remove controller %s", ctrlName)
 	}
 
 	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels())
@@ -260,15 +247,26 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 }
 
 func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
-	ciliumV2Store cache.Store,
 	oldRuleCpy, newRuleCpy *types.SlimCNP) error {
 
 	_, err := oldRuleCpy.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
-			Warn("Error parsing old CiliumNetworkPolicy rule")
-		return err
+		ns := oldRuleCpy.GetNamespace() // Disambiguates CNP & CCNP
+
+		// We want to ignore parsing errors for empty policies, otherwise the
+		// update to the new policy will be skipped.
+		switch {
+		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+				Warn("Error parsing old CiliumNetworkPolicy rule")
+			return err
+		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
+			return err
+		}
 	}
+
 	_, err = newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
@@ -288,31 +286,35 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	// Do not add rule into policy repository if the spec remains unchanged.
 	if !option.Config.DisableCNPStatusUpdates {
-		if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
+		if oldRuleCpy.Spec.DeepEqual(newRuleCpy.CiliumNetworkPolicy.Spec) &&
+			oldRuleCpy.Specs.DeepEqual(&newRuleCpy.CiliumNetworkPolicy.Specs) {
+			if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
 
-			// Update annotations within a controller so the status of the update
-			// is trackable from the list of running controllers, and so we do
-			// not block subsequent policy lifecycle operations from Kubernetes
-			// until the update is complete.
-			oldCtrlName := oldRuleCpy.GetControllerName()
-			newCtrlName := newRuleCpy.GetControllerName()
+				// Update annotations within a controller so the status of the update
+				// is trackable from the list of running controllers, and so we do
+				// not block subsequent policy lifecycle operations from Kubernetes
+				// until the update is complete.
+				oldCtrlName := oldRuleCpy.GetControllerName()
+				newCtrlName := newRuleCpy.GetControllerName()
 
-			// In case the controller name changes between copies of rules,
-			// remove old controller so we do not leak goroutines.
-			if oldCtrlName != newCtrlName {
-				err := k8sCM.RemoveController(oldCtrlName)
-				if err != nil {
-					log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
+				// In case the controller name changes between copies of rules,
+				// remove old controller so we do not leak goroutines.
+				if oldCtrlName != newCtrlName {
+					err := k8sCM.RemoveController(oldCtrlName)
+					if err != nil {
+						log.WithError(err).Debugf("Unable to remove controller %s", oldCtrlName)
+					}
 				}
+				k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, newRuleCpy)
 			}
-			k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
+			return nil
 		}
 	}
 
-	return k.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)
+	return k.addCiliumNetworkPolicyV2(ciliumNPClient, newRuleCpy)
 }
 
-func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) {
+func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, cnp *types.SlimCNP) {
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
@@ -330,7 +332,6 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 	meta, _ := importMetadataCache.get(cnp)
 	updateContext := &k8s.CNPStatusUpdateContext{
 		CiliumNPClient:              ciliumNPClient,
-		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    nodeTypes.GetName(),
 		NodeManager:                 k.nodeDiscoverManager,
 		UpdateDuration:              spanstat.Start(),

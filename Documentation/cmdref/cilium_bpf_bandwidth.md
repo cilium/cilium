@@ -4,10 +4,6 @@
 
 BPF datapath bandwidth settings
 
-### Synopsis
-
-BPF datapath bandwidth settings
-
 ### Options
 
 ```

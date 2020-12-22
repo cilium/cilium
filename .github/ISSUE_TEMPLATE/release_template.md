@@ -20,6 +20,8 @@ assignees: ''
     - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds/edit)
     - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds/edit)
     - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds/edit)
+  - Cilium v1.9 or later:
+    - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds/edit)
 - [ ] Check that there are no [release blockers] for the targeted release version
 - [ ] Ensure that outstanding [backport PRs] are merged
 - [ ] Consider building new [cilium-runtime images] and bumping the base image
@@ -27,33 +29,43 @@ assignees: ''
 - [ ] Move any unresolved issues/PRs from old release project into the newly
       created release project
 - [ ] Push a PR including the changes necessary for the new release:
-  - [ ] Update the VERSION file to represent X.Y.Z
-  - [ ] Update helm charts via `make -C install/kubernetes`
+  - [ ] Pull latest branch
+  - [ ] Run `contrib/release/start-release.sh'
   - [ ] (If applicable) Update the `cilium_version` and `cilium_tag` in
         `examples/getting-started/Vagrantfile`
-  - [ ] Update `AUTHORS` via `make update-authors`
-  - [ ] Use [Cilium release-notes tool] to generate `CHANGELOG.md`
-  - [ ] Point `.github/cilium-actions.yml` to the newly created project
+  - [ ] Run `Documentation/check-crd-compat-table.sh vX.Y` and if needed, follow the
+        instructions.
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
+  - [ ] Submit PR (`contrib/release/submit-release.sh`)
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
+  - Pull latest branch locally and run `contrib/release/tag-release.sh`
 - [ ] Wait for docker builds to complete
   - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
   - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
   - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds)
+  - [operator-generic](https://hub.docker.com/repository/docker/cilium/operator-generic/builds)
+  - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds)
+  - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds)
+  - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds)
+  - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds)
+  - Check if all docker images are available before announcing the release
+    `make -C install/kubernetes/ check-docker-images`
 - [ ] Create helm charts artifacts in [Cilium charts] repository using
       [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y` branch
       & push to repository
 - [ ] Run sanity check of Helm install using connectivity-check script.
       Suggested approach: Follow the full [GKE getting started guide].
-- [ ] [Create a release] for the new tag `vX.Y.Z`, using the release notes
-      from above
+- [ ] Check draft release from [releases] page and publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
+- [ ] Update Grafana dashboards (only for vX.Y.0)
+  - Install the dashboards available in ``./examples/kubernetes/addons/prometheus``
+    and use them to upload them to Grafana.com.
 
 ## Post-release
 
 - [ ] Prepare post-release changes to master branch using `contrib/release/bump-readme.sh`
-- [ ] Update the `stable` tags for each Cilium image on Docker Hub (if applicable)
+- [ ] Update the `stable` tags for each Cilium image (`contrib/release/bump-docker-stable.sh`)
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
   - [ ] [kubespray]
@@ -65,7 +77,7 @@ assignees: ''
 [Cilium release-notes tool]: https://github.com/cilium/release
 [Docker Hub]: https://hub.docker.com/orgs/cilium/repositories
 [Cilium charts]: https://github.com/cilium/charts
-[Create a release]: https://github.com/cilium/cilium/releases/new
+[releases]: https://github.com/cilium/cilium/releases
 [Stable releases]: https://github.com/cilium/cilium#stable-releases
 [kops]: https://github.com/kubernetes/kops/
 [kubespray]: https://github.com/kubernetes-sigs/kubespray/

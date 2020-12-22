@@ -48,7 +48,7 @@ func (s *IdentityTestSuite) TestReservedID(c *C) {
 	// This is an obsoleted identity, we verify that it returns 0
 	i = GetReservedID("cluster")
 	c.Assert(i, Equals, NumericIdentity(0))
-	c.Assert(i.String(), Equals, "0")
+	c.Assert(i.String(), Equals, "unknown")
 
 	i = GetReservedID("health")
 	c.Assert(i, Equals, NumericIdentity(4))

@@ -46,6 +46,11 @@ On Freeze date
    ``project:`` to be the generated link created by the previous step. The link
    should be something like: ``https://github.com/cilium/cilium/projects/NNN``
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/...`` by following these instructions:
+
+   Run ``./Documentation/check-crd-compat-table.sh vX.Y``
+
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 
@@ -113,6 +118,9 @@ On Freeze date
     tested on every change and Nightly.
 #. (Only 1.0 minor releases) Tag newest 1.0.x Docker image as ``v1.0-stable``
    and push it to Docker Hub. This will ensure that Kops uses latest 1.0 release by default.
+#. Update Grafana dashboards in `Grafana <https://grafana.com/orgs/cilium/dashboards>`_.
+   Install the dashboards available in ``./examples/kubernetes/addons/prometheus``
+   and use them to upload them to Grafana.
 
 
 For the final release

@@ -49,8 +49,8 @@ type DaemonConfigurationStatus struct {
 	// kvstore configuration
 	KvstoreConfiguration *KVstoreConfiguration `json:"kvstoreConfiguration,omitempty"`
 
-	// Status of masquerading feature
-	Masquerade bool `json:"masquerade,omitempty"`
+	// masquerade
+	Masquerade *DaemonConfigurationStatusMasquerade `json:"masquerade,omitempty"`
 
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
@@ -83,6 +83,10 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateKvstoreConfiguration(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateMasquerade(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -186,6 +190,24 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 	return nil
 }
 
+func (m *DaemonConfigurationStatus) validateMasquerade(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Masquerade) { // not required
+		return nil
+	}
+
+	if m.Masquerade != nil {
+		if err := m.Masquerade.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("masquerade")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.NodeMonitor) { // not required
@@ -233,6 +255,41 @@ func (m *DaemonConfigurationStatus) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *DaemonConfigurationStatus) UnmarshalBinary(b []byte) error {
 	var res DaemonConfigurationStatus
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// DaemonConfigurationStatusMasquerade Status of masquerading feature
+//
+// swagger:model DaemonConfigurationStatusMasquerade
+type DaemonConfigurationStatusMasquerade struct {
+
+	// Status of masquerading for IPv4 traffic
+	IPV4 bool `json:"ipv4,omitempty"`
+
+	// Status of masquerading for IPv6 traffic
+	IPV6 bool `json:"ipv6,omitempty"`
+}
+
+// Validate validates this daemon configuration status masquerade
+func (m *DaemonConfigurationStatusMasquerade) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *DaemonConfigurationStatusMasquerade) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *DaemonConfigurationStatusMasquerade) UnmarshalBinary(b []byte) error {
+	var res DaemonConfigurationStatusMasquerade
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

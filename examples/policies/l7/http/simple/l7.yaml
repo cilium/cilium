@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "Allow HTTP GET /public from env=prod to app=service"
 metadata:
   name: "rule1"
 spec:
+  description: "Allow HTTP GET /public from env=prod to app=service"
   endpointSelector:
     matchLabels:
       app: service

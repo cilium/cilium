@@ -4,6 +4,10 @@
 all: precheck build postcheck
 	@echo "Build finished."
 
+debug: export NOOPT=1
+debug: export NOSTRIP=1
+debug: all
+
 include Makefile.defs
 
 # This is a no-op unless DOCKER_BUILDKIT is defined
@@ -22,12 +26,13 @@ ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 
-GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -e ./...))
+GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -find -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	sed 's/ /\n/g' | \
 	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
-	grep -v -P 'test(?!/helpers/logutils)'))
+	grep -v '/test'))
+TESTPKGS_EVAL += "test/helpers/logutils"
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' '))
@@ -54,6 +59,7 @@ SKIP_K8S_CODE_GEN_CHECK ?= "true"
 JOB_BASE_NAME ?= cilium_test
 
 GO_VERSION := $(shell cat GO_VERSION)
+GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)/\1.\2/' GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
 DOCKER_FLAGS ?=
@@ -61,11 +67,11 @@ DOCKER_FLAGS ?=
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
-	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890"
+	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
-	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890 \
+	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 \
 	-X github.com/cilium/cilium/pkg/logging.DefaultLogLevelStr=$(LOGLEVEL)"
 
 define generate_k8s_api
@@ -103,8 +109,8 @@ define generate_k8s_api_deepcopy_deepequal
 endef
 
 define generate_k8s_api_deepcopy_deepequal_client
-	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,$(1),$(2))
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/$(1),$(2),$(3))
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(3),$(2)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
 define generate_k8s_protobuf
@@ -130,14 +136,6 @@ build-container:
 
 $(SUBDIRS): force
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
-
-jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
-
-clean-jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER rm
-	# remove the networks
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
 
 PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril '+build [^!]*privileged_tests' | xargs dirname | sort | uniq)
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
@@ -285,7 +283,7 @@ GIT_VERSION: force
 
 include Makefile.docker
 
-CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
+CRD_OPTIONS ?= "crd:crdVersions=v1"
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	$(eval TMPDIR := $(shell mktemp -d))
@@ -296,6 +294,8 @@ manifests:
 	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./examples/crds/ciliumendpoints.yaml
 	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./examples/crds/ciliumidentities.yaml
 	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./examples/crds/ciliumnodes.yaml
+	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./examples/crds/ciliumexternalworkloads.yaml
+	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./examples/crds/ciliumlocalredirectpolicies.yaml
 	rm -rf $(TMPDIR)
 
 build-deb:
@@ -344,20 +344,30 @@ generate-health-api: api/v1/health/openapi.yaml
 	@# sort goimports automatically
 	-$(QUIET) find api/v1/health/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
+generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
+
 generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1)
-	$(call generate_k8s_api_deepcopy_deepequal_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1)
+	$(call generate_k8s_api_deepcopy_deepequal_client,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"$\
 	discovery:v1beta1\
 	networking:v1\
 	core:v1")
+	$(call generate_k8s_api_deepcopy_deepequal_client,apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
+	apiextensions:v1beta1\
+	apiextensions:v1")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
 	util:intstr\
-	meta:v1")
+	meta:v1\
+	meta:v1beta1")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s,"$\
 	apis:labels")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"$\
@@ -402,11 +412,6 @@ generate-k8s-api:
 # - modetime: Hardcode the modification time so that the generated files don't
 #             change on every invocation
 GO_BINDATA := $(QUIET) go run ./... -prefix $(ROOT_DIR) -pkg client -mode 0640 -modtime 1450269211
-
-.PHONY: check-bindata
-check-bindata: bindata.go
-	@echo "  CHECK contrib/scripts/bindata.sh"
-	$(QUIET) ./contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
 
 go-bindata: $(K8S_CRD_FILES)
 	@$(ECHO_GEN) $@
@@ -480,18 +485,7 @@ microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
-	$(QUIET)microk8s.kubectl apply -f contrib/k8s/microk8s-prepull.yaml
-	$(QUIET)microk8s.kubectl -n kube-system delete pod -l name=prepull
-	$(QUIET)microk8s.kubectl -n kube-system rollout status ds/prepull
-	@echo
-	@echo "Update image tag like this when ready:"
-	@echo "    microk8s.kubectl -n kube-system set image ds/cilium cilium-agent=$(LOCAL_IMAGE)"
-	@echo "Or, redeploy the Cilium pods:"
-	@echo "    microk8s.kubectl -n kube-system delete pod -l k8s-app=cilium"
-
-ci-precheck: precheck
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
 precheck: logging-subsys-field
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
@@ -543,8 +537,10 @@ update-authors:
 	@contrib/scripts/extract_authors.sh >> AUTHORS
 	@cat .authors.aux >> AUTHORS
 
-render-docs:
+test-docs:
 	$(MAKE) -C Documentation html
+
+render-docs: test-docs
 	$(MAKE) -C Documentation run-server
 
 render-docs-live-preview:
@@ -565,7 +561,14 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
-update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+licenses-all:
+	@go run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
+
+update-golang: update-golang-dev-doctor update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+
+update-golang-dev-doctor:
+	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
+	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
@@ -590,5 +593,9 @@ update-images-go-version:
 	$(QUIET) $(MAKE) -C images update-golang-image
 	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
 
-.PHONY: force generate-api generate-health-api install build-context-update clean-build clean clean-container veryclean
+dev-doctor:
+	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
+	$(QUIET)$(GO) run ./tools/dev-doctor
+
+.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api generate-hubble-api install licenses-all veryclean
 force :;

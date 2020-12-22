@@ -127,7 +127,7 @@ func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port 
 }
 
 // Note that this function assumes that endpoint policy has already been generated!
-// must be called with endpoint.Mutex held for reading
+// must be called with endpoint.mutex held for reading
 func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no identity has been computed for this
 	// endpoint.
@@ -311,7 +311,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	return
 }
 
-// Called with e.Mutex UNlocked
+// Called with e.mutex UNlocked
 func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	var revision uint64
 	var stateDirComplete bool
@@ -464,6 +464,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.setPolicyRevision(revision)
+
+	// Remove restored rules after successful regeneration
+	e.owner.RemoveRestoredDNSRules(e.ID)
 
 	return nil
 }
@@ -706,7 +709,7 @@ func (e *Endpoint) FormatGlobalEndpointID() string {
 // This synchronizes the key-value store with a mapping of the endpoint's IP
 // with the numerical ID representing its security identity.
 func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
-	if option.Config.KVStore == "" || !endpointIP.IsSet() {
+	if option.Config.KVStore == "" || !endpointIP.IsSet() || option.Config.JoinCluster {
 		return
 	}
 
@@ -757,7 +760,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
-// Called with e.Mutex Locked
+// Called with e.mutex Lock()ed
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
 
 	// Set a boolean flag to indicate whether the endpoint has been injected by
@@ -825,6 +828,21 @@ func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
 // annotations.
 type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
 
+// UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If anno
+// is empty, then any existing NOTRACK rules will be removed. If anno cannot be parsed,
+// we remove existing NOTRACK rules too if there's any.
+func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
+	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointNoTrackEvent{
+		ep:     e,
+		annoCB: annoCB,
+	}))
+	if err != nil {
+		e.getLogger().WithError(err).Error("Unable to enqueue endpoint notrack event")
+		return
+	}
+	<-ch
+}
+
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
 // reflect the state stored in the provided proxy visibility annotation. If anno
 // is empty, then the VisibilityPolicy for the Endpoint will be empty, and will
@@ -858,8 +876,9 @@ func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
 
 // GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels
 // which match a given flow key (in host byte-order). The returned
-// LabelArrayList must not be modified. This function is exported to be
-// accessed by code outside of the Cilium code base (e.g. Hubble).
+// LabelArrayList is shallow-copied and therefore must not be mutated.
+// This function explicitly exported to be accessed by code outside of the
+// Cilium source code tree and for testing.
 func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
 	derivedFrom labels.LabelArrayList,
 	revision uint64,

@@ -115,3 +115,69 @@ func (s *SysctlLinuxPrivilegedTestSuite) TestDisableEnable(c *C) {
 		}
 	}
 }
+
+func (s *SysctlLinuxPrivilegedTestSuite) TestApplySettings(c *C) {
+	testCases := []struct {
+		settings    []Setting
+		expectedErr bool
+	}{
+		{
+			settings: []Setting{
+				{
+					Name:      "net.ipv4.ip_forward",
+					Val:       "1",
+					IgnoreErr: false,
+				},
+				{
+					Name:      "net.ipv4.conf.all.forwarding",
+					Val:       "1",
+					IgnoreErr: false,
+				},
+				{
+					Name:      "net.ipv6.conf.all.forwarding",
+					Val:       "1",
+					IgnoreErr: false,
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			settings: []Setting{
+				{
+					Name:      "net.ipv4.ip_forward",
+					Val:       "1",
+					IgnoreErr: false,
+				},
+				{
+					Name:      "foo.bar",
+					Val:       "1",
+					IgnoreErr: false,
+				},
+			},
+			expectedErr: true,
+		},
+		{
+			settings: []Setting{
+				{
+					Name:      "net.ipv4.ip_forward",
+					Val:       "1",
+					IgnoreErr: false,
+				},
+				{
+					Name:      "foo.bar",
+					Val:       "1",
+					IgnoreErr: true,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		err := ApplySettings(tc.settings)
+		if tc.expectedErr {
+			c.Assert(err, NotNil)
+		} else {
+			c.Assert(err, IsNil)
+		}
+	}
+}

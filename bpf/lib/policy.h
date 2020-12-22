@@ -35,6 +35,8 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
 		return policy->proxy_port;
 	}
 
@@ -44,6 +46,8 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
 		return policy->proxy_port;
 	}
 	key.sec_label = identity;
@@ -55,6 +59,8 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
 		return CTX_ACT_OK;
 	}
 
@@ -64,6 +70,8 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
 		return CTX_ACT_OK;
 	}
 
@@ -125,6 +133,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 
 			account(ctx, policy);
 			*match_type = POLICY_MATCH_L3_L4;
+			if (unlikely(policy->deny))
+				return DROP_POLICY_DENY;
 			return policy->proxy_port;
 		}
 
@@ -134,6 +144,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 		if (likely(policy)) {
 			account(ctx, policy);
 			*match_type = POLICY_MATCH_L4_ONLY;
+			if (unlikely(policy->deny))
+				return DROP_POLICY_DENY;
 			return policy->proxy_port;
 		}
 		key.sec_label = remoteID;
@@ -146,6 +158,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 	if (likely(policy)) {
 		account(ctx, policy);
 		*match_type = POLICY_MATCH_L3_ONLY;
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
 		return CTX_ACT_OK;
 	}
 
@@ -155,6 +169,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 	if (policy) {
 		account(ctx, policy);
 		*match_type = POLICY_MATCH_ALL;
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
 		return CTX_ACT_OK;
 	}
 

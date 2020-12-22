@@ -4,10 +4,6 @@
 
 Retrieve a key
 
-### Synopsis
-
-Retrieve a key
-
 ```
 cilium kvstore get [options] <key> [flags]
 ```

@@ -350,7 +350,7 @@ Cilium Network Policies. Both can be retrieved from the ``kubectl`` command:
 Endpoints
 ----------
 
-To retrieve a list of all endpoints managed by cilium, ``Cilum Endpoint``
+To retrieve a list of all endpoints managed by cilium, ``Cilium Endpoint``
 resource can be used.
 
 ::

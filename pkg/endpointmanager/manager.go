@@ -76,6 +76,7 @@ type EndpointManager struct {
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
 	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration)
+	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 
 // NewEndpointManager creates a new EndpointManager.
@@ -154,16 +155,6 @@ func (mgr *EndpointManager) InitMetrics() {
 		// increment/decrement a gauge since we invoke Remove gratuitously and that
 		// would result in negative counts.
 		// It must be thread-safe.
-
-		//TODO(sayboras): Remove deprecated metric in 1.10
-		metrics.EndpointCount = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Name:      "endpoint_count",
-			Help:      "Number of endpoints managed by this agent (deprecated, use endpoint instead)",
-		},
-			func() float64 { return float64(len(mgr.GetEndpoints())) },
-		)
-		metrics.MustRegister(metrics.EndpointCount)
 
 		metrics.Endpoint = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Namespace: metrics.Namespace,

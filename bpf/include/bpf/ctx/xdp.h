@@ -215,24 +215,32 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	if (!ret) {
 		data_end = ctx_data_end(ctx);
 		data = ctx_data(ctx);
-		if (len_diff == 8) {
+		switch (len_diff) {
+		case 20: /* struct iphdr */
+		case 8:  /* __u32 opt[2] */
 			if (data + move_len_v4 + len_diff <= data_end)
 				__bpf_memmove_fwd(data, data + len_diff,
 						  move_len_v4);
 			else
 				ret = -EFAULT;
-		} else {
+			break;
+		case 40: /* struct ipv6hdr */
+		case 24: /* struct dsr_opt_v6 */
 			if (data + move_len_v6 + len_diff <= data_end)
 				__bpf_memmove_fwd(data, data + len_diff,
 						  move_len_v6);
 			else
 				ret = -EFAULT;
+			break;
+		default:
+			__throw_build_bug();
 		}
 	}
 	return ret;
 }
 
 #define redirect			redirect__stub
+#define redirect_peer			redirect
 
 static __always_inline __maybe_unused int
 ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)

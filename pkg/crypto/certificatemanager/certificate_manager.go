@@ -71,8 +71,10 @@ func (m *Manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string)
 	if ioErr == nil {
 		secrets := make(map[string][]byte, len(files))
 		for _, file := range files {
+			var bytes []byte
+
 			path := filepath.Join(certPath, file.Name())
-			bytes, ioErr := ioutil.ReadFile(path)
+			bytes, ioErr = ioutil.ReadFile(path)
 			if ioErr == nil {
 				secrets[file.Name()] = bytes
 			}

@@ -1,0 +1,15 @@
+{"kind": "CiliumEndpoint", "metadata": {"name": "pod-1"}, "identity": {"id": 1111, "labels": ["name=id1"]}, "networking": {"addressing": [{"ipv4": "10.1.1.1"}], "node": "1.1.1.1"}, "state": "ready"}
+{"kind": "CiliumEndpoint", "metadata": {"name": "pod-2"}, "identity": {"id": 1111, "labels": ["name=id1"]}, "networking": {"addressing": [{"ipv4": "10.1.1.1"}], "node": "1.1.1.1"}, "state": "ready"}
+{"kind": "CiliumEndpoint", "metadata": {"name": "pod-3"}, "identity": {"id": 2222, "labels": ["name=id2"]}, "networking": {"addressing": [{"ipv4": "10.1.2.1"}], "node": "1.1.1.2"}, "state": "ready"}
+{"kind": "CiliumEndpoint", "metadata": {"name": "pod-4"}, "identity": {"id": 2222, "labels": ["name=id2"]}, "networking": {"addressing": [{"ipv4": "10.1.2.1"}], "node": "1.1.1.2"}, "state": "ready"}
+{"kind": "CiliumEndpoint", "metadata": {"name": "pod-5"}, "identity": {"id": 3333, "labels": ["name=id3"]}, "networking": {"addressing": [{"ipv4": "10.1.3.1"}], "node": "1.1.1.3"}, "state": "ready"}
+{"kind": "CiliumEndpoint", "metadata": {"name": "pod-6"}, "identity": {"id": 3333, "labels": ["name=id3"]}, "networking": {"addressing": [{"ipv4": "10.1.3.1"}], "node": "1.1.1.3"}, "state": "ready"}
+{"kind": "CiliumNode", "metadata": {"name": "node1"}, "spec": {"addresses": [{"type": "InternalIP", "ip": "1.1.1.1"}]}}
+{"kind": "CiliumNode", "metadata": {"name": "node2"}, "spec": {"addresses": [{"type": "InternalIP", "ip": "1.1.1.2"}]}}
+{"kind": "CiliumNode", "metadata": {"name": "node3"}, "spec": {"addresses": [{"type": "InternalIP", "ip": "1.1.1.3"}]}}
+{"kind": "CiliumNode", "metadata": {"name": "node4"}, "spec": {"addresses": [{"type": "InternalIP", "ip": "1.1.1.4"}]}}
+{"kind": "CiliumIdentity", "metadata": {"name": "1111"}, "security-labels": {"name": "id1"}}
+{"kind": "CiliumIdentity", "metadata": {"name": "2222"}, "security-labels": {"name": "id2"}}
+{"kind": "CiliumIdentity", "metadata": {"name": "3333"}, "security-labels": {"name": "id3"}}
+{"kind": "Service", "metadata": {"name": "foo", "namespace": "default", "annotations": {"io.cilium/global-service": "true"}}, "spec": {"clusterIP": "20.10.10.10", "ports": [{"name": "https", "port": 443, "protocol": "TCP", "targetPort": 443}], "type": "ClusterIP"}}
+{"kind": "Endpoints", "metadata": {"name": "foo", "namespace": "default"}, "subsets": [{"addresses": [{"ip": "34.90.138.138"}], "ports": [{"name": "https", "port": 443, "protocol": "TCP"}]}]}

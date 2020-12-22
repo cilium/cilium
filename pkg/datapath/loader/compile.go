@@ -274,17 +274,13 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 }
 
 // compile and link a program.
-func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool) (err error) {
+func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error) {
 	args := make([]string, 0, 16)
 	if prog.OutputType == outputSource {
 		args = append(args, "-E") // Preprocessor
 	} else {
 		args = append(args, "-emit-llvm")
-		if debug {
-			// FIXME: Latest clang/llvm generates incompatible BTF that
-			// iproute2 cannot load.
-			//args = append(args, "-g")
-		}
+		args = append(args, "-g")
 	}
 
 	args = append(args, standardCFlags...)
@@ -298,11 +294,11 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 	}).Debug("Launching compiler")
 	if prog.OutputType == outputSource {
 		compileCmd := exec.CommandContext(ctx, compiler, args...)
-		_, err = compileCmd.CombinedOutput(log, debug)
+		_, err = compileCmd.CombinedOutput(log, true)
 	} else {
 		switch prog.OutputType {
 		case outputObject:
-			err = compileAndLink(ctx, prog, dir, debug, args...)
+			err = compileAndLink(ctx, prog, dir, true, args...)
 		case outputAssembly:
 			err = compileAndLink(ctx, prog, dir, false, args...)
 		default:
@@ -316,20 +312,20 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 // compileDatapath invokes the compiler and linker to create all state files for
 // the BPF datapath, with the primary target being the BPF ELF binary.
 //
-// If debug is enabled, create also the following output files:
+// It also creates the following output files:
 // * Preprocessed C
 // * Assembly
 // * Object compiled with debug symbols
-func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug bool, logger *logrus.Entry) error {
-	scopedLog := logger.WithField(logfields.Debug, debug)
+func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logger *logrus.Entry) error {
+	scopedLog := logger.WithField(logfields.Debug, true)
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, debug)
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
 	if err != nil {
 		return err
 	}
 	versionCmd = exec.CommandContext(ctx, linker, "--version")
-	linkerVersion, err := versionCmd.CombinedOutput(scopedLog, debug)
+	linkerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
 	if err != nil {
 		return err
 	}
@@ -339,22 +335,20 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug boo
 	}).Debug("Compiling datapath")
 
 	// Write out assembly and preprocessing files for debugging purposes
-	if debug {
-		progs := debugProgs
-		if isHost {
-			progs = debugHostProgs
-		}
-		for _, p := range progs {
-			if err := compile(ctx, p, dirs, debug); err != nil {
-				// Only log an error here if the context was not canceled or not
-				// timed out; this log message should only represent failures
-				// with respect to compiling the program.
-				if ctx.Err() == nil {
-					scopedLog.WithField(logfields.Params, logfields.Repr(p)).
-						WithError(err).Debug("JoinEP: Failed to compile")
-				}
-				return err
+	progs := debugProgs
+	if isHost {
+		progs = debugHostProgs
+	}
+	for _, p := range progs {
+		if err := compile(ctx, p, dirs); err != nil {
+			// Only log an error here if the context was not canceled or not
+			// timed out; this log message should only represent failures
+			// with respect to compiling the program.
+			if ctx.Err() == nil {
+				scopedLog.WithField(logfields.Params, logfields.Repr(p)).
+					WithError(err).Debug("JoinEP: Failed to compile")
 			}
+			return err
 		}
 	}
 
@@ -363,7 +357,7 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug boo
 	if isHost {
 		prog = hostEpProg
 	}
-	if err := compile(ctx, prog, dirs, debug); err != nil {
+	if err := compile(ctx, prog, dirs); err != nil {
 		// Only log an error here if the context was not canceled or not timed
 		// out; this log message should only represent failures with respect to
 		// compiling the program.
@@ -379,7 +373,6 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug boo
 
 // Compile compiles a BPF program generating an object file.
 func Compile(ctx context.Context, src string, out string) error {
-	debug := option.Config.BPFCompilationDebug
 	prog := progInfo{
 		Source:     src,
 		Output:     out,
@@ -391,7 +384,7 @@ func Compile(ctx context.Context, src string, out string) error {
 		Output:  option.Config.StateDir,
 		State:   option.Config.StateDir,
 	}
-	return compile(ctx, &prog, &dirs, debug)
+	return compile(ctx, &prog, &dirs)
 }
 
 // compileTemplate compiles a BPF program generating a template object file.
@@ -402,5 +395,5 @@ func compileTemplate(ctx context.Context, out string, isHost bool) error {
 		Output:  out,
 		State:   out,
 	}
-	return compileDatapath(ctx, &dirs, isHost, option.Config.BPFCompilationDebug, log)
+	return compileDatapath(ctx, &dirs, isHost, log)
 }

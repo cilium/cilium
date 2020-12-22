@@ -4,10 +4,6 @@
 
 Run cilium-operator-aws
 
-### Synopsis
-
-Run cilium-operator-aws
-
 ```
 cilium-operator-aws [flags]
 ```
@@ -28,7 +24,6 @@ cilium-operator-aws [flags]
       --cnp-status-update-interval duration       Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                         Configuration directory that contains a file for each option
-      --crd-wait-timeout duration                 Operator will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                     Enable debugging mode
       --ec2-api-endpoint string                   AWS API endpoint for the EC2 service
       --enable-ipv4                               Enable IPv4 support (default true)
@@ -38,11 +33,12 @@ cilium-operator-aws [flags]
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
       --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
+      --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator-aws
       --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration             GC interval for security identities (default 15m0s)
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
-      --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 250)
+      --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
       --ipam string                               Backend to use for IPAM (default "eni")
       --k8s-api-server string                     Kubernetes API server URL
@@ -70,7 +66,7 @@ cilium-operator-aws [flags]
       --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                  Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
-      --update-ec2-apdater-limit-via-api          Use the EC2 API to update the instance type to adapter limits
+      --update-ec2-adapter-limit-via-api          Use the EC2 API to update the instance type to adapter limits
       --version                                   Print version information
 ```
 
