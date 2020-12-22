@@ -194,13 +194,13 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | Jenkins Job                                                                                                    | Trigger Phrases   | Required To Merge? |
 +================================================================================================================+===================+====================+
-| `K8s-1.19-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-newest-kernel-4.9/>`_                        | test-me-please,   | Yes                |
+| `K8s-1.20-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-newest-kernel-4.9/>`_                        | test-me-please,   | Yes                |
 |                                                                                                                | retest-4.9        |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `K8s-1.18-Kernel-4.19 <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                         | test-me-please,   | Yes                |
+| `K8s-1.19-Kernel-4.19 <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                         | test-me-please,   | Yes                |
 |                                                                                                                | retest-4.19       |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `K8s-1.12-Kernel-netnext <https://jenkins.cilium.io/job/Cilium-PR-K8s-oldest-net-next/>`_                      | test-me-please,   | Yes                |
+| `K8s-1.13-Kernel-netnext <https://jenkins.cilium.io/job/Cilium-PR-K8s-oldest-net-next/>`_                      | test-me-please,   | Yes                |
 |                                                                                                                | retest-net-next   |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Runtime-4.9 <https://jenkins.cilium.io/job/Cilium-PR-Runtime-4.9/>`_                                          | test-me-please,   | Yes                |
