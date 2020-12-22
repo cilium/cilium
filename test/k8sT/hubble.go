@@ -24,6 +24,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -137,6 +138,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
 				"hubble.relay.enabled":   "true",
+				"bpf.monitorAggregation": "none",
 			})
 
 			var err error
@@ -271,6 +273,28 @@ var _ = Describe("K8sHubbleTest", func() {
 				"--last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
 			Expect(flows).NotTo(BeEmpty())
+		})
+
+		It("Test FQDN Policy with Relay", func() {
+			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
+			fqdnTarget := "vagrant-cache.ci.cilium.io"
+
+			_, err := kubectl.CiliumPolicyAction(
+				namespaceForTest, fqdnProxyPolicy,
+				helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+			defer kubectl.CiliumPolicyAction(namespaceForTest, fqdnProxyPolicy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+
+			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s", fqdnTarget)))
+			res.ExpectSuccess("%q cannot curl fqdn target %q", appPods[helpers.App2], fqdnTarget)
+
+			flows := getFlowsFromRelay(fmt.Sprintf(
+				"--last 1 --type trace:from-endpoint --from-pod %s/%s --to-fqdn %s",
+				namespaceForTest, appPods[helpers.App2], fqdnTarget))
+			Expect(flows).To(HaveLen(1))
+			Expect(flows[0].Destination.Identity).To(BeNumerically(">=", identity.MinimalNumericIdentity))
 		})
 	})
 })
