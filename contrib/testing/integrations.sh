@@ -29,9 +29,6 @@ gct()
             >&2 echo "Switching to $CILIUM_DIR..."
             cd "$CILIUM_DIR"
         fi
-        local k8s_version=$(kubectl version -o json)
-        local k8s_major=$(echo "$k8s_version" | jq '.serverVersion.major')
-        local k8s_minor=$(echo "$k8s_version" | jq '.serverVersion.minor')
 
         CNI_INTEGRATION="$1"; shift
         CILIUM_IMAGE="$(echo "$1" | sed 's/^\(.*\):[^:]*$/\1/')"
@@ -45,9 +42,11 @@ gct()
         CNI_INTEGRATION="$CNI_INTEGRATION" \
         CILIUM_IMAGE="$CILIUM_IMAGE" \
         CILIUM_TAG="$CILIUM_TAG" \
-        CILIUM_OPERATOR_IMAGE="${CILIUM_OPERATOR_IMAGE:-"docker.io/cilium/operator"}" \
+        CILIUM_OPERATOR_IMAGE="${CILIUM_OPERATOR_IMAGE:-"quay.io/cilium/operator"}" \
         CILIUM_OPERATOR_TAG="${CILIUM_OPERATOR_TAG:-"latest"}" \
-        K8S_VERSION="$k8s_major.$ks_minor" \
+        HUBBLE_RELAY_IMAGE="${HUBBLE_RELAY_IMAGE:-"quay.io/cilium/hubble-relay"}" \
+        HUBBLE_RELAY_IMAGE_TAG="${HUBBLE_RELAY_IMAGE_TAG:-"latest"}" \
+        K8S_VERSION="$(kubectl version -o json |  jq -r '(.serverVersion.major + "." + (.serverVersion.minor | scan("[0-9]+")))' | sed 's/"//g')" \
         ginkgo -v "$FOCUS" -- \
             -cilium.provision=false \
             -cilium.kubeconfig=$HOME/.kube/config \
