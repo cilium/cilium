@@ -364,7 +364,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	c.Assert(prodBarNetworkPolicy, Not(IsNil))
@@ -415,7 +415,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(prodBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(prodBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
@@ -495,7 +495,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 // HTTP rules here have no side effects, so the L4 allow-all rule is
@@ -572,7 +572,7 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
@@ -671,7 +671,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
@@ -919,7 +919,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 		return qaBarNetworkPolicy != nil && len(qaBarNetworkPolicy.IngressPerPortPolicies) == 2
 	}, time.Second*1)
 	c.Assert(err, IsNil)
-	c.Assert(qaBarNetworkPolicy, checker.Equals, &cilium.NetworkPolicy{
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
 		Policy:           uint64(qaBarSecLblsCtx.ID),
 		ConntrackMapName: "global",

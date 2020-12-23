@@ -475,44 +475,44 @@ var L4Policy2RequiresV2 = &policy.L4Policy{
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
 	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "")
-	c.Assert(obtained.Headers, checker.Equals, ExpectedHeaders1)
-	c.Assert(canShortCircuit, checker.Equals, true)
+	c.Assert(obtained.Headers, checker.ExportedEquals, ExpectedHeaders1)
+	c.Assert(canShortCircuit, Equals, true)
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1)
-	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1)
-	c.Assert(canShortCircuit, checker.Equals, true)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule1)
+	c.Assert(canShortCircuit, Equals, true)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1HeaderMatch)
-	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1HeaderMatch)
-	c.Assert(canShortCircuit, checker.Equals, false)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule1HeaderMatch)
+	c.Assert(canShortCircuit, Equals, false)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, policy.ParserTypeHTTP, L7Rules2)
-	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule2)
-	c.Assert(canShortCircuit, checker.Equals, true)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule2)
+	c.Assert(canShortCircuit, Equals, true)
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
 	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1)
 
 	// L4+L7 with header mods
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1HeaderMatch)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1HeaderMatch)
 
 	// L4+L7
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies2)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies2)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies6)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies6)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies7)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies7)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
@@ -524,7 +524,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
@@ -536,7 +536,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
@@ -548,7 +548,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
@@ -560,7 +560,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
@@ -572,7 +572,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 		EgressPerPortPolicies:  nil,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
@@ -584,7 +584,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
@@ -596,7 +596,7 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 var L4PolicyL7 = &policy.L4Policy{
@@ -653,5 +653,5 @@ func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
