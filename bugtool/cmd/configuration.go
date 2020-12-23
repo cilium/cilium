@@ -97,10 +97,6 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip6tables -S",
 		"iptables -L -v",
 		"ip rule",
-		"ip -4 route show table 2005",
-		"ip -6 route show table 2005",
-		"ip -4 route show table 200",
-		"ip -6 route show table 200",
 		// xfrm
 		"ip xfrm policy",
 		"ip -s xfrm state | awk '!/auth|enc|aead|auth-trunc|comp/'",
@@ -139,6 +135,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// Commands that require variables and / or more configuration are added
 	// separately below
 	commands = append(commands, catCommands()...)
+	commands = append(commands, routeCommands()...)
 	commands = append(commands, ethoolCommands()...)
 	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
 	commands = append(commands, copyCiliumInfoCommands(cmdDir, k8sPods)...)
@@ -198,6 +195,19 @@ func catCommands() []string {
 		commands = append(commands, fmt.Sprintf("cat %s", f))
 	}
 	// TODO: handle K8s case as well.
+	return commands
+}
+
+// routeCommands gets the routes tables dynamically.
+func routeCommands() []string {
+	commands := []string{}
+	routes, _ := execCommand("ip route show table all | grep -E --only-matching 'table [0-9]+'")
+
+	for _, r := range strings.Split(strings.TrimSuffix(routes, "\n"), "\n") {
+		routeTablev4 := fmt.Sprintf("ip -4 route show %v", r)
+		routeTablev6 := fmt.Sprintf("ip -6 route show %v", r)
+		commands = append(commands, routeTablev4, routeTablev6)
+	}
 	return commands
 }
 
