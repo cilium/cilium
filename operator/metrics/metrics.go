@@ -18,25 +18,30 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/cilium/cilium/api/v1/operator/models"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "metrics")
 )
 
+// Namespace is the namespace key to use for cilium operator metrics.
 const Namespace = "cilium_operator"
 
 var (
+	// Registry is the global prometheus registry for cilium-operator metrics.
 	Registry   *prometheus.Registry
 	shutdownCh chan struct{}
 )
 
+// Register registers metrics for cilium-operator.
 func Register() {
 	log.Info("Registering Operator metrics")
 
@@ -71,6 +76,7 @@ func Register() {
 	}()
 }
 
+// Unregister shuts down the metrics server.
 func Unregister() {
 	log.Info("Shutting down metrics server")
 
@@ -129,4 +135,56 @@ func registerMetrics() []prometheus.Collector {
 	Registry.MustRegister(collectors...)
 
 	return collectors
+}
+
+// DumpMetrics gets the current Cilium operator metrics and dumps all into a
+// Metrics structure. If metrics cannot be retrieved, returns an error.
+func DumpMetrics() ([]*models.Metric, error) {
+	result := []*models.Metric{}
+	if Registry == nil {
+		return result, nil
+	}
+
+	currentMetrics, err := Registry.Gather()
+	if err != nil {
+		return result, err
+	}
+
+	for _, val := range currentMetrics {
+
+		metricName := val.GetName()
+		metricType := val.GetType()
+
+		for _, metricLabel := range val.Metric {
+			labels := map[string]string{}
+			for _, label := range metricLabel.GetLabel() {
+				labels[label.GetName()] = label.GetValue()
+			}
+
+			var value float64
+			switch metricType {
+			case dto.MetricType_COUNTER:
+				value = metricLabel.Counter.GetValue()
+			case dto.MetricType_GAUGE:
+				value = metricLabel.GetGauge().GetValue()
+			case dto.MetricType_UNTYPED:
+				value = metricLabel.GetUntyped().GetValue()
+			case dto.MetricType_SUMMARY:
+				value = metricLabel.GetSummary().GetSampleSum()
+			case dto.MetricType_HISTOGRAM:
+				value = metricLabel.GetHistogram().GetSampleSum()
+			default:
+				continue
+			}
+
+			metric := &models.Metric{
+				Name:   metricName,
+				Labels: labels,
+				Value:  value,
+			}
+			result = append(result, metric)
+		}
+	}
+
+	return result, nil
 }
