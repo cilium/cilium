@@ -150,20 +150,11 @@ func runFuncInNetNS(c *C, run func()) {
 
 	currentNS, err := netns.Get()
 	c.Assert(err, IsNil)
-	c.Logf("[DEBUG] Root network ns %v", currentNS.UniqueId())
-	defer func() {
-		c.Assert(netns.Set(currentNS), IsNil)
-		c.Logf("[DEBUG] Set back to previous network ns %v", currentNS.UniqueId())
-	}()
+	defer c.Assert(netns.Set(currentNS), IsNil)
 
 	networkNS, err := netns.New()
 	c.Assert(err, IsNil)
-	c.Logf("[DEBUG] Inside new network ns %v", networkNS.UniqueId())
-	defer func() {
-		uid := networkNS.UniqueId()
-		c.Assert(networkNS.Close(), IsNil)
-		c.Logf("[DEBUG] Closed new network ns %v", uid)
-	}()
+	defer c.Assert(networkNS.Close(), IsNil)
 
 	run()
 }
@@ -227,7 +218,6 @@ func listRulesAndRoutes(c *C, family int) ([]netlink.Rule, []netlink.Route) {
 // be used to remove the device for cleanup purposes.
 func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	if linkExistsWithMAC(c, macAddr) {
-		c.Logf("[DEBUG] Found device with identical mac addr: %s", macAddr.String())
 		c.FailNow()
 	}
 
@@ -242,17 +232,11 @@ func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	err := netlink.LinkAdd(dummy)
 	c.Assert(err, IsNil)
 
-	c.Log("[DEBUG] Added dummy device")
-
 	found := linkExistsWithMAC(c, macAddr)
-	if !found {
-		c.Log("[DEBUG] Couldn't find device even after creation")
-	}
 	c.Assert(found, Equals, true)
 
 	return func() {
 		c.Assert(netlink.LinkDel(dummy), IsNil)
-		c.Log("[DEBUG] Cleaned up dummy device")
 	}
 }
 
