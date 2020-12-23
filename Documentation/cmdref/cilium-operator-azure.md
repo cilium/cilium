@@ -70,3 +70,7 @@ cilium-operator-azure [flags]
       --version                                   Print version information
 ```
 
+### SEE ALSO
+
+* [cilium-operator-azure metrics](cilium-operator-azure_metrics.html)	 - Access metric status of the operator
+

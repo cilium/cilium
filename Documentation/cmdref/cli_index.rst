@@ -17,3 +17,4 @@ cilium
       cilium_*
       cilium-bugtool*
       cilium-health_*
+      cilium-operator*
