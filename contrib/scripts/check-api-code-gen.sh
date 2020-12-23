@@ -28,6 +28,9 @@ make generate-api
 # Generate all health-api files
 make generate-health-api
 
+# Generate operator-api files
+make generate-operator-api
+
 # Generate all hubble api files
 make generate-hubble-api
 

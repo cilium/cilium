@@ -345,6 +345,23 @@ generate-health-api: api/v1/health/openapi.yaml
 	@# sort goimports automatically
 	-$(QUIET) find api/v1/health/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
+generate-operator-api: api/v1/operator/openapi.yaml
+	@$(ECHO_GEN)api/v1/operator/openapi.yaml
+	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
+		-t api/v1 \
+		-t api/v1/operator/ \
+		-f api/v1/operator/openapi.yaml \
+		--default-scheme=http \
+		-C api/v1/cilium-server.yml \
+		-r hack/spdx-copyright-header.txt
+	-$(QUIET)$(SWAGGER) generate client -a restapi \
+		-t api/v1 \
+		-t api/v1/operator/ \
+		-f api/v1/operator/openapi.yaml \
+		-r hack/spdx-copyright-header.txt
+	@# sort goimports automatically
+	-$(QUIET) find api/v1/operator/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
+
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
@@ -602,5 +619,5 @@ dev-doctor:
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
 
-.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api generate-hubble-api install licenses-all veryclean
+.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
 force :;
