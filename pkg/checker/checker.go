@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"gopkg.in/check.v1"
 )
@@ -138,6 +139,96 @@ func structTypes(v reflect.Value, m map[reflect.Type]struct{}) {
 		m[v.Type()] = struct{}{}
 		for i := 0; i < v.NumField(); i++ {
 			structTypes(v.Field(i), m)
+		}
+	}
+}
+
+type cmpExportedChecker struct {
+	*check.CheckerInfo
+}
+
+// ExportedEquals is a GoCheck checker that does a diff between two objects and
+// pretty-prints any difference between the two. Note that unexported struct
+// fields are NOT included in the comparison! Equals can act as a substitute
+// for DeepEquals with the exception that unexported struct fields are ignored.
+var ExportedEquals check.Checker = &cmpExportedChecker{&check.CheckerInfo{Name: "ExportedEquals", Params: cmpParams}}
+
+// Check performs a diff between two objects provided as parameters, and
+// returns either true if the objects are identical, or false otherwise. If
+// it returns false, it also returns the unified diff between the expected
+// and obtained output.
+func (checker *cmpExportedChecker) Check(params []interface{}, _ []string) (result bool, error string) {
+	if len(params) < 2 {
+		return false, "Parameter missing"
+	}
+
+	// Diff expects to receive parameters in order ("expected",
+	// "obtained"), but our convention is to pass them as
+	// ("obtained", "expected"), so reverse them here.
+	diff := cmp.Diff(params[1], params[0], DeepIgnoreUnexported(params[1], params[0]))
+
+	return diff == "", diff
+}
+
+// ExportedEqual tests whether two parameters are deeply equal, when considering
+// only exported fields, and returns true if they are. If the objects are not
+// deeply equal, then the second return value includes a json representation of
+// the difference between the parameters.
+func ExportedEqual(params ...interface{}) (bool, string) {
+	return Equals.Check(params, cmpParams)
+}
+
+func DeepIgnoreUnexported(vs ...interface{}) cmp.Option {
+	m := make(map[reflect.Type]struct{})
+	for _, v := range vs {
+		exportedStructTypes(reflect.ValueOf(v), m)
+	}
+	typs := make([]interface{}, 0, len(m))
+	for t := range m {
+		typs = append(typs, reflect.New(t).Elem().Interface())
+	}
+	return cmpopts.IgnoreUnexported(typs...)
+}
+
+func exportedStructTypes(v reflect.Value, m map[reflect.Type]struct{}) {
+	exportedUniqueStructTypes(v, m, make(map[uintptr]struct{}))
+}
+
+func exportedUniqueStructTypes(v reflect.Value, m map[reflect.Type]struct{}, s map[uintptr]struct{}) {
+	if !v.IsValid() {
+		return
+	}
+	switch v.Kind() {
+	case reflect.Ptr:
+		if !v.IsNil() {
+			addr := v.Pointer()
+			if _, found := s[addr]; found {
+				return // prevent infinite loops
+			}
+			// mark pointer as seen
+			s[addr] = struct{}{}
+			exportedUniqueStructTypes(v.Elem(), m, s)
+		}
+	case reflect.Interface:
+		if !v.IsNil() {
+			exportedUniqueStructTypes(v.Elem(), m, s)
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			exportedUniqueStructTypes(v.Index(i), m, s)
+		}
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			exportedUniqueStructTypes(v.MapIndex(k), m, s)
+		}
+	case reflect.Struct:
+		// mark type's unexported fields to be ignored
+		m[v.Type()] = struct{}{}
+		for i := 0; i < v.NumField(); i++ {
+			// Only descend to exported fields
+			if v.Field(i).CanInterface() {
+				exportedUniqueStructTypes(v.Field(i), m, s)
+			}
 		}
 	}
 }
