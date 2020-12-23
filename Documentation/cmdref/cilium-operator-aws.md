@@ -70,3 +70,7 @@ cilium-operator-aws [flags]
       --version                                   Print version information
 ```
 
+### SEE ALSO
+
+* [cilium-operator-aws metrics](cilium-operator-aws_metrics.html)	 - Access metric status of the operator
+

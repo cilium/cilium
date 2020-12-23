@@ -75,3 +75,7 @@ cilium-operator [flags]
       --version                                   Print version information
 ```
 
+### SEE ALSO
+
+* [cilium-operator metrics](cilium-operator_metrics.html)	 - Access metric status of the operator
+

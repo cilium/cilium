@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cilium/cilium/operator/api"
+	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
@@ -112,6 +114,11 @@ var (
 	isLeader atomic.Value
 )
 
+func init() {
+	rootCmd.AddCommand(cmd.MetricsCmd)
+	cmd.Populate()
+}
+
 func initEnv() {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate()
@@ -184,6 +191,31 @@ func getAPIServerAddr() []string {
 	return []string{operatorOption.Config.OperatorAPIServeAddr}
 }
 
+// checkStatus checks the connection status to the kvstore and
+// k8s apiserver and returns an error if any of them is unhealthy
+func checkStatus() error {
+	if kvstoreEnabled() {
+		// We check if we are the leader here because only the leader has
+		// access to the kvstore client. Otherwise, the kvstore client check
+		// will block. It is safe for a non-leader to skip this check, as the
+		// it is the leader's responsibility to report the status of the
+		// kvstore client.
+		if leader, ok := isLeader.Load().(bool); ok && leader {
+			if client := kvstore.Client(); client == nil {
+				return fmt.Errorf("kvstore client not configured")
+			} else if _, err := client.Status(); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err := k8s.Client().Discovery().ServerVersion(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
@@ -191,7 +223,19 @@ func runOperator() {
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
 	isLeader.Store(false)
-	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
+
+	// Configure API server for the operator.
+	srv, err := api.NewServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to create operator apiserver")
+	}
+
+	go func() {
+		err = srv.WithStatusCheckFunc(checkStatus).StartServer()
+		if err != nil {
+			log.WithError(err).Fatalf("Unable to start operator apiserver")
+		}
+	}()
 
 	if operatorOption.Config.EnableMetrics {
 		operatorMetrics.Register()

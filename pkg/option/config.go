@@ -3221,7 +3221,7 @@ func InitConfig(programName, configName string) func() {
 			log.WithField(logfields.Path, Config.ConfigFile).
 				Fatal("Error reading config file")
 		} else {
-			log.WithError(err).Info("Skipped reading configuration file")
+			log.WithError(err).Debug("Skipped reading configuration file")
 		}
 	}
 }

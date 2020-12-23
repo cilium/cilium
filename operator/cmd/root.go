@@ -24,8 +24,7 @@ import (
 var (
 	operatorAddr string
 
-	log     = logrus.New()
-	verbose = false
+	log = logrus.New()
 )
 
 // Populate options required by cilium-operator command line only.
