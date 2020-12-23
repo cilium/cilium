@@ -41,8 +41,18 @@ var _ = Suite(&LinuxRoutingSuite{})
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {
 	ip, ri := getFakes(c)
 	masterMAC := ri.MasterIfMAC
-	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, false) }, masterMAC)
-	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, true) }, masterMAC)
+	runFuncInNetNS(c, func() {
+		ifaceCleanup := createDummyDevice(c, masterMAC)
+		defer ifaceCleanup()
+
+		runConfigureThenDelete(c, ri, ip, 1500, false)
+	})
+	runFuncInNetNS(c, func() {
+		ifaceCleanup := createDummyDevice(c, masterMAC)
+		defer ifaceCleanup()
+
+		runConfigureThenDelete(c, ri, ip, 1500, true)
+	})
 }
 
 func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
@@ -122,14 +132,17 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 	for _, tt := range tests {
 		c.Log("Test: " + tt.name)
 		runFuncInNetNS(c, func() {
+			ifaceCleanup := createDummyDevice(c, masterMAC)
+			defer ifaceCleanup()
+
 			ip := tt.preRun()
 			err := Delete(ip)
 			c.Assert((err != nil), Equals, tt.wantErr)
-		}, masterMAC)
+		})
 	}
 }
 
-func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
+func runFuncInNetNS(c *C, run func()) {
 	// Source:
 	// https://github.com/vishvananda/netlink/blob/c79a4b7b40668c3f7867bf256b80b6b2dc65e58e/netns_test.go#L49
 	runtime.LockOSThread() // We need a constant OS thread
@@ -151,9 +164,6 @@ func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
 		c.Assert(networkNS.Close(), IsNil)
 		c.Logf("[DEBUG] Closed new network ns %v", uid)
 	}()
-
-	ifaceCleanup := createDummyDevice(c, macAddr)
-	defer ifaceCleanup()
 
 	run()
 }
