@@ -407,44 +407,44 @@ var L4Policy2 = &policy.L4Policy{
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
 	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "")
-	c.Assert(obtained.Headers, checker.Equals, ExpectedHeaders1)
-	c.Assert(canShortCircuit, checker.Equals, true)
+	c.Assert(obtained.Headers, checker.ExportedEquals, ExpectedHeaders1)
+	c.Assert(canShortCircuit, Equals, true)
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12)
-	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule12)
-	c.Assert(canShortCircuit, checker.Equals, true)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule12)
+	c.Assert(canShortCircuit, Equals, true)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch)
-	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule122HeaderMatch)
-	c.Assert(canShortCircuit, checker.Equals, false)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule122HeaderMatch)
+	c.Assert(canShortCircuit, Equals, false)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1)
-	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1)
-	c.Assert(canShortCircuit, checker.Equals, true)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule1)
+	c.Assert(canShortCircuit, Equals, true)
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
 	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies12Wildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies12Wildcard)
 
 	// L4+L7 with header mods
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies122HeaderMatchWildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies122HeaderMatchWildcard)
 
 	// L4+L7
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1Wildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1Wildcard)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPoliciesWildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
 
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPoliciesWildcard)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
@@ -456,7 +456,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
@@ -468,7 +468,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
@@ -480,7 +480,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
@@ -492,7 +492,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
@@ -504,7 +504,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 		EgressPerPortPolicies:  nil,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
@@ -516,7 +516,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1Wildcard,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
@@ -528,7 +528,7 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 var L4PolicyL7 = &policy.L4Policy{
@@ -585,7 +585,7 @@ func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 var L4PolicyKafka = &policy.L4Policy{
@@ -640,7 +640,7 @@ func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
 		IngressPerPortPolicies: ExpectedPerPortPoliciesKafka,
 		ConntrackMapName:       "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
 var L4PolicyMySQL = &policy.L4Policy{
@@ -711,5 +711,5 @@ func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
 		EgressPerPortPolicies: ExpectedPerPortPoliciesMySQL,
 		ConntrackMapName:      "global",
 	}
-	c.Assert(obtained, checker.Equals, expected)
+	c.Assert(obtained, checker.ExportedEquals, expected)
 }

@@ -572,7 +572,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	c.Assert(len(affectedNames), checker.Equals, 0)
+	c.Assert(affectedNames, HasLen, 0)
 	c.Assert(cache.Lookup("test.com"), HasLen, 5)
 }
 
@@ -594,7 +594,7 @@ func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	c.Assert(len(affectedNames), checker.Equals, 0)
+	c.Assert(affectedNames, HasLen, 0)
 }
 
 func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
@@ -603,7 +603,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	dnsCache := NewDNSCache(0)
 	dnsCache.overLimit["test.com"] = true
 	affectedNames, _ := dnsCache.cleanupOverLimitEntries()
-	c.Assert(len(affectedNames), checker.Equals, 0)
+	c.Assert(affectedNames, HasLen, 0)
 }
 
 func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string][]string) {
