@@ -480,7 +480,7 @@ This mode expects:
 - A populated K8S_VERSION environment variable set to the version of the cluster
 
 - If appropriate, set the ``CNI_INTEGRATION`` environment variable set to one
-  of ``flannel``, ``gke``, ``eks``, ``microk8s`` or ``minikube``. This selects
+  of ``flannel``, ``gke``, ``eks``, ``eks-chaining``, ``microk8s`` or ``minikube``. This selects
   matching configuration overrides for cilium.
   Leaving this unset for non-matching integrations is also correct.
 
@@ -524,21 +524,21 @@ cluster.
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Not all tests can succeed on EKS. Many do, however and may be useful.
+Not all tests can succeed on EKS. Many do, however and may be useful. This `GH issue
+<https://github.com/cilium/cilium/issues/9678#issuecomment-749350425>`_ contains a list of tests that are still failing.
 
 1- Setup a cluster as in :ref:`k8s_install_eks` or utilize an existing
 cluster.
 
-2- Invoke the tests from ``cilium/test`` with options set as explained in
-`Running End-To-End Tests In Other Environments via kubeconfig`_
+2- Source the testing integration script from ``cilium/contrib/testing/integrations.sh``.
+
+3- Invoke the ``gks`` function by passing which ``cilium`` docker image to run and the test focus. The command also
+accepts additional ginkgo arguments.
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
+  gks quay.io/cilium/cilium:latest K8sDemo
 
-Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
-
-.. note:: The kubernetes version varies between AWS regions. Be sure to check with ``kubectl version``
 
 Adding new Managed Kubernetes providers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
