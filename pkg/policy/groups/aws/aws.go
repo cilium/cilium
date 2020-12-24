@@ -51,7 +51,15 @@ func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]net.IP, error)
 // getInstancesFromFilter returns the instances IPs in aws EC2 filter by the
 // given filter
 func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net.IP, error) {
+	var result []ec2_types.Reservation
 	input := &ec2.DescribeInstancesInput{}
+
+	cfg, err := cilium_ec2.NewConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
+
 	for labelKey, labelValue := range filter.Labels {
 		newFilter := ec2_types.Filter{
 			Name:   aws.String(fmt.Sprintf("%s:%s", policyEC2Labelskey, labelKey)),
@@ -73,21 +81,21 @@ func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
-	cfg, err := cilium_ec2.NewConfig(ctx)
-	if err != nil {
-		return []net.IP{}, err
-	}
-	ec2Client := ec2.NewFromConfig(cfg)
-	result, err := ec2Client.DescribeInstances(ctx, input)
-	if err != nil {
-		return []net.IP{}, fmt.Errorf("Cannot retrieve aws information: %s", err)
+
+	paginator := ec2.NewDescribeInstancesPaginator(ec2Client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot retrieve aws information: %w", err)
+		}
+		result = append(result, output.Reservations...)
 	}
 	return extractIPs(result), nil
 }
 
-func extractIPs(req *ec2.DescribeInstancesOutput) []net.IP {
+func extractIPs(reservations []ec2_types.Reservation) []net.IP {
 	result := []net.IP{}
-	for _, reservation := range req.Reservations {
+	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			for _, iface := range instance.NetworkInterfaces {
 				for _, ifaceIP := range iface.PrivateIpAddresses {
