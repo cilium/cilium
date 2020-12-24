@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"github.com/awslabs/smithy-go/middleware"
+	"github.com/aws/smithy-go/middleware"
 )
 
 // requestIDKey is used to retrieve request id from response metadata

@@ -11,8 +11,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	v4Internal "github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyHTTP "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyHTTP "github.com/aws/smithy-go/transport/http"
 )
 
 const computePayloadHashMiddlewareID = "ComputePayloadHash"
@@ -195,24 +195,36 @@ func (m *contentSHA256Header) HandleBuild(
 	return next.HandleBuild(ctx, in)
 }
 
-// SignHTTPRequest is a `FinalizeMiddleware` implementation for SigV4 HTTP Signing
-type SignHTTPRequest struct {
+// SignHTTPRequestMiddlewareOptions is the configuration options for the SignHTTPRequestMiddleware middleware.
+type SignHTTPRequestMiddlewareOptions struct {
+	CredentialsProvider aws.CredentialsProvider
+	Signer              HTTPSigner
+	LogSigning          bool
+}
+
+// SignHTTPRequestMiddleware is a `FinalizeMiddleware` implementation for SigV4 HTTP Signing
+type SignHTTPRequestMiddleware struct {
 	credentialsProvider aws.CredentialsProvider
 	signer              HTTPSigner
+	logSigning          bool
 }
 
-// NewSignHTTPRequestMiddleware constructs a SignHTTPRequest using the given Signer for signing requests
-func NewSignHTTPRequestMiddleware(credentialsProvider aws.CredentialsProvider, signer HTTPSigner) *SignHTTPRequest {
-	return &SignHTTPRequest{credentialsProvider: credentialsProvider, signer: signer}
+// NewSignHTTPRequestMiddleware constructs a SignHTTPRequestMiddleware using the given Signer for signing requests
+func NewSignHTTPRequestMiddleware(options SignHTTPRequestMiddlewareOptions) *SignHTTPRequestMiddleware {
+	return &SignHTTPRequestMiddleware{
+		credentialsProvider: options.CredentialsProvider,
+		signer:              options.Signer,
+		logSigning:          options.LogSigning,
+	}
 }
 
-// ID is the SignHTTPRequest identifier
-func (s *SignHTTPRequest) ID() string {
+// ID is the SignHTTPRequestMiddleware identifier
+func (s *SignHTTPRequestMiddleware) ID() string {
 	return "Signing"
 }
 
 // HandleFinalize will take the provided input and sign the request using the SigV4 authentication scheme
-func (s *SignHTTPRequest) HandleFinalize(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
+func (s *SignHTTPRequestMiddleware) HandleFinalize(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (
 	out middleware.FinalizeOutput, metadata middleware.Metadata, err error,
 ) {
 	if !haveCredentialProvider(s.credentialsProvider) {
@@ -235,7 +247,11 @@ func (s *SignHTTPRequest) HandleFinalize(ctx context.Context, in middleware.Fina
 		return out, metadata, &SigningError{Err: fmt.Errorf("failed to retrieve credentials: %w", err)}
 	}
 
-	err = s.signer.SignHTTP(ctx, credentials, req.Request, payloadHash, signingName, signingRegion, sdk.NowTime())
+	err = s.signer.SignHTTP(ctx, credentials, req.Request, payloadHash, signingName, signingRegion, sdk.NowTime(),
+		func(o *SignerOptions) {
+			o.Logger = middleware.GetLogger(ctx)
+			o.LogSigning = s.logSigning
+		})
 	if err != nil {
 		return out, metadata, &SigningError{Err: fmt.Errorf("failed to sign http request, %w", err)}
 	}

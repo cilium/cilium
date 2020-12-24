@@ -55,18 +55,6 @@ type Provider struct {
 
 // Options is the configuration options for configuring the Provider.
 type Options struct {
-	// ExpiryWindow will allow the credentials to trigger refreshing prior to
-	// the credentials actually expiring. This is beneficial so race conditions
-	// with expiring credentials do not cause request to fail unexpectedly
-	// due to ExpiredTokenException exceptions.
-	//
-	// For example, an ExpiryWindow of 10s would cause calls to the
-	// Credentials.IsExpired() method to return true 10 seconds before the
-	// credentials would of actually expired.
-	//
-	// If ExpiryWindow is 0 or less, it will be ignored.
-	ExpiryWindow time.Duration
-
 	// Timeout limits the time a process can run.
 	Timeout time.Duration
 }
@@ -213,7 +201,7 @@ func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	// Handle expiration
 	if resp.Expiration != nil {
 		creds.CanExpire = true
-		creds.Expires = (*resp.Expiration).Add(-p.options.ExpiryWindow)
+		creds.Expires = *resp.Expiration
 	}
 
 	return creds, nil

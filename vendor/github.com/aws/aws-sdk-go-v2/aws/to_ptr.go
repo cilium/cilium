@@ -2,7 +2,7 @@
 package aws
 
 import (
-	"github.com/awslabs/smithy-go/ptr"
+	"github.com/aws/smithy-go/ptr"
 	"time"
 )
 

@@ -103,6 +103,16 @@ type Address struct {
 	Tags []Tag
 }
 
+type AddressAttribute struct {
+	AllocationId *string
+
+	PtrRecord *string
+
+	PtrRecordUpdate *PtrUpdateStatus
+
+	PublicIp *string
+}
+
 // Describes a principal.
 type AllowedPrincipal struct {
 
@@ -111,6 +121,164 @@ type AllowedPrincipal struct {
 
 	// The type of principal.
 	PrincipalType PrincipalType
+}
+
+// Describes an potential intermediate component of a feasible path.
+type AlternatePathHint struct {
+
+	// The Amazon Resource Name (ARN) of the component.
+	ComponentArn *string
+
+	// The ID of the component.
+	ComponentId *string
+}
+
+// Describes a network access control (ACL) rule.
+type AnalysisAclRule struct {
+
+	// The IPv4 address range, in CIDR notation.
+	Cidr *string
+
+	// Indicates whether the rule is an outbound rule.
+	Egress bool
+
+	// The range of ports.
+	PortRange *PortRange
+
+	// The protocol.
+	Protocol *string
+
+	// Indicates whether to allow or deny traffic that matches the rule.
+	RuleAction *string
+
+	// The rule number.
+	RuleNumber int32
+}
+
+// Describes a path component.
+type AnalysisComponent struct {
+
+	// The Amazon Resource Name (ARN) of the component.
+	Arn *string
+
+	// The ID of the component.
+	Id *string
+}
+
+// Describes a load balancer listener.
+type AnalysisLoadBalancerListener struct {
+
+	// [Classic Load Balancers] The back-end port for the listener.
+	InstancePort int32
+
+	// The port on which the load balancer is listening.
+	LoadBalancerPort int32
+}
+
+// Describes a load balancer target.
+type AnalysisLoadBalancerTarget struct {
+
+	// The IP address.
+	Address *string
+
+	// The Availability Zone.
+	AvailabilityZone *string
+
+	// Information about the instance.
+	Instance *AnalysisComponent
+
+	// The port on which the target is listening.
+	Port int32
+}
+
+// Describes a header. Reflects any changes made by a component as traffic passes
+// through. The fields of an inbound header are null except for the first component
+// of a path.
+type AnalysisPacketHeader struct {
+
+	// The destination addresses.
+	DestinationAddresses []string
+
+	// The destination port ranges.
+	DestinationPortRanges []PortRange
+
+	// The protocol.
+	Protocol *string
+
+	// The source addresses.
+	SourceAddresses []string
+
+	// The source port ranges.
+	SourcePortRanges []PortRange
+}
+
+// Describes a route table route.
+type AnalysisRouteTableRoute struct {
+
+	// The destination IPv4 address, in CIDR notation.
+	DestinationCidr *string
+
+	// The prefix of the AWS service.
+	DestinationPrefixListId *string
+
+	// The ID of an egress-only internet gateway.
+	EgressOnlyInternetGatewayId *string
+
+	// The ID of the gateway, such as an internet gateway or virtual private gateway.
+	GatewayId *string
+
+	// The ID of the instance, such as a NAT instance.
+	InstanceId *string
+
+	// The ID of a NAT gateway.
+	NatGatewayId *string
+
+	// The ID of a network interface.
+	NetworkInterfaceId *string
+
+	// Describes how the route was created. The following are possible values:
+	//
+	// *
+	// CreateRouteTable - The route was automatically created when the route table was
+	// created.
+	//
+	// * CreateRoute - The route was manually added to the route table.
+	//
+	// *
+	// EnableVgwRoutePropagation - The route was propagated by route propagation.
+	Origin *string
+
+	// The ID of a transit gateway.
+	TransitGatewayId *string
+
+	// The ID of a VPC peering connection.
+	VpcPeeringConnectionId *string
+}
+
+// Describes a security group rule.
+type AnalysisSecurityGroupRule struct {
+
+	// The IPv4 address range, in CIDR notation.
+	Cidr *string
+
+	// The direction. The following are possible values:
+	//
+	// * egress
+	//
+	// * ingress
+	Direction *string
+
+	// The port range.
+	PortRange *PortRange
+
+	// The prefix list ID.
+	PrefixListId *string
+
+	// The protocol name.
+	Protocol *string
+
+	// The security group ID.
+	SecurityGroupId *string
 }
 
 // Describes the private IP addresses assigned to a network interface.
@@ -906,6 +1074,10 @@ type ClientVpnEndpoint struct {
 
 	// Information about the associated target networks. A target network is a subnet
 	// in a VPC.
+	//
+	// Deprecated: This property is deprecated. To view the target networks associated
+	// with a Client VPN endpoint, call DescribeClientVpnTargetNetworks and inspect the
+	// clientVpnTargetNetworks response element.
 	AssociatedTargetNetworks []AssociatedTargetNetwork
 
 	// Information about the authentication method used by the Client VPN endpoint.
@@ -1236,6 +1408,31 @@ type CreateFleetInstance struct {
 	Platform PlatformValues
 }
 
+// The options for a Connect attachment.
+type CreateTransitGatewayConnectRequestOptions struct {
+
+	// The tunnel protocol.
+	//
+	// This member is required.
+	Protocol ProtocolValue
+}
+
+// The options for the transit gateway multicast domain.
+type CreateTransitGatewayMulticastDomainRequestOptions struct {
+
+	// Indicates whether to automatically accept cross-account subnet associations that
+	// are associated with the transit gateway multicast domain.
+	AutoAcceptSharedAssociations AutoAcceptSharedAssociationsValue
+
+	// Specify whether to enable Internet Group Management Protocol (IGMP) version 2
+	// for the transit gateway multicast domain.
+	Igmpv2Support Igmpv2SupportValue
+
+	// Specify whether to enable support for statically configuring multicast group
+	// sources for a domain.
+	StaticSourcesSupport StaticSourcesSupportValue
+}
+
 // Describes the options for a VPC attachment.
 type CreateTransitGatewayVpcAttachmentRequestOptions struct {
 
@@ -1247,7 +1444,7 @@ type CreateTransitGatewayVpcAttachmentRequestOptions struct {
 	// Enable or disable DNS support. The default is enable.
 	DnsSupport DnsSupportValue
 
-	// Enable or disable IPv6 support.
+	// Enable or disable IPv6 support. The default is disable.
 	Ipv6Support Ipv6SupportValue
 }
 
@@ -1744,22 +1941,25 @@ type EbsBlockDevice struct {
 	// This parameter is not returned by .
 	Encrypted bool
 
-	// The number of I/O operations per second (IOPS) that the volume supports. For io1
-	// and io2 volumes, this represents the number of IOPS that are provisioned for the
-	// volume. For gp2 volumes, this represents the baseline performance of the volume
-	// and the rate at which the volume accumulates I/O credits for bursting. For more
-	// information, see Amazon EBS volume types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. Constraints: Range is 100-16,000 IOPS
-	// for gp2 volumes and 100 to 64,000 IOPS for io1 and io2 volumes in most Regions.
-	// Maximum io1 and io2 IOPS of 64,000 is guaranteed only on Nitro-based instances
+	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
+	// this represents the number of IOPS that are provisioned for the volume. For gp2
+	// volumes, this represents the baseline performance of the volume and the rate at
+	// which the volume accumulates I/O credits for bursting. The following are the
+	// supported values for each volume type:
+	//
+	// * gp3: 3,000-16,000 IOPS
+	//
+	// * io1:
+	// 100-64,000 IOPS
+	//
+	// * io2: 100-64,000 IOPS
+	//
+	// For io1 and io2 volumes, we guarantee
+	// 64,000 IOPS only for Instances built on the Nitro System
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
-	// Other instance families guarantee performance up to 32,000 IOPS. For more
-	// information, see Amazon EBS Volume Types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. Condition: This parameter is required
-	// for requests to create io1 and io2 volumes; it is not used in requests to create
-	// gp2, st1, sc1, or standard volumes.
+	// Other instance families guarantee performance up to 32,000 IOPS. This parameter
+	// is required for io1 and io2 volumes. The default for gp3 volumes is 3,000 IOPS.
+	// This parameter is not supported for gp2, st1, sc1, or standard volumes.
 	Iops int32
 
 	// Identifier (key ID, key alias, ID ARN, or alias ARN) for a customer managed CMK
@@ -1772,20 +1972,37 @@ type EbsBlockDevice struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestSpotInstances.html).
 	KmsKeyId *string
 
+	OutpostArn *string
+
 	// The ID of the snapshot.
 	SnapshotId *string
 
-	// The size of the volume, in GiB. Default: If you're creating the volume from a
-	// snapshot and don't specify a volume size, the default is the snapshot size.
-	// Constraints: 1-16384 for General Purpose SSD (gp2), 4-16384 for Provisioned IOPS
-	// SSD (io1 and io2), 500-16384 for Throughput Optimized HDD (st1), 500-16384 for
-	// Cold HDD (sc1), and 1-1024 for Magnetic (standard) volumes. If you specify a
-	// snapshot, the volume size must be equal to or larger than the snapshot size.
+	// The throughput that the volume supports, in MiB/s. This parameter is valid only
+	// for gp3 volumes. Valid Range: Minimum value of 125. Maximum value of 1000.
+	Throughput int32
+
+	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
+	// volume size. If you specify a snapshot, the default is the snapshot size. You
+	// can specify a volume size that is equal to or larger than the snapshot size. The
+	// following are the supported volumes sizes for each volume type:
+	//
+	// * gp2 and
+	// gp3:1-16,384
+	//
+	// * io1 and io2: 4-16,384
+	//
+	// * st1: 500-16,384
+	//
+	// * sc1: 500-16,384
+	//
+	// *
+	// standard: 1-1,024
 	VolumeSize int32
 
-	// The volume type. If you set the type to io1 or io2, you must also specify the
-	// Iops parameter. If you set the type to gp2, st1, sc1, or standard, you must omit
-	// the Iops parameter. Default: gp2
+	// The volume type. For more information, see Amazon EBS volume types
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
+	// Amazon Elastic Compute Cloud User Guide. If the volume type is io1 or io2, you
+	// must specify the IOPS that the volume supports.
 	VolumeType VolumeType
 }
 
@@ -2153,6 +2370,151 @@ type EventInformation struct {
 	// The ID of the instance. This information is available only for instanceChange
 	// events.
 	InstanceId *string
+}
+
+// Describes an explanation code for an unreachable path. For more information, see
+// Reachability Analyzer explanation codes
+// (https://docs.aws.amazon.com/vpc/latest/reachability/explanation-codes.html).
+type Explanation struct {
+
+	// The network ACL.
+	Acl *AnalysisComponent
+
+	// The network ACL rule.
+	AclRule *AnalysisAclRule
+
+	// The IPv4 address, in CIDR notation.
+	Address *string
+
+	// The IPv4 addresses, in CIDR notation.
+	Addresses []string
+
+	// The resource to which the component is attached.
+	AttachedTo *AnalysisComponent
+
+	// The Availability Zones.
+	AvailabilityZones []string
+
+	// The CIDR ranges.
+	Cidrs []string
+
+	// The listener for a Classic Load Balancer.
+	ClassicLoadBalancerListener *AnalysisLoadBalancerListener
+
+	// The component.
+	Component *AnalysisComponent
+
+	// The customer gateway.
+	CustomerGateway *AnalysisComponent
+
+	// The destination.
+	Destination *AnalysisComponent
+
+	// The destination VPC.
+	DestinationVpc *AnalysisComponent
+
+	// The direction. The following are possible values:
+	//
+	// * egress
+	//
+	// * ingress
+	Direction *string
+
+	// The load balancer listener.
+	ElasticLoadBalancerListener *AnalysisComponent
+
+	// The explanation code.
+	ExplanationCode *string
+
+	// The route table.
+	IngressRouteTable *AnalysisComponent
+
+	// The internet gateway.
+	InternetGateway *AnalysisComponent
+
+	// The Amazon Resource Name (ARN) of the load balancer.
+	LoadBalancerArn *string
+
+	// The listener port of the load balancer.
+	LoadBalancerListenerPort int32
+
+	// The target.
+	LoadBalancerTarget *AnalysisLoadBalancerTarget
+
+	// The target group.
+	LoadBalancerTargetGroup *AnalysisComponent
+
+	// The target groups.
+	LoadBalancerTargetGroups []AnalysisComponent
+
+	// The target port.
+	LoadBalancerTargetPort int32
+
+	// The missing component.
+	MissingComponent *string
+
+	// The NAT gateway.
+	NatGateway *AnalysisComponent
+
+	// The network interface.
+	NetworkInterface *AnalysisComponent
+
+	// The packet field.
+	PacketField *string
+
+	// The port.
+	Port int32
+
+	// The port ranges.
+	PortRanges []PortRange
+
+	// The prefix list.
+	PrefixList *AnalysisComponent
+
+	// The protocols.
+	Protocols []string
+
+	// The route table.
+	RouteTable *AnalysisComponent
+
+	// The route table route.
+	RouteTableRoute *AnalysisRouteTableRoute
+
+	// The security group.
+	SecurityGroup *AnalysisComponent
+
+	// The security group rule.
+	SecurityGroupRule *AnalysisSecurityGroupRule
+
+	// The security groups.
+	SecurityGroups []AnalysisComponent
+
+	// The source VPC.
+	SourceVpc *AnalysisComponent
+
+	// The state.
+	State *string
+
+	// The subnet.
+	Subnet *AnalysisComponent
+
+	// The route table for the subnet.
+	SubnetRouteTable *AnalysisComponent
+
+	// The component VPC.
+	Vpc *AnalysisComponent
+
+	// The VPC endpoint.
+	VpcEndpoint *AnalysisComponent
+
+	// The VPC peering connection.
+	VpcPeeringConnection *AnalysisComponent
+
+	// The VPN connection.
+	VpnConnection *AnalysisComponent
+
+	// The VPN gateway.
+	VpnGateway *AnalysisComponent
 }
 
 // Describes an export image task.
@@ -3163,6 +3525,8 @@ type Image struct {
 	// Any block device mapping entries.
 	BlockDeviceMappings []BlockDeviceMapping
 
+	BootMode BootModeValues
+
 	// The date and time the image was created.
 	CreationDate *string
 
@@ -3493,6 +3857,8 @@ type Instance struct {
 
 	// Any block device mapping entries for the instance.
 	BlockDeviceMappings []InstanceBlockDeviceMapping
+
+	BootMode BootModeValues
 
 	// The ID of the Capacity Reservation.
 	CapacityReservationId *string
@@ -4265,6 +4631,8 @@ type InstanceTypeInfo struct {
 	// Describes the processor.
 	ProcessorInfo *ProcessorInfo
 
+	SupportedBootModes []BootModeType
+
 	// The supported root device types.
 	SupportedRootDeviceTypes []RootDeviceType
 
@@ -4698,6 +5066,9 @@ type LaunchTemplateEbsBlockDevice struct {
 	// The ID of the snapshot.
 	SnapshotId *string
 
+	// The throughput that the volume supports, in MiB/s.
+	Throughput int32
+
 	// The size of the volume, in GiB.
 	VolumeSize int32
 
@@ -4716,16 +5087,25 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// volume from a snapshot, you can't specify an encryption value.
 	Encrypted bool
 
-	// The number of I/O operations per second (IOPS) to provision for an io1 or io2
-	// volume, with a maximum ratio of 50 IOPS/GiB for io1, and 500 IOPS/GiB for io2.
-	// Range is 100 to 64,000 IOPS for volumes in most Regions. Maximum IOPS of 64,000
-	// is guaranteed only on Nitro-based instances
+	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
+	// this represents the number of IOPS that are provisioned for the volume. For gp2
+	// volumes, this represents the baseline performance of the volume and the rate at
+	// which the volume accumulates I/O credits for bursting. The following are the
+	// supported values for each volume type:
+	//
+	// * gp3: 3,000-16,000 IOPS
+	//
+	// * io1:
+	// 100-64,000 IOPS
+	//
+	// * io2: 100-64,000 IOPS
+	//
+	// For io1 and io2 volumes, we guarantee
+	// 64,000 IOPS only for Instances built on the Nitro System
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
-	// Other instance families guarantee performance up to 32,000 IOPS. For more
-	// information, see Amazon EBS Volume Types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. This parameter is valid only for
-	// Provisioned IOPS SSD (io1 and io2) volumes.
+	// Other instance families guarantee performance up to 32,000 IOPS. This parameter
+	// is required for io1 and io2 volumes. The default for gp3 volumes is 3,000 IOPS.
+	// This parameter is not supported for gp2, st1, sc1, or standard volumes.
 	Iops int32
 
 	// The ARN of the symmetric AWS Key Management Service (AWS KMS) CMK used for
@@ -4735,11 +5115,29 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// The ID of the snapshot.
 	SnapshotId *string
 
-	// The size of the volume, in GiB. Default: If you're creating the volume from a
-	// snapshot and don't specify a volume size, the default is the snapshot size.
+	// The throughput to provision for a gp3 volume, with a maximum of 1,000 MiB/s.
+	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	Throughput int32
+
+	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
+	// volume size. If you specify a snapshot, the default is the snapshot size. You
+	// can specify a volume size that is equal to or larger than the snapshot size. The
+	// following are the supported volumes sizes for each volume type:
+	//
+	// * gp2 and gp3:
+	// 1-16,384
+	//
+	// * io1 and io2: 4-16,384
+	//
+	// * st1 and sc1: 125-16,384
+	//
+	// * standard:
+	// 1-1,024
 	VolumeSize int32
 
-	// The volume type.
+	// The volume type. The default is gp2. For more information, see Amazon EBS volume
+	// types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	VolumeType VolumeType
 }
 
@@ -5539,6 +5937,10 @@ type MemoryInfo struct {
 // The transit gateway options.
 type ModifyTransitGatewayOptions struct {
 
+	// Adds IPv4 or IPv6 CIDR blocks for the transit gateway. Must be a size /24 CIDR
+	// block or larger for IPv4, or a size /64 CIDR block or larger for IPv6.
+	AddTransitGatewayCidrBlocks []string
+
 	// The ID of the default association route table.
 	AssociationDefaultRouteTableId *string
 
@@ -5558,6 +5960,9 @@ type ModifyTransitGatewayOptions struct {
 
 	// The ID of the default propagation route table.
 	PropagationDefaultRouteTableId *string
+
+	// Removes CIDR blocks for the transit gateway.
+	RemoveTransitGatewayCidrBlocks []string
 
 	// Enable or disable Equal Cost Multipath Protocol support.
 	VpnEcmpSupport VpnEcmpSupportValue
@@ -5920,6 +6325,86 @@ type NetworkInfo struct {
 	NetworkPerformance *string
 }
 
+// Describes a network insights analysis.
+type NetworkInsightsAnalysis struct {
+
+	// Potential intermediate components.
+	AlternatePathHints []AlternatePathHint
+
+	// The explanations. For more information, see Reachability Analyzer explanation
+	// codes
+	// (https://docs.aws.amazon.com/vpc/latest/reachability/explanation-codes.html).
+	Explanations []Explanation
+
+	// The Amazon Resource Names (ARN) of the AWS resources that the path must
+	// traverse.
+	FilterInArns []string
+
+	// The components in the path from source to destination.
+	ForwardPathComponents []PathComponent
+
+	// The Amazon Resource Name (ARN) of the network insights analysis.
+	NetworkInsightsAnalysisArn *string
+
+	// The ID of the network insights analysis.
+	NetworkInsightsAnalysisId *string
+
+	// The ID of the path.
+	NetworkInsightsPathId *string
+
+	// Indicates whether the destination is reachable from the source.
+	NetworkPathFound bool
+
+	// The components in the path from destination to source.
+	ReturnPathComponents []PathComponent
+
+	// The time the analysis started.
+	StartDate *time.Time
+
+	// The status of the network insights analysis.
+	Status AnalysisStatus
+
+	// The status message, if the status is failed.
+	StatusMessage *string
+
+	// The tags.
+	Tags []Tag
+}
+
+// Describes a path.
+type NetworkInsightsPath struct {
+
+	// The time stamp when the path was created.
+	CreatedDate *time.Time
+
+	// The AWS resource that is the destination of the path.
+	Destination *string
+
+	// The IP address of the AWS resource that is the destination of the path.
+	DestinationIp *string
+
+	// The destination port.
+	DestinationPort int32
+
+	// The Amazon Resource Name (ARN) of the path.
+	NetworkInsightsPathArn *string
+
+	// The ID of the path.
+	NetworkInsightsPathId *string
+
+	// The protocol.
+	Protocol Protocol
+
+	// The AWS resource that is the source of the path.
+	Source *string
+
+	// The IP address of the AWS resource that is the source of the path.
+	SourceIp *string
+
+	// The tags associated with the path.
+	Tags []Tag
+}
+
 // Describes a network interface.
 type NetworkInterface struct {
 
@@ -6185,6 +6670,43 @@ type OnDemandOptionsRequest struct {
 	// Indicates that the fleet uses a single instance type to launch all On-Demand
 	// Instances in the fleet. Supported only for fleets of type instant.
 	SingleInstanceType bool
+}
+
+// Describes a path component.
+type PathComponent struct {
+
+	// The network ACL rule.
+	AclRule *AnalysisAclRule
+
+	// The component.
+	Component *AnalysisComponent
+
+	// The destination VPC.
+	DestinationVpc *AnalysisComponent
+
+	// The inbound header.
+	InboundHeader *AnalysisPacketHeader
+
+	// The outbound header.
+	OutboundHeader *AnalysisPacketHeader
+
+	// The route table route.
+	RouteTableRoute *AnalysisRouteTableRoute
+
+	// The security group rule.
+	SecurityGroupRule *AnalysisSecurityGroupRule
+
+	// The sequence number.
+	SequenceNumber int32
+
+	// The source VPC.
+	SourceVpc *AnalysisComponent
+
+	// The subnet.
+	Subnet *AnalysisComponent
+
+	// The component VPC.
+	Vpc *AnalysisComponent
 }
 
 // Describes the data that identifies an Amazon FPGA image (AFI) on the PCI bus.
@@ -6557,6 +7079,13 @@ type PrincipalIdFormat struct {
 	Statuses []IdFormat
 }
 
+// Information about the Private DNS name for interface endpoints.
+type PrivateDnsDetails struct {
+
+	// The private DNS name assigned to the VPC endpoint service.
+	PrivateDnsName *string
+}
+
 // Information about the private DNS name for the service endpoint. For more
 // information about these parameters, see VPC Endpoint Service Private DNS Name
 // Verification
@@ -6647,6 +7176,14 @@ type ProvisionedBandwidth struct {
 	// (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html), contact
 	// us through the Support Center (https://console.aws.amazon.com/support/home?).
 	Status *string
+}
+
+type PtrUpdateStatus struct {
+	Reason *string
+
+	Status *string
+
+	Value *string
 }
 
 // Describes an IPv4 address pool.
@@ -8006,6 +8543,9 @@ type ServiceDetail struct {
 	// service cannot use the private name when the state is not verified.
 	PrivateDnsNameVerificationState DnsNameState
 
+	// The private DNS names assigned to the VPC endpoint service.
+	PrivateDnsNames []PrivateDnsDetails
+
 	// The ID of the endpoint service.
 	ServiceId *string
 
@@ -9112,17 +9652,20 @@ type TagSpecification struct {
 
 	// The type of resource to tag. Currently, the resource types that support tagging
 	// on creation are: capacity-reservation | carrier-gateway | client-vpn-endpoint |
-	// customer-gateway | dedicated-host | dhcp-options | export-image-task |
-	// export-instance-task | fleet | fpga-image | host-reservation | import-image-task
-	// | import-snapshot-task | instance | internet-gateway | ipv4pool-ec2 |
-	// ipv6pool-ec2 | key-pair | launch-template | placement-group | prefix-list |
-	// natgateway | network-acl | route-table | security-group | spot-fleet-request |
+	// customer-gateway | dedicated-host | dhcp-options | egress-only-internet-gateway
+	// | elastic-ip | elastic-gpu | export-image-task | export-instance-task | fleet |
+	// fpga-image | host-reservation | image| import-image-task | import-snapshot-task
+	// | instance | internet-gateway | ipv4pool-ec2 | ipv6pool-ec2 | key-pair |
+	// launch-template | local-gateway-route-table-vpc-association | placement-group |
+	// prefix-list | natgateway | network-acl | network-interface | reserved-instances
+	// |route-table | security-group| snapshot | spot-fleet-request |
 	// spot-instances-request | snapshot | subnet | traffic-mirror-filter |
 	// traffic-mirror-session | traffic-mirror-target | transit-gateway |
-	// transit-gateway-attachment | transit-gateway-route-table | volume |vpc |
-	// vpc-peering-connection | vpc-endpoint (for interface and gateway endpoints) |
-	// vpc-endpoint-service (for AWS PrivateLink) | vpc-flow-log | vpn-connection |
-	// vpn-gateway. To tag a resource after it has been created, see CreateTags
+	// transit-gateway-attachment | transit-gateway-multicast-domain |
+	// transit-gateway-route-table | volume |vpc |  vpc-peering-connection |
+	// vpc-endpoint (for interface and gateway endpoints) | vpc-endpoint-service (for
+	// AWS PrivateLink) | vpc-flow-log | vpn-connection | vpn-gateway. To tag a
+	// resource after it has been created, see CreateTags
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	ResourceType ResourceType
 
@@ -9523,6 +10066,25 @@ type TransitGatewayAttachmentAssociation struct {
 	TransitGatewayRouteTableId *string
 }
 
+// The BGP configuration information.
+type TransitGatewayAttachmentBgpConfiguration struct {
+
+	// The BGP status.
+	BgpStatus BgpStatus
+
+	// The interior BGP peer IP address for the appliance.
+	PeerAddress *string
+
+	// The peer Autonomous System Number (ASN).
+	PeerAsn int64
+
+	// The interior BGP peer IP address for the transit gateway.
+	TransitGatewayAddress *string
+
+	// The transit gateway Autonomous System Number (ASN).
+	TransitGatewayAsn int64
+}
+
 // Describes a propagation route table.
 type TransitGatewayAttachmentPropagation struct {
 
@@ -9531,6 +10093,86 @@ type TransitGatewayAttachmentPropagation struct {
 
 	// The ID of the propagation route table.
 	TransitGatewayRouteTableId *string
+}
+
+// Describes a transit gateway Connect attachment.
+type TransitGatewayConnect struct {
+
+	// The creation time.
+	CreationTime *time.Time
+
+	// The Connect attachment options.
+	Options *TransitGatewayConnectOptions
+
+	// The state of the attachment.
+	State TransitGatewayAttachmentState
+
+	// The tags for the attachment.
+	Tags []Tag
+
+	// The ID of the Connect attachment.
+	TransitGatewayAttachmentId *string
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string
+
+	// The ID of the attachment from which the Connect attachment was created.
+	TransportTransitGatewayAttachmentId *string
+}
+
+// Describes the Connect attachment options.
+type TransitGatewayConnectOptions struct {
+
+	// The tunnel protocol.
+	Protocol ProtocolValue
+}
+
+// Describes a transit gateway Connect peer.
+type TransitGatewayConnectPeer struct {
+
+	// The Connect peer details.
+	ConnectPeerConfiguration *TransitGatewayConnectPeerConfiguration
+
+	// The creation time.
+	CreationTime *time.Time
+
+	// The state of the Connect peer.
+	State TransitGatewayConnectPeerState
+
+	// The tags for the Connect peer.
+	Tags []Tag
+
+	// The ID of the Connect attachment.
+	TransitGatewayAttachmentId *string
+
+	// The ID of the Connect peer.
+	TransitGatewayConnectPeerId *string
+}
+
+// Describes the Connect peer details.
+type TransitGatewayConnectPeerConfiguration struct {
+
+	// The BGP configuration details.
+	BgpConfigurations []TransitGatewayAttachmentBgpConfiguration
+
+	// The range of interior BGP peer IP addresses.
+	InsideCidrBlocks []string
+
+	// The Connect peer IP address on the appliance side of the tunnel.
+	PeerAddress *string
+
+	// The tunnel protocol.
+	Protocol ProtocolValue
+
+	// The Connect peer IP address on the transit gateway side of the tunnel.
+	TransitGatewayAddress *string
+}
+
+// The BGP options for the Connect attachment.
+type TransitGatewayConnectRequestBgpOptions struct {
+
+	// The peer Autonomous System Number (ASN).
+	PeerAsn int64
 }
 
 // Describes the deregistered transit gateway multicast group members.
@@ -9565,6 +10207,12 @@ type TransitGatewayMulticastDomain struct {
 	// The time the transit gateway multicast domain was created.
 	CreationTime *time.Time
 
+	// The options for the transit gateway multicast domain.
+	Options *TransitGatewayMulticastDomainOptions
+
+	// The ID of the AWS account that owns the transit gateway multiicast domain.
+	OwnerId *string
+
 	// The state of the transit gateway multicast domain.
 	State TransitGatewayMulticastDomainState
 
@@ -9573,6 +10221,9 @@ type TransitGatewayMulticastDomain struct {
 
 	// The ID of the transit gateway.
 	TransitGatewayId *string
+
+	// The Amazon Resource Name (ARN) of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainArn *string
 
 	// The ID of the transit gateway multicast domain.
 	TransitGatewayMulticastDomainId *string
@@ -9583,6 +10234,10 @@ type TransitGatewayMulticastDomainAssociation struct {
 
 	// The ID of the resource.
 	ResourceId *string
+
+	// The ID of the AWS account that owns the transit gateway multicast domain
+	// association resource.
+	ResourceOwnerId *string
 
 	// The type of resource, for example a VPC attachment.
 	ResourceType TransitGatewayAttachmentResourceType
@@ -9600,6 +10255,9 @@ type TransitGatewayMulticastDomainAssociations struct {
 	// The ID of the resource.
 	ResourceId *string
 
+	// The ID of the AWS account that owns the resource.
+	ResourceOwnerId *string
+
 	// The type of resource, for example a VPC attachment.
 	ResourceType TransitGatewayAttachmentResourceType
 
@@ -9611,6 +10269,22 @@ type TransitGatewayMulticastDomainAssociations struct {
 
 	// The ID of the transit gateway multicast domain.
 	TransitGatewayMulticastDomainId *string
+}
+
+// Describes the options for a transit gateway multicast domain.
+type TransitGatewayMulticastDomainOptions struct {
+
+	// Indicates whether to automatically cross-account subnet associations that are
+	// associated with the transit gateway multicast domain.
+	AutoAcceptSharedAssociations AutoAcceptSharedAssociationsValue
+
+	// Indicates whether Internet Group Management Protocol (IGMP) version 2 is turned
+	// on for the transit gateway multicast domain.
+	Igmpv2Support Igmpv2SupportValue
+
+	// Indicates whether support for statically configuring transit gateway multicast
+	// group sources is turned on.
+	StaticSourcesSupport StaticSourcesSupportValue
 }
 
 // Describes the transit gateway multicast group resources.
@@ -9633,6 +10307,10 @@ type TransitGatewayMulticastGroup struct {
 
 	// The ID of the resource.
 	ResourceId *string
+
+	// The ID of the AWS account that owns the transit gateway multicast domain group
+	// resource.
+	ResourceOwnerId *string
 
 	// The type of resource, for example a VPC attachment.
 	ResourceType TransitGatewayAttachmentResourceType
@@ -9704,6 +10382,9 @@ type TransitGatewayOptions struct {
 
 	// The ID of the default propagation route table.
 	PropagationDefaultRouteTableId *string
+
+	// The transit gateway CIDR blocks.
+	TransitGatewayCidrBlocks []string
 
 	// Indicates whether Equal Cost Multipath Protocol support is enabled.
 	VpnEcmpSupport VpnEcmpSupportValue
@@ -9814,6 +10495,10 @@ type TransitGatewayRequestOptions struct {
 
 	// Indicates whether multicast is enabled on the transit gateway
 	MulticastSupport MulticastSupportValue
+
+	// One or more IPv4 or IPv6 CIDR blocks for the transit gateway. Must be a size /24
+	// CIDR block or larger for IPv4, or a size /64 CIDR block or larger for IPv6.
+	TransitGatewayCidrBlocks []string
 
 	// Enable or disable Equal Cost Multipath Protocol support. Enabled by default.
 	VpnEcmpSupport VpnEcmpSupportValue
@@ -10220,20 +10905,10 @@ type Volume struct {
 	// Indicates whether the volume was created using fast snapshot restore.
 	FastRestored bool
 
-	// The number of I/O operations per second (IOPS) that the volume supports. For
-	// Provisioned IOPS SSD volumes, this represents the number of IOPS that are
-	// provisioned for the volume. For General Purpose SSD volumes, this represents the
-	// baseline performance of the volume and the rate at which the volume accumulates
-	// I/O credits for bursting. For more information, see Amazon EBS volume types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. Constraints: Range is 100-16,000 IOPS
-	// for gp2 volumes and 100 to 64,000 IOPS for io1 and io2 volumes, in most Regions.
-	// The maximum IOPS for io1 and io2 of 64,000 is guaranteed only on Nitro-based
-	// instances
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
-	// Other instance families guarantee performance up to 32,000 IOPS. Condition: This
-	// parameter is required for requests to create io1 and io2 volumes; it is not used
-	// in requests to create gp2, st1, sc1, or standard volumes.
+	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
+	// this represents the number of IOPS that are provisioned for the volume. For gp2
+	// volumes, this represents the baseline performance of the volume and the rate at
+	// which the volume accumulates I/O credits for bursting.
 	Iops int32
 
 	// The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS)
@@ -10259,12 +10934,13 @@ type Volume struct {
 	// Any tags assigned to the volume.
 	Tags []Tag
 
+	// The throughput that the volume supports, in MiB/s.
+	Throughput int32
+
 	// The ID of the volume.
 	VolumeId *string
 
-	// The volume type. This can be gp2 for General Purpose SSD, io1 or io2 for
-	// Provisioned IOPS SSD, st1 for Throughput Optimized HDD, sc1 for Cold HDD, or
-	// standard for Magnetic volumes.
+	// The volume type.
 	VolumeType VolumeType
 }
 
@@ -10313,8 +10989,14 @@ type VolumeModification struct {
 	// The original IOPS rate of the volume.
 	OriginalIops int32
 
+	// The original setting for Amazon EBS Multi-Attach.
+	OriginalMultiAttachEnabled bool
+
 	// The original size of the volume, in GiB.
 	OriginalSize int32
+
+	// The original throughput of the volume, in MiB/s.
+	OriginalThroughput int32
 
 	// The original EBS volume type of the volume.
 	OriginalVolumeType VolumeType
@@ -10331,8 +11013,14 @@ type VolumeModification struct {
 	// The target IOPS rate of the volume.
 	TargetIops int32
 
+	// The target setting for Amazon EBS Multi-Attach.
+	TargetMultiAttachEnabled bool
+
 	// The target size of the volume, in GiB.
 	TargetSize int32
+
+	// The target throughput of the volume, in MiB/s.
+	TargetThroughput int32
 
 	// The target EBS volume type of the volume.
 	TargetVolumeType VolumeType

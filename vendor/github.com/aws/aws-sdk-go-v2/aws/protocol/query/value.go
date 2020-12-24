@@ -1,9 +1,10 @@
 package query
 
 import (
-	"github.com/awslabs/smithy-go/httpbinding"
 	"math/big"
 	"net/url"
+
+	"github.com/aws/smithy-go/encoding/httpbinding"
 )
 
 // Value represents a Query Value type.

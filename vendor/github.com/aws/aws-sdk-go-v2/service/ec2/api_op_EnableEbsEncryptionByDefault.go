@@ -6,14 +6,14 @@ import (
 	"context"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Enables EBS encryption by default for your account in the current Region. After
 // you enable encryption by default, the EBS volumes that you create are are always
 // encrypted, either using the default CMK or the CMK that you specified when you
-// created each volume. For more information, see Amazon EBS Encryption
+// created each volume. For more information, see Amazon EBS encryption
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 // Amazon Elastic Compute Cloud User Guide. You can specify the default CMK for
 // encryption by default using ModifyEbsDefaultKmsKeyId or ResetEbsDefaultKmsKeyId.

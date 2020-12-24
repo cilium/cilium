@@ -9,10 +9,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
-	smithy "github.com/awslabs/smithy-go"
-	"github.com/awslabs/smithy-go/logging"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	smithy "github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"net/http"
 	"time"
 )
@@ -183,23 +183,30 @@ func addClientUserAgent(stack *middleware.Stack) error {
 }
 
 func addHTTPSignerV4Middleware(stack *middleware.Stack, o Options) error {
-	return stack.Finalize.Add(v4.NewSignHTTPRequestMiddleware(o.Credentials, o.HTTPSignerV4), middleware.After)
+	mw := v4.NewSignHTTPRequestMiddleware(v4.SignHTTPRequestMiddlewareOptions{
+		CredentialsProvider: o.Credentials,
+		Signer:              o.HTTPSignerV4,
+		LogSigning:          o.ClientLogMode.IsSigning(),
+	})
+	return stack.Finalize.Add(mw, middleware.After)
 }
 
 type HTTPSignerV4 interface {
-	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time) error
+	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(*v4.SignerOptions)) error
 }
 
 func resolveHTTPSignerV4(o *Options) {
 	if o.HTTPSignerV4 != nil {
 		return
 	}
-	o.HTTPSignerV4 = v4.NewSigner(
-		func(s *v4.Signer) {
-			s.Logger = o.Logger
-			s.LogSigning = o.ClientLogMode.IsSigning()
-		},
-	)
+	o.HTTPSignerV4 = newDefaultV4Signer(*o)
+}
+
+func newDefaultV4Signer(o Options) *v4.Signer {
+	return v4.NewSigner(func(so *v4.SignerOptions) {
+		so.Logger = o.Logger
+		so.LogSigning = o.ClientLogMode.IsSigning()
+	})
 }
 
 func addRetryMiddlewares(stack *middleware.Stack, o Options) error {

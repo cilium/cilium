@@ -4,11 +4,16 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithytime "github.com/aws/smithy-go/time"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
+	smithywaiter "github.com/aws/smithy-go/waiter"
+	"github.com/jmespath/go-jmespath"
+	"time"
 )
 
 // Describes the specified conversion tasks or all your conversion tasks. For more
@@ -107,6 +112,540 @@ func addOperationDescribeConversionTasksMiddlewares(stack *middleware.Stack, opt
 		return err
 	}
 	return nil
+}
+
+// DescribeConversionTasksAPIClient is a client that implements the
+// DescribeConversionTasks operation.
+type DescribeConversionTasksAPIClient interface {
+	DescribeConversionTasks(context.Context, *DescribeConversionTasksInput, ...func(*Options)) (*DescribeConversionTasksOutput, error)
+}
+
+var _ DescribeConversionTasksAPIClient = (*Client)(nil)
+
+// ConversionTaskCancelledWaiterOptions are waiter options for
+// ConversionTaskCancelledWaiter
+type ConversionTaskCancelledWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// ConversionTaskCancelledWaiter will use default minimum delay of 15 seconds. Note
+	// that MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, ConversionTaskCancelledWaiter will use default max delay of 120
+	// seconds. Note that MaxDelay must resolve to value greater than or equal to the
+	// MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeConversionTasksInput, *DescribeConversionTasksOutput, error) (bool, error)
+}
+
+// ConversionTaskCancelledWaiter defines the waiters for ConversionTaskCancelled
+type ConversionTaskCancelledWaiter struct {
+	client DescribeConversionTasksAPIClient
+
+	options ConversionTaskCancelledWaiterOptions
+}
+
+// NewConversionTaskCancelledWaiter constructs a ConversionTaskCancelledWaiter.
+func NewConversionTaskCancelledWaiter(client DescribeConversionTasksAPIClient, optFns ...func(*ConversionTaskCancelledWaiterOptions)) *ConversionTaskCancelledWaiter {
+	options := ConversionTaskCancelledWaiterOptions{}
+	options.MinDelay = 15 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = conversionTaskCancelledStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &ConversionTaskCancelledWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for ConversionTaskCancelled waiter. The
+// maxWaitDur is the maximum wait duration the waiter will wait. The maxWaitDur is
+// required and must be greater than zero.
+func (w *ConversionTaskCancelledWaiter) Wait(ctx context.Context, params *DescribeConversionTasksInput, maxWaitDur time.Duration, optFns ...func(*ConversionTaskCancelledWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeConversionTasks(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for ConversionTaskCancelled waiter")
+}
+
+func conversionTaskCancelledStateRetryable(ctx context.Context, input *DescribeConversionTasksInput, output *DescribeConversionTasksOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("ConversionTasks[].State", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "cancelled"
+		var match = true
+		listOfValues, ok := pathValue.([]string)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+		}
+
+		if len(listOfValues) == 0 {
+			match = false
+		}
+		for _, v := range listOfValues {
+			if v != expectedValue {
+				match = false
+			}
+		}
+
+		if match {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// ConversionTaskCompletedWaiterOptions are waiter options for
+// ConversionTaskCompletedWaiter
+type ConversionTaskCompletedWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// ConversionTaskCompletedWaiter will use default minimum delay of 15 seconds. Note
+	// that MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, ConversionTaskCompletedWaiter will use default max delay of 120
+	// seconds. Note that MaxDelay must resolve to value greater than or equal to the
+	// MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeConversionTasksInput, *DescribeConversionTasksOutput, error) (bool, error)
+}
+
+// ConversionTaskCompletedWaiter defines the waiters for ConversionTaskCompleted
+type ConversionTaskCompletedWaiter struct {
+	client DescribeConversionTasksAPIClient
+
+	options ConversionTaskCompletedWaiterOptions
+}
+
+// NewConversionTaskCompletedWaiter constructs a ConversionTaskCompletedWaiter.
+func NewConversionTaskCompletedWaiter(client DescribeConversionTasksAPIClient, optFns ...func(*ConversionTaskCompletedWaiterOptions)) *ConversionTaskCompletedWaiter {
+	options := ConversionTaskCompletedWaiterOptions{}
+	options.MinDelay = 15 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = conversionTaskCompletedStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &ConversionTaskCompletedWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for ConversionTaskCompleted waiter. The
+// maxWaitDur is the maximum wait duration the waiter will wait. The maxWaitDur is
+// required and must be greater than zero.
+func (w *ConversionTaskCompletedWaiter) Wait(ctx context.Context, params *DescribeConversionTasksInput, maxWaitDur time.Duration, optFns ...func(*ConversionTaskCompletedWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeConversionTasks(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for ConversionTaskCompleted waiter")
+}
+
+func conversionTaskCompletedStateRetryable(ctx context.Context, input *DescribeConversionTasksInput, output *DescribeConversionTasksOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("ConversionTasks[].State", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "completed"
+		var match = true
+		listOfValues, ok := pathValue.([]string)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+		}
+
+		if len(listOfValues) == 0 {
+			match = false
+		}
+		for _, v := range listOfValues {
+			if v != expectedValue {
+				match = false
+			}
+		}
+
+		if match {
+			return false, nil
+		}
+	}
+
+	if err == nil {
+		pathValue, err := jmespath.Search("ConversionTasks[].State", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "cancelled"
+		listOfValues, ok := pathValue.([]string)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+		}
+
+		for _, v := range listOfValues {
+			if v == expectedValue {
+				return false, fmt.Errorf("waiter state transitioned to Failure")
+			}
+		}
+	}
+
+	if err == nil {
+		pathValue, err := jmespath.Search("ConversionTasks[].State", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "cancelling"
+		listOfValues, ok := pathValue.([]string)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+		}
+
+		for _, v := range listOfValues {
+			if v == expectedValue {
+				return false, fmt.Errorf("waiter state transitioned to Failure")
+			}
+		}
+	}
+
+	return true, nil
+}
+
+// ConversionTaskDeletedWaiterOptions are waiter options for
+// ConversionTaskDeletedWaiter
+type ConversionTaskDeletedWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// ConversionTaskDeletedWaiter will use default minimum delay of 15 seconds. Note
+	// that MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, ConversionTaskDeletedWaiter will use default max delay of 120 seconds.
+	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeConversionTasksInput, *DescribeConversionTasksOutput, error) (bool, error)
+}
+
+// ConversionTaskDeletedWaiter defines the waiters for ConversionTaskDeleted
+type ConversionTaskDeletedWaiter struct {
+	client DescribeConversionTasksAPIClient
+
+	options ConversionTaskDeletedWaiterOptions
+}
+
+// NewConversionTaskDeletedWaiter constructs a ConversionTaskDeletedWaiter.
+func NewConversionTaskDeletedWaiter(client DescribeConversionTasksAPIClient, optFns ...func(*ConversionTaskDeletedWaiterOptions)) *ConversionTaskDeletedWaiter {
+	options := ConversionTaskDeletedWaiterOptions{}
+	options.MinDelay = 15 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = conversionTaskDeletedStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &ConversionTaskDeletedWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for ConversionTaskDeleted waiter. The maxWaitDur
+// is the maximum wait duration the waiter will wait. The maxWaitDur is required
+// and must be greater than zero.
+func (w *ConversionTaskDeletedWaiter) Wait(ctx context.Context, params *DescribeConversionTasksInput, maxWaitDur time.Duration, optFns ...func(*ConversionTaskDeletedWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeConversionTasks(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for ConversionTaskDeleted waiter")
+}
+
+func conversionTaskDeletedStateRetryable(ctx context.Context, input *DescribeConversionTasksInput, output *DescribeConversionTasksOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("ConversionTasks[].State", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "deleted"
+		var match = true
+		listOfValues, ok := pathValue.([]string)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+		}
+
+		if len(listOfValues) == 0 {
+			match = false
+		}
+		for _, v := range listOfValues {
+			if v != expectedValue {
+				match = false
+			}
+		}
+
+		if match {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func newServiceMetadataMiddleware_opDescribeConversionTasks(region string) *awsmiddleware.RegisterServiceMetadata {

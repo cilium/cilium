@@ -7,8 +7,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
@@ -18,7 +18,7 @@ import (
 // product codes that are associated with the source volume are propagated to the
 // snapshot. You can take a snapshot of an attached volume that is in use. However,
 // snapshots only capture data that has been written to your EBS volume at the time
-// the snapshot command is issued; this may exclude any data that has been cached
+// the snapshot command is issued; this might exclude any data that has been cached
 // by any applications or the operating system. If you can pause any file systems
 // on the volume long enough to take a snapshot, your snapshot should be complete.
 // However, if you cannot pause all file writes to the volume, you should unmount
@@ -35,7 +35,7 @@ import (
 // Amazon Elastic Compute Cloud User Guide. For more information, see Amazon
 // Elastic Block Store
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AmazonEBS.html) and Amazon
-// EBS Encryption
+// EBS encryption
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput, optFns ...func(*Options)) (*CreateSnapshotOutput, error) {

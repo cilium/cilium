@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // ResponseError provides the HTTP centric error type wrapping the underlying error

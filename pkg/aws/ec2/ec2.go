@@ -30,7 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/ec2imds"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
@@ -61,13 +61,13 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 
 // NewConfig returns a new aws.Config configured with the correct region + endpoint resolver
 func NewConfig(ctx context.Context) (aws.Config, error) {
-	cfg, err := awsconfig.LoadDefaultConfig()
+	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("unable to load AWS configuration: %w", err)
 	}
 
-	metadataClient := ec2imds.NewFromConfig(cfg)
-	instance, err := metadataClient.GetInstanceIdentityDocument(ctx, &ec2imds.GetInstanceIdentityDocumentInput{})
+	metadataClient := imds.NewFromConfig(cfg)
+	instance, err := metadataClient.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("unable to retrieve instance identity document: %w", err)
 	}

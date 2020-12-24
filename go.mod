@@ -11,11 +11,11 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
-	github.com/aws/aws-sdk-go-v2 v0.30.0
-	github.com/aws/aws-sdk-go-v2/config v0.3.0
-	github.com/aws/aws-sdk-go-v2/ec2imds v0.1.5
-	github.com/aws/aws-sdk-go-v2/service/ec2 v0.30.0
-	github.com/awslabs/smithy-go v0.4.0
+	github.com/aws/aws-sdk-go-v2 v0.31.0
+	github.com/aws/aws-sdk-go-v2/config v0.4.0
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v0.1.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v0.31.0
+	github.com/aws/smithy-go v0.5.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e

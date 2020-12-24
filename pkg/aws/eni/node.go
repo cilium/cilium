@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/awslabs/smithy-go"
+	"github.com/aws/smithy-go"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"

@@ -16,5 +16,5 @@
 // implement the same provider interface, priority will be handled by the order in which the sources were passed in.
 //
 // A number of helpers (prefixed by ``With``)  are provided in this package that implement their respective provider
-// interface. These helpers should be used for overriding configuration programatically at runtime.
+// interface. These helpers should be used for overriding configuration programmatically at runtime.
 package config

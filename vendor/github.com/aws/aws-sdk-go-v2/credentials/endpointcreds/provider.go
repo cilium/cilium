@@ -33,11 +33,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client"
-	"github.com/awslabs/smithy-go/middleware"
+	"github.com/aws/smithy-go/middleware"
 )
 
 // ProviderName is the name of the credentials provider.
@@ -65,17 +64,6 @@ type HTTPClient interface {
 
 // Options is structure of configurable options for Provider
 type Options struct {
-	// ExpiryWindow will allow the credentials to trigger refreshing prior to
-	// the credentials actually expiring. This is beneficial so race conditions
-	// with expiring credentials do not cause request to fail unexpectedly
-	// due to ExpiredTokenException exceptions.
-	//
-	// So a ExpiryWindow of 10s would cause calls to IsExpired() to return true
-	// 10 seconds before the credentials are actually expired.
-	//
-	// If ExpiryWindow is 0 or less it will be ignored.
-	ExpiryWindow time.Duration
-
 	// Endpoint to retrieve credentials from. Required
 	Endpoint string
 
@@ -134,7 +122,7 @@ func (p *Provider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 
 	if resp.Expiration != nil {
 		creds.CanExpire = true
-		creds.Expires = resp.Expiration.Add(-p.options.ExpiryWindow)
+		creds.Expires = *resp.Expiration
 	}
 
 	return creds, nil

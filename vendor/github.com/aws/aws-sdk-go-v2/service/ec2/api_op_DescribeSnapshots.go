@@ -8,8 +8,12 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithytime "github.com/aws/smithy-go/time"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
+	smithywaiter "github.com/aws/smithy-go/waiter"
+	"github.com/jmespath/go-jmespath"
+	"time"
 )
 
 // Describes the specified EBS snapshots available to you or all of the EBS
@@ -51,7 +55,7 @@ import (
 // passed to a subsequent DescribeSnapshots request to retrieve the remaining
 // results. To get the state of fast snapshot restores for a snapshot, use
 // DescribeFastSnapshotRestores. For more information about EBS snapshots, see
-// Amazon EBS Snapshots
+// Amazon EBS snapshots
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeSnapshots(ctx context.Context, params *DescribeSnapshotsInput, optFns ...func(*Options)) (*DescribeSnapshotsOutput, error) {
@@ -125,10 +129,10 @@ type DescribeSnapshotsInput struct {
 	// MaxResults results in a single page along with a NextToken response element. The
 	// remaining results of the initial request can be seen by sending another
 	// DescribeSnapshots request with the returned NextToken value. This value can be
-	// between 5 and 1000; if MaxResults is given a value larger than 1000, only 1000
-	// results are returned. If this parameter is not used, then DescribeSnapshots
-	// returns all results. You cannot specify this parameter and the snapshot IDs
-	// parameter in the same request.
+	// between 5 and 1,000; if MaxResults is given a value larger than 1,000, only
+	// 1,000 results are returned. If this parameter is not used, then
+	// DescribeSnapshots returns all results. You cannot specify this parameter and the
+	// snapshot IDs parameter in the same request.
 	MaxResults int32
 
 	// The NextToken value returned from a previous paginated DescribeSnapshots request
@@ -236,10 +240,10 @@ type DescribeSnapshotsPaginatorOptions struct {
 	// MaxResults results in a single page along with a NextToken response element. The
 	// remaining results of the initial request can be seen by sending another
 	// DescribeSnapshots request with the returned NextToken value. This value can be
-	// between 5 and 1000; if MaxResults is given a value larger than 1000, only 1000
-	// results are returned. If this parameter is not used, then DescribeSnapshots
-	// returns all results. You cannot specify this parameter and the snapshot IDs
-	// parameter in the same request.
+	// between 5 and 1,000; if MaxResults is given a value larger than 1,000, only
+	// 1,000 results are returned. If this parameter is not used, then
+	// DescribeSnapshots returns all results. You cannot specify this parameter and the
+	// snapshot IDs parameter in the same request.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -309,6 +313,167 @@ func (p *DescribeSnapshotsPaginator) NextPage(ctx context.Context, optFns ...fun
 	}
 
 	return result, nil
+}
+
+// SnapshotCompletedWaiterOptions are waiter options for SnapshotCompletedWaiter
+type SnapshotCompletedWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	APIOptions []func(*middleware.Stack) error
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// SnapshotCompletedWaiter will use default minimum delay of 15 seconds. Note that
+	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
+	// to zero, SnapshotCompletedWaiter will use default max delay of 120 seconds. Note
+	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state. By
+	// default service-modeled logic will populate this option. This option can thus be
+	// used to define a custom waiter state with fall-back to service-modeled waiter
+	// state mutators.The function returns an error in case of a failure state. In case
+	// of retry state, this function returns a bool value of true and nil error, while
+	// in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeSnapshotsInput, *DescribeSnapshotsOutput, error) (bool, error)
+}
+
+// SnapshotCompletedWaiter defines the waiters for SnapshotCompleted
+type SnapshotCompletedWaiter struct {
+	client DescribeSnapshotsAPIClient
+
+	options SnapshotCompletedWaiterOptions
+}
+
+// NewSnapshotCompletedWaiter constructs a SnapshotCompletedWaiter.
+func NewSnapshotCompletedWaiter(client DescribeSnapshotsAPIClient, optFns ...func(*SnapshotCompletedWaiterOptions)) *SnapshotCompletedWaiter {
+	options := SnapshotCompletedWaiterOptions{}
+	options.MinDelay = 15 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = snapshotCompletedStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &SnapshotCompletedWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for SnapshotCompleted waiter. The maxWaitDur is
+// the maximum wait duration the waiter will wait. The maxWaitDur is required and
+// must be greater than zero.
+func (w *SnapshotCompletedWaiter) Wait(ctx context.Context, params *DescribeSnapshotsInput, maxWaitDur time.Duration, optFns ...func(*SnapshotCompletedWaiterOptions)) error {
+	if maxWaitDur <= 0 {
+		return fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeSnapshots(ctx, params, func(o *Options) {
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return err
+		}
+		if !retryable {
+			return nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return fmt.Errorf("exceeded max wait time for SnapshotCompleted waiter")
+}
+
+func snapshotCompletedStateRetryable(ctx context.Context, input *DescribeSnapshotsInput, output *DescribeSnapshotsOutput, err error) (bool, error) {
+
+	if err == nil {
+		pathValue, err := jmespath.Search("Snapshots[].State", output)
+		if err != nil {
+			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		}
+
+		expectedValue := "completed"
+		var match = true
+		listOfValues, ok := pathValue.([]string)
+		if !ok {
+			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+		}
+
+		if len(listOfValues) == 0 {
+			match = false
+		}
+		for _, v := range listOfValues {
+			if v != expectedValue {
+				match = false
+			}
+		}
+
+		if match {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func newServiceMetadataMiddleware_opDescribeSnapshots(region string) *awsmiddleware.RegisterServiceMetadata {

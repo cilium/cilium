@@ -8,9 +8,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/internal/rand"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyrand "github.com/awslabs/smithy-go/rand"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyrand "github.com/aws/smithy-go/rand"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // ClientRequestID is a Smithy BuildMiddleware that will generate a unique ID for logical API operation

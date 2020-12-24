@@ -7,8 +7,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Searches for routes in the specified transit gateway route table.
@@ -39,30 +39,30 @@ type SearchTransitGatewayRoutesInput struct {
 	// attachment.
 	//
 	// * attachment.resource-type - The attachment resource type. Valid
-	// values are vpc | vpn | direct-connect-gateway | peering.
+	// values are vpc | vpn | direct-connect-gateway | peering | connect.
 	//
-	// * prefix-list-id - The
-	// ID of the prefix list.
+	// *
+	// prefix-list-id - The ID of the prefix list.
 	//
-	// * route-search.exact-match - The exact match of the
-	// specified filter.
+	// * route-search.exact-match - The
+	// exact match of the specified filter.
 	//
-	// * route-search.longest-prefix-match - The longest prefix that
-	// matches the route.
+	// * route-search.longest-prefix-match - The
+	// longest prefix that matches the route.
 	//
-	// * route-search.subnet-of-match - The routes with a subnet
-	// that match the specified CIDR filter.
+	// * route-search.subnet-of-match - The
+	// routes with a subnet that match the specified CIDR filter.
 	//
-	// * route-search.supernet-of-match - The
-	// routes with a CIDR that encompass the CIDR filter. For example, if you have
-	// 10.0.1.0/29 and 10.0.1.0/31 routes in your route table and you specify
-	// supernet-of-match as 10.0.1.0/30, then the result returns 10.0.1.0/29.
+	// *
+	// route-search.supernet-of-match - The routes with a CIDR that encompass the CIDR
+	// filter. For example, if you have 10.0.1.0/29 and 10.0.1.0/31 routes in your
+	// route table and you specify supernet-of-match as 10.0.1.0/30, then the result
+	// returns 10.0.1.0/29.
 	//
-	// * state
-	// - The state of the route (active | blackhole).
+	// * state - The state of the route (active | blackhole).
 	//
-	// * type - The type of route
-	// (propagated | static).
+	// *
+	// type - The type of route (propagated | static).
 	//
 	// This member is required.
 	Filters []types.Filter

@@ -11,11 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
-	smithy "github.com/awslabs/smithy-go"
-	"github.com/awslabs/smithy-go/logging"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyrand "github.com/awslabs/smithy-go/rand"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	smithy "github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
+	smithyrand "github.com/aws/smithy-go/rand"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"net/http"
 	"time"
 )
@@ -192,23 +192,30 @@ func addClientUserAgent(stack *middleware.Stack) error {
 }
 
 func addHTTPSignerV4Middleware(stack *middleware.Stack, o Options) error {
-	return stack.Finalize.Add(v4.NewSignHTTPRequestMiddleware(o.Credentials, o.HTTPSignerV4), middleware.After)
+	mw := v4.NewSignHTTPRequestMiddleware(v4.SignHTTPRequestMiddlewareOptions{
+		CredentialsProvider: o.Credentials,
+		Signer:              o.HTTPSignerV4,
+		LogSigning:          o.ClientLogMode.IsSigning(),
+	})
+	return stack.Finalize.Add(mw, middleware.After)
 }
 
 type HTTPSignerV4 interface {
-	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time) error
+	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(*v4.SignerOptions)) error
 }
 
 func resolveHTTPSignerV4(o *Options) {
 	if o.HTTPSignerV4 != nil {
 		return
 	}
-	o.HTTPSignerV4 = v4.NewSigner(
-		func(s *v4.Signer) {
-			s.Logger = o.Logger
-			s.LogSigning = o.ClientLogMode.IsSigning()
-		},
-	)
+	o.HTTPSignerV4 = newDefaultV4Signer(*o)
+}
+
+func newDefaultV4Signer(o Options) *v4.Signer {
+	return v4.NewSigner(func(so *v4.SignerOptions) {
+		so.Logger = o.Logger
+		so.LogSigning = o.ClientLogMode.IsSigning()
+	})
 }
 
 func resolveIdempotencyTokenProvider(o *Options) {
@@ -253,6 +260,7 @@ type HTTPPresignerV4 interface {
 	PresignHTTP(
 		ctx context.Context, credentials aws.Credentials, r *http.Request,
 		payloadHash string, service string, region string, signingTime time.Time,
+		optFns ...func(*v4.SignerOptions),
 	) (url string, signedHeader http.Header, err error)
 }
 
@@ -260,11 +268,18 @@ type HTTPPresignerV4 interface {
 type PresignOptions struct {
 
 	// ClientOptions are list of functional options to mutate client options used by
-	// presign client
+	// the presign client.
 	ClientOptions []func(*Options)
 
 	// Presigner is the presigner used by the presign url client
 	Presigner HTTPPresignerV4
+}
+
+func (o PresignOptions) copy() PresignOptions {
+	clientOptions := make([]func(*Options), len(o.ClientOptions))
+	copy(clientOptions, o.ClientOptions)
+	o.ClientOptions = clientOptions
+	return o
 }
 
 // WithPresignClientFromClientOptions is a helper utility to retrieve a function
@@ -281,37 +296,47 @@ func (w withPresignClientFromClientOptions) options(o *PresignOptions) {
 
 // PresignClient represents the presign url client
 type PresignClient struct {
-	client    *Client
-	presigner HTTPPresignerV4
+	client  *Client
+	options PresignOptions
 }
 
 // NewPresignClient generates a presign client using provided API Client and
 // presign options
 func NewPresignClient(c *Client, optFns ...func(*PresignOptions)) *PresignClient {
-	var presignOptions PresignOptions
+	var options PresignOptions
 	for _, fn := range optFns {
-		fn(&presignOptions)
+		fn(&options)
 	}
-	client := copyAPIClient(c, presignOptions.ClientOptions...)
-	if presignOptions.Presigner == nil {
-		presignOptions.Presigner = v4.NewSigner()
+	if len(options.ClientOptions) != 0 {
+		c = New(c.options, options.ClientOptions...)
+	}
+
+	if options.Presigner == nil {
+		options.Presigner = newDefaultV4Signer(c.options)
 	}
 
 	return &PresignClient{
-		client:    client,
-		presigner: presignOptions.Presigner,
+		client:  c,
+		options: options,
 	}
 }
 
-func copyAPIClient(c *Client, optFns ...func(*Options)) *Client {
-	return New(c.options, optFns...)
+func withNopHTTPClientAPIOption(o *Options) {
+	o.HTTPClient = smithyhttp.NopClient{}
 }
 
-func (c *PresignClient) convertToPresignMiddleware(stack *middleware.Stack, options Options) (err error) {
+type presignConverter PresignOptions
+
+func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, options Options) (err error) {
 	stack.Finalize.Clear()
 	stack.Deserialize.Clear()
 	stack.Build.Remove((*awsmiddleware.ClientRequestID)(nil).ID())
-	err = stack.Finalize.Add(v4.NewPresignHTTPRequestMiddleware(options.Credentials, c.presigner), middleware.After)
+	pmw := v4.NewPresignHTTPRequestMiddleware(v4.PresignHTTPRequestMiddlewareOptions{
+		CredentialsProvider: options.Credentials,
+		Presigner:           c.Presigner,
+		LogSigning:          options.ClientLogMode.IsSigning(),
+	})
+	err = stack.Finalize.Add(pmw, middleware.After)
 	if err != nil {
 		return err
 	}

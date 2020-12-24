@@ -32,7 +32,7 @@
 // using, the credential process will not be used.
 //
 //     // Initialize a session to load credentials.
-// 	cfg, _ := config.LoadDefaultConfig()
+//     cfg, _ := config.LoadDefaultConfig(context.TODO())
 //
 //     // Create S3 service client to use the credentials.
 //     svc := s3.NewFromConfig(cfg)

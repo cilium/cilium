@@ -23,8 +23,9 @@ import (
 // The following example demonstrates using the AnonymousCredentials to prevent
 // SDK's external config loading attempt to resolve credentials.
 //
-//     cfg, err := config.LoadDefaultConfig(
-//          config.WithCredentialsProvider(aws.AnonymousCredentials{}))
+//     cfg, err := config.LoadDefaultConfig(context.TODO(),
+//          config.WithCredentialsProvider(aws.AnonymousCredentials{}),
+//     )
 //     if err != nil {
 //          log.Fatalf("failed to load config, %v", err)
 //     }
@@ -42,7 +43,7 @@ import (
 //
 // This can also be configured for specific operations calls too.
 //
-//     cfg, err := config.LoadDefaultConfig()
+//     cfg, err := config.LoadDefaultConfig(context.TODO())
 //     if err != nil {
 //          log.Fatalf("failed to load config, %v", err)
 //     }
@@ -109,7 +110,7 @@ func (v Credentials) HasKeys() bool {
 //
 // A credentials provider implementation can be wrapped with a CredentialCache
 // to cache the credential value retrieved. Without the cache the SDK will
-// attempt to retrieve the credentials for ever request.
+// attempt to retrieve the credentials for every request.
 type CredentialsProvider interface {
 	// Retrieve returns nil if it successfully retrieved the value.
 	// Error is returned if the value were not obtainable, or empty.

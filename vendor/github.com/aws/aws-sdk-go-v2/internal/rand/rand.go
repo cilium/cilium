@@ -16,7 +16,7 @@ var Reader io.Reader
 
 var floatMaxBigInt = big.NewInt(1 << 53)
 
-// Float64 returns a float64 read from an io.Reader source.
+// Float64 returns a float64 read from an io.Reader source. The returned float will be between [0.0, 1.0).
 func Float64(reader io.Reader) (float64, error) {
 	bi, err := rand.Int(reader, floatMaxBigInt)
 	if err != nil {

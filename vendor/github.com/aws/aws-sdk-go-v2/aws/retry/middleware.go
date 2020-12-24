@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddle "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
-	"github.com/awslabs/smithy-go/logging"
-	smithymiddle "github.com/awslabs/smithy-go/middleware"
-	"github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/logging"
+	smithymiddle "github.com/aws/smithy-go/middleware"
+	"github.com/aws/smithy-go/transport/http"
 )
 
 // RequestCloner is a function that can take an input request type and clone the request

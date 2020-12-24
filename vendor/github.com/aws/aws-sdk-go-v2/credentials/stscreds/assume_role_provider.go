@@ -16,7 +16,7 @@
 // 	// Initial credentials loaded from SDK's default credential chain. Such as
 // 	// the environment, shared credentials (~/.aws/credentials), or EC2 Instance
 // 	// Role. These credentials will be used to to make the STS Assume Role API.
-// 	cfg, err := config.LoadDefaultConfig()
+// 	cfg, err := config.LoadDefaultConfig(context.TODO())
 // 	if err != nil {
 // 		panic(err)
 // 	}
@@ -43,7 +43,7 @@
 // With TokenCode the AssumeRoleProvider will be not be able to refresh the role's
 // credentials.
 //
-// 	cfg, err := config.LoadDefaultConfig()
+// 	cfg, err := config.LoadDefaultConfig(context.TODO())
 // 	if err != nil {
 // 		panic(err)
 // 	}
@@ -76,7 +76,7 @@
 // have undesirable results as the StdinTokenProvider will not be synchronized. A
 // single Credentials with an AssumeRoleProvider can be shared safely.
 //
-// 	cfg, err := config.LoadDefaultConfig()
+// 	cfg, err := config.LoadDefaultConfig(context.TODO())
 // 	if err != nil {
 // 		panic(err)
 // 	}
@@ -215,17 +215,6 @@ type AssumeRoleOptions struct {
 	// If both TokenCode and TokenProvider is set, TokenProvider will be used and
 	// TokenCode is ignored.
 	TokenProvider func() (string, error)
-
-	// ExpiryWindow will allow the credentials to trigger refreshing prior to
-	// the credentials actually expiring. This is beneficial so race conditions
-	// with expiring credentials do not cause request to fail unexpectedly
-	// due to ExpiredTokenException exceptions.
-	//
-	// So a ExpiryWindow of 10s would cause calls to IsExpired() to return true
-	// 10 seconds before the credentials are actually expired.
-	//
-	// If ExpiryWindow is 0 or less it will be ignored.
-	ExpiryWindow time.Duration
 }
 
 // NewAssumeRoleProvider constructs and returns a credentials provider that
@@ -291,6 +280,6 @@ func (p *AssumeRoleProvider) Retrieve(ctx context.Context) (aws.Credentials, err
 		Source:          ProviderName,
 
 		CanExpire: true,
-		Expires:   resp.Credentials.Expiration.Add(-p.options.ExpiryWindow),
+		Expires:   *resp.Credentials.Expiration,
 	}, nil
 }
