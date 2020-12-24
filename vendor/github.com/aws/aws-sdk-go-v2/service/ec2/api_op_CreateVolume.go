@@ -7,20 +7,18 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
 // Creates an EBS volume that can be attached to an instance in the same
-// Availability Zone. The volume is created in the regional endpoint that you send
-// the HTTP request to. For more information see Regions and Endpoints
-// (https://docs.aws.amazon.com/general/latest/gr/rande.html). You can create a new
-// empty volume or restore a volume from an EBS snapshot. Any AWS Marketplace
-// product codes from the snapshot are propagated to the volume. You can create
-// encrypted volumes. Encrypted volumes must be attached to instances that support
-// Amazon EBS encryption. Volumes that are created from encrypted snapshots are
-// also automatically encrypted. For more information, see Amazon EBS Encryption
+// Availability Zone. You can create a new empty volume or restore a volume from an
+// EBS snapshot. Any AWS Marketplace product codes from the snapshot are propagated
+// to the volume. You can create encrypted volumes. Encrypted volumes must be
+// attached to instances that support Amazon EBS encryption. Volumes that are
+// created from encrypted snapshots are also automatically encrypted. For more
+// information, see Amazon EBS encryption
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 // Amazon Elastic Compute Cloud User Guide. You can tag your volumes during
 // creation. For more information, see Tagging your Amazon EC2 resources
@@ -57,7 +55,7 @@ type CreateVolumeInput struct {
 	// UnauthorizedOperation.
 	DryRun bool
 
-	// Specifies whether the volume should be encrypted. The effect of setting the
+	// Indicates whether the volume should be encrypted. The effect of setting the
 	// encryption state to true depends on the volume origin (new or from a snapshot),
 	// starting encryption state, ownership, and whether encryption by default is
 	// enabled. For more information, see Encryption by default
@@ -68,16 +66,25 @@ type CreateVolumeInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
 	Encrypted bool
 
-	// The number of I/O operations per second (IOPS) to provision for an io1 or io2
-	// volume, with a maximum ratio of 50 IOPS/GiB for io1, and 500 IOPS/GiB for io2.
-	// Range is 100 to 64,000 IOPS for volumes in most Regions. Maximum IOPS of 64,000
-	// is guaranteed only on Nitro-based instances
+	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
+	// this represents the number of IOPS that are provisioned for the volume. For gp2
+	// volumes, this represents the baseline performance of the volume and the rate at
+	// which the volume accumulates I/O credits for bursting. The following are the
+	// supported values for each volume type:
+	//
+	// * gp3: 3,000-16,000 IOPS
+	//
+	// * io1:
+	// 100-64,000 IOPS
+	//
+	// * io2: 100-64,000 IOPS
+	//
+	// For io1 and io2 volumes, we guarantee
+	// 64,000 IOPS only for Instances built on the Nitro System
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
-	// Other instance families guarantee performance up to 32,000 IOPS. For more
-	// information, see Amazon EBS volume types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. This parameter is valid only for
-	// Provisioned IOPS SSD (io1 and io2) volumes.
+	// Other instance families guarantee performance up to 32,000 IOPS. This parameter
+	// is required for io1 and io2 volumes. The default for gp3 volumes is 3,000 IOPS.
+	// This parameter is not supported for gp2, st1, sc1, or standard volumes.
 	Iops int32
 
 	// The identifier of the AWS Key Management Service (AWS KMS) customer master key
@@ -103,11 +110,11 @@ type CreateVolumeInput struct {
 	// valid, the action can appear to complete, but eventually fails.
 	KmsKeyId *string
 
-	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,
-	// you can attach the volume to up to 16 Nitro-based instances
+	// Indicates whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,
+	// you can attach the volume to up to 16 Instances built on the Nitro System
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances)
-	// in the same Availability Zone. For more information, see  Amazon EBS
-	// Multi-Attach
+	// in the same Availability Zone. This parameter is supported with io1 and io2
+	// volumes only. For more information, see  Amazon EBS Multi-Attach
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volumes-multi.html) in
 	// the Amazon Elastic Compute Cloud User Guide.
 	MultiAttachEnabled bool
@@ -116,11 +123,19 @@ type CreateVolumeInput struct {
 	OutpostArn *string
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
-	// volume size. Constraints: 1-16,384 for gp2, 4-16,384 for io1 and io2, 500-16,384
-	// for st1, 500-16,384 for sc1, and 1-1,024 for standard. If you specify a
-	// snapshot, the volume size must be equal to or larger than the snapshot size.
-	// Default: If you're creating the volume from a snapshot and don't specify a
-	// volume size, the default is the snapshot size.
+	// volume size. If you specify a snapshot, the default is the snapshot size. You
+	// can specify a volume size that is equal to or larger than the snapshot size. The
+	// following are the supported volumes sizes for each volume type:
+	//
+	// * gp2 and gp3:
+	// 1-16,384
+	//
+	// * io1 and io2: 4-16,384
+	//
+	// * st1 and sc1: 125-16,384
+	//
+	// * standard:
+	// 1-1,024
 	Size int32
 
 	// The snapshot from which to create the volume. You must specify either a snapshot
@@ -130,9 +145,29 @@ type CreateVolumeInput struct {
 	// The tags to apply to the volume during creation.
 	TagSpecifications []types.TagSpecification
 
-	// The volume type. This can be gp2 for General Purpose SSD, io1 or io2 for
-	// Provisioned IOPS SSD, st1 for Throughput Optimized HDD, sc1 for Cold HDD, or
-	// standard for Magnetic volumes. Default: gp2
+	// The throughput to provision for a volume, with a maximum of 1,000 MiB/s. This
+	// parameter is valid only for gp3 volumes. Valid Range: Minimum value of 125.
+	// Maximum value of 1000.
+	Throughput int32
+
+	// The volume type. This parameter can be one of the following values:
+	//
+	// * General
+	// Purpose SSD: gp2 | gp3
+	//
+	// * Provisioned IOPS SSD: io1 | io2
+	//
+	// * Throughput
+	// Optimized HDD: st1
+	//
+	// * Cold HDD: sc1
+	//
+	// * Magnetic: standard
+	//
+	// For more information,
+	// see Amazon EBS volume types
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
+	// Amazon Elastic Compute Cloud User Guide. Default: gp2
 	VolumeType types.VolumeType
 }
 
@@ -154,20 +189,10 @@ type CreateVolumeOutput struct {
 	// Indicates whether the volume was created using fast snapshot restore.
 	FastRestored bool
 
-	// The number of I/O operations per second (IOPS) that the volume supports. For
-	// Provisioned IOPS SSD volumes, this represents the number of IOPS that are
-	// provisioned for the volume. For General Purpose SSD volumes, this represents the
-	// baseline performance of the volume and the rate at which the volume accumulates
-	// I/O credits for bursting. For more information, see Amazon EBS volume types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. Constraints: Range is 100-16,000 IOPS
-	// for gp2 volumes and 100 to 64,000 IOPS for io1 and io2 volumes, in most Regions.
-	// The maximum IOPS for io1 and io2 of 64,000 is guaranteed only on Nitro-based
-	// instances
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
-	// Other instance families guarantee performance up to 32,000 IOPS. Condition: This
-	// parameter is required for requests to create io1 and io2 volumes; it is not used
-	// in requests to create gp2, st1, sc1, or standard volumes.
+	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
+	// this represents the number of IOPS that are provisioned for the volume. For gp2
+	// volumes, this represents the baseline performance of the volume and the rate at
+	// which the volume accumulates I/O credits for bursting.
 	Iops int32
 
 	// The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS)
@@ -193,12 +218,13 @@ type CreateVolumeOutput struct {
 	// Any tags assigned to the volume.
 	Tags []types.Tag
 
+	// The throughput that the volume supports, in MiB/s.
+	Throughput int32
+
 	// The ID of the volume.
 	VolumeId *string
 
-	// The volume type. This can be gp2 for General Purpose SSD, io1 or io2 for
-	// Provisioned IOPS SSD, st1 for Throughput Optimized HDD, sc1 for Cold HDD, or
-	// standard for Magnetic volumes.
+	// The volume type.
 	VolumeType types.VolumeType
 
 	// Metadata pertaining to the operation's result.

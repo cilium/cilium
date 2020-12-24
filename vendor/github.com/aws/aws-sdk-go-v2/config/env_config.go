@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -181,7 +184,7 @@ type EnvConfig struct {
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
 // Returning the a Config typed EnvConfig to satisfy the ConfigLoader func type.
-func loadEnvConfig(cfgs configs) (Config, error) {
+func loadEnvConfig(ctx context.Context, cfgs configs) (Config, error) {
 	return NewEnvConfig()
 }
 
@@ -230,54 +233,70 @@ func NewEnvConfig() (EnvConfig, error) {
 
 // GetRegion returns the AWS Region if set in the environment. Returns an empty
 // string if not set.
-func (c EnvConfig) GetRegion() (string, error) {
-	return c.Region, nil
+func (c EnvConfig) getRegion(ctx context.Context) (string, bool, error) {
+	if len(c.Region) == 0 {
+		return "", false, nil
+	}
+	return c.Region, true, nil
 }
 
 // GetSharedConfigProfile returns the shared config profile if set in the
 // environment. Returns an empty string if not set.
-func (c EnvConfig) GetSharedConfigProfile() (string, error) {
-	return c.SharedConfigProfile, nil
+func (c EnvConfig) getSharedConfigProfile(ctx context.Context) (string, bool, error) {
+	if len(c.SharedConfigProfile) == 0 {
+		return "", false, nil
+	}
+
+	return c.SharedConfigProfile, true, nil
 }
 
-// GetSharedConfigFiles returns a slice of filenames set in the environment.
+// getSharedConfigFiles returns a slice of filenames set in the environment.
 //
 // Will return the filenames in the order of:
-// * Shared Credentials
 // * Shared Config
-func (c EnvConfig) GetSharedConfigFiles() ([]string, error) {
-	files := make([]string, 0, 2)
-	if v := c.SharedCredentialsFile; len(v) > 0 {
-		files = append(files, v)
-	}
+func (c EnvConfig) getSharedConfigFiles(context.Context) ([]string, bool, error) {
+	var files []string
 	if v := c.SharedConfigFile; len(v) > 0 {
 		files = append(files, v)
 	}
 
-	return files, nil
+	if len(files) == 0 {
+		return nil, false, nil
+	}
+	return files, true, nil
+}
+
+// getSharedCredentialsFiles returns a slice of filenames set in the environment.
+//
+// Will return the filenames in the order of:
+// * Shared Credentials
+func (c EnvConfig) getSharedCredentialsFiles(context.Context) ([]string, bool, error) {
+	var files []string
+	if v := c.SharedCredentialsFile; len(v) > 0 {
+		files = append(files, v)
+	}
+	if len(files) == 0 {
+		return nil, false, nil
+	}
+	return files, true, nil
 }
 
 // GetCustomCABundle returns the custom CA bundle's PEM bytes if the file was
-func (c EnvConfig) GetCustomCABundle() ([]byte, error) {
+func (c EnvConfig) getCustomCABundle(context.Context) (io.Reader, bool, error) {
 	if len(c.CustomCABundle) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
-	return ioutil.ReadFile(c.CustomCABundle)
-}
-
-// GetEnableEndpointDiscovery returns whether to enable service endpoint discovery
-func (c EnvConfig) GetEnableEndpointDiscovery() (value, ok bool, err error) {
-	if c.EnableEndpointDiscovery == nil {
-		return false, false, nil
+	b, err := ioutil.ReadFile(c.CustomCABundle)
+	if err != nil {
+		return nil, false, err
 	}
-
-	return *c.EnableEndpointDiscovery, true, nil
+	return bytes.NewReader(b), true, nil
 }
 
 // GetS3UseARNRegion returns whether to allow ARNs to direct the region
 // the S3 client's requests are sent to.
-func (c EnvConfig) GetS3UseARNRegion() (value, ok bool, err error) {
+func (c EnvConfig) GetS3UseARNRegion(ctx context.Context) (value, ok bool, err error) {
 	if c.S3UseARNRegion == nil {
 		return false, false, nil
 	}

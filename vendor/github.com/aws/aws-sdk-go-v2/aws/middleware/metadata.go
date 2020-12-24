@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 
-	"github.com/awslabs/smithy-go/middleware"
+	"github.com/aws/smithy-go/middleware"
 )
 
 // RegisterServiceMetadata registers metadata about the service and operation into the middleware context

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -45,17 +44,6 @@ type WebIdentityRoleOptions struct {
 
 	// Session name, if you wish to uniquely identify this session.
 	RoleSessionName string
-
-	// ExpiryWindow will allow the credentials to trigger refreshing prior to
-	// the credentials actually expiring. This is beneficial so race conditions
-	// with expiring credentials do not cause request to fail unexpectedly
-	// due to ExpiredTokenException exceptions.
-	//
-	// So a ExpiryWindow of 10s would cause calls to IsExpired() to return true
-	// 10 seconds before the credentials are actually expired.
-	//
-	// If ExpiryWindow is 0 or less it will be ignored.
-	ExpiryWindow time.Duration
 
 	// The Amazon Resource Names (ARNs) of the IAM managed policies that you
 	// want to use as managed session policies.  The policies must exist in the
@@ -133,7 +121,7 @@ func (p *WebIdentityRoleProvider) Retrieve(ctx context.Context) (aws.Credentials
 		SessionToken:    aws.ToString(resp.Credentials.SessionToken),
 		Source:          WebIdentityProviderName,
 		CanExpire:       true,
-		Expires:         resp.Credentials.Expiration.Add(-p.options.ExpiryWindow),
+		Expires:         *resp.Credentials.Expiration,
 	}
 	return value, nil
 }

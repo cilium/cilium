@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyHTTP "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyHTTP "github.com/aws/smithy-go/transport/http"
 )
 
 // HTTPPresigner is an interface to a SigV4 signer that can sign create a
@@ -19,6 +19,7 @@ type HTTPPresigner interface {
 	PresignHTTP(
 		ctx context.Context, credentials aws.Credentials, r *http.Request,
 		payloadHash string, service string, region string, signingTime time.Time,
+		optFns ...func(*SignerOptions),
 	) (url string, signedHeader http.Header, err error)
 }
 
@@ -30,6 +31,13 @@ type PresignedHTTPRequest struct {
 	SignedHeader http.Header
 }
 
+// PresignHTTPRequestMiddlewareOptions is the options for the PresignHTTPRequestMiddleware middleware.
+type PresignHTTPRequestMiddlewareOptions struct {
+	CredentialsProvider aws.CredentialsProvider
+	Presigner           HTTPPresigner
+	LogSigning          bool
+}
+
 // PresignHTTPRequestMiddleware provides the Finalize middleware for creating a
 // presigned URL for an HTTP request.
 //
@@ -38,19 +46,21 @@ type PresignedHTTPRequest struct {
 type PresignHTTPRequestMiddleware struct {
 	credentialsProvider aws.CredentialsProvider
 	presigner           HTTPPresigner
+	logSigning          bool
 }
 
 // NewPresignHTTPRequestMiddleware returns a new PresignHTTPRequestMiddleware
 // initialized with the presigner.
-func NewPresignHTTPRequestMiddleware(provider aws.CredentialsProvider, presigner HTTPPresigner) *PresignHTTPRequestMiddleware {
+func NewPresignHTTPRequestMiddleware(options PresignHTTPRequestMiddlewareOptions) *PresignHTTPRequestMiddleware {
 	return &PresignHTTPRequestMiddleware{
-		credentialsProvider: provider,
-		presigner:           presigner,
+		credentialsProvider: options.CredentialsProvider,
+		presigner:           options.Presigner,
+		logSigning:          options.LogSigning,
 	}
 }
 
 // ID provides the middleware ID.
-func (*PresignHTTPRequestMiddleware) ID() string { return "PresignHTTPRequestMiddleware" }
+func (*PresignHTTPRequestMiddleware) ID() string { return "PresignHTTPRequest" }
 
 // HandleFinalize will take the provided input and create a presigned url for
 // the http request using the SigV4 presign authentication scheme.
@@ -96,7 +106,11 @@ func (s *PresignHTTPRequestMiddleware) HandleFinalize(
 	}
 
 	u, h, err := s.presigner.PresignHTTP(ctx, credentials,
-		httpReq, payloadHash, signingName, signingRegion, sdk.NowTime())
+		httpReq, payloadHash, signingName, signingRegion, sdk.NowTime(),
+		func(o *SignerOptions) {
+			o.Logger = middleware.GetLogger(ctx)
+			o.LogSigning = s.logSigning
+		})
 	if err != nil {
 		return out, metadata, &SigningError{
 			Err: fmt.Errorf("failed to sign http request, %w", err),

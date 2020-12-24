@@ -7,8 +7,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Registers an AMI. When you're creating an AMI, this is the final step you must
@@ -89,6 +89,8 @@ type RegisterImageInput struct {
 
 	// The block device mapping entries.
 	BlockDeviceMappings []types.BlockDeviceMapping
+
+	BootMode types.BootModeValues
 
 	// A description for your AMI.
 	Description *string

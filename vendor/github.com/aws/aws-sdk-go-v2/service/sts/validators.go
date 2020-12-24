@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
-	smithy "github.com/awslabs/smithy-go"
-	"github.com/awslabs/smithy-go/middleware"
+	smithy "github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/middleware"
 )
 
 type validateOpAssumeRole struct {
@@ -194,11 +194,11 @@ func validateOpAssumeRoleInput(v *AssumeRoleInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "AssumeRoleInput"}
-	if v.RoleSessionName == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("RoleSessionName"))
-	}
 	if v.RoleArn == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
+	}
+	if v.RoleSessionName == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RoleSessionName"))
 	}
 	if v.Tags != nil {
 		if err := validateTagListType(v.Tags); err != nil {
@@ -238,14 +238,14 @@ func validateOpAssumeRoleWithWebIdentityInput(v *AssumeRoleWithWebIdentityInput)
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "AssumeRoleWithWebIdentityInput"}
-	if v.WebIdentityToken == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("WebIdentityToken"))
+	if v.RoleArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
 	}
 	if v.RoleSessionName == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("RoleSessionName"))
 	}
-	if v.RoleArn == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
+	if v.WebIdentityToken == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("WebIdentityToken"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -289,13 +289,13 @@ func validateOpGetFederationTokenInput(v *GetFederationTokenInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "GetFederationTokenInput"}
+	if v.Name == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Name"))
+	}
 	if v.Tags != nil {
 		if err := validateTagListType(v.Tags); err != nil {
 			invalidParams.AddNested("Tags", err.(smithy.InvalidParamsError))
 		}
-	}
-	if v.Name == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Name"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

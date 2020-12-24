@@ -7,8 +7,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Allocates an Elastic IP address to your AWS account. After you allocate the
@@ -86,6 +86,9 @@ type AllocateAddressInput struct {
 	// select an address from the address pool. To specify a specific address from the
 	// address pool, use the Address parameter instead.
 	PublicIpv4Pool *string
+
+	// The tags to assign to the Elastic IP address.
+	TagSpecifications []types.TagSpecification
 }
 
 type AllocateAddressOutput struct {

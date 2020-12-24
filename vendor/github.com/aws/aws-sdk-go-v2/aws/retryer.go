@@ -34,28 +34,28 @@ type Retryer interface {
 	GetInitialToken() (releaseToken func(error) error)
 }
 
-// NoOpRetryer provides a RequestRetryDecider implementation that will flag
+// NopRetryer provides a RequestRetryDecider implementation that will flag
 // all attempt errors as not retryable, with a max attempts of 1.
-type NoOpRetryer struct{}
+type NopRetryer struct{}
 
 // IsErrorRetryable returns false for all error values.
-func (NoOpRetryer) IsErrorRetryable(error) bool { return false }
+func (NopRetryer) IsErrorRetryable(error) bool { return false }
 
 // MaxAttempts always returns 1 for the original request attempt.
-func (NoOpRetryer) MaxAttempts() int { return 1 }
+func (NopRetryer) MaxAttempts() int { return 1 }
 
-// RetryDelay is not valid for the NoOpRetryer. Will always return error.
-func (NoOpRetryer) RetryDelay(int, error) (time.Duration, error) {
+// RetryDelay is not valid for the NopRetryer. Will always return error.
+func (NopRetryer) RetryDelay(int, error) (time.Duration, error) {
 	return 0, fmt.Errorf("not retrying any request errors")
 }
 
 // GetRetryToken returns a stub function that does nothing.
-func (NoOpRetryer) GetRetryToken(context.Context, error) (func(error) error, error) {
+func (NopRetryer) GetRetryToken(context.Context, error) (func(error) error, error) {
 	return nopReleaseToken, nil
 }
 
 // GetInitialToken returns a stub function that does nothing.
-func (NoOpRetryer) GetInitialToken() func(error) error {
+func (NopRetryer) GetInitialToken() func(error) error {
 	return nopReleaseToken
 }
 

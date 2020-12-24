@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"time"
@@ -11,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/endpointcreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/processcreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
-	"github.com/aws/aws-sdk-go-v2/ec2imds"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -24,15 +25,14 @@ const (
 
 var (
 	ecsContainerEndpoint = "http://169.254.170.2" // not constant to allow for swapping during unit-testing
-
 )
 
 // resolveCredentials extracts a credential provider from slice of config sources.
 //
 // If an explict credential provider is not found the resolver will fallback to resolving
 // credentials by extracting a credential provider from EnvConfig and SharedConfig.
-func resolveCredentials(cfg *aws.Config, configs configs) error {
-	found, err := resolveCredentialProvider(cfg, configs)
+func resolveCredentials(ctx context.Context, cfg *aws.Config, configs configs) error {
+	found, err := resolveCredentialProvider(ctx, cfg, configs)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func resolveCredentials(cfg *aws.Config, configs configs) error {
 		return nil
 	}
 
-	err = resolveCredentialChain(cfg, configs)
+	err = resolveCredentialChain(ctx, cfg, configs)
 	if err != nil {
 		return err
 	}
@@ -56,9 +56,9 @@ func resolveCredentials(cfg *aws.Config, configs configs) error {
 // credential provider to be used concurrently.
 //
 // Config providers used:
-// * CredentialsProviderProvider
-func resolveCredentialProvider(cfg *aws.Config, cfgs configs) (bool, error) {
-	credProvider, found, err := getCredentialsProvider(cfgs)
+// * credentialsProviderProvider
+func resolveCredentialProvider(ctx context.Context, cfg *aws.Config, cfgs configs) (bool, error) {
+	credProvider, found, err := getCredentialsProvider(ctx, cfgs)
 	if err != nil {
 		return false, err
 	}
@@ -66,7 +66,7 @@ func resolveCredentialProvider(cfg *aws.Config, cfgs configs) (bool, error) {
 		return false, nil
 	}
 
-	cfg.Credentials = &aws.CredentialsCache{Provider: credProvider}
+	cfg.Credentials = wrapWithCredentialsCache(credProvider)
 
 	return true, nil
 }
@@ -77,8 +77,8 @@ func resolveCredentialProvider(cfg *aws.Config, cfgs configs) (bool, error) {
 // The resolved CredentialProvider will be wrapped in a cache to ensure the
 // credentials are only refreshed when needed. This also protects the
 // credential provider to be used concurrently.
-func resolveCredentialChain(cfg *aws.Config, configs configs) (err error) {
-	_, sharedProfileSet, err := getSharedConfigProfile(configs)
+func resolveCredentialChain(ctx context.Context, cfg *aws.Config, configs configs) (err error) {
+	_, sharedProfileSet, err := getSharedConfigProfile(ctx, configs)
 	if err != nil {
 		return err
 	}
@@ -87,30 +87,30 @@ func resolveCredentialChain(cfg *aws.Config, configs configs) (err error) {
 
 	switch {
 	case sharedProfileSet:
-		err = resolveCredsFromProfile(cfg, envConfig, sharedConfig, other)
+		err = resolveCredsFromProfile(ctx, cfg, envConfig, sharedConfig, other)
 	case envConfig.Credentials.HasKeys():
 		cfg.Credentials = credentials.StaticCredentialsProvider{Value: envConfig.Credentials}
 	case len(envConfig.WebIdentityTokenFilePath) > 0:
-		err = assumeWebIdentity(cfg, envConfig.WebIdentityTokenFilePath, envConfig.RoleARN, envConfig.RoleSessionName, configs)
+		err = assumeWebIdentity(ctx, cfg, envConfig.WebIdentityTokenFilePath, envConfig.RoleARN, envConfig.RoleSessionName, configs)
 	default:
-		err = resolveCredsFromProfile(cfg, envConfig, sharedConfig, other)
+		err = resolveCredsFromProfile(ctx, cfg, envConfig, sharedConfig, other)
 	}
 	if err != nil {
 		return err
 	}
 
 	// Wrap the resolved provider in a cache so the SDK will cache credentials.
-	cfg.Credentials = &aws.CredentialsCache{Provider: cfg.Credentials}
+	cfg.Credentials = wrapWithCredentialsCache(cfg.Credentials)
 
 	return nil
 }
 
-func resolveCredsFromProfile(cfg *aws.Config, envConfig *EnvConfig, sharedConfig *SharedConfig, configs configs) (err error) {
+func resolveCredsFromProfile(ctx context.Context, cfg *aws.Config, envConfig *EnvConfig, sharedConfig *SharedConfig, configs configs) (err error) {
 
 	switch {
 	case sharedConfig.Source != nil:
 		// Assume IAM role with credentials source from a different profile.
-		err = resolveCredsFromProfile(cfg, envConfig, sharedConfig.Source, configs)
+		err = resolveCredsFromProfile(ctx, cfg, envConfig, sharedConfig.Source, configs)
 
 	case sharedConfig.Credentials.HasKeys():
 		// Static Credentials from Shared Config/Credentials file.
@@ -120,32 +120,32 @@ func resolveCredsFromProfile(cfg *aws.Config, envConfig *EnvConfig, sharedConfig
 
 	case len(sharedConfig.CredentialProcess) != 0:
 		// Get credentials from CredentialProcess
-		err = processCredentials(cfg, sharedConfig, configs)
+		err = processCredentials(ctx, cfg, sharedConfig, configs)
 
 	case len(sharedConfig.CredentialSource) != 0:
-		err = resolveCredsFromSource(cfg, envConfig, sharedConfig, configs)
+		err = resolveCredsFromSource(ctx, cfg, envConfig, sharedConfig, configs)
 
 	case len(sharedConfig.WebIdentityTokenFile) != 0:
 		// Credentials from Assume Web Identity token require an IAM Role, and
 		// that roll will be assumed. May be wrapped with another assume role
 		// via SourceProfile.
-		err = assumeWebIdentity(cfg, sharedConfig.WebIdentityTokenFile, sharedConfig.RoleARN, sharedConfig.RoleSessionName, configs)
+		err = assumeWebIdentity(ctx, cfg, sharedConfig.WebIdentityTokenFile, sharedConfig.RoleARN, sharedConfig.RoleSessionName, configs)
 
 	case len(envConfig.ContainerCredentialsEndpoint) != 0:
-		err = resolveLocalHTTPCredProvider(cfg, envConfig.ContainerCredentialsEndpoint, envConfig.ContainerAuthorizationToken, configs)
+		err = resolveLocalHTTPCredProvider(ctx, cfg, envConfig.ContainerCredentialsEndpoint, envConfig.ContainerAuthorizationToken, configs)
 
 	case len(envConfig.ContainerCredentialsRelativePath) != 0:
-		err = resolveHTTPCredProvider(cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
+		err = resolveHTTPCredProvider(ctx, cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
 
 	default:
-		err = resolveEC2RoleCredentials(cfg, configs)
+		err = resolveEC2RoleCredentials(ctx, cfg, configs)
 	}
 	if err != nil {
 		return err
 	}
 
 	if len(sharedConfig.RoleARN) > 0 {
-		return credsFromAssumeRole(cfg, sharedConfig, configs)
+		return credsFromAssumeRole(ctx, cfg, sharedConfig, configs)
 	}
 
 	return nil
@@ -155,10 +155,10 @@ func ecsContainerURI(path string) string {
 	return fmt.Sprintf("%s%s", ecsContainerEndpoint, path)
 }
 
-func processCredentials(cfg *aws.Config, sharedConfig *SharedConfig, configs configs) error {
+func processCredentials(ctx context.Context, cfg *aws.Config, sharedConfig *SharedConfig, configs configs) error {
 	var opts []func(*processcreds.Options)
 
-	options, found, err := getProcessCredentialOptions(configs)
+	options, found, err := getProcessCredentialOptions(ctx, configs)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func processCredentials(cfg *aws.Config, sharedConfig *SharedConfig, configs con
 	return nil
 }
 
-func resolveLocalHTTPCredProvider(cfg *aws.Config, endpointURL, authToken string, configs configs) error {
+func resolveLocalHTTPCredProvider(ctx context.Context, cfg *aws.Config, endpointURL, authToken string, configs configs) error {
 	var resolveErr error
 
 	parsed, err := url.Parse(endpointURL)
@@ -192,13 +192,12 @@ func resolveLocalHTTPCredProvider(cfg *aws.Config, endpointURL, authToken string
 		return resolveErr
 	}
 
-	return resolveHTTPCredProvider(cfg, endpointURL, authToken, configs)
+	return resolveHTTPCredProvider(ctx, cfg, endpointURL, authToken, configs)
 }
 
-func resolveHTTPCredProvider(cfg *aws.Config, url, authToken string, configs configs) error {
+func resolveHTTPCredProvider(ctx context.Context, cfg *aws.Config, url, authToken string, configs configs) error {
 	optFns := []func(*endpointcreds.Options){
 		func(options *endpointcreds.Options) {
-			options.ExpiryWindow = 5 * time.Minute
 			if len(authToken) != 0 {
 				options.AuthorizationToken = authToken
 			}
@@ -207,7 +206,7 @@ func resolveHTTPCredProvider(cfg *aws.Config, url, authToken string, configs con
 		},
 	}
 
-	optFn, found, err := getEndpointCredentialProviderOptions(configs)
+	optFn, found, err := getEndpointCredentialProviderOptions(ctx, configs)
 	if err != nil {
 		return err
 	}
@@ -217,15 +216,17 @@ func resolveHTTPCredProvider(cfg *aws.Config, url, authToken string, configs con
 
 	provider := endpointcreds.New(url, optFns...)
 
-	cfg.Credentials = provider
+	cfg.Credentials = wrapWithCredentialsCache(provider, func(options *aws.CredentialsCacheOptions) {
+		options.ExpiryWindow = 5 * time.Minute
+	})
 
 	return nil
 }
 
-func resolveCredsFromSource(cfg *aws.Config, envConfig *EnvConfig, sharedCfg *SharedConfig, configs configs) (err error) {
+func resolveCredsFromSource(ctx context.Context, cfg *aws.Config, envConfig *EnvConfig, sharedCfg *SharedConfig, configs configs) (err error) {
 	switch sharedCfg.CredentialSource {
 	case credSourceEc2Metadata:
-		return resolveEC2RoleCredentials(cfg, configs)
+		return resolveEC2RoleCredentials(ctx, cfg, configs)
 
 	case credSourceEnvironment:
 		cfg.Credentials = credentials.StaticCredentialsProvider{Value: envConfig.Credentials}
@@ -234,7 +235,7 @@ func resolveCredsFromSource(cfg *aws.Config, envConfig *EnvConfig, sharedCfg *Sh
 		if len(envConfig.ContainerCredentialsRelativePath) == 0 {
 			return fmt.Errorf("EcsContainer was specified as the credential_source, but 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI' was not set")
 		}
-		return resolveHTTPCredProvider(cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
+		return resolveHTTPCredProvider(ctx, cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
 
 	default:
 		return fmt.Errorf("credential_source values must be EcsContainer, Ec2InstanceMetadata, or Environment")
@@ -243,10 +244,10 @@ func resolveCredsFromSource(cfg *aws.Config, envConfig *EnvConfig, sharedCfg *Sh
 	return nil
 }
 
-func resolveEC2RoleCredentials(cfg *aws.Config, configs configs) error {
+func resolveEC2RoleCredentials(ctx context.Context, cfg *aws.Config, configs configs) error {
 	optFns := make([]func(*ec2rolecreds.Options), 0, 2)
 
-	optFn, found, err := getEC2RoleCredentialProviderOptions(configs)
+	optFn, found, err := getEC2RoleCredentialProviderOptions(ctx, configs)
 	if err != nil {
 		return err
 	}
@@ -257,18 +258,18 @@ func resolveEC2RoleCredentials(cfg *aws.Config, configs configs) error {
 	optFns = append(optFns, func(o *ec2rolecreds.Options) {
 		// Only define a client from config if not already defined.
 		if o.Client != nil {
-			o.Client = ec2imds.New(ec2imds.Options{
+			o.Client = imds.New(imds.Options{
 				HTTPClient: cfg.HTTPClient,
 				Retryer:    cfg.Retryer,
 			})
 		}
 	})
 
-	provider := ec2rolecreds.New(ec2rolecreds.Options{
-		ExpiryWindow: 5 * time.Minute,
-	}, optFns...)
+	provider := ec2rolecreds.New(optFns...)
 
-	cfg.Credentials = provider
+	cfg.Credentials = wrapWithCredentialsCache(provider, func(options *aws.CredentialsCacheOptions) {
+		options.ExpiryWindow = 5 * time.Minute
+	})
 
 	return nil
 }
@@ -324,7 +325,7 @@ func (e AssumeRoleTokenProviderNotSetError) Error() string {
 	return fmt.Sprintf("assume role with MFA enabled, but AssumeRoleTokenProvider session option not set.")
 }
 
-func assumeWebIdentity(cfg *aws.Config, filepath string, roleARN, sessionName string, configs configs) error {
+func assumeWebIdentity(ctx context.Context, cfg *aws.Config, filepath string, roleARN, sessionName string, configs configs) error {
 	if len(filepath) == 0 {
 		return fmt.Errorf("token file path is not set")
 	}
@@ -339,7 +340,7 @@ func assumeWebIdentity(cfg *aws.Config, filepath string, roleARN, sessionName st
 		},
 	}
 
-	optFn, found, err := getWebIdentityCredentialProviderOptions(configs)
+	optFn, found, err := getWebIdentityCredentialProviderOptions(ctx, configs)
 	if err != nil {
 		return err
 	}
@@ -354,7 +355,7 @@ func assumeWebIdentity(cfg *aws.Config, filepath string, roleARN, sessionName st
 	return nil
 }
 
-func credsFromAssumeRole(cfg *aws.Config, sharedCfg *SharedConfig, configs configs) (err error) {
+func credsFromAssumeRole(ctx context.Context, cfg *aws.Config, sharedCfg *SharedConfig, configs configs) (err error) {
 	optFns := []func(*stscreds.AssumeRoleOptions){
 		func(options *stscreds.AssumeRoleOptions) {
 			options.RoleSessionName = sharedCfg.RoleSessionName
@@ -375,7 +376,7 @@ func credsFromAssumeRole(cfg *aws.Config, sharedCfg *SharedConfig, configs confi
 		},
 	}
 
-	optFn, found, err := getAssumeRoleCredentialProviderOptions(configs)
+	optFn, found, err := getAssumeRoleCredentialProviderOptions(ctx, configs)
 	if err != nil {
 		return err
 	}
@@ -398,4 +399,14 @@ func credsFromAssumeRole(cfg *aws.Config, sharedCfg *SharedConfig, configs confi
 	cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg.Copy()), sharedCfg.RoleARN, optFns...)
 
 	return nil
+}
+
+// wrapWithCredentialsCache will wrap provider with an aws.CredentialsCache with the provided options if the provider is not already a aws.CredentialsCache.
+func wrapWithCredentialsCache(provider aws.CredentialsProvider, optFns ...func(options *aws.CredentialsCacheOptions)) aws.CredentialsProvider {
+	_, ok := provider.(*aws.CredentialsCache)
+	if ok {
+		return provider
+	}
+
+	return aws.NewCredentialsCache(provider, optFns...)
 }

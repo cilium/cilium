@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	presignedurlcust "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3. You
@@ -67,7 +67,7 @@ type CopySnapshotInput struct {
 	// enabled, enable encryption using this parameter. Otherwise, omit this parameter.
 	// Encrypted snapshots are encrypted, even if you omit this parameter and
 	// encryption by default is not enabled. You cannot set this parameter to false.
-	// For more information, see Amazon EBS Encryption
+	// For more information, see Amazon EBS encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 	// Amazon Elastic Compute Cloud User Guide.
 	Encrypted bool
@@ -97,13 +97,13 @@ type CopySnapshotInput struct {
 
 	// When you copy an encrypted source snapshot using the Amazon EC2 Query API, you
 	// must supply a pre-signed URL. This parameter is optional for unencrypted
-	// snapshots. For more information, see Query Requests
+	// snapshots. For more information, see Query requests
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html).
 	// The PresignedUrl should use the snapshot source endpoint, the CopySnapshot
 	// action, and include the SourceRegion, SourceSnapshotId, and DestinationRegion
 	// parameters. The PresignedUrl must be signed using AWS Signature Version 4.
 	// Because EBS snapshots are stored in Amazon S3, the signing algorithm for this
-	// parameter uses the same logic that is described in Authenticating Requests by
+	// parameter uses the same logic that is described in Authenticating Requests:
 	// Using Query Parameters (AWS Signature Version 4)
 	// (https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html)
 	// in the Amazon Simple Storage Service API Reference. An invalid or improperly
@@ -288,23 +288,16 @@ func (c *PresignClient) PresignCopySnapshot(ctx context.Context, params *CopySna
 	if params == nil {
 		params = &CopySnapshotInput{}
 	}
-	var presignOptions PresignOptions
+	options := c.options.copy()
 	for _, fn := range optFns {
-		fn(&presignOptions)
+		fn(&options)
 	}
-	if len(optFns) != 0 {
-		c = NewPresignClient(c.client, optFns...)
-	}
-
-	clientOptFns := make([]func(o *Options), 0)
-	clientOptFns = append(clientOptFns, func(o *Options) {
-		o.HTTPClient = &smithyhttp.NopClient{}
-	})
+	clientOptFns := append(options.ClientOptions, withNopHTTPClientAPIOption)
 
 	ctx = presignedurlcust.WithIsPresigning(ctx)
 	result, _, err := c.client.invokeOperation(ctx, "CopySnapshot", params, clientOptFns,
 		addOperationCopySnapshotMiddlewares,
-		c.convertToPresignMiddleware,
+		presignConverter(options).convertToPresignMiddleware,
 	)
 	if err != nil {
 		return nil, err

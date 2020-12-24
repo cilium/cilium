@@ -14,18 +14,18 @@ func OpenFile(path string) (Sections, error) {
 	}
 	defer f.Close()
 
-	return Parse(f)
+	return Parse(f, path)
 }
 
 // Parse will parse the given file using the shared config
 // visitor.
-func Parse(f io.Reader) (Sections, error) {
+func Parse(f io.Reader, path string) (Sections, error) {
 	tree, err := ParseAST(f)
 	if err != nil {
 		return Sections{}, err
 	}
 
-	v := NewDefaultVisitor()
+	v := NewDefaultVisitor(path)
 	if err = Walk(tree, v); err != nil {
 		return Sections{}, err
 	}
@@ -40,7 +40,7 @@ func ParseBytes(b []byte) (Sections, error) {
 		return Sections{}, err
 	}
 
-	v := NewDefaultVisitor()
+	v := NewDefaultVisitor("")
 	if err = Walk(tree, v); err != nil {
 		return Sections{}, err
 	}

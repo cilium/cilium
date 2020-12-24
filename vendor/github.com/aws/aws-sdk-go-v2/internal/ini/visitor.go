@@ -19,16 +19,25 @@ type Visitor interface {
 // the Sections field which can be used to retrieve profile
 // configuration.
 type DefaultVisitor struct {
-	scope    string
+
+	// scope is the profile which is being visited
+	scope string
+
+	// path is the file path which the visitor is visiting
+	path string
+
+	// Sections defines list of the profile section
 	Sections Sections
 }
 
-// NewDefaultVisitor return a DefaultVisitor
-func NewDefaultVisitor() *DefaultVisitor {
+// NewDefaultVisitor returns a DefaultVisitor. It takes in a filepath
+// which points to the file it is visiting.
+func NewDefaultVisitor(filepath string) *DefaultVisitor {
 	return &DefaultVisitor{
 		Sections: Sections{
 			container: map[string]Section{},
 		},
+		path: filepath,
 	}
 }
 
@@ -37,6 +46,9 @@ func (v *DefaultVisitor) VisitExpr(expr AST) error {
 	t := v.Sections.container[v.scope]
 	if t.values == nil {
 		t.values = values{}
+	}
+	if t.SourceFile == nil {
+		t.SourceFile = make(map[string]string, 0)
 	}
 
 	switch expr.Kind {
@@ -56,12 +68,26 @@ func (v *DefaultVisitor) VisitExpr(expr AST) error {
 			}
 
 			key := EqualExprKey(opExpr)
-			v, err := newValue(rhs.Root.ValueType, rhs.Root.base, rhs.Root.Raw())
+			val, err := newValue(rhs.Root.ValueType, rhs.Root.base, rhs.Root.Raw())
 			if err != nil {
 				return err
 			}
 
-			t.values[strings.ToLower(key)] = v
+			// lower case key to standardize
+			k := strings.ToLower(key)
+
+			// identify if the section already had this key, append log on section
+			if t.Has(k) {
+				t.Logs = append(t.Logs,
+					fmt.Sprintf("For profile: %v, overriding %v value, "+
+						"with a %v value found in a duplicate profile defined later in the same file %v. \n",
+						t.Name, k, k, v.path))
+			}
+
+			// assign the value
+			t.values[k] = val
+			// update the source file path for region
+			t.SourceFile[k] = v.path
 		default:
 			return NewParseError(fmt.Sprintf("unsupported expression %v", expr))
 		}
@@ -83,7 +109,23 @@ func (v *DefaultVisitor) VisitStatement(stmt AST) error {
 		}
 
 		name := string(child.Root.Raw())
-		v.Sections.container[name] = Section{}
+
+		// trim start and end space
+		name = strings.TrimSpace(name)
+
+		// if has prefix "profile " + [ws+] + "profile-name",
+		// we standardize by removing the [ws+] between prefix and profile-name.
+		if strings.HasPrefix(name, "profile ") {
+			names := strings.SplitN(name, " ", 2)
+			name = names[0] + " " + strings.TrimLeft(names[1], " ")
+		}
+
+		// lower casing name to handle duplicates correctly.
+		name = strings.ToLower(name)
+		// attach profile name on section
+		if !v.Sections.HasSection(name) {
+			v.Sections.container[name] = NewSection(name)
+		}
 		v.scope = name
 	default:
 		return NewParseError(fmt.Sprintf("unsupported statement: %s", stmt.Kind))
@@ -98,11 +140,36 @@ type Sections struct {
 	container map[string]Section
 }
 
+// NewSections returns empty ini Sections
+func NewSections() Sections {
+	return Sections{
+		container: make(map[string]Section, 0),
+	}
+}
+
 // GetSection will return section p. If section p does not exist,
 // false will be returned in the second parameter.
 func (t Sections) GetSection(p string) (Section, bool) {
 	v, ok := t.container[p]
 	return v, ok
+}
+
+// HasSection denotes if Sections consist of a section with
+// provided name.
+func (t Sections) HasSection(p string) bool {
+	_, ok := t.container[p]
+	return ok
+}
+
+// SetSection sets a section value for provided section name.
+func (t Sections) SetSection(p string, v Section) Sections {
+	t.container[p] = v
+	return t
+}
+
+// DeleteSection deletes a section entry/value for provided section name./
+func (t Sections) DeleteSection(p string) {
+	delete(t.container, p)
 }
 
 // values represents a map of union values.
@@ -125,8 +192,42 @@ func (t Sections) List() []string {
 // Section contains a name and values. This represent
 // a sectioned entry in a configuration file.
 type Section struct {
-	Name   string
+	// Name is the Section profile name
+	Name string
+
+	// values are the values within parsed profile
 	values values
+
+	// Errors is the list of errors
+	Errors []error
+
+	// Logs is the list of logs
+	Logs []string
+
+	// SourceFile is the INI Source file from where this section
+	// was retrieved. They key is the property, value is the
+	// source file the property was retrieved from.
+	SourceFile map[string]string
+}
+
+// NewSection returns an initialize section for the name
+func NewSection(name string) Section {
+	return Section{
+		Name:       name,
+		values:     values{},
+		SourceFile: map[string]string{},
+	}
+}
+
+// UpdateSourceFile updates source file for a property to provided filepath.
+func (t Section) UpdateSourceFile(property string, filepath string) {
+	t.SourceFile[property] = filepath
+}
+
+// UpdateValue updates value for a provided key with provided value
+func (t Section) UpdateValue(k string, v Value) error {
+	t.values[k] = v
+	return nil
 }
 
 // Has will return whether or not an entry exists in a given section

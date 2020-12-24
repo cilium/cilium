@@ -7,8 +7,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates a multicast domain using the specified transit gateway. The transit
@@ -43,6 +43,9 @@ type CreateTransitGatewayMulticastDomainInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun bool
+
+	// The options for the transit gateway multicast domain.
+	Options *types.CreateTransitGatewayMulticastDomainRequestOptions
 
 	// The tags for the transit gateway multicast domain.
 	TagSpecifications []types.TagSpecification

@@ -58,8 +58,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4Internal "github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4"
-	"github.com/awslabs/smithy-go/httpbinding"
-	"github.com/awslabs/smithy-go/logging"
+	"github.com/aws/smithy-go/encoding/httpbinding"
+	"github.com/aws/smithy-go/logging"
 )
 
 const (
@@ -69,16 +69,15 @@ const (
 
 // HTTPSigner is an interface to a SigV4 signer that can sign HTTP requests
 type HTTPSigner interface {
-	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time) error
+	SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(*SignerOptions)) error
 }
 
 type keyDerivator interface {
 	DeriveKey(credential aws.Credentials, service, region string, signingTime v4Internal.SigningTime) []byte
 }
 
-// Signer applies AWS v4 signing to given request. Use this to sign requests
-// that need to be signed with AWS V4 Signatures.
-type Signer struct {
+// SignerOptions is the SigV4 Signer options.
+type SignerOptions struct {
 	// Disables the Signer's moving HTTP header key/value pairs from the HTTP
 	// request header to the request's query string. This is most commonly used
 	// with pre-signed requests preventing headers from being added to the
@@ -101,19 +100,24 @@ type Signer struct {
 	// This will enable logging of the canonical request, the string to sign, and for presigning the subsequent
 	// presigned URL.
 	LogSigning bool
+}
 
+// Signer applies AWS v4 signing to given request. Use this to sign requests
+// that need to be signed with AWS V4 Signatures.
+type Signer struct {
+	options      SignerOptions
 	keyDerivator keyDerivator
 }
 
 // NewSigner returns a new SigV4 Signer
-func NewSigner(optFns ...func(signer *Signer)) *Signer {
-	s := &Signer{keyDerivator: v4Internal.NewSigningKeyDeriver()}
+func NewSigner(optFns ...func(signer *SignerOptions)) *Signer {
+	options := SignerOptions{}
 
 	for _, fn := range optFns {
-		fn(s)
+		fn(&options)
 	}
 
-	return s
+	return &Signer{options: options, keyDerivator: v4Internal.NewSigningKeyDeriver()}
 }
 
 type httpSigner struct {
@@ -240,10 +244,6 @@ func buildAuthorizationHeader(credentialStr, signedHeadersStr, signingSignature 
 	return parts.String()
 }
 
-func (v4 Signer) getLogger(ctx context.Context) logging.Logger {
-	return logging.WithContext(ctx, v4.Logger)
-}
-
 // SignHTTP signs AWS v4 requests with the provided payload hash, service name, region the
 // request is made to, and time the request is signed at. The signTime allows
 // you to specify that a request is signed for the future, and cannot be
@@ -255,7 +255,13 @@ func (v4 Signer) getLogger(ctx context.Context) logging.Logger {
 // will not be lost.
 //
 // The passed in request will be modified in place.
-func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time) error {
+func (s Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *http.Request, payloadHash string, service string, region string, signingTime time.Time, optFns ...func(options *SignerOptions)) error {
+	options := s.options
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
 	signer := &httpSigner{
 		Request:                r,
 		PayloadHash:            payloadHash,
@@ -263,9 +269,9 @@ func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *h
 		Region:                 region,
 		Credentials:            credentials,
 		Time:                   v4Internal.NewSigningTime(signingTime.UTC()),
-		DisableHeaderHoisting:  v4.DisableHeaderHoisting,
-		DisableURIPathEscaping: v4.DisableURIPathEscaping,
-		KeyDerivator:           v4.keyDerivator,
+		DisableHeaderHoisting:  options.DisableHeaderHoisting,
+		DisableURIPathEscaping: options.DisableURIPathEscaping,
+		KeyDerivator:           s.keyDerivator,
 	}
 
 	signedRequest, err := signer.Build()
@@ -273,7 +279,7 @@ func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *h
 		return err
 	}
 
-	v4.logSigningInfo(ctx, &signedRequest, false)
+	logSigningInfo(ctx, options, &signedRequest, false)
 
 	return nil
 }
@@ -307,10 +313,17 @@ func (v4 Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *h
 //   req.URL.RawQuery = query.Encode()
 //
 // This method does not modify the provided request.
-func (v4 *Signer) PresignHTTP(
+func (s *Signer) PresignHTTP(
 	ctx context.Context, credentials aws.Credentials, r *http.Request,
 	payloadHash string, service string, region string, signingTime time.Time,
+	optFns ...func(*SignerOptions),
 ) (signedURI string, signedHeaders http.Header, err error) {
+	options := s.options
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
 	signer := &httpSigner{
 		Request:                r.Clone(r.Context()),
 		PayloadHash:            payloadHash,
@@ -319,9 +332,9 @@ func (v4 *Signer) PresignHTTP(
 		Credentials:            credentials,
 		Time:                   v4Internal.NewSigningTime(signingTime.UTC()),
 		IsPreSign:              true,
-		DisableHeaderHoisting:  v4.DisableHeaderHoisting,
-		DisableURIPathEscaping: v4.DisableURIPathEscaping,
-		KeyDerivator:           v4.keyDerivator,
+		DisableHeaderHoisting:  options.DisableHeaderHoisting,
+		DisableURIPathEscaping: options.DisableURIPathEscaping,
+		KeyDerivator:           s.keyDerivator,
 	}
 
 	signedRequest, err := signer.Build()
@@ -329,7 +342,7 @@ func (v4 *Signer) PresignHTTP(
 		return "", nil, err
 	}
 
-	v4.logSigningInfo(ctx, &signedRequest, true)
+	logSigningInfo(ctx, options, &signedRequest, true)
 
 	return signedRequest.Request.URL.String(), signedRequest.SignedHeaders, nil
 }
@@ -461,15 +474,15 @@ func (s *httpSigner) setRequiredSigningFields(headers http.Header, query url.Val
 	}
 }
 
-func (v4 Signer) logSigningInfo(ctx context.Context, request *signedRequest, isPresign bool) {
-	if !v4.LogSigning {
+func logSigningInfo(ctx context.Context, options SignerOptions, request *signedRequest, isPresign bool) {
+	if !options.LogSigning {
 		return
 	}
 	signedURLMsg := ""
 	if isPresign {
 		signedURLMsg = fmt.Sprintf(logSignedURLMsg, request.Request.URL.String())
 	}
-	logger := v4.getLogger(ctx)
+	logger := logging.WithContext(ctx, options.Logger)
 	logger.Logf(logging.Debug, logSignInfoMsg, request.CanonicalString, request.StringToSign, signedURLMsg)
 }
 

@@ -8,8 +8,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Describes the status of the specified volumes. Volume status provides the result
@@ -24,18 +24,18 @@ import (
 // The possible values are ok, impaired , warning, or insufficient-data. If all
 // checks pass, the overall status of the volume is ok. If the check fails, the
 // overall status is impaired. If the status is insufficient-data, then the checks
-// may still be taking place on your volume at the time. We recommend that you
+// might still be taking place on your volume at the time. We recommend that you
 // retry the request. For more information about volume status, see Monitoring the
 // status of your volumes
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-volume-status.html)
 // in the Amazon Elastic Compute Cloud User Guide. Events: Reflect the cause of a
-// volume status and may require you to take action. For example, if your volume
+// volume status and might require you to take action. For example, if your volume
 // returns an impaired status, then the volume event might be
 // potential-data-inconsistency. This means that your volume has been affected by
-// an issue with the underlying host, has all I/O operations disabled, and may have
-// inconsistent data. Actions: Reflect the actions you may have to take in response
-// to an event. For example, if the status of the volume is impaired and the volume
-// event shows potential-data-inconsistency, then the action shows
+// an issue with the underlying host, has all I/O operations disabled, and might
+// have inconsistent data. Actions: Reflect the actions you might have to take in
+// response to an event. For example, if the status of the volume is impaired and
+// the volume event shows potential-data-inconsistency, then the action shows
 // enable-volume-io. This means that you may want to enable the I/O operations for
 // the volume by calling the EnableVolumeIO action and then check the volume for
 // data consistency. Volume status is based on the volume status checks, and does
@@ -108,10 +108,11 @@ type DescribeVolumeStatusInput struct {
 	// paginated output. When this parameter is used, the request only returns
 	// MaxResults results in a single page along with a NextToken response element. The
 	// remaining results of the initial request can be seen by sending another request
-	// with the returned NextToken value. This value can be between 5 and 1000; if
-	// MaxResults is given a value larger than 1000, only 1000 results are returned. If
-	// this parameter is not used, then DescribeVolumeStatus returns all results. You
-	// cannot specify this parameter and the volume IDs parameter in the same request.
+	// with the returned NextToken value. This value can be between 5 and 1,000; if
+	// MaxResults is given a value larger than 1,000, only 1,000 results are returned.
+	// If this parameter is not used, then DescribeVolumeStatus returns all results.
+	// You cannot specify this parameter and the volume IDs parameter in the same
+	// request.
 	MaxResults int32
 
 	// The NextToken value to include in a future DescribeVolumeStatus request. When
@@ -209,10 +210,11 @@ type DescribeVolumeStatusPaginatorOptions struct {
 	// paginated output. When this parameter is used, the request only returns
 	// MaxResults results in a single page along with a NextToken response element. The
 	// remaining results of the initial request can be seen by sending another request
-	// with the returned NextToken value. This value can be between 5 and 1000; if
-	// MaxResults is given a value larger than 1000, only 1000 results are returned. If
-	// this parameter is not used, then DescribeVolumeStatus returns all results. You
-	// cannot specify this parameter and the volume IDs parameter in the same request.
+	// with the returned NextToken value. This value can be between 5 and 1,000; if
+	// MaxResults is given a value larger than 1,000, only 1,000 results are returned.
+	// If this parameter is not used, then DescribeVolumeStatus returns all results.
+	// You cannot specify this parameter and the volume IDs parameter in the same
+	// request.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

@@ -30,7 +30,7 @@
 // it with the CredentialsCache before assigning the provider to the Amazon S3 API
 // client's Credentials option.
 //
-// 	provider := ec2imds.New(ec2imds.Options{})
+// 	provider := imds.New(imds.Options{})
 //
 //     // Create the service client value configured for credentials.
 //     svc := s3.New(s3.Options{
@@ -38,12 +38,12 @@
 // 	})
 //
 // If you need more control, you can set the configuration options on the
-// credentials provider using the ec2imds.Options type to configure the EC2 IMDS
+// credentials provider using the imds.Options type to configure the EC2 IMDS
 // API Client and ExpiryWindow of the retrieved credentials.
 //
-// 	provider := ec2imds.New(ec2imds.Options{
-// 		// See ec2imds.Options type's documentation for more options available.
-// 		Client: ec2imds.New(Options{
+// 	provider := imds.New(imds.Options{
+// 		// See imds.Options type's documentation for more options available.
+// 		Client: imds.New(Options{
 // 			HTTPClient: customHTTPClient,
 // 		}),
 //
@@ -53,6 +53,6 @@
 //
 // EC2 IMDS API Client
 //
-// See the github.com/aws/aws-sdk-go-v2/ec2imds module for more details on
+// See the github.com/aws/aws-sdk-go-v2/feature/ec2/imds module for more details on
 // configuring the client, and options available.
 package ec2rolecreds

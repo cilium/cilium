@@ -7,13 +7,13 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // You can modify several parameters of an existing EBS volume, including volume
 // size, volume type, and IOPS capacity. If your EBS volume is attached to a
-// current-generation EC2 instance type, you may be able to apply these changes
+// current-generation EC2 instance type, you might be able to apply these changes
 // without stopping the instance or detaching the volume from it. For more
 // information about modifying an EBS volume running Linux, see Modifying the size,
 // IOPS, or type of an EBS volume on Linux
@@ -36,16 +36,15 @@ import (
 // DescribeVolumesModifications. For information about tracking status changes
 // using either method, see Monitoring volume modifications
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#monitoring_mods).
-// With previous-generation instance types, resizing an EBS volume may require
+// With previous-generation instance types, resizing an EBS volume might require
 // detaching and reattaching the volume or stopping and restarting the instance.
-// For more information, see Modifying the size, IOPS, or type of an EBS volume on
-// Linux
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html) and
-// Modifying the size, IOPS, or type of an EBS volume on Windows
-// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-expand-volume.html).
-// If you reach the maximum volume modification rate per volume limit, you will
-// need to wait at least six hours before applying further modifications to the
-// affected EBS volume.
+// For more information, see Amazon EBS Elastic Volumes
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-modify-volume.html)
+// (Linux) or Amazon EBS Elastic Volumes
+// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-modify-volume.html)
+// (Windows). If you reach the maximum volume modification rate per volume limit,
+// you will need to wait at least six hours before applying further modifications
+// to the affected EBS volume.
 func (c *Client) ModifyVolume(ctx context.Context, params *ModifyVolumeInput, optFns ...func(*Options)) (*ModifyVolumeOutput, error) {
 	if params == nil {
 		params = &ModifyVolumeInput{}
@@ -74,21 +73,56 @@ type ModifyVolumeInput struct {
 	// UnauthorizedOperation.
 	DryRun bool
 
-	// The target IOPS rate of the volume. This is only valid for Provisioned IOPS SSD
-	// (io1 and io2) volumes. For moreinformation, see  Provisioned IOPS SSD (io1 and
-	// io2) volumes
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html#EBSVolumeTypes_piops).
-	// Default: If no IOPS value is specified, the existing value is retained.
+	// The target IOPS rate of the volume. This parameter is valid only for gp3, io1,
+	// and io2 volumes. The following are the supported values for each volume type:
+	//
+	// *
+	// gp3: 3,000-16,000 IOPS
+	//
+	// * io1: 100-64,000 IOPS
+	//
+	// * io2: 100-64,000 IOPS
+	//
+	// Default:
+	// If no IOPS value is specified, the existing value is retained.
 	Iops int32
 
+	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,
+	// you can attach the volume to up to 16  Nitro-based instances
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances)
+	// in the same Availability Zone. This parameter is supported with io1 and io2
+	// volumes only. For more information, see  Amazon EBS Multi-Attach
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volumes-multi.html) in
+	// the Amazon Elastic Compute Cloud User Guide.
+	MultiAttachEnabled bool
+
 	// The target size of the volume, in GiB. The target volume size must be greater
-	// than or equal to than the existing size of the volume. For information about
-	// available EBS volume sizes, see Amazon EBS Volume Types
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html).
-	// Default: If no size is specified, the existing size is retained.
+	// than or equal to the existing size of the volume. The following are the
+	// supported volumes sizes for each volume type:
+	//
+	// * gp2 and gp3: 1-16,384
+	//
+	// * io1
+	// and io2: 4-16,384
+	//
+	// * st1 and sc1: 125-16,384
+	//
+	// * standard: 1-1,024
+	//
+	// Default: If
+	// no size is specified, the existing size is retained.
 	Size int32
 
-	// The target EBS volume type of the volume. Default: If no type is specified, the
+	// The target throughput of the volume, in MiB/s. This parameter is valid only for
+	// gp3 volumes. The maximum value is 1,000. Default: If no throughput value is
+	// specified, the existing value is retained. Valid Range: Minimum value of 125.
+	// Maximum value of 1000.
+	Throughput int32
+
+	// The target EBS volume type of the volume. For more information, see Amazon EBS
+	// volume types
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
+	// Amazon Elastic Compute Cloud User Guide. Default: If no type is specified, the
 	// existing type is retained.
 	VolumeType types.VolumeType
 }

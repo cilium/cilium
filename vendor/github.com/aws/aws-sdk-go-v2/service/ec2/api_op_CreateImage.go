@@ -7,8 +7,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance that is
@@ -64,10 +64,28 @@ type CreateImageInput struct {
 	DryRun bool
 
 	// By default, Amazon EC2 attempts to shut down and reboot the instance before
-	// creating the image. If the 'No Reboot' option is set, Amazon EC2 doesn't shut
-	// down the instance before creating the image. When this option is used, file
-	// system integrity on the created image can't be guaranteed.
+	// creating the image. If the No Reboot option is set, Amazon EC2 doesn't shut down
+	// the instance before creating the image. When this option is used, file system
+	// integrity on the created image can't be guaranteed.
 	NoReboot bool
+
+	OutpostArn *string
+
+	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI, the
+	// snapshots, or both.
+	//
+	// * To tag the AMI, the value for ResourceType must be
+	// image.
+	//
+	// * To tag the snapshots that are created of the root volume and of other
+	// EBS volumes that are attached to the instance, the value for ResourceType must
+	// be snapshot. The same tag is applied to all of the snapshots that are
+	// created.
+	//
+	// If you specify other values for ResourceType, the request fails. To
+	// tag an AMI or snapshot after it has been created, see CreateTags
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
+	TagSpecifications []types.TagSpecification
 }
 
 type CreateImageOutput struct {

@@ -4,11 +4,12 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Describes the IP address ranges that were specified in calls to
@@ -119,6 +120,90 @@ func addOperationDescribeByoipCidrsMiddlewares(stack *middleware.Stack, options 
 		return err
 	}
 	return nil
+}
+
+// DescribeByoipCidrsAPIClient is a client that implements the DescribeByoipCidrs
+// operation.
+type DescribeByoipCidrsAPIClient interface {
+	DescribeByoipCidrs(context.Context, *DescribeByoipCidrsInput, ...func(*Options)) (*DescribeByoipCidrsOutput, error)
+}
+
+var _ DescribeByoipCidrsAPIClient = (*Client)(nil)
+
+// DescribeByoipCidrsPaginatorOptions is the paginator options for
+// DescribeByoipCidrs
+type DescribeByoipCidrsPaginatorOptions struct {
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeByoipCidrsPaginator is a paginator for DescribeByoipCidrs
+type DescribeByoipCidrsPaginator struct {
+	options   DescribeByoipCidrsPaginatorOptions
+	client    DescribeByoipCidrsAPIClient
+	params    *DescribeByoipCidrsInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeByoipCidrsPaginator returns a new DescribeByoipCidrsPaginator
+func NewDescribeByoipCidrsPaginator(client DescribeByoipCidrsAPIClient, params *DescribeByoipCidrsInput, optFns ...func(*DescribeByoipCidrsPaginatorOptions)) *DescribeByoipCidrsPaginator {
+	options := DescribeByoipCidrsPaginatorOptions{}
+	if params.MaxResults != 0 {
+		options.Limit = params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if params == nil {
+		params = &DescribeByoipCidrsInput{}
+	}
+
+	return &DescribeByoipCidrsPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeByoipCidrsPaginator) HasMorePages() bool {
+	return p.firstPage || p.nextToken != nil
+}
+
+// NextPage retrieves the next DescribeByoipCidrs page.
+func (p *DescribeByoipCidrsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeByoipCidrsOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	params.MaxResults = p.options.Limit
+
+	result, err := p.client.DescribeByoipCidrs(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken && prevToken != nil && p.nextToken != nil && *prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
 }
 
 func newServiceMetadataMiddleware_opDescribeByoipCidrs(region string) *awsmiddleware.RegisterServiceMetadata {

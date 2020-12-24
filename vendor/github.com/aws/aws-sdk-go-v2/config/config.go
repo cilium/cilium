@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
@@ -43,7 +44,7 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 
 	// Sets the region the API Clients should use for making requests to.
 	resolveRegion,
-	// TODO: Add back EC2 Region Resolver Support
+	resolveEC2IMDSRegion,
 	resolveDefaultRegion,
 
 	// Sets the additional set of middleware stack mutators that will custom
@@ -72,7 +73,7 @@ type Config interface{}
 //
 // The loader should return an error if it fails to load the external configuration
 // or the configuration data is malformed, or required components missing.
-type loader func(configs) (Config, error)
+type loader func(context.Context, configs) (Config, error)
 
 // An awsConfigResolver will extract configuration data from the configs slice
 // using the provider interfaces to extract specific functionality. The extracted
@@ -80,7 +81,7 @@ type loader func(configs) (Config, error)
 //
 // The resolver should return an error if it it fails to extract the data, the
 // data is malformed, or incomplete.
-type awsConfigResolver func(cfg *aws.Config, configs configs) error
+type awsConfigResolver func(ctx context.Context, cfg *aws.Config, configs configs) error
 
 // configs is a slice of Config values. These values will be used by the
 // AWSConfigResolvers to extract external configuration values to populate the
@@ -99,9 +100,9 @@ type configs []Config
 //
 // If a loader returns an error this method will stop iterating and return
 // that error.
-func (cs configs) AppendFromLoaders(loaders []loader) (configs, error) {
+func (cs configs) AppendFromLoaders(ctx context.Context, loaders []loader) (configs, error) {
 	for _, fn := range loaders {
-		cfg, err := fn(cs)
+		cfg, err := fn(ctx, cs)
 		if err != nil {
 			return nil, err
 		}
@@ -118,11 +119,11 @@ func (cs configs) AppendFromLoaders(loaders []loader) (configs, error) {
 //
 // If an resolver returns an error this method will return that error, and stop
 // iterating over the resolvers.
-func (cs configs) ResolveAWSConfig(resolvers []awsConfigResolver) (aws.Config, error) {
+func (cs configs) ResolveAWSConfig(ctx context.Context, resolvers []awsConfigResolver) (aws.Config, error) {
 	var cfg aws.Config
 
 	for _, fn := range resolvers {
-		if err := fn(&cfg, cs); err != nil {
+		if err := fn(ctx, &cfg, cs); err != nil {
 			// TODO provide better error?
 			return aws.Config{}, err
 		}
@@ -155,7 +156,7 @@ func (cs configs) ResolveConfig(f func(configs []interface{}) error) error {
 // The custom configurations must satisfy the respective providers for their data
 // or the custom data will be ignored by the resolvers and config loaders.
 //
-//    cfg, err := config.LoadDefaultConfig(
+//    cfg, err := config.LoadDefaultConfig( context.TODO(),
 //       WithSharedConfigProfile("test-profile"),
 //    )
 //    if err != nil {
@@ -166,14 +167,24 @@ func (cs configs) ResolveConfig(f func(configs []interface{}) error) error {
 // The default configuration sources are:
 // * Environment Variables
 // * Shared Configuration and Shared Credentials files.
-func LoadDefaultConfig(cfgs ...Config) (aws.Config, error) {
-	var cfgCpy configs
-	cfgCpy = append(cfgCpy, cfgs...)
+func LoadDefaultConfig(ctx context.Context, optFns ...func(*LoadOptions) error) (cfg aws.Config, err error) {
+	var options LoadOptions
+	for _, optFn := range optFns {
+		optFn(&options)
+	}
 
-	cfgCpy, err := cfgCpy.AppendFromLoaders(defaultLoaders)
+	// assign Load Options to configs
+	var cfgCpy = configs{options}
+
+	cfgCpy, err = cfgCpy.AppendFromLoaders(ctx, defaultLoaders)
 	if err != nil {
 		return aws.Config{}, err
 	}
 
-	return cfgCpy.ResolveAWSConfig(defaultAWSConfigResolvers)
+	cfg, err = cfgCpy.ResolveAWSConfig(ctx, defaultAWSConfigResolvers)
+	if err != nil {
+		return aws.Config{}, err
+	}
+
+	return cfg, nil
 }

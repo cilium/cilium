@@ -8,8 +8,8 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/awslabs/smithy-go/middleware"
-	smithyhttp "github.com/awslabs/smithy-go/transport/http"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Gets information about the associations for the specified transit gateway route
@@ -48,10 +48,10 @@ type GetTransitGatewayRouteTableAssociationsInput struct {
 	// resource.
 	//
 	// * resource-type - The resource type. Valid values are vpc | vpn |
-	// direct-connect-gateway | peering.
+	// direct-connect-gateway | peering | connect.
 	//
-	// * transit-gateway-attachment-id - The ID of
-	// the attachment.
+	// * transit-gateway-attachment-id -
+	// The ID of the attachment.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
