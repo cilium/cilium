@@ -118,48 +118,32 @@ func deriveStatus(err error) string {
 
 // describeNetworkInterfaces lists all ENIs
 func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamTypes.SubnetMap) ([]ec2_types.NetworkInterface, error) {
-	var (
-		networkInterfaces []ec2_types.NetworkInterface
-		interfacesFilters []ec2_types.Filter
-		nextToken         string
-	)
-
-	for {
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
-		input := &ec2.DescribeNetworkInterfacesInput{}
-		if nextToken != "" {
-			input.NextToken = &nextToken
+	var result []ec2_types.NetworkInterface
+	input := &ec2.DescribeNetworkInterfacesInput{}
+	if len(c.subnetsFilters) > 0 {
+		subnetsIDs := make([]string, 0, len(subnets))
+		for id := range subnets {
+			subnetsIDs = append(subnetsIDs, id)
 		}
-
-		if len(c.subnetsFilters) > 0 {
-			subnetsIDs := make([]string, 0, len(subnets))
-			for id := range subnets {
-				subnetsIDs = append(subnetsIDs, id)
-			}
-			interfacesFilters = append(interfacesFilters, ec2_types.Filter{
+		input.Filters = []ec2_types.Filter{
+			{
 				Name:   aws.String("subnet-id"),
 				Values: subnetsIDs,
-			})
-			input.Filters = interfacesFilters
+			},
 		}
-
+	}
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
 		sinceStart := spanstat.Start()
-		output, err := c.ec2Client.DescribeNetworkInterfaces(ctx, input)
+		output, err := paginator.NextPage(ctx)
 		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
-
-		networkInterfaces = append(networkInterfaces, output.NetworkInterfaces...)
-
-		if output.NextToken == nil || *output.NextToken == "" {
-			break
-		} else {
-			nextToken = *output.NextToken
-		}
+		result = append(result, output.NetworkInterfaces...)
 	}
-
-	return networkInterfaces, nil
+	return result, nil
 }
 
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
@@ -257,20 +241,19 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 
 // describeVpcs lists all VPCs
 func (c *Client) describeVpcs(ctx context.Context) ([]ec2_types.Vpc, error) {
-	var vpcs []ec2_types.Vpc
-
-	c.limiter.Limit(ctx, "DescribeVpcs")
-
-	sinceStart := spanstat.Start()
-	output, err := c.ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{})
-	c.metricsAPI.ObserveAPICall("DescribeVpcs", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return nil, err
+	var result []ec2_types.Vpc
+	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, &ec2.DescribeVpcsInput{})
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeVpcs")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeVpcs", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.Vpcs...)
 	}
-
-	vpcs = append(vpcs, output.Vpcs...)
-
-	return vpcs, nil
+	return result, nil
 }
 
 // GetVpcs retrieves and returns all Vpcs
@@ -297,20 +280,24 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 
 // describeSubnets lists all subnets
 func (c *Client) describeSubnets(ctx context.Context) ([]ec2_types.Subnet, error) {
-	c.limiter.Limit(ctx, "DescribeSubnets")
-
-	sinceStart := spanstat.Start()
+	var result []ec2_types.Subnet
 	input := &ec2.DescribeSubnetsInput{}
 	if len(c.subnetsFilters) > 0 {
 		input.Filters = c.subnetsFilters
 	}
-	output, err := c.ec2Client.DescribeSubnets(ctx, input)
-	c.metricsAPI.ObserveAPICall("DescribeSubnets", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return nil, err
-	}
+	paginator := ec2.NewDescribeSubnetsPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeSubnets")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeSubnets", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.Subnets...)
 
-	return output.Subnets, nil
+	}
+	return result, nil
 }
 
 // GetSubnets returns all EC2 subnets as a subnetMap
@@ -494,15 +481,19 @@ func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {
 }
 
 func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2_types.SecurityGroup, error) {
-	c.limiter.Limit(ctx, "DescribeSecurityGroups")
-	sinceStart := spanstat.Start()
-	output, err := c.ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{})
-	c.metricsAPI.ObserveAPICall("DescribeSecurityGroups", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return []ec2_types.SecurityGroup{}, err
+	var result []ec2_types.SecurityGroup
+	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, &ec2.DescribeSecurityGroupsInput{})
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeSecurityGroups")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeSecurityGroups", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.SecurityGroups...)
 	}
-
-	return output.SecurityGroups, nil
+	return result, nil
 }
 
 // GetSecurityGroups returns all EC2 security groups as a SecurityGroupMap
@@ -536,28 +527,17 @@ func (c *Client) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap,
 
 // GetInstanceTypes returns all the known EC2 instance types in the configured region
 func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceTypeInfo, error) {
-	c.limiter.Limit(ctx, "DescribeInstanceTypes")
-	sinceStart := spanstat.Start()
-	instanceTypeInfos := []ec2_types.InstanceTypeInfo{}
-	output, err := c.ec2Client.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{})
-	c.metricsAPI.ObserveAPICall("DescribeInstanceTypes", deriveStatus(err), sinceStart.Seconds())
-	if err != nil {
-		return instanceTypeInfos, err
-	}
-
-	instanceTypeInfos = append(instanceTypeInfos, output.InstanceTypes...)
-
-	for output.NextToken != nil {
-		describeInstanceTypes := &ec2.DescribeInstanceTypesInput{
-			NextToken: output.NextToken,
-		}
-		output, err = c.ec2Client.DescribeInstanceTypes(ctx, describeInstanceTypes)
+	var result []ec2_types.InstanceTypeInfo
+	paginator := ec2.NewDescribeInstanceTypesPaginator(c.ec2Client, &ec2.DescribeInstanceTypesInput{})
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeInstanceTypes")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeInstanceTypes", deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
-			return instanceTypeInfos, err
+			return nil, err
 		}
-
-		instanceTypeInfos = append(instanceTypeInfos, output.InstanceTypes...)
+		result = append(result, output.InstanceTypes...)
 	}
-
-	return instanceTypeInfos, nil
+	return result, nil
 }
