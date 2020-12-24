@@ -163,11 +163,8 @@ func Hint(err error) error {
 func timeSince(since time.Time) string {
 	out := "never"
 	if !since.IsZero() {
-		// Poor man's implementtion of time.Truncate(). Can be refined
-		// when we rebase to go 1.9
 		t := time.Since(since)
-		t -= t % time.Second
-		out = t.String() + " ago"
+		out = t.Truncate(time.Second).String() + " ago"
 	}
 
 	return out
