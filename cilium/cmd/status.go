@@ -71,6 +71,10 @@ func statusDaemon() {
 	}
 
 	if verbose {
+		//new code that shows cilium version from cilium/cmd/version.go
+		fmt.Printf("Client: %s\n", getClientVersionAsString())
+		fmt.Printf("Daemon: %s\n", getDaemonVersionAsString())
+		//end of new code
 		statusDetails = pkg.StatusAllDetails
 		allHealth = true
 	}
