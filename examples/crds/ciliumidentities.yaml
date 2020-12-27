@@ -18,7 +18,16 @@ spec:
     singular: ciliumidentity
   scope: Cluster
   versions:
-  - name: v2
+  - additionalPrinterColumns:
+    - description: The namespace of the entity
+      jsonPath: .metadata.labels.io\.kubernetes\.pod\.namespace
+      name: Namespace
+      type: string
+    - description: The age of the identity
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2
     schema:
       openAPIV3Schema:
         description: 'CiliumIdentity is a CRD that represents an identity managed

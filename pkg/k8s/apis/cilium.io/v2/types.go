@@ -218,6 +218,8 @@ type EndpointIdentity struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
+// +kubebuilder:printcolumn:JSONPath=".metadata.labels.io\\.kubernetes\\.pod\\.namespace",description="The namespace of the entity",name="Namespace",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of the identity",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
