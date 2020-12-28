@@ -17,6 +17,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
@@ -131,6 +132,14 @@ func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) erro
 
 func (n *signalNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
 	return nil
+}
+
+func (n *signalNodeHandler) NodeNeighDiscoveryEnabled() bool {
+	return false
+}
+
+func (n *signalNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
+	return
 }
 
 func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {

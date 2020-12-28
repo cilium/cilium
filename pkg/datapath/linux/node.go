@@ -15,6 +15,7 @@
 package linux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -549,6 +550,35 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
+func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP, ifaceName string) (srcIPv4, nextHopIPv4 net.IP, err error) {
+	// Figure out whether nodeIPv4 is directly reachable (i.e. in the same L2)
+	routes, err := netlink.RouteGet(nodeIPv4)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed to retrieve route for remote node IP: %w", err)
+	}
+
+	if len(routes) == 0 {
+		return nil, nil, fmt.Errorf("Remote node IP is not routable. Connectivity to pods on that node may be unavailable.")
+	}
+
+	// Use the first available route by default
+	srcIPv4 = make(net.IP, net.IPv4len)
+	nextHopIPv4 = nodeIPv4
+	copy(srcIPv4, routes[0].Src.To4())
+
+	for _, route := range routes {
+		if route.Gw != nil {
+			// nodeIPv4 is in a different L2 subnet, so it must be reachable through
+			// a gateway. Send arping to the gw IP addr instead of nodeIPv4.
+			// NOTE: we currently don't handle multipath, so only one gw can be used.
+			copy(srcIPv4, route.Src.To4())
+			copy(nextHopIPv4, route.Gw.To4())
+			break
+		}
+	}
+	return srcIPv4, nextHopIPv4, nil
+}
+
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
 	if newNode.IsLocal() {
@@ -564,31 +594,10 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		logfields.IPAddr:    nextHopIPv4,
 	})
 
-	// Figure out whether newNode is directly reachable (i.e. in the same L2)
-	routes, err := netlink.RouteGet(nextHopIPv4)
+	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4, ifaceName)
 	if err != nil {
-		scopedLog.WithError(err).Error("Failed to retrieve route for remote node IP")
+		scopedLog.WithError(err).Error("Failed to determine source and next hop ip for arping")
 		return
-	}
-
-	if len(routes) == 0 {
-		scopedLog.Error("Remote node IP is not routable. Connectivity to pods on that node may be unavailable.")
-		return
-	}
-
-	// Use the first available route by default
-	srcIPv4 := make(net.IP, len(newNodeIP))
-	copy(srcIPv4, routes[0].Src)
-
-	for _, route := range routes {
-		if route.Gw != nil {
-			// newNode is in a different L2 subnet, so it must be reachable through
-			// a gateway. Send arping to the gw IP addr instead of newNode IP addr.
-			// NOTE: we currently don't handle multipath, so only one gw can be used.
-			copy(srcIPv4, route.Src)
-			copy(nextHopIPv4, route.Gw)
-			break
-		}
 	}
 
 	nextHopStr := nextHopIPv4.String()
@@ -628,6 +637,88 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			neighborsmap.NeighRetire(nextHopIPv4)
 		}
 	}
+}
+
+func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, ifaceName string, ch chan struct{}) {
+	defer close(ch)
+	if nodeToRefresh.IsLocal() {
+		return
+	}
+
+	nodeIP := nodeToRefresh.GetNodeIP(false).To4()
+	nextHopIPv4 := make(net.IP, len(nodeIP))
+	copy(nextHopIPv4, nodeIP)
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Interface: ifaceName,
+		logfields.IPAddr:    nextHopIPv4,
+	})
+
+	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4, ifaceName)
+	if err != nil {
+		scopedLog.WithError(err).Error("Failed to determine source and next hop ip for arping")
+		return
+	}
+
+	nextHopStr := nextHopIPv4.String()
+	n.mutex.Lock()
+	n.neighNextHopByNode[nodeToRefresh.Identity()] = nextHopStr
+	oldNeigh, oldNeighFound := n.neighByNextHop[nextHopStr]
+	_, refCountExists := n.neighNextHopRefCount[nextHopStr]
+
+	// If somehow the next hop of the neighbor we are refreshing hasn't been referenced, add it.
+	if !refCountExists {
+		n.neighNextHopRefCount.Add(nextHopStr)
+	}
+	n.mutex.Unlock()
+
+	linkAttr, err := netlink.LinkByName(ifaceName)
+	if err != nil {
+		scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
+		return
+	}
+	link := linkAttr.Attrs().Index
+
+	hwAddr, err := arp.PingOverLink(linkAttr, srcIPv4, nextHopIPv4)
+	if err != nil {
+		scopedLog.WithError(err).Error("arping failed")
+		return
+	}
+
+	// MAC address hasn't changed.
+	if oldNeighFound && hwAddr.String() == oldNeigh.HardwareAddr.String() {
+		return
+	}
+
+	scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
+
+	neigh := netlink.Neigh{
+		LinkIndex:    link,
+		IP:           nextHopIPv4,
+		HardwareAddr: hwAddr,
+		State:        netlink.NUD_PERMANENT,
+	}
+
+	// Don't proceed if the refresh controller canceled the context
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	if err := netlink.NeighSet(&neigh); err != nil {
+		scopedLog.WithError(err).Error("Failed to replace neighbor entry")
+		return
+	}
+	scopedLog.Debug("Neighbor MAC address has changed, replaced neighbor entry")
+
+	n.mutex.Lock()
+	n.neighByNextHop[nextHopStr] = &neigh
+	if option.Config.NodePortHairpin {
+		neighborsmap.NeighRetire(nextHopIPv4)
+	}
+	n.mutex.Unlock()
+	return
 }
 
 // Must be called with linuxNodeHandler.mutex held.
@@ -1189,6 +1280,32 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 	defer n.mutex.Unlock()
 
 	return n.nodeUpdate(nil, &nodeToValidate, false)
+}
+
+// NodeNeighDiscoveryEnabled returns whether node neighbor discovery is enabled
+func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
+	return n.enableNeighDiscovery
+}
+
+// NodeNeighborRefresh is called to refresh node neighbor table.
+// This is currently triggered by controller neighbor-table-refresh
+func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node) {
+	var ifaceName string
+	if option.Config.EnableNodePort {
+		ifaceName = option.Config.DirectRoutingDevice
+	} else if option.Config.EnableIPSec {
+		ifaceName = option.Config.EncryptInterface
+	}
+	refreshComplete := make(chan struct{})
+	go n.refreshNeighbor(ctx, &nodeToRefresh, ifaceName, refreshComplete)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-refreshComplete:
+			return
+		}
+	}
 }
 
 // NodeDeviceNameWithDefaultRoute returns the node's device name which
