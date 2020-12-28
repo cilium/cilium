@@ -15,6 +15,8 @@
 package peer
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/node/types"
 
@@ -123,6 +125,20 @@ func (h handler) NodeValidateImplementation(_ types.Node) error {
 func (h handler) NodeConfigurationChanged(_ datapath.LocalNodeConfiguration) error {
 	// no-op
 	return nil
+}
+
+// NodeNeighDiscoveryEnabled implements
+// datapath.NodeHandler.NodeNeighDiscoveryEnabled. It is a no-op.
+func (h handler) NodeNeighDiscoveryEnabled() bool {
+	// no-op
+	return false
+}
+
+// NodeNeighborRefresh implements
+// datapath.NodeHandler.NodeNeighborRefresh. It is a no-op.
+func (h handler) NodeNeighborRefresh(_ context.Context, _ types.Node) {
+	// no-op
+	return
 }
 
 // Close frees handler resources.
