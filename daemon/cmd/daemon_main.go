@@ -1414,6 +1414,11 @@ func runDaemon() {
 		d.SendNotification(monitorAPI.AgentNotifyStart, repr)
 	}
 
+	// Start periodical arping to refresh neighbor table
+	if d.datapath.Node().NodeNeighDiscoveryEnabled() {
+		d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+	}
+
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
 
