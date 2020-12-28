@@ -17,6 +17,7 @@
 package linux
 
 import (
+	"context"
 	"net"
 	"runtime"
 	"testing"
@@ -1040,6 +1041,36 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 	}
 	c.Assert(found, check.Equals, true)
+
+	// Swap MAC addresses of veth0 and veth1 to ensure the MAC address of veth1 changed.
+	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
+	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
+	veth0HwAddr = veth0.Attrs().HardwareAddr
+	netns0.Do(func(ns.NetNS) error {
+		veth1, err := netlink.LinkByName("veth1")
+		c.Assert(err, check.IsNil)
+		veth1HwAddr = veth1.Attrs().HardwareAddr
+		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
+		c.Assert(err, check.IsNil)
+		return nil
+	})
+
+	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
+	c.Assert(err, check.IsNil)
+
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+			found = true
+			updatedHwAddrFromArpEntry = n.HardwareAddr
+			break
+		}
+	}
+	c.Assert(found, check.Equals, true)
+	c.Assert(updatedHwAddrFromArpEntry.String(), check.Equals, veth0HwAddr.String())
 
 	// Remove nodev1, and check whether the arp entry was removed
 	err = linuxNodeHandler.NodeDelete(nodev1)

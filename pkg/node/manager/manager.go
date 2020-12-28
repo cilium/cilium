@@ -15,10 +15,13 @@
 package manager
 
 import (
+	"context"
 	"math"
 	"net"
+	"strconv"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -28,13 +31,21 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
 	baseBackgroundSyncInterval = time.Minute
+	// The default value of kernel parameter net.ipv4.neigh.default.base_reachable_time_ms.
+	// If option.NeighborRefreshBaseInterval is not configured and we failed to
+	// read from sysctl, refresh at this interval.
+	neighborRefreshBaseInterval = 30 * time.Second
+
+	randGen = rand.NewSafeRand(time.Now().UnixNano())
 )
 
 type nodeEntry struct {
@@ -531,4 +542,49 @@ func (m *Manager) DeleteAllNodes() {
 	}
 	m.nodes = map[nodeTypes.Identity]*nodeEntry{}
 	m.mutex.Unlock()
+}
+
+// StartNeighborRefresh spawns a controller which refreshes neighbor table
+// by sending arping periodically. Linux keeps an arp entry in reachable
+// state for (0.5 ~ 1.5) * base_reachable_time_ms, default by 15 to 45 seconds:
+// https://elixir.bootlin.com/linux/v5.7.19/source/net/core/neighbour.c#L113
+// We do the refresh in a similar way.
+func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
+	var interval time.Duration
+	baseReachableStr, err := sysctl.Read("net.ipv4.neigh.default.base_reachable_time_ms")
+	if err != nil {
+		interval = neighborRefreshBaseInterval
+	} else {
+		baseReachableU32, err := strconv.ParseUint(baseReachableStr, 10, 32)
+		if err != nil {
+			interval = neighborRefreshBaseInterval
+		} else {
+			interval = time.Duration(baseReachableU32) * time.Millisecond
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	controller.NewManager().UpdateController("neighbor-table-refresh",
+		controller.ControllerParams{
+			DoFunc: func(controllerCtx context.Context) error {
+				// cancel previous go routines from previous controller run
+				cancel()
+				ctx, cancel = context.WithCancel(controllerCtx)
+				m.mutex.RLock()
+				defer m.mutex.RUnlock()
+				for _, entry := range m.nodes {
+					if entry.node.IsLocal() {
+						continue
+					}
+					go func(c context.Context, e *nodeEntry) {
+						n := randGen.Int63n(int64(interval / 2))
+						time.Sleep(interval/2 + time.Duration(n))
+						nh.NodeNeighborRefresh(c, e.node)
+					}(ctx, entry)
+				}
+				return nil
+			},
+			RunInterval: interval,
+		},
+	)
+	return
 }

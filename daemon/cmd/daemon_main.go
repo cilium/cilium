@@ -1517,6 +1517,11 @@ func runDaemon() {
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
+	// Start periodical arping to refresh neighbor table
+	if d.datapath.Node().NodeNeighDiscoveryEnabled() {
+		d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+	}
+
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
 

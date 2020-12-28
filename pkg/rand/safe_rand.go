@@ -48,6 +48,13 @@ func (sr *safeRand) Int63() int64 {
 	return v
 }
 
+func (sr *safeRand) Int63n(n int64) int64 {
+	sr.mu.Lock()
+	v := sr.r.Int63n(n)
+	sr.mu.Unlock()
+	return v
+}
+
 func (sr *safeRand) Uint32() uint32 {
 	sr.mu.Lock()
 	v := sr.r.Uint32()
