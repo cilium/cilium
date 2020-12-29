@@ -108,6 +108,9 @@ func init() {
 	klog.SetOutputBySeverity("WARNING", log.WriterLevel(logrus.WarnLevel))
 	klog.SetOutputBySeverity("ERROR", log.WriterLevel(logrus.ErrorLevel))
 	klog.SetOutputBySeverity("FATAL", log.WriterLevel(logrus.FatalLevel))
+
+	// Do not repeat log messages on all severities in klog
+	klogFlags.Set("one_output", "true")
 }
 
 // LogOptions maps configuration key-value pairs related to logging.
