@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/version"
 	"github.com/sirupsen/logrus"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -599,16 +600,22 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 
 	sr.Stale = stale
 
+	//CiliumVersion definition
+	ver := version.GetCiliumVersion()
+	ciliumVer := fmt.Sprintf("%s (v.%s-r.%s)", ver.Version, ver.Version, ver.Revision)
+
 	switch {
 	case len(sr.Stale) > 0:
+		msg := "Stale status data"
 		sr.Cilium = &models.Status{
 			State: models.StatusStateWarning,
-			Msg:   "Stale status data",
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.Kvstore != nil && d.statusResponse.Kvstore.State != models.StatusStateOk:
+		msg := "Kvstore service is not ready"
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kvstore.State,
-			Msg:   "Kvstore service is not ready",
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.ContainerRuntime != nil && d.statusResponse.ContainerRuntime.State != models.StatusStateOk:
 		msg := "Container runtime is not ready"
@@ -617,15 +624,19 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 		}
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.ContainerRuntime.State,
-			Msg:   msg,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case k8s.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
+		msg := "Kubernetes service is not ready"
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kubernetes.State,
-			Msg:   "Kubernetes service is not ready",
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	default:
-		sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
+		sr.Cilium = &models.Status{
+			State: models.StatusStateOk,
+			Msg:   ciliumVer,
+		}
 	}
 
 	return sr
