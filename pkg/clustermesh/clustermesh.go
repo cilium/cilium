@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -143,12 +144,13 @@ func (cm *ClusterMesh) Close() {
 
 func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 	return &remoteCluster{
-		name:        name,
-		configPath:  path,
-		mesh:        cm,
-		changed:     make(chan bool, configNotificationsChannelSize),
-		controllers: controller.NewManager(),
-		swg:         lock.NewStoppableWaitGroup(),
+		name:           name,
+		configPath:     path,
+		mesh:           cm,
+		changed:        make(chan bool, configNotificationsChannelSize),
+		controllers:    controller.NewManager(),
+		swg:            lock.NewStoppableWaitGroup(),
+		releaseTimeout: 5 * time.Second,
 	}
 }
 

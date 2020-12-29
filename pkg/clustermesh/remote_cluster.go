@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,6 +90,10 @@ type remoteCluster struct {
 
 	// lastFailure is the timestamp of the last failure
 	lastFailure time.Time
+
+	// releaseTimeout is the timeout for the release operation of a kvstore
+	// connection.
+	releaseTimeout time.Duration
 }
 
 var (
@@ -117,14 +121,16 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 
 // releaseOldConnection releases the etcd connection to a remote cluster. Must
 // be called with rc.mutex held for writing.
-func (rc *remoteCluster) releaseOldConnection() {
+func (rc *remoteCluster) releaseOldConnection(parentCtx context.Context) {
 	if rc.ipCacheWatcher != nil {
 		rc.ipCacheWatcher.Close()
 		rc.ipCacheWatcher = nil
 	}
 
 	if rc.remoteNodes != nil {
-		rc.remoteNodes.Close(context.TODO())
+		// Although we are not using local keys, we need to "Close()" since unit
+		// tests are using local keys to simulate node addition / removal.
+		rc.remoteNodes.Close(parentCtx)
 		rc.remoteNodes = nil
 	}
 	if rc.remoteIdentityCache != nil {
@@ -132,11 +138,17 @@ func (rc *remoteCluster) releaseOldConnection() {
 		rc.remoteIdentityCache = nil
 	}
 	if rc.remoteServices != nil {
-		rc.remoteServices.Close(context.TODO())
+		// Although we are not using local keys, we need to "Close()" since unit
+		// tests are using local keys to simulate node addition / removal.
+		rc.remoteServices.Close(parentCtx)
 		rc.remoteServices = nil
 	}
 	if rc.backend != nil {
-		rc.backend.Close(context.TODO())
+		ctx, cancel := context.WithTimeout(parentCtx, rc.releaseTimeout)
+		defer cancel()
+		// This will force any session grants and will release any resources
+		// being held by this backend.
+		rc.backend.Close(ctx)
 		rc.backend = nil
 	}
 }
@@ -147,7 +159,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			DoFunc: func(ctx context.Context) error {
 				rc.mutex.Lock()
 				if rc.backend != nil {
-					rc.releaseOldConnection()
+					rc.releaseOldConnection(ctx)
 				}
 				rc.mutex.Unlock()
 
@@ -229,7 +241,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			},
 			StopFunc: func(ctx context.Context) error {
 				rc.mutex.Lock()
-				rc.releaseOldConnection()
+				rc.releaseOldConnection(ctx)
 				rc.mutex.Unlock()
 
 				rc.getLogger().Info("All resources of remote cluster cleaned up")

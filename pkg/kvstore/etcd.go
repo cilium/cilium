@@ -686,8 +686,16 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	// Timeout if the server does not reply within 15 seconds and close the
 	// connection. Ideally it should be lower than staleLockTimeout
 	config.DialKeepAliveTimeout = clientOptions.KeepAliveTimeout
+
+	// This is the top-level context that is cancelled in Close() to
+	// interrupt any ongoing low-level operations
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	config.Context = ctx
+
 	c, err := client.New(*config)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 
@@ -740,6 +748,8 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	}()
 
 	handleSessionError := func(err error) {
+		// Cancel any ongoing session grants
+		cancel()
 		ec.RWMutex.Lock()
 		ec.sessionErr = err
 		ec.RWMutex.Unlock()
