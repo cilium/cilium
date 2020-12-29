@@ -288,7 +288,7 @@ func (p *prober) runHTTPProbe() {
 				if status.HTTP.Status != "" {
 					scopedLog.WithFields(logrus.Fields{
 						logfields.Port: port,
-					}).Debugf("Failed to probe: %s", status.HTTP.Status)
+					}).Errorf("Failed to probe: %s", status.HTTP.Status)
 				}
 			}
 
