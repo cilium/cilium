@@ -41,7 +41,6 @@ type EC2API interface {
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
-	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
@@ -53,15 +52,13 @@ type InstancesManager struct {
 	vpcs           ipamTypes.VirtualNetworkMap
 	securityGroups types.SecurityGroupMap
 	api            EC2API
-	eniTags        map[string]string
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(api EC2API, eniTags map[string]string) *InstancesManager {
+func NewInstancesManager(api EC2API) *InstancesManager {
 	return &InstancesManager{
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
-		eniTags:   eniTags,
 	}
 }
 

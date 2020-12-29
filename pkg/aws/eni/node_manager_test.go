@@ -74,7 +74,7 @@ func (e *ENISuite) TearDownTest(c *check.C) {
 
 func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
 	c.Assert(err, check.IsNil)
@@ -110,7 +110,7 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 
 func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
 	c.Assert(err, check.IsNil)
@@ -245,7 +245,7 @@ func reachedAddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int)
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -285,7 +285,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -340,7 +340,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -390,7 +390,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -447,7 +447,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -525,7 +525,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -584,7 +584,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	}
 
 	ec2api := ec2mock.NewAPI(subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instancesManager := NewInstancesManager(ec2api, nil)
+	instancesManager := NewInstancesManager(ec2api)
 	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -646,7 +646,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	metricsMock := metricsmock.NewMockMetrics()
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -686,7 +686,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
@@ -736,7 +736,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet1, testSubnet2, testSubnet3}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	ec2api.SetDelay(ec2mock.AllOperations, delay)
 	ec2api.SetLimiter(rateLimit, burst)
-	instances := NewInstancesManager(ec2api, nil)
+	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false)
 	c.Assert(err, check.IsNil)

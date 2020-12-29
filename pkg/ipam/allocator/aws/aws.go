@@ -55,7 +55,7 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
-	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters)
+	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters, operatorOption.Config.ENITags)
 
 	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
@@ -81,7 +81,7 @@ func (a *AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (alloca
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	instances := eni.NewInstancesManager(a.client, operatorOption.Config.ENITags)
+	instances := eni.NewInstancesManager(a.client)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs)
 	if err != nil {

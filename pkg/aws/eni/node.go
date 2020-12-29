@@ -445,14 +445,6 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		}
 	}
 
-	if len(n.manager.eniTags) != 0 {
-		if err := n.manager.api.TagENI(ctx, eniID, n.manager.eniTags); err != nil {
-			// treating above as a warn rather than error since it's not mandatory for ENI tagging to succeed
-			// given at this point given that it won't affect IPAM functionality
-			scopedLog.WithError(err).Warning("Unable to tag ENI")
-		}
-	}
-
 	// Add the information of the created ENI to the instances manager
 	n.manager.UpdateENI(n.node.InstanceID(), eni)
 	return toAllocate, "", nil

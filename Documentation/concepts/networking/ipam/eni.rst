@@ -365,12 +365,9 @@ perform ENI creation and IP allocation:
  * ``AttachNetworkInterface``
  * ``ModifyNetworkInterface``
  * ``AssignPrivateIpAddresses``
-
-Additionally if the ENI tagging feature is enabled it will require the following EC2 API operation as well:
-
  * ``CreateTags``
 
- If release excess IP enabled:
+If release excess IP enabled:
 
  * ``UnassignPrivateIpAddresses``
 
