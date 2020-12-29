@@ -20,6 +20,7 @@ import (
 	"net"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -978,7 +979,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	ip1 := net.ParseIP("9.9.9.250")
 	ipnet.IP = ip0
 	addr := &netlink.Addr{IPNet: ipnet}
-	netlink.AddrAdd(veth0, addr)
+	err = netlink.AddrAdd(veth0, addr)
 	c.Assert(err, check.IsNil)
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
@@ -1022,6 +1023,9 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		Name:        "node1",
 		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, ip1}},
 	}
+	// wait 1 second to give the OS time to setup the routes for the veth pairs
+	// just created.
+	time.Sleep(time.Second)
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
 
