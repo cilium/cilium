@@ -37,10 +37,11 @@ import (
 
 // Client represents an EC2 API client
 type Client struct {
-	ec2Client      *ec2.Client
-	limiter        *helpers.ApiLimiter
-	metricsAPI     MetricsAPI
-	subnetsFilters []ec2_types.Filter
+	ec2Client           *ec2.Client
+	limiter             *helpers.ApiLimiter
+	metricsAPI          MetricsAPI
+	subnetsFilters      []ec2_types.Filter
+	eniTagSpecification ec2_types.TagSpecification
 }
 
 // MetricsAPI represents the metrics maintained by the AWS API client
@@ -50,12 +51,18 @@ type MetricsAPI interface {
 }
 
 // NewClient returns a new EC2 client
-func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters []ec2_types.Filter) *Client {
+func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters []ec2_types.Filter, eniTags map[string]string) *Client {
+	eniTagSpecification := ec2_types.TagSpecification{
+		ResourceType: ec2_types.ResourceTypeNetworkInterface,
+		Tags:         createAWSTagSlice(eniTags),
+	}
+
 	return &Client{
-		ec2Client:      ec2Client,
-		metricsAPI:     metrics,
-		limiter:        helpers.NewApiLimiter(metrics, rateLimit, burst),
-		subnetsFilters: subnetsFilters,
+		ec2Client:           ec2Client,
+		metricsAPI:          metrics,
+		limiter:             helpers.NewApiLimiter(metrics, rateLimit, burst),
+		subnetsFilters:      subnetsFilters,
+		eniTagSpecification: eniTagSpecification,
 	}
 }
 
@@ -349,8 +356,11 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		Description:                    aws.String(desc),
 		SecondaryPrivateIpAddressCount: toAllocate,
 		SubnetId:                       aws.String(subnetID),
+		Groups:                         groups,
+		TagSpecifications: []ec2_types.TagSpecification{
+			c.eniTagSpecification,
+		},
 	}
-	input.Groups = append(input.Groups, groups...)
 
 	c.limiter.Limit(ctx, "CreateNetworkInterface")
 	sinceStart := spanstat.Start()
@@ -451,19 +461,6 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall("UnassignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
-	return err
-}
-
-// TagENI creates the specified tags on the ENI
-func (c *Client) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {
-	input := &ec2.CreateTagsInput{
-		Resources: []string{eniID},
-		Tags:      createAWSTagSlice(eniTags),
-	}
-	c.limiter.Limit(ctx, "CreateTags")
-	sinceStart := spanstat.Start()
-	_, err := c.ec2Client.CreateTags(ctx, input)
-	c.metricsAPI.ObserveAPICall("CreateTags", deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 

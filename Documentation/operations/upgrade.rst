@@ -336,6 +336,9 @@ Annotations:
 ------------------
 
 * Cilium has bumped the minimal Kubernetes version supported to v1.13.0.
+* When using the ENI-based IPAM in conjunction with the ``--eni-tags``, failures
+  to create tags are treated as errors which will result in ENIs not being
+  created. Ensure that the ``ec2:CreateTags`` IAM permissions are granted.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
