@@ -721,6 +721,7 @@ struct lb6_backend {
 	__be16 port;
 	__u8 proto;
 	__u8 pad;
+	__u32 weight;  /* Service endpoint weight for maglev hash */
 };
 
 struct lb6_health {
@@ -774,6 +775,7 @@ struct lb4_backend {
 	__be16 port;		/* L4 port filter */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
 	__u8 pad;
+    __u32 weight;   /* Service endpoint weight for maglev hash */
 };
 
 struct lb4_health {

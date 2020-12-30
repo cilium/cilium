@@ -185,7 +185,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		ba := be.GetBackendModel()
 		spec.BackendAddresses = append(spec.BackendAddresses, ba)
 		bw := be.GetBackendWeight()
-		spec.Backendweights = append(spec.Backendweights, bw)
+		spec.BackendWeights = append(spec.BackendWeights, bw)
 	}
 
 	if created, err := client.PutServiceID(id, spec); err != nil {
