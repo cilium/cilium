@@ -1328,17 +1328,17 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return err
 }
 
-// WaitForSinglePod waits up until timeout seconds have elapsed for all pods in the
-// specified namespace that match the provided JSONPath filter to have their
-// containterStatuses equal to "ready". Returns true if all pods achieve
+// WaitForSinglePod waits up until timeout seconds have elapsed for a single pod
+// with name 'podname' in the specified namespace to have its
+// containterStatus equal to "ready". Returns true if the pods achieves
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitForSinglePod(namespace, filter string, timeout time.Duration) error {
-	ginkgoext.By("WaitforPods(namespace=%q, filter=%q)", namespace, filter)
-	err := kub.waitForSinglePod(checkReady, namespace, filter, timeout)
-	ginkgoext.By("WaitforPods(namespace=%q, filter=%q) => %v", namespace, filter, err)
+func (kub *Kubectl) WaitForSinglePod(namespace, podname string, timeout time.Duration) error {
+	ginkgoext.By("WaitForSinglePod(namespace=%q, podname=%q)", namespace, podname)
+	err := kub.waitForSinglePod(checkReady, namespace, podname, timeout)
+	ginkgoext.By("waitForSinglePod(namespace=%q, podname=%q, minRequired=1) => %v", namespace, podname, err)
 	if err != nil {
-		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s %s", KubectlCmd, namespace, filter))
+		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s %s", KubectlCmd, namespace, podname))
 		ginkgoext.By(desc.GetDebugMessage())
 	}
 	return err
@@ -1454,12 +1454,15 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		&TimeoutConfig{Timeout: timeout})
 }
 
-func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace string, filter string, timeout time.Duration) error {
+func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace string, podname string, timeout time.Duration) error {
 	body := func() bool {
 		pod := v1.Pod{}
-		err := kub.GetPods(namespace, filter).Unmarshal(&pod)
+		// Result unmarshals to a v1.Pod only if the filter is a
+		// name of a pod so that the result is a single pod
+		// rather than a list of pods
+		err := kub.GetPods(namespace, podname).Unmarshal(&pod)
 		if err != nil {
-			kub.Logger().Infof("Error while getting Pod: %s", err)
+			kub.Logger().Infof("Error while getting Pod %s in namespace %s: %s", podname, namespace, err)
 			return false
 		}
 
@@ -1468,12 +1471,12 @@ func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace s
 		//  - It is not scheduled for deletion when DeletionTimestamp is set
 		//  - All containers in the pod have passed the liveness check via
 		//  containerStatuses.Ready
-		return checkReady(pod)
+		return checkStatus(pod)
 	}
 
 	return WithTimeout(
 		body,
-		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
+		fmt.Sprintf("timed out waiting for pod %s in namespace %s to be ready", podname, namespace),
 		&TimeoutConfig{Timeout: timeout})
 }
 
