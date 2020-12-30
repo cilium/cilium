@@ -616,6 +616,20 @@ func (kub *Kubectl) PrepareCluster() {
 	}
 }
 
+// NumNodes returns the number of Kubernetes nodes
+func (kub *Kubectl) NumNodes() int {
+	cmd := KubectlCmd + " get nodes -o json | jq '.items | length'"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("unable to retrieve all nodes with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+	i, err := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+	if err != nil {
+		ginkgoext.Failf("unable to parse number of nodes from '%s': %s", res.Stdout(), err)
+	}
+	return i
+}
+
 // labelNodes labels all Kubernetes nodes for use by the CI tests
 func (kub *Kubectl) labelNodes() error {
 	cmd := KubectlCmd + " get nodes -o json | jq -r '[ .items[] | select(.metadata.labels[\"node-role.kubernetes.io/controlplane\"] == null).metadata.name ]'"
