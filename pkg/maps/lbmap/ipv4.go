@@ -345,17 +345,19 @@ type Backend4Value struct {
 	Port    uint16          `align:"port"`
 	Proto   u8proto.U8proto `align:"proto"`
 	Pad     uint8           `align:"pad"`
+	Weight  uint32          `align:"weight"`
 }
 
-func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4Value, error) {
+func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto, weight uint32) (*Backend4Value, error) {
 	ip4 := ip.To4()
 	if ip4 == nil {
 		return nil, fmt.Errorf("Not an IPv4 address")
 	}
 
 	val := Backend4Value{
-		Port:  port,
-		Proto: proto,
+		Port:   port,
+		Proto:  proto,
+		Weight: weight,
 	}
 	copy(val.Address[:], ip.To4())
 
@@ -371,10 +373,12 @@ func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetPort() uint16    { return b.Port }
+func (b *Backend4Value) GetWeight() uint32  { return b.Weight }
 
 func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork16(n.Port)
+	n.Weight = byteorder.HostToNetwork32(n.Weight)
 	return &n
 }
 
@@ -382,6 +386,7 @@ func (v *Backend4Value) ToNetwork() BackendValue {
 func (v *Backend4Value) ToHost() BackendValue {
 	h := *v
 	h.Port = byteorder.NetworkToHost16(h.Port)
+	h.Weight = byteorder.NetworkToHost32(h.Weight)
 	return &h
 }
 
@@ -390,8 +395,8 @@ type Backend4 struct {
 	Value *Backend4Value
 }
 
-func NewBackend4(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
-	val, err := NewBackend4Value(ip, port, proto)
+func NewBackend4(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto, weight uint32) (*Backend4, error) {
+	val, err := NewBackend4Value(ip, port, proto, weight)
 	if err != nil {
 		return nil, err
 	}
