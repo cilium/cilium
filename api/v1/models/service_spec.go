@@ -26,6 +26,8 @@ type ServiceSpec struct {
 	// List of backend addresses
 	BackendAddresses []*BackendAddress `json:"backend-addresses"`
 
+	Backendweights []*BackendWeight `json:"backend-weights"`
+
 	// flags
 	Flags *ServiceSpecFlags `json:"flags,omitempty"`
 

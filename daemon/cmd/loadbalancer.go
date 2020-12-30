@@ -52,8 +52,8 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		ID:       loadbalancer.ID(params.Config.ID),
 	}
 	backends := []loadbalancer.Backend{}
-	for _, v := range params.Config.BackendAddresses {
-		b, err := loadbalancer.NewBackendFromBackendModel(v)
+	for i, v := range params.Config.BackendAddresses {
+		b, err := loadbalancer.NewBackendFromBackendModelAndWeight(v, params.Config.Backendweights[i])
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}

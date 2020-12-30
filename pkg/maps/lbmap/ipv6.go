@@ -276,17 +276,19 @@ type Backend6Value struct {
 	Port    uint16          `align:"port"`
 	Proto   u8proto.U8proto `align:"proto"`
 	Pad     uint8           `align:"pad"`
+	Weight  uint32          `align:"weight"`
 }
 
-func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6Value, error) {
+func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto, weight uint32) (*Backend6Value, error) {
 	ip6 := ip.To16()
 	if ip6 == nil {
 		return nil, fmt.Errorf("Not an IPv6 address")
 	}
 
 	val := Backend6Value{
-		Port:  port,
-		Proto: proto,
+		Port:   port,
+		Proto:  proto,
+		Weight: weight,
 	}
 	copy(val.Address[:], ip.To16())
 
@@ -302,10 +304,12 @@ func (v *Backend6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6Value) GetPort() uint16    { return b.Port }
+func (b *Backend6Value) GetWeight() uint32  { return b.Weight }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	n.Weight = byteorder.HostToNetwork(n.Weight).(uint32)
 	return &n
 }
 
@@ -313,6 +317,7 @@ func (v *Backend6Value) ToNetwork() BackendValue {
 func (v *Backend6Value) ToHost() BackendValue {
 	h := *v
 	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	h.Weight = byteorder.NetworkToHost(h.Weight).(uint32)
 	return &h
 }
 
@@ -321,8 +326,8 @@ type Backend6 struct {
 	Value *Backend6Value
 }
 
-func NewBackend6(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6, error) {
-	val, err := NewBackend6Value(ip, port, proto)
+func NewBackend6(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto, weight uint32) (*Backend6, error) {
+	val, err := NewBackend6Value(ip, port, proto, weight)
 	if err != nil {
 		return nil, err
 	}

@@ -131,6 +131,9 @@ type BackendValue interface {
 	// Get backend port
 	GetPort() uint16
 
+	// Get backend weight
+	GetWeight() uint32
+
 	// Convert fields to network byte order.
 	ToNetwork() BackendValue
 
@@ -195,6 +198,7 @@ func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbal
 	beIP := backend.GetAddress()
 	bePort := backend.GetPort()
 	beProto := loadbalancer.NONE
-	beBackend := loadbalancer.NewBackend(backendID, beProto, beIP, bePort)
+	beWeight := backend.GetWeight()
+	beBackend := loadbalancer.NewBackend(backendID, beProto, beIP, bePort, beWeight)
 	return beBackend
 }

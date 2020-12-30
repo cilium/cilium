@@ -368,17 +368,18 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewBackend creates the Backend struct instance from given params.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint32) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
-		ID:       BackendID(id),
+		ID:       id,
+		Weight:   weight,
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 	}
 
 	return &b
 }
 
-func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
+func NewBackendFromBackendModelAndWeight(base *models.BackendAddress, bw *models.BackendWeight) (*Backend, error) {
 	if base.IP == nil {
 		return nil, fmt.Errorf("missing IP address")
 	}
@@ -390,7 +391,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
-	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{Weight: bw.Weight, NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -434,6 +435,14 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		Port:     b.Port,
 		NodeName: b.NodeName,
 	}
+}
+
+func (b *Backend) GetBackendWeight() *models.BackendWeight {
+	if b == nil {
+		return nil
+	}
+
+	return &models.BackendWeight{Weight: b.Weight}
 }
 
 // String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and

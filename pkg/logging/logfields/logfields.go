@@ -249,6 +249,9 @@ const (
 	// BackendID is the ID of the backend
 	BackendID = "backendID"
 
+	// BackendWeight is a weight of service backend.
+	BackendWeight = "backendWeight"
+
 	// Backends is the list of the service backends
 	Backends = "backends"
 

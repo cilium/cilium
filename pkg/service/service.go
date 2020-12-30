@@ -726,8 +726,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		scopedLog.WithFields(logrus.Fields{
-			logfields.BackendID: b.ID,
-			logfields.L3n4Addr:  b.L3n4Addr,
+			logfields.BackendID:     b.ID,
+			logfields.BackendWeight: b.Weight,
+			logfields.L3n4Addr:      b.L3n4Addr,
 		}).Debug("Adding new backend")
 
 		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,

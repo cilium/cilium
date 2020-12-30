@@ -94,12 +94,12 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool, weight uint32) error {
 	if _, found := m.BackendByID[id]; found {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
+	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port, weight)
 
 	return nil
 }
