@@ -538,6 +538,9 @@ data:
 {{- if hasKey .Values.k8s "requireIPv4PodCIDR" }}
   k8s-require-ipv4-pod-cidr: {{ .Values.k8s.requireIPv4PodCIDR | quote }}
 {{- end }}
+{{- if hasKey .Values.k8s "requireIPv6PodCIDR" }}
+  k8s-require-ipv6-pod-cidr: {{ .Values.k8s.requireIPv6PodCIDR | quote }}
+{{- end }}
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
