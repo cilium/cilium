@@ -134,6 +134,8 @@ linked, either choice is valid.
         CONFIG_NET_SCH_INGRESS=y
         CONFIG_CRYPTO_SHA1=y
         CONFIG_CRYPTO_USER_API_HASH=y
+        CONFIG_CGROUPS=y
+        CONFIG_CGROUP_BPF=y
 
 .. note::
 
