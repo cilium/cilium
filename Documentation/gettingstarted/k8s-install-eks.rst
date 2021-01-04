@@ -101,6 +101,8 @@ Deploy Cilium release via Helm:
    similar to the behavior of the
    `Amazon VPC CNI plugin <https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html>`_.
 
+   This mode depends on a set of :ref:`ec2privileges` from the EC2 API.
+
    Cilium can alternatively run in EKS using an overlay mode that gives pods non-VPC-routable IPs.
    This allows running more pods per Kubernetes worker node than the ENI limit, but means
    that pod connectivity to resources outside the cluster (e.g., VMs in the VPC or AWS managed

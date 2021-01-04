@@ -350,6 +350,8 @@ When a node or instance terminates, the Kubernetes apiserver will send a node
 deletion event. This event will be picked up by the operator and the operator
 will delete the corresponding ``ciliumnodes.cilium.io`` custom resource.
 
+.. _ec2privileges:
+
 *******************
 Required Privileges
 *******************
