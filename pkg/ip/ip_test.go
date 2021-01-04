@@ -174,16 +174,14 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.0.0.0", 10, int(ipv4BitLen)),
 		createIPNet("10.64.0.0", 11, int(ipv4BitLen)),
 		createIPNet("10.120.0.0", 13, int(ipv4BitLen))}
-	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, IsNil)
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Removing superset removes the allowed CIDR
 	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen))}
 	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	expectedCIDRs = []*net.IPNet{}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, IsNil)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
@@ -218,19 +216,29 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.93.0.8", 29, int(ipv4BitLen)),
 		createIPNet("10.93.0.0", 30, int(ipv4BitLen)),
 	}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, IsNil)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Cannot remove CIDRs that are of a different address family.
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
-	_, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, NotNil)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
+
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("a000::", 8, int(ipv6BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
+
+	allowCIDRs = []*net.IPNet{createIPNet("a000::", 8, int(ipv6BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
 
 	//IPv6 tests
 	allowCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen))}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, IsNil)
+	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	expectedCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, int(ipv6BitLen)),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
@@ -240,8 +248,7 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 func (s *IPTestSuite) TestRemoveSameCIDR(c *C) {
 	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen))}
 
-	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, allowCIDRs)
-	c.Assert(err, IsNil)
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, allowCIDRs)
 	c.Assert(allowedCIDRs, HasLen, 0)
 }
 
@@ -250,25 +257,22 @@ func (s *IPTestSuite) TestRemoveCIDRsEdgeCases(c *C) {
 	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, int(ipv4BitLen))}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen)), createIPNet("10.96.0.1", 32, int(ipv4BitLen))}
 	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, int(ipv4BitLen))}
-	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
-	c.Assert(err, IsNil)
 
 	// Remove some subnets
 	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 22, int(ipv4BitLen))}
 	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
 	expectedCIDRs = []*net.IPNet{createIPNet("10.96.2.0", 23, int(ipv4BitLen))}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
-	c.Assert(err, IsNil)
 
 	// Remove all subnets
 	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 23, int(ipv4BitLen))}
 	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
 	expectedCIDRs = []*net.IPNet{}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
-	c.Assert(err, IsNil)
 }
 
 func (s *IPTestSuite) TestByteFunctions(c *C) {

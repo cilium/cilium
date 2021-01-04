@@ -153,7 +153,7 @@ func ComputeResultantCIDRSet(cidrs CIDRRuleSlice) CIDRSlice {
 			_, removeSubnet, _ := net.ParseCIDR(string(t))
 			removeSubnets = append(removeSubnets, removeSubnet)
 		}
-		resultantAllowedCIDRs, _ := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
+		resultantAllowedCIDRs := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
 
 		for _, u := range resultantAllowedCIDRs {
 			allResultantAllowedCIDRs = append(allResultantAllowedCIDRs, CIDR(u.String()))

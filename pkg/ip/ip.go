@@ -17,7 +17,6 @@ package ip
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math/big"
 	"net"
 	"sort"
@@ -157,7 +156,7 @@ func removeRedundantCIDRs(CIDRs []*net.IPNet) []*net.IPNet {
 // slice of CIDRs is returned which contains the set of CIDRs provided minus
 // the set of CIDRs which were removed. Both input slices may be modified by
 // calling this function.
-func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) ([]*net.IPNet, error) {
+func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) []*net.IPNet {
 
 	// Ensure that we iterate through the provided CIDRs in order of largest
 	// subnet first.
@@ -174,12 +173,6 @@ func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) ([]*net.IPNet, error) {
 		i := 0
 		for i < len(allowCIDRs) {
 			allowCIDR := allowCIDRs[i]
-
-			// Don't allow comparison of different address spaces.
-			if allowCIDR.IP.To4() != nil && remove.IP.To4() == nil ||
-				allowCIDR.IP.To4() == nil && remove.IP.To4() != nil {
-				return nil, fmt.Errorf("cannot mix IP addresses of different IP protocol versions")
-			}
 
 			// Only remove CIDR if it is contained in the subnet we are allowing.
 			if allowCIDR.Contains(remove.IP.Mask(remove.Mask)) {
@@ -200,7 +193,7 @@ func RemoveCIDRs(allowCIDRs, removeCIDRs []*net.IPNet) ([]*net.IPNet, error) {
 		}
 	}
 
-	return allowCIDRs, nil
+	return allowCIDRs
 }
 
 func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
