@@ -117,6 +117,7 @@ var (
 	procQueryServiceStatusEx                                 = modadvapi32.NewProc("QueryServiceStatusEx")
 	procRegCloseKey                                          = modadvapi32.NewProc("RegCloseKey")
 	procRegEnumKeyExW                                        = modadvapi32.NewProc("RegEnumKeyExW")
+	procRegNotifyChangeKeyValue                              = modadvapi32.NewProc("RegNotifyChangeKeyValue")
 	procRegOpenKeyExW                                        = modadvapi32.NewProc("RegOpenKeyExW")
 	procRegQueryInfoKeyW                                     = modadvapi32.NewProc("RegQueryInfoKeyW")
 	procRegQueryValueExW                                     = modadvapi32.NewProc("RegQueryValueExW")
@@ -142,6 +143,7 @@ var (
 	procCertCloseStore                                       = modcrypt32.NewProc("CertCloseStore")
 	procCertCreateCertificateContext                         = modcrypt32.NewProc("CertCreateCertificateContext")
 	procCertDeleteCertificateFromStore                       = modcrypt32.NewProc("CertDeleteCertificateFromStore")
+	procCertDuplicateCertificateContext                      = modcrypt32.NewProc("CertDuplicateCertificateContext")
 	procCertEnumCertificatesInStore                          = modcrypt32.NewProc("CertEnumCertificatesInStore")
 	procCertFreeCertificateChain                             = modcrypt32.NewProc("CertFreeCertificateChain")
 	procCertFreeCertificateContext                           = modcrypt32.NewProc("CertFreeCertificateContext")
@@ -149,6 +151,7 @@ var (
 	procCertOpenStore                                        = modcrypt32.NewProc("CertOpenStore")
 	procCertOpenSystemStoreW                                 = modcrypt32.NewProc("CertOpenSystemStoreW")
 	procCertVerifyCertificateChainPolicy                     = modcrypt32.NewProc("CertVerifyCertificateChainPolicy")
+	procPFXImportCertStore                                   = modcrypt32.NewProc("PFXImportCertStore")
 	procDnsNameCompare_W                                     = moddnsapi.NewProc("DnsNameCompare_W")
 	procDnsQuery_W                                           = moddnsapi.NewProc("DnsQuery_W")
 	procDnsRecordListFree                                    = moddnsapi.NewProc("DnsRecordListFree")
@@ -931,6 +934,22 @@ func RegEnumKeyEx(key Handle, index uint32, name *uint16, nameLen *uint32, reser
 	return
 }
 
+func RegNotifyChangeKeyValue(key Handle, watchSubtree bool, notifyFilter uint32, event Handle, asynchronous bool) (regerrno error) {
+	var _p0 uint32
+	if watchSubtree {
+		_p0 = 1
+	}
+	var _p1 uint32
+	if asynchronous {
+		_p1 = 1
+	}
+	r0, _, _ := syscall.Syscall6(procRegNotifyChangeKeyValue.Addr(), 5, uintptr(key), uintptr(_p0), uintptr(notifyFilter), uintptr(event), uintptr(_p1), 0)
+	if r0 != 0 {
+		regerrno = syscall.Errno(r0)
+	}
+	return
+}
+
 func RegOpenKeyEx(key Handle, subkey *uint16, options uint32, desiredAccess uint32, result *Handle) (regerrno error) {
 	r0, _, _ := syscall.Syscall6(procRegOpenKeyExW.Addr(), 5, uintptr(key), uintptr(unsafe.Pointer(subkey)), uintptr(options), uintptr(desiredAccess), uintptr(unsafe.Pointer(result)), 0)
 	if r0 != 0 {
@@ -1163,6 +1182,12 @@ func CertDeleteCertificateFromStore(certContext *CertContext) (err error) {
 	return
 }
 
+func CertDuplicateCertificateContext(certContext *CertContext) (dupContext *CertContext) {
+	r0, _, _ := syscall.Syscall(procCertDuplicateCertificateContext.Addr(), 1, uintptr(unsafe.Pointer(certContext)), 0, 0)
+	dupContext = (*CertContext)(unsafe.Pointer(r0))
+	return
+}
+
 func CertEnumCertificatesInStore(store Handle, prevContext *CertContext) (context *CertContext, err error) {
 	r0, _, e1 := syscall.Syscall(procCertEnumCertificatesInStore.Addr(), 2, uintptr(store), uintptr(unsafe.Pointer(prevContext)), 0)
 	context = (*CertContext)(unsafe.Pointer(r0))
@@ -1214,6 +1239,15 @@ func CertOpenSystemStore(hprov Handle, name *uint16) (store Handle, err error) {
 func CertVerifyCertificateChainPolicy(policyOID uintptr, chain *CertChainContext, para *CertChainPolicyPara, status *CertChainPolicyStatus) (err error) {
 	r1, _, e1 := syscall.Syscall6(procCertVerifyCertificateChainPolicy.Addr(), 4, uintptr(policyOID), uintptr(unsafe.Pointer(chain)), uintptr(unsafe.Pointer(para)), uintptr(unsafe.Pointer(status)), 0, 0)
 	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func PFXImportCertStore(pfx *CryptDataBlob, password *uint16, flags uint32) (store Handle, err error) {
+	r0, _, e1 := syscall.Syscall(procPFXImportCertStore.Addr(), 3, uintptr(unsafe.Pointer(pfx)), uintptr(unsafe.Pointer(password)), uintptr(flags))
+	store = Handle(r0)
+	if store == 0 {
 		err = errnoErr(e1)
 	}
 	return
