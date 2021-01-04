@@ -71,14 +71,14 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/stretchr/testify v1.4.0
-	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
-	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
+	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
+	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1
+	golang.org/x/sys v0.0.0-20201231184435-2d18734c6014
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200324175852-6fb6f5a9fc59
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
@@ -100,5 +100,3 @@ replace (
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20201223003925-9786cf71cd49
 )
-
-replace github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20201214091400-b6003859665e

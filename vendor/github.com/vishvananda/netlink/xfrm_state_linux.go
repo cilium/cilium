@@ -159,10 +159,10 @@ func (h *Handle) xfrmStateAddOrUpdate(state *XfrmState, nlProto int) error {
 		req.AddData(out)
 	}
 	if state.OutputMark != nil {
-		out := nl.NewRtAttr(nl.XFRMA_SET_MARK, nl.Uint32Attr(uint32(state.OutputMark.Value)))
+		out := nl.NewRtAttr(nl.XFRMA_SET_MARK, nl.Uint32Attr(state.OutputMark.Value))
 		req.AddData(out)
 		if state.OutputMark.Mask != 0 {
-			out = nl.NewRtAttr(nl.XFRMA_SET_MARK_MASK, nl.Uint32Attr(uint32(state.OutputMark.Mask)))
+			out = nl.NewRtAttr(nl.XFRMA_SET_MARK_MASK, nl.Uint32Attr(state.OutputMark.Mask))
 			req.AddData(out)
 		}
 	}
