@@ -74,14 +74,14 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
-	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
-	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
+	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
+	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d
+	golang.org/x/sys v0.0.0-20201231184435-2d18734c6014
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20201208233053-a543418bbed2
 	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
@@ -119,5 +119,3 @@ replace (
 	// https://github.com/kubernetes-sigs/structured-merge-diff/issues/172 is fixed.
 	sigs.k8s.io/structured-merge-diff/v4 => github.com/christarazi/structured-merge-diff/v4 v4.0.2-0.20200917183246-1cc601931628
 )
-
-replace github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20201214091400-b6003859665e
