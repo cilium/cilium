@@ -185,6 +185,7 @@ Cilium Feature                           Minimum Kernel Version
 ======================================== ===============================
 :ref:`concepts_fragmentation`            >= 4.10
 :ref:`cidr_limitations`                  >= 4.11
+:ref:`encryption` in tunneling mode      >= 4.19
 :ref:`host-services`                     >= 4.19.57, >= 5.1.16,  >= 5.2
 :ref:`kubeproxy-free`                    >= 4.19.57, >= 5.1.16,  >= 5.2
 :ref:`bandwidth-manager`                 >= 5.1
