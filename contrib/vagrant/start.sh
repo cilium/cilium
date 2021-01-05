@@ -576,36 +576,92 @@ function vboxnet_addr_finder(){
     vboxnet_add_ipv4 "${vboxnetname}" "${IPV4_BASE_ADDR_NFS}" "255.255.255.0"
 }
 
-vboxnet_addr_finder
+#Code for Detecting and warning user
 
-ipv6_public_workers_addrs=()
+function createVm(){
+	vboxnet_addr_finder
 
-split_ipv4 ipv4_array "${MASTER_IPV4}"
-MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
+	ipv6_public_workers_addrs=()
 
-set_reload_if_vm_exists
+	split_ipv4 ipv4_array "${MASTER_IPV4}"
+	MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
 
-create_master
-create_workers
-set_vagrant_env
-create_k8s_config
+	set_reload_if_vm_exists
 
-cd "${dir}/../.."
+	create_master
+	create_workers
+	set_vagrant_env
+	create_k8s_config
 
-PROVISION_ARGS=""
-if [ -n "${NO_PROVISION}" ]; then
-    PROVISION_ARGS="--no-provision"
-fi
-if [ -n "${RELOAD}" ]; then
-    vagrant reload $PROVISION_ARGS $1
-elif [ -n "${PROVISION}" ]; then
-    vagrant provision $1
+	cd "${dir}/../.."
+
+	PROVISION_ARGS=""
+	if [ -n "${NO_PROVISION}" ]; then
+		PROVISION_ARGS="--no-provision"
+	fi
+	if [ -n "${RELOAD}" ]; then
+		vagrant reload $PROVISION_ARGS $1
+	elif [ -n "${PROVISION}" ]; then
+		vagrant provision $1
+	else
+		vagrant up $PROVISION_ARGS $1
+		if [ "$?" -eq "0" -a -n "${K8S}" ]; then
+			host_port=$(vagrant port --guest 6443 k8s1)
+			vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
+			echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
+		fi
+	fi
+}
+
+runningVm=$(VBoxManage list runningvms | awk 'END{ print NR }')
+VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
+if [ "$VMName" ]; then
+	echo
+	echo "Detected running VMs that might cause conflict"
+	echo
+	VBoxManage list runningvms
+	echo
+	printf "Do you wish to pause (p/P), stop (s/S), or destroy (d/D)?  "
+	read optn
+	case "$optn" in
+		"p" | "P")
+			for ((i=1; i<=$runningVm; i=i+1))
+			do
+				VMName=$(VBoxManage list runningvms | awk 'NR=='$i'{print $1}' |  cut -d "\"" -f 2)
+				echo
+				echo $VMName
+				VBoxManage controlvm $VMName pause
+			done
+			printf "\n$runningVm VM(s) paused successfully\n" 
+			printf "Tip: Try running vagrant status to check status\n"
+		;;
+		"s" | "S")
+			for ((i=1; i<=$runningVm; i=i+1))
+			do
+				VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
+				echo
+				echo $VMName
+				VBoxManage controlvm $VMName poweroff
+			done
+			printf "\n$runningVm VM(s) stopped successfully\n"
+			printf "Tip: Try running vagrant status to check status\n"
+		;;
+		"d" | "D")
+			for ((i=1; i<=$runningVm; i=i+1))
+			do
+				VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
+				echo
+				echo $VMName
+				VBoxManage controlvm $VMName poweroff
+				VBoxManage unregistervm $VMName --delete				
+			done
+			printf "\n$runningVm VM(s) destroyed successfully\n"
+			printf "Tip: Try running vagrant status to check status\n"
+		;;
+		*)
+			createVm
+		;;
+	esac
 else
-    vagrant up $PROVISION_ARGS $1
-    if [ "$?" -eq "0" -a -n "${K8S}" ]; then
-        host_port=$(vagrant port --guest 6443 k8s1)
-        vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
-        echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
-    fi
+	createVm
 fi
-
