@@ -68,6 +68,23 @@ func (s *CNPValidationSuite) Test_getFields(c *C) {
 			err:      nil,
 		},
 		{
+			name: "contains fields to be ignored",
+			structure: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"data": "fake-data",
+					"managedFields": map[string]interface{}{
+						"field-1": "value-1",
+					},
+					"name": "fake-name",
+				},
+				"spec": map[string]interface{}{
+					"more": "",
+				},
+			},
+			expected: []string{"metadata.data", "spec.more"},
+			err:      nil,
+		},
+		{
 			name: `contains "matchLabels"`,
 			structure: map[string]interface{}{
 				"spec": map[string]interface{}{

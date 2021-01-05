@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -234,11 +235,17 @@ func flattenObject(obj map[string]interface{}) (map[string]interface{}, error) {
 func isIgnoredField(f string) bool {
 	// We ignore the creation timestamp and the name because when marshalling
 	// and unmarshalling happens when converting to Unstructured, these fields
-	// are added in the "expected" policy.  These fields missing should not be
+	// are added in the "expected" policy. These fields missing should not be
 	// warned about. Specifically for "metadata.name", a CRD cannot be created
 	// without it, so in reality, we can rely on the CRD validation, hence it
 	// is safe to ignore at this level of the code.
-	return f == "metadata.creationTimestamp" || f == "metadata.name"
+	//
+	// Managed fields are added to an existing policy by the apiserver
+	// internally. These fields start with a prefix of "metadata.managedFields"
+	// and are consequently ignored.
+	return f == "metadata.creationTimestamp" ||
+		f == "metadata.name" ||
+		strings.HasPrefix(f, "metadata.managedFields")
 }
 
 // reporter is a custom reporter adhering to the cmp.Reporter interface.
