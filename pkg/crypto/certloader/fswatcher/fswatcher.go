@@ -343,11 +343,13 @@ func (w *Watcher) loop() {
 				}
 			}
 		case err := <-w.watcher.Errors:
-			log.WithError(err).Debug("Received fsnotify error")
+			log.WithError(err).Debug("Received fsnotify error while watching")
 			w.Errors <- err
 		case <-w.stop:
 			err := w.watcher.Close()
-			log.WithError(err).Debug("Received fsnotify error on close")
+			if err != nil {
+				log.WithError(err).Warn("Received fsnotify error on close")
+			}
 			close(w.Events)
 			close(w.Errors)
 			return
