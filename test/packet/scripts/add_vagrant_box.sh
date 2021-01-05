@@ -144,7 +144,7 @@ for box in $boxes; do
         if [[ $ret -eq 0 ]]; then
             url="$vagrant_url$box/$version/package.box"
             if [[ $use_aria2 -eq 1 ]] ; then
-                aria2c -x16 -s16 -c --auto-file-renaming=false -d "$outdir" -o package.box "$url"
+                aria2c -x16 -s16 -c --auto-file-renaming=false --console-log-level=warn -d "$outdir" -o package.box "$url"
             else
                 curl "$url" -o "$outdir/package.box"
             fi
