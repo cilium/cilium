@@ -25,7 +25,9 @@ import (
 )
 
 var _ = Describe("K8sHealthTest", func() {
-	SkipContextIf(helpers.DoesNotRunOnGKE, "cilium-health", func() {
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+	}, "cilium-health", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string

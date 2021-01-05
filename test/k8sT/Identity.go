@@ -24,7 +24,9 @@ import (
 )
 
 var _ = Describe("K8sIdentity", func() {
-	SkipContextIf(helpers.DoesNotRunOnGKE, "Identity expiration", func() {
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+	}, "Identity expiration", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string
