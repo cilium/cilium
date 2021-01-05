@@ -40,6 +40,7 @@ pipeline {
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
         GINKGO_TIMEOUT="98m"
+        HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
     }
 
     options {
