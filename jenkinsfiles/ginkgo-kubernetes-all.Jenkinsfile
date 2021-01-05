@@ -39,7 +39,8 @@ pipeline {
         SERVER_BOX = "cilium/ubuntu"
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
-        GINKGO_TIMEOUT="98m"
+        HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
+        GINKGO_TIMEOUT="118m"
         RACE="""${sh(
                 returnStdout: true,
                 script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
