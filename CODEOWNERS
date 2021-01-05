@@ -35,6 +35,7 @@
 /api/ @cilium/api
 /api/v1/flow/ @cilium/api @cilium/hubble
 /api/v1/observer/ @cilium/api @cilium/hubble
+/api/v1/operator/ @cilium/api @cilium/operator
 /api/v1/peer/ @cilium/api @cilium/hubble
 /bpf/ @cilium/bpf
 Makefile* @cilium/build
