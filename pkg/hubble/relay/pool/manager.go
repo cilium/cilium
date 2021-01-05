@@ -322,7 +322,8 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	}
 
 	m.opts.log.WithFields(logrus.Fields{
-		"address": p.Address,
+		"address":    p.Address,
+		"hubble-tls": p.TLSEnabled,
 	}).Infof("Connecting peer %s...", p.Name)
 	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
