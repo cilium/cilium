@@ -137,7 +137,7 @@ connect:
 					continue connect
 				}
 			}
-			m.opts.log.WithField("change notification", cn).Debug("Received peer change notification")
+			m.opts.log.WithField("change notification", cn).Info("Received peer change notification")
 			p := peerTypes.FromChangeNotification(cn)
 			switch cn.GetType() {
 			case peerpb.ChangeNotificationType_PEER_ADDED:
@@ -323,7 +323,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 
 	m.opts.log.WithFields(logrus.Fields{
 		"address": p.Address,
-	}).Debugf("Connecting peer %s...", p.Name)
+	}).Infof("Connecting peer %s...", p.Name)
 	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
@@ -337,7 +337,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 		p.nextConnAttempt = time.Time{}
 		p.connAttempts = 0
 		p.conn = conn
-		m.opts.log.Debugf("Peer %s connected", p.Name)
+		m.opts.log.Infof("Peer %s connected", p.Name)
 	}
 }
 
@@ -350,12 +350,12 @@ func (m *PeerManager) disconnect(p *peer) {
 	if p.conn == nil {
 		return
 	}
-	m.opts.log.Debugf("Disconnecting peer %s...", p.Name)
+	m.opts.log.Infof("Disconnecting peer %s...", p.Name)
 	if err := p.conn.Close(); err != nil {
 		m.opts.log.WithFields(logrus.Fields{
 			"error": err,
 		}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
 	}
 	p.conn = nil
-	m.opts.log.Debugf("Peer %s disconnected", p.Name)
+	m.opts.log.Infof("Peer %s disconnected", p.Name)
 }
