@@ -25,7 +25,9 @@ import (
 )
 
 var _ = Describe("K8sCLI", func() {
-	SkipContextIf(helpers.DoesNotRunOnGKE, "CLI", func() {
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+	}, "CLI", func() {
 		var kubectl *helpers.Kubectl
 		var ciliumFilename string
 
