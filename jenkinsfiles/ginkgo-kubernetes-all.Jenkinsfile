@@ -39,6 +39,7 @@ pipeline {
         SERVER_BOX = "cilium/ubuntu"
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
+        HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
         GINKGO_TIMEOUT="118m"
         RACE="""${sh(
                 returnStdout: true,
