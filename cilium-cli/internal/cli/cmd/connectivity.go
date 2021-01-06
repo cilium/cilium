@@ -58,6 +58,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().BoolVar(&params.ForceDeploy, "force-deploy", false, "Force re-deploying test artifacts")
 	cmd.Flags().BoolVar(&params.Hubble, "hubble", true, "Automatically use Hubble for flow validation & troubleshooting")
 	cmd.Flags().StringVar(&params.HubbleServer, "hubble-server", "localhost:4245", "Address of the Hubble endpoint for flow validation")
+	cmd.Flags().StringVar(&params.CiliumNamespace, "namespace", "kube-system", "Namespace Cilium is running in")
 
 	return cmd
 }
