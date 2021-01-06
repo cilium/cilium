@@ -48,4 +48,7 @@ export PATH="/usr/local/clang/bin:$PATH"
 # disable go modules to avoid downloading all dependencies when doing go get
 GO111MODULE=off go get golang.org/x/tools/cmd/cover
 GO111MODULE=off go get github.com/mattn/goveralls
-GO111MODULE=off go get github.com/gordonklaus/ineffassign
+mkdir -p $GOPATH/src/github.com/gordonklaus && cd $GOPATH/src/github.com/gordonklaus
+git clone https://github.com/gordonklaus/ineffassign.git
+cd ineffassign && git checkout -q 3fd9b69f2fb179405773f03d33c68a00f3a1ca4a
+go install ./...

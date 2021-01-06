@@ -65,7 +65,11 @@ set -o nounset
 set -o pipefail
 
 # Can be removed once PR #11528 with the golangci-lint replacement is merged.
-go get -u github.com/gordonklaus/ineffassign
+export GOPATH=$(go env GOPATH)
+mkdir -p $GOPATH/src/github.com/gordonklaus && cd $GOPATH/src/github.com/gordonklaus
+git clone https://github.com/gordonklaus/ineffassign.git
+cd ineffassign && git checkout -q 3fd9b69f2fb179405773f03d33c68a00f3a1ca4a
+go install ./...
 
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 #{$makeclean}
