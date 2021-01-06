@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,7 +76,8 @@ func (cfg *SSHConfig) GetSSHClient() *SSHClient {
 		Auth: []ssh.AuthMethod{
 			cfg.GetSSHAgent(),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		// ssh.InsecureIgnoreHostKey is OK in test code.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // lgtm[go/insecure-hostkeycallback]
 		Timeout:         15 * time.Second,
 	}
 
@@ -338,7 +339,8 @@ func GetSSHClient(host string, port int, user string) *SSHClient {
 		Auth: []ssh.AuthMethod{
 			SSHAgent(),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		// ssh.InsecureIgnoreHostKey is OK in test code.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // lgtm[go/insecure-hostkeycallback]
 		Timeout:         15 * time.Second,
 	}
 
