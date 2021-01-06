@@ -77,6 +77,7 @@ The documentation is divided into the following sections:
    bpf
    api
    hubble
+   cilium_operator
 
 .. toctree::
    :maxdepth: 2
