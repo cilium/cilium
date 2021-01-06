@@ -1,0 +1,467 @@
+// Copyright 2019 Authors of Hubble
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+
+package flow;
+
+option go_package = "github.com/cilium/cilium/api/v1/flow";
+
+message Flow {
+    google.protobuf.Timestamp time = 1;
+    Verdict verdict = 2;
+
+    // only applicable to Verdict = DROPPED.
+    // deprecated in favor of drop_reason_desc.
+    uint32 drop_reason = 3 [deprecated=true];
+
+    // l2
+    Ethernet ethernet = 4;
+    // l3
+    IP IP = 5;
+    // l4
+    Layer4 l4 = 6;
+
+    // unused 7
+
+    Endpoint source = 8;
+    Endpoint destination = 9;
+
+    FlowType Type = 10;
+
+    // NodeName is the name of the node from which this Flow was captured.
+    string node_name = 11;
+
+    // unused 12
+
+    // all names the source IP can have.
+    repeated string source_names = 13;
+    // all names the destination IP can have.
+    repeated string destination_names = 14;
+
+    // L7 information. This field is set if and only if FlowType is L7.
+    Layer7 l7 = 15;
+
+    // Deprecated. This suffers from false negatives due to protobuf not being
+    // able to distinguish between the value being false or it being absent.
+    // Please use is_reply instead.
+    bool reply = 16 [deprecated=true];
+
+    // unused 17-18
+
+    // EventType of the originating Cilium event
+    CiliumEventType event_type = 19;
+
+    // source_service contains the service name of the source
+    Service source_service = 20;
+    // destination_service contains the service name of the destination
+    Service destination_service = 21;
+
+    // traffic_direction of the connection, e.g. ingress or egress
+    TrafficDirection traffic_direction = 22;
+
+    // policy_match_type is only applicable to the cilium event type PolicyVerdict
+    // https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50
+    uint32 policy_match_type = 23;
+
+    // Only applicable to cilium trace notifications, blank for other types.
+    TraceObservationPoint trace_observation_point = 24;
+
+    // only applicable to Verdict = DROPPED.
+    DropReason drop_reason_desc = 25;
+
+    // is_reply indicates that this was a packet (L4) or message (L7) in the
+    // reply direction. May be absent (in which case it is unknown whether it
+    // is a reply or not).
+    google.protobuf.BoolValue is_reply = 26;
+
+    // This is a temporary workaround to support summary field for pb.Flow without
+    // duplicating logic from the old parser. This field will be removed once we
+    // fully migrate to the new parser.
+    string Summary = 100000 [deprecated=true];
+}
+
+enum FlowType {
+    UNKNOWN_TYPE = 0;
+    L3_L4 = 1; // not sure about the underscore here, but `L34` also reads strange
+    L7 = 2;
+}
+
+enum TraceObservationPoint {
+    // Cilium treats 0 as TO_LXC, but its's something we should work to remove.
+    // This is intentionally set as unknown, so proto API can guarantee the
+    // observation point is always going to be present on trace events.
+    UNKNOWN_POINT = 0;
+
+    TO_PROXY = 1;
+    TO_HOST = 2;
+    TO_STACK = 3;
+    TO_OVERLAY = 4;
+    // same as TO_LXC, which had a 0 value. This index is intentionally very
+    // high so when new segments are added in bpf, there are no collisions
+    TO_ENDPOINT = 101;
+
+    FROM_ENDPOINT = 5;
+    FROM_PROXY = 6;
+    FROM_HOST = 7;
+    FROM_STACK = 8;
+    FROM_OVERLAY = 9;
+    FROM_NETWORK = 10;
+    TO_NETWORK= 11;
+}
+
+message Layer4 {
+    oneof protocol {
+        TCP TCP = 1;
+        UDP UDP = 2;
+        // ICMP is technically not L4, but mutually exclusive with the above
+        ICMPv4 ICMPv4 = 3;
+        ICMPv6 ICMPv6 = 4;
+    }
+}
+
+// This enum corresponds to Cilium's L7 accesslog FlowType:
+//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26
+enum L7FlowType {
+    UNKNOWN_L7_TYPE = 0;
+    REQUEST = 1;
+    RESPONSE = 2;
+    SAMPLE = 3;
+}
+
+// Message for L7 flow, which roughly corresponds to Cilium's accesslog LogRecord:
+//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141
+message Layer7 {
+    L7FlowType type = 1;
+    // Latency of the response
+    uint64 latency_ns = 2;
+    // L7 field. This field is set if and only if FlowType is L7.
+    oneof record {
+        DNS dns = 100;
+        HTTP http = 101;
+        Kafka kafka = 102;
+    }
+}
+
+message Endpoint {
+    uint32 ID = 1;
+    uint32 identity = 2;
+    string namespace = 3;
+    // labels in `foo=bar` format.
+    repeated string labels = 4;
+    string pod_name = 5;
+}
+
+message TCP {
+    uint32 source_port = 1;
+    uint32 destination_port = 2;
+    TCPFlags flags = 3;
+}
+
+message IP {
+    string source = 1;
+    string destination = 2;
+    IPVersion ipVersion = 3;
+    // This field indicates whether the TraceReasonEncryptMask is set or not.
+    // https://github.com/cilium/cilium/blob/ba0ed147bd5bb342f67b1794c2ad13c6e99d5236/pkg/monitor/datapath_trace.go#L27
+    bool encrypted = 4;
+}
+
+message Ethernet {
+    string source = 1;
+    string destination = 2;
+}
+
+message TCPFlags {
+    bool FIN = 1;
+    bool SYN = 2;
+    bool RST = 3;
+    bool PSH = 4;
+    bool ACK = 5;
+    bool URG = 6;
+    bool ECE = 7;
+    bool CWR = 8;
+    bool NS = 9;
+}
+
+message UDP {
+    uint32 source_port = 1;
+    uint32 destination_port = 2;
+}
+
+message ICMPv4 {
+    uint32 type = 1;
+    uint32 code = 2;
+}
+
+message ICMPv6 {
+    uint32 type = 1;
+    uint32 code = 2;
+}
+
+enum IPVersion {
+    IP_NOT_USED = 0;
+    IPv4 = 1;
+    IPv6 = 2;
+}
+
+enum Verdict {
+    VERDICT_UNKNOWN = 0;
+    FORWARDED = 1;
+    DROPPED = 2;
+    ERROR = 3;
+}
+
+// These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
+// Note that non-drop reasons (i.e. values less than api.DropMin) are not used
+// here.
+enum DropReason {
+    // non-drop reasons
+    DROP_REASON_UNKNOWN = 0;
+    // drop reasons
+    INVALID_SOURCE_MAC = 130;
+    INVALID_DESTINATION_MAC = 131;
+    INVALID_SOURCE_IP = 132;
+    POLICY_DENIED = 133;
+    INVALID_PACKET_DROPPED = 134;
+    CT_TRUNCATED_OR_INVALID_HEADER = 135;
+    CT_MISSING_TCP_ACK_FLAG = 136;
+    CT_UNKNOWN_L4_PROTOCOL = 137;
+    CT_CANNOT_CREATE_ENTRY_FROM_PACKET = 138;
+    UNSUPPORTED_L3_PROTOCOL = 139;
+    MISSED_TAIL_CALL = 140;
+    ERROR_WRITING_TO_PACKET = 141;
+    UNKNOWN_L4_PROTOCOL = 142;
+    UNKNOWN_ICMPV4_CODE = 143;
+    UNKNOWN_ICMPV4_TYPE = 144;
+    UNKNOWN_ICMPV6_CODE = 145;
+    UNKNOWN_ICMPV6_TYPE = 146;
+    ERROR_RETRIEVING_TUNNEL_KEY = 147;
+    ERROR_RETRIEVING_TUNNEL_OPTIONS = 148;
+    INVALID_GENEVE_OPTION = 149;
+    UNKNOWN_L3_TARGET_ADDRESS = 150;
+    STALE_OR_UNROUTABLE_IP = 151;
+    NO_MATCHING_LOCAL_CONTAINER_FOUND = 152;
+    ERROR_WHILE_CORRECTING_L3_CHECKSUM = 153;
+    ERROR_WHILE_CORRECTING_L4_CHECKSUM = 154;
+    CT_MAP_INSERTION_FAILED = 155;
+    INVALID_IPV6_EXTENSION_HEADER = 156;
+    IP_FRAGMENTATION_NOT_SUPPORTED = 157;
+    SERVICE_BACKEND_NOT_FOUND = 158;
+    NO_TUNNEL_OR_ENCAPSULATION_ENDPOINT = 160;
+    FAILED_TO_INSERT_INTO_PROXYMAP = 161;
+    REACHED_EDT_RATE_LIMITING_DROP_HORIZON = 162;
+    UNKNOWN_CONNECTION_TRACKING_STATE = 163;
+    LOCAL_HOST_IS_UNREACHABLE = 164;
+    NO_CONFIGURATION_AVAILABLE_TO_PERFORM_POLICY_DECISION = 165;
+    UNSUPPORTED_L2_PROTOCOL = 166;
+    NO_MAPPING_FOR_NAT_MASQUERADE = 167;
+    UNSUPPORTED_PROTOCOL_FOR_NAT_MASQUERADE = 168;
+    FIB_LOOKUP_FAILED = 169;
+    ENCAPSULATION_TRAFFIC_IS_PROHIBITED = 170;
+    INVALID_IDENTITY = 171;
+    UNKNOWN_SENDER = 172;
+    NAT_NOT_NEEDED = 173;
+    IS_A_CLUSTERIP = 174;
+    FIRST_LOGICAL_DATAGRAM_FRAGMENT_NOT_FOUND = 175;
+    FORBIDDEN_ICMPV6_MESSAGE = 176;
+    DENIED_BY_LB_SRC_RANGE_CHECK = 177;
+    SOCKET_LOOKUP_FAILED = 178;
+    SOCKET_ASSIGN_FAILED = 179;
+    PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL = 180;
+}
+
+enum TrafficDirection {
+    TRAFFIC_DIRECTION_UNKNOWN = 0;
+    INGRESS = 1;
+    EGRESS = 2;
+}
+
+// EventTypeFilter is a filter describing a particular event type
+message EventTypeFilter {
+	// type is the primary flow type as defined by:
+	// github.com/cilium/cilium/pkg/monitor/api.MessageType*
+	int32 type = 1;
+
+	// match_sub_type is set to true when matching on the sub_type should
+	// be done. This flag is required as 0 is a valid sub_type.
+	bool match_sub_type = 2;
+
+	// sub_type is the secondary type, e.g.
+	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
+	int32 sub_type = 3;
+}
+
+// CiliumEventType from which the flow originated
+message CiliumEventType {
+    // type of event the flow originated from, i.e.
+    // github.com/cilium/cilium/pkg/monitor/api.MessageType*
+    int32 type = 1;
+    // sub_type may indicate more details depending on type, e.g.
+	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
+    // - github.com/cilium/cilium/pkg/monitor/api.Drop*
+    int32 sub_type = 2;
+}
+
+// FlowFilter represent an individual flow filter. All fields are optional. If
+// multiple fields are set, then all fields must match for the filter to match.
+message FlowFilter {
+    // source_ip filters by a list of source ips
+    repeated string source_ip = 1;
+    // source_pod filters by a list of source pod name prefixes, optionally
+    // within a given namespace (e.g. "xwing", "kube-system/coredns-").
+    // The pod name can be emitted to only filter by namespace
+    // (e.g. "kube-system/")
+    repeated string source_pod = 2;
+    // source_fqdn filters by a list of source fully qualified domain names
+    repeated string source_fqdn = 7;
+    // source_labels filters on a list of source label selectors. Selectors
+    // support the full Kubernetes label selector syntax.
+    repeated string source_label = 10;
+    // source_service filters on a list of source service names. This field
+    // supports the same syntax as the source_pod field.
+    repeated string source_service = 16;
+
+    // destination_ip filters by a list of destination ips
+    repeated string destination_ip = 3;
+    // destination_pod filters by a list of destination pod names
+    repeated string destination_pod = 4;
+    // destination_fqdn filters by a list of destination fully qualified domain names
+    repeated string destination_fqdn = 8;
+    // destination_label filters on a list of destination label selectors
+    repeated string destination_label = 11;
+    // destination_service filters on a list of destination service names
+    repeated string destination_service = 17;
+
+    // only return Flows that were classified with a particular verdict.
+    repeated Verdict verdict = 5;
+    // event_type is the list of event types to filter on
+    repeated EventTypeFilter event_type = 6;
+    // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
+    // to filter on the HTTP status code
+    repeated string http_status_code = 9;
+
+    // protocol filters flows by L4 or L7 protocol, e.g. (e.g. "tcp", "http")
+    repeated string protocol = 12;
+
+    // source_port filters flows by L4 source port
+    repeated string source_port = 13;
+    // destination_port filters flows by L4 destination port
+    repeated string destination_port = 14;
+    // reply filters flows based on the direction of the flow.
+    repeated bool reply = 15;
+    // dns_query filters L7 DNS flows by query patterns (RE2 regex), e.g. 'kube.*local'.
+    repeated string dns_query = 18;
+    // source_identity filters by the security identity of the source endpoint.
+    repeated uint32 source_identity = 19;
+    // destination_identity filters by the security identity of the destination endpoint.
+    repeated uint32 destination_identity = 20;
+
+    // GET, POST, PUT, etc. methods. This type of field is well suited for an
+    // enum but every single existing place is using a string already.
+    repeated string http_method = 21;
+    // http_path is a list of regular expressions to filter on the HTTP path.
+    repeated string http_path = 22;
+}
+
+// EventType are constants are based on the ones from <linux/perf_event.h>.
+enum EventType {
+    UNKNOWN = 0;
+    // EventSample is equivalent to PERF_RECORD_SAMPLE.
+    EventSample = 9;
+    // RecordLost is equivalent to PERF_RECORD_LOST.
+    RecordLost = 2;
+}
+
+// DNS flow. This is basically directly mapped from Cilium's LogRecordDNS:
+//     https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
+message DNS {
+    // DNS name that's being looked up: e.g. "isovalent.com."
+    string query = 1;
+    // List of IP addresses in the DNS response.
+    repeated string ips = 2;
+    // TTL in the DNS response.
+    uint32 ttl = 3;
+    // List of CNames in the DNS response.
+    repeated string cnames = 4;
+    // Corresponds to DNSDataSource defined in:
+    //   https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L253
+    string observation_source = 5;
+    // Return code of the DNS request defined in:
+    //   https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
+    uint32 rcode = 6;
+    // String representation of qtypes defined in:
+    //   https://tools.ietf.org/html/rfc1035#section-3.2.3
+    repeated string qtypes = 7;
+    // String representation of rrtypes defined in:
+    // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
+    repeated string rrtypes = 8;
+}
+
+message HTTPHeader {
+    string key = 1;
+    string value = 2;
+}
+
+// L7 information for HTTP flows. It corresponds to Cilium's accesslog.LogRecordHTTP type.
+//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206
+message HTTP {
+    uint32 code = 1;
+    string method = 2;
+    string url = 3;
+    string protocol = 4;
+    repeated HTTPHeader headers = 5;
+}
+
+// L7 information for Kafka flows. It corresponds to Cilium's accesslog.LogRecordKafka type.
+//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229
+message Kafka {
+    int32 error_code = 1;
+    int32 api_version = 2;
+    string api_key = 3;
+    int32 correlation_id = 4;
+    string topic = 5;
+}
+
+message Service {
+    string name = 1;
+    string namespace = 2;
+}
+
+enum LostEventSource {
+    UNKNOWN_LOST_EVENT_SOURCE = 0;
+    // PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF
+    // perf event ring buffer, indicating that userspace agent did not keep up
+    // with the events produced by the datapath.
+    PERF_EVENT_RING_BUFFER = 1;
+    // OBSERVER_EVENTS_QUEUE indicates that events were dropped because the
+    // Hubble events queue was full, indicating that the Hubble observer did
+    // not keep up.
+    OBSERVER_EVENTS_QUEUE = 2;
+}
+
+// LostEvent is a message which notifies consumers about a loss of events
+// that happened before the events were captured by Hubble.
+message LostEvent {
+    // source is the location where events got lost.
+    LostEventSource source = 1;
+    // num_events_lost is the number of events that haven been lost at source.
+    uint64 num_events_lost = 2;
+    // cpu on which the event was lost if the source of lost events is
+    // PERF_EVENT_RING_BUFFER.
+    google.protobuf.Int32Value cpu = 3;
+}
