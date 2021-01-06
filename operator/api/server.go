@@ -22,9 +22,11 @@ import (
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/go-openapi/loads"
+	"github.com/go-openapi/runtime"
 	"golang.org/x/sys/unix"
 )
 
@@ -44,6 +46,9 @@ type Server struct {
 	allSystemsGo   <-chan struct{}
 
 	checkStatus func() error
+
+	// This is the /healthz handler outside of the open-api spec.
+	healthzHandler *getHealthz
 
 	listenAddrs []string
 }
@@ -76,6 +81,8 @@ func NewServer(shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}, add
 		checkStatus: noOpFunc,
 	}
 
+	server.healthzHandler = &getHealthz{Server: server}
+
 	swaggerSpec, err := loads.Analyzed(operatorApi.SwaggerJSON, "")
 	if err != nil {
 		return nil, err
@@ -92,14 +99,8 @@ func (s *Server) WithStatusCheckFunc(f func() error) *Server {
 	return s
 }
 
-// Serve spins up the following goroutines:
-// * TCP API Server: Responders to the health API "/hello" message, one per path
-// * Prober: Periodically run pings across the cluster at a configured interval
-//   and update the server's connectivity status cache.
-// * Unix API Server: Handle all health API requests over a unix socket.
-//
-// Callers should first defer the Server.Shutdown(), then call Serve().
-func (s *Server) Serve() error {
+// StartServer starts the HTTP listeners for the apiserver.
+func (s *Server) StartServer() error {
 	errs := make(chan error, 1)
 	nServers := 0
 
@@ -111,9 +112,22 @@ func (s *Server) Serve() error {
 			continue
 		}
 		nServers++
+
+		mux := http.NewServeMux()
+
+		// Index handler is the the handler for Open-API router.
+		mux.Handle("/", s.Server.GetHandler())
+		// Create a custom handler for /healthz as an alias to /v1/healthz. A http mux
+		// is required for this because open-api spec does not allow multiple base paths
+		// to be specified.
+		mux.HandleFunc("/healthz", func(rw http.ResponseWriter, _ *http.Request) {
+			resp := s.healthzHandler.Handle(operator.GetHealthzParams{})
+			resp.WriteResponse(rw, runtime.TextProducer())
+		})
+
 		srv := &http.Server{
 			Addr:    addr,
-			Handler: s.Server.GetHandler(),
+			Handler: mux,
 		}
 		errCh := make(chan error, 1)
 
