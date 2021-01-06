@@ -39,9 +39,10 @@ type StatusSuite struct{}
 var _ = check.Suite(&StatusSuite{})
 
 type k8sStatusMockClient struct {
-	daemonSet map[string]*appsv1.DaemonSet
-	podList   map[string]*corev1.PodList
-	status    map[string]*models.StatusResponse
+	daemonSet  map[string]*appsv1.DaemonSet
+	deployment map[string]*appsv1.Deployment
+	podList    map[string]*corev1.PodList
+	status     map[string]*models.StatusResponse
 }
 
 func newK8sStatusMockClient() (c *k8sStatusMockClient) {
@@ -131,6 +132,10 @@ func (c *k8sStatusMockClient) GetNamespace(ctx context.Context, namespace string
 
 func (c *k8sStatusMockClient) GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error) {
 	return c.daemonSet[namespace+"/"+name], nil
+}
+
+func (c *k8sStatusMockClient) GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error) {
+	return c.deployment[namespace+"/"+name], nil
 }
 
 func (c *k8sStatusMockClient) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
