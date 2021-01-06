@@ -28,8 +28,8 @@ usage() {
     echo -e "\t\$ add-vagrant-boxes.sh \$HOME/go/src/github.com/cilium/cilium/vagrant_box_defaults.rb"
     echo -e "\tdownload latest version for ubuntu-dev and ubuntu-next:"
     echo -e "\t\$ add-vagrant-boxes.sh -l -b ubuntu-dev -b ubuntu-next"
-    echo -e "\tsame as above, downloading into /tmp/ and using aria2c:"
-    echo -e "\t\$ add-vagrant-boxes.sh -alt -b ubuntu-dev -b ubuntu-next"
+    echo -e "\tsame as above, downloading into /tmp/foo and using aria2c:"
+    echo -e "\t\$ add-vagrant-boxes.sh -al -d /tmp/foo -b ubuntu-dev -b ubuntu-next"
     exit $1
 }
 
@@ -41,7 +41,7 @@ version=0
 custom_types=0
 latest=0
 use_aria2=0
-outdir="/tmp/"
+outdir="/tmp"
 path=/dev/null
 
 OPTIND=1
