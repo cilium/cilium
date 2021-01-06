@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _aws_metadata_with_policy:
+
 ***********************************************
 Locking down external access using AWS metadata
 ***********************************************
