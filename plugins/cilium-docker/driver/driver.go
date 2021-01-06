@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -398,12 +398,15 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var datapathMode string
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
+		datapathMode = string(datapathOption.DatapathModeVeth)
 		var veth *netlink.Veth
 		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
 		defer removeLinkOnErr(veth)
 	case datapathOption.DatapathModeIpvlan:
+		datapathMode = string(datapathOption.DatapathModeIpvlan)
 		var ipvlan *netlink.IPVlan
 		ipvlan, _, _, err = connector.CreateIpvlanSlave(
 			create.EndpointID, int(driver.conf.DeviceMTU),
@@ -411,10 +414,15 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 			driver.conf.IpvlanConfiguration.OperationMode, endpoint,
 		)
 		defer removeLinkOnErr(ipvlan)
+	default:
+		sendError(w,
+			"Unknown datapath mode",
+			http.StatusBadRequest)
+		return
 	}
 	if err != nil {
 		sendError(w,
-			fmt.Sprintf("Error while setting up %s mode: %s", driver.conf.DatapathMode, err),
+			fmt.Sprintf("Error while setting up %s mode: %s", datapathMode, err),
 			http.StatusBadRequest)
 		return
 	}
