@@ -21,6 +21,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
+
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	hubprinter "github.com/cilium/hubble/pkg/printer"
@@ -128,6 +130,7 @@ type k8sConnectivityImplementation interface {
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
+	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	DeploymentIsReady(ctx context.Context, namespace, deployment string) error
 	DeleteNamespace(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
 	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
@@ -642,14 +645,15 @@ func (k *K8sConnectivityCheck) Relax() {
 }
 
 type Parameters struct {
-	SingleNode   bool
-	PrintFlows   bool
-	ForceDeploy  bool
-	Hubble       bool
-	HubbleServer string
-	PostRelax    time.Duration
-	PreFlowRelax time.Duration
-	Writer       io.Writer
+	CiliumNamespace string
+	SingleNode      bool
+	PrintFlows      bool
+	ForceDeploy     bool
+	Hubble          bool
+	HubbleServer    string
+	PostRelax       time.Duration
+	PreFlowRelax    time.Duration
+	Writer          io.Writer
 }
 
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context) error {
@@ -678,7 +682,18 @@ func (k *K8sConnectivityCheck) deploymentList() []string {
 }
 
 func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
-	_, err := k.client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
+	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.CiliumNamespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		k.Log("❌ Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
+		return fmt.Errorf("Unable to determine status of Cilium DaemonSet: %w", err)
+	}
+
+	if daemonSet.Status.DesiredNumberScheduled == 1 && !k.params.SingleNode {
+		k.Log("ℹ️  Single node environment detected, enabling single node connectivity test")
+		k.params.SingleNode = true
+	}
+
+	_, err = k.client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
 	if err != nil || k.params.ForceDeploy {
 		if err == nil {
 			k.deleteDeployments(ctx)
