@@ -1,0 +1,57 @@
+name: Cilium installation
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+env:
+  KIND_VERSION: v0.9.0
+  KIND_CONFIG: .github/kind-config.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
+
+jobs:
+  installation-and-connectivitiy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build cilium CLI binary
+        run: |
+          cd cmd/cilium
+          go build
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.0.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+
+      - name: Install cilium
+        run: |
+          cmd/cilium/cilium install
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: cilium status
+        run: |
+          cmd/cilium/cilium status
+
+      - name: cilium connectivity test
+        run: |
+          cmd/cilium/cilium connectivity test --hubble=false
+
+      - name: enable relay
+        run: |
+          cmd/cilium/cilium hubble enable
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+
+      - name: cilium status with relay
+        run: |
+          cmd/cilium/cilium status
