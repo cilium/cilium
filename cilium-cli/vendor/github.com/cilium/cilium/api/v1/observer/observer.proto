@@ -1,0 +1,118 @@
+// Copyright 2019 Authors of Hubble
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import public "flow/flow.proto";
+import "relay/relay.proto";
+
+package observer;
+
+option go_package = "github.com/cilium/cilium/api/v1/observer";
+
+// Observer returns a stream of Flows depending on which filter the user want
+// to observe.
+service Observer {
+    // GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
+    rpc GetFlows(GetFlowsRequest) returns (stream GetFlowsResponse) {}
+
+    // ServerStatus returns some details about the running hubble server.
+    rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse) {}
+}
+
+message ServerStatusRequest {}
+
+message ServerStatusResponse {
+    // number of currently captured flows
+    // In a multi-node context, this is the cumulative count of all captured
+    // flows.
+    uint64 num_flows = 1;
+
+    // maximum capacity of the ring buffer
+    // In a multi-node context, this is the aggregation of all ring buffers
+    // capacities.
+    uint64 max_flows = 2;
+
+    // total amount of flows observed since the observer was started
+    // In a multi-node context, this is the aggregation of all flows that have
+    // been seen.
+    uint64 seen_flows = 3;
+
+    // uptime of this observer instance in nanoseconds
+    // In a multi-node context, this field corresponds to the uptime of the
+    // longest living instance.
+    uint64 uptime_ns = 4;
+
+    // number of nodes for which a connection is established
+    google.protobuf.UInt32Value num_connected_nodes = 5;
+
+    // number of nodes for which a connection cannot be established
+    google.protobuf.UInt32Value num_unavailable_nodes = 6;
+
+    // list of nodes that are unavailable
+    // This list may not be exhaustive.
+    repeated string unavailable_nodes = 7;
+}
+
+message GetFlowsRequest {
+    // Number of flows that should be returned. Incompatible with `since/until`.
+    uint64 number = 1;
+
+    // Unused 2
+
+    // follow sets when the server should continue to stream flows after
+    // printing the last N flows.
+    bool follow = 3;
+
+    // blacklist defines a list of filters which have to match for a flow to be
+    // excluded from the result.
+    // If multiple blacklist filters are specified, only one of them has to
+    // match for a flow to be excluded.
+    repeated flow.FlowFilter blacklist = 5;
+
+    // whitelist defines a list of filters which have to match for a flow to be
+    // included in the result.
+    // If multiple whitelist filters are specified, only one of them has to
+    // match for a flow to be included.
+    // The whitelist and blacklist can both be specified. In such cases, the
+    // set of the returned flows is the set difference `whitelist - blacklist`.
+    // In other words, the result will contain all flows matched by the
+    // whitelist that are not also simultaneously matched by the blacklist.
+    repeated flow.FlowFilter whitelist = 6;
+
+    // Since this time for returned flows. Incompatible with `number`.
+    google.protobuf.Timestamp since = 7;
+
+    // Until this time for returned flows. Incompatible with `number`.
+    google.protobuf.Timestamp until = 8;
+}
+
+// GetFlowsResponse contains either a flow or a protocol message.
+message GetFlowsResponse {
+    oneof response_types{
+        flow.Flow flow = 1;
+        // node_status informs clients about the state of the nodes
+        // participating in this particular GetFlows request.
+        relay.NodeStatusEvent node_status = 2;
+        // lost_events informs clients about events which got dropped due to
+        // a Hubble component being unavailable
+        flow.LostEvent lost_events = 3;
+    }
+    // Name of the node where this event was observed.
+    string node_name = 1000;
+    // Timestamp at which this event was observed.
+    google.protobuf.Timestamp time = 1001;
+}
