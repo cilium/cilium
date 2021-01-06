@@ -62,10 +62,20 @@ var _ = Describe("RuntimePolicies", func() {
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
+		testStartTime time.Time
 	)
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+
+		// We need to stop and start Cilium separately (vs. doing a restart) to
+		// allow us to validate only the logs of the startup. The stop may
+		// contain "bad" log messages but they are expected (abrupt stop during
+		// endpoint regeneration).
+		vm.ExecWithSudo("systemctl stop cilium").ExpectSuccess("Failed trying to stop cilium via systemctl")
+		ExpectCiliumNotRunning(vm)
+		testStartTime = time.Now()
+
 		// Make sure that Cilium is started with appropriate CLI options
 		// (specifically to exclude the local addresses that are populated for
 		// CIDR policy tests).
@@ -78,6 +88,8 @@ var _ = Describe("RuntimePolicies", func() {
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	BeforeEach(func() {
@@ -90,10 +102,11 @@ var _ = Describe("RuntimePolicies", func() {
 
 	JustBeforeEach(func() {
 		_, monitorStop = vm.MonitorStart()
+		testStartTime = time.Now()
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
