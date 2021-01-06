@@ -1,5 +1,8 @@
 # Next-Gen Cilium CLI (Experimental)
 
+![Go](https://github.com/isovalent/cilium-cli/workflows/Go/badge.svg)
+![Smoke Test](https://github.com/isovalent/cilium-cli/workflows/Cilium%20installation/badge.svg)
+
 ## Installation
 
 cd cmd/cilium
