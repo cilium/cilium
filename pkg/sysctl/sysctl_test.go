@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,8 +33,9 @@ var _ = Suite(&SysctlLinuxTestSuite{})
 
 func (s *SysctlLinuxTestSuite) TestFullPath(c *C) {
 	testCases := []struct {
-		name     string
-		expected string
+		name        string
+		expected    string
+		expectedErr bool
 	}{
 		{
 			name:     "net.ipv4.ip_forward",
@@ -52,9 +53,23 @@ func (s *SysctlLinuxTestSuite) TestFullPath(c *C) {
 			name:     "foo.bar",
 			expected: "/proc/sys/foo/bar",
 		},
+		{
+			name:        "double..dot",
+			expectedErr: true,
+		},
+		{
+			name:        "invalid.char$",
+			expectedErr: true,
+		},
 	}
 
 	for _, tc := range testCases {
-		c.Assert(fullPath(tc.name), Equals, tc.expected)
+		path, err := parameterPath(tc.name)
+		if tc.expectedErr {
+			c.Assert(err, NotNil)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(path, Equals, tc.expected)
+		}
 	}
 }
