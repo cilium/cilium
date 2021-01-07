@@ -619,49 +619,57 @@ if [ "$VMName" ]; then
 	echo
 	echo "Detected running VMs that might cause conflict"
 	echo
-	VBoxManage list runningvms
-	echo
-	printf "Do you wish to pause (p/P), stop (s/S), or destroy (d/D)?  "
+	#VBoxManage list runningvms
+    VBoxManage list runningvms
+	#option to pause, stop or delete VM(s) or ignore and continue
+    echo
+	printf "Do you wish to pause, stop, or destroy the VM(s) or ignore and continue? [p/s/d/C]  "
 	read optn
+    temp=$runningVm
 	case "$optn" in
-		"p" | "P")
+		"p" )
 			for ((i=1; i<=$runningVm; i=i+1))
 			do
+                #checks state of the VM(s) before trying to pause as paused VM(s) are listed in runningvms command
 				VMName=$(VBoxManage list runningvms | awk 'NR=='$i'{print $1}' |  cut -d "\"" -f 2)
-				echo
-				echo $VMName
-				VBoxManage controlvm $VMName pause
+				if [ $(VBoxManage showvminfo $VMName | grep -c "paused (since") -eq 0 ]; then
+                    VBoxManage controlvm $VMName pause
+					printf "\n$VMName paused\n"
+				else
+					printf "\n$VMName already in paused state\n"
+					temp=$((temp-1))
+				fi
 			done
-			printf "\n$runningVm VM(s) paused successfully\n" 
+			printf "\n$temp VM(s) paused successfully\n" 
 			printf "Tip: Try running vagrant status to check status\n"
 		;;
-		"s" | "S")
+		"s" )
 			for ((i=1; i<=$runningVm; i=i+1))
 			do
 				VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
-				echo
-				echo $VMName
-				VBoxManage controlvm $VMName poweroff
+                VBoxManage controlvm $VMName poweroff
+				printf "\n$VMName stopped\n"
 			done
 			printf "\n$runningVm VM(s) stopped successfully\n"
 			printf "Tip: Try running vagrant status to check status\n"
 		;;
-		"d" | "D")
+		"d" )
 			for ((i=1; i<=$runningVm; i=i+1))
 			do
 				VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
-				echo
-				echo $VMName
-				VBoxManage controlvm $VMName poweroff
-				VBoxManage unregistervm $VMName --delete				
+                VBoxManage controlvm $VMName poweroff
+				VBoxManage unregistervm $VMName --delete
+				printf "\n$VMName destroyed\n"				
 			done
 			printf "\n$runningVm VM(s) destroyed successfully\n"
 			printf "Tip: Try running vagrant status to check status\n"
 		;;
-		*)
+		"C" )
+            echo
 			createVm
 		;;
 	esac
 else
+    echo
 	createVm
 fi
