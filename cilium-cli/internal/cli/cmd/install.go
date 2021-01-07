@@ -32,6 +32,7 @@ func newCmdInstall() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			installer := install.NewK8sInstaller(k8sClient, params)
+			cmd.SilenceUsage = true
 			return installer.Install(context.Background())
 		},
 	}
