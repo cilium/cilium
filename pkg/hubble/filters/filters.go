@@ -149,4 +149,5 @@ var DefaultFilters = []OnBuildFilter{
 	&HTTPFilter{},
 	&TCPFilter{},
 	&NodeNameFilter{},
+	&IPVersionFilter{},
 }

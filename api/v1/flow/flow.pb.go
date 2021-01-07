@@ -2089,6 +2089,8 @@ type FlowFilter struct {
 	// node_name is a list of patterns to filter on the node name, e.g. (e.g.
 	// "k8s*", "test-cluster/*.domain.com", "cluster-name/").
 	NodeName []string `protobuf:"bytes,24,rep,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+	// filter based on IP version (ipv4 or ipv6)
+	IpVersion []IPVersion `protobuf:"varint,25,rep,packed,name=ip_version,json=ipVersion,proto3,enum=flow.IPVersion" json:"ip_version,omitempty"`
 }
 
 func (x *FlowFilter) Reset() {
@@ -2287,6 +2289,13 @@ func (x *FlowFilter) GetTcpFlags() []*TCPFlags {
 func (x *FlowFilter) GetNodeName() []string {
 	if x != nil {
 		return x.NodeName
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetIpVersion() []IPVersion {
+	if x != nil {
+		return x.IpVersion
 	}
 	return nil
 }
@@ -3756,7 +3765,7 @@ var file_flow_flow_proto_rawDesc = []byte{
 	0x69, 0x75, 0x6d, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04,
 	0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65,
 	0x12, 0x19, 0x0a, 0x08, 0x73, 0x75, 0x62, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x05, 0x52, 0x07, 0x73, 0x75, 0x62, 0x54, 0x79, 0x70, 0x65, 0x22, 0x94, 0x07, 0x0a, 0x0a,
+	0x28, 0x05, 0x52, 0x07, 0x73, 0x75, 0x62, 0x54, 0x79, 0x70, 0x65, 0x22, 0xc4, 0x07, 0x0a, 0x0a,
 	0x46, 0x6c, 0x6f, 0x77, 0x46, 0x69, 0x6c, 0x74, 0x65, 0x72, 0x12, 0x1b, 0x0a, 0x09, 0x73, 0x6f,
 	0x75, 0x72, 0x63, 0x65, 0x5f, 0x69, 0x70, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x73,
 	0x6f, 0x75, 0x72, 0x63, 0x65, 0x49, 0x70, 0x12, 0x1d, 0x0a, 0x0a, 0x73, 0x6f, 0x75, 0x72, 0x63,
@@ -3814,7 +3823,10 @@ var file_flow_flow_proto_rawDesc = []byte{
 	0x6f, 0x77, 0x2e, 0x54, 0x43, 0x50, 0x46, 0x6c, 0x61, 0x67, 0x73, 0x52, 0x08, 0x74, 0x63, 0x70,
 	0x46, 0x6c, 0x61, 0x67, 0x73, 0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61,
 	0x6d, 0x65, 0x18, 0x18, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61,
-	0x6d, 0x65, 0x22, 0xce, 0x01, 0x0a, 0x03, 0x44, 0x4e, 0x53, 0x12, 0x14, 0x0a, 0x05, 0x71, 0x75,
+	0x6d, 0x65, 0x12, 0x2e, 0x0a, 0x0a, 0x69, 0x70, 0x5f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e,
+	0x18, 0x19, 0x20, 0x03, 0x28, 0x0e, 0x32, 0x0f, 0x2e, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x49, 0x50,
+	0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x69, 0x70, 0x56, 0x65, 0x72, 0x73, 0x69,
+	0x6f, 0x6e, 0x22, 0xce, 0x01, 0x0a, 0x03, 0x44, 0x4e, 0x53, 0x12, 0x14, 0x0a, 0x05, 0x71, 0x75,
 	0x65, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x71, 0x75, 0x65, 0x72, 0x79,
 	0x12, 0x10, 0x0a, 0x03, 0x69, 0x70, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x03, 0x69,
 	0x70, 0x73, 0x12, 0x10, 0x0a, 0x03, 0x74, 0x74, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52,
@@ -4269,27 +4281,28 @@ var file_flow_flow_proto_depIdxs = []int32{
 	4,  // 28: flow.FlowFilter.verdict:type_name -> flow.Verdict
 	22, // 29: flow.FlowFilter.event_type:type_name -> flow.EventTypeFilter
 	18, // 30: flow.FlowFilter.tcp_flags:type_name -> flow.TCPFlags
-	26, // 31: flow.HTTP.headers:type_name -> flow.HTTPHeader
-	9,  // 32: flow.LostEvent.source:type_name -> flow.LostEventSource
-	44, // 33: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
-	10, // 34: flow.AgentEvent.type:type_name -> flow.AgentEventType
-	32, // 35: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
-	33, // 36: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
-	34, // 37: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
-	35, // 38: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
-	36, // 39: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
-	37, // 40: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
-	39, // 41: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
-	40, // 42: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
-	42, // 43: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
-	45, // 44: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
-	38, // 45: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
-	38, // 46: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
-	47, // [47:47] is the sub-list for method output_type
-	47, // [47:47] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	3,  // 31: flow.FlowFilter.ip_version:type_name -> flow.IPVersion
+	26, // 32: flow.HTTP.headers:type_name -> flow.HTTPHeader
+	9,  // 33: flow.LostEvent.source:type_name -> flow.LostEventSource
+	44, // 34: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
+	10, // 35: flow.AgentEvent.type:type_name -> flow.AgentEventType
+	32, // 36: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
+	33, // 37: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
+	34, // 38: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
+	35, // 39: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
+	36, // 40: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
+	37, // 41: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
+	39, // 42: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
+	40, // 43: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
+	42, // 44: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
+	45, // 45: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
+	38, // 46: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
+	38, // 47: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
+	48, // [48:48] is the sub-list for method output_type
+	48, // [48:48] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_flow_flow_proto_init() }

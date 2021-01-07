@@ -411,6 +411,9 @@ message FlowFilter {
     // node_name is a list of patterns to filter on the node name, e.g. (e.g.
     // "k8s*", "test-cluster/*.domain.com", "cluster-name/").
     repeated string node_name = 24;
+
+    // filter based on IP version (ipv4 or ipv6)
+    repeated IPVersion ip_version = 25;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
