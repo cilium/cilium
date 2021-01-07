@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // keyPathFromLockPath returns the path of the given key that contains a lease
@@ -66,7 +67,7 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 }
 
 func startKvstoreWatchdog() {
-	log.Infof("Starting kvstore watchdog with %s interval...", defaults.LockLeaseTTL)
+	log.WithField(logfields.Interval, defaults.LockLeaseTTL).Infof("Starting kvstore watchdog")
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil, kvstore.Client())
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity garbage collection")

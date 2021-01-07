@@ -52,10 +52,10 @@ func enableCiliumEndpointSyncGC(once bool) {
 	ciliumClient := ciliumK8sClient.CiliumV2()
 
 	if once {
-		log.Info("Running the garbage collector only once to clean up leftover CiliumEndpoint custom resources...")
+		log.Info("Running the garbage collector only once to clean up leftover CiliumEndpoint custom resources")
 		gcInterval = 0
 	} else {
-		log.Info("Starting to garbage collect stale CiliumEndpoint custom resources...")
+		log.Info("Starting to garbage collect stale CiliumEndpoint custom resources")
 		gcInterval = operatorOption.Config.EndpointGCInterval
 	}
 

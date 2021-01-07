@@ -125,6 +125,9 @@ const (
 	// EndTime is the end time of an event
 	EndTime = "endTime"
 
+	// Interval is the duration for periodic execution of an operation.
+	Interval = "interval"
+
 	// Duration is the duration of a measured operation
 	Duration = "duration"
 
