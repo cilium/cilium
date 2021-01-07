@@ -66,6 +66,7 @@ const (
 	initBPFCPU
 	initArgNrCPUs
 	initArgEndpointRoutes
+	initArgProxyRule
 	initArgMax
 )
 
@@ -343,6 +344,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
 	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	if option.Config.InstallIptRules {
+		args[initArgProxyRule] = "true"
+	} else {
+		args[initArgProxyRule] = "false"
+	}
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
