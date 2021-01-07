@@ -44,7 +44,6 @@ var (
 	operatorReplicas                   = int32(1)
 	operatorMaxSurge                   = intstr.FromInt(1)
 	operatorMaxUnavailable             = intstr.FromInt(1)
-	initScriptMode                     = int32(0700)
 )
 
 var ciliumClusterRole = &rbacv1.ClusterRole{
@@ -186,65 +185,6 @@ var operatorClusterRole = &rbacv1.ClusterRole{
 		},
 	},
 }
-
-var nodeInitStartup = `
-local err = 0
-nsenter -t 1 -m -u -i -n -p -- bash -c "${STARTUP_SCRIPT}" && err=0 || err=$?
-if [[ ${err} != 0 ]]; then
-    echo "Node initialization failed with exit code '${err}'" 1>&2
-    return 1
-fi
-
-echo "Node initialization successful"
-`
-
-var nodeInitStartupScript = `#!/bin/bash
-
-set -o errexit
-set -o pipefail
-set -o nounset
-
-mount | grep "/sys/fs/bpf type bpf" || {
-echo "Mounting eBPF filesystem..."
-mount bpffs /sys/fs/bpf -t bpf
-
-which systemctl && {
-echo "Installing BPF filesystem mount"
-cat >/tmp/sys-fs-bpf.mount <<EOF
-[Unit]
-Description=Mount BPF filesystem (Cilium)
-Documentation=http://docs.cilium.io/
-DefaultDependencies=no
-Before=local-fs.target umount.target
-After=swap.target
-
-[Mount]
-What=bpffs
-Where=/sys/fs/bpf
-Type=bpf
-Options=rw,nosuid,nodev,noexec,relatime,mode=700
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-if [ -d "/etc/systemd/system/" ]; then
-  mv /tmp/sys-fs-bpf.mount /etc/systemd/system/
-  echo "Installed sys-fs-bpf.mount to /etc/systemd/system/"
-elif [ -d "/lib/systemd/system/" ]; then
-  mv /tmp/sys-fs-bpf.mount /lib/systemd/system/
-  echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
-fi
-
-systemctl enable sys-fs-bpf.mount
-systemctl start sys-fs-bpf.mount
-}
-}
-
-date > /tmp/cilium-bootstrap-time
-
-rm -f /tmp/node-deinit.cilium.io
-`
 
 func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	ds := &appsv1.DaemonSet{
@@ -578,7 +518,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 							Name: "cni-path",
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/opt/cni/bin",
+									Path: k.cniBinPathOnHost(),
 									Type: &hostPathDirectoryOrCreate,
 								},
 							},
@@ -679,53 +619,76 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 		},
 	}
 
-	switch k.params.DatapathMode {
-	case DatapathAwsENI:
-		nodeInitContainer := corev1.Container{
-			Name:            "node-init",
+	nodeInitContainers := []corev1.Container{}
+	nodeInitVolumes := []corev1.Volume{}
+
+	switch k.flavor.Kind {
+	case k8s.KindGKE:
+		nodeInitContainers = append(nodeInitContainers, corev1.Container{
+			Name:            "wait-for-node-init",
 			Image:           k.fqAgentImage(),
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"nsenter", "-t", "1", "-m", "-u", "-i", "-n", "-p", "--", "/tmp/node-init/node-init.sh"},
-			SecurityContext: &corev1.SecurityContext{
-				Capabilities: &corev1.Capabilities{
-					Add: []corev1.Capability{"NET_ADMIN"},
-				},
-				Privileged: &varTrue,
-			},
+			Command:         []string{"sh", "-c", `until stat /tmp/cilium-bootstrap/time > /dev/null 2>&1; do echo "Waiting for GKE node-init to run..."; sleep 1; done`},
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      "node-init-script",
-					MountPath: "/tmp/node-init",
+					Name:      "cilium-bootstrap",
+					MountPath: "/tmp/cilium-bootstrap",
 				},
 			},
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("100m"),
-					corev1.ResourceMemory: resource.MustParse("100Mi"),
-				},
-			},
-		}
+		})
 
-		ds.Spec.Template.Spec.InitContainers = append([]corev1.Container{nodeInitContainer}, ds.Spec.Template.Spec.InitContainers...)
-
-		nodeInitVolume := corev1.Volume{
-			Name: "node-init-script",
+		nodeInitVolumes = append(nodeInitVolumes, corev1.Volume{
+			Name: "cilium-bootstrap",
 			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cilium-config",
-					},
-					Items: []corev1.KeyToPath{{
-						Key:  "node-init-script",
-						Path: "node-init.sh",
-					}},
-					DefaultMode: &initScriptMode,
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/tmp/cilium-bootstrap",
+					Type: &hostPathDirectoryOrCreate,
 				},
 			},
-		}
+		})
 
-		ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, nodeInitVolume)
 	}
+
+	mountCmd := `mount | grep "/sys/fs/bpf type bpf" || { echo "Mounting eBPF filesystem..."; mount bpffs /sys/fs/bpf -t bpf; }`
+	nodeInitContainers = append(nodeInitContainers, corev1.Container{
+		Name:            "ebpf-mount",
+		Image:           k.fqAgentImage(),
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"nsenter", "--mount=/hostproc/1/ns/mnt", "--", "sh", "-c", mountCmd},
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &varTrue,
+			// This doesn't work yet for some reason. It would allow to drop privileged mode:w
+			//
+			// Capabilities: &corev1.Capabilities{
+			// Add: []corev1.Capability{"SYS_PTRACE", "SYS_ADMIN", "SYS_CHROOT"},
+			// },
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "host-proc",
+				MountPath: "/hostproc",
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("100Mi"),
+			},
+		},
+	})
+
+	nodeInitVolumes = append(nodeInitVolumes, corev1.Volume{
+		Name: "host-proc",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/proc",
+				Type: &hostPathDirectoryOrCreate,
+			},
+		},
+	})
+
+	ds.Spec.Template.Spec.InitContainers = append(nodeInitContainers, ds.Spec.Template.Spec.InitContainers...)
+	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, nodeInitVolumes...)
 
 	return ds
 }
@@ -917,7 +880,10 @@ type k8sInstallerImplementation interface {
 	CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
+	CreateResourceQuota(ctx context.Context, namespace string, r *corev1.ResourceQuota, opts metav1.CreateOptions) (*corev1.ResourceQuota, error)
+	DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
+	ContextName() (name string)
 }
 
 type K8sInstaller struct {
@@ -930,6 +896,7 @@ type K8sInstaller struct {
 const (
 	DatapathTunnel = "tunnel"
 	DatapathAwsENI = "aws-eni"
+	DatapathGKE    = "gke"
 )
 
 type InstallParameters struct {
@@ -941,8 +908,18 @@ type InstallParameters struct {
 	AgentImage    string
 	OperatorImage string
 
-	DatapathMode string
-	TunnelType   string
+	DatapathMode      string
+	TunnelType        string
+	NativeRoutingCIDR string
+}
+
+func (k *K8sInstaller) cniBinPathOnHost() string {
+	switch k.flavor.Kind {
+	case k8s.KindGKE:
+		return "/home/kubernetes/bin"
+	}
+
+	return "/opt/cni/bin"
 }
 
 func (k *K8sInstaller) fqAgentImage() string {
@@ -1075,7 +1052,7 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 			"enable-l7-proxy": "true",
 
 			// wait-bpf-mount makes init container wait until bpf filesystem is mounted
-			"wait-bpf-mount": "false",
+			"wait-bpf-mount": "true",
 
 			"masquerade":            "true",
 			"enable-bpf-masquerade": "true",
@@ -1114,6 +1091,10 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		},
 	}
 
+	if k.params.NativeRoutingCIDR != "" {
+		m.Data["native-routing-cidr"] = k.params.NativeRoutingCIDR
+	}
+
 	switch k.params.DatapathMode {
 	case DatapathTunnel:
 		t := k.params.TunnelType
@@ -1130,17 +1111,75 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		// TODO(tgraf) Is this really sane?
 		m.Data["egress-masquerade-interfaces"] = "eth0"
 
-		m.Data["node-init-script"] = nodeInitStartupScript
+	case DatapathGKE:
+		m.Data["tunnel"] = "disabled"
+		m.Data["enable-endpoint-routes"] = "true"
+		m.Data["enable-local-node-route"] = "false"
+		m.Data["ipam"] = "kubernetes"
+		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
 	}
 
 	return m
 }
 
-func (k *K8sInstaller) Install(ctx context.Context) error {
-	if err := k.autodetectAndValidate(ctx); err != nil {
+func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
+	k.Log("🚀 Creating resource quotas...")
+
+	ciliumResourceQuota := &corev1.ResourceQuota{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaults.AgentResourceQuota,
+		},
+		Spec: corev1.ResourceQuotaSpec{
+			Hard: corev1.ResourceList{
+				// 5k nodes * 2 DaemonSets (Cilium and cilium node init)
+				corev1.ResourcePods: resource.MustParse("10k"),
+			},
+			ScopeSelector: &corev1.ScopeSelector{
+				MatchExpressions: []corev1.ScopedResourceSelectorRequirement{
+					{
+						ScopeName: corev1.ResourceQuotaScopePriorityClass,
+						Operator:  corev1.ScopeSelectorOpIn,
+						Values:    []string{"system-node-critical"},
+					},
+				},
+			},
+		},
+	}
+
+	if _, err := k.client.CreateResourceQuota(ctx, k.params.Namespace, ciliumResourceQuota, metav1.CreateOptions{}); err != nil {
 		return err
 	}
-	if err := k.installCerts(ctx); err != nil {
+
+	operatorResourceQuota := &corev1.ResourceQuota{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaults.OperatorResourceQuota,
+		},
+		Spec: corev1.ResourceQuotaSpec{
+			Hard: corev1.ResourceList{
+				// 15 "clusterwide" Cilium Operator pods for HA
+				corev1.ResourcePods: resource.MustParse("15"),
+			},
+			ScopeSelector: &corev1.ScopeSelector{
+				MatchExpressions: []corev1.ScopedResourceSelectorRequirement{
+					{
+						ScopeName: corev1.ResourceQuotaScopePriorityClass,
+						Operator:  corev1.ScopeSelectorOpIn,
+						Values:    []string{"system-node-critical"},
+					},
+				},
+			},
+		},
+	}
+
+	if _, err := k.client.CreateResourceQuota(ctx, k.params.Namespace, operatorResourceQuota, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *K8sInstaller) Install(ctx context.Context) error {
+	if err := k.autodetectAndValidate(ctx); err != nil {
 		return err
 	}
 
@@ -1152,6 +1191,24 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 				return err
 			}
 		}
+	case k8s.KindGKE:
+		if k.params.NativeRoutingCIDR == "" {
+			cidr, err := k.gkeNativeRoutingCIDR(ctx, k.client.ContextName())
+			if err != nil {
+				k.Log("❌ Unable to auto-detect GKE native routing CIDR. Is \"gcloud\" installed?")
+				k.Log("ℹ️  You can set the native routing CIDR manually with --native-routing-cidr")
+				return err
+			}
+			k.params.NativeRoutingCIDR = cidr
+		}
+
+		if err := k.deployResourceQuotas(ctx); err != nil {
+			return err
+		}
+	}
+
+	if err := k.installCerts(ctx); err != nil {
+		return err
 	}
 
 	k.Log("🚀 Creating service accounts...")
@@ -1183,6 +1240,14 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	k.Log("🚀 Creating ConfigMap...")
 	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateConfigMap(), metav1.CreateOptions{}); err != nil {
 		return err
+	}
+
+	switch k.flavor.Kind {
+	case k8s.KindGKE:
+		k.Log("🚀 Creating GKE Node Init DaemonSet...")
+		if _, err := k.client.CreateDaemonSet(ctx, k.params.Namespace, k.generateGKEInitDaemonSet(), metav1.CreateOptions{}); err != nil {
+			return err
+		}
 	}
 
 	k.Log("🚀 Creating agent DaemonSet...")

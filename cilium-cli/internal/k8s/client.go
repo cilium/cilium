@@ -28,6 +28,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -259,6 +260,7 @@ const (
 	KindMinikube
 	KindKind
 	KindEKS
+	KindGKE
 )
 
 func (k Kind) String() string {
@@ -271,6 +273,8 @@ func (k Kind) String() string {
 		return "kind"
 	case KindEKS:
 		return "EKS"
+	case KindGKE:
+		return "GKE"
 	default:
 		return "invalid"
 	}
@@ -298,6 +302,11 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 		return
 	}
 
+	if strings.HasPrefix(c.ClusterName(), "gke_") {
+		f.Kind = KindGKE
+		return
+	}
+
 	if context, ok := c.RawConfig.Contexts[c.ContextName()]; ok {
 		if cluster, ok := c.RawConfig.Clusters[context.Cluster]; ok {
 			if strings.HasSuffix(cluster.Server, "eks.amazonaws.com") {
@@ -308,4 +317,12 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 	}
 
 	return
+}
+
+func (c *Client) CreateResourceQuota(ctx context.Context, namespace string, rq *corev1.ResourceQuota, opts metav1.CreateOptions) (*corev1.ResourceQuota, error) {
+	return c.Clientset.CoreV1().ResourceQuotas(namespace).Create(ctx, rq, opts)
+}
+
+func (c *Client) DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.CoreV1().ResourceQuotas(namespace).Delete(ctx, name, opts)
 }
