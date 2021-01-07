@@ -48,12 +48,12 @@ func NewClient(contextName string) (*Client, error) {
 
 	config, err := nonInteractiveClient.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create Kubernetes configuration:  %w", err)
+		return nil, err
 	}
 
 	rawConfig, err := nonInteractiveClient.RawConfig()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create raw Kubernetes configuration: %w", err)
+		return nil, err
 	}
 
 	ciliumClientset, err := ciliumClientset.NewForConfig(config)
