@@ -447,12 +447,7 @@ func (kub *Kubectl) AddRegistryCredentials(cred string, registry string) error {
 func (kub *Kubectl) WaitForCiliumReadiness(offset int, errMsg string) {
 	ginkgoext.By("Waiting for Cilium to become ready")
 	gomega.EventuallyWithOffset(1+offset, func() error {
-		numPods, err := kub.DaemonSetIsReady(CiliumNamespace, "cilium")
-		if err != nil {
-			ginkgoext.By("Cilium DaemonSet not ready yet: %s", err)
-		} else {
-			ginkgoext.By("Number of ready Cilium pods: %d", numPods)
-		}
+		_, err := kub.DaemonSetIsReady(CiliumNamespace, "cilium")
 		return err
 	}, 4*time.Minute, time.Second).Should(gomega.BeNil(), errMsg)
 }
