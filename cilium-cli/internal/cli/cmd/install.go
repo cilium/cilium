@@ -42,6 +42,7 @@ func newCmdInstall() *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	cmd.Flags().StringVar(&params.Version, "version", "", "Cilium version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Cilium version to install")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
@@ -60,6 +61,7 @@ func newCmdUninstall() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace to install Cilium into")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
