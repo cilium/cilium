@@ -7,6 +7,8 @@ kind: ConfigMap
 metadata:
   name: hubble-ca-cert
   namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
 data:
 {{- if $hubbleCAGenerate }}
 {{ include "hubble.ca.gen-cert-only" . | indent 2 }}
