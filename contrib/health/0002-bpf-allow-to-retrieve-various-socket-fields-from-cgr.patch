@@ -1,0 +1,71 @@
+From 090bda10f66f2b92ceb06c587f55c581e7003500 Mon Sep 17 00:00:00 2001
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 21 Dec 2020 11:40:50 +0100
+Subject: [PATCH 2/2] bpf: allow to retrieve various socket fields from cgroup
+ progs
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/core/filter.c | 26 ++++++++++++++++++++++++--
+ 1 file changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 013e540b94dd..d345868ed07c 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -4752,6 +4752,10 @@ static int _bpf_setsockopt(struct sock *sk, int level, int optname,
+ 				ifindex = dev->ifindex;
+ 				dev_put(dev);
+ 			}
++			fallthrough;
++		case SO_BINDTOIFINDEX:
++			if (optname == SO_BINDTOIFINDEX)
++				ifindex = val;
+ 			ret = sock_bindtoindex(sk, ifindex, false);
+ 			break;
+ 		case SO_KEEPALIVE:
+@@ -4911,8 +4915,26 @@ static int _bpf_getsockopt(struct sock *sk, int level, int optname,
+ 
+ 	sock_owned_by_me(sk);
+ 
++	if (level == SOL_SOCKET) {
++		if (optlen != sizeof(int))
++			goto err_clear;
++
++		/* Only some socketops are supported */
++		switch (optname) {
++		case SO_MARK:
++			*((int *)optval) = sk->sk_mark;
++			break;
++		case SO_PRIORITY:
++			*((int *)optval) = sk->sk_priority;
++			break;
++		case SO_BINDTOIFINDEX:
++			*((int *)optval) = sk->sk_bound_dev_if;
++			break;
++		default:
++			goto err_clear;
++		}
+ #ifdef CONFIG_INET
+-	if (level == SOL_TCP && sk->sk_prot->getsockopt == tcp_getsockopt) {
++	} else if (level == SOL_TCP && sk->sk_prot->getsockopt == tcp_getsockopt) {
+ 		struct inet_connection_sock *icsk;
+ 		struct tcp_sock *tp;
+ 
+@@ -4965,12 +4987,12 @@ static int _bpf_getsockopt(struct sock *sk, int level, int optname,
+ 		default:
+ 			goto err_clear;
+ 		}
++#endif
+ #endif
+ 	} else {
+ 		goto err_clear;
+ 	}
+ 	return 0;
+-#endif
+ err_clear:
+ 	memset(optval, 0, optlen);
+ 	return -EINVAL;
+-- 
+2.17.1
+

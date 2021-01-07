@@ -1,0 +1,36 @@
+From 9590e434d8330b2c03d47935fc6c9774e6ef0fa1 Mon Sep 17 00:00:00 2001
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 21 Dec 2020 11:25:58 +0100
+Subject: [PATCH 1/2] bpf: enable access to {get,set}sockopt helpers from
+ pre-bind
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/core/filter.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 00c142c4abcf..013e540b94dd 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -6979,6 +6979,8 @@ sock_addr_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+ 		switch (prog->expected_attach_type) {
+ 		case BPF_CGROUP_INET4_CONNECT:
+ 		case BPF_CGROUP_INET6_CONNECT:
++		case BPF_CGROUP_INET4_BIND:
++		case BPF_CGROUP_INET6_BIND:
+ 			return &bpf_sock_addr_setsockopt_proto;
+ 		default:
+ 			return NULL;
+@@ -6987,6 +6989,8 @@ sock_addr_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+ 		switch (prog->expected_attach_type) {
+ 		case BPF_CGROUP_INET4_CONNECT:
+ 		case BPF_CGROUP_INET6_CONNECT:
++		case BPF_CGROUP_INET4_BIND:
++		case BPF_CGROUP_INET6_BIND:
+ 			return &bpf_sock_addr_getsockopt_proto;
+ 		default:
+ 			return NULL;
+-- 
+2.17.1
+
