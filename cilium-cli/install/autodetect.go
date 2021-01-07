@@ -32,6 +32,9 @@ var (
 		k8s.KindMinikube: []validationCheck{
 			&minikubeVersionValidation{},
 		},
+		k8s.KindKind: []validationCheck{
+			&kindVersionValidation{},
+		},
 	}
 )
 
@@ -108,7 +111,9 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 			k.params.DatapathMode = DatapathAwsENI
 		}
 
-		k.Log("🔮 Auto-detected datapath mode: %s", k.params.DatapathMode)
+		if k.params.DatapathMode != "" {
+			k.Log("🔮 Auto-detected datapath mode: %s", k.params.DatapathMode)
+		}
 	}
 
 	return nil
