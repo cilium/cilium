@@ -40,7 +40,7 @@ func (m *minikubeVersionValidation) Check(ctx context.Context, k *K8sInstaller) 
 		return fmt.Errorf("unable to execute \"minikube version\": %w", err)
 	}
 
-	ver := regexp.MustCompile("(v[0-9]+.[0-9]+.[0-9]+)")
+	ver := regexp.MustCompile(`(v[0-9]+\.[0-9]+\.[0-9]+)`)
 	verString := ver.FindString(string(bytes))
 	v, err := versioncheck.Version(verString)
 	if err != nil {
