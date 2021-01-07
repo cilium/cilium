@@ -29,10 +29,21 @@ func (in *CiliumClusterwideNetworkPolicy) DeepCopyInto(out *CiliumClusterwideNet
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	if in.CiliumNetworkPolicy != nil {
-		in, out := &in.CiliumNetworkPolicy, &out.CiliumNetworkPolicy
-		*out = new(CiliumNetworkPolicy)
+	if in.Spec != nil {
+		in, out := &in.Spec, &out.Spec
+		*out = new(api.Rule)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Specs != nil {
+		in, out := &in.Specs, &out.Specs
+		*out = make(api.Rules, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(api.Rule)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 	in.Status.DeepCopyInto(&out.Status)
 	return

@@ -608,10 +608,11 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 				// Need to explicitly copy all the fields even though CNP is
 				// embedded inside CCNP. See comment inside CCNP type
 				// definition. This is required for K8s versions < 1.13.
-				TypeMeta:            cnp.TypeMeta,
-				ObjectMeta:          cnp.ObjectMeta,
-				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
-				Status:              cnp.CiliumNetworkPolicy.Status,
+				TypeMeta:   cnp.TypeMeta,
+				ObjectMeta: cnp.ObjectMeta,
+				Spec:       cnp.CiliumNetworkPolicy.Spec,
+				Specs:      cnp.CiliumNetworkPolicy.Specs,
+				Status:     cnp.CiliumNetworkPolicy.Status,
 			}
 			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(context.TODO(), ccnp, metav1.UpdateOptions{})
 		} else {
