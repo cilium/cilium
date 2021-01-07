@@ -55,6 +55,7 @@ func newCmdClusterMeshEnable() *cobra.Command {
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "ClusterIP", "Type of Kubernetes to expose control plane")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
@@ -75,6 +76,7 @@ func newCmdClusterMeshDisable() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
@@ -95,6 +97,7 @@ func newCmdClusterMeshGetAccessToken() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
@@ -114,6 +117,7 @@ func newCmdClusterMeshConnect() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
