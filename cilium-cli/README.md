@@ -5,8 +5,9 @@
 
 ## Installation
 
-cd cmd/cilium
-go build
+```console
+go build ./cmd/cilium
+```
 
 ## Capabilities
 
