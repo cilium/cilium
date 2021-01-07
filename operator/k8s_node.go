@@ -165,6 +165,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 				kvStoreNodes := ciliumNodeStore.SharedKeysMap()
 				for {
 					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
+
 					if clusterwide {
 						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
 							meta_v1.ListOptions{
@@ -177,8 +178,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 						cnpItemsList = make([]cilium_v2.CiliumNetworkPolicy, 0)
 						for _, ccnp := range ccnpList.Items {
-							ccnp.CiliumNetworkPolicy.Status = ccnp.Status
-							cnpItemsList = append(cnpItemsList, *ccnp.CiliumNetworkPolicy)
+							cnpItemsList = append(cnpItemsList, cilium_v2.CiliumNetworkPolicy{
+								Status: ccnp.Status,
+							})
 						}
 						continueID = ccnpList.Continue
 					} else {

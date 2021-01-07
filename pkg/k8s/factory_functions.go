@@ -402,39 +402,35 @@ func ConvertToK8sService(obj interface{}) interface{} {
 func ConvertToCCNP(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
-		cnp := &types.SlimCNP{
+		ccnp := &types.SlimCNP{
 			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 				TypeMeta:   concreteObj.TypeMeta,
 				ObjectMeta: concreteObj.ObjectMeta,
+				Spec:       concreteObj.Spec,
+				Specs:      concreteObj.Specs,
 			},
 		}
-		if concreteObj.CiliumNetworkPolicy != nil {
-			cnp.Spec = concreteObj.Spec
-			cnp.Specs = concreteObj.Specs
-		}
 		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
-		return cnp
+		return ccnp
 
 	case cache.DeletedFinalStateUnknown:
-		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
+		ccnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
 		if !ok {
 			return obj
 		}
 		slimCNP := &types.SlimCNP{
 			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-				TypeMeta:   cnp.TypeMeta,
-				ObjectMeta: cnp.ObjectMeta,
+				TypeMeta:   ccnp.TypeMeta,
+				ObjectMeta: ccnp.ObjectMeta,
+				Spec:       ccnp.Spec,
+				Specs:      ccnp.Specs,
 			},
-		}
-		if cnp.CiliumNetworkPolicy != nil {
-			slimCNP.Spec = cnp.Spec
-			slimCNP.Specs = cnp.Specs
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
 			Obj: slimCNP,
 		}
-		*cnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
+		*ccnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return dfsu
 
 	default:
