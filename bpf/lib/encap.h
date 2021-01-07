@@ -195,21 +195,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 #endif
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 	}
-
-	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
-	if (!tunnel)
-		return DROP_NO_TUNNEL_ENDPOINT;
-
-#ifdef ENABLE_IPSEC
-	if (tunnel->key) {
-		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
-
-		return encap_and_redirect_ipsec(ctx, tunnel->ip4,
-						min_encrypt_key,
-						seclabel);
-	}
-#endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, monitor);
+	return DROP_NO_TUNNEL_ENDPOINT;
 }
 
 static __always_inline int
