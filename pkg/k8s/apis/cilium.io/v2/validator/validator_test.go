@@ -233,6 +233,82 @@ func (s *CNPValidationSuite) Test_UnknownFieldDetection(c *C) {
 		err         error
 	}{
 		{
+			name: "ccnp GH-14526",
+			policy: []byte(`
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"cilium.io/v2","kind":"CiliumClusterwideNetworkPolicy","metadata":{"annotations":{},"name":"ccnp-default-deny-egress"},"spec":{"egress":[{}],"endpointSelector":{}}}
+  creationTimestamp: "2021-01-07T00:26:34Z"
+  generation: 1
+  managedFields:
+  - apiVersion: cilium.io/v2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:kubectl.kubernetes.io/last-applied-configuration: {}
+      f:spec:
+        .: {}
+        f:egress: {}
+        f:endpointSelector: {}
+    manager: kubectl-client-side-apply
+    operation: Update
+    time: "2021-01-07T00:26:34Z"
+  name: ccnp-default-deny-egress
+  resourceVersion: "7849"
+  selfLink: /apis/cilium.io/v2/ciliumclusterwidenetworkpolicies/ccnp-default-deny-egress
+  uid: f776ca84-86dc-4589-ab91-64fccdec468a
+spec:
+  egress:
+  - {}
+  endpointSelector: {}
+`),
+			clusterwide: true,
+			err:         nil,
+		},
+		{
+			name: "cnp GH-14526",
+			policy: []byte(`
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"cilium.io/v2","kind":"CiliumNetworkPolicy","metadata":{"annotations":{},"name":"ccnp-default-deny-egress"},"spec":{"egress":[{}],"endpointSelector":{}}}
+  creationTimestamp: "2021-01-07T00:26:34Z"
+  generation: 1
+  managedFields:
+  - apiVersion: cilium.io/v2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:kubectl.kubernetes.io/last-applied-configuration: {}
+      f:spec:
+        .: {}
+        f:egress: {}
+        f:endpointSelector: {}
+    manager: kubectl-client-side-apply
+    operation: Update
+    time: "2021-01-07T00:26:34Z"
+  name: ccnp-default-deny-egress
+  resourceVersion: "7849"
+  selfLink: /apis/cilium.io/v2/ciliumnetworkpolicies/ccnp-default-deny-egress
+  uid: f776ca84-86dc-4589-ab91-64fccdec468a
+spec:
+  egress:
+  - {}
+  endpointSelector: {}
+`),
+			clusterwide: false,
+			err:         nil,
+		},
+		{
 			name: "neither a cnp or ccnp",
 			policy: []byte(`
 kind: ServiceAccount
