@@ -56,7 +56,7 @@ func deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) error {
 	if err != nil {
 		log.WithError(err).Error("Unable to delete identity")
 	} else {
-		log.WithFields(logrus.Fields{"identity": identity.GetName()}).Info("Garbage collected identity")
+		log.WithField(logfields.Identity, identity.GetName()).Info("Garbage collected identity")
 	}
 
 	return err
@@ -119,7 +119,7 @@ func startCRDIdentityGC() {
 		log.Fatal("The CiliumIdentity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
 	}
 
-	log.Infof("Starting CRD identity garbage collector with %s interval...", operatorOption.Config.IdentityGCInterval)
+	log.WithField(logfields.Interval, operatorOption.Config.IdentityGCInterval).Info("Starting CRD identity garbage collector")
 
 	controller.NewManager().UpdateController("crd-identity-gc",
 		controller.ControllerParams{

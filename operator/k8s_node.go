@@ -44,7 +44,7 @@ import (
 )
 
 func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
-	log.Info("Starting to synchronize k8s nodes to kvstore...")
+	log.Info("Starting to synchronize k8s nodes to kvstore")
 
 	ciliumNodeStore, err := store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeStorePrefix,

@@ -471,7 +471,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		} else {
 			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
-		scopedLog.Info("Connecting to kvstore...")
+		scopedLog.Info("Connecting to kvstore")
 		if err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
@@ -520,13 +520,13 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	err = enableCNPWatcher()
 	if err != nil {
-		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
+		log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
 	err = enableCCNPWatcher()
 	if err != nil {
-		log.WithError(err).WithField("subsys", "CCNPWatcher").Fatal(
+		log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
