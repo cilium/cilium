@@ -323,6 +323,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// Needed to bypass bug with masquerading when devices are set. See #12141.
 			if helpers.RunsWithKubeProxy() {
 				options["masquerade"] = "false"
+				// This test fails if the hostfw is enabled (and devices specified).
+				// See #12205 for details.
+				options["hostFirewall"] = "false"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
