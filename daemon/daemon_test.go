@@ -144,7 +144,10 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnQueueEndpointBuild = nil
 	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
-	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
+	ds.d.endpointManager = &endpointManager{
+		d:               ds.d,
+		EndpointManager: endpointmanager.NewEndpointManager(&dummyEpSyncher{}),
+	}
 
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{

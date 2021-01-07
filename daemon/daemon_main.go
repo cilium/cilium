@@ -1328,7 +1328,7 @@ func runDaemon() {
 			d.dnsNameManager.CompleteBootstrap()
 
 			ms := maps.NewMapSweeper(&EndpointMapManager{
-				EndpointManager: d.endpointManager,
+				endpointManager: d.endpointManager,
 			})
 			ms.CollectStaleMapGarbage()
 			ms.RemoveDisabledMaps()

@@ -28,7 +28,6 @@ import (
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -133,7 +132,7 @@ func (d *Daemon) SetPrefilter(preFilter *prefilter.PreFilter) {
 // EndpointMapManager is a wrapper around an endpointmanager as well as the
 // filesystem for removing maps related to endpoints from the filesystem.
 type EndpointMapManager struct {
-	*endpointmanager.EndpointManager
+	*endpointManager
 }
 
 // RemoveDatapathMapping unlinks the endpointID from the global policy map, preventing
