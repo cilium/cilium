@@ -48,6 +48,7 @@ func newCmdStatus() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Verbose otuput")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }

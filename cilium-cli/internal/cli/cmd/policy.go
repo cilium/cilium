@@ -81,6 +81,7 @@ func newCmdPolicy() *cobra.Command {
 	policyList.Flags().BoolVar(&containsIngress, "contains-ingress", false, "Show policies that contain ingress policy filtering")
 	policyList.Flags().BoolVar(&containsEgress, "contains-egress", false, "Show policies that contain egress policy filtering")
 	policyList.Flags().StringVar(&selects, "selects", "", "Selects a pod with the specified label")
+	policyList.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	root.AddCommand(policyList)
 
 	return root
