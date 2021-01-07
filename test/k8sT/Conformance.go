@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("K8sConformance", func() {
 	SkipContextIf(func() bool {
-		return !helpers.RunsWithKubeProxy() || helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel
+		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel
 	}, "Portmap Chaining", func() {
 		var (
 			kubectl                         *helpers.Kubectl

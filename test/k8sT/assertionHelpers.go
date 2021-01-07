@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -215,13 +215,5 @@ func SkipIfIntegration(integration string) {
 		Skip(fmt.Sprintf(
 			"This feature is not supported in Cilium %q mode. Skipping test.",
 			integration))
-	}
-}
-
-// SkipItIfNoKubeProxy will skip It if kube-proxy is disabled (= NodePort BPF is
-// enabled)
-func SkipItIfNoKubeProxy() {
-	if !helpers.RunsWithKubeProxy() {
-		Skip("kube-proxy is disabled (NodePort BPF is enabled). Skipping test.")
 	}
 }
