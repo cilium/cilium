@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"syscall"
@@ -140,8 +141,15 @@ func (s *Server) StartServer() error {
 		go func() {
 			err := srv.Serve(ln)
 			if err != nil {
-				errCh <- err
-				errs <- err
+				// If the error is due to the server being shutdown, then send nil to
+				// the server errors channel.
+				if errors.Is(err, http.ErrServerClosed) {
+					log.WithField("address", addr).Debug("Operator API server closed")
+					errs <- nil
+				} else {
+					errCh <- err
+					errs <- err
+				}
 			}
 		}()
 
@@ -152,16 +160,22 @@ func (s *Server) StartServer() error {
 					log.WithError(err).Error("apiserver shutdown")
 				}
 			case err := <-errCh:
-				log.WithError(err).Warn("Unable to start status api")
+				log.WithError(err).Warn("Unable to start operator API server")
 			}
 		}()
+
 		log.Infof("Starting apiserver on address %s", addr)
 	}
 
+	var retErr error
 	for err := range errs {
+		if err != nil {
+			retErr = err
+		}
+
 		nServers--
 		if nServers == 0 {
-			return err
+			return retErr
 		}
 	}
 

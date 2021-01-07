@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -112,6 +113,8 @@ var (
 	// isLeader is an atomic boolean value that is true when the Operator is
 	// elected leader. Otherwise, it is false.
 	isLeader atomic.Value
+
+	doOnce sync.Once
 )
 
 func init() {
@@ -152,11 +155,23 @@ func initK8s(k8sInitDone chan struct{}) {
 }
 
 func doCleanup(exitCode int) {
-	isLeader.Store(false)
-	gops.Close()
-	close(shutdownSignal)
-	leaderElectionCtxCancel()
-	os.Exit(exitCode)
+	// We run the cleanup logic only once. The operator is assumed to exit
+	// once the cleanup logic is executed.
+	doOnce.Do(func() {
+		isLeader.Store(false)
+		gops.Close()
+		close(shutdownSignal)
+
+		// Cancelling this conext here makes sure that if the operator hold the
+		// leader lease, it will be released.
+		leaderElectionCtxCancel()
+
+		// If the exit code is set to 0, then we assume that the operator will
+		// exit gracefully once the lease has been released.
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	})
 }
 
 func main() {
