@@ -102,10 +102,11 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 // createDerivativeCCNP will return a new CCNP based on the given rule.
 func createDerivativeCCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumClusterwideNetworkPolicy, error) {
 	ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
-		TypeMeta:            cnp.TypeMeta,
-		ObjectMeta:          cnp.ObjectMeta,
-		CiliumNetworkPolicy: cnp,
-		Status:              cnp.Status,
+		TypeMeta:   cnp.TypeMeta,
+		ObjectMeta: cnp.ObjectMeta,
+		Spec:       cnp.Spec,
+		Specs:      cnp.Specs,
+		Status:     cnp.Status,
 	}
 
 	// CCNP informer may provide a CCNP object without APIVersion or Kind.
@@ -126,7 +127,6 @@ func createDerivativeCCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolic
 				cnpKindKey: cnpKindName,
 			},
 		},
-		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{},
 	}
 
 	var (
