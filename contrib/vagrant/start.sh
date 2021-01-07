@@ -630,7 +630,7 @@ if [ "$VMName" ]; then
 		"p" )
 			for ((i=1; i<=$runningVm; i=i+1))
 			do
-                #checks state of the VM(s) before trying to pause as paused VM(s) are listed in runningvms command
+                #checks state of the VM(s) before trying to pause, as paused VM(s) are listed in runningvms command
 				VMName=$(VBoxManage list runningvms | awk 'NR=='$i'{print $1}' |  cut -d "\"" -f 2)
 				if [ $(VBoxManage showvminfo $VMName | grep -c "paused (since") -eq 0 ]; then
                     VBoxManage controlvm $VMName pause
