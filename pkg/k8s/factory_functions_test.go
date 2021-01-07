@@ -1041,9 +1041,7 @@ func (s *K8sSuite) Test_ConvertToCCNPWithStatus(c *C) {
 		{
 			name: "normal conversion",
 			args: args{
-				obj: &v2.CiliumClusterwideNetworkPolicy{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
+				obj: &v2.CiliumClusterwideNetworkPolicy{},
 			},
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
@@ -1054,9 +1052,7 @@ func (s *K8sSuite) Test_ConvertToCCNPWithStatus(c *C) {
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: &v2.CiliumClusterwideNetworkPolicy{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-					},
+					Obj: &v2.CiliumClusterwideNetworkPolicy{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{
@@ -1165,9 +1161,7 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 		{
 			name: "normal conversion",
 			args: args{
-				obj: &v2.CiliumClusterwideNetworkPolicy{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
+				obj: &v2.CiliumClusterwideNetworkPolicy{},
 			},
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
@@ -1187,9 +1181,7 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: &v2.CiliumClusterwideNetworkPolicy{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-					},
+					Obj: &v2.CiliumClusterwideNetworkPolicy{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{

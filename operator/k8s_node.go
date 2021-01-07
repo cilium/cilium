@@ -167,6 +167,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 				kvStoreNodes := ciliumNodeStore.SharedKeysMap()
 				for {
 					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
+
 					if clusterwide {
 						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
 							meta_v1.ListOptions{
@@ -179,8 +180,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 						cnpItemsList = make([]cilium_v2.CiliumNetworkPolicy, 0)
 						for _, ccnp := range ccnpList.Items {
-							ccnp.CiliumNetworkPolicy.Status = ccnp.Status
-							cnpItemsList = append(cnpItemsList, *ccnp.CiliumNetworkPolicy)
+							cnpItemsList = append(cnpItemsList, cilium_v2.CiliumNetworkPolicy{
+								Status: ccnp.Status,
+							})
 						}
 						continueID = ccnpList.Continue
 					} else {
@@ -309,10 +311,11 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				// Need to explicitly copy all the fields even though CNP is
 				// embedded inside CCNP. See comment inside CCNP type
 				// definition. This is required for K8s versions < 1.13.
-				TypeMeta:            cnp.TypeMeta,
-				ObjectMeta:          cnp.ObjectMeta,
-				CiliumNetworkPolicy: cnp,
-				Status:              cnp.Status,
+				TypeMeta:   cnp.TypeMeta,
+				ObjectMeta: cnp.ObjectMeta,
+				Spec:       cnp.Spec,
+				Specs:      cnp.Specs,
+				Status:     cnp.Status,
 			}
 			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(context.TODO(), ccnp, meta_v1.UpdateOptions{})
 		} else {
