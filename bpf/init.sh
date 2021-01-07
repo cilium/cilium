@@ -38,6 +38,7 @@ NODE_PORT_BIND=${20}
 MCPU=${21}
 NR_CPUS=${22}
 ENDPOINT_ROUTES=${23}
+PROXY_RULE=${24}
 
 ID_HOST=1
 ID_WORLD=2
@@ -428,12 +429,14 @@ case "${MODE}" in
         ;;
 esac
 
+if [ "$PROXY_RULE" = "true" ]; then
 # Decrease priority of the rule to identify local addresses
 move_local_rules
 
 # Install new rules before local rule to ensure that packets from the proxy are
 # using a separate routing table
 setup_proxy_rules
+fi
 
 sed -i '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
 sed -i '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
