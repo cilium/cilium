@@ -40,11 +40,14 @@ type Client struct {
 	RawConfig       clientcmdapi.Config
 }
 
-func NewClient(contextName string) (*Client, error) {
-	nonInteractiveClient := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{CurrentContext: contextName},
-	)
+func NewClient(contextName, kubeconfig string) (*Client, error) {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+
+	if kubeconfig != "" {
+		rules.ExplicitPath = kubeconfig
+	}
+
+	nonInteractiveClient := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{CurrentContext: contextName})
 
 	config, err := nonInteractiveClient.ClientConfig()
 	if err != nil {

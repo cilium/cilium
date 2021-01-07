@@ -36,7 +36,7 @@ func fatalf(msg string, args ...interface{}) {
 func NewDefaultCiliumCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			c, err := k8s.NewClient(contextName)
+			c, err := k8s.NewClient(contextName, "")
 			if err != nil {
 				fatalf("Unable to create Kubernetes client: %s", err)
 			}
@@ -61,8 +61,6 @@ func NewDefaultCiliumCommand() *cobra.Command {
 	cmd.AddCommand(newCmdHubble())
 	cmd.SetOut(os.Stdout)
 	cmd.SetErr(os.Stderr)
-
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
