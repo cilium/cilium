@@ -254,6 +254,7 @@ type Kind int
 const (
 	KindUnknown Kind = iota
 	KindMinikube
+	KindKind
 	KindEKS
 )
 
@@ -263,6 +264,8 @@ func (k Kind) String() string {
 		return "unknown"
 	case KindMinikube:
 		return "minikube"
+	case KindKind:
+		return "kind"
 	case KindEKS:
 		return "EKS"
 	default:
@@ -282,6 +285,13 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 
 	if c.ClusterName() == "minikube" || c.ContextName() == "minikube" {
 		f.Kind = KindMinikube
+		return
+	}
+
+	// When creating a cluster with kind create cluster --name foo,
+	// the context and clustername are kind-foo.
+	if strings.HasPrefix(c.ClusterName(), "kind-") || strings.HasPrefix(c.ContextName(), "kind-") {
+		f.Kind = KindKind
 		return
 	}
 
