@@ -31,9 +31,11 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -202,7 +204,7 @@ func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int
 }
 
 func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+	d.endpointManager.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
 		// The IP has been provided by the caller and must be released
 		// by the caller
 		NoIPRelease: true,
@@ -631,21 +633,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	return NewPatchEndpointIDOK()
 }
 
-func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
-	// Cancel any ongoing endpoint creation
-	d.endpointCreations.CancelCreateRequest(ep)
-
-	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-		// If the IP is managed by an external IPAM, it does not need to be released
-		NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
-	})
-	for _, err := range errs {
-		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
-	}
-	return len(errs)
-}
-
 // NotifyMonitorDeleted notifies the monitor that an endpoint has been deleted.
 func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
 	repr, err := monitorAPI.EndpointDeleteRepr(ep)
@@ -653,17 +640,6 @@ func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
 	if err == nil {
 		d.SendNotification(monitorAPI.AgentNotifyEndpointDeleted, repr)
 	}
-}
-
-// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
-// it from Cilium, releasing all resources associated with it such as its
-// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
-// L7 policy configuration, directories and controllers.
-//
-// Specific users such as the cilium-health EP may choose not to release the IP
-// when deleting the endpoint. Most users should pass true for releaseIP.
-func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return ep.Delete(d, d.ipam, d.endpointManager, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
@@ -677,7 +653,7 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	} else if err = endpoint.APICanModify(ep); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else {
-		return d.deleteEndpoint(ep), nil
+		return d.endpointManager.DeleteEndpoint(ep), nil
 	}
 }
 
@@ -1023,4 +999,55 @@ func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
 		return
 	}
 	proxy.DefaultDNSProxy.RemoveRestoredRules(epID)
+}
+
+// endpointManager wraps the main endpointManager to allow endpoint deletion
+// to be triggered from other packages (like pkg/k8s) without having to
+// propagate various other subsystem objects around such as IPAM and the
+// monitor. In future if we either rearrange initialization logic or move
+// endpoint delete logic into pkg/endpointmanager, this type should go away.
+type endpointManager struct {
+	*endpointmanager.EndpointManager
+	d *Daemon
+}
+
+// NewEndpointManager wraps pkg/endpointmanager/EndpointManager to provide a
+// DeleteEndpoint() implementation that doesn't require the caller to pass
+// the IPAM implementation in.
+//
+// This works around the initialization order in the daemon of:
+// * First, EndpointManager
+// * After, K8sWatcher
+// * Later, IPAM.
+func NewEndpointManager(d *Daemon, epSync *endpointsynchronizer.EndpointSynchronizer) *endpointManager {
+	return &endpointManager{
+		d:               d,
+		EndpointManager: endpointmanager.NewEndpointManager(epSync),
+	}
+}
+
+func (e *endpointManager) DeleteEndpoint(ep *endpoint.Endpoint) int {
+	// Cancel any ongoing endpoint creation
+	e.d.endpointCreations.CancelCreateRequest(ep)
+
+	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+	errs := e.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+		// If the IP is managed by an external IPAM, it does not need to be released
+		NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
+	})
+	for _, err := range errs {
+		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
+	}
+	return len(errs)
+}
+
+// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
+// it from Cilium, releasing all resources associated with it such as its
+// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
+// L7 policy configuration, directories and controllers.
+//
+// Specific users such as the cilium-health EP may choose not to release the IP
+// when deleting the endpoint. Most users should pass true for releaseIP.
+func (e *endpointManager) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	return ep.Delete(e.d, e.d.ipam, e, conf)
 }

@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
@@ -133,7 +132,7 @@ type Daemon struct {
 
 	netConf *cnitypes.NetConf
 
-	endpointManager *endpointmanager.EndpointManager
+	endpointManager *endpointManager
 
 	identityAllocator *cache.CachingIdentityAllocator
 
@@ -331,7 +330,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
-	d.endpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{
+	d.endpointManager = NewEndpointManager(&d, &endpointsynchronizer.EndpointSynchronizer{
 		Allocator: d.identityAllocator,
 	})
 	d.endpointManager.InitMetrics()

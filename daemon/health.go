@@ -135,7 +135,7 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
 		log.Debug("Removing existing cilium-health endpoint")
-		errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+		errs := d.endpointManager.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
 			NoIPRelease: true,
 		})
 		for _, err := range errs {

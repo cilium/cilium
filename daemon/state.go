@@ -83,7 +83,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 					logfields.K8sPodName:   ep.K8sPodName,
 				})
 				scopedLog.Warningf("kubernetes pod not found, deleting endpoint from endpoint manager")
-				errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+				errs := d.endpointManager.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
 					// If the IP is managed by an external IPAM, it does not need to be released
 					NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
 				})
@@ -316,7 +316,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// release it easily as it will require to block on kvstore
 			// connectivity which we can't do at this point. Let the lease
 			// expire to release the identity.
-			d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+			d.endpointManager.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
 				NoIdentityRelease: true,
 				NoIPRelease:       true,
 			})
