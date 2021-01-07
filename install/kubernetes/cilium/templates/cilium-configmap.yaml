@@ -646,6 +646,10 @@ data:
   disable-cnp-status-updates: "true"
 {{- end }}
 
+{{- if .Values.enableK8sEventHandover }}
+  enable-k8s-event-handover: "true"
+{{- end }}
+
 {{- if hasKey .Values "crdWaitTimeout" }}
   crd-wait-timeout: {{ .Values.crdWaitTimeout | quote }}
 {{- else if ( ne $crdWaitTimeout "5m" ) }}
