@@ -38,11 +38,11 @@ To install Cilium while automatically detected
 #### Supported Environments
 
  - [x] minikube
+ - [x] kind
  - [x] EKS
  - [x] self-managed
  - [ ] GKE
  - [ ] AKS
- - [ ] kind
  - [ ] k3s
  - [ ] Rancher
 
