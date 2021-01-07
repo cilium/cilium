@@ -23,9 +23,13 @@ import (
 func newCmdContext() *cobra.Command {
 	cmd := &cobra.Command{
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Context: %s\n", k8sClient.RawConfig.CurrentContext)
+			if contextName == "" {
+				contextName = k8sClient.RawConfig.CurrentContext
+			}
 
-			if context, ok := k8sClient.RawConfig.Contexts[k8sClient.RawConfig.CurrentContext]; ok {
+			fmt.Printf("Context: %s\n", contextName)
+
+			if context, ok := k8sClient.RawConfig.Contexts[contextName]; ok {
 				fmt.Printf("Cluster: %s\n", context.Cluster)
 				fmt.Printf("Auth: %s\n", context.AuthInfo)
 
@@ -37,12 +41,14 @@ func newCmdContext() *cobra.Command {
 					fmt.Printf("❌ Cluster %s not found in configuration\n", context.Cluster)
 				}
 			} else {
-				fmt.Printf("❌ Context %s not found in configuration\n", k8sClient.RawConfig.CurrentContext)
+				fmt.Printf("❌ Context %s not found in configuration\n", contextName)
 			}
 		},
 		Use:   "context",
 		Short: "Display the configuration context",
 	}
+
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
 }
