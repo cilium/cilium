@@ -73,6 +73,13 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	switch k.flavor.Kind {
 	case k8s.KindEKS:
 		k.Log("⚠️  The aws-node DaemonSet will still be missing. You have to re-create it.")
+	case k8s.KindGKE:
+		k.Log("🔥 Deleting GKE Node Init DaemonSet...")
+		k.client.DeleteDaemonSet(ctx, k.params.Namespace, gkeInitName, metav1.DeleteOptions{})
+
+		k.Log("🔥 Deleting resource quotas...")
+		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.AgentResourceQuota, metav1.DeleteOptions{})
+		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{})
 	}
 
 	return nil

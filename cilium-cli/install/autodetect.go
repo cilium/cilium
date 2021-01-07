@@ -109,6 +109,8 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 			k.params.DatapathMode = DatapathTunnel
 		case k8s.KindEKS:
 			k.params.DatapathMode = DatapathAwsENI
+		case k8s.KindGKE:
+			k.params.DatapathMode = DatapathGKE
 		}
 
 		if k.params.DatapathMode != "" {

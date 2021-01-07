@@ -41,7 +41,7 @@ To install Cilium while automatically detected
  - [x] kind
  - [x] EKS
  - [x] self-managed
- - [ ] GKE
+ - [x] GKE
  - [ ] AKS
  - [ ] k3s
  - [ ] Rancher
