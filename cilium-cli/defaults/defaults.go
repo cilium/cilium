@@ -52,6 +52,16 @@ const (
 	RelayClientSecretCertName = "tls.crt"
 	RelayClientSecretKeyName  = "tls.key"
 
+	ClusterMeshServerSecretName     = "clustermesh-apiserver-server-certs"
+	ClusterMeshServerSecretCertName = "tls.crt"
+	ClusterMeshServerSecretKeyName  = "tls.key"
+	ClusterMeshAdminSecretName      = "clustermesh-apiserver-admin-certs"
+	ClusterMeshAdminSecretCertName  = "tls.crt"
+	ClusterMeshAdminSecretKeyName   = "tls.key"
+	ClusterMeshClientSecretName     = "clustermesh-apiserver-client-certs"
+	ClusterMeshClientSecretCertName = "tls.crt"
+	ClusterMeshClientSecretKeyName  = "tls.key"
+
 	ConfigMapName = "cilium-config"
 	Version       = "v1.9.1"
 
