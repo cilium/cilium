@@ -69,9 +69,10 @@ The raw specification of the resource in Go looks like this:
 .. code-block:: go
 
         type CiliumNetworkPolicy struct {
+                // +deepequal-gen=false
                 metav1.TypeMeta `json:",inline"`
-                // +optional
-                Metadata metav1.ObjectMeta `json:"metadata"`
+                // +deepequal-gen=false
+                metav1.ObjectMeta `json:"metadata"`
 
                 // Spec is the desired Cilium specific rule specification.
                 Spec *api.Rule `json:"spec,omitempty"`
@@ -80,7 +81,9 @@ The raw specification of the resource in Go looks like this:
                 Specs api.Rules `json:"specs,omitempty"`
 
                 // Status is the status of the Cilium policy rule
-                // +optional
+                //
+                // +deepequal-gen=false
+                // +kubebuilder:validation:Optional
                 Status CiliumNetworkPolicyStatus `json:"status"`
         }
 
