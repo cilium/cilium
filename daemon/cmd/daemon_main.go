@@ -1326,14 +1326,6 @@ func runDaemon() {
 		restoredEndpoints.restored, d.endpointManager)
 	bootstrapStats.enableConntrack.End(true)
 
-	if option.Config.KVStore == "" {
-		log.Info("Skipping kvstore configuration")
-	} else {
-		bootstrapStats.kvstore.Start()
-		d.initKVStore()
-		bootstrapStats.kvstore.End(true)
-	}
-
 	bootstrapStats.k8sInit.Start()
 	// Wait only for certain caches, but not all!
 	// (Check Daemon.initK8sSubsystem() for more info)

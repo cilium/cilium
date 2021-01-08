@@ -543,6 +543,15 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
 	}
 
+	// Must init kvstore before starting node discovery
+	if option.Config.KVStore == "" {
+		log.Info("Skipping kvstore configuration")
+	} else {
+		bootstrapStats.kvstore.Start()
+		d.initKVStore()
+		bootstrapStats.kvstore.End(true)
+	}
+
 	d.bootstrapIPAM()
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
