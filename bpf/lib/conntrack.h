@@ -379,12 +379,12 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 				tuple->flags |= TUPLE_F_RELATED;
 				break;
 
-			case ICMPV6_ECHO_REQUEST:
 			case ICMPV6_ECHO_REPLY:
-				if (dir == CT_INGRESS)
-					tuple->sport = identifier;
-				else
-					tuple->dport = identifier;
+				tuple->sport = identifier;
+				break;
+
+			case ICMPV6_ECHO_REQUEST:
+				tuple->dport = identifier;
 				/* fall through */
 			default:
 				action = ACTION_CREATE;
@@ -540,11 +540,10 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 				break;
 
 			case ICMP_ECHOREPLY:
+				tuple->sport = identifier;
+				break;
 			case ICMP_ECHO:
-				if (dir == CT_INGRESS)
-					tuple->sport = identifier;
-				else
-					tuple->dport = identifier;
+				tuple->dport = identifier;
 				/* fall through */
 			default:
 				action = ACTION_CREATE;
