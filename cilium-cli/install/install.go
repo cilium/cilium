@@ -911,6 +911,7 @@ type InstallParameters struct {
 	DatapathMode      string
 	TunnelType        string
 	NativeRoutingCIDR string
+	ClusterID         int
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -1089,6 +1090,10 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 			"cluster-pool-ipv4-mask-size": "24",
 			"disable-cnp-status-updates":  "true",
 		},
+	}
+
+	if k.params.ClusterID != 0 {
+		m.Data["cluster-id"] = fmt.Sprintf("%d", k.params.ClusterID)
 	}
 
 	if k.params.NativeRoutingCIDR != "" {
