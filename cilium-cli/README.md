@@ -204,3 +204,112 @@ To install Cilium while automatically detected
     ✅ client pod client-9f579495f-b2pcq was able to communicate with service echo-same-node
 
 ### ClusterMesh
+
+Install Cilium & enable ClusterMesh in Cluster 1
+
+    cilium install --cluster-id 1
+    🔮 Auto-detected Kubernetes kind: GKE
+    ℹ️  Cilium version not set, using default version "v1.9.1"
+    🔮 Auto-detected cluster name: gke-cilium-dev-us-west2-a-tgraf-cluster1
+    🔮 Auto-detected datapath mode: gke
+    ✅ Detected GKE native routing CIDR: 10.52.0.0/14
+    🚀 Creating resource quotas...
+    🔑 Found existing CA in secret cilium-ca
+    🔑 Generating certificates for Hubble...
+    2021/01/08 23:07:52 [INFO] generate received request
+    2021/01/08 23:07:52 [INFO] received CSR
+    2021/01/08 23:07:52 [INFO] generating key: rsa-2048
+    2021/01/08 23:07:52 [INFO] encoded CSR
+    2021/01/08 23:07:52 [INFO] signed certificate with serial number 412940817381691474277840557608535075673795002662
+    🚀 Creating service accounts...
+    🚀 Creating cluster roles...
+    🚀 Creating ConfigMap...
+    🚀 Creating GKE Node Init DaemonSet...
+    🚀 Creating agent DaemonSet...
+    🚀 Creating operator Deployment...
+
+    cilium clustermesh enable
+    ✨ Validating cluster configuration...
+    ✅ Valid cluster identification found: name="gke-cilium-dev-us-west2-a-tgraf-cluster1" id="1"
+    🔑 Found existing CA in secret cilium-ca
+    🔑 Generating certificates for ClusterMesh...
+    2021/01/08 23:11:48 [INFO] generate received request
+    2021/01/08 23:11:48 [INFO] received CSR
+    2021/01/08 23:11:48 [INFO] generating key: rsa-2048
+    2021/01/08 23:11:48 [INFO] encoded CSR
+    2021/01/08 23:11:48 [INFO] signed certificate with serial number 670714666407590575359066679305478681356106905869
+    2021/01/08 23:11:48 [INFO] generate received request
+    2021/01/08 23:11:48 [INFO] received CSR
+    2021/01/08 23:11:48 [INFO] generating key: rsa-2048
+    2021/01/08 23:11:49 [INFO] encoded CSR
+    2021/01/08 23:11:49 [INFO] signed certificate with serial number 591065363597916136413807294935737333774847803115
+    2021/01/08 23:11:49 [INFO] generate received request
+    2021/01/08 23:11:49 [INFO] received CSR
+    2021/01/08 23:11:49 [INFO] generating key: rsa-2048
+    2021/01/08 23:11:49 [INFO] encoded CSR
+    2021/01/08 23:11:49 [INFO] signed certificate with serial number 212022707754116737648249489711560171325685820957
+    ✨ Deploying clustermesh-apiserver...
+    🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)
+
+
+Install Cilium in Cluster 2
+
+    cilium install --context gke_cilium-dev_us-west2-a_tgraf-cluster2 --cluster-id 2
+    🔮 Auto-detected Kubernetes kind: GKE
+    ℹ️  Cilium version not set, using default version "v1.9.1"
+    🔮 Auto-detected cluster name: gke-cilium-dev-us-west2-a-tgraf-cluster2
+    🔮 Auto-detected datapath mode: gke
+    ✅ Detected GKE native routing CIDR: 10.4.0.0/14
+    🚀 Creating resource quotas...
+    🔑 Found existing CA in secret cilium-ca
+    🔑 Generating certificates for Hubble...
+    2021/01/08 23:08:28 [INFO] generate received request
+    2021/01/08 23:08:28 [INFO] received CSR
+    2021/01/08 23:08:28 [INFO] generating key: rsa-2048
+    2021/01/08 23:08:28 [INFO] encoded CSR
+    2021/01/08 23:08:28 [INFO] signed certificate with serial number 166290456484087465763866003270622908833747392670
+    🚀 Creating service accounts...
+    🚀 Creating cluster roles...
+    🚀 Creating ConfigMap...
+    🚀 Creating GKE Node Init DaemonSet...
+    🚀 Creating agent DaemonSet...
+    🚀 Creating operator Deployment...
+
+    cilium clustermesh enable --context gke_cilium-dev_us-west2-a_tgraf-cluster2
+    ✨ Validating cluster configuration...
+    ✅ Valid cluster identification found: name="gke-cilium-dev-us-west2-a-tgraf-cluster2" id="2"
+    🔑 Found existing CA in secret cilium-ca
+    🔑 Generating certificates for ClusterMesh...
+    2021/01/08 23:12:44 [INFO] generate received request
+    2021/01/08 23:12:44 [INFO] received CSR
+    2021/01/08 23:12:44 [INFO] generating key: rsa-2048
+    2021/01/08 23:12:45 [INFO] encoded CSR
+    2021/01/08 23:12:45 [INFO] signed certificate with serial number 450145143290293186546054780525926209813963421076
+    2021/01/08 23:12:45 [INFO] generate received request
+    2021/01/08 23:12:45 [INFO] received CSR
+    2021/01/08 23:12:45 [INFO] generating key: rsa-2048
+    2021/01/08 23:12:45 [INFO] encoded CSR
+    2021/01/08 23:12:45 [INFO] signed certificate with serial number 341741502649230631228454642926521374579240641715
+    2021/01/08 23:12:45 [INFO] generate received request
+    2021/01/08 23:12:45 [INFO] received CSR
+    2021/01/08 23:12:45 [INFO] generating key: rsa-2048
+    2021/01/08 23:12:45 [INFO] encoded CSR
+    2021/01/08 23:12:45 [INFO] signed certificate with serial number 233979838156429984835251051892420687423155442107
+    ✨ Deploying clustermesh-apiserver...
+    🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)
+
+Connect Clusters
+
+    cilium clustermesh connect --destination-context gke_cilium-dev_us-west2-a_tgraf-cluster2
+    ✨ Extracting access information of cluster gke-cilium-dev-us-west2-a-tgraf-cluster2...
+    🔑 Extracing secrets from cluster gke-cilium-dev-us-west2-a-tgraf-cluster2...
+    ℹ️  Found ClusterMesh service IPs: [10.168.15.209]
+    ✨ Extracting access information of cluster gke-cilium-dev-us-west2-a-tgraf-cluster1...
+    🔑 Extracing secrets from cluster gke-cilium-dev-us-west2-a-tgraf-cluster1...
+    ℹ️  Found ClusterMesh service IPs: [10.168.15.208]
+    ✨ Connecting cluster gke_cilium-dev_us-west2-a_tgraf-cluster1 -> gke_cilium-dev_us-west2-a_tgraf-cluster2...
+    🔑 Patching existing secret cilium-clustermesh...
+    ✨ Patching DaemonSet with IP aliases cilium-clustermesh...
+    ✨ Connecting cluster gke_cilium-dev_us-west2-a_tgraf-cluster2 -> gke_cilium-dev_us-west2-a_tgraf-cluster1...
+    🔑 Patching existing secret cilium-clustermesh...
+    ✨ Patching DaemonSet with IP aliases cilium-clustermesh...
