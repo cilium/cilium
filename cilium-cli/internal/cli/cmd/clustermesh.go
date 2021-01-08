@@ -55,7 +55,7 @@ func newCmdClusterMeshEnable() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes to expose control plane { ClusterIP | LoadBalancer | NodePort }")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
@@ -77,7 +77,7 @@ func newCmdClusterMeshDisable() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
@@ -98,7 +98,7 @@ func newCmdClusterMeshConnect() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringVar(&params.DestinationContext, "destination-context", "", "Kubernetes configuration context of destination cluster")
 
@@ -120,7 +120,7 @@ func newCmdClusterMeshDisconnect() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringVar(&params.DestinationContext, "destination-context", "", "Kubernetes configuration context of destination cluster")
 
