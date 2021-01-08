@@ -63,7 +63,7 @@ func newCmdUninstall() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace to install Cilium into")
+	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace to uninstall Cilium from")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
