@@ -17,6 +17,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -116,6 +117,11 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		if k.params.DatapathMode != "" {
 			k.Log("🔮 Auto-detected datapath mode: %s", k.params.DatapathMode)
 		}
+	}
+
+	if strings.Contains(k.params.ClusterName, ".") {
+		k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
+		return fmt.Errorf("invalid cluster name, dots are not allowed")
 	}
 
 	return nil
