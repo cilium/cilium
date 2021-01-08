@@ -1589,9 +1589,17 @@ var _ = Describe("K8sServicesTest", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							options := map[string]string{
 								"global.hostFirewall": "true",
-							})
+							}
+							// We can't rely on gke.enabled because it enables
+							// per-endpoint routes which are incompatible with
+							// the host firewall.
+							if helpers.GetCurrentIntegration() == helpers.CIIntegrationGKE {
+								options["global.gke.enabled"] = "false"
+								options["global.tunnel"] = "disabled"
+							}
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
@@ -1668,11 +1676,19 @@ var _ = Describe("K8sServicesTest", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							options := map[string]string{
 								"global.tunnel":               "disabled",
 								"global.autoDirectNodeRoutes": "true",
 								"global.hostFirewall":         "true",
-							})
+							}
+							// We can't rely on gke.enabled because it enables
+							// per-endpoint routes which are incompatible with
+							// the host firewall.
+							if helpers.GetCurrentIntegration() == helpers.CIIntegrationGKE {
+								options["global.gke.enabled"] = "false"
+								options["global.tunnel"] = "disabled"
+							}
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
