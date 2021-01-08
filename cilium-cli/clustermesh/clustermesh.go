@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/k8s"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -289,11 +290,11 @@ var deployment = &appsv1.Deployment{
 									{
 										Secret: &corev1.SecretProjection{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "clustermesh-apiserver-ca-cert",
+												Name: defaults.CASecretName,
 											},
 											Items: []corev1.KeyToPath{
 												{
-													Key:  "ca.crt",
+													Key:  defaults.CASecretCertName,
 													Path: "ca.crt",
 												},
 											},
@@ -302,7 +303,7 @@ var deployment = &appsv1.Deployment{
 									{
 										Secret: &corev1.SecretProjection{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "clustermesh-apiserver-server-cert",
+												Name: defaults.ClusterMeshServerSecretName,
 											},
 										},
 									},
@@ -319,11 +320,11 @@ var deployment = &appsv1.Deployment{
 									{
 										Secret: &corev1.SecretProjection{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "clustermesh-apiserver-ca-cert",
+												Name: defaults.CASecretName,
 											},
 											Items: []corev1.KeyToPath{
 												{
-													Key:  "ca.crt",
+													Key:  defaults.CASecretCertName,
 													Path: "ca.crt",
 												},
 											},
@@ -332,7 +333,7 @@ var deployment = &appsv1.Deployment{
 									{
 										Secret: &corev1.SecretProjection{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "clustermesh-apiserver-admin-cert",
+												Name: defaults.ClusterMeshAdminSecretName,
 											},
 										},
 									},
@@ -366,8 +367,9 @@ type k8sClusterMeshImplementation interface {
 }
 
 type K8sClusterMesh struct {
-	client k8sClusterMeshImplementation
-	params Parameters
+	client      k8sClusterMeshImplementation
+	certManager *certs.CertManager
+	params      Parameters
 }
 
 type Parameters struct {
@@ -378,8 +380,9 @@ type Parameters struct {
 
 func NewK8sClusterMesh(client k8sClusterMeshImplementation, p Parameters) *K8sClusterMesh {
 	return &K8sClusterMesh{
-		client: client,
-		params: p,
+		client:      client,
+		params:      p,
+		certManager: certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace}),
 	}
 }
 
@@ -440,11 +443,7 @@ func (k *K8sClusterMesh) Disable(ctx context.Context) error {
 	k.client.DeleteClusterRole(ctx, clusterRoleName, metav1.DeleteOptions{})
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, serviceAccountName, metav1.DeleteOptions{})
 
-	k.Log("🔥 Deleting secrets...")
-	k.client.DeleteSecret(ctx, k.params.Namespace, serverTLS, metav1.DeleteOptions{})
-	k.client.DeleteSecret(ctx, k.params.Namespace, clientTLS, metav1.DeleteOptions{})
-	k.client.DeleteSecret(ctx, k.params.Namespace, serverCA, metav1.DeleteOptions{})
-	k.client.DeleteSecret(ctx, k.params.Namespace, adminTLS, metav1.DeleteOptions{})
+	k.deleteCertificates(ctx)
 
 	return nil
 }
@@ -474,19 +473,8 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return nil
 	}
 
-	k.Log("✨ Generating certificates...")
-	m, err := generateCertificates(k.params.Namespace)
-	if err != nil {
+	if err := k.installCertificates(ctx); err != nil {
 		return err
-	}
-
-	k.Log("✨ Deploying certificates...")
-	for n, d := range m {
-		s := k8s.NewSecret(n, k.params.Namespace, d)
-
-		if _, err := k.client.CreateSecret(ctx, k.params.Namespace, s, metav1.CreateOptions{}); err != nil {
-			return err
-		}
 	}
 
 	k.Log("✨ Deploying clustermesh-apiserver...")
@@ -516,11 +504,6 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 
 func (k *K8sClusterMesh) GetAccessToken(ctx context.Context) error {
 	if _, err := k.client.GetService(ctx, k.params.Namespace, serviceName, metav1.GetOptions{}); err != nil {
-		return err
-	}
-
-	_, err := k.client.GetSecret(ctx, k.params.Namespace, clientTLS, metav1.GetOptions{})
-	if err != nil {
 		return err
 	}
 
