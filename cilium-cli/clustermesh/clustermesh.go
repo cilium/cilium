@@ -477,6 +477,7 @@ func (k *K8sClusterMesh) Disable(ctx context.Context) error {
 	k.client.DeleteClusterRoleBinding(ctx, defaults.ClusterMeshClusterRoleName, metav1.DeleteOptions{})
 	k.client.DeleteClusterRole(ctx, defaults.ClusterMeshClusterRoleName, metav1.DeleteOptions{})
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.ClusterMeshServiceAccountName, metav1.DeleteOptions{})
+	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.DeleteOptions{})
 
 	k.deleteCertificates(ctx)
 
