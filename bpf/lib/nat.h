@@ -432,14 +432,24 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 
 static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *target,
 					     const struct ipv4_ct_tuple *tuple, int dir,
-					     bool from_endpoint)
+					     bool from_endpoint,
+					     bool icmp, bool icmp_echoreply)
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	if (dir == NAT_DIR_EGRESS && !from_endpoint && !target->src_from_world
-	    && sport < NAT_MIN_EGRESS)
+	if (dir == NAT_DIR_EGRESS &&
+	    ((!from_endpoint && !icmp && !target->src_from_world && sport < NAT_MIN_EGRESS) ||
+	     icmp_echoreply))
+		/* Skip SNAT if src port is below the SNAT range of non-ICMP
+		 * packet from host netns (to avoid SNAT e.g. for server replies
+		 * from well-know ports while we don't lookup CT on egress to
+		 * detect replies GH#12544), OR packet is ICMP Echo Reply.
+		 */
 		return true;
-	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
+	if (dir == NAT_DIR_INGRESS && !icmp && (dport < target->min_port || dport > target->max_port))
+		/* Skip reverse SNAT if dst port doesn't belong to the SNAT port
+		 * range.
+		 */
 		return true;
 
 	return false;
@@ -512,6 +522,7 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 		__be16 dport;
 	} l4hdr;
 	__u32 off;
+	bool icmp = false, icmp_echoreply = false;
 	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
@@ -538,19 +549,22 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 		if (icmphdr.type != ICMP_ECHO &&
 		    icmphdr.type != ICMP_ECHOREPLY)
 			return DROP_NAT_UNSUPP_PROTO;
+		icmp = true;
 		if (icmphdr.type == ICMP_ECHO) {
 			tuple.dport = 0;
 			tuple.sport = icmphdr.un.echo.id;
 		} else {
 			tuple.dport = icmphdr.un.echo.id;
 			tuple.sport = 0;
+			icmp_echoreply = true;
 		}
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v4_can_skip(target, &tuple, dir, from_endpoint))
+	if (snat_v4_can_skip(target, &tuple, dir, from_endpoint,
+			     icmp, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
@@ -896,13 +910,16 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool snat_v6_can_skip(const struct ipv6_nat_target *target,
-					     const struct ipv6_ct_tuple *tuple, int dir)
+					     const struct ipv6_ct_tuple *tuple, int dir,
+					     bool icmp, bool icmp_echoreply)
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	if (dir == NAT_DIR_EGRESS && !target->src_from_world && sport < NAT_MIN_EGRESS)
+	if (dir == NAT_DIR_EGRESS &&
+	    ((!icmp && !target->src_from_world && sport < NAT_MIN_EGRESS) ||
+	     icmp_echoreply))
 		return true;
-	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
+	if (dir == NAT_DIR_INGRESS && !icmp && (dport < target->min_port || dport > target->max_port))
 		return true;
 	return false;
 }
@@ -979,6 +996,7 @@ static __always_inline __maybe_unused int snat_v6_process(struct __ctx_buff *ctx
 	} l4hdr;
 	__u8 nexthdr;
 	__u32 off;
+	bool icmp = false, icmp_echoreply = false;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
@@ -1013,19 +1031,21 @@ static __always_inline __maybe_unused int snat_v6_process(struct __ctx_buff *ctx
 		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
 		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
 			return DROP_NAT_UNSUPP_PROTO;
+		icmp = true;
 		if (icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
 			tuple.dport = 0;
 			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 		} else {
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
+			icmp_echoreply = true;
 		}
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v6_can_skip(target, &tuple, dir))
+	if (snat_v6_can_skip(target, &tuple, dir, icmp, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_handle_mapping(ctx, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
