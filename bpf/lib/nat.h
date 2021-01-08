@@ -538,7 +538,7 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 		if (icmphdr.type != ICMP_ECHO &&
 		    icmphdr.type != ICMP_ECHOREPLY)
 			return DROP_NAT_UNSUPP_PROTO;
-		if (dir == NAT_DIR_EGRESS) {
+		if (icmphdr.type == ICMP_ECHO) {
 			tuple.dport = 0;
 			tuple.sport = icmphdr.un.echo.id;
 		} else {
@@ -1013,7 +1013,7 @@ static __always_inline __maybe_unused int snat_v6_process(struct __ctx_buff *ctx
 		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
 		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
 			return DROP_NAT_UNSUPP_PROTO;
-		if (dir == NAT_DIR_EGRESS) {
+		if (icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
 			tuple.dport = 0;
 			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 		} else {
