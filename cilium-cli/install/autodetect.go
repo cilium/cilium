@@ -17,6 +17,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -37,6 +38,8 @@ var (
 			&kindVersionValidation{},
 		},
 	}
+
+	clusterNameValidation = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])$`)
 )
 
 func (p InstallParameters) checkDisabled(name string) bool {
@@ -99,8 +102,9 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 
 	if k.params.ClusterName == "" {
 		if f.ClusterName != "" {
-			k.Log("🔮 Auto-detected cluster name: %s", f.ClusterName)
-			k.params.ClusterName = f.ClusterName
+			name := strings.ReplaceAll(f.ClusterName, "_", "-")
+			k.Log("🔮 Auto-detected cluster name: %s", name)
+			k.params.ClusterName = name
 		}
 	}
 
@@ -122,6 +126,11 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 	if strings.Contains(k.params.ClusterName, ".") {
 		k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
 		return fmt.Errorf("invalid cluster name, dots are not allowed")
+	}
+
+	if !clusterNameValidation.MatchString(k.params.ClusterName) {
+		k.Log("❌ Cluster name %q is not valid, must match regular expression: %s", k.params.ClusterName, clusterNameValidation)
+		return fmt.Errorf("invalid cluster name")
 	}
 
 	return nil
