@@ -25,13 +25,14 @@ import (
 
 func newCmdStatus() *cobra.Command {
 	var verbose bool
+	var ciliumNamespace string
 
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Display status",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			collector, err := status.NewK8sStatusCollector(context.Background(), k8sClient, "kube-system")
+			collector, err := status.NewK8sStatusCollector(context.Background(), k8sClient, ciliumNamespace)
 			if err != nil {
 				return err
 			}
@@ -48,6 +49,7 @@ func newCmdStatus() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Verbose otuput")
+	cmd.Flags().StringVarP(&ciliumNamespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
