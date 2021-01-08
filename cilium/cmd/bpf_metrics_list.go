@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ const (
 )
 
 type metricsRow struct {
-	reasonCode int
+	reasonCode uint8
 	reasonDesc string
 	direction  string
 	packets    int
@@ -87,7 +87,7 @@ func listMetrics(m metricsmap.MetricsMap) {
 }
 
 func listJSONMetrics(bpfMetricsList map[string]string) {
-	metricsByReason := map[int]jsonMetric{}
+	metricsByReason := map[uint8]jsonMetric{}
 
 	for key, value := range bpfMetricsList {
 		row, err := extractRow(key, value)
@@ -171,15 +171,17 @@ func extractRow(key, value string) (*metricsRow, error) {
 		return nil, fmt.Errorf("cannot extract reason and traffic direction from map's key \"%s\"", key)
 	}
 
-	reasonCode, err := strconv.Atoi(reasonCodeStr)
+	reasonCodeUint64, err := strconv.ParseUint(reasonCodeStr, 10, 8)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse reason: %s", err)
 	}
+	reasonCode := uint8(reasonCodeUint64)
 
-	directionCode, err := strconv.Atoi(directionCodeStr)
+	directionCodeUint64, err := strconv.ParseUint(directionCodeStr, 10, 8)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse direction: %s", err)
 	}
+	directionCode := uint8(directionCodeUint64)
 
 	packetsStr, bytesStr, ok := extractTwoValues(value)
 	if !ok {
@@ -196,8 +198,8 @@ func extractRow(key, value string) (*metricsRow, error) {
 		return nil, fmt.Errorf("cannot parse bytes counter: %s", err)
 	}
 
-	reasonDesc := monitorAPI.DropReason(uint8(reasonCode))
-	direction := metricsmap.MetricDirection(uint8(directionCode))
+	reasonDesc := monitorAPI.DropReason(reasonCode)
+	direction := metricsmap.MetricDirection(directionCode)
 
 	return &metricsRow{reasonCode, reasonDesc, direction, packets, bytes}, nil
 }
