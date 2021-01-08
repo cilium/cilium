@@ -56,6 +56,7 @@ const (
 	ClusterMeshServiceAccountName   = "clustermesh-apiserver"
 	ClusterMeshClusterRoleName      = "clustermesh-apiserver"
 	ClusterMeshServiceName          = "clustermesh-apiserver"
+	ClusterMeshSecretName           = "cilium-clustermesh" // Secret which contains the clustermesh configuration
 	ClusterMeshServerSecretName     = "clustermesh-apiserver-server-certs"
 	ClusterMeshServerSecretCertName = "tls.crt"
 	ClusterMeshServerSecretKeyName  = "tls.key"
