@@ -341,7 +341,7 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
+	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return err
 	}
 

@@ -22,7 +22,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -64,17 +63,19 @@ var bpfMetricsListCmd = &cobra.Command{
 	Short: "List BPF datapath traffic metrics",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf metrics list")
-		listMetrics(metricsmap.Metrics)
+		listMetrics(&metricsmap.Metrics)
 	},
 }
 
 func listMetrics(m metricsmap.MetricsMap) {
 	bpfMetricsList := make(map[string]string)
-	callback := func(key bpf.MapKey, value bpf.MapValue) {
-		bpfMetricsList[key.String()] = value.String()
+
+	cb := func(key *metricsmap.Key, values *metricsmap.Values) {
+		bpfMetricsList[key.String()] = values.String()
 	}
-	if err := m.DumpWithCallback(callback); err != nil {
-		fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
+
+	if err := m.IterateWithCallback(cb); err != nil {
+		fmt.Fprintf(os.Stderr, "error iterating BPF metrics map: %v\n", err)
 		os.Exit(1)
 	}
 
