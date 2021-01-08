@@ -36,18 +36,18 @@ var _ = Suite(&BPFMetricsMapSuite{})
 func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 	metricsMap := []interface{}{
 		mockmaps.NewMetricsMockMap(
-			[]metricsmap.Record{
+			[]mockmaps.MetricsRecord{
 				{
-					Key:   metricsmap.Key{Reason: 0, Dir: 1},
-					Value: metricsmap.Value{Count: 100, Bytes: 1000},
+					Key:    metricsmap.Key{Reason: 0, Dir: 1},
+					Values: metricsmap.Values{{Count: 100, Bytes: 1000}},
 				},
 				{
-					Key:   metricsmap.Key{Reason: 0, Dir: 2},
-					Value: metricsmap.Value{Count: 200, Bytes: 2000},
+					Key:    metricsmap.Key{Reason: 0, Dir: 2},
+					Values: metricsmap.Values{{Count: 200, Bytes: 2000}},
 				},
 				{
-					Key:   metricsmap.Key{Reason: 132, Dir: 2},
-					Value: metricsmap.Value{Count: 300, Bytes: 3000},
+					Key:    metricsmap.Key{Reason: 132, Dir: 2},
+					Values: metricsmap.Values{{Count: 300, Bytes: 3000}},
 				},
 			},
 		),
