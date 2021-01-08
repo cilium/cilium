@@ -75,7 +75,7 @@ func newCmdPolicy() *cobra.Command {
 			return nil
 		},
 	}
-	policyList.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace to list policies in")
+	policyList.Flags().StringVarP(&namespace, "namespace", "n", "kube-system", "Kubernetes namespace to list policies in")
 	policyList.Flags().BoolVar(&noPodsSelected, "no-pods-selected", false, "Only list policies that don't select any pods")
 	policyList.Flags().BoolVar(&containsL4, "contains-l4", false, "Show policies that contain L4 policy filtering")
 	policyList.Flags().BoolVar(&containsIngress, "contains-ingress", false, "Show policies that contain ingress policy filtering")
