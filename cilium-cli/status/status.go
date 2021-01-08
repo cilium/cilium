@@ -21,6 +21,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
+
 	"github.com/cilium/cilium/api/v1/models"
 )
 
@@ -273,7 +275,7 @@ func (s *Status) Format() string {
 	fmt.Fprintf(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(ciliumDaemonSetName)+"\n")
 	fmt.Fprintf(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(operatorDeploymentName)+"\n")
 	fmt.Fprintf(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tHubble:\t"+s.statusSummary(relayDeploymentName)+"\n")
-	fmt.Fprintf(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/\n")
+	fmt.Fprintf(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\tClusterMesh:\t"+s.statusSummary(defaults.ClusterMeshDeploymentName)+"\n")
 	fmt.Fprintf(w, Blue+"    \\__/\n"+Reset)
 	fmt.Fprintf(w, "\n")
 

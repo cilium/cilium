@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium-cli/defaults"
+
 	"github.com/cilium/cilium/api/v1/models"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -200,6 +202,24 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 	// pod status for relay is only validated if the deployment exists
 	if _, ok := status.PodState[relayDeploymentName]; ok {
 		err = k.podStatus(ctx, status, relayDeploymentName, "k8s-app=hubble-relay", nil)
+		if err != nil {
+			status.CollectionError(err)
+		}
+	}
+
+	err = k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
+	if err != nil {
+		if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; !ok {
+			status.AddAggregatedWarning(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, fmt.Errorf("ClusterMesh is not deployed"))
+		} else {
+			status.AddAggregatedError(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, err)
+			status.CollectionError(err)
+		}
+	}
+
+	// pod status for relay is only validated if the deployment exists
+	if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; ok {
+		err = k.podStatus(ctx, status, defaults.ClusterMeshDeploymentName, "k8s-app=clustermesh-apiserver", nil)
 		if err != nil {
 			status.CollectionError(err)
 		}
