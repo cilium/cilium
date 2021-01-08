@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -276,18 +276,18 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		default:
 			return nil, fmt.Errorf("invalid format %q. Should be <port>[/<protocol>]", v)
 		}
-		port := 0
+		var port uint16
 		portStr := vSplit[0]
 		if !iana.IsSvcName(portStr) {
-			var err error
-			port, err = strconv.Atoi(portStr)
+			portUint64, err := strconv.ParseUint(portStr, 10, 16)
 			if err != nil {
 				return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
 			}
+			port = uint16(portUint64)
 			portStr = ""
 		}
 		l4 := &models.Port{
-			Port:     uint16(port),
+			Port:     port,
 			Name:     portStr,
 			Protocol: protoStr,
 		}

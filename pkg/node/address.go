@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -440,13 +440,13 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 					continue
 				}
 				ipv4GWHex := strings.TrimPrefix(defineLine[2], "0x")
-				ipv4GWint64, err := strconv.ParseInt(ipv4GWHex, 16, 0)
+				ipv4GWUint64, err := strconv.ParseUint(ipv4GWHex, 16, 32)
 				if err != nil {
 					continue
 				}
-				if ipv4GWint64 != int64(0) {
+				if ipv4GWUint64 != 0 {
 					bs := make([]byte, net.IPv4len)
-					byteorder.NetworkToHostPut(bs, uint32(ipv4GWint64))
+					byteorder.NetworkToHostPut(bs, uint32(ipv4GWUint64))
 					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
 					hasIPv4 = true
 				}

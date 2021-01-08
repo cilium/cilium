@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -410,13 +410,15 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		flowType = accesslog.TypeRequest
 	}
 
-	var epPort, serverPort int
+	var epPort, serverPort uint16
 	_, epPortStr, err := net.SplitHostPort(epIPPort)
 	if err != nil {
 		log.WithError(err).Error("cannot extract source IP from DNS request")
 	} else {
-		if epPort, err = strconv.Atoi(epPortStr); err != nil {
+		if epPortUint64, err := strconv.ParseUint(epPortStr, 10, 16); err != nil {
 			log.WithError(err).WithField(logfields.Port, epPortStr).Error("cannot parse source port")
+		} else {
+			epPort = uint16(epPortUint64)
 		}
 	}
 
@@ -424,8 +426,10 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	if err != nil {
 		log.WithError(err).Error("cannot extract destination IP from DNS request")
 	} else {
-		if serverPort, err = strconv.Atoi(serverPortStr); err != nil {
+		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
 			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
+		} else {
+			serverPort = uint16(serverPortUint64)
 		}
 	}
 	if ep == nil {
@@ -445,7 +449,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithError(err).Error("cannot extract DNS message details")
 	}
 
-	ep.UpdateProxyStatistics(strings.ToUpper(protocol), uint16(serverPort), false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
 	record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
@@ -462,7 +466,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 				Labels:       ep.GetLabels(),
 				LabelsSHA256: ep.GetLabelsSHA(),
 				Identity:     uint64(ep.GetIdentity()),
-				Port:         uint16(epPort),
+				Port:         epPort,
 			}
 
 			// When the server is an endpoint, get all the data for it.
@@ -475,7 +479,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Labels:       serverEP.GetLabels(),
 					LabelsSHA256: serverEP.GetLabelsSHA(),
 					Identity:     uint64(serverEP.GetIdentity()),
-					Port:         uint16(serverPort),
+					Port:         serverPort,
 				}
 			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
 				// TODO: handle IPv6
@@ -483,7 +487,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					IPv4: serverIP,
 					// IPv6:         serverEP.GetIPv6Address(),
 					Identity: uint64(serverSecID.ID.Uint32()),
-					Port:     uint16(serverPort),
+					Port:     serverPort,
 				}
 				if secID := d.identityAllocator.LookupIdentityByID(d.ctx, serverSecID.ID); secID != nil {
 					lr.LogRecord.DestinationEndpoint.Labels = secID.Labels.GetModel()

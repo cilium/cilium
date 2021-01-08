@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -817,12 +817,12 @@ func (m *IptablesManager) GetProxyPort(name string) uint16 {
 	re := regexp.MustCompile(name + ".*TPROXY redirect 0.0.0.0:([1-9][0-9]*) mark")
 	str := re.FindString(string(res))
 	portStr := re.ReplaceAllString(str, "$1")
-	portInt, err := strconv.Atoi(portStr)
+	portUInt64, err := strconv.ParseUint(portStr, 10, 16)
 	if err != nil {
 		log.WithError(err).Debugf("Port number cannot be parsed: %s", portStr)
 		return 0
 	}
-	return uint16(portInt)
+	return uint16(portUInt64)
 }
 
 func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
