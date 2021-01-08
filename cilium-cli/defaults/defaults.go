@@ -52,6 +52,10 @@ const (
 	RelayClientSecretCertName = "tls.crt"
 	RelayClientSecretKeyName  = "tls.key"
 
+	ClusterMeshDeploymentName       = "clustermesh-apiserver"
+	ClusterMeshServiceAccountName   = "clustermesh-apiserver"
+	ClusterMeshClusterRoleName      = "clustermesh-apiserver"
+	ClusterMeshServiceName          = "clustermesh-apiserver"
 	ClusterMeshServerSecretName     = "clustermesh-apiserver-server-certs"
 	ClusterMeshServerSecretCertName = "tls.crt"
 	ClusterMeshServerSecretKeyName  = "tls.key"
@@ -75,4 +79,8 @@ var OperatorLabels = map[string]string{
 
 var RelayDeploymentLabels = map[string]string{
 	"k8s-app": "hubble-relay",
+}
+
+var ClusterMeshDeploymentLabels = map[string]string{
+	"k8s-app": "clustermesh-apiserver",
 }
