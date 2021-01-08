@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/k8s"
 
@@ -30,14 +31,8 @@ import (
 )
 
 const (
-	configMapName         = "cilium-config"
 	configNameClusterID   = "cluster-id"
 	configNameClusterName = "cluster-name"
-
-	deploymentName     = "clustermesh-apiserver"
-	serviceAccountName = "clustermesh-apiserver"
-	clusterRoleName    = "clustermesh-apiserver"
-	serviceName        = "clustermesh-apiserver"
 )
 
 var (
@@ -45,14 +40,11 @@ var (
 	deploymentMaxSurge       = intstr.FromInt(1)
 	deploymentMaxUnavailable = intstr.FromInt(1)
 	secretDefaultMode        = int32(420)
-	deploymentLabels         = map[string]string{
-		"k8s-app": "clustermesh-apiserver",
-	}
 )
 
 var clusterRole = &rbacv1.ClusterRole{
 	ObjectMeta: metav1.ObjectMeta{
-		Name: clusterRoleName,
+		Name: defaults.ClusterMeshClusterRoleName,
 	},
 	Rules: []rbacv1.PolicyRule{
 		{
@@ -89,15 +81,15 @@ var clusterRole = &rbacv1.ClusterRole{
 
 var service = &corev1.Service{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:   serviceName,
-		Labels: deploymentLabels,
+		Name:   defaults.ClusterMeshServiceName,
+		Labels: defaults.ClusterMeshDeploymentLabels,
 	},
 	Spec: corev1.ServiceSpec{
 		Type: corev1.ServiceTypeClusterIP,
 		Ports: []corev1.ServicePort{
 			{Port: int32(2379)},
 		},
-		Selector: deploymentLabels,
+		Selector: defaults.ClusterMeshDeploymentLabels,
 	},
 }
 
@@ -124,13 +116,13 @@ exit`}
 
 var deployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:   deploymentName,
-		Labels: deploymentLabels,
+		Name:   defaults.ClusterMeshDeploymentName,
+		Labels: defaults.ClusterMeshDeploymentLabels,
 	},
 	Spec: appsv1.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
-			MatchLabels: deploymentLabels,
+			MatchLabels: defaults.ClusterMeshDeploymentLabels,
 		},
 		Strategy: appsv1.DeploymentStrategy{
 			Type: appsv1.RollingUpdateDeploymentStrategyType,
@@ -141,12 +133,12 @@ var deployment = &appsv1.Deployment{
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   deploymentName,
-				Labels: deploymentLabels,
+				Name:   defaults.ClusterMeshDeploymentName,
+				Labels: defaults.ClusterMeshDeploymentLabels,
 			},
 			Spec: corev1.PodSpec{
 				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: serviceAccountName,
+				ServiceAccountName: defaults.ClusterMeshServiceAccountName,
 				Containers: []corev1.Container{
 					{
 						Name:    "etcd",
@@ -207,7 +199,7 @@ var deployment = &appsv1.Deployment{
 								ValueFrom: &corev1.EnvVarSource{
 									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: configMapName,
+											Name: defaults.ConfigMapName,
 										},
 										Key: configNameClusterName,
 									},
@@ -218,7 +210,7 @@ var deployment = &appsv1.Deployment{
 								ValueFrom: &corev1.EnvVarSource{
 									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: configMapName,
+											Name: defaults.ConfigMapName,
 										},
 										Key: configNameClusterID,
 									},
@@ -229,7 +221,7 @@ var deployment = &appsv1.Deployment{
 								ValueFrom: &corev1.EnvVarSource{
 									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: configMapName,
+											Name: defaults.ConfigMapName,
 										},
 										Key: "identity-allocation-mode",
 									},
@@ -394,13 +386,13 @@ func (k *K8sClusterMesh) Validate(ctx context.Context) error {
 	var failures int
 	k.Log("✨ Validating cluster configuration...")
 
-	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, configMapName, metav1.GetOptions{})
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", configMapName, err)
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
 	}
 
 	if cm.Data == nil {
-		return fmt.Errorf("ConfigMap %q does not contain any configuration", configMapName)
+		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
 
 	clusterID, ok := cm.Data[configNameClusterID]
@@ -437,11 +429,11 @@ func (k *K8sClusterMesh) Validate(ctx context.Context) error {
 
 func (k *K8sClusterMesh) Disable(ctx context.Context) error {
 	k.Log("🔥 Deleting clustermesh-apiserver...")
-	k.client.DeleteService(ctx, k.params.Namespace, serviceName, metav1.DeleteOptions{})
-	k.client.DeleteDeployment(ctx, k.params.Namespace, deploymentName, metav1.DeleteOptions{})
-	k.client.DeleteClusterRoleBinding(ctx, clusterRoleName, metav1.DeleteOptions{})
-	k.client.DeleteClusterRole(ctx, clusterRoleName, metav1.DeleteOptions{})
-	k.client.DeleteServiceAccount(ctx, k.params.Namespace, serviceAccountName, metav1.DeleteOptions{})
+	k.client.DeleteService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.DeleteOptions{})
+	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName, metav1.DeleteOptions{})
+	k.client.DeleteClusterRoleBinding(ctx, defaults.ClusterMeshClusterRoleName, metav1.DeleteOptions{})
+	k.client.DeleteClusterRole(ctx, defaults.ClusterMeshClusterRoleName, metav1.DeleteOptions{})
+	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.ClusterMeshServiceAccountName, metav1.DeleteOptions{})
 
 	k.deleteCertificates(ctx)
 
@@ -478,7 +470,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 	}
 
 	k.Log("✨ Deploying clustermesh-apiserver...")
-	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(serviceAccountName), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
@@ -486,7 +478,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(clusterRoleName, k.params.Namespace, serviceAccountName), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(defaults.ClusterMeshClusterRoleName, k.params.Namespace, defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
@@ -503,7 +495,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 }
 
 func (k *K8sClusterMesh) GetAccessToken(ctx context.Context) error {
-	if _, err := k.client.GetService(ctx, k.params.Namespace, serviceName, metav1.GetOptions{}); err != nil {
+	if _, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{}); err != nil {
 		return err
 	}
 
