@@ -16,8 +16,10 @@ package clustermesh
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
@@ -27,12 +29,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
 	configNameClusterID   = "cluster-id"
 	configNameClusterName = "cluster-name"
+
+	caSuffix   = ".etcd-client-ca.crt"
+	keySuffix  = ".etcd-client.key"
+	certSuffix = ".etcd-client.crt"
 )
 
 var (
@@ -79,18 +86,42 @@ var clusterRole = &rbacv1.ClusterRole{
 	},
 }
 
-var service = &corev1.Service{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:   defaults.ClusterMeshServiceName,
-		Labels: defaults.ClusterMeshDeploymentLabels,
-	},
-	Spec: corev1.ServiceSpec{
-		Type: corev1.ServiceTypeClusterIP,
-		Ports: []corev1.ServicePort{
-			{Port: int32(2379)},
+func (k *K8sClusterMesh) generateService() *corev1.Service {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        defaults.ClusterMeshServiceName,
+			Labels:      defaults.ClusterMeshDeploymentLabels,
+			Annotations: map[string]string{},
 		},
-		Selector: defaults.ClusterMeshDeploymentLabels,
-	},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{Port: int32(2379)},
+			},
+			Selector: defaults.ClusterMeshDeploymentLabels,
+		},
+	}
+
+	if k.params.ServiceType != "" {
+		svc.Spec.Type = corev1.ServiceType(k.params.ServiceType)
+	} else {
+		switch k.flavor.Kind {
+		case k8s.KindGKE:
+			k.Log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)")
+			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+			svc.ObjectMeta.Annotations["cloud.google.com/load-balancer-type"] = "Internal"
+			// if all the clusters are in the same region the next annotation can be removed
+			svc.ObjectMeta.Annotations["networking.gke.io/internal-load-balancer-allow-global-access"] = "true"
+		case k8s.KindEKS:
+			k.Log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0")
+			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+			svc.ObjectMeta.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] = "0.0.0.0/0"
+		default:
+			svc.Spec.Type = corev1.ServiceTypeClusterIP
+		}
+	}
+
+	return svc
 }
 
 var initContainerArgs = []string{`rm -rf /var/run/etcd/*;
@@ -341,6 +372,7 @@ var deployment = &appsv1.Deployment{
 
 type k8sClusterMeshImplementation interface {
 	CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
+	PatchSecret(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
 	CreateServiceAccount(ctx context.Context, namespace string, account *corev1.ServiceAccount, opts metav1.CreateOptions) (*corev1.ServiceAccount, error)
@@ -356,18 +388,23 @@ type k8sClusterMeshImplementation interface {
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
+	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
+	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
+	ClusterName() string
 }
 
 type K8sClusterMesh struct {
 	client      k8sClusterMeshImplementation
 	certManager *certs.CertManager
+	flavor      k8s.Flavor
 	params      Parameters
 }
 
 type Parameters struct {
-	Namespace   string
-	ServiceType string
-	Writer      io.Writer
+	Namespace          string
+	ServiceType        string
+	DestinationContext string
+	Writer             io.Writer
 }
 
 func NewK8sClusterMesh(client k8sClusterMeshImplementation, p Parameters) *K8sClusterMesh {
@@ -383,6 +420,12 @@ func (k *K8sClusterMesh) Log(format string, a ...interface{}) {
 }
 
 func (k *K8sClusterMesh) Validate(ctx context.Context) error {
+	f, err := k.client.AutodetectFlavor(ctx)
+	if err != nil {
+		return err
+	}
+	k.flavor = f
+
 	var failures int
 	k.Log("✨ Validating cluster configuration...")
 
@@ -442,7 +485,11 @@ func (k *K8sClusterMesh) Disable(ctx context.Context) error {
 
 func (p Parameters) validateForEnable() error {
 	switch corev1.ServiceType(p.ServiceType) {
-	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort, corev1.ServiceTypeLoadBalancer, corev1.ServiceTypeExternalName:
+	case corev1.ServiceTypeClusterIP:
+	case corev1.ServiceTypeNodePort:
+	case corev1.ServiceTypeLoadBalancer:
+	case corev1.ServiceTypeExternalName:
+	case "":
 	default:
 		return fmt.Errorf("unknown service type %q", p.ServiceType)
 	}
@@ -486,16 +533,217 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	service.Spec.Type = corev1.ServiceType(k.params.ServiceType)
-	if _, err := k.client.CreateService(ctx, k.params.Namespace, service, metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateService(ctx, k.params.Namespace, k.generateService(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (k *K8sClusterMesh) GetAccessToken(ctx context.Context) error {
-	if _, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{}); err != nil {
+type accessInformation struct {
+	ServiceIPs  []string
+	ClusterName string
+	CA          []byte
+	ClientCert  []byte
+	ClientKey   []byte
+}
+
+func (ai *accessInformation) etcdConfiguration() string {
+	cfg := "endpoints:\n"
+	cfg += "- https://" + ai.ClusterName + ".mesh.cilium.io:2379\n"
+	cfg += "trusted-ca-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + caSuffix + "\n"
+	cfg += "key-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + keySuffix + "\n"
+	cfg += "cert-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + certSuffix + "\n"
+
+	return cfg
+}
+
+func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation) (*accessInformation, error) {
+	cm, err := client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	if _, ok := cm.Data[configNameClusterName]; !ok {
+		return nil, fmt.Errorf("%s is not set in ConfigMap %q", configNameClusterName, defaults.ConfigMapName)
+	}
+
+	clusterName := cm.Data[configNameClusterName]
+
+	k.Log("✨ Extracting access information of cluster %s...", clusterName)
+	svc, err := client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get clustermesh service %q: %w", defaults.ClusterMeshServiceName, err)
+	}
+
+	k.Log("🔑 Extracing secrets from cluster %s...", clusterName)
+	caSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get secret %q to retrieve CA: %s", defaults.CASecretName, err)
+	}
+
+	caCert, ok := caSecret.Data[defaults.CASecretCertName]
+	if !ok {
+		return nil, fmt.Errorf("secret %q does not contain CA cert %q", defaults.CASecretName, defaults.CASecretCertName)
+	}
+
+	meshSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshClientSecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get secret %q to access clustermesh service: %s", defaults.ClusterMeshClientSecretName, err)
+	}
+
+	clientKey, ok := meshSecret.Data[defaults.ClusterMeshClientSecretKeyName]
+	if !ok {
+		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, defaults.ClusterMeshClientSecretKeyName)
+	}
+
+	clientCert, ok := meshSecret.Data[defaults.ClusterMeshClientSecretCertName]
+	if !ok {
+		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, defaults.ClusterMeshClientSecretCertName)
+	}
+
+	ai := &accessInformation{
+		ServiceIPs:  svc.Spec.ExternalIPs,
+		ClusterName: cm.Data[configNameClusterName],
+		CA:          caCert,
+		ClientKey:   clientKey,
+		ClientCert:  clientCert,
+	}
+
+	for _, ingressStatus := range svc.Status.LoadBalancer.Ingress {
+		if ingressStatus.Hostname != "" {
+			return nil, fmt.Errorf("hostname based load-balancers are not supported yet")
+		}
+
+		if ingressStatus.IP != "" {
+			ai.ServiceIPs = append(ai.ServiceIPs, ingressStatus.IP)
+		}
+	}
+
+	switch {
+	case len(ai.ServiceIPs) > 0:
+		k.Log("ℹ️  Found ClusterMesh service IPs: %s", ai.ServiceIPs)
+	default:
+		return nil, fmt.Errorf("unable to derive service IPs automatically")
+	}
+
+	return ai, nil
+}
+
+func (k *K8sClusterMesh) patchConfig(ctx context.Context, client k8sClusterMeshImplementation, ai *accessInformation) error {
+	_, err := client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.GetOptions{})
+	if err != nil {
+		k.Log("🔑 Secret %s does not exist yet, creating it...", defaults.ClusterMeshSecretName)
+		_, err = client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshSecretName, k.params.Namespace, map[string][]byte{}), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create secret: %w", err)
+		}
+	}
+
+	k.Log("🔑 Patching existing secret %s...", defaults.ClusterMeshSecretName)
+
+	etcdBase64 := `"` + ai.ClusterName + `": "` + base64.StdEncoding.EncodeToString([]byte(ai.etcdConfiguration())) + `"`
+	caBase64 := `"` + ai.ClusterName + caSuffix + `": "` + base64.StdEncoding.EncodeToString(ai.CA) + `"`
+	keyBase64 := `"` + ai.ClusterName + keySuffix + `": "` + base64.StdEncoding.EncodeToString(ai.ClientKey) + `"`
+	certBase64 := `"` + ai.ClusterName + certSuffix + `": "` + base64.StdEncoding.EncodeToString(ai.ClientCert) + `"`
+
+	patch := []byte(`{"data":{` + etcdBase64 + `,` + caBase64 + `,` + keyBase64 + `,` + certBase64 + `}}`)
+	_, err = client.PatchSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch secret %s with patch %q: %w", defaults.ClusterMeshSecretName, patch, err)
+	}
+
+	var aliases []string
+	for _, ip := range ai.ServiceIPs {
+		aliases = append(aliases, `{"ip":"`+ip+`", "hostnames":["`+ai.ClusterName+`.mesh.cilium.io"]}`)
+	}
+
+	patch = []byte(`{"spec":{"template":{"spec":{"hostAliases":[` + strings.Join(aliases, ",") + `]}}}}`)
+
+	k.Log("✨ Patching DaemonSet with IP aliases %s...", defaults.ClusterMeshSecretName)
+	_, err = client.PatchDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch DaemonSet %s with patch %q: %w", defaults.AgentDaemonSetName, patch, err)
+	}
+
+	return nil
+}
+
+func (k *K8sClusterMesh) Connect(ctx context.Context) error {
+	remoteCluster, err := k8s.NewClient(k.params.DestinationContext, "")
+	if err != nil {
+		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
+	}
+
+	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster)
+	if err != nil {
+		k.Log("❌ Unable to retrieve access information of remote cluster %q: %s", remoteCluster.ClusterName(), err)
+		return err
+	}
+
+	aiLocal, err := k.extractAccessInformation(ctx, k.client)
+	if err != nil {
+		k.Log("❌ Unable to retrieve access information of local cluster %q: %s", k.client.ClusterName(), err)
+		return err
+	}
+
+	k.Log("✨ Connecting cluster %s -> %s...", k.client.ClusterName(), remoteCluster.ClusterName())
+	if err := k.patchConfig(ctx, k.client, aiRemote); err != nil {
+		return err
+	}
+	k.Log("✨ Connecting cluster %s -> %s...", remoteCluster.ClusterName(), k.client.ClusterName())
+	if err := k.patchConfig(ctx, remoteCluster, aiLocal); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *K8sClusterMesh) disconnectCluster(ctx context.Context, src, dst k8sClusterMeshImplementation) error {
+	cm, err := dst.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	if _, ok := cm.Data[configNameClusterName]; !ok {
+		return fmt.Errorf("%s is not set in ConfigMap %q", configNameClusterName, defaults.ConfigMapName)
+	}
+
+	clusterName := cm.Data[configNameClusterName]
+
+	k.Log("🔑 Patching existing secret %s...", defaults.ClusterMeshSecretName)
+	meshSecret, err := src.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("clustermesh configuration secret %s does not exist", defaults.ClusterMeshSecretName)
+	}
+
+	for _, suffix := range []string{"", caSuffix, keySuffix, certSuffix} {
+		if _, ok := meshSecret.Data[clusterName+suffix]; !ok {
+			k.Log("⚠️  Key %q does not exist in secret. Cluster already disconnected?", clusterName+suffix)
+			continue
+		}
+
+		patch := []byte(`[{"op": "remove", "path": "/data/` + clusterName + suffix + `"}]`)
+		_, err = src.PatchSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, types.JSONPatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			k.Log("❌ Warning: Unable to patch secret %s with path %q: %s", defaults.ClusterMeshSecretName, patch, err)
+		}
+	}
+
+	return nil
+}
+
+func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
+	remoteCluster, err := k8s.NewClient(k.params.DestinationContext, "")
+	if err != nil {
+		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
+	}
+
+	if err := k.disconnectCluster(ctx, k.client, remoteCluster); err != nil {
+		return err
+	}
+
+	if err := k.disconnectCluster(ctx, remoteCluster, k.client); err != nil {
 		return err
 	}
 
