@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -39,6 +40,7 @@ type Client struct {
 	CiliumClientset ciliumClientset.Interface
 	Config          *rest.Config
 	RawConfig       clientcmdapi.Config
+	contextName     string
 }
 
 func NewClient(contextName, kubeconfig string) (*Client, error) {
@@ -70,17 +72,22 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		return nil, err
 	}
 
+	if contextName == "" {
+		contextName = rawConfig.CurrentContext
+	}
+
 	return &Client{
 		CiliumClientset: ciliumClientset,
 		Clientset:       clientset,
 		Config:          config,
 		RawConfig:       rawConfig,
+		contextName:     contextName,
 	}, nil
 }
 
 // ContextName returns the name of the context the client is connected to
 func (c *Client) ContextName() (name string) {
-	return c.RawConfig.CurrentContext
+	return c.contextName
 }
 
 // ClusterName returns the name of the cluster the client is connected to
@@ -93,6 +100,10 @@ func (c *Client) ClusterName() (name string) {
 
 func (c *Client) CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
 	return c.Clientset.CoreV1().Secrets(namespace).Create(ctx, secret, opts)
+}
+
+func (c *Client) PatchSecret(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.Secret, error) {
+	return c.Clientset.CoreV1().Secrets(namespace).Patch(ctx, name, pt, data, opts)
 }
 
 func (c *Client) DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
@@ -243,6 +254,10 @@ func (c *Client) DeleteConfigMap(ctx context.Context, namespace, name string, op
 
 func (c *Client) CreateDaemonSet(ctx context.Context, namespace string, ds *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error) {
 	return c.Clientset.AppsV1().DaemonSets(namespace).Create(ctx, ds, opts)
+}
+
+func (c *Client) PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error) {
+	return c.Clientset.AppsV1().DaemonSets(namespace).Patch(ctx, name, pt, data, opts)
 }
 
 func (c *Client) GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error) {

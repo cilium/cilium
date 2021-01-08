@@ -32,8 +32,8 @@ func newCmdClusterMesh() *cobra.Command {
 
 	cmd.AddCommand(newCmdClusterMeshEnable())
 	cmd.AddCommand(newCmdClusterMeshDisable())
-	cmd.AddCommand(newCmdClusterMeshGetAccessToken())
 	cmd.AddCommand(newCmdClusterMeshConnect())
+	cmd.AddCommand(newCmdClusterMeshDisconnect())
 
 	return cmd
 }
@@ -54,7 +54,7 @@ func newCmdClusterMeshEnable() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
-	cmd.Flags().StringVar(&params.ServiceType, "service-type", "ClusterIP", "Type of Kubernetes to expose control plane")
+	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes to expose control plane")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
@@ -81,27 +81,6 @@ func newCmdClusterMeshDisable() *cobra.Command {
 	return cmd
 }
 
-func newCmdClusterMeshGetAccessToken() *cobra.Command {
-	var params = clustermesh.Parameters{
-		Writer: os.Stdout,
-	}
-
-	cmd := &cobra.Command{
-		Use:   "get-access-token",
-		Short: "Extract the access token to allow another cluster to connect",
-		Long:  ``,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			return cm.GetAccessToken(context.Background())
-		},
-	}
-
-	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-
-	return cmd
-}
-
 func newCmdClusterMeshConnect() *cobra.Command {
 	var params = clustermesh.Parameters{
 		Writer: os.Stdout,
@@ -112,12 +91,36 @@ func newCmdClusterMeshConnect() *cobra.Command {
 		Short: "Connect to a remote cluster",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
+			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
+			return cm.Connect(context.Background())
 		},
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringVar(&params.DestinationContext, "destination-context", "", "Kubernetes configuration context of destination cluster")
+
+	return cmd
+}
+
+func newCmdClusterMeshDisconnect() *cobra.Command {
+	var params = clustermesh.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "disconnect",
+		Short: "Disconnect from a remote cluster",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
+			return cm.Disconnect(context.Background())
+		},
+	}
+
+	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringVar(&params.DestinationContext, "destination-context", "", "Kubernetes configuration context of destination cluster")
 
 	return cmd
 }
