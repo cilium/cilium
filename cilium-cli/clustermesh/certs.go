@@ -15,213 +15,161 @@
 package clustermesh
 
 import (
+	"context"
+	"fmt"
 	"time"
 
-	"github.com/cloudflare/cfssl/cli/genkey"
+	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/k8s"
+
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/cloudflare/cfssl/helpers"
-	"github.com/cloudflare/cfssl/initca"
-	"github.com/cloudflare/cfssl/signer"
-	"github.com/cloudflare/cfssl/signer/local"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	serverTLS = "clustermesh-apiserver-server-cert"
-	adminTLS  = "clustermesh-apiserver-admin-cert"
-	serverCA  = "clustermesh-apiserver-ca-cert"
-	clientTLS = "cilium-etcd-client-tls"
-)
-
-func generateCertificates(namespace string) (map[string]map[string][]byte, error) {
-	ca, _, caKey, err := initca.New(getCA())
-	if err != nil {
-		return nil, err
-	}
-
-	serverCert, serverKey, err := generateCertificate(ca, caKey, serverTLS, getServerCertReq(namespace))
-	if err != nil {
-		return nil, err
-	}
-
-	adminCert, adminKey, err := generateCertificate(ca, caKey, adminTLS, getAdminCertReq(namespace))
-	if err != nil {
-		return nil, err
-	}
-
-	clientCert, clientKey, err := generateCertificate(ca, caKey, clientTLS, getEtcdClientCertReq())
-	if err != nil {
-		return nil, err
-	}
-
-	return map[string]map[string][]byte{
-		serverTLS: {
-			"tls.key": serverKey,
-			"tls.crt": serverCert,
-		},
-		serverCA: {
-			"ca.crt": ca,
-		},
-		adminTLS: {
-			"tls.key": adminKey,
-			"tls.crt": adminCert,
-		},
-		clientTLS: {
-			"etcd-client.key":    clientKey,
-			"etcd-client-ca.crt": ca,
-			"etcd-client.crt":    clientCert,
-		},
-	}, nil
-}
-
-// getCA returns the certificate request for Cilium-etcd
-func getCA() *csr.CertificateRequest {
-	return &csr.CertificateRequest{
-		Names: []csr.Name{
-			{
-				C:  "US",
-				ST: "San Francisco",
-				L:  "CA",
-				O:  "Cilium",
-				OU: "ClusterMesh",
-			},
-		},
-		KeyRequest: &csr.KeyRequest{
-			A: "rsa",
-			S: 2048,
-		},
-		CN: "clustermesh-apiserver CA",
-	}
-}
-
-// getServerCertReq returns the server certificate requests for the given
-// namespace.
-func getServerCertReq(namespace string) *csr.CertificateRequest {
-	return &csr.CertificateRequest{
-		Names: []csr.Name{
-			{
-				C:  "US",
-				ST: "San Francisco",
-				L:  "CA",
-			},
-		},
-		KeyRequest: &csr.KeyRequest{
-			A: "rsa",
-			S: 2048,
-		},
+func (k *K8sClusterMesh) createClusterMeshServerCertificate(ctx context.Context) error {
+	certReq := &csr.CertificateRequest{
+		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
+		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
 		Hosts: []string{
 			"clustermesh-apiserver.cilium.io",
 			"*.mesh.cilium.io",
 			"localhost",
 			"127.0.0.1",
 		},
-		CN: "etcd server",
+		CN: "ClusterMesh Server",
 	}
-}
 
-func getAdminCertReq(namespace string) *csr.CertificateRequest {
-	return &csr.CertificateRequest{
-		Names: []csr.Name{
-			{
-				C:  "US",
-				ST: "San Francisco",
-				L:  "CA",
+	signConf := &config.Signing{
+		Default: &config.SigningProfile{Expiry: 5 * 365 * 24 * time.Hour},
+		Profiles: map[string]*config.SigningProfile{
+			defaults.ClusterMeshServerSecretName: {
+				Expiry: 5 * 365 * 24 * time.Hour,
+				Usage:  []string{"signing", "key encipherment", "server auth", "client auth"},
 			},
 		},
-		KeyRequest: &csr.KeyRequest{
-			A: "rsa",
-			S: 2048,
-		},
+	}
+
+	cert, key, err := k.certManager.GenerateCertificate(defaults.ClusterMeshServerSecretName, certReq, signConf)
+	if err != nil {
+		return fmt.Errorf("unable to generate certificate %s: %w", defaults.ClusterMeshServerSecretName, err)
+	}
+
+	data := map[string][]byte{
+		defaults.ClusterMeshServerSecretCertName: cert,
+		defaults.ClusterMeshServerSecretKeyName:  key,
+	}
+
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshServerSecretName, err)
+	}
+
+	return nil
+}
+
+func (k *K8sClusterMesh) createClusterMeshAdminCertificate(ctx context.Context) error {
+	certReq := &csr.CertificateRequest{
+		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
+		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
 		Hosts: []string{
 			"localhost",
 			"127.0.0.1",
 		},
-		CN: "root",
+		CN: "ClusterMesh Admin",
 	}
-}
 
-// getEtcdClientCertReq returns the client certificate request.
-func getEtcdClientCertReq() *csr.CertificateRequest {
-	return &csr.CertificateRequest{
-		Names: []csr.Name{
-			{
-				C:  "US",
-				ST: "San Francisco",
-				L:  "CA",
-			},
-		},
-		KeyRequest: &csr.KeyRequest{
-			A: "rsa",
-			S: 2048,
-		},
-		Hosts: []string{""},
-		CN:    "etcd client",
-	}
-}
-
-// getDefaultConfig returns the signing configuration for all profiles going
-// to be used, (server, client and peer)
-func getDefaultConfig() *config.Signing {
-	return &config.Signing{
-		Default: &config.SigningProfile{
-			Expiry: 5 * 365 * 24 * time.Hour,
-		},
+	signConf := &config.Signing{
+		Default: &config.SigningProfile{Expiry: 5 * 365 * 24 * time.Hour},
 		Profiles: map[string]*config.SigningProfile{
-			serverTLS: {
+			defaults.ClusterMeshAdminSecretName: {
 				Expiry: 5 * 365 * 24 * time.Hour,
-				Usage: []string{
-					"signing",
-					"key encipherment",
-					"server auth",
-					"client auth",
-				},
-			},
-			adminTLS: {
-				Expiry: 5 * 365 * 24 * time.Hour,
-				Usage: []string{
-					"signing",
-					"key encipherment",
-					"server auth",
-					"client auth",
-				},
-			},
-			clientTLS: {
-				Expiry: 5 * 365 * 24 * time.Hour,
-				Usage: []string{
-					"signing",
-					"key encipherment",
-					"server auth",
-					"client auth",
-				},
+				Usage:  []string{"signing", "key encipherment", "server auth", "client auth"},
 			},
 		},
 	}
+
+	cert, key, err := k.certManager.GenerateCertificate(defaults.ClusterMeshAdminSecretName, certReq, signConf)
+	if err != nil {
+		return fmt.Errorf("unable to generate certificate %s: %w", defaults.ClusterMeshAdminSecretName, err)
+	}
+
+	data := map[string][]byte{
+		defaults.ClusterMeshAdminSecretCertName: cert,
+		defaults.ClusterMeshAdminSecretKeyName:  key,
+	}
+
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshAdminSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshAdminSecretName, err)
+	}
+
+	return nil
 }
 
-// generateCertificate returns the certificate and key generated for the given
-// profile and certificate request.
-func generateCertificate(ca, caKey []byte, profile string, certReq *csr.CertificateRequest) (certBytes []byte, keyBytes []byte, err error) {
-	g := &csr.Generator{Validator: genkey.Validator}
-	csrBytes, keyBytes, err := g.ProcessRequest(certReq)
-	parsedCa, err := helpers.ParseCertificatePEM(ca)
+func (k *K8sClusterMesh) createClusterMeshClientCertificate(ctx context.Context) error {
+	certReq := &csr.CertificateRequest{
+		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
+		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		Hosts:      []string{""},
+		CN:         "ClusterMesh Client",
+	}
+
+	signConf := &config.Signing{
+		Default: &config.SigningProfile{Expiry: 5 * 365 * 24 * time.Hour},
+		Profiles: map[string]*config.SigningProfile{
+			defaults.ClusterMeshClientSecretName: {
+				Expiry: 5 * 365 * 24 * time.Hour,
+				Usage:  []string{"signing", "key encipherment", "server auth", "client auth"},
+			},
+		},
+	}
+
+	cert, key, err := k.certManager.GenerateCertificate(defaults.ClusterMeshClientSecretName, certReq, signConf)
 	if err != nil {
-		return nil, nil, err
+		return fmt.Errorf("unable to generate certificate %s: %w", defaults.ClusterMeshClientSecretName, err)
 	}
-	priv, err := helpers.ParsePrivateKeyPEM(caKey)
+
+	data := map[string][]byte{
+		defaults.ClusterMeshClientSecretCertName: cert,
+		defaults.ClusterMeshClientSecretKeyName:  key,
+	}
+
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshClientSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
-		return nil, nil, err
+		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshClientSecretName, err)
 	}
-	s, err := local.NewSigner(priv, parsedCa, signer.DefaultSigAlgo(priv), getDefaultConfig())
+
+	return nil
+}
+
+func (k *K8sClusterMesh) deleteCertificates(ctx context.Context) error {
+	k.Log("🔥 Deleting ClusterMesh certificates...")
+	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshServerSecretName, metav1.DeleteOptions{})
+	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshAdminSecretName, metav1.DeleteOptions{})
+	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshClientSecretName, metav1.DeleteOptions{})
+	return nil
+}
+
+func (k *K8sClusterMesh) installCertificates(ctx context.Context) error {
+	err := k.certManager.LoadCAFromK8s(ctx)
 	if err != nil {
-		return nil, nil, err
+		k.Log("❌ Cilium CA not found: %s", err)
+		return err
+	} else {
+		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 	}
-	signReq := signer.SignRequest{
-		Request: string(csrBytes),
-		Profile: profile,
+
+	k.Log("🔑 Generating certificates for ClusterMesh...")
+	if err := k.createClusterMeshServerCertificate(ctx); err != nil {
+		return err
 	}
-	certBytes, err = s.Sign(signReq)
-	if err != nil {
-		return nil, nil, err
+	if err := k.createClusterMeshAdminCertificate(ctx); err != nil {
+		return err
 	}
-	return certBytes, keyBytes, nil
+	if err := k.createClusterMeshClientCertificate(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
