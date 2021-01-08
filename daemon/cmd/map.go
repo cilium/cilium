@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 
 	"github.com/go-openapi/runtime/middleware"
 )
@@ -49,7 +50,7 @@ func NewGetMapHandler(d *Daemon) restapi.GetMapHandler {
 
 func (h *getMap) Handle(params restapi.GetMapParams) middleware.Responder {
 	mapList := &models.BPFMapList{
-		Maps: bpf.GetOpenMaps(),
+		Maps: append(bpf.GetOpenMaps(), ebpf.GetOpenMaps()...),
 	}
 
 	return restapi.NewGetMapOK().WithPayload(mapList)
