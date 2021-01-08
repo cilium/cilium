@@ -480,14 +480,12 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 					assert:      BeFalse,
 				},
 				{
-					// see comment below about ICMP ids
 					from:        helpers.Client,
 					to:          helpers.Ping6WithID(serverDockerNetworking[helpers.IPv6], 1111),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
-					// see comment below about ICMP ids
 					from:        helpers.Client,
 					to:          helpers.PingWithID(serverDockerNetworking[helpers.IPv4], 1111),
 					destination: helpers.Server,
@@ -541,21 +539,25 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 			By("Testing bidirectional connectivity from client to server")
 
-			// NB: Previous versions of this test did not specify the ICMP id, which
-			// presumably caused transient errors (see #12891) when the ICMP ids for the
-			// valid direction (client->server) matched the ICMP ids for the invalid
-			// direction (server->client). We now ensure that the ICMP ids do not match.
-			// Furthermore, the original issue can be now easily reproduced by changing
-			// 2222 to 1111 below.
 			By("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client)
+			res = vm.ContainerExec(helpers.Server, helpers.Ping6WithID(clientDockerNetworking[helpers.IPv6], 1111))
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+				"container %q unexpectedly was able to ping to %q IP:%q with ID:%d", helpers.Server, helpers.Client,
+				clientDockerNetworking[helpers.IPv6], 1111)
 			res = vm.ContainerExec(helpers.Server, helpers.Ping6WithID(clientDockerNetworking[helpers.IPv6], 2222))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-				"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
+				"container %q unexpectedly was able to ping to %q IP:%q with ID:%d", helpers.Server, helpers.Client,
+				clientDockerNetworking[helpers.IPv6], 2222)
 
 			By("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client)
+			res = vm.ContainerExec(helpers.Server, helpers.PingWithID(clientDockerNetworking[helpers.IPv4], 1111))
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+				"%q was unexpectedly able to ping to %q IP:%q with ID:%d", helpers.Server, helpers.Client,
+				clientDockerNetworking[helpers.IPv4], 1111)
 			res = vm.ContainerExec(helpers.Server, helpers.PingWithID(clientDockerNetworking[helpers.IPv4], 2222))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-				"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
+				"%q was unexpectedly able to ping to %q IP:%q with ID:%d", helpers.Server, helpers.Client,
+				clientDockerNetworking[helpers.IPv4], 2222)
 
 			By("============= Finished Connectivity Test ============= ")
 		}
