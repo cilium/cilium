@@ -88,6 +88,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"dmesg --time-format=iso",
 		"bpftool map show",
 		"bpftool prog show",
+		"taskset -pc 1",
 		// iptables
 		"iptables-save -c",
 		"iptables -S",
