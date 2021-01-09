@@ -11,7 +11,7 @@ on:
     branches:
     - master
   schedule:
-    - cron: "6 45 * * 3"
+    - cron: "45 6 * * 3"
 
 jobs:
   analyze:
