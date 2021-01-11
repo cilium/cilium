@@ -143,8 +143,10 @@ the label ``role=frontend``.
 Egress Allow All
 ~~~~~~~~~~~~~~~~~
 
-An empty `EndpointSelector` will select all endpoints, thus writing a rule that will allow
-all egress traffic from an endpoint may be done as follows:
+An empty `EndpointSelector` will select all egress endpoints from an endpoint
+based on the `CiliumNetworkPolicy` namespace (``default`` by default). The
+following rule allows all egress traffic from endpoints with the label
+``role=frontend`` to all other endpoints in the same namespace:
 
 .. only:: html
 
