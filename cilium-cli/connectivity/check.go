@@ -862,7 +862,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 func (k *K8sConnectivityCheck) validateCiliumEndpoint(ctx context.Context, client k8sConnectivityImplementation, namespace, name string) error {
 	k.Log("⌛ [%s] Waiting for CiliumEndpoint for pod %s to appear...", client.ClusterName(), namespace+"/"+name)
 	for {
-		_, err := k.clients.src.GetCiliumEndpoint(ctx, connectivityCheckNamespace, name, metav1.GetOptions{})
+		_, err := client.GetCiliumEndpoint(ctx, connectivityCheckNamespace, name, metav1.GetOptions{})
 		if err == nil {
 			return nil
 		}
