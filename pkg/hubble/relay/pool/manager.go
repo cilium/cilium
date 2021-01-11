@@ -315,30 +315,34 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 			if err := p.conn.Close(); err != nil {
 				m.opts.log.WithFields(logrus.Fields{
 					"error": err,
-				}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
+					"peer":  p.Name,
+				}).Warning("Failed to properly close gRPC client connection")
 			}
 			p.conn = nil
 		}
 	}
 
-	m.opts.log.WithFields(logrus.Fields{
+	scopedLog := m.opts.log.WithFields(logrus.Fields{
 		"address":    p.Address,
 		"hubble-tls": p.TLSEnabled,
-	}).Infof("Connecting peer %s...", p.Name)
+		"peer":       p.Name,
+	})
+
+	scopedLog.Info("Connecting")
 	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)
 		p.connAttempts++
-		m.opts.log.WithFields(logrus.Fields{
-			"address": p.Address,
-			"error":   err,
-		}).Warningf("Failed to create gRPC client connection to peer %s; next attempt after %s", p.Name, duration)
+		scopedLog.WithFields(logrus.Fields{
+			"error":       err,
+			"next-try-in": duration,
+		}).Warning("Failed to create gRPC client")
 	} else {
 		p.nextConnAttempt = time.Time{}
 		p.connAttempts = 0
 		p.conn = conn
-		m.opts.log.Infof("Peer %s connected", p.Name)
+		scopedLog.Info("Connected")
 	}
 }
 
@@ -351,12 +355,17 @@ func (m *PeerManager) disconnect(p *peer) {
 	if p.conn == nil {
 		return
 	}
-	m.opts.log.Infof("Disconnecting peer %s...", p.Name)
+
+	scopedLog := m.opts.log.WithFields(logrus.Fields{
+		"address":    p.Address,
+		"hubble-tls": p.TLSEnabled,
+		"peer":       p.Name,
+	})
+
+	scopedLog.Info("Disconnecting")
 	if err := p.conn.Close(); err != nil {
-		m.opts.log.WithFields(logrus.Fields{
-			"error": err,
-		}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
+		scopedLog.WithField("error", err).Warning("Failed to properly close gRPC client connection")
 	}
 	p.conn = nil
-	m.opts.log.Infof("Peer %s disconnected", p.Name)
+	scopedLog.Info("Disconnected")
 }
