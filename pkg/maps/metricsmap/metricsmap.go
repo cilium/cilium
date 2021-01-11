@@ -16,7 +16,6 @@ package metricsmap
 
 import (
 	"context"
-	"fmt"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -106,21 +105,6 @@ func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
 	})
 }
 
-// String converts the value into a human readable string format
-func (vs Values) String() string {
-	sumCount, sumBytes := uint64(0), uint64(0)
-	for _, v := range vs {
-		sumCount += v.Count
-		sumBytes += v.Bytes
-	}
-	return fmt.Sprintf("count:%d bytes:%d", sumCount, sumBytes)
-}
-
-// String converts the key into a human readable string format
-func (k *Key) String() string {
-	return fmt.Sprintf("reason:%d dir:%d", k.Reason, k.Dir)
-}
-
 // MetricDirection gets the direction in human readable string format
 func MetricDirection(dir uint8) string {
 	if desc, ok := direction[dir]; ok {
@@ -139,14 +123,29 @@ func (k *Key) DropForwardReason() string {
 	return monitorAPI.DropReason(k.Reason)
 }
 
-// String converts the value into a human readable string format
-func (v *Value) String() string {
-	return fmt.Sprintf("count:%d bytes:%d", v.Count, v.Bytes)
-}
-
 // IsDrop checks if the reason is drop or not.
 func (k *Key) IsDrop() bool {
 	return k.Reason == monitorAPI.DropInvalid || k.Reason >= monitorAPI.DropMin
+}
+
+// Count returns the sum of all the per-CPU count values
+func (vs Values) Count() uint64 {
+	c := uint64(0)
+	for _, v := range vs {
+		c += v.Count
+	}
+
+	return c
+}
+
+// Bytes returns the sum of all the per-CPU bytes values
+func (vs Values) Bytes() uint64 {
+	b := uint64(0)
+	for _, v := range vs {
+		b += v.Bytes
+	}
+
+	return b
 }
 
 func updateMetric(getCounter func() (prometheus.Counter, error), newValue float64) {
@@ -166,27 +165,19 @@ func updateMetric(getCounter func() (prometheus.Counter, error), newValue float6
 // and determines which prometheus metrics along with respective labels
 // need to be updated.
 func updatePrometheusMetrics(key *Key, values *Values) {
-	// Metrics is a per-CPU map so we first need to aggregate the
-	// different entries that make up a value.
-	var packets, bytes uint64
-	for _, value := range *values {
-		packets += value.Count
-		bytes += value.Bytes
-	}
-
 	updateMetric(func() (prometheus.Counter, error) {
 		if key.IsDrop() {
 			return metrics.DropCount.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
 		}
 		return metrics.ForwardCount.GetMetricWithLabelValues(key.Direction())
-	}, float64(packets))
+	}, float64(values.Count()))
 
 	updateMetric(func() (prometheus.Counter, error) {
 		if key.IsDrop() {
 			return metrics.DropBytes.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
 		}
 		return metrics.ForwardBytes.GetMetricWithLabelValues(key.Direction())
-	}, float64(bytes))
+	}, float64(values.Bytes()))
 }
 
 // SyncMetricsMap is called periodically to sync off the metrics map by
