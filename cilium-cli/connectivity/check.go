@@ -396,15 +396,6 @@ func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
 	}
 }
 
-func allDeploymentsReady(ctx context.Context, client k8sConnectivityImplementation, namespace string, deployments []string) bool {
-	for _, deployment := range deployments {
-		if client.DeploymentIsReady(ctx, namespace, deployment) != nil {
-			return false
-		}
-	}
-	return true
-}
-
 func (k *K8sConnectivityCheck) validatePodToPod(ctx context.Context) {
 	for _, clientPod := range k.clientPods.Items {
 		for echoName, echoIP := range k.echoPods {
@@ -645,6 +636,10 @@ func (p Parameters) ciliumEndpointTimeout() time.Duration {
 	return 30 * time.Second
 }
 
+func (p Parameters) podReadyTimeout() time.Duration {
+	return 30 * time.Second
+}
+
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {
 	k.Log("🔥 [%s] Deleting connectivity check deployments...", client.ClusterName())
 	client.DeleteDeployment(ctx, connectivityCheckNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
@@ -877,6 +872,22 @@ func (k *K8sConnectivityCheck) validateCiliumEndpoint(ctx context.Context, clien
 			return fmt.Errorf("aborted waiting for CiliumEndpoint for pod %s to appear: %w", name, ctx.Err())
 		}
 	}
+}
+
+func (k *K8sConnectivityCheck) waitForDeploymentsReady(ctx context.Context, client k8sConnectivityImplementation, deployments []string) error {
+	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", client.ClusterName(), deployments)
+
+	ctx, cancel := context.WithTimeout(ctx, k.params.podReadyTimeout())
+	defer cancel()
+	for _, name := range deployments {
+		for client.DeploymentIsReady(ctx, connectivityCheckNamespace, name) != nil {
+			select {
+			case <-time.After(time.Second):
+			case <-ctx.Done():
+				return fmt.Errorf("waiting for deployment %s to become ready has been interrupted: %w", name, ctx.Err())
+			}
+		}
+	}
 
 	return nil
 }
@@ -885,13 +896,11 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 	var err error
 
 	srcDeployments, dstDeployments := k.deploymentList()
-	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", k.clients.src.ClusterName(), srcDeployments)
-	for !allDeploymentsReady(ctx, k.clients.src, connectivityCheckNamespace, srcDeployments) {
-		time.Sleep(time.Second)
+	if err := k.waitForDeploymentsReady(ctx, k.clients.src, srcDeployments); err != nil {
+		return err
 	}
-	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", k.clients.src.ClusterName(), dstDeployments)
-	for !allDeploymentsReady(ctx, k.clients.dst, connectivityCheckNamespace, dstDeployments) {
-		time.Sleep(time.Second)
+	if err := k.waitForDeploymentsReady(ctx, k.clients.dst, dstDeployments); err != nil {
+		return err
 	}
 
 	k.clientPods, err = k.client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
