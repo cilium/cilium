@@ -907,6 +907,7 @@ type InstallParameters struct {
 	Version       string
 	AgentImage    string
 	OperatorImage string
+	InheritCA     string
 
 	DatapathMode      string
 	TunnelType        string

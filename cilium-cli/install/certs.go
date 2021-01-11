@@ -72,6 +72,24 @@ func (k *K8sUninstaller) uninstallCerts(ctx context.Context) error {
 }
 
 func (k *K8sInstaller) installCerts(ctx context.Context) error {
+	if k.params.InheritCA != "" {
+		caCluster, err := k8s.NewClient(k.params.InheritCA, "")
+		if err != nil {
+			return fmt.Errorf("unable to create Kubernetes client to derive CA from: %w", err)
+		}
+
+		s, err := caCluster.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("secret %s not found to derive CA from: %w", defaults.CASecretName, err)
+		}
+
+		newSecret := k8s.NewSecret(defaults.CASecretName, k.params.Namespace, s.Data)
+		_, err = k.client.CreateSecret(ctx, k.params.Namespace, newSecret, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create secret to store CA: %w", err)
+		}
+	}
+
 	err := k.certManager.LoadCAFromK8s(ctx)
 	if err != nil {
 		k.Log("🔑 Generating CA...")
