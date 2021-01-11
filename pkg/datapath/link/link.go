@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 
 	"github.com/vishvananda/netlink"
@@ -28,8 +30,12 @@ var linkCache ifNameCache
 
 func init() {
 	go func() {
+		log := logging.DefaultLogger.WithField(logfields.LogSubsys, "link")
 		for {
-			linkCache.syncCache()
+			if err := linkCache.syncCache(); err != nil {
+				log.WithError(err).Error("failed to obtain network links. stopping cache sync")
+				return
+			}
 			time.Sleep(15 * time.Second)
 		}
 	}()
