@@ -600,7 +600,7 @@ func TestPeerManager(t *testing.T) {
 					},
 				},
 				log: []string{
-					`level=warning msg="Failed to create gRPC client connection to peer unreachable; next attempt after 10s" address="192.0.1.1:4244" error="Don't feel like workin' today"`,
+					`level=warning msg="Failed to create gRPC client" address="192.0.1.1:4244" error="Don't feel like workin' today" hubble-tls=false next-try-in=10s peer=unreachable`,
 				},
 			},
 		}, {
