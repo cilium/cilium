@@ -341,6 +341,8 @@ var (
 	procSHGetKnownFolderPath                                 = modshell32.NewProc("SHGetKnownFolderPath")
 	procShellExecuteW                                        = modshell32.NewProc("ShellExecuteW")
 	procExitWindowsEx                                        = moduser32.NewProc("ExitWindowsEx")
+	procGetShellWindow                                       = moduser32.NewProc("GetShellWindow")
+	procGetWindowThreadProcessId                             = moduser32.NewProc("GetWindowThreadProcessId")
 	procMessageBoxW                                          = moduser32.NewProc("MessageBoxW")
 	procCreateEnvironmentBlock                               = moduserenv.NewProc("CreateEnvironmentBlock")
 	procDestroyEnvironmentBlock                              = moduserenv.NewProc("DestroyEnvironmentBlock")
@@ -2893,6 +2895,18 @@ func ExitWindowsEx(flags uint32, reason uint32) (err error) {
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
+	return
+}
+
+func GetShellWindow() (desktopWindow uintptr) {
+	r0, _, _ := syscall.Syscall(procGetShellWindow.Addr(), 0, 0, 0, 0)
+	desktopWindow = uintptr(r0)
+	return
+}
+
+func GetWindowThreadProcessId(wnd uintptr, pid *uint32) (tid uint32) {
+	r0, _, _ := syscall.Syscall(procGetWindowThreadProcessId.Addr(), 2, uintptr(wnd), uintptr(unsafe.Pointer(pid)), 0)
+	tid = uint32(r0)
 	return
 }
 
