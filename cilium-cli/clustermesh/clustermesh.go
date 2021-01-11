@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
@@ -410,7 +411,17 @@ type Parameters struct {
 	Namespace          string
 	ServiceType        string
 	DestinationContext string
+	Wait               bool
+	WaitTime           time.Duration
 	Writer             io.Writer
+}
+
+func (p Parameters) waitTimeout() time.Duration {
+	if p.WaitTime != time.Duration(0) {
+		return p.WaitTime
+	}
+
+	return time.Minute * 15
 }
 
 func NewK8sClusterMesh(client k8sClusterMeshImplementation, p Parameters) *K8sClusterMesh {
@@ -567,7 +578,7 @@ func (ai *accessInformation) etcdConfiguration() string {
 	return cfg
 }
 
-func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation) (*accessInformation, error) {
+func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, verbose bool) (*accessInformation, error) {
 	cm, err := client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
@@ -579,13 +590,17 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 
 	clusterName := cm.Data[configNameClusterName]
 
-	k.Log("✨ Extracting access information of cluster %s...", clusterName)
+	if verbose {
+		k.Log("✨ Extracting access information of cluster %s...", clusterName)
+	}
 	svc, err := client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get clustermesh service %q: %w", defaults.ClusterMeshServiceName, err)
 	}
 
-	k.Log("🔑 Extracing secrets from cluster %s...", clusterName)
+	if verbose {
+		k.Log("🔑 Extracing secrets from cluster %s...", clusterName)
+	}
 	caSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get secret %q to retrieve CA: %s", defaults.CASecretName, err)
@@ -612,7 +627,6 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	}
 
 	ai := &accessInformation{
-		ServiceIPs:  svc.Spec.ExternalIPs,
 		ClusterName: cm.Data[configNameClusterName],
 		CA:          caCert,
 		ClientKey:   clientKey,
@@ -631,7 +645,9 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 
 	switch {
 	case len(ai.ServiceIPs) > 0:
-		k.Log("ℹ️  Found ClusterMesh service IPs: %s", ai.ServiceIPs)
+		if verbose {
+			k.Log("ℹ️  Found ClusterMesh service IPs: %s", ai.ServiceIPs)
+		}
 	default:
 		return nil, fmt.Errorf("unable to derive service IPs automatically")
 	}
@@ -684,13 +700,13 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
 	}
 
-	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster)
+	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster, true)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of remote cluster %q: %s", remoteCluster.ClusterName(), err)
 		return err
 	}
 
-	aiLocal, err := k.extractAccessInformation(ctx, k.client)
+	aiLocal, err := k.extractAccessInformation(ctx, k.client, true)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of local cluster %q: %s", k.client.ClusterName(), err)
 		return err
@@ -755,6 +771,62 @@ func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
 	if err := k.disconnectCluster(ctx, remoteCluster, k.client); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+type status struct {
+	accessInformation *accessInformation
+	service           *corev1.Service
+}
+
+func (k *K8sClusterMesh) status(ctx context.Context) (*status, error) {
+	var (
+		err error
+		s   = &status{}
+	)
+
+	s.accessInformation, err = k.extractAccessInformation(ctx, k.client, false)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("clustermesh-apiserver cannot be found: %w", err)
+	}
+
+	s.service = svc
+
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		if len(s.accessInformation.ServiceIPs) == 0 {
+			return nil, fmt.Errorf("no loadbalancer IP available")
+		}
+	}
+
+	return s, nil
+}
+
+func (k *K8sClusterMesh) Status(ctx context.Context) error {
+	var (
+		s   *status
+		err error
+	)
+
+	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
+	defer cancel()
+retry:
+	s, err = k.status(ctx)
+	if err != nil {
+		if k.params.Wait {
+			time.Sleep(2 * time.Second)
+			goto retry
+		}
+
+		return err
+	}
+
+	k.Log("✅ Cluster can be connected to on IPs: %s", s.accessInformation.ServiceIPs)
 
 	return nil
 }
