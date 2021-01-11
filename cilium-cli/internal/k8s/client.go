@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -340,4 +341,8 @@ func (c *Client) CreateResourceQuota(ctx context.Context, namespace string, rq *
 
 func (c *Client) DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.CoreV1().ResourceQuotas(namespace).Delete(ctx, name, opts)
+}
+
+func (c *Client) GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error) {
+	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).Get(ctx, name, opts)
 }
