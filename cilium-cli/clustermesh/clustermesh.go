@@ -145,218 +145,221 @@ etcdctl user grant-role remote remote;
 etcdctl auth enable;
 exit`}
 
-var deployment = &appsv1.Deployment{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:   defaults.ClusterMeshDeploymentName,
-		Labels: defaults.ClusterMeshDeploymentLabels,
-	},
-	Spec: appsv1.DeploymentSpec{
-		Replicas: &replicas,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: defaults.ClusterMeshDeploymentLabels,
+func (k *K8sClusterMesh) generateDeployment() *appsv1.Deployment {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   defaults.ClusterMeshDeploymentName,
+			Labels: defaults.ClusterMeshDeploymentLabels,
 		},
-		Strategy: appsv1.DeploymentStrategy{
-			Type: appsv1.RollingUpdateDeploymentStrategyType,
-			RollingUpdate: &appsv1.RollingUpdateDeployment{
-				MaxUnavailable: &deploymentMaxUnavailable,
-				MaxSurge:       &deploymentMaxSurge,
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: defaults.ClusterMeshDeploymentLabels,
 			},
-		},
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   defaults.ClusterMeshDeploymentName,
-				Labels: defaults.ClusterMeshDeploymentLabels,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxUnavailable: &deploymentMaxUnavailable,
+					MaxSurge:       &deploymentMaxSurge,
+				},
 			},
-			Spec: corev1.PodSpec{
-				RestartPolicy:      corev1.RestartPolicyAlways,
-				ServiceAccountName: defaults.ClusterMeshServiceAccountName,
-				Containers: []corev1.Container{
-					{
-						Name:    "etcd",
-						Command: []string{"/usr/local/bin/etcd"},
-						Args: []string{
-							"--data-dir=/var/run/etcd",
-							"--name=clustermesh-apiserver",
-							"--client-cert-auth",
-							"--trusted-ca-file=/var/lib/etcd-secrets/ca.crt",
-							"--cert-file=/var/lib/etcd-secrets/tls.crt",
-							"--key-file=/var/lib/etcd-secrets/tls.key",
-							"--listen-client-urls=https://127.0.0.1:2379,https://$(HOSTNAME_IP):2379",
-							"--advertise-client-urls=https://$(HOSTNAME_IP):2379",
-							"--initial-cluster-token=clustermesh-apiserver",
-							"--auto-compaction-retention=1",
-						},
-						Image:           "quay.io/coreos/etcd:v3.4.13",
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						Env: []corev1.EnvVar{
-							{
-								Name:  "ETCDCTL_API",
-								Value: "3",
-							},
-							{
-								Name: "HOSTNAME_IP",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "status.podIP",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "etcd-server-secrets",
-								MountPath: "/var/lib/etcd-secrets",
-								ReadOnly:  true,
-							},
-							{
-								Name:      "etcd-data-dir",
-								MountPath: "/var/run/etcd",
-							},
-						},
-					},
-					{
-						Name:    "apiserver",
-						Command: []string{"/usr/bin/clustermesh-apiserver"},
-						Args: []string{
-							"--cluster-name=$(CLUSTER_NAME)",
-							"--kvstore-opt",
-							"etcd.config=/var/lib/cilium/etcd-config.yaml",
-						},
-						Image:           "quay.io/cilium/clustermesh-apiserver:latest",
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						Env: []corev1.EnvVar{
-							{
-								Name: "CLUSTER_NAME",
-								ValueFrom: &corev1.EnvVarSource{
-									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: defaults.ConfigMapName,
-										},
-										Key: configNameClusterName,
-									},
-								},
-							},
-							{
-								Name: "CLUSTER_ID",
-								ValueFrom: &corev1.EnvVarSource{
-									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: defaults.ConfigMapName,
-										},
-										Key: configNameClusterID,
-									},
-								},
-							},
-							{
-								Name: "IDENTITY_ALLOCATION_MODE",
-								ValueFrom: &corev1.EnvVarSource{
-									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: defaults.ConfigMapName,
-										},
-										Key: "identity-allocation-mode",
-									},
-								},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "etcd-admin-client",
-								MountPath: "/var/lib/cilium/etcd-secrets",
-								ReadOnly:  true,
-							},
-						},
-					},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   defaults.ClusterMeshDeploymentName,
+					Labels: defaults.ClusterMeshDeploymentLabels,
 				},
-				InitContainers: []corev1.Container{
-					{
-						Name:            "etcd-init",
-						Command:         []string{"/bin/sh", "-c"},
-						Args:            initContainerArgs,
-						Image:           "quay.io/coreos/etcd:v3.4.13",
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						Env: []corev1.EnvVar{
-							{
-								Name:  "ETCDCTL_API",
-								Value: "3",
+				Spec: corev1.PodSpec{
+					RestartPolicy:      corev1.RestartPolicyAlways,
+					ServiceAccountName: defaults.ClusterMeshServiceAccountName,
+					Containers: []corev1.Container{
+						{
+							Name:    "etcd",
+							Command: []string{"/usr/local/bin/etcd"},
+							Args: []string{
+								"--data-dir=/var/run/etcd",
+								"--name=clustermesh-apiserver",
+								"--client-cert-auth",
+								"--trusted-ca-file=/var/lib/etcd-secrets/ca.crt",
+								"--cert-file=/var/lib/etcd-secrets/tls.crt",
+								"--key-file=/var/lib/etcd-secrets/tls.key",
+								"--listen-client-urls=https://127.0.0.1:2379,https://$(HOSTNAME_IP):2379",
+								"--advertise-client-urls=https://$(HOSTNAME_IP):2379",
+								"--initial-cluster-token=clustermesh-apiserver",
+								"--auto-compaction-retention=1",
 							},
-							{
-								Name: "HOSTNAME_IP",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "status.podIP",
+							Image:           "quay.io/coreos/etcd:v3.4.13",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ETCDCTL_API",
+									Value: "3",
+								},
+								{
+									Name: "HOSTNAME_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
 									},
 								},
 							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "etcd-data-dir",
-								MountPath: "etcd-data-dir",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "etcd-server-secrets",
+									MountPath: "/var/lib/etcd-secrets",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "etcd-data-dir",
+									MountPath: "/var/run/etcd",
+								},
 							},
 						},
-					},
-				},
-				Volumes: []corev1.Volume{
-					{
-						Name: "etcd-data-dir",
-						VolumeSource: corev1.VolumeSource{
-							EmptyDir: &corev1.EmptyDirVolumeSource{},
-						},
-					},
-					{
-						Name: "etcd-server-secrets",
-						VolumeSource: corev1.VolumeSource{
-							Projected: &corev1.ProjectedVolumeSource{
-								DefaultMode: &secretDefaultMode,
-								Sources: []corev1.VolumeProjection{
-									{
-										Secret: &corev1.SecretProjection{
+						{
+							Name:    "apiserver",
+							Command: []string{"/usr/bin/clustermesh-apiserver"},
+							Args: []string{
+								"--cluster-name=" + k.clusterName,
+								"--cluster-id=" + k.clusterID,
+								"--kvstore-opt",
+								"etcd.config=/var/lib/cilium/etcd-config.yaml",
+							},
+							Image:           "quay.io/cilium/clustermesh-apiserver:latest",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name: "CILIUM_CLUSTER_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.CASecretName,
+												Name: defaults.ConfigMapName,
 											},
-											Items: []corev1.KeyToPath{
-												{
-													Key:  defaults.CASecretCertName,
-													Path: "ca.crt",
+											Key: configNameClusterName,
+										},
+									},
+								},
+								{
+									Name: "CILIUM_CLUSTER_ID",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: defaults.ConfigMapName,
+											},
+											Key: configNameClusterID,
+										},
+									},
+								},
+								{
+									Name: "CILIUM_IDENTITY_ALLOCATION_MODE",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: defaults.ConfigMapName,
+											},
+											Key: "identity-allocation-mode",
+										},
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "etcd-admin-client",
+									MountPath: "/var/lib/cilium/etcd-secrets",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:            "etcd-init",
+							Command:         []string{"/bin/sh", "-c"},
+							Args:            initContainerArgs,
+							Image:           "quay.io/coreos/etcd:v3.4.13",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ETCDCTL_API",
+									Value: "3",
+								},
+								{
+									Name: "HOSTNAME_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "etcd-data-dir",
+									MountPath: "etcd-data-dir",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "etcd-data-dir",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "etcd-server-secrets",
+							VolumeSource: corev1.VolumeSource{
+								Projected: &corev1.ProjectedVolumeSource{
+									DefaultMode: &secretDefaultMode,
+									Sources: []corev1.VolumeProjection{
+										{
+											Secret: &corev1.SecretProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: defaults.CASecretName,
+												},
+												Items: []corev1.KeyToPath{
+													{
+														Key:  defaults.CASecretCertName,
+														Path: "ca.crt",
+													},
+												},
+											},
+										},
+										{
+											Secret: &corev1.SecretProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: defaults.ClusterMeshServerSecretName,
 												},
 											},
 										},
 									},
-									{
-										Secret: &corev1.SecretProjection{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.ClusterMeshServerSecretName,
-											},
-										},
-									},
 								},
 							},
 						},
-					},
-					{
-						Name: "etcd-admin-client",
-						VolumeSource: corev1.VolumeSource{
-							Projected: &corev1.ProjectedVolumeSource{
-								DefaultMode: &secretDefaultMode,
-								Sources: []corev1.VolumeProjection{
-									{
-										Secret: &corev1.SecretProjection{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.CASecretName,
-											},
-											Items: []corev1.KeyToPath{
-												{
-													Key:  defaults.CASecretCertName,
-													Path: "ca.crt",
+						{
+							Name: "etcd-admin-client",
+							VolumeSource: corev1.VolumeSource{
+								Projected: &corev1.ProjectedVolumeSource{
+									DefaultMode: &secretDefaultMode,
+									Sources: []corev1.VolumeProjection{
+										{
+											Secret: &corev1.SecretProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: defaults.CASecretName,
+												},
+												Items: []corev1.KeyToPath{
+													{
+														Key:  defaults.CASecretCertName,
+														Path: "ca.crt",
+													},
 												},
 											},
 										},
-									},
-									{
-										Secret: &corev1.SecretProjection{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: defaults.ClusterMeshAdminSecretName,
+										{
+											Secret: &corev1.SecretProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: defaults.ClusterMeshAdminSecretName,
+												},
 											},
 										},
 									},
@@ -367,7 +370,8 @@ var deployment = &appsv1.Deployment{
 				},
 			},
 		},
-	},
+	}
+	return deployment
 }
 
 type k8sClusterMeshImplementation interface {
@@ -398,6 +402,8 @@ type K8sClusterMesh struct {
 	certManager *certs.CertManager
 	flavor      k8s.Flavor
 	params      Parameters
+	clusterName string
+	clusterID   string
 }
 
 type Parameters struct {
@@ -448,6 +454,7 @@ func (k *K8sClusterMesh) Validate(ctx context.Context) error {
 		k.Log("❌ Cluster ID (%q) must be set to a value > 0", configNameClusterID)
 		failures++
 	}
+	k.clusterID = clusterID
 
 	clusterName, ok := cm.Data[configNameClusterName]
 	if !ok {
@@ -459,6 +466,7 @@ func (k *K8sClusterMesh) Validate(ctx context.Context) error {
 		k.Log("❌ Cluster name (%q) must be set to a value other than \"default\"", configNameClusterName)
 		failures++
 	}
+	k.clusterName = clusterName
 
 	if failures > 0 {
 		return fmt.Errorf("%d validation errors", failures)
@@ -530,7 +538,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, deployment, metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateDeployment(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
