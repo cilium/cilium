@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	hubprinter "github.com/cilium/hubble/pkg/printer"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
@@ -137,6 +138,7 @@ type k8sConnectivityImplementation interface {
 	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
+	GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error)
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
 	ClusterName() (name string)
 }
@@ -639,6 +641,10 @@ type Parameters struct {
 	Writer          io.Writer
 }
 
+func (p Parameters) ciliumEndpointTimeout() time.Duration {
+	return 30 * time.Second
+}
+
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {
 	k.Log("🔥 [%s] Deleting connectivity check deployments...", client.ClusterName())
 	client.DeleteDeployment(ctx, connectivityCheckNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
@@ -855,6 +861,29 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func (k *K8sConnectivityCheck) validateCiliumEndpoint(ctx context.Context, client k8sConnectivityImplementation, namespace, name string) error {
+	k.Log("⌛ [%s] Waiting for CiliumEndpoint for pod %s to appear...", client.ClusterName(), namespace+"/"+name)
+	for {
+		_, err := k.clients.src.GetCiliumEndpoint(ctx, connectivityCheckNamespace, name, metav1.GetOptions{})
+		if err == nil {
+			return nil
+		}
+		select {
+		case <-time.After(2 * time.Second):
+		case <-ctx.Done():
+			return fmt.Errorf("aborted waiting for CiliumEndpoint for pod %s to appear: %w", name, ctx.Err())
+		}
+	}
+
+	return nil
+}
+
+func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
+	var err error
+
 	srcDeployments, dstDeployments := k.deploymentList()
 	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", k.clients.src.ClusterName(), srcDeployments)
 	for !allDeploymentsReady(ctx, k.clients.src, connectivityCheckNamespace, srcDeployments) {
@@ -863,6 +892,36 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", k.clients.src.ClusterName(), dstDeployments)
 	for !allDeploymentsReady(ctx, k.clients.dst, connectivityCheckNamespace, dstDeployments) {
 		time.Sleep(time.Second)
+	}
+
+	k.clientPods, err = k.client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
+	if err != nil {
+		return fmt.Errorf("unable to list client pods: %s", err)
+	}
+
+	for _, pod := range k.clientPods.Items {
+		ctx, cancel := context.WithTimeout(ctx, k.params.ciliumEndpointTimeout())
+		defer cancel()
+		if err := k.validateCiliumEndpoint(ctx, k.clients.src, connectivityCheckNamespace, pod.Name); err != nil {
+			return err
+		}
+	}
+
+	k.echoPods = map[string]string{}
+	for _, client := range k.clients.clients() {
+		echoPods, err := client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
+		if err != nil {
+			return fmt.Errorf("unable to list echo pods: %s", err)
+		}
+		for _, echoPod := range echoPods.Items {
+			k.echoPods[echoPod.Name] = echoPod.Status.PodIP
+
+			ctx, cancel := context.WithTimeout(ctx, k.params.ciliumEndpointTimeout())
+			defer cancel()
+			if err := k.validateCiliumEndpoint(ctx, client, connectivityCheckNamespace, echoPod.Name); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -890,27 +949,14 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 		return err
 	}
 
+	if err := k.validateDeployment(ctx); err != nil {
+		return err
+	}
+
 	if k.params.Hubble {
 		k.Log("🔭 Enabling Hubble telescope...")
 		if err := k.enableHubbleClient(ctx); err != nil {
 			return fmt.Errorf("unable to create hubble client: %s", err)
-		}
-	}
-
-	k.clientPods, err = k.client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
-	if err != nil {
-		return fmt.Errorf("unable to list client pods: %s", err)
-	}
-
-	k.echoPods = map[string]string{}
-
-	for _, client := range k.clients.clients() {
-		echoPods, err := client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
-		if err != nil {
-			return fmt.Errorf("unable to list echo pods: %s", err)
-		}
-		for _, echoPod := range echoPods.Items {
-			k.echoPods[echoPod.Name] = echoPod.Status.PodIP
 		}
 	}
 
