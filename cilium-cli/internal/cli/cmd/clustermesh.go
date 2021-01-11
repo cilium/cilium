@@ -56,7 +56,7 @@ func newCmdClusterMeshEnable() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
-	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes to expose control plane")
+	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes to expose control plane { ClusterIP | LoadBalancer | NodePort }")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
 	return cmd
