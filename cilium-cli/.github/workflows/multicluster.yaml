@@ -1,0 +1,105 @@
+name: Multicluster
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+env:
+  KIND_VERSION: v0.9.0
+  KIND_CONFIG1: .github/kind-config-1.yaml
+  KIND_CONFIG2: .github/kind-config-2.yaml
+
+jobs:
+  installation-and-connectivitiy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build cilium CLI binary
+        run: |
+          cd cmd/cilium
+          go build
+
+      - name: Create kind cluster1
+        uses: helm/kind-action@v1.0.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG1 }}
+          cluster_name: cluster1
+
+      - name: Install cilium in cluster1
+        run: |
+          # No wait so we can start building cluster 2 in parallel
+          cmd/cilium/cilium install --context kind-cluster1 --cluster-name cluster1 --cluster-id 1 --kube-proxy-replacement disabled --wait=false
+
+      - name: Create kind cluster2
+        uses: helm/kind-action@v1.0.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG2 }}
+          cluster_name: cluster2
+
+      - name: Install cilium in cluster2
+        run: |
+          cmd/cilium/cilium install --context kind-cluster2 --cluster-name cluster2 --cluster-id 2 --kube-proxy-replacement disabled --wait=false --inherit-ca kind-cluster1
+
+      - name: Status cluster1
+        run: |
+          cmd/cilium/cilium status --context kind-cluster1 --wait
+
+          kubectl wait --context kind-cluster1 -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --context kind-cluster1 --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Status cluster2
+        run: |
+          cmd/cilium/cilium status --context kind-cluster2 --wait
+
+          kubectl wait --context kind-cluster2 -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --context kind-cluster2 --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Connect clusters...
+        run: |
+          cmd/cilium/cilium clustermesh enable --context kind-cluster1 --service-type NodePort
+          cmd/cilium/cilium clustermesh enable --context kind-cluster2 --service-type NodePort
+
+          cmd/cilium/cilium clustermesh status --context kind-cluster1 --wait
+          cmd/cilium/cilium clustermesh status --context kind-cluster2 --wait
+
+          cmd/cilium/cilium clustermesh connect --context kind-cluster1 --destination-context kind-cluster2
+
+          # Workaround: Restart cilium to work around fsnotify bug
+          kubectl --context kind-cluster1 -n kube-system delete pod -l k8s-app=cilium
+          kubectl --context kind-cluster2 -n kube-system delete pod -l k8s-app=cilium
+
+          # Wait for Cilium to come back up
+          cmd/cilium/cilium status --context kind-cluster1 --wait
+          cmd/cilium/cilium status --context kind-cluster2 --wait
+
+          # Wait for cluster connections to be estblished
+          cmd/cilium/cilium clustermesh status --context kind-cluster1 --wait
+          cmd/cilium/cilium clustermesh status --context kind-cluster2 --wait
+
+      - name: cilium connectivity test
+        run: |
+          cmd/cilium/cilium connectivity test --context kind-cluster1 --hubble=false --multi-cluster kind-cluster2
+          kubectl --context kind-cluster1 get pods --all-namespaces -o wide
+          kubectl --context kind-cluster1 -n cilium-test get pods -o wide
+          kubectl --context kind-cluster1 -n cilium-test get svc -o wide
+          kubectl --context kind-cluster2 -n cilium-test get pods -o wide
+          kubectl --context kind-cluster2 -n cilium-test get svc -o wide
+          kubectl --context kind-cluster1 -n cilium-test describe pod 
+          kubectl --context kind-cluster2 -n cilium-test describe pod 
+
+      - name: Capture Debug Info
+        if: ${{ failure() }}
+        run: |
+          kubectl --context kind-cluster1 get pods --all-namespaces -o wide
+          kubectl --context kind-cluster1 -n cilium-test describe pod 
+          kubectl --context kind-cluster2 get pods --all-namespaces -o wide
+          kubectl --context kind-cluster2 -n cilium-test describe pod 
