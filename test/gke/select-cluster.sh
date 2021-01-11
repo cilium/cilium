@@ -41,6 +41,14 @@ while [ $locked -ne 0 ]; do
 		continue
 	fi
 
+
+	echo "checking whether cluster ${cluster_uri} has node pools"
+	node_pools=($(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --format="value(name)"))
+	if [ "${#node_pools[@]}" -ne 1 ] ; then
+	  echo "expected 1 node pool, found ${#node_pools[@]}"
+	  continue
+	fi
+
 	echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
 	gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
