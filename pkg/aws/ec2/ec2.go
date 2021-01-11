@@ -357,9 +357,12 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		SecondaryPrivateIpAddressCount: toAllocate,
 		SubnetId:                       aws.String(subnetID),
 		Groups:                         groups,
-		TagSpecifications: []ec2_types.TagSpecification{
+	}
+
+	if len(c.eniTagSpecification.Tags) > 0 {
+		input.TagSpecifications = []ec2_types.TagSpecification{
 			c.eniTagSpecification,
-		},
+		}
 	}
 
 	c.limiter.Limit(ctx, "CreateNetworkInterface")
