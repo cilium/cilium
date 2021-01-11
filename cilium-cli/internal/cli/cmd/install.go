@@ -45,6 +45,7 @@ func newCmdInstall() *cobra.Command {
 	cmd.Flags().StringVar(&params.NativeRoutingCIDR, "native-routing-cidr", "", "CIDR within which native routing is possible")
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
 
 	return cmd
 }
