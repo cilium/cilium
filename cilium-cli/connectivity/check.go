@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/k8s"
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
@@ -137,15 +138,17 @@ type k8sConnectivityImplementation interface {
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
+	ClusterName() (name string)
 }
 
 type K8sConnectivityCheck struct {
+	clients         *deploymentClients
 	client          k8sConnectivityImplementation
 	params          Parameters
 	ciliumNamespace string
 	hubbleClient    observer.ObserverClient
 	clientPods      *corev1.PodList
-	echoPods        *corev1.PodList
+	echoPods        map[string]string
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) *K8sConnectivityCheck {
@@ -391,43 +394,22 @@ func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
 	}
 }
 
-func (k *K8sConnectivityCheck) allDeploymentsReady(ctx context.Context, namespace string, deployments []string) bool {
+func allDeploymentsReady(ctx context.Context, client k8sConnectivityImplementation, namespace string, deployments []string) bool {
 	for _, deployment := range deployments {
-		if k.client.DeploymentIsReady(ctx, namespace, deployment) != nil {
+		if client.DeploymentIsReady(ctx, namespace, deployment) != nil {
 			return false
 		}
 	}
 	return true
 }
 
-func (k *K8sConnectivityCheck) ciliumPodsMap(ctx context.Context) (map[string]*corev1.Pod, error) {
-	m := map[string]*corev1.Pod{}
-
-	ciliumPods, err := k.client.ListPods(ctx, k.ciliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pod := range ciliumPods.Items {
-		m[pod.Status.PodIP] = &pod
-	}
-
-	return m, nil
-}
-
-func (k *K8sConnectivityCheck) validateFlows(ctx context.Context, since time.Time, srcPod, srcIP, dstPod, dstIP string, dstPort int) error {
-
-	return nil
-}
-
 func (k *K8sConnectivityCheck) validatePodToPod(ctx context.Context) {
 	for _, clientPod := range k.clientPods.Items {
-		for _, echoPod := range k.echoPods.Items {
+		for echoName, echoIP := range k.echoPods {
 			var (
 				srcPod     = connectivityCheckNamespace + "/" + clientPod.Name
-				dstPod     = connectivityCheckNamespace + "/" + echoPod.Name
+				dstPod     = connectivityCheckNamespace + "/" + echoName
 				printFlows = k.params.PrintFlows
-				echoIP     = echoPod.Status.PodIP
 				success    = true
 			)
 
@@ -475,9 +457,9 @@ func (k *K8sConnectivityCheck) validatePodToPod(ctx context.Context) {
 			}
 
 			if success {
-				k.Log("✅ client pod %s was able to communicate with echo pod %s (%s)", clientPod.Name, echoPod.Name, echoIP)
+				k.Log("✅ client pod %s was able to communicate with echo pod %s (%s)", clientPod.Name, echoName, echoIP)
 			} else {
-				k.Log("❌ client pod %s was not able to communicate with echo pod %s (%s)", clientPod.Name, echoPod.Name, echoIP)
+				k.Log("❌ client pod %s was not able to communicate with echo pod %s (%s)", clientPod.Name, echoName, echoIP)
 			}
 
 			k.Relax()
@@ -501,7 +483,7 @@ func (k *K8sConnectivityCheck) validatePodToService(ctx context.Context) {
 
 			k.Header("🔌 Validating from pod %s to service %s...", srcPod, echoSvc)
 			now := time.Now()
-			_, err := k.client.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand(echoSvc+":8080"))
+			_, err := k.clients.src.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand(echoSvc+":8080"))
 			if err != nil {
 				k.Log("❌ curl connectivity check command failed: %s", err)
 				success = false
@@ -552,7 +534,7 @@ func (k *K8sConnectivityCheck) validatePodToWorld(ctx context.Context) {
 
 		k.Header("🔌 Validating from pod %s to outside of cluster...", srcPod)
 		now := time.Now()
-		_, err := k.client.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand("https://google.com"))
+		_, err := k.clients.src.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand("https://google.com"))
 		if err != nil {
 			k.Log("❌ curl connectivity check command failed: %s", err)
 			success = false
@@ -651,78 +633,146 @@ type Parameters struct {
 	ForceDeploy     bool
 	Hubble          bool
 	HubbleServer    string
+	MultiCluster    string
 	PostRelax       time.Duration
 	PreFlowRelax    time.Duration
 	Writer          io.Writer
 }
 
-func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context) error {
-	k.Log("🔥 Deleting connectivity check deployments in namespace %s", connectivityCheckNamespace)
-	k.client.DeleteDeployment(ctx, connectivityCheckNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteDeployment(ctx, connectivityCheckNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteDeployment(ctx, connectivityCheckNamespace, clientDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteService(ctx, connectivityCheckNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteService(ctx, connectivityCheckNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
-	k.client.DeleteNamespace(ctx, connectivityCheckNamespace, metav1.DeleteOptions{})
+func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {
+	k.Log("🔥 [%s] Deleting connectivity check deployments...", client.ClusterName())
+	client.DeleteDeployment(ctx, connectivityCheckNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
+	client.DeleteDeployment(ctx, connectivityCheckNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
+	client.DeleteDeployment(ctx, connectivityCheckNamespace, clientDeploymentName, metav1.DeleteOptions{})
+	client.DeleteService(ctx, connectivityCheckNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
+	client.DeleteService(ctx, connectivityCheckNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
+	client.DeleteNamespace(ctx, connectivityCheckNamespace, metav1.DeleteOptions{})
+
+	_, err := client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
+	if err == nil {
+		k.Log("⌛ [%s] Waiting for namespace %s to disappear", client.ClusterName(), connectivityCheckNamespace)
+		for err == nil {
+			time.Sleep(time.Second)
+			_, err = client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
+		}
+	}
 
 	return nil
 }
 
-func (k *K8sConnectivityCheck) deploymentList() []string {
-	deployments := []string{
-		echoSameNodeDeploymentName,
-		clientDeploymentName,
+func (k *K8sConnectivityCheck) deploymentList() (srcList []string, dstList []string) {
+	srcList = []string{clientDeploymentName, echoSameNodeDeploymentName}
+
+	if k.params.MultiCluster != "" || !k.params.SingleNode {
+		dstList = append(dstList, echoOtherNodeDeploymentName)
 	}
 
-	if !k.params.SingleNode {
-		deployments = append(deployments, echoOtherNodeDeploymentName)
+	return srcList, dstList
+}
+
+type deploymentClients struct {
+	dstInOtherCluster bool
+	src               k8sConnectivityImplementation
+	dst               k8sConnectivityImplementation
+}
+
+func (d *deploymentClients) clients() []k8sConnectivityImplementation {
+	if d.dstInOtherCluster {
+		return []k8sConnectivityImplementation{d.src, d.dst}
+	}
+	return []k8sConnectivityImplementation{d.src}
+}
+
+func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClients, error) {
+	c := &deploymentClients{
+		src: k.client,
+		dst: k.client,
 	}
 
-	return deployments
+	// In single-cluster environment, automatically detect a single-node
+	// environment so we can skip deploying tests which depend on multiple
+	// nodes
+	if k.params.MultiCluster == "" {
+		daemonSet, err := k.client.GetDaemonSet(ctx, k.params.CiliumNamespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
+		if err != nil {
+			k.Log("❌ Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
+			return nil, fmt.Errorf("Unable to determine status of Cilium DaemonSet: %w", err)
+		}
+
+		if daemonSet.Status.DesiredNumberScheduled == 1 && !k.params.SingleNode {
+			k.Log("ℹ️  Single node environment detected, enabling single node connectivity test")
+			k.params.SingleNode = true
+		}
+	} else {
+		dst, err := k8s.NewClient(k.params.MultiCluster, "")
+		if err != nil {
+			return nil, fmt.Errorf("unable to create Kubernetes client for remote cluster %q: %w", k.params.MultiCluster, err)
+		}
+
+		c.dst = dst
+		c.dstInOtherCluster = true
+	}
+
+	return c, nil
 }
 
 func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
-	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.CiliumNamespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
-	if err != nil {
-		k.Log("❌ Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
-		return fmt.Errorf("Unable to determine status of Cilium DaemonSet: %w", err)
-	}
+	var srcDeploymentNeeded, dstDeploymentNeeded bool
 
-	if daemonSet.Status.DesiredNumberScheduled == 1 && !k.params.SingleNode {
-		k.Log("ℹ️  Single node environment detected, enabling single node connectivity test")
-		k.params.SingleNode = true
-	}
-
-	_, err = k.client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
-	if err != nil || k.params.ForceDeploy {
-		if err == nil {
-			k.deleteDeployments(ctx)
-
-			_, err := k.client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
-			if err == nil {
-				k.Log("⌛ Waiting for namespace %s to disappear", connectivityCheckNamespace)
-				for err == nil {
-					time.Sleep(time.Second)
-					_, err = k.client.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
-				}
-			}
+	if k.params.ForceDeploy {
+		if err := k.deleteDeployments(ctx, k.clients.src); err != nil {
+			return err
 		}
+	}
 
-		k.Log("✨ Deploying connectivity check...")
-		_, err = k.client.CreateNamespace(ctx, connectivityCheckNamespace, metav1.CreateOptions{})
+	_, err := k.clients.src.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
+	if err != nil {
+		srcDeploymentNeeded = true
+		// In a single cluster environment, the source client is also
+		// responsibel for destination deployments
+		if k.params.MultiCluster == "" {
+			dstDeploymentNeeded = true
+		}
+		k.Log("✨ [%s] Creating namespace for connectivity check...", k.clients.src.ClusterName())
+		_, err = k.clients.src.CreateNamespace(ctx, connectivityCheckNamespace, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create namespace %s: %s", connectivityCheckNamespace, err)
 		}
+	}
 
+	if k.params.MultiCluster != "" {
+		if k.params.ForceDeploy {
+			if err := k.deleteDeployments(ctx, k.clients.dst); err != nil {
+				return err
+			}
+		}
+
+		_, err = k.clients.dst.GetNamespace(ctx, connectivityCheckNamespace, metav1.GetOptions{})
+		if err != nil {
+			dstDeploymentNeeded = true
+			k.Log("✨ [%s] Creating namespace for connectivity check...", k.clients.dst.ClusterName())
+			_, err = k.clients.dst.CreateNamespace(ctx, connectivityCheckNamespace, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create namespace %s: %s", connectivityCheckNamespace, err)
+			}
+		}
+	}
+
+	if srcDeploymentNeeded {
+		k.Log("✨ [%s] Deploying echo-same-node service...", k.clients.src.ClusterName())
 		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, "http", 8080)
-		_, err = k.client.CreateService(ctx, connectivityCheckNamespace, svc, metav1.CreateOptions{})
+		_, err = k.clients.src.CreateService(ctx, connectivityCheckNamespace, svc, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
 
-		if !k.params.SingleNode {
-			svc = newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, "http", 8080)
-			_, err = k.client.CreateService(ctx, connectivityCheckNamespace, svc, metav1.CreateOptions{})
+		if k.params.MultiCluster != "" {
+			k.Log("✨ [%s] Deploying echo-other-node service...", k.clients.src.ClusterName())
+			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, "http", 8080)
+			svc.ObjectMeta.Annotations = map[string]string{}
+			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
+
+			_, err = k.clients.src.CreateService(ctx, connectivityCheckNamespace, svc, metav1.CreateOptions{})
 			if err != nil {
 				return err
 			}
@@ -749,12 +799,34 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 			},
 		})
 
-		_, err = k.client.CreateDeployment(ctx, connectivityCheckNamespace, echoDeployment, metav1.CreateOptions{})
+		_, err = k.clients.src.CreateDeployment(ctx, connectivityCheckNamespace, echoDeployment, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create deployment %s: %s", echoSameNodeDeploymentName, err)
 		}
 
-		if !k.params.SingleNode {
+		k.Log("✨ [%s] Deploying client service...", k.clients.src.ClusterName())
+		clientDeployment := newDeployment(deploymentParameters{Name: clientDeploymentName, Kind: kindClientName, Port: 8080, Image: "docker.io/byrnedo/alpine-curl:0.1.8", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
+		_, err = k.clients.src.CreateDeployment(ctx, connectivityCheckNamespace, clientDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %s", clientDeploymentName, err)
+		}
+	}
+
+	if dstDeploymentNeeded {
+		if !k.params.SingleNode || k.params.MultiCluster != "" {
+			k.Log("✨ [%s] Deploying echo-other-node service...", k.clients.dst.ClusterName())
+			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, "http", 8080)
+
+			if k.params.MultiCluster != "" {
+				svc.ObjectMeta.Annotations = map[string]string{}
+				svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
+			}
+
+			_, err = k.clients.dst.CreateService(ctx, connectivityCheckNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+
 			echoOtherNodeDeployment := newDeployment(deploymentParameters{
 				Name:  echoOtherNodeDeploymentName,
 				Kind:  kindEchoName,
@@ -776,22 +848,20 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 				},
 			})
 
-			_, err = k.client.CreateDeployment(ctx, connectivityCheckNamespace, echoOtherNodeDeployment, metav1.CreateOptions{})
+			_, err = k.clients.dst.CreateDeployment(ctx, connectivityCheckNamespace, echoOtherNodeDeployment, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create deployment %s: %s", echoOtherNodeDeploymentName, err)
 			}
 		}
-
-		clientDeployment := newDeployment(deploymentParameters{Name: clientDeploymentName, Kind: kindClientName, Port: 8080, Image: "docker.io/byrnedo/alpine-curl:0.1.8", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
-		_, err = k.client.CreateDeployment(ctx, connectivityCheckNamespace, clientDeployment, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", clientDeploymentName, err)
-		}
 	}
 
-	k.Log("⌛ Waiting for deployments to become ready")
-	deployments := k.deploymentList()
-	for !k.allDeploymentsReady(ctx, connectivityCheckNamespace, deployments) {
+	srcDeployments, dstDeployments := k.deploymentList()
+	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", k.clients.src.ClusterName(), srcDeployments)
+	for !allDeploymentsReady(ctx, k.clients.src, connectivityCheckNamespace, srcDeployments) {
+		time.Sleep(time.Second)
+	}
+	k.Log("⌛ [%s] Waiting for deployments %s to become ready...", k.clients.src.ClusterName(), dstDeployments)
+	for !allDeploymentsReady(ctx, k.clients.dst, connectivityCheckNamespace, dstDeployments) {
 		time.Sleep(time.Second)
 	}
 
@@ -809,7 +879,13 @@ func (k *K8sConnectivityCheck) Header(format string, a ...interface{}) {
 }
 
 func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
-	err := k.deploy(ctx)
+	c, err := k.initClients(ctx)
+	if err != nil {
+		return err
+	}
+	k.clients = c
+
+	err = k.deploy(ctx)
 	if err != nil {
 		return err
 	}
@@ -826,9 +902,16 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 		return fmt.Errorf("unable to list client pods: %s", err)
 	}
 
-	k.echoPods, err = k.client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
-	if err != nil {
-		return fmt.Errorf("unable to list echo pods: %s", err)
+	k.echoPods = map[string]string{}
+
+	for _, client := range k.clients.clients() {
+		echoPods, err := client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
+		if err != nil {
+			return fmt.Errorf("unable to list echo pods: %s", err)
+		}
+		for _, echoPod := range echoPods.Items {
+			k.echoPods[echoPod.Name] = echoPod.Status.PodIP
+		}
 	}
 
 	k.validatePodToPod(ctx)
