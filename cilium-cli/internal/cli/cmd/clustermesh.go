@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/cilium/cilium-cli/clustermesh"
 
@@ -34,6 +35,7 @@ func newCmdClusterMesh() *cobra.Command {
 	cmd.AddCommand(newCmdClusterMeshDisable())
 	cmd.AddCommand(newCmdClusterMeshConnect())
 	cmd.AddCommand(newCmdClusterMeshDisconnect())
+	cmd.AddCommand(newCmdClusterMeshStatus())
 
 	return cmd
 }
@@ -121,6 +123,29 @@ func newCmdClusterMeshDisconnect() *cobra.Command {
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringVar(&params.DestinationContext, "destination-context", "", "Kubernetes configuration context of destination cluster")
+
+	return cmd
+}
+
+func newCmdClusterMeshStatus() *cobra.Command {
+	var params = clustermesh.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show status of ClusterMesh",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
+			return cm.Status(context.Background())
+		},
+	}
+
+	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait until status is successful")
+	cmd.Flags().DurationVar(&params.WaitTime, "wait-duration", 15*time.Minute, "Maximum time to wait")
 
 	return cmd
 }
