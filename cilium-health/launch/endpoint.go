@@ -345,8 +345,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// ENI mode does not support IPv6.
-		if err := routingConfig.Configure(healthIP,
-			mtuConfig.GetDeviceMTU(), option.Config.EnableIPv4Masquerade); err != nil {
+		if err := routingConfig.Configure(healthIP, mtuConfig.GetDeviceMTU()); err != nil {
 
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
 		}
@@ -373,5 +372,5 @@ func LaunchAsEndpoint(baseCtx context.Context,
 }
 
 type routingConfigurer interface {
-	Configure(ip net.IP, mtu int, masq bool) error
+	Configure(ip net.IP, mtu int) error
 }

@@ -45,13 +45,14 @@ func (e *LinuxRoutingSuite) TestConfigure(c *C) {
 		ifaceCleanup := createDummyDevice(c, masterMAC)
 		defer ifaceCleanup()
 
-		runConfigureThenDelete(c, ri, ip, 1500, false)
+		runConfigureThenDelete(c, ri, ip, 1500)
 	})
 	runFuncInNetNS(c, func() {
 		ifaceCleanup := createDummyDevice(c, masterMAC)
 		defer ifaceCleanup()
 
-		runConfigureThenDelete(c, ri, ip, 1500, true)
+		ri.Masquerade = false
+		runConfigureThenDelete(c, ri, ip, 1500)
 	})
 }
 
@@ -59,7 +60,7 @@ func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	_, ri := getFakes(c)
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
-	err := ri.Configure(ipv6, 1500, true)
+	err := ri.Configure(ipv6, 1500)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
@@ -84,7 +85,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 		{
 			name: "valid IP addr matching rules",
 			preRun: func() net.IP {
-				runConfigure(c, fakeRoutingInfo, fakeIP, 1500, false)
+				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
 				return fakeIP
 			},
 			wantErr: false,
@@ -95,7 +96,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 				ip := net.ParseIP("192.168.2.233")
 				c.Assert(ip, NotNil)
 
-				runConfigure(c, fakeRoutingInfo, fakeIP, 1500, false)
+				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
 				return ip
 			},
 			wantErr: true,
@@ -106,7 +107,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 				ip := net.ParseIP("192.168.2.233")
 				c.Assert(ip, NotNil)
 
-				runConfigure(c, fakeRoutingInfo, ip, 1500, false)
+				runConfigure(c, fakeRoutingInfo, ip, 1500)
 
 				// Find interface ingress rules so that we can create a
 				// near-duplicate.
@@ -159,10 +160,10 @@ func runFuncInNetNS(c *C, run func()) {
 	run()
 }
 
-func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool) {
+func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int) {
 	// Create rules and routes
 	beforeCreationRules, beforeCreationRoutes := listRulesAndRoutes(c, netlink.FAMILY_V4)
-	runConfigure(c, ri, ip, mtu, masq)
+	runConfigure(c, ri, ip, mtu)
 	afterCreationRules, afterCreationRoutes := listRulesAndRoutes(c, netlink.FAMILY_V4)
 
 	c.Assert(len(afterCreationRules), Not(Equals), 0)
@@ -181,8 +182,8 @@ func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool)
 	c.Assert(len(afterDeletionRoutes), Equals, len(beforeCreationRoutes))
 }
 
-func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool) {
-	err := ri.Configure(ip, mtu, masq)
+func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int) {
+	err := ri.Configure(ip, mtu)
 	c.Assert(err, IsNil)
 }
 
