@@ -389,7 +389,7 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	if kvstoreEnabled() {
 		if operatorOption.Config.SyncK8sServices {
-			operatorWatchers.StartSynchronizingServices(true)
+			operatorWatchers.StartSynchronizingServices(true, option.Config)
 		}
 
 		var goopts *kvstore.ExtraOptions
