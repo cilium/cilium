@@ -57,7 +57,7 @@ RUN apt-get update && \
     strip -s ./loopback
 COPY --from=docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac /usr/local/bin/clang /usr/local/bin/llc /bin/
 COPY --from=docker.io/cilium/cilium-bpftool:906ffee7cd996bf6bde2c074cdd5954703a0fd5f /usr/local/bin/bpftool /bin/
-COPY --from=docker.io/cilium/cilium-iproute2:3f4e19bb56e261313291f314b604d44fe15ea47f /usr/local/bin/tc /usr/local/bin/ip /usr/local/bin/ss /bin/
+COPY --from=docker.io/cilium/cilium-iproute2:f873abca8c7128f48206c6aecbbcdc6315d3d79d /usr/local/bin/tc /usr/local/bin/ip /usr/local/bin/ss /bin/
 COPY --from=gops /go/bin/gops /bin/
 
 #

@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.1-experimental
 
-# Copyright 2020 Authors of Cilium
+# Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:5af8f784456b17fc0a2bbe3777855ca198124272
-ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:95fea74fae5d8ef4adc5a07d4b79d7772d89a724
+ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:6b71cfc0306524da4ec2b9737f6dab747fed2b7b
 
 FROM ${CILIUM_BUILDER_IMAGE} as builder
 
