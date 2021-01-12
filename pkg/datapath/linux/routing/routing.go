@@ -41,8 +41,7 @@ var (
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
 // mtu: The interface MTU.
-// masq: Whether masquerading is enabled.
-func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
+func (info *RoutingInfo) Configure(ip net.IP, mtu int) error {
 	if ip.To4() == nil {
 		log.WithFields(logrus.Fields{
 			"endpointIP": ip,
@@ -68,7 +67,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
 		return fmt.Errorf("unable to install ip rule: %s", err)
 	}
 
-	if masq {
+	if info.Masquerade {
 		// Lookup a VPC specific table for all traffic from an endpoint to the
 		// CIDR configured for the VPC on which the endpoint has the IP on.
 		for _, cidr := range info.IPv4CIDRs {
