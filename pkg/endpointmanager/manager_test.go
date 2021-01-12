@@ -43,6 +43,19 @@ import (
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) { TestingT(t) }
 
+func (mgr *EndpointManager) waitEndpointRemoved(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	mgr.unexpose(ep)
+	ep.Stop()
+	return nil
+}
+
+// WaitEndpointRemoved waits until all operations associated with Remove of
+// the endpoint have been completed.
+// Note: only used for unit tests, to avoid ep.Delete()
+func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
+	mgr.waitEndpointRemoved(ep, endpoint.DeleteConfig{})
+}
+
 type EndpointManagerSuite struct {
 	repo *policy.Repository
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -72,6 +73,20 @@ type EndpointManager struct {
 
 	// subscribers are notified when events occur in the EndpointManager.
 	subscribers map[Subscriber]struct{}
+
+	// checkHealth supports endpoint garbage collection by verifying the health
+	// of an endpoint.
+	checkHealth EndpointCheckerFunc
+
+	// deleteEndpoint is the function used to remove the endpoint from the
+	// EndpointManager and clean it up. Always set to RemoveEndpoint.
+	deleteEndpoint endpointDeleteFunc
+
+	// A mark-and-sweep garbage collector may operate on the endpoint list.
+	// This is configured via WithPeriodicEndpointGC() and will mark
+	// endpoints for removal on one run of the controller, then in the
+	// subsequent controller run will remove the endpoints.
+	markedEndpoints []uint16
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -80,6 +95,10 @@ type EndpointResourceSynchronizer interface {
 	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration)
 	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
+
+// endpointDeleteFunc is used to abstract away concrete Endpoint Delete
+// functionality from endpoint management for testing purposes.
+type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // NewEndpointManager creates a new EndpointManager.
 func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointManager {
@@ -90,8 +109,22 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
 	}
+	mgr.deleteEndpoint = mgr.removeEndpoint
 
 	return &mgr
+}
+
+// WithPeriodicEndpointGC runs a controller to periodically garbage collect
+// endpoints that match the specified EndpointCheckerFunc.
+func (mgr *EndpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHealth EndpointCheckerFunc, interval time.Duration) *EndpointManager {
+	mgr.checkHealth = checkHealth
+	controller.NewManager().UpdateController("endpoint-gc",
+		controller.ControllerParams{
+			DoFunc:      mgr.markAndSweep,
+			RunInterval: interval,
+			Context:     ctx,
+		})
+	return mgr
 }
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
@@ -340,9 +373,9 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
 	mgr.removeReferencesLocked(identifiers)
 }
 
-// RemoveEndpoint stops the active handling of events by the specified endpoint,
+// removeEndpoint stops the active handling of events by the specified endpoint,
 // and prevents the endpoint from being globally acccessible via other packages.
-func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+func (mgr *EndpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	mgr.unexpose(ep)
 	result := ep.Delete(conf)
 
@@ -355,12 +388,10 @@ func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.
 	return result
 }
 
-// WaitEndpointRemoved waits until all operations associated with Remove of
-// the endpoint have been completed.
-// Note: only used for unit tests, to avoid ep.Delete()
-func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
-	mgr.unexpose(ep)
-	ep.Stop()
+// RemoveEndpoint stops the active handling of events by the specified endpoint,
+// and prevents the endpoint from being globally acccessible via other packages.
+func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	return mgr.deleteEndpoint(ep, conf)
 }
 
 // RemoveAll removes all endpoints from the global maps.
