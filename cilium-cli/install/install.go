@@ -53,6 +53,7 @@ const (
 	ipamKubernetes  = "kubernetes"
 	ipamClusterPool = "cluster-pool"
 	ipamENI         = "eni"
+	ipamAzure       = "azure"
 )
 
 var ciliumClusterRole = &rbacv1.ClusterRole{
@@ -858,6 +859,33 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 				},
 			},
 		})
+
+	case DatapathAzure:
+		c := &deployment.Spec.Template.Spec.Containers[0]
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "AZURE_SUBSCRIPTION_ID",
+			Value: k.params.Azure.SubscriptionID,
+		})
+
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "AZURE_TENANT_ID",
+			Value: k.params.Azure.TenantID,
+		})
+
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "AZURE_RESOURCE_GROUP",
+			Value: k.params.Azure.ResourceGroup,
+		})
+
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "AZURE_CLIENT_ID",
+			Value: k.params.Azure.ClientID,
+		})
+
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  "AZURE_CLIENT_SECRET",
+			Value: k.params.Azure.ClientSecret,
+		})
 	}
 
 	return deployment
@@ -907,7 +935,17 @@ const (
 	DatapathTunnel = "tunnel"
 	DatapathAwsENI = "aws-eni"
 	DatapathGKE    = "gke"
+	DatapathAzure  = "azure"
 )
+
+type AzureParameters struct {
+	ResourceGroupName string
+	SubscriptionID    string
+	TenantID          string
+	ResourceGroup     string
+	ClientID          string
+	ClientSecret      string
+}
 
 type InstallParameters struct {
 	Namespace            string
@@ -926,6 +964,7 @@ type InstallParameters struct {
 	ClusterID            int
 	IPAM                 string
 	KubeProxyReplacement string
+	Azure                AzureParameters
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -946,6 +985,8 @@ func (k *K8sInstaller) fqOperatorImage() string {
 	switch k.params.DatapathMode {
 	case DatapathAwsENI:
 		defaultImage = defaults.OperatorImageAWS
+	case DatapathAzure:
+		defaultImage = defaults.OperatorImageAzure
 	}
 
 	return utils.BuildImagePath(k.params.OperatorImage, defaultImage, k.params.Version, defaults.Version)
@@ -955,6 +996,8 @@ func (k *K8sInstaller) operatorCommand() []string {
 	switch k.params.DatapathMode {
 	case DatapathAwsENI:
 		return []string{"cilium-operator-aws"}
+	case DatapathAzure:
+		return []string{"cilium-operator-azure"}
 	}
 
 	return []string{"cilium-operator-generic"}
@@ -1138,6 +1181,13 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["enable-endpoint-routes"] = "true"
 		m.Data["enable-local-node-route"] = "false"
 		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
+
+	case DatapathAzure:
+		m.Data["tunnel"] = "disabled"
+		m.Data["enable-endpoint-routes"] = "true"
+		m.Data["auto-create-cilium-node-resource"] = "true"
+		m.Data["enable-local-node-route"] = "false"
+		m.Data["masquerade"] = "false"
 	}
 
 	return m
@@ -1224,6 +1274,16 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 
 		if err := k.deployResourceQuotas(ctx); err != nil {
+			return err
+		}
+
+	case k8s.KindAKS:
+		if k.params.Azure.ResourceGroupName == "" {
+			k.Log("❌ Azure resoure group is required, please specify --azure-resource-group")
+			return fmt.Errorf("missing Azure resource group name")
+		}
+
+		if err := k.createAzureServicePrincipal(ctx); err != nil {
 			return err
 		}
 	}
