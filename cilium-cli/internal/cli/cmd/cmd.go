@@ -47,8 +47,24 @@ func NewDefaultCiliumCommand() *cobra.Command {
 			cmd.Help()
 		},
 		Use:   "cilium",
-		Short: "Cilium Command Line Interface (CLI)",
-		Long:  "CLI to interact with Cilium clusters",
+		Short: "Cilium provides eBPF-based Networking, Security, and Observability for Kubernetes",
+		Long: `CLI to install, manage, & troubleshooting Cilium clusters running Kubernetes.
+
+Cilium is a CNI for Kubernetes to provide secure network connectivity and
+load-balancing with excellent visibility using eBPF
+
+Examples:
+# Install Cilium in current Kubernetes context
+cilium install
+
+# Check status of Cilium
+cilium status
+
+# Enable the Hubble observability layer
+cilium hubble enable
+
+# Perform a connectivity test
+cilium connectivity test`,
 	}
 
 	cmd.AddCommand(newCmdContext())

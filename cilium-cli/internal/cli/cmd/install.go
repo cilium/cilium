@@ -28,8 +28,17 @@ func newCmdInstall() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Install Cilium",
-		Long:  ``,
+		Short: "Install Cilium in a Kubernetes cluster",
+		Long: `Install Cilium in a Kubernetes cluster
+
+Examples:
+# Install Cilium in current Kubernetes context with default parameters
+cilium install
+
+# Install Cilium into Kubernetes context "kind-cluster1" and also set cluster
+# name and ID to prepare for multi-cluster capabilties.
+cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			installer := install.NewK8sInstaller(k8sClient, params)
 			cmd.SilenceUsage = true
