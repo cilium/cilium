@@ -915,11 +915,12 @@ type InstallParameters struct {
 	OperatorImage string
 	InheritCA     string
 
-	DatapathMode      string
-	TunnelType        string
-	NativeRoutingCIDR string
-	ClusterID         int
-	IPAM              string
+	DatapathMode         string
+	TunnelType           string
+	NativeRoutingCIDR    string
+	ClusterID            int
+	IPAM                 string
+	KubeProxyReplacement string
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -1069,20 +1070,18 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 			"enable-xt-socket-fallback": "true",
 			"install-iptables-rules":    "true",
 
-			"auto-direct-node-routes":                     "false",
-			"enable-bandwidth-manager":                    "true",
-			"enable-local-redirect-policy":                "false",
-			"kube-proxy-replacement":                      "probe",
-			"kube-proxy-replacement-healthz-bind-address": "",
-			"enable-health-check-nodeport":                "true",
-			"node-port-bind-protection":                   "true",
-			"enable-auto-protect-node-port-range":         "true",
-			"enable-session-affinity":                     "true",
-			"enable-endpoint-health-checking":             "true",
-			"enable-health-checking":                      "true",
-			"enable-well-known-identities":                "false",
-			"enable-remote-node-identity":                 "true",
-			"operator-api-serve-addr":                     "127.0.0.1:9234",
+			"auto-direct-node-routes":             "false",
+			"enable-bandwidth-manager":            "true",
+			"enable-local-redirect-policy":        "false",
+			"enable-health-check-nodeport":        "true",
+			"node-port-bind-protection":           "true",
+			"enable-auto-protect-node-port-range": "true",
+			"enable-session-affinity":             "true",
+			"enable-endpoint-health-checking":     "true",
+			"enable-health-checking":              "true",
+			"enable-well-known-identities":        "false",
+			"enable-remote-node-identity":         "true",
+			"operator-api-serve-addr":             "127.0.0.1:9234",
 			// Enable Hubble gRPC service.
 			"enable-hubble": "true",
 			// UNIX domain socket for Hubble server to listen to.
@@ -1104,6 +1103,8 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 	if k.params.NativeRoutingCIDR != "" {
 		m.Data["native-routing-cidr"] = k.params.NativeRoutingCIDR
 	}
+
+	m.Data["kube-proxy-replacement"] = k.params.KubeProxyReplacement
 
 	m.Data["ipam"] = k.params.IPAM
 	switch k.params.IPAM {
