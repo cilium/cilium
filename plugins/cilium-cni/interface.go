@@ -51,9 +51,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		return fmt.Errorf("unable to parse routing info: %v", err)
 	}
 
-	if err := routingInfo.Configure(ipConfig.Address.IP,
-		int(conf.DeviceMTU),
-		conf.Masquerade); err != nil {
+	if err := routingInfo.Configure(ipConfig.Address.IP, int(conf.DeviceMTU)); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %s", err)
 	}
 
