@@ -52,6 +52,7 @@ type AgentCheck struct {
 	Output      string
 	ServiceID   string
 	ServiceName string
+	Type        string
 	Definition  HealthCheckDefinition
 }
 
@@ -103,6 +104,7 @@ type AgentServiceConnectProxyConfig struct {
 	Config                 map[string]interface{} `json:",omitempty" bexpr:"-"`
 	Upstreams              []Upstream             `json:",omitempty"`
 	MeshGateway            MeshGatewayConfig      `json:",omitempty"`
+	Expose                 ExposeConfig           `json:",omitempty"`
 }
 
 // AgentMember represents a cluster member known to the agent
@@ -721,6 +723,19 @@ func (a *Agent) Leave() error {
 // ForceLeave is used to have the agent eject a failed node
 func (a *Agent) ForceLeave(node string) error {
 	r := a.c.newRequest("PUT", "/v1/agent/force-leave/"+node)
+	_, resp, err := requireOK(a.c.doRequest(r))
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+//ForceLeavePrune is used to have an a failed agent removed
+//from the list of members
+func (a *Agent) ForceLeavePrune(node string) error {
+	r := a.c.newRequest("PUT", "/v1/agent/force-leave/"+node)
+	r.params.Set("prune", "1")
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return err
