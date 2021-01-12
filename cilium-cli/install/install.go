@@ -1194,7 +1194,7 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 }
 
 func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
-	k.Log("🚀 Creating resource quotas...")
+	k.Log("🚀 Creating Resource quotas...")
 
 	ciliumResourceQuota := &corev1.ResourceQuota{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1292,7 +1292,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		return err
 	}
 
-	k.Log("🚀 Creating service accounts...")
+	k.Log("🚀 Creating Service accounts...")
 	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.AgentServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
@@ -1301,7 +1301,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		return err
 	}
 
-	k.Log("🚀 Creating cluster roles...")
+	k.Log("🚀 Creating Cluster roles...")
 	if _, err := k.client.CreateClusterRole(ctx, ciliumClusterRole, metav1.CreateOptions{}); err != nil {
 		return err
 	}
@@ -1331,17 +1331,18 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	}
 
-	k.Log("🚀 Creating agent DaemonSet...")
+	k.Log("🚀 Creating Agent DaemonSet...")
 	if _, err := k.client.CreateDaemonSet(ctx, k.params.Namespace, k.generateAgentDaemonSet(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
-	k.Log("🚀 Creating operator Deployment...")
+	k.Log("🚀 Creating Operator Deployment...")
 	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateOperatorDeployment(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
 	if k.params.Wait {
+		k.Log("⌛ Waiting for Cilium to be installed...")
 		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
 			Namespace:    k.params.Namespace,
 			Wait:         true,
