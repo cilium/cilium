@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.1-experimental
 
-# Copyright 2020 Authors of Cilium
+# Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=docker.io/cilium/image-compilers:57f235db9a07e81c5b60c536498ecbf2501dd267@sha256:080245ac0d7d061e05613e6bf887dc3c8bb07392cd2ce265b8a4aaaad17f2125
@@ -10,7 +10,7 @@ ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:8bce67040cd0ae39e0beb55bc
 
 ARG CILIUM_LLVM_IMAGE=docker.io/cilium/cilium-llvm:3355296c86c669ca92077e37bd5901d41c8142b9
 ARG CILIUM_BPFTOOL_IMAGE=docker.io/cilium/cilium-bpftool:fbb2e86339609f6755f53fcefd2257e4beea4423
-ARG CILIUM_IPROUTE2_IMAGE=docker.io/cilium/cilium-iproute2:44d4c6ebc57b78af0f1080ef52da2bae2605a439
+ARG CILIUM_IPROUTE2_IMAGE=docker.io/cilium/cilium-iproute2:f873abca8c7128f48206c6aecbbcdc6315d3d79d
 
 FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
