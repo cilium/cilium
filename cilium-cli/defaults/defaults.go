@@ -31,6 +31,7 @@ const (
 	OperatorResourceQuota      = "cilium-operator-resource-quota"
 	OperatorImage              = "quay.io/cilium/operator-generic"
 	OperatorImageAWS           = "quay.io/cilium/operator-aws"
+	OperatorImageAzure         = "quay.io/cilium/operator-azure"
 
 	HubbleSocketPath           = "/var/run/cilium/hubble.sock"
 	HubbleServerSecretName     = "hubble-server-certs"
