@@ -45,6 +45,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 var errEndpointNotFound = errors.New("endpoint not found")
@@ -1009,6 +1010,8 @@ func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
 type endpointManager struct {
 	*endpointmanager.EndpointManager
 	d *Daemon
+
+	handleNoHostInterfaceOnce sync.Once
 }
 
 // NewEndpointManager wraps pkg/endpointmanager/EndpointManager to provide a
@@ -1020,10 +1023,13 @@ type endpointManager struct {
 // * After, K8sWatcher
 // * Later, IPAM.
 func NewEndpointManager(d *Daemon, epSync *endpointsynchronizer.EndpointSynchronizer) *endpointManager {
-	return &endpointManager{
-		d:               d,
-		EndpointManager: endpointmanager.NewEndpointManager(epSync),
+	self := &endpointManager{d: d}
+	mgr := endpointmanager.NewEndpointManager(epSync)
+	if option.Config.EndpointGCInterval > 0 {
+		mgr = mgr.WithPeriodicEndpointGC(d.ctx, self, option.Config.EndpointGCInterval)
 	}
+	self.EndpointManager = mgr
+	return self
 }
 
 func (e *endpointManager) DeleteEndpoint(ep *endpoint.Endpoint) int {
@@ -1050,4 +1056,39 @@ func (e *endpointManager) DeleteEndpoint(ep *endpoint.Endpoint) int {
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (e *endpointManager) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	return ep.Delete(e.d, e.d.ipam, e, conf)
+}
+
+// Check verifies that endpoints are alive and healthy by checking the link
+// status. This satisfies the endpointmanager.EndpointChecker interface.
+func (e *endpointManager) Check(ep *endpoint.Endpoint) error {
+	// This only lives in endpointManager for convenience, the real
+	// intended home would be likely be pkg/datapath somewhere that
+	// understands how to gauge endpoint health from a node perspective.
+
+	// Be extra careful, we're only looking for one specific type of error
+	// currently: That the link has gone missing. Ignore other error to
+	// ensure that the caller doesn't unintentionally tear down the
+	// Endpoint thinking that it no longer exists.
+	iface := ep.HostInterface()
+	if iface == "" {
+		e.handleNoHostInterfaceOnce.Do(func() {
+			log.WithFields(logrus.Fields{
+				logfields.URL:         "https://github.com/cilium/cilium/pull/14541",
+				logfields.HelpMessage: "For more information, see the linked URL. Pass endpoint-gc-interval=\"0\" to disable",
+			}).Info("Endpoint garbage collection is ineffective, ignoring endpoint")
+		})
+		return nil
+	}
+	_, err := netlink.LinkByName(iface)
+	if _, ok := err.(netlink.LinkNotFoundError); ok {
+		return fmt.Errorf("Endpoint is invalid: %w", err)
+	}
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.EndpointID:  ep.StringID(),
+			logfields.ContainerID: ep.GetShortContainerID(),
+			logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+		}).Warning("An error occurred while checking endpoint health")
+	}
+	return nil
 }
