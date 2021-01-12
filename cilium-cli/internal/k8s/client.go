@@ -208,6 +208,10 @@ func (c *Client) DeleteNamespace(ctx context.Context, namespace string, opts met
 	return c.Clientset.CoreV1().Namespaces().Delete(ctx, namespace, opts)
 }
 
+func (c *Client) DeletePod(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.CoreV1().Pods(namespace).Delete(ctx, name, opts)
+}
+
 func (c *Client) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
 	return c.Clientset.CoreV1().Pods(namespace).List(ctx, options)
 }
@@ -353,4 +357,8 @@ func (c *Client) DeleteResourceQuota(ctx context.Context, namespace, name string
 
 func (c *Client) GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error) {
 	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
+	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).List(ctx, options)
 }
