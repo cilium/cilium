@@ -116,6 +116,8 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 			k.params.IPAM = ipamENI
 		case k8s.KindGKE:
 			k.params.IPAM = ipamKubernetes
+		case k8s.KindAKS:
+			k.params.IPAM = ipamAzure
 		default:
 			k.params.IPAM = ipamClusterPool
 		}
@@ -131,6 +133,14 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 			k.params.DatapathMode = DatapathAwsENI
 		case k8s.KindGKE:
 			k.params.DatapathMode = DatapathGKE
+		case k8s.KindAKS:
+			k.params.DatapathMode = DatapathAzure
+
+			if k.params.KubeProxyReplacement == "" {
+				k.Log("ℹ️  kube-proxy-replacement disabled")
+				k.params.KubeProxyReplacement = "disabled"
+			}
+
 		}
 
 		if k.params.DatapathMode != "" {

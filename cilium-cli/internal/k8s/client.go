@@ -277,6 +277,7 @@ const (
 	KindKind
 	KindEKS
 	KindGKE
+	KindAKS
 )
 
 func (k Kind) String() string {
@@ -291,6 +292,8 @@ func (k Kind) String() string {
 		return "EKS"
 	case KindGKE:
 		return "GKE"
+	case KindAKS:
+		return "AKS"
 	default:
 		return "invalid"
 	}
@@ -327,6 +330,11 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 		if cluster, ok := c.RawConfig.Clusters[context.Cluster]; ok {
 			if strings.HasSuffix(cluster.Server, "eks.amazonaws.com") {
 				f.Kind = KindEKS
+				return
+			}
+
+			if strings.HasSuffix(cluster.Server, "azmk8s.io:443") {
+				f.Kind = KindAKS
 				return
 			}
 		}
