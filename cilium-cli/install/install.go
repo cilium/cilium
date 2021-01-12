@@ -19,12 +19,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/status"
 
+	"github.com/cilium/cilium/api/v1/models"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -890,6 +893,7 @@ type k8sInstallerImplementation interface {
 	DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
 	ContextName() (name string)
+	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 }
 
 type K8sInstaller struct {
@@ -906,15 +910,16 @@ const (
 )
 
 type InstallParameters struct {
-	Namespace     string
-	Writer        io.Writer
-	ClusterName   string
-	DisableChecks []string
-	Version       string
-	AgentImage    string
-	OperatorImage string
-	InheritCA     string
-
+	Namespace            string
+	Writer               io.Writer
+	ClusterName          string
+	DisableChecks        []string
+	Version              string
+	AgentImage           string
+	OperatorImage        string
+	InheritCA            string
+	Wait                 bool
+	WaitDuration         time.Duration
 	DatapathMode         string
 	TunnelType           string
 	NativeRoutingCIDR    string
@@ -1273,6 +1278,22 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	k.Log("🚀 Creating operator Deployment...")
 	if _, err := k.client.CreateDeployment(ctx, k.params.Namespace, k.generateOperatorDeployment(), metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	if k.params.Wait {
+		collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+			Wait:         true,
+			WaitDuration: k.params.WaitDuration,
+		})
+		if err != nil {
+			return err
+		}
+
+		s, err := collector.Status(ctx)
+		if s != nil {
+			fmt.Println(s.Format())
+		}
 		return err
 	}
 

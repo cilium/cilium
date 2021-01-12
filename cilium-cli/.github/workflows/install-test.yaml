@@ -38,10 +38,6 @@ jobs:
           # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
-      - name: cilium status
-        run: |
-          cmd/cilium/cilium status
-
       - name: cilium connectivity test
         run: |
           cmd/cilium/cilium connectivity test --hubble=false
@@ -54,4 +50,4 @@ jobs:
 
       - name: cilium status with relay
         run: |
-          cmd/cilium/cilium status
+          cmd/cilium/cilium status --wait
