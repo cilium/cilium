@@ -38,6 +38,12 @@ type StatusSuite struct{}
 
 var _ = check.Suite(&StatusSuite{})
 
+var (
+	fakeParameters = K8sStatusParameters{
+		Namespace: "kube-system",
+	}
+)
+
 type k8sStatusMockClient struct {
 	daemonSet  map[string]*appsv1.DaemonSet
 	deployment map[string]*appsv1.Deployment
@@ -126,10 +132,6 @@ func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desir
 	}
 }
 
-func (c *k8sStatusMockClient) GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error) {
-	return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}, nil
-}
-
 func (c *k8sStatusMockClient) GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error) {
 	return c.daemonSet[namespace+"/"+name], nil
 }
@@ -153,17 +155,13 @@ func (c *k8sStatusMockClient) CiliumStatus(ctx context.Context, namespace, pod s
 func (b *StatusSuite) TestMockClient(c *check.C) {
 	client := newK8sStatusMockClient()
 	c.Assert(client, check.Not(check.IsNil))
-
-	n, err := client.GetNamespace(context.Background(), "foo", metav1.GetOptions{})
-	c.Assert(err, check.IsNil)
-	c.Assert(n.Name, check.Equals, "foo")
 }
 
 func (b *StatusSuite) TestStatus(c *check.C) {
 	client := newK8sStatusMockClient()
 	c.Assert(client, check.Not(check.IsNil))
 
-	collector, err := NewK8sStatusCollector(context.Background(), client, "kube-system")
+	collector, err := NewK8sStatusCollector(context.Background(), client, fakeParameters)
 	c.Assert(err, check.IsNil)
 	c.Assert(collector, check.Not(check.IsNil))
 
@@ -212,7 +210,7 @@ func (b *StatusSuite) TestFormat(c *check.C) {
 	client := newK8sStatusMockClient()
 	c.Assert(client, check.Not(check.IsNil))
 
-	collector, err := NewK8sStatusCollector(context.Background(), client, "kube-system")
+	collector, err := NewK8sStatusCollector(context.Background(), client, fakeParameters)
 	c.Assert(err, check.IsNil)
 	c.Assert(collector, check.Not(check.IsNil))
 

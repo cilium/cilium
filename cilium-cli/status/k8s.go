@@ -34,42 +34,32 @@ const (
 )
 
 type K8sStatusParameters struct {
+	Namespace    string
 	Wait         bool
 	WaitDuration time.Duration
 }
 
 type K8sStatusCollector struct {
-	client    k8sImplementation
-	params    K8sStatusParameters
-	namespace string
+	client k8sImplementation
+	params K8sStatusParameters
 }
 
 type k8sImplementation interface {
-	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 }
 
-func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, namespace string, params K8sStatusParameters) (*K8sStatusCollector, error) {
-	if namespace == "" {
-		n, err := client.GetNamespace(ctx, "cilium", metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		namespace = n.Name
-	}
-
+func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
 	return &K8sStatusCollector{
-		client:    client,
-		namespace: namespace,
-		params:    params,
+		client: client,
+		params: params,
 	}, nil
 }
 
 func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Status, name string) error {
-	d, err := k.client.GetDeployment(ctx, k.namespace, name, metav1.GetOptions{})
+	d, err := k.client.GetDeployment(ctx, k.params.Namespace, name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -98,7 +88,7 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 }
 
 func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status, name string) error {
-	daemonSet, err := k.client.GetDaemonSet(ctx, k.namespace, name, metav1.GetOptions{})
+	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.Namespace, name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -129,7 +119,7 @@ func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status
 type podStatusCallback func(ctx context.Context, status *Status, name string, pod *corev1.Pod)
 
 func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name, filter string, callback podStatusCallback) error {
-	pods, err := k.client.ListPods(ctx, k.namespace, metav1.ListOptions{LabelSelector: filter})
+	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: filter})
 	if err != nil {
 		return err
 	}
@@ -212,7 +202,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 
 	err = k.podStatus(ctx, status, ciliumDaemonSetName, "k8s-app=cilium", func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
-			s, err := k.client.CiliumStatus(ctx, k.namespace, pod.Name)
+			s, err := k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
 			status.parseStatusResponse(ciliumDaemonSetName, pod.Name, s, err)
 			status.CiliumStatus[pod.Name] = s
 		}
