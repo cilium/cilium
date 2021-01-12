@@ -572,14 +572,17 @@ func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
 				m.mutex.RLock()
 				defer m.mutex.RUnlock()
 				for _, entry := range m.nodes {
-					if entry.node.IsLocal() {
+					entry.mutex.Lock()
+					entryNode := entry.node
+					entry.mutex.Unlock()
+					if entryNode.IsLocal() {
 						continue
 					}
-					go func(c context.Context, e *nodeEntry) {
+					go func(c context.Context, e nodeTypes.Node) {
 						n := randGen.Int63n(int64(interval / 2))
 						time.Sleep(interval/2 + time.Duration(n))
-						nh.NodeNeighborRefresh(c, e.node)
-					}(ctx, entry)
+						nh.NodeNeighborRefresh(c, e)
+					}(ctx, entryNode)
 				}
 				return nil
 			},
