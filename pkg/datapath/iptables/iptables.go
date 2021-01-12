@@ -456,8 +456,9 @@ func (m *IptablesManager) Init() {
 // the source IP address.
 func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
-	// is disabled, or if the datapath is in a tunneling mode.
-	return m.haveSocketMatch || m.ipEarlyDemuxDisabled || option.Config.Tunnel != option.TunnelDisabled
+	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
+	// the source security ID.
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
 }
 
 // RemoveRules removes iptables rules installed by Cilium.
