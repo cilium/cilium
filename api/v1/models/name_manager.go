@@ -21,9 +21,6 @@ import (
 // swagger:model NameManager
 type NameManager struct {
 
-	// Names to poll for DNS Poller
-	DNSPollNames []string `json:"DNSPollNames"`
-
 	// Mapping of FQDNSelectors to corresponding regular expressions
 	FQDNPolicySelectors []*SelectorEntry `json:"FQDNPolicySelectors"`
 }

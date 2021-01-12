@@ -3019,13 +3019,6 @@ func init() {
       "description": "Internal state about DNS names in relation to policy subsystem",
       "type": "object",
       "properties": {
-        "DNSPollNames": {
-          "description": "Names to poll for DNS Poller",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "FQDNPolicySelectors": {
           "description": "Mapping of FQDNSelectors to corresponding regular expressions",
           "type": "array",
@@ -7190,13 +7183,6 @@ func init() {
       "description": "Internal state about DNS names in relation to policy subsystem",
       "type": "object",
       "properties": {
-        "DNSPollNames": {
-          "description": "Names to poll for DNS Poller",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "FQDNPolicySelectors": {
           "description": "Mapping of FQDNSelectors to corresponding regular expressions",
           "type": "array",
