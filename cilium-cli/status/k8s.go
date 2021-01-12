@@ -34,9 +34,10 @@ const (
 )
 
 type K8sStatusParameters struct {
-	Namespace    string
-	Wait         bool
-	WaitDuration time.Duration
+	Namespace       string
+	Wait            bool
+	WaitDuration    time.Duration
+	WarningFreePods []string
 }
 
 type K8sStatusCollector struct {
@@ -164,6 +165,24 @@ func (s K8sStatusParameters) waitTimeout() time.Duration {
 	return 5 * time.Minute
 }
 
+func (k *K8sStatusCollector) statusIsReady(s *Status) bool {
+	if s.totalErrors() > 0 {
+		return false
+	}
+
+	for _, name := range k.params.WarningFreePods {
+		if a := s.Errors[name]; a != nil {
+			for _, c := range a {
+				if len(c.Warnings) > 0 || len(c.Errors) > 0 {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
+}
+
 func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 	var mostRecentStatus *Status
 
@@ -183,7 +202,7 @@ retry:
 	if s != nil {
 		mostRecentStatus = s
 	}
-	if (err != nil || s.totalErrors() > 0) && k.params.Wait {
+	if (err != nil || !k.statusIsReady(s)) && k.params.Wait {
 		time.Sleep(2 * time.Second)
 		goto retry
 	}
