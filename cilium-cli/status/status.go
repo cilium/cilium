@@ -145,6 +145,15 @@ func (s *Status) parseCiliumSubsystemState(deployment, podName, subsystem, state
 	}
 }
 
+func (s *Status) totalErrors() (total int) {
+	for _, pods := range s.Errors {
+		for _, pod := range pods {
+			total += len(pod.Errors)
+		}
+	}
+	return total
+}
+
 func (s *Status) parseCiliumSubsystemStatus(deployment, podName, subsystem string, status *models.Status) {
 	if status != nil {
 		s.parseCiliumSubsystemState(deployment, podName, subsystem, status.State, status.Msg)

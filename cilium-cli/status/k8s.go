@@ -17,6 +17,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 
@@ -32,8 +33,14 @@ const (
 	relayDeploymentName    = "hubble-relay"
 )
 
+type K8sStatusParameters struct {
+	Wait         bool
+	WaitDuration time.Duration
+}
+
 type K8sStatusCollector struct {
 	client    k8sImplementation
+	params    K8sStatusParameters
 	namespace string
 }
 
@@ -45,7 +52,7 @@ type k8sImplementation interface {
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 }
 
-func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, namespace string) (*K8sStatusCollector, error) {
+func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, namespace string, params K8sStatusParameters) (*K8sStatusCollector, error) {
 	if namespace == "" {
 		n, err := client.GetNamespace(ctx, "cilium", metav1.GetOptions{})
 		if err != nil {
@@ -57,6 +64,7 @@ func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, namesp
 	return &K8sStatusCollector{
 		client:    client,
 		namespace: namespace,
+		params:    params,
 	}, nil
 }
 
@@ -158,7 +166,42 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 	return nil
 }
 
+func (s K8sStatusParameters) waitTimeout() time.Duration {
+	if s.WaitDuration != time.Duration(0) {
+		return s.WaitDuration
+	}
+
+	return 5 * time.Minute
+}
+
 func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
+	var mostRecentStatus *Status
+
+	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
+	defer cancel()
+
+retry:
+	select {
+	case <-ctx.Done():
+		return mostRecentStatus, fmt.Errorf("timeout while waiting for status to become successful: %w", ctx.Err())
+	default:
+	}
+
+	s, err := k.status(ctx)
+	// We collect the most recent status that even if the last status call
+	// fails, we can still display the most recent status
+	if s != nil {
+		mostRecentStatus = s
+	}
+	if (err != nil || s.totalErrors() > 0) && k.params.Wait {
+		time.Sleep(2 * time.Second)
+		goto retry
+	}
+
+	return mostRecentStatus, err
+}
+
+func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 	status := newStatus()
 
 	err := k.daemonSetStatus(ctx, status, ciliumDaemonSetName)
