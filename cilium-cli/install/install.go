@@ -46,6 +46,12 @@ var (
 	operatorMaxUnavailable             = intstr.FromInt(1)
 )
 
+const (
+	ipamKubernetes  = "kubernetes"
+	ipamClusterPool = "cluster-pool"
+	ipamENI         = "eni"
+)
+
 var ciliumClusterRole = &rbacv1.ClusterRole{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: defaults.AgentClusterRoleName,
@@ -913,6 +919,7 @@ type InstallParameters struct {
 	TunnelType        string
 	NativeRoutingCIDR string
 	ClusterID         int
+	IPAM              string
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -1081,15 +1088,12 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 			// UNIX domain socket for Hubble server to listen to.
 			"hubble-socket-path": defaults.HubbleSocketPath,
 			// An additional address for Hubble server to listen to (e.g. ":4244").
-			"hubble-listen-address":       ":4244",
-			"hubble-disable-tls":          "false",
-			"hubble-tls-cert-file":        "/var/lib/cilium/tls/hubble/server.crt",
-			"hubble-tls-key-file":         "/var/lib/cilium/tls/hubble/server.key",
-			"hubble-tls-client-ca-files":  "/var/lib/cilium/tls/hubble/client-ca.crt",
-			"ipam":                        "cluster-pool",
-			"cluster-pool-ipv4-cidr":      "10.0.0.0/8",
-			"cluster-pool-ipv4-mask-size": "24",
-			"disable-cnp-status-updates":  "true",
+			"hubble-listen-address":      ":4244",
+			"hubble-disable-tls":         "false",
+			"hubble-tls-cert-file":       "/var/lib/cilium/tls/hubble/server.crt",
+			"hubble-tls-key-file":        "/var/lib/cilium/tls/hubble/server.key",
+			"hubble-tls-client-ca-files": "/var/lib/cilium/tls/hubble/client-ca.crt",
+			"disable-cnp-status-updates": "true",
 		},
 	}
 
@@ -1099,6 +1103,13 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 
 	if k.params.NativeRoutingCIDR != "" {
 		m.Data["native-routing-cidr"] = k.params.NativeRoutingCIDR
+	}
+
+	m.Data["ipam"] = k.params.IPAM
+	switch k.params.IPAM {
+	case ipamClusterPool:
+		m.Data["cluster-pool-ipv4-cidr"] = "10.0.0.0/8"
+		m.Data["cluster-pool-ipv4-mask-size"] = "24"
 	}
 
 	switch k.params.DatapathMode {
@@ -1113,7 +1124,6 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["tunnel"] = "disabled"
 		m.Data["enable-endpoint-routes"] = "true"
 		m.Data["auto-create-cilium-node-resource"] = "true"
-		m.Data["ipam"] = "eni"
 		// TODO(tgraf) Is this really sane?
 		m.Data["egress-masquerade-interfaces"] = "eth0"
 
@@ -1121,7 +1131,6 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["tunnel"] = "disabled"
 		m.Data["enable-endpoint-routes"] = "true"
 		m.Data["enable-local-node-route"] = "false"
-		m.Data["ipam"] = "kubernetes"
 		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
 	}
 
