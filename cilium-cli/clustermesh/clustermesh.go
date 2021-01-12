@@ -148,6 +148,14 @@ etcdctl user grant-role remote remote;
 etcdctl auth enable;
 exit`}
 
+func (k *K8sClusterMesh) apiserverImage() string {
+	if k.params.ApiserverImage != "" {
+		return k.params.ApiserverImage
+	}
+
+	return defaults.ClusterMeshApiserverImage
+}
+
 func (k *K8sClusterMesh) generateDeployment() *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -227,7 +235,7 @@ func (k *K8sClusterMesh) generateDeployment() *appsv1.Deployment {
 								"--kvstore-opt",
 								"etcd.config=/var/lib/cilium/etcd-config.yaml",
 							},
-							Image:           "quay.io/cilium/clustermesh-apiserver:latest",
+							Image:           k.apiserverImage(),
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
@@ -419,6 +427,7 @@ type Parameters struct {
 	DestinationEndpoints []string
 	SourceEndpoints      []string
 	SkipServiceCheck     bool
+	ApiserverImage       string
 	Writer               io.Writer
 }
 
