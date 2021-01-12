@@ -30,7 +30,7 @@ import (
 func (k *K8sInstaller) createHubbleServerCertificate(ctx context.Context) error {
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		Hosts:      []string{"*." + k.params.ClusterName + ".hubble-grpc.cilium.io"}, // TODO(tgraf) dots must be replaced with "-"
 		CN:         "*." + k.params.ClusterName + ".hubble-grpc.cilium.io",           // TODO(tgraf) dots must be replaced with "-"
 	}
