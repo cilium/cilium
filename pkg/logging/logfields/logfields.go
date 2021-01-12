@@ -474,6 +474,9 @@ const (
 	// Key is the identity of the encryption key
 	Key = "key"
 
+	// URL represents a Uniform Resource Locator.
+	URL = "url"
+
 	// SysParamName is the name of the kernel parameter (sysctl)
 	SysParamName = "sysParamName"
 
