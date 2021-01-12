@@ -341,7 +341,7 @@ func (k *K8sHubble) createRelayCertificates(ctx context.Context) error {
 func (k *K8sHubble) createRelayServerCertificate(ctx context.Context) error {
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		Hosts:      []string{"*.hubble-relay.cilium.io"},
 		CN:         "*.hubble-relay.cilium.io",
 	}
@@ -377,7 +377,7 @@ func (k *K8sHubble) createRelayServerCertificate(ctx context.Context) error {
 func (k *K8sHubble) createRelayClientCertificate(ctx context.Context) error {
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		Hosts:      []string{"*.hubble-relay.cilium.io"},
 		CN:         "*.hubble-relay.cilium.io",
 	}

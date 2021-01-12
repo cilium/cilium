@@ -102,7 +102,7 @@ func (c *CertManager) StoreCAInK8s(ctx context.Context) error {
 func (c *CertManager) GenerateCA() error {
 	cert, _, key, err := initca.New(&csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA", O: "Cilium", OU: "Cilium"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		CN:         "Cilium CA",
 	})
 	if err != nil {

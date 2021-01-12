@@ -13,7 +13,7 @@ go build ./cmd/cilium
 
 ### Install Cilium
 
-To install Cilium while automatically detected 
+To install Cilium while automatically detected:
 
     cilium install
     🔮 Auto-detected Kubernetes kind: minikube
@@ -26,7 +26,7 @@ To install Cilium while automatically detected
     🔑 Generating certificates for Hubble...
     2021/01/06 14:40:09 [INFO] generate received request
     2021/01/06 14:40:09 [INFO] received CSR
-    2021/01/06 14:40:09 [INFO] generating key: rsa-2048
+    2021/01/06 14:40:09 [INFO] generating key: ecdsa-256
     2021/01/06 14:40:09 [INFO] encoded CSR
     2021/01/06 14:40:09 [INFO] signed certificate with serial number 100064573681617100283382379701098370105206717828
     🚀 Creating service accounts...
@@ -62,12 +62,12 @@ To install Cilium while automatically detected
     🔑 Generating certificates for Relay...
     2021/01/06 14:40:21 [INFO] generate received request
     2021/01/06 14:40:21 [INFO] received CSR
-    2021/01/06 14:40:21 [INFO] generating key: rsa-2048
+    2021/01/06 14:40:21 [INFO] generating key: ecdsa-256
     2021/01/06 14:40:21 [INFO] encoded CSR
     2021/01/06 14:40:21 [INFO] signed certificate with serial number 257161504887184430913779255692233956510035935986
     2021/01/06 14:40:21 [INFO] generate received request
     2021/01/06 14:40:21 [INFO] received CSR
-    2021/01/06 14:40:21 [INFO] generating key: rsa-2048
+    2021/01/06 14:40:21 [INFO] generating key: ecdsa-256
     2021/01/06 14:40:21 [INFO] encoded CSR
     2021/01/06 14:40:21 [INFO] signed certificate with serial number 282554813841417773944504735898535346056548994034
     ✨ Deploying Relay...
@@ -218,7 +218,7 @@ Install Cilium & enable ClusterMesh in Cluster 1
     🔑 Generating certificates for Hubble...
     2021/01/08 23:07:52 [INFO] generate received request
     2021/01/08 23:07:52 [INFO] received CSR
-    2021/01/08 23:07:52 [INFO] generating key: rsa-2048
+    2021/01/08 23:07:52 [INFO] generating key: ecdsa-256
     2021/01/08 23:07:52 [INFO] encoded CSR
     2021/01/08 23:07:52 [INFO] signed certificate with serial number 412940817381691474277840557608535075673795002662
     🚀 Creating service accounts...
@@ -235,17 +235,17 @@ Install Cilium & enable ClusterMesh in Cluster 1
     🔑 Generating certificates for ClusterMesh...
     2021/01/08 23:11:48 [INFO] generate received request
     2021/01/08 23:11:48 [INFO] received CSR
-    2021/01/08 23:11:48 [INFO] generating key: rsa-2048
+    2021/01/08 23:11:48 [INFO] generating key: ecdsa-256
     2021/01/08 23:11:48 [INFO] encoded CSR
     2021/01/08 23:11:48 [INFO] signed certificate with serial number 670714666407590575359066679305478681356106905869
     2021/01/08 23:11:48 [INFO] generate received request
     2021/01/08 23:11:48 [INFO] received CSR
-    2021/01/08 23:11:48 [INFO] generating key: rsa-2048
+    2021/01/08 23:11:48 [INFO] generating key: ecdsa-256
     2021/01/08 23:11:49 [INFO] encoded CSR
     2021/01/08 23:11:49 [INFO] signed certificate with serial number 591065363597916136413807294935737333774847803115
     2021/01/08 23:11:49 [INFO] generate received request
     2021/01/08 23:11:49 [INFO] received CSR
-    2021/01/08 23:11:49 [INFO] generating key: rsa-2048
+    2021/01/08 23:11:49 [INFO] generating key: ecdsa-256
     2021/01/08 23:11:49 [INFO] encoded CSR
     2021/01/08 23:11:49 [INFO] signed certificate with serial number 212022707754116737648249489711560171325685820957
     ✨ Deploying clustermesh-apiserver...
@@ -265,7 +265,7 @@ Install Cilium in Cluster 2
     🔑 Generating certificates for Hubble...
     2021/01/08 23:08:28 [INFO] generate received request
     2021/01/08 23:08:28 [INFO] received CSR
-    2021/01/08 23:08:28 [INFO] generating key: rsa-2048
+    2021/01/08 23:08:28 [INFO] generating key: ecdsa-256
     2021/01/08 23:08:28 [INFO] encoded CSR
     2021/01/08 23:08:28 [INFO] signed certificate with serial number 166290456484087465763866003270622908833747392670
     🚀 Creating service accounts...
@@ -282,17 +282,17 @@ Install Cilium in Cluster 2
     🔑 Generating certificates for ClusterMesh...
     2021/01/08 23:12:44 [INFO] generate received request
     2021/01/08 23:12:44 [INFO] received CSR
-    2021/01/08 23:12:44 [INFO] generating key: rsa-2048
+    2021/01/08 23:12:44 [INFO] generating key: ecdsa-256
     2021/01/08 23:12:45 [INFO] encoded CSR
     2021/01/08 23:12:45 [INFO] signed certificate with serial number 450145143290293186546054780525926209813963421076
     2021/01/08 23:12:45 [INFO] generate received request
     2021/01/08 23:12:45 [INFO] received CSR
-    2021/01/08 23:12:45 [INFO] generating key: rsa-2048
+    2021/01/08 23:12:45 [INFO] generating key: ecdsa-256
     2021/01/08 23:12:45 [INFO] encoded CSR
     2021/01/08 23:12:45 [INFO] signed certificate with serial number 341741502649230631228454642926521374579240641715
     2021/01/08 23:12:45 [INFO] generate received request
     2021/01/08 23:12:45 [INFO] received CSR
-    2021/01/08 23:12:45 [INFO] generating key: rsa-2048
+    2021/01/08 23:12:45 [INFO] generating key: ecdsa-256
     2021/01/08 23:12:45 [INFO] encoded CSR
     2021/01/08 23:12:45 [INFO] signed certificate with serial number 233979838156429984835251051892420687423155442107
     ✨ Deploying clustermesh-apiserver...
