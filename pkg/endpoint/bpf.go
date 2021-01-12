@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -63,6 +64,10 @@ const (
 	// ciliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	ciliumCHeaderPrefix = "CILIUM_BASE64_"
+)
+
+var (
+	handleNoHostInterfaceOnce sync.Once
 )
 
 // policyMapPath returns the path to the policy map of endpoint.
@@ -1473,6 +1478,37 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 		if err != nil {
 			return fmt.Errorf("interface %s could not be found", e.ifName)
 		}
+	}
+	return nil
+}
+
+// CheckHealth verifies that the endpoint is alive and healthy by checking the
+// link status. This satisfies endpointmanager.EndpointCheckerFunc.
+func CheckHealth(ep *Endpoint) error {
+	// Be extra careful, we're only looking for one specific type of error
+	// currently: That the link has gone missing. Ignore other error to
+	// ensure that the caller doesn't unintentionally tear down the
+	// Endpoint thinking that it no longer exists.
+	iface := ep.HostInterface()
+	if iface == "" {
+		handleNoHostInterfaceOnce.Do(func() {
+			log.WithFields(logrus.Fields{
+				logfields.URL:         "https://github.com/cilium/cilium/pull/14541",
+				logfields.HelpMessage: "For more information, see the linked URL. Pass endpoint-gc-interval=\"0\" to disable",
+			}).Info("Endpoint garbage collection is ineffective, ignoring endpoint")
+		})
+		return nil
+	}
+	_, err := netlink.LinkByName(iface)
+	if _, ok := err.(netlink.LinkNotFoundError); ok {
+		return fmt.Errorf("Endpoint is invalid: %w", err)
+	}
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.EndpointID:  ep.StringID(),
+			logfields.ContainerID: ep.GetShortContainerID(),
+			logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+		}).Warning("An error occurred while checking endpoint health")
 	}
 	return nil
 }

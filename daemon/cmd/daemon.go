@@ -252,9 +252,8 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
-	dCtx, cancel := context.WithCancel(ctx)
 	// Pass the cancel to our signal handler directly so that it's canceled
 	// before we run the cleanup functions (see `cleanup.go` for implementation).
 	cleaner.SetCancelFunc(cancel)
@@ -337,7 +336,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
 
 	d := Daemon{
-		ctx:               dCtx,
+		ctx:               ctx,
 		cancel:            cancel,
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -779,8 +778,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 // WithDefaultEndpointManager creates the default endpoint manager with a
 // functional endpoint synchronizer.
-func WithDefaultEndpointManager() *endpointmanager.EndpointManager {
-	return WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+func WithDefaultEndpointManager(ctx context.Context, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
+	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+	if option.Config.EndpointGCInterval > 0 {
+		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, option.Config.EndpointGCInterval)
+	}
+	return mgr
 }
 
 // WithCustomEndpointManager creates the custom endpoint manager with the
