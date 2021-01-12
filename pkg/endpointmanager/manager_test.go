@@ -18,6 +18,7 @@ package endpointmanager
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -922,4 +923,53 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 		}
 		tt.postTestRun()
 	}
+}
+
+type dummyChecker struct {
+	mgr *EndpointManager
+}
+
+// Check detects endpoints as unhealthy if they have an even EndpointID.
+func (d *dummyChecker) Check(ep *endpoint.Endpoint) error {
+	if ep.GetID()%2 == 0 {
+		return fmt.Errorf("Endpoint has an even EndpointID")
+	}
+	return nil
+}
+
+func (d *dummyChecker) DeleteEndpoint(ep *endpoint.Endpoint) int {
+	d.mgr.WaitEndpointRemoved(ep)
+	return 0
+}
+
+func (s *EndpointManagerSuite) TestmarkAndSweep(c *C) {
+	// Open-code WithPeriodicGC() to avoid running the controller
+	mgr := NewEndpointManager(&dummyEpSyncher{})
+	mgr.checker = &dummyChecker{mgr: mgr}
+
+	timeout := 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	endpointIDToDelete := uint16(2)
+	healthyEndpointIDs := []uint16{1, 3, 5, 7}
+	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
+	for _, id := range allEndpointIDs {
+		ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, id, endpoint.StateReady)
+		ep.Expose(mgr)
+	}
+	c.Assert(len(mgr.GetEndpoints()), Equals, len(allEndpointIDs))
+
+	// Two-phase mark and sweep: Mark should not yet delete any endpoints.
+	err := mgr.markAndSweep(ctx)
+	c.Assert(mgr.EndpointExists(endpointIDToDelete), Equals, true)
+	c.Assert(err, IsNil)
+	c.Assert(len(mgr.GetEndpoints()), Equals, len(allEndpointIDs))
+
+	// Second phase: endpoint should be marked now and we should only sweep
+	// that particular endpoint.
+	err = mgr.markAndSweep(ctx)
+	c.Assert(mgr.EndpointExists(endpointIDToDelete), Equals, false)
+	c.Assert(err, IsNil)
+	c.Assert(len(mgr.GetEndpoints()), Equals, len(healthyEndpointIDs))
 }
