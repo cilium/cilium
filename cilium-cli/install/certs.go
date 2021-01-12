@@ -17,6 +17,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -28,11 +29,12 @@ import (
 )
 
 func (k *K8sInstaller) createHubbleServerCertificate(ctx context.Context) error {
+	commonName := fmt.Sprintf("*.%s.hubble-grpc.cilium.io", strings.ReplaceAll(k.params.ClusterName, ".", "-"))
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
 		KeyRequest: csr.NewKeyRequest(),
-		Hosts:      []string{"*." + k.params.ClusterName + ".hubble-grpc.cilium.io"}, // TODO(tgraf) dots must be replaced with "-"
-		CN:         "*." + k.params.ClusterName + ".hubble-grpc.cilium.io",           // TODO(tgraf) dots must be replaced with "-"
+		Hosts:      []string{commonName},
+		CN:         commonName,
 	}
 
 	signConf := &config.Signing{
