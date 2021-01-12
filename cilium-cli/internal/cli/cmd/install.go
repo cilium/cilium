@@ -46,6 +46,7 @@ func newCmdInstall() *cobra.Command {
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
+	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "probe", "Enable/disable kube-proxy replacement { disabled | probe | strict }")
 
 	return cmd
 }
