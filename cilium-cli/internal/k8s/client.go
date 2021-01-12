@@ -362,3 +362,7 @@ func (c *Client) GetCiliumEndpoint(ctx context.Context, namespace, name string, 
 func (c *Client) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).List(ctx, options)
 }
+
+func (c *Client) ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error) {
+	return c.Clientset.CoreV1().Nodes().List(ctx, options)
+}

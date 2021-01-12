@@ -19,6 +19,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -394,6 +396,7 @@ type k8sClusterMeshImplementation interface {
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
 	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
+	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
 	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
 	ClusterName() string
 }
@@ -408,12 +411,15 @@ type K8sClusterMesh struct {
 }
 
 type Parameters struct {
-	Namespace          string
-	ServiceType        string
-	DestinationContext string
-	Wait               bool
-	WaitTime           time.Duration
-	Writer             io.Writer
+	Namespace            string
+	ServiceType          string
+	DestinationContext   string
+	Wait                 bool
+	WaitTime             time.Duration
+	DestinationEndpoints []string
+	SourceEndpoints      []string
+	SkipServiceCheck     bool
+	Writer               io.Writer
 }
 
 func (p Parameters) waitTimeout() time.Duration {
@@ -562,6 +568,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 
 type accessInformation struct {
 	ServiceIPs  []string
+	ServicePort int
 	ClusterName string
 	CA          []byte
 	ClientCert  []byte
@@ -570,7 +577,7 @@ type accessInformation struct {
 
 func (ai *accessInformation) etcdConfiguration() string {
 	cfg := "endpoints:\n"
-	cfg += "- https://" + ai.ClusterName + ".mesh.cilium.io:2379\n"
+	cfg += "- https://" + ai.ClusterName + ".mesh.cilium.io:" + fmt.Sprintf("%d", ai.ServicePort) + "\n"
 	cfg += "trusted-ca-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + caSuffix + "\n"
 	cfg += "key-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + keySuffix + "\n"
 	cfg += "cert-file: /var/lib/cilium/clustermesh/" + ai.ClusterName + certSuffix + "\n"
@@ -578,7 +585,7 @@ func (ai *accessInformation) etcdConfiguration() string {
 	return cfg
 }
 
-func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, verbose bool) (*accessInformation, error) {
+func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, endpoints []string, verbose bool) (*accessInformation, error) {
 	cm, err := client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
@@ -631,15 +638,89 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		CA:          caCert,
 		ClientKey:   clientKey,
 		ClientCert:  clientCert,
+		ServiceIPs:  []string{},
 	}
 
-	for _, ingressStatus := range svc.Status.LoadBalancer.Ingress {
-		if ingressStatus.Hostname != "" {
-			return nil, fmt.Errorf("hostname based load-balancers are not supported yet")
+	switch {
+	case len(endpoints) > 0:
+		for _, endpoint := range endpoints {
+			ip, port, err := net.SplitHostPort(endpoint)
+			if err != nil {
+				return nil, fmt.Errorf("invalid endpoint %q, must be IP:PORT: %w", endpoint, err)
+			}
+
+			intPort, err := strconv.Atoi(port)
+			if err != nil {
+				return nil, fmt.Errorf("invalid port %q: %w", port, err)
+			}
+
+			if ai.ServicePort == 0 {
+				ai.ServicePort = intPort
+			} else if ai.ServicePort != intPort {
+				return nil, fmt.Errorf("port mismatch (%d != %d), all endpoints must use the same port number", ai.ServicePort, intPort)
+			}
+
+			ai.ServiceIPs = append(ai.ServiceIPs, ip)
 		}
 
-		if ingressStatus.IP != "" {
-			ai.ServiceIPs = append(ai.ServiceIPs, ingressStatus.IP)
+	case svc.Spec.Type == corev1.ServiceTypeClusterIP:
+		return nil, fmt.Errorf("not able to derive service IPs for type ClusterIP, please specify IPs manually")
+
+	case svc.Spec.Type == corev1.ServiceTypeNodePort:
+		if len(svc.Spec.Ports) == 0 {
+			return nil, fmt.Errorf("port of service could not be derived, service has no ports")
+		}
+
+		if svc.Spec.Ports[0].NodePort == 0 {
+			return nil, fmt.Errorf("nodeport is not set in service")
+		}
+		ai.ServicePort = int(svc.Spec.Ports[0].NodePort)
+
+		nodes, err := client.ListNodes(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to list nodes in cluster: %w", err)
+		}
+
+		for _, node := range nodes.Items {
+			nodeIP := ""
+			for _, address := range node.Status.Addresses {
+				switch address.Type {
+				case corev1.NodeExternalIP:
+					nodeIP = address.Address
+				case corev1.NodeInternalIP:
+					if nodeIP == "" {
+						nodeIP = address.Address
+					}
+				}
+			}
+
+			if nodeIP != "" {
+				ai.ServiceIPs = append(ai.ServiceIPs, nodeIP)
+
+				// We can't really support multiple nodes as
+				// the NodePort will be different and the
+				// current use of hostAliases will lead to
+				// DNS-style RR requiring all endpoints to use
+				// the same port
+				break
+			}
+		}
+
+	case svc.Spec.Type == corev1.ServiceTypeLoadBalancer:
+		if len(svc.Spec.Ports) == 0 {
+			return nil, fmt.Errorf("port of service could not be derived, service has no ports")
+		}
+
+		ai.ServicePort = int(svc.Spec.Ports[0].Port)
+
+		for _, ingressStatus := range svc.Status.LoadBalancer.Ingress {
+			if ingressStatus.Hostname != "" {
+				return nil, fmt.Errorf("hostname based load-balancers are not supported yet")
+			}
+
+			if ingressStatus.IP != "" {
+				ai.ServiceIPs = append(ai.ServiceIPs, ingressStatus.IP)
+			}
 		}
 	}
 
@@ -700,13 +781,13 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
 	}
 
-	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster, true)
+	aiRemote, err := k.extractAccessInformation(ctx, remoteCluster, k.params.DestinationEndpoints, true)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of remote cluster %q: %s", remoteCluster.ClusterName(), err)
 		return err
 	}
 
-	aiLocal, err := k.extractAccessInformation(ctx, k.client, true)
+	aiLocal, err := k.extractAccessInformation(ctx, k.client, k.params.SourceEndpoints, true)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of local cluster %q: %s", k.client.ClusterName(), err)
 		return err
@@ -786,7 +867,7 @@ func (k *K8sClusterMesh) status(ctx context.Context) (*status, error) {
 		s   = &status{}
 	)
 
-	s.accessInformation, err = k.extractAccessInformation(ctx, k.client, false)
+	s.accessInformation, err = k.extractAccessInformation(ctx, k.client, []string{}, false)
 	if err != nil {
 		return nil, err
 	}
@@ -800,7 +881,7 @@ func (k *K8sClusterMesh) status(ctx context.Context) (*status, error) {
 
 	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		if len(s.accessInformation.ServiceIPs) == 0 {
-			return nil, fmt.Errorf("no loadbalancer IP available")
+			return nil, fmt.Errorf("No IP available to reach cluster")
 		}
 	}
 
@@ -826,7 +907,10 @@ retry:
 		return err
 	}
 
-	k.Log("✅ Cluster can be connected to on IPs: %s", s.accessInformation.ServiceIPs)
+	k.Log("✅ Cluster can be connected to on endpoints:")
+	for _, ip := range s.accessInformation.ServiceIPs {
+		k.Log("  - %s:%d", ip, s.accessInformation.ServicePort)
+	}
 
 	return nil
 }
