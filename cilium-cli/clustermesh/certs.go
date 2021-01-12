@@ -30,7 +30,7 @@ import (
 func (k *K8sClusterMesh) createClusterMeshServerCertificate(ctx context.Context) error {
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		Hosts: []string{
 			"clustermesh-apiserver.cilium.io",
 			"*.mesh.cilium.io",
@@ -71,7 +71,7 @@ func (k *K8sClusterMesh) createClusterMeshServerCertificate(ctx context.Context)
 func (k *K8sClusterMesh) createClusterMeshAdminCertificate(ctx context.Context) error {
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		Hosts: []string{
 			"localhost",
 			"127.0.0.1",
@@ -110,7 +110,7 @@ func (k *K8sClusterMesh) createClusterMeshAdminCertificate(ctx context.Context) 
 func (k *K8sClusterMesh) createClusterMeshClientCertificate(ctx context.Context) error {
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
-		KeyRequest: &csr.KeyRequest{A: "rsa", S: 2048},
+		KeyRequest: csr.NewKeyRequest(),
 		Hosts:      []string{""},
 		CN:         "ClusterMesh Client",
 	}
