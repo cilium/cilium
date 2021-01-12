@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium-cli/status"
 
 	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -913,6 +914,7 @@ type k8sInstallerImplementation interface {
 	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
+	DeletePod(ctx context.Context, namespace, name string, options metav1.DeleteOptions) error
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
 	CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -922,6 +924,7 @@ type k8sInstallerImplementation interface {
 	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
 	ContextName() (name string)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
+	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 }
 
 type K8sInstaller struct {
@@ -1249,6 +1252,47 @@ func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
 	return nil
 }
 
+func (k *K8sInstaller) restartUnamangedPods(ctx context.Context) error {
+	var printed bool
+
+	pods, err := k.client.ListPods(ctx, "", metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list pods: %w", err)
+	}
+
+	ceps, err := k.client.ListCiliumEndpoints(ctx, "", metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list cilium endpoints: %w", err)
+	}
+
+	cepMap := map[string]struct{}{}
+	for _, cep := range ceps.Items {
+		cepMap[cep.Namespace+"/"+cep.Name] = struct{}{}
+	}
+
+	for _, pod := range pods.Items {
+		if !pod.Spec.HostNetwork {
+			if _, ok := cepMap[pod.Namespace+"/"+pod.Name]; ok {
+				continue
+			}
+
+			if !printed {
+				k.Log("♻️  Restarting unmanaged pods...")
+				printed = true
+			}
+			err := k.client.DeletePod(ctx, pod.Namespace, pod.Name, metav1.DeleteOptions{})
+			if err != nil {
+				k.Log("⚠️  Unable to restart pod %s/%s: %s", pod.Namespace, pod.Name, err)
+			} else {
+				k.Log("♻️  Restarted unmanaged pod %s/%s", pod.Namespace, pod.Name)
+			}
+		}
+	}
+
+	return nil
+
+}
+
 func (k *K8sInstaller) Install(ctx context.Context) error {
 	if err := k.autodetectAndValidate(ctx); err != nil {
 		return err
@@ -1354,9 +1398,15 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 
 		s, err := collector.Status(ctx)
-		if s != nil {
-			fmt.Println(s.Format())
+		if err != nil {
+			if s != nil {
+				fmt.Println(s.Format())
+			}
+			return err
 		}
+	}
+
+	if err := k.restartUnamangedPods(ctx); err != nil {
 		return err
 	}
 
