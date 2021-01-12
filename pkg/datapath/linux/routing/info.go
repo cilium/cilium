@@ -42,6 +42,9 @@ type RoutingInfo struct {
 	// corresponds to the IPv4Gateway IP addr.
 	MasterIfMAC mac.MAC
 
+	// Masquerade represents whether masquerading is enabled or not.
+	Masquerade bool
+
 	// InterfaceNumber is the generic number of the master interface that
 	// egress traffic is directed to. This is used to compute the table ID for
 	// the per-ENI tables.
@@ -86,5 +89,6 @@ func parse(gateway string, cidrs []string, macAddr string, masquerade bool) (*Ro
 		IPv4Gateway: ip,
 		IPv4CIDRs:   parsedCIDRs,
 		MasterIfMAC: parsedMAC,
+		Masquerade:  masquerade,
 	}, nil
 }
