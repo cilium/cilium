@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
@@ -830,6 +831,10 @@ func init() {
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "size of EventQueue per-endpoint")
 	option.BindEnv(option.EndpointQueueSize)
 
+	flags.Duration(option.EndpointGCInterval, 5*time.Minute, "Periodically monitor local endpoint health via link status on this interval and garbage collect them if they become unhealthy, set to 0 to disable")
+	flags.MarkHidden(option.EndpointGCInterval)
+	option.BindEnv(option.EndpointGCInterval)
+
 	flags.Bool(option.SelectiveRegeneration, true, "only regenerate endpoints which need to be regenerated upon policy changes")
 	flags.MarkHidden(option.SelectiveRegeneration)
 	option.BindEnv(option.SelectiveRegeneration)
@@ -1425,8 +1430,9 @@ func runDaemon() {
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	d, restoredEndpoints, err := NewDaemon(server.ServerCtx,
-		WithDefaultEndpointManager(),
+	ctx, cancel := context.WithCancel(server.ServerCtx)
+	d, restoredEndpoints, err := NewDaemon(ctx, cancel,
+		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager))
 	if err != nil {
 		select {

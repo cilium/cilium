@@ -523,6 +523,18 @@ func (e *Endpoint) GetID16() uint16 {
 	return e.ID
 }
 
+// HostInterface returns the name of the link-layer interface used for
+// communicating with the endpoint from the host (if available).
+//
+// In some datapath modes, it may return an empty string as there is no unique
+// host netns network interface for this endpoint.
+func (e *Endpoint) HostInterface() string {
+	if e.HasIpvlanDataPath() {
+		return ""
+	}
+	return e.ifName
+}
+
 // getK8sPodLabels returns all labels that exist in the endpoint and were
 // derived from k8s pod.
 func (e *Endpoint) getK8sPodLabels() labels.Labels {
