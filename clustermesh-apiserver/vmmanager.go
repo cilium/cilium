@@ -128,9 +128,9 @@ func nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2.CiliumExternal
 	}
 
 	// Override cluster
-	nk.Cluster = clusterName
+	nk.Cluster = cfg.clusterName
 	nk.ClusterID = clusterID
-	nk.Labels[k8sConst.PolicyLabelCluster] = clusterName
+	nk.Labels[k8sConst.PolicyLabelCluster] = cfg.clusterName
 
 	// Override CIDRs if defined
 	if cew.Spec.IPv4AllocCIDR != "" {

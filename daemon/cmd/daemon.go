@@ -606,7 +606,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache)
+		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache, option.Config)
 	}
 
 	// Start IPAM

@@ -62,6 +62,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type configuration struct {
+	clusterName string
+}
+
+func (c configuration) LocalClusterName() string {
+	return c.clusterName
+}
+
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
 
@@ -86,8 +94,8 @@ var (
 
 	mockFile        string
 	clusterID       int
-	clusterName     string
 	ciliumK8sClient clientset.Interface
+	cfg             configuration
 
 	shutdownSignal = make(chan struct{})
 
@@ -188,7 +196,7 @@ func runApiserver() error {
 	flags.IntVar(&clusterID, option.ClusterIDName, 0, "Cluster ID")
 	option.BindEnv(option.ClusterIDName)
 
-	flags.StringVar(&clusterName, option.ClusterName, "default", "Cluster name")
+	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
 	option.BindEnv(option.ClusterName)
 
 	flags.StringVar(&mockFile, "mock-file", "", "Read from mock file")
@@ -218,8 +226,6 @@ func runApiserver() error {
 }
 
 func main() {
-	log.Infof("Starting Cilium ClusterMesh apiserver...")
-
 	installSigHandler()
 
 	if err := runApiserver(); err != nil {
@@ -352,7 +358,7 @@ func (n nodeStub) GetKeyName() string { return string(n) }
 func updateNode(obj interface{}) {
 	if ciliumNode, ok := obj.(*ciliumv2.CiliumNode); ok {
 		n := nodeTypes.ParseCiliumNode(ciliumNode)
-		n.Cluster = clusterName
+		n.Cluster = cfg.clusterName
 		n.ClusterID = clusterID
 		if err := ciliumNodeStore.UpdateLocalKeySync(context.Background(), &n); err != nil {
 			log.WithError(err).Warning("Unable to insert node into etcd")
@@ -497,6 +503,11 @@ func synchronizeCiliumEndpoints() {
 }
 
 func runServer(cmd *cobra.Command) {
+	log.WithFields(logrus.Fields{
+		"cluster-name": cfg.clusterName,
+		"cluster-id":   clusterID,
+	}).Info("Starting clustermesh-apiserver...")
+
 	if mockFile == "" {
 		k8s.Configure("", "", 0.0, 0)
 		if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
@@ -540,7 +551,7 @@ func runServer(cmd *cobra.Command) {
 		synchronizeIdentities()
 		synchronizeNodes()
 		synchronizeCiliumEndpoints()
-		operatorWatchers.StartSynchronizingServices(false)
+		operatorWatchers.StartSynchronizingServices(false, cfg)
 	}
 
 	go func() {

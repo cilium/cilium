@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -179,14 +178,20 @@ func (c *clusterServiceObserver) OnDelete(key store.NamedKey) {
 	}
 }
 
+// Configuration is the required configuration for the service store
+type Configuration interface {
+	// LocalClusterName must return the name of the local cluster
+	LocalClusterName() string
+}
+
 // JoinClusterServices starts a controller for syncing services from the kvstore
-func JoinClusterServices(merger ServiceMerger) {
+func JoinClusterServices(merger ServiceMerger, cfg Configuration) {
 	swg := lock.NewStoppableWaitGroup()
 
 	log.Info("Enumerating cluster services")
 	// JoinSharedStore performs initial sync of services
 	_, err := store.JoinSharedStore(store.Configuration{
-		Prefix: path.Join(ServiceStorePrefix, option.Config.ClusterName),
+		Prefix: path.Join(ServiceStorePrefix, cfg.LocalClusterName()),
 		KeyCreator: func() store.Key {
 			return &ClusterService{}
 		},
