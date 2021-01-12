@@ -783,7 +783,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 			Name:  echoSameNodeDeploymentName,
 			Kind:  kindEchoName,
 			Port:  8080,
-			Image: "docker.io/cilium/json-mock:1.2",
+			Image: "quay.io/cilium/json-mock:1.2",
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -806,7 +806,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		}
 
 		k.Log("✨ [%s] Deploying client service...", k.clients.src.ClusterName())
-		clientDeployment := newDeployment(deploymentParameters{Name: clientDeploymentName, Kind: kindClientName, Port: 8080, Image: "docker.io/byrnedo/alpine-curl:0.1.8", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
+		clientDeployment := newDeployment(deploymentParameters{Name: clientDeploymentName, Kind: kindClientName, Port: 8080, Image: "quay.io/cilium/alpine-curl:1.0", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
 		_, err = k.clients.src.CreateDeployment(ctx, connectivityCheckNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create deployment %s: %s", clientDeploymentName, err)
@@ -832,7 +832,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 				Name:  echoOtherNodeDeploymentName,
 				Kind:  kindEchoName,
 				Port:  8080,
-				Image: "docker.io/cilium/json-mock:1.2",
+				Image: "quay.io/cilium/json-mock:1.2",
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
