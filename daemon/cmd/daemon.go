@@ -361,6 +361,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.svc,
 		d.datapath,
 		d.redirectPolicyManager,
+		option.Config,
 	)
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)

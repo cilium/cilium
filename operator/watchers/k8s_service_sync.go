@@ -94,6 +94,8 @@ func k8sServiceHandler(clusterName string) {
 type ServiceSyncConfiguration interface {
 	// LocalClusterName must return the local cluster name
 	LocalClusterName() string
+
+	utils.ServiceConfiguration
 }
 
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
@@ -104,7 +106,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore...")
 	sharedOnly = shared
 
-	serviceOptsModifier, err := utils.GetServiceListOptionsModifier()
+	serviceOptsModifier, err := utils.GetServiceListOptionsModifier(cfg)
 	if err != nil {
 		log.WithError(err).Fatal("Error creating service option modifier")
 	}

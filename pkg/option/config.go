@@ -2057,12 +2057,12 @@ type DaemonConfig struct {
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int
 
-	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
+	// k8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
 	// that identifies the service objects Cilium should handle.
 	// If the provided value is an empty string, Cilium will manage service objects when
 	// the label is not present. For more details -
 	// https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md
-	K8sServiceProxyName string
+	k8sServiceProxyName string
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimit map[string]string
@@ -2237,6 +2237,13 @@ func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
 // LocalClusterName returns the name of the cluster Cilium is deployed in
 func (c *DaemonConfig) LocalClusterName() string {
 	return c.ClusterName
+}
+
+// K8sServiceProxyName returns the required value for the
+// service.kubernetes.io/service-proxy-name label in order for services to be
+// handled.
+func (c *DaemonConfig) K8sServiceProxyName() string {
+	return c.k8sServiceProxyName
 }
 
 // CiliumNamespaceName returns the name of the namespace in which Cilium is
@@ -2602,7 +2609,7 @@ func (c *DaemonConfig) Populate() {
 	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
-	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
+	c.k8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = viper.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = viper.GetString(LoadBalancerRSSv4CIDR)

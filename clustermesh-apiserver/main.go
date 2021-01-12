@@ -63,11 +63,16 @@ import (
 )
 
 type configuration struct {
-	clusterName string
+	clusterName      string
+	serviceProxyName string
 }
 
 func (c configuration) LocalClusterName() string {
 	return c.clusterName
+}
+
+func (c configuration) K8sServiceProxyName() string {
+	return c.serviceProxyName
 }
 
 var (
@@ -214,6 +219,9 @@ func runApiserver() error {
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options")
 	option.BindEnv(option.KVStoreOpt)
+
+	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+	option.BindEnv(option.K8sServiceProxyName)
 
 	viper.BindPFlags(flags)
 	option.Config.Populate()
