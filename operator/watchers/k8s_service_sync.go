@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
@@ -51,12 +50,12 @@ var (
 	sharedOnly        bool
 )
 
-func k8sServiceHandler() {
+func k8sServiceHandler(clusterName string) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-		svc.Cluster = option.Config.ClusterName
+		svc.Cluster = clusterName
 
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
@@ -91,11 +90,17 @@ func k8sServiceHandler() {
 	}
 }
 
+// ServiceSyncConfiguration is the required configuration for StartSynchronizingServices
+type ServiceSyncConfiguration interface {
+	// LocalClusterName must return the local cluster name
+	LocalClusterName() string
+}
+
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(shared bool) {
+func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore...")
 	sharedOnly = shared
 
@@ -200,7 +205,7 @@ func StartSynchronizingServices(shared bool) {
 	go func() {
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler()
+		k8sServiceHandler(cfg.LocalClusterName())
 	}()
 }
 
