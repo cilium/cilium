@@ -139,7 +139,11 @@ nextEvent:
 		ev, err := s.payloadParser.Decode(monitorEvent)
 		if err != nil {
 			if !errors.Is(err, parserErrors.ErrUnknownEventType) {
-				s.log.WithError(err).WithField("event", monitorEvent).Debug("failed to decode payload")
+				// Debug event types MessageTypeDebug and MessageTypeCapture are treated as invalid type.
+				// To avoid spamming debug log, silence them until the parser for them is implemented.
+				if !parserErrors.IsErrInvalidType(err) {
+					s.log.WithError(err).WithField("event", monitorEvent).Debug("failed to decode payload")
+				}
 			}
 			continue
 		}
