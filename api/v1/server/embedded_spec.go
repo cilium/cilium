@@ -3510,10 +3510,6 @@ func init() {
           "description": "Status of ClusterMesh",
           "$ref": "#/definitions/ClusterMeshStatus"
         },
-        "container-runtime": {
-          "description": "Status of local container runtime",
-          "$ref": "#/definitions/Status"
-        },
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
@@ -7723,10 +7719,6 @@ func init() {
         "cluster-mesh": {
           "description": "Status of ClusterMesh",
           "$ref": "#/definitions/ClusterMeshStatus"
-        },
-        "container-runtime": {
-          "description": "Status of local container runtime",
-          "$ref": "#/definitions/Status"
         },
         "controllers": {
           "description": "Status of all endpoint controllers",

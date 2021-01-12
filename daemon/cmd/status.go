@@ -627,15 +627,6 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 			State: d.statusResponse.Kvstore.State,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
-	case d.statusResponse.ContainerRuntime != nil && d.statusResponse.ContainerRuntime.State != models.StatusStateOk:
-		msg := "Container runtime is not ready"
-		if d.statusResponse.ContainerRuntime.State == models.StatusStateDisabled {
-			msg = "Container runtime is disabled"
-		}
-		sr.Cilium = &models.Status{
-			State: d.statusResponse.ContainerRuntime.State,
-			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
-		}
 	case k8s.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
 		msg := "Kubernetes service is not ready"
 		sr.Cilium = &models.Status{
