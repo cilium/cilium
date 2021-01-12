@@ -108,6 +108,21 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
+	if k.params.IPAM == "" {
+		switch f.Kind {
+		case k8s.KindKind:
+			k.params.IPAM = ipamKubernetes
+		case k8s.KindEKS:
+			k.params.IPAM = ipamENI
+		case k8s.KindGKE:
+			k.params.IPAM = ipamKubernetes
+		default:
+			k.params.IPAM = ipamClusterPool
+		}
+
+		k.Log("🔮 Auto-detected IPAM mode: %s", k.params.IPAM)
+	}
+
 	if k.params.DatapathMode == "" {
 		switch f.Kind {
 		case k8s.KindMinikube:
