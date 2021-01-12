@@ -194,33 +194,32 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | Jenkins Job                                                                                                    | Trigger Phrases   | Required To Merge? |
 +================================================================================================================+===================+====================+
-| `K8s-1.20-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-newest-kernel-4.9/>`_                        | test-me-please,   | Yes                |
-|                                                                                                                | retest-4.9        |                    |
+| `Cilium-PR-K8s-1.19-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-1.19-kernel-4.9/>`_                | test-1.19-4.9     | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `K8s-1.19-Kernel-4.19 <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                         | test-me-please,   | Yes                |
+| `Cilium-PR-Ginkgo-Tests-Kernel <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                | test-me-please,   | Yes                |
 |                                                                                                                | retest-4.19       |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `K8s-1.13-Kernel-netnext <https://jenkins.cilium.io/job/Cilium-PR-K8s-oldest-net-next/>`_                      | test-me-please,   | Yes                |
+| `Cilium-PR-K8s-1.13-net-next <https://jenkins.cilium.io/job/Cilium-PR-K8s-1.13-net-next/>`_                    | test-me-please,   | Yes                |
 |                                                                                                                | retest-net-next   |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Runtime-4.9 <https://jenkins.cilium.io/job/Cilium-PR-Runtime-4.9/>`_                                          | test-me-please,   | Yes                |
+| `Cilium-PR-Runtime-4.9 <https://jenkins.cilium.io/job/Cilium-PR-Runtime-4.9/>`_                                | test-me-please,   | Yes                |
 |                                                                                                                | retest-runtime    |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                          | test-missed-k8s   | Yes                |
+| `Cilium-PR-Ginkgo-Tests-Kernel-Focus <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel-Focus/>`_    | test-focus        | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
+| `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/job/Cilium-PR-Kubernetes-Upstream/>`_                | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-kubernetes-upstream-test <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_      | test-upstream-k8s | Yes                |
+| `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-K8s/>`_                      | test-missed-k8s   | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please,   | Yes                |
-|                                                                                                                | test-gke          |                    |
+| `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please    | Yes                |
+|                                                                                                                | retest-gke        |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+
+For a full list of Jenkins Jobs, see `Jenkins
+<https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
+each job's build triggers advanced options.
 
 For Backport PRs, the phrase ``test-backport-x.x`` (with ``x.x`` being the target Cilium version) should be used to
 trigger all of the above jobs which are marked as required to validate changes
