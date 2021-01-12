@@ -186,6 +186,8 @@ type K8sWatcher struct {
 	datapath       datapath.Datapath
 
 	networkpolicyStore cache.Store
+
+	cfg WatcherConfiguration
 }
 
 func NewK8sWatcher(
@@ -196,6 +198,7 @@ func NewK8sWatcher(
 	svcManager svcManager,
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
+	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
@@ -208,6 +211,7 @@ func NewK8sWatcher(
 		podStoreSet:           make(chan struct{}),
 		datapath:              datapath,
 		redirectPolicyManager: redirectPolicyManager,
+		cfg:                   cfg,
 	}
 }
 
@@ -332,6 +336,11 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	return cachesSynced
 }
 
+// WatcherConfiguration is the required configuration for EnableK8sWatcher
+type WatcherConfiguration interface {
+	utils.ServiceConfiguration
+}
+
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
 func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
@@ -348,7 +357,7 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	swgKNP := lock.NewStoppableWaitGroup()
 	k.networkPoliciesInit(k8s.WatcherClient(), swgKNP)
 
-	serviceOptModifier, err := utils.GetServiceListOptionsModifier()
+	serviceOptModifier, err := utils.GetServiceListOptionsModifier(k.cfg)
 	if err != nil {
 		return fmt.Errorf("error creating service list option modifier: %w", err)
 	}
