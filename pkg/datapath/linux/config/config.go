@@ -422,7 +422,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
 
-		if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4 {
+		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 			cDefinesMap["ENABLE_MASQUERADE"] = "1"
 			cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
