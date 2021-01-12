@@ -17,6 +17,8 @@ package maglev
 import (
 	"encoding/base64"
 	"fmt"
+	"runtime"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/murmur3"
 )
@@ -60,16 +62,42 @@ func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
 	return offset, skip
 }
 
-func getPermutation(backends []string, m uint64) []uint64 {
-	perm := make([]uint64, len(backends)*int(m))
+func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
+	var wg sync.WaitGroup
+	bCount := len(backends)
+	perm := make([]uint64, bCount*int(m))
 
-	for i, backend := range backends {
-		offset, skip := getOffsetAndSkip(backend, m)
-		perm[i*int(m)] = offset % m
-		for j := uint64(1); j < m; j++ {
-			perm[i*int(m)+int(j)] = (perm[i*int(m)+int(j-1)] + skip) % m
-		}
+	// The idea is to split the calculation into batches so that they can be
+	// concurrently executed.  We limit the number of concurrent goroutines to
+	// the number of available CPU cores. This is because the calculation does
+	// not block and is completely CPU-bound. Therefore, adding more goroutines
+	// would result into an overhead (allocation of stackframes, stress on
+	// scheduling, etc) instead of a performance gain.
+
+	batchSize := bCount / numCPU
+	if batchSize == 0 {
+		batchSize = bCount
 	}
+
+	for g := 0; g < bCount; g += batchSize {
+		wg.Add(1)
+		go func(from int) {
+			to := from + batchSize
+			if to > bCount {
+				to = bCount
+			}
+			for i := from; i < to; i++ {
+				offset, skip := getOffsetAndSkip(backends[i], m)
+				perm[i*int(m)] = offset % m
+				for j := uint64(1); j < m; j++ {
+					perm[i*int(m)+int(j)] = (perm[i*int(m)+int(j-1)] + skip) % m
+				}
+
+			}
+			wg.Done()
+		}(g)
+	}
+	wg.Wait()
 
 	return perm
 }
@@ -81,7 +109,7 @@ func GetLookupTable(backends []string, m uint64) []int {
 		return nil
 	}
 
-	perm := getPermutation(backends, m)
+	perm := getPermutation(backends, m, runtime.NumCPU())
 	next := make([]int, len(backends))
 	entry := make([]int, m)
 

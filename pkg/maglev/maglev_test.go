@@ -18,7 +18,10 @@ package maglev
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
+
+	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
 )
@@ -32,6 +35,33 @@ var _ = Suite(&MaglevTestSuite{})
 func (s *MaglevTestSuite) SetUpTest(c *C) {
 	if err := InitMaglevSeeds(DefaultHashSeed); err != nil {
 		c.Fatal(err)
+	}
+}
+
+func (s *MaglevTestSuite) TestPermutations(c *C) {
+	getExpectedPermutation := func(backends []string, m uint64) []uint64 {
+		perm := make([]uint64, len(backends)*int(m))
+		for i, backend := range backends {
+			offset, skip := getOffsetAndSkip(backend, m)
+			perm[i*int(m)] = offset % m
+			for j := uint64(1); j < m; j++ {
+				perm[i*int(m)+int(j)] = (perm[i*int(m)+int(j-1)] + skip) % m
+			}
+		}
+		return perm
+	}
+	for _, bCount := range []int{0, 1, 2, 5, 111, 222, 333, 1001} {
+		backends := make([]string, bCount)
+		for i := 0; i < bCount; i++ {
+			backends = append(backends, strconv.Itoa(i))
+		}
+		for _, m := range []uint64{251, 509, 1021} {
+			expectedPerm := getExpectedPermutation(backends, m)
+			for _, numCPU := range []int{1, 2, 3, 4, 8, 100} {
+				testPerm := getPermutation(backends, m, numCPU)
+				c.Assert(testPerm, checker.DeepEquals, expectedPerm)
+			}
+		}
 	}
 }
 
