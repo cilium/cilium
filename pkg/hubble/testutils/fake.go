@@ -273,7 +273,8 @@ var NoopDNSGetter = FakeFQDNCache{
 
 // FakeEndpointGetter is used for unit tests that needs EndpointGetter.
 type FakeEndpointGetter struct {
-	OnGetEndpointInfo func(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	OnGetEndpointInfo     func(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	OnGetEndpointInfoByID func(id uint16) (endpoint v1.EndpointInfo, ok bool)
 }
 
 // GetEndpointInfo implements EndpointGetter.GetEndpointInfo.
@@ -284,9 +285,20 @@ func (f *FakeEndpointGetter) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInf
 	panic("OnGetEndpointInfo not set")
 }
 
+// GetEndpointInfoByID implements EndpointGetter.GetEndpointInfoByID.
+func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+	if f.OnGetEndpointInfoByID != nil {
+		return f.OnGetEndpointInfoByID(id)
+	}
+	panic("GetEndpointInfoByID not set")
+}
+
 // NoopEndpointGetter always returns an empty response.
 var NoopEndpointGetter = FakeEndpointGetter{
 	OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+		return nil, false
+	},
+	OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
 		return nil, false
 	},
 }

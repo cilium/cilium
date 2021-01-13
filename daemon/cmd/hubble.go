@@ -260,6 +260,15 @@ func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) 
 	return ep, true
 }
 
+// GetEndpointInfo returns endpoint info for a given Cilium endpoint id. Used by Hubble.
+func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+	ep := d.endpointManager.LookupCiliumID(id)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
+}
+
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
 // FQDN cache of an endpoint specified by sourceEpID.
 //
