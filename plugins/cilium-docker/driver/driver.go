@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -47,6 +48,8 @@ import (
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker-driver")
+
+var endpointIDRx = regexp.MustCompile(`\A[-.0-9a-z]+\z`)
 
 // Driver interface that listens for docker requests.
 type Driver interface {
@@ -373,6 +376,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	if create.Interface.Address == "" && create.Interface.AddressIPv6 == "" {
 		sendError(w, "No IPv4 or IPv6 address provided (required)", http.StatusBadRequest)
+		return
+	}
+	if !endpointIDRx.MatchString(create.EndpointID) {
+		sendError(w, "Invalid endpoint ID", http.StatusBadRequest)
 		return
 	}
 
