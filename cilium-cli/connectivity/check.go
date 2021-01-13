@@ -412,6 +412,7 @@ func (k *K8sConnectivityCheck) validatePodToPod(ctx context.Context) {
 			if err != nil {
 				k.Log("❌ curl connectivity check command failed: %s", err)
 				printFlows = true
+				success = false
 			}
 
 			srcFlows, err := k.getFlows(ctx, now.Add(-2*time.Second), srcPod)
