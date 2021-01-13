@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,6 +107,13 @@ var bpfLBListCmd = &cobra.Command{
 	Short:   "List load-balancing configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb list")
+
+		// Ensure that the BPF map objects have been initialized before trying
+		// to list them. Note, this is _not_ creating a new map, but rather
+		// initializing the Go object representing the map. We don't need to
+		// pass the correct sizes here because once the maps are opened, their
+		// size will be read.
+		lbmap.Init(lbmap.InitParams{IPv4: true, IPv6: true})
 
 		var firstTitle string
 		serviceList := make(map[string][]string)
