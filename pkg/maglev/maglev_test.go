@@ -60,7 +60,7 @@ func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 
 func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
 	backendCount := 1000
-	m := uint64(DefaultTableSize)
+	m := uint64(131071)
 
 	backends := make([]string, 0, backendCount)
 	for i := 0; i < backendCount; i++ {
