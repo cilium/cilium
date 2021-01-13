@@ -33,7 +33,7 @@ func (f *Config) RemoteNodeIdentitiesEnabled() bool {
 	return true
 }
 
-// NodeEncryptionEnabled returns true if node encryption is enabled
-func (f *Config) NodeEncryptionEnabled() bool {
+// EncryptionEnabled returns true if encryption is enabled
+func (f *Config) EncryptionEnabled() bool {
 	return true
 }

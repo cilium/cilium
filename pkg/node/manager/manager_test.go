@@ -46,15 +46,15 @@ var _ = check.Suite(&managerTestSuite{})
 
 type configMock struct {
 	RemoteNodeIdentity bool
-	NodeEncryption     bool
+	Encryption         bool
 }
 
 func (c *configMock) RemoteNodeIdentitiesEnabled() bool {
 	return c.RemoteNodeIdentity
 }
 
-func (c *configMock) NodeEncryptionEnabled() bool {
-	return c.NodeEncryption
+func (c *configMock) EncryptionEnabled() bool {
+	return c.Encryption
 }
 
 type nodeEvent struct {
@@ -559,7 +559,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 	ipcacheMock := newIPcacheMock()
-	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{NodeEncryption: true})
+	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{Encryption: true})
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 

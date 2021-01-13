@@ -71,7 +71,7 @@ type IPCache interface {
 // on
 type Configuration interface {
 	RemoteNodeIdentitiesEnabled() bool
-	NodeEncryptionEnabled() bool
+	EncryptionEnabled() bool
 }
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -334,7 +334,7 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 	// ipcache. This resulted in a behavioral change. New deployments will
 	// provide this behavior out of the gate, existing deployments will
 	// have to opt into this by enabling remote-node identities.
-	return !m.conf.NodeEncryptionEnabled() && !m.conf.RemoteNodeIdentitiesEnabled()
+	return !m.conf.EncryptionEnabled() && !m.conf.RemoteNodeIdentitiesEnabled()
 }
 
 // NodeUpdated is called after the information of a node has been updated. The
@@ -362,7 +362,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// If the host firewall is enabled, all traffic to remote nodes must go
 		// through the tunnel to preserve the source identity as part of the
 		// encapsulation.
-		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
+		if address.Type == addressing.NodeCiliumInternalIP || m.conf.EncryptionEnabled() ||
 			option.Config.EnableHostFirewall || option.Config.JoinCluster {
 			tunnelIP = nodeIP
 		}
