@@ -51,6 +51,18 @@ func (ev *Event) GetAgentEvent() *pb.AgentEvent {
 	return nil
 }
 
+// GetDebugEvent returns the decoded debug event, or nil if the event is nil
+// or not an debug event
+func (ev *Event) GetDebugEvent() *pb.DebugEvent {
+	if ev == nil || ev.Event == nil {
+		return nil
+	}
+	if d, ok := ev.Event.(*pb.DebugEvent); ok {
+		return d
+	}
+	return nil
+}
+
 // GetLostEvent returns the decoded lost event, or nil if the event is nil
 // or not a lost event
 func (ev *Event) GetLostEvent() *pb.LostEvent {

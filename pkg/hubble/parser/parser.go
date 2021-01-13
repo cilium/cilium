@@ -19,6 +19,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/agent"
+	"github.com/cilium/cilium/pkg/hubble/parser/debug"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
@@ -36,6 +37,7 @@ import (
 type Parser struct {
 	l34 *threefour.Parser
 	l7  *seven.Parser
+	dbg *debug.Parser
 }
 
 // New creates a new parser
@@ -59,9 +61,15 @@ func New(
 		return nil, err
 	}
 
+	dbg, err := debug.New(log, endpointGetter)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Parser{
 		l34: l34,
 		l7:  l7,
+		dbg: dbg,
 	}, nil
 }
 
@@ -93,6 +101,20 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 
 	switch payload := monitorEvent.Payload.(type) {
 	case *observerTypes.PerfEvent:
+		if payload.Data == nil || len(payload.Data) == 0 {
+			return nil, errors.ErrEmptyData
+		} else if payload.Data[0] == monitorAPI.MessageTypeDebug {
+			// Debug is currently the only perf ring buffer event without any
+			// associated captured network packet header, so we treat it as
+			// a special case
+			dbg, err := p.dbg.Decode(payload.Data, payload.CPU)
+			if err != nil {
+				return nil, err
+			}
+			ev.Event = dbg
+			return ev, nil
+		}
+
 		flow := &pb.Flow{}
 		if err := p.l34.Decode(payload.Data, flow); err != nil {
 			return nil, err
