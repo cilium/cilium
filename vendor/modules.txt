@@ -294,7 +294,7 @@ github.com/go-openapi/validate
 github.com/go-stack/stack
 # github.com/gobuffalo/flect v0.2.0
 github.com/gobuffalo/flect
-# github.com/gogo/protobuf v1.3.1
+# github.com/gogo/protobuf v1.3.2
 ## explicit
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/plugin/compare
@@ -420,9 +420,9 @@ github.com/json-iterator/go
 # github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
 ## explicit
 github.com/kevinburke/ssh_config
-# github.com/kisielk/errcheck v1.2.0
+# github.com/kisielk/errcheck v1.5.0
 github.com/kisielk/errcheck
-github.com/kisielk/errcheck/internal/errcheck
+github.com/kisielk/errcheck/errcheck
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/pretty v0.2.1

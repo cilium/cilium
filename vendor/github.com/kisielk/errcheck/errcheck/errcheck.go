@@ -1,6 +1,4 @@
 // Package errcheck is the library used to implement the errcheck command-line tool.
-//
-// Note: The API of this package has not been finalized and may change at any point.
 package errcheck
 
 import (
@@ -14,7 +12,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -23,107 +20,16 @@ var errorType *types.Interface
 
 func init() {
 	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
-
 }
 
 var (
 	// ErrNoGoFiles is returned when CheckPackage is run on a package with no Go source files
 	ErrNoGoFiles = errors.New("package contains no go source files")
-)
 
-// UncheckedError indicates the position of an unchecked error return.
-type UncheckedError struct {
-	Pos      token.Position
-	Line     string
-	FuncName string
-}
-
-// UncheckedErrors is returned from the CheckPackage function if the package contains
-// any unchecked errors.
-// Errors should be appended using the Append method, which is safe to use concurrently.
-type UncheckedErrors struct {
-	mu sync.Mutex
-
-	// Errors is a list of all the unchecked errors in the package.
-	// Printing an error reports its position within the file and the contents of the line.
-	Errors []UncheckedError
-}
-
-func (e *UncheckedErrors) Append(errors ...UncheckedError) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.Errors = append(e.Errors, errors...)
-}
-
-func (e *UncheckedErrors) Error() string {
-	return fmt.Sprintf("%d unchecked errors", len(e.Errors))
-}
-
-// Len is the number of elements in the collection.
-func (e *UncheckedErrors) Len() int { return len(e.Errors) }
-
-// Swap swaps the elements with indexes i and j.
-func (e *UncheckedErrors) Swap(i, j int) { e.Errors[i], e.Errors[j] = e.Errors[j], e.Errors[i] }
-
-type byName struct{ *UncheckedErrors }
-
-// Less reports whether the element with index i should sort before the element with index j.
-func (e byName) Less(i, j int) bool {
-	ei, ej := e.Errors[i], e.Errors[j]
-
-	pi, pj := ei.Pos, ej.Pos
-
-	if pi.Filename != pj.Filename {
-		return pi.Filename < pj.Filename
-	}
-	if pi.Line != pj.Line {
-		return pi.Line < pj.Line
-	}
-	if pi.Column != pj.Column {
-		return pi.Column < pj.Column
-	}
-
-	return ei.Line < ej.Line
-}
-
-type Checker struct {
-	// ignore is a map of package names to regular expressions. Identifiers from a package are
-	// checked against its regular expressions and if any of the expressions match the call
-	// is not checked.
-	Ignore map[string]*regexp.Regexp
-
-	// If blank is true then assignments to the blank identifier are also considered to be
-	// ignored errors.
-	Blank bool
-
-	// If asserts is true then ignored type assertion results are also checked
-	Asserts bool
-
-	// build tags
-	Tags []string
-
-	Verbose bool
-
-	// If true, checking of _test.go files is disabled
-	WithoutTests bool
-
-	// If true, checking of files with generated code is disabled
-	WithoutGeneratedCode bool
-
-	exclude map[string]bool
-}
-
-func NewChecker() *Checker {
-	c := Checker{}
-	c.SetExclude(map[string]bool{})
-	return &c
-}
-
-func (c *Checker) SetExclude(l map[string]bool) {
-	c.exclude = map[string]bool{}
-
-	// Default exclude for stdlib functions
-	for _, exc := range []string{
+	// DefaultExcludedSymbols is a list of symbol names that are usually excluded from checks by default.
+	//
+	// Note, that they still need to be explicitly copied to Checker.Exclusions.Symbols
+	DefaultExcludedSymbols = []string{
 		// bytes
 		"(*bytes.Buffer).Write",
 		"(*bytes.Buffer).WriteByte",
@@ -157,19 +63,133 @@ func (c *Checker) SetExclude(l map[string]bool) {
 
 		// hash
 		"(hash.Hash).Write",
-	} {
-		c.exclude[exc] = true
 	}
+)
 
-	for k := range l {
-		c.exclude[k] = true
-	}
+// UncheckedError indicates the position of an unchecked error return.
+type UncheckedError struct {
+	Pos      token.Position
+	Line     string
+	FuncName string
 }
 
-func (c *Checker) logf(msg string, args ...interface{}) {
-	if c.Verbose {
-		fmt.Fprintf(os.Stderr, msg+"\n", args...)
+// Result is returned from the CheckPackage function, and holds all the errors
+// that were found to be unchecked in a package.
+//
+// Aggregation can be done using the Append method for users that want to
+// combine results from multiple packages.
+type Result struct {
+	// UncheckedErrors is a list of all the unchecked errors in the package.
+	// Printing an error reports its position within the file and the contents of the line.
+	UncheckedErrors []UncheckedError
+}
+
+type byName []UncheckedError
+
+// Less reports whether the element with index i should sort before the element with index j.
+func (b byName) Less(i, j int) bool {
+	ei, ej := b[i], b[j]
+
+	pi, pj := ei.Pos, ej.Pos
+
+	if pi.Filename != pj.Filename {
+		return pi.Filename < pj.Filename
 	}
+	if pi.Line != pj.Line {
+		return pi.Line < pj.Line
+	}
+	if pi.Column != pj.Column {
+		return pi.Column < pj.Column
+	}
+
+	return ei.Line < ej.Line
+}
+
+func (b byName) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b byName) Len() int {
+	return len(b)
+}
+
+// Append appends errors to e. Append does not do any duplicate checking.
+func (r *Result) Append(other Result) {
+	r.UncheckedErrors = append(r.UncheckedErrors, other.UncheckedErrors...)
+}
+
+// Returns the unique errors that have been accumulated. Duplicates may occur
+// when a file containing an unchecked error belongs to > 1 package.
+//
+// The method receiver remains unmodified after the call to Unique.
+func (r Result) Unique() Result {
+	result := make([]UncheckedError, len(r.UncheckedErrors))
+	copy(result, r.UncheckedErrors)
+	sort.Sort((byName)(result))
+	uniq := result[:0] // compact in-place
+	for i, err := range result {
+		if i == 0 || err != result[i-1] {
+			uniq = append(uniq, err)
+		}
+	}
+	return Result{UncheckedErrors: uniq}
+}
+
+// Exclusions define symbols and language elements that will be not checked
+type Exclusions struct {
+
+	// Packages lists paths of excluded packages.
+	Packages []string
+
+	// SymbolRegexpsByPackage maps individual package paths to regular
+	// expressions that match symbols to be excluded.
+	//
+	// Packages whose paths appear both here and in Packages list will
+	// be excluded entirely.
+	//
+	// This is a legacy input that will be deprecated in errcheck version 2 and
+	// should not be used.
+	SymbolRegexpsByPackage map[string]*regexp.Regexp
+
+	// Symbols lists patterns that exclude individual package symbols.
+	//
+	// For example:
+	//
+	//   "fmt.Errorf"              // function
+	//   "fmt.Fprintf(os.Stderr)"  // function with set argument value
+	//   "(hash.Hash).Write"       // method
+	//
+	Symbols []string
+
+	// TestFiles excludes _test.go files.
+	TestFiles bool
+
+	// GeneratedFiles excludes generated source files.
+	//
+	// Source file is assumed to be generated if its contents
+	// match the following regular expression:
+	//
+	//   ^// Code generated .* DO NOT EDIT\\.$
+	//
+	GeneratedFiles bool
+
+	// BlankAssignments ignores assignments to blank identifier.
+	BlankAssignments bool
+
+	// TypeAssertions ignores unchecked type assertions.
+	TypeAssertions bool
+}
+
+// Checker checks that you checked errors.
+type Checker struct {
+	// Exclusions defines code packages, symbols, and other elements that will not be checked.
+	Exclusions Exclusions
+
+	// Tags are a list of build tags to use.
+	Tags []string
+
+	// The mod flag for go build.
+	Mod string
 }
 
 // loadPackages is used for testing.
@@ -177,19 +197,26 @@ var loadPackages = func(cfg *packages.Config, paths ...string) ([]*packages.Pack
 	return packages.Load(cfg, paths...)
 }
 
-func (c *Checker) load(paths ...string) ([]*packages.Package, error) {
+// LoadPackages loads all the packages in all the paths provided. It uses the
+// exclusions and build tags provided to by the user when loading the packages.
+func (c *Checker) LoadPackages(paths ...string) ([]*packages.Package, error) {
+	buildFlags := []string{fmtTags(c.Tags)}
+	if c.Mod != "" {
+		buildFlags = append(buildFlags, fmt.Sprintf("-mod=%s", c.Mod))
+	}
 	cfg := &packages.Config{
 		Mode:       packages.LoadAllSyntax,
-		Tests:      !c.WithoutTests,
-		BuildFlags: []string{fmt.Sprintf("-tags=%s", strings.Join(c.Tags, " "))},
+		Tests:      !c.Exclusions.TestFiles,
+		BuildFlags: buildFlags,
 	}
 	return loadPackages(cfg, paths...)
 }
 
 var generatedCodeRegexp = regexp.MustCompile("^// Code generated .* DO NOT EDIT\\.$")
+var dotStar = regexp.MustCompile(".*")
 
 func (c *Checker) shouldSkipFile(file *ast.File) bool {
-	if !c.WithoutGeneratedCode {
+	if !c.Exclusions.GeneratedFiles {
 		return false
 	}
 
@@ -204,63 +231,47 @@ func (c *Checker) shouldSkipFile(file *ast.File) bool {
 	return false
 }
 
-// CheckPackages checks packages for errors.
-func (c *Checker) CheckPackages(paths ...string) error {
-	pkgs, err := c.load(paths...)
-	if err != nil {
-		return err
+// CheckPackage checks packages for errors that have not been checked.
+//
+// It will exclude specific errors from analysis if the user has configured
+// exclusions.
+func (c *Checker) CheckPackage(pkg *packages.Package) Result {
+	excludedSymbols := map[string]bool{}
+	for _, sym := range c.Exclusions.Symbols {
+		excludedSymbols[sym] = true
 	}
-	// Check for errors in the initial packages.
-	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			return fmt.Errorf("errors while loading package %s: %v", pkg.ID, pkg.Errors)
+
+	ignore := map[string]*regexp.Regexp{}
+	// Apply SymbolRegexpsByPackage first so that if the same path appears in
+	// Packages, a more narrow regexp will be superceded by dotStar below.
+	if regexps := c.Exclusions.SymbolRegexpsByPackage; regexps != nil {
+		for pkg, re := range regexps {
+			// TODO warn if previous entry overwritten?
+			ignore[nonVendoredPkgPath(pkg)] = re
 		}
 	}
-
-	var wg sync.WaitGroup
-	u := &UncheckedErrors{}
-	for _, pkg := range pkgs {
-		wg.Add(1)
-
-		go func(pkg *packages.Package) {
-			defer wg.Done()
-			c.logf("Checking %s", pkg.Types.Path())
-
-			v := &visitor{
-				pkg:     pkg,
-				ignore:  c.Ignore,
-				blank:   c.Blank,
-				asserts: c.Asserts,
-				lines:   make(map[string][]string),
-				exclude: c.exclude,
-				errors:  []UncheckedError{},
-			}
-
-			for _, astFile := range v.pkg.Syntax {
-				if c.shouldSkipFile(astFile) {
-					continue
-				}
-				ast.Walk(v, astFile)
-			}
-			u.Append(v.errors...)
-		}(pkg)
+	for _, pkg := range c.Exclusions.Packages {
+		// TODO warn if previous entry overwritten?
+		ignore[nonVendoredPkgPath(pkg)] = dotStar
 	}
 
-	wg.Wait()
-	if u.Len() > 0 {
-		// Sort unchecked errors and remove duplicates. Duplicates may occur when a file
-		// containing an unchecked error belongs to > 1 package.
-		sort.Sort(byName{u})
-		uniq := u.Errors[:0] // compact in-place
-		for i, err := range u.Errors {
-			if i == 0 || err != u.Errors[i-1] {
-				uniq = append(uniq, err)
-			}
+	v := &visitor{
+		pkg:     pkg,
+		ignore:  ignore,
+		blank:   !c.Exclusions.BlankAssignments,
+		asserts: !c.Exclusions.TypeAssertions,
+		lines:   make(map[string][]string),
+		exclude: excludedSymbols,
+		errors:  []UncheckedError{},
+	}
+
+	for _, astFile := range v.pkg.Syntax {
+		if c.shouldSkipFile(astFile) {
+			continue
 		}
-		u.Errors = uniq
-		return u
+		ast.Walk(v, astFile)
 	}
-	return nil
+	return Result{UncheckedErrors: v.errors}
 }
 
 // visitor implements the errcheck algorithm
@@ -433,16 +444,8 @@ func (v *visitor) ignoreCall(call *ast.CallExpr) bool {
 
 	if obj := v.pkg.TypesInfo.Uses[id]; obj != nil {
 		if pkg := obj.Pkg(); pkg != nil {
-			if re, ok := v.ignore[pkg.Path()]; ok {
+			if re, ok := v.ignore[nonVendoredPkgPath(pkg.Path())]; ok {
 				return re.MatchString(id.Name)
-			}
-
-			// if current package being considered is vendored, check to see if it should be ignored based
-			// on the unvendored path.
-			if nonVendoredPkg, ok := nonVendoredPkgPath(pkg.Path()); ok {
-				if re, ok := v.ignore[nonVendoredPkg]; ok {
-					return re.MatchString(id.Name)
-				}
 			}
 		}
 	}
@@ -450,15 +453,15 @@ func (v *visitor) ignoreCall(call *ast.CallExpr) bool {
 	return false
 }
 
-// nonVendoredPkgPath returns the unvendored version of the provided package path (or returns the provided path if it
-// does not represent a vendored path). The second return value is true if the provided package was vendored, false
-// otherwise.
-func nonVendoredPkgPath(pkgPath string) (string, bool) {
+// nonVendoredPkgPath returns the unvendored version of the provided package
+// path (or returns the provided path if it does not represent a vendored
+// path).
+func nonVendoredPkgPath(pkgPath string) string {
 	lastVendorIndex := strings.LastIndex(pkgPath, "/vendor/")
 	if lastVendorIndex == -1 {
-		return pkgPath, false
+		return pkgPath
 	}
-	return pkgPath[lastVendorIndex+len("/vendor/"):], true
+	return pkgPath[lastVendorIndex+len("/vendor/"):]
 }
 
 // errorsByArg returns a slice s such that
