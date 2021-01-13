@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/go-openapi/strfmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,8 @@ const (
 	operatorDeploymentName = "cilium-operator"
 	relayDeploymentName    = "hubble-relay"
 )
+
+var retryInterval = 2 * time.Second
 
 type K8sStatusParameters struct {
 	Namespace       string
@@ -57,6 +60,75 @@ func NewK8sStatusCollector(ctx context.Context, client k8sImplementation, params
 		client: client,
 		params: params,
 	}, nil
+}
+
+type ClusterConnectivityInfo struct {
+	Ready          bool
+	SharedServices int64
+	Nodes          int64
+	Identities     int64
+	LastFailure    strfmt.DateTime
+}
+
+type ClusterMeshAgentConnectivityStatus struct {
+	GlobalServices int64
+	Clusters       map[string]*models.RemoteCluster
+	Errors         ErrorCountMap
+}
+
+func (k *K8sStatusCollector) ClusterMeshConnectivity(ctx context.Context, ciliumPod string) (*ClusterMeshAgentConnectivityStatus, error) {
+	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
+	defer cancel()
+
+retry:
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	s, err := k.clusterMeshConnectivity(ctx, ciliumPod)
+	if err != nil {
+		if k.params.Wait {
+			time.Sleep(retryInterval)
+			goto retry
+		}
+	}
+
+	// If we are waiting for a successful status then all clusters need to
+	// be ready
+	if k.params.Wait {
+		for _, cluster := range s.Clusters {
+			if !cluster.Ready {
+				time.Sleep(retryInterval)
+				goto retry
+			}
+		}
+	}
+
+	return s, err
+}
+
+func (k *K8sStatusCollector) clusterMeshConnectivity(ctx context.Context, ciliumPod string) (*ClusterMeshAgentConnectivityStatus, error) {
+	c := &ClusterMeshAgentConnectivityStatus{
+		Clusters: map[string]*models.RemoteCluster{},
+	}
+
+	status, err := k.client.CiliumStatus(ctx, k.params.Namespace, ciliumPod)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine cilium status: %w", err)
+	}
+
+	if status.ClusterMesh == nil {
+		return nil, fmt.Errorf("ClusterMesh status is not available")
+	}
+
+	c.GlobalServices = status.ClusterMesh.NumGlobalServices
+	for _, cluster := range status.ClusterMesh.Clusters {
+		c.Clusters[cluster.Name] = cluster
+	}
+
+	return c, nil
 }
 
 func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Status, name string) error {

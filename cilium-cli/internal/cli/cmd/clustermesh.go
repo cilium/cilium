@@ -141,14 +141,15 @@ func newCmdClusterMeshStatus() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			return cm.Status(context.Background())
+			_, err := cm.Status(context.Background(), true)
+			return err
 		},
 	}
 
 	cmd.Flags().StringVar(&params.Namespace, "namespace", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait until status is successful")
-	cmd.Flags().DurationVar(&params.WaitTime, "wait-duration", 15*time.Minute, "Maximum time to wait")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait")
 	cmd.Flags().BoolVar(&params.SkipServiceCheck, "skip-service-check", false, "Do not require service IP of remote cluster to be available")
 
 	return cmd
