@@ -65,7 +65,7 @@ func (client VpnGatewaysClient) CreateOrUpdate(ctx context.Context, resourceGrou
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -104,7 +104,29 @@ func (client VpnGatewaysClient) CreateOrUpdateSender(req *http.Request) (future 
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VpnGatewaysClient) (vg VpnGateway, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VpnGatewaysCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VpnGatewaysCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if vg.Response.Response, err = future.GetResult(sender); err == nil && vg.Response.Response.StatusCode != http.StatusNoContent {
+			vg, err = client.CreateOrUpdateResponder(vg.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.VpnGatewaysCreateOrUpdateFuture", "Result", vg.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -143,7 +165,7 @@ func (client VpnGatewaysClient) Delete(ctx context.Context, resourceGroupName st
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -179,7 +201,23 @@ func (client VpnGatewaysClient) DeleteSender(req *http.Request) (future VpnGatew
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VpnGatewaysClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VpnGatewaysDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VpnGatewaysDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -225,6 +263,7 @@ func (client VpnGatewaysClient) Get(ctx context.Context, resourceGroupName strin
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -298,6 +337,11 @@ func (client VpnGatewaysClient) List(ctx context.Context) (result ListVpnGateway
 	result.lvgr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lvgr.hasNextLink() && result.lvgr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -408,6 +452,11 @@ func (client VpnGatewaysClient) ListByResourceGroup(ctx context.Context, resourc
 	result.lvgr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.lvgr.hasNextLink() && result.lvgr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -511,7 +560,7 @@ func (client VpnGatewaysClient) Reset(ctx context.Context, resourceGroupName str
 
 	result, err = client.ResetSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "Reset", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "Reset", nil, "Failure sending request")
 		return
 	}
 
@@ -547,7 +596,29 @@ func (client VpnGatewaysClient) ResetSender(req *http.Request) (future VpnGatewa
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VpnGatewaysClient) (vg VpnGateway, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VpnGatewaysResetFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VpnGatewaysResetFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if vg.Response.Response, err = future.GetResult(sender); err == nil && vg.Response.Response.StatusCode != http.StatusNoContent {
+			vg, err = client.ResetResponder(vg.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.VpnGatewaysResetFuture", "Result", vg.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -595,6 +666,7 @@ func (client VpnGatewaysClient) UpdateTags(ctx context.Context, resourceGroupNam
 	result, err = client.UpdateTagsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VpnGatewaysClient", "UpdateTags", resp, "Failure responding to request")
+		return
 	}
 
 	return

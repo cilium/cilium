@@ -74,6 +74,7 @@ func (client ResourceNavigationLinksClient) List(ctx context.Context, resourceGr
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ResourceNavigationLinksClient", "List", resp, "Failure responding to request")
+		return
 	}
 
 	return

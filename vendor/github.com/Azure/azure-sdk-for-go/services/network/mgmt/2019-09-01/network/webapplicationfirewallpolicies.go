@@ -94,6 +94,7 @@ func (client WebApplicationFirewallPoliciesClient) CreateOrUpdate(ctx context.Co
 	result, err = client.CreateOrUpdateResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesClient", "CreateOrUpdate", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -170,7 +171,7 @@ func (client WebApplicationFirewallPoliciesClient) Delete(ctx context.Context, r
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -206,7 +207,23 @@ func (client WebApplicationFirewallPoliciesClient) DeleteSender(req *http.Reques
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client WebApplicationFirewallPoliciesClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.WebApplicationFirewallPoliciesDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -258,6 +275,7 @@ func (client WebApplicationFirewallPoliciesClient) Get(ctx context.Context, reso
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -333,6 +351,11 @@ func (client WebApplicationFirewallPoliciesClient) List(ctx context.Context, res
 	result.wafplr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.wafplr.hasNextLink() && result.wafplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -442,6 +465,11 @@ func (client WebApplicationFirewallPoliciesClient) ListAll(ctx context.Context) 
 	result.wafplr, err = client.ListAllResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.WebApplicationFirewallPoliciesClient", "ListAll", resp, "Failure responding to request")
+		return
+	}
+	if result.wafplr.hasNextLink() && result.wafplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return

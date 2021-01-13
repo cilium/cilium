@@ -37,6 +37,9 @@ const (
 	// should be included in the response.
 	HeaderReturnClientID = "x-ms-return-client-request-id"
 
+	// HeaderContentType is the type of the content in the HTTP response.
+	HeaderContentType = "Content-Type"
+
 	// HeaderRequestID is the Azure extension header of the service generated request ID returned
 	// in the response.
 	HeaderRequestID = "x-ms-request-id"
@@ -169,6 +172,11 @@ type Resource struct {
 	Provider       string
 	ResourceType   string
 	ResourceName   string
+}
+
+// String function returns a string in form of azureResourceID
+func (r Resource) String() string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", r.SubscriptionID, r.ResourceGroup, r.Provider, r.ResourceType, r.ResourceName)
 }
 
 // ParseResourceID parses a resource ID into a ResourceDetails struct.
@@ -304,8 +312,22 @@ func WithErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 					if err := decoder.Decode(&e.ServiceError); err != nil {
 						return err
 					}
+
+					// for example, should the API return the literal value `null` as the response
+					if e.ServiceError == nil {
+						e.ServiceError = &ServiceError{
+							Code:    "Unknown",
+							Message: "Unknown service error",
+							Details: []map[string]interface{}{
+								{
+									"HttpResponse.Body": b.String(),
+								},
+							},
+						}
+					}
 				}
-				if e.ServiceError.Message == "" {
+
+				if e.ServiceError != nil && e.ServiceError.Message == "" {
 					// if we're here it means the returned error wasn't OData v4 compliant.
 					// try to unmarshal the body in hopes of getting something.
 					rawBody := map[string]interface{}{}

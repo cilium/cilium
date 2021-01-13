@@ -68,7 +68,7 @@ func (client VirtualHubRouteTableV2sClient) CreateOrUpdate(ctx context.Context, 
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -108,7 +108,29 @@ func (client VirtualHubRouteTableV2sClient) CreateOrUpdateSender(req *http.Reque
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VirtualHubRouteTableV2sClient) (vhrtv VirtualHubRouteTableV2, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VirtualHubRouteTableV2sCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if vhrtv.Response.Response, err = future.GetResult(sender); err == nil && vhrtv.Response.Response.StatusCode != http.StatusNoContent {
+			vhrtv, err = client.CreateOrUpdateResponder(vhrtv.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sCreateOrUpdateFuture", "Result", vhrtv.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -148,7 +170,7 @@ func (client VirtualHubRouteTableV2sClient) Delete(ctx context.Context, resource
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -185,7 +207,23 @@ func (client VirtualHubRouteTableV2sClient) DeleteSender(req *http.Request) (fut
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VirtualHubRouteTableV2sClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VirtualHubRouteTableV2sDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -232,6 +270,7 @@ func (client VirtualHubRouteTableV2sClient) Get(ctx context.Context, resourceGro
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -309,6 +348,11 @@ func (client VirtualHubRouteTableV2sClient) List(ctx context.Context, resourceGr
 	result.lvhrtvr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VirtualHubRouteTableV2sClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lvhrtvr.hasNextLink() && result.lvhrtvr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
