@@ -249,10 +249,11 @@ func (n *DebugMsg) DumpInfo(data []byte) {
 
 // Dump prints the debug message in a human readable format.
 func (n *DebugMsg) Dump(prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.subTypeString())
+	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.Message())
 }
 
-func (n *DebugMsg) subTypeString() string {
+// Message returns the debug message in a human-readable format
+func (n *DebugMsg) Message() string {
 	switch n.SubType {
 	case DbgGeneric:
 		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
@@ -387,7 +388,7 @@ func (n *DebugMsg) subTypeString() string {
 
 func (n *DebugMsg) getJSON(cpuPrefix string) string {
 	return fmt.Sprintf(`{"cpu":%q,"type":"debug","message":%q}`,
-		cpuPrefix, n.subTypeString())
+		cpuPrefix, n.Message())
 }
 
 // DumpJSON prints notification in json format
