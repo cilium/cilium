@@ -10,7 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.0
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
+	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
 	github.com/aws/aws-sdk-go-v2 v0.31.0
 	github.com/aws/aws-sdk-go-v2/config v0.4.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v0.1.0
@@ -31,13 +31,13 @@ require (
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
 	github.com/go-bindata/go-bindata/v3 v3.1.3
-	github.com/go-openapi/errors v0.19.6
-	github.com/go-openapi/loads v0.19.5
-	github.com/go-openapi/runtime v0.19.20
-	github.com/go-openapi/spec v0.19.9
-	github.com/go-openapi/strfmt v0.19.5
-	github.com/go-openapi/swag v0.19.9
-	github.com/go-openapi/validate v0.19.10
+	github.com/go-openapi/errors v0.19.9
+	github.com/go-openapi/loads v0.20.0
+	github.com/go-openapi/runtime v0.19.24
+	github.com/go-openapi/spec v0.20.0
+	github.com/go-openapi/strfmt v0.19.11
+	github.com/go-openapi/swag v0.19.12
+	github.com/go-openapi/validate v0.20.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.4
