@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -282,7 +282,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
-	lbmap.InitMapInfo(option.Config.SockRevNatEntries, option.Config.LBMapEntries)
+	lbmap.Init(lbmap.InitParams{
+		IPv4: option.Config.EnableIPv4,
+		IPv6: option.Config.EnableIPv6,
+
+		MaxSockRevNatMapEntries: option.Config.SockRevNatEntries,
+		MaxEntries:              option.Config.LBMapEntries,
+	})
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {
@@ -682,6 +688,8 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.bootstrapClusterMesh(nodeMngr)
 	}
 
+	// Must be done at least after initializing BPF LB-related maps
+	// (lbmap.Init()).
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
 	bootstrapStats.bpfBase.EndError(err)
