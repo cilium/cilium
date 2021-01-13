@@ -633,11 +633,11 @@ type Parameters struct {
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
-	return 30 * time.Second
+	return 5 * time.Minute
 }
 
 func (p Parameters) podReadyTimeout() time.Duration {
-	return 30 * time.Second
+	return 5 * time.Minute
 }
 
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {
