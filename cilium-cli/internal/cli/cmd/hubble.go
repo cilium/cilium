@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ func newCmdHubbleEnable() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "enable",
-		Short: "Enable Hubble obsevability",
+		Short: "Enable Hubble observability",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h := hubble.NewK8sHubble(k8sClient, params)
