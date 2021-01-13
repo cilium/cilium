@@ -2,13 +2,13 @@
 
 errcheck is a program for checking for unchecked errors in go programs.
 
-[![Build Status](https://travis-ci.org/kisielk/errcheck.png?branch=master)](https://travis-ci.org/kisielk/errcheck)
+![errcheck](https://github.com/kisielk/errcheck/workflows/errcheck/badge.svg)
 
 ## Install
 
     go get -u github.com/kisielk/errcheck
 
-errcheck requires Go 1.9 or newer and depends on the package go/packages from the golang.org/x/tools repository.
+errcheck requires Go 1.12 or newer, and depends on the package go/packages from the golang.org/x/tools repository.
 
 ## Use
 
@@ -55,11 +55,27 @@ An example of an exclude file is:
     io/ioutil.ReadFile
     io.Copy(*bytes.Buffer)
     io.Copy(os.Stdout)
+
+    // Sometimes we don't care if a HTTP request fails.
     (*net/http.Client).Do
 
-The exclude list is combined with an internal list for functions in the Go standard library that
-have an error return type but are documented to never return an error.
+By default, the exclude list is combined with an internal list for functions in
+the Go standard library that have an error return type but are documented to never
+return an error. To disable the built-in exclude list, pass the `-excludeonly` flag.
 
+Run errcheck in `-verbose` mode to see the resulting list of added excludes.
+
+When using vendored dependencies, specify the full import path. For example:
+* Your project's import path is `example.com/yourpkg`
+* You've vendored `example.net/fmt2` as `vendor/example.net/fmt2`
+* You want to exclude `fmt2.Println` from error checking
+
+In this case, add this line to your exclude file:
+```
+example.com/yourpkg/vendor/example.net/fmt2.Println
+```
+
+Empty lines and lines starting with `//` are ignored.
 
 ### The deprecated method
 
@@ -95,14 +111,6 @@ specified for it. To disable this, specify a regex that matches nothing:
 
 The `-ignoretests` flag disables checking of `_test.go` files. It takes
 no arguments.
-
-## Cgo
-
-Currently errcheck is unable to check packages that import "C" due to limitations in the importer when used with versions earlier than Go 1.11.
-
-However, you can use errcheck on packages that depend on those which use cgo. In order for this to work you need to go install the cgo dependencies before running errcheck on the dependent packages.
-
-See https://github.com/kisielk/errcheck/issues/16 for more details.
 
 ## Exit Codes
 
