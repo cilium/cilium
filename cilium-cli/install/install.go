@@ -968,6 +968,7 @@ type InstallParameters struct {
 	IPAM                 string
 	KubeProxyReplacement string
 	Azure                AzureParameters
+	RestartUnmanagedPods bool
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -1252,7 +1253,7 @@ func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sInstaller) restartUnamangedPods(ctx context.Context) error {
+func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
 	var printed bool
 
 	pods, err := k.client.ListPods(ctx, "", metav1.ListOptions{})
@@ -1406,8 +1407,10 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	}
 
-	if err := k.restartUnamangedPods(ctx); err != nil {
-		return err
+	if k.params.RestartUnmanagedPods {
+		if err := k.restartUnmanagedPods(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil
