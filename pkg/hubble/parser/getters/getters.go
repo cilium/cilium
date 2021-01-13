@@ -36,6 +36,8 @@ type DNSGetter interface {
 type EndpointGetter interface {
 	// GetEndpointInfo looks up endpoint by IP address.
 	GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	// GetEndpointInfo looks up endpoint by id
+	GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool)
 }
 
 // IdentityGetter ...
