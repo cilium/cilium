@@ -609,3 +609,83 @@ message NetworkInterface {
     uint32 index = 1;
     string name = 2;
 }
+
+message DebugEvent {
+    DebugEventType type = 1;
+    Endpoint source = 2;
+    google.protobuf.UInt32Value hash = 3;
+    google.protobuf.UInt32Value arg1 = 4;
+    google.protobuf.UInt32Value arg2 = 5;
+    google.protobuf.UInt32Value arg3 = 6;
+    string message = 7;
+    google.protobuf.Int32Value cpu = 8;
+}
+
+// These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h.
+enum DebugEventType {
+    DBG_EVENT_UNKNOWN = 0;
+    DBG_GENERIC = 1;
+    DBG_LOCAL_DELIVERY = 2;
+    DBG_ENCAP = 3;
+    DBG_LXC_FOUND = 4;
+    DBG_POLICY_DENIED = 5;
+    DBG_CT_LOOKUP = 6;
+    DBG_CT_LOOKUP_REV = 7;
+    DBG_CT_MATCH = 8;
+    DBG_CT_CREATED = 9;
+    DBG_CT_CREATED2 = 10;
+    DBG_ICMP6_HANDLE = 11;
+    DBG_ICMP6_REQUEST = 12;
+    DBG_ICMP6_NS = 13;
+    DBG_ICMP6_TIME_EXCEEDED = 14;
+    DBG_CT_VERDICT = 15;
+    DBG_DECAP = 16;
+    DBG_PORT_MAP = 17;
+    DBG_ERROR_RET = 18;
+    DBG_TO_HOST = 19;
+    DBG_TO_STACK = 20;
+    DBG_PKT_HASH = 21;
+    DBG_LB6_LOOKUP_FRONTEND = 22;
+    DBG_LB6_LOOKUP_FRONTEND_FAIL = 23;
+    DBG_LB6_LOOKUP_BACKEND_SLOT = 24;
+    DBG_LB6_LOOKUP_BACKEND_SLOT_SUCCESS = 25;
+    DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL = 26;
+    DBG_LB6_LOOKUP_BACKEND_FAIL = 27;
+    DBG_LB6_REVERSE_NAT_LOOKUP = 28;
+    DBG_LB6_REVERSE_NAT = 29;
+    DBG_LB4_LOOKUP_FRONTEND = 30;
+    DBG_LB4_LOOKUP_FRONTEND_FAIL = 31;
+    DBG_LB4_LOOKUP_BACKEND_SLOT = 32;
+    DBG_LB4_LOOKUP_BACKEND_SLOT_SUCCESS = 33;
+    DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL = 34;
+    DBG_LB4_LOOKUP_BACKEND_FAIL = 35;
+    DBG_LB4_REVERSE_NAT_LOOKUP = 36;
+    DBG_LB4_REVERSE_NAT = 37;
+    DBG_LB4_LOOPBACK_SNAT = 38;
+    DBG_LB4_LOOPBACK_SNAT_REV = 39;
+    DBG_CT_LOOKUP4 = 40;
+    DBG_RR_BACKEND_SLOT_SEL = 41;
+    DBG_REV_PROXY_LOOKUP = 42;
+    DBG_REV_PROXY_FOUND = 43;
+    DBG_REV_PROXY_UPDATE = 44;
+    DBG_L4_POLICY = 45;
+    DBG_NETDEV_IN_CLUSTER = 46;
+    DBG_NETDEV_ENCAP4 = 47;
+    DBG_CT_LOOKUP4_1 = 48;
+    DBG_CT_LOOKUP4_2 = 49;
+    DBG_CT_CREATED4 = 50;
+    DBG_CT_LOOKUP6_1 = 51;
+    DBG_CT_LOOKUP6_2 = 52;
+    DBG_CT_CREATED6 = 53;
+    DBG_SKIP_PROXY = 54;
+    DBG_L4_CREATE = 55;
+    DBG_IP_ID_MAP_FAILED4 = 56;
+    DBG_IP_ID_MAP_FAILED6 = 57;
+    DBG_IP_ID_MAP_SUCCEED4 = 58;
+    DBG_IP_ID_MAP_SUCCEED6 = 59;
+    DBG_LB_STALE_CT = 60;
+    DBG_INHERIT_IDENTITY = 61;
+    DBG_SK_LOOKUP4 = 62;
+    DBG_SK_LOOKUP6 = 63;
+    DBG_SK_ASSIGN = 64;
+}

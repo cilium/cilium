@@ -119,6 +119,8 @@ message GetFlowsResponse {
         // agent_event informs clients about an event received from the Cilium
         // agent.
         flow.AgentEvent agent_event = 4;
+        // debug_event contains Cilium datapath debug events
+        flow.DebugEvent debug_event = 5;
     }
     // Name of the node where this event was observed.
     string node_name = 1000;
