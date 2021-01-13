@@ -73,6 +73,11 @@ func (client AvailablePrivateEndpointTypesClient) List(ctx context.Context, loca
 	result.apetr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.AvailablePrivateEndpointTypesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.apetr.hasNextLink() && result.apetr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -186,6 +191,11 @@ func (client AvailablePrivateEndpointTypesClient) ListByResourceGroup(ctx contex
 	result.apetr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.AvailablePrivateEndpointTypesClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.apetr.hasNextLink() && result.apetr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return

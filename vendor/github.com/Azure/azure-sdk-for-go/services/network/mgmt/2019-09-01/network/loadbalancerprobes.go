@@ -74,6 +74,7 @@ func (client LoadBalancerProbesClient) Get(ctx context.Context, resourceGroupNam
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.LoadBalancerProbesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -151,6 +152,11 @@ func (client LoadBalancerProbesClient) List(ctx context.Context, resourceGroupNa
 	result.lbplr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.LoadBalancerProbesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lbplr.hasNextLink() && result.lbplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return

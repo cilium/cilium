@@ -79,7 +79,7 @@ func (client FirewallPolicyRuleGroupsClient) CreateOrUpdate(ctx context.Context,
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -120,7 +120,29 @@ func (client FirewallPolicyRuleGroupsClient) CreateOrUpdateSender(req *http.Requ
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client FirewallPolicyRuleGroupsClient) (fprg FirewallPolicyRuleGroup, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.FirewallPolicyRuleGroupsCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if fprg.Response.Response, err = future.GetResult(sender); err == nil && fprg.Response.Response.StatusCode != http.StatusNoContent {
+			fprg, err = client.CreateOrUpdateResponder(fprg.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsCreateOrUpdateFuture", "Result", fprg.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -160,7 +182,7 @@ func (client FirewallPolicyRuleGroupsClient) Delete(ctx context.Context, resourc
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -197,7 +219,23 @@ func (client FirewallPolicyRuleGroupsClient) DeleteSender(req *http.Request) (fu
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client FirewallPolicyRuleGroupsClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.FirewallPolicyRuleGroupsDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -244,6 +282,7 @@ func (client FirewallPolicyRuleGroupsClient) Get(ctx context.Context, resourceGr
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -321,6 +360,11 @@ func (client FirewallPolicyRuleGroupsClient) List(ctx context.Context, resourceG
 	result.fprglr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.FirewallPolicyRuleGroupsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.fprglr.hasNextLink() && result.fprglr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
