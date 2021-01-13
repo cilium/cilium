@@ -137,6 +137,11 @@ Users (Alphabetically)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
       Q: @jirving
 
+    * N: Tailor Brands
+      D: Tailor Brands is using Cilium in their production, staging, and development clusters (AWS EKS)
+      U: CNI (instead of amazon-vpc-cni-k8s), Hubble, Datadog Integration for Prometheus metrics
+      Q: @liorrozen
+
     * N: Trip.com
       D: Trip.com is using Cilium in their production clusters (self-hosted k8s, On-premises and AWS)
       U: ENI Networking, Service load-balancing, Direct routing (via Bird)
