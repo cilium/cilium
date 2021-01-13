@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -610,10 +610,26 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 	return &lbsvc
 }
 
-// InitMapInfo updates the map info defaults for sock rev nat {4,6} and lb maps.
-func InitMapInfo(maxSockRevNatEntries, lbMapMaxEntries int) {
-	MaxSockRevNat4MapEntries = maxSockRevNatEntries
-	MaxSockRevNat6MapEntries = maxSockRevNatEntries
+// Init updates the map info defaults for sock rev nat {4,6} and LB maps and
+// then initializes all LB-related maps.
+func Init(params InitParams) {
+	if params.MaxSockRevNatMapEntries != 0 {
+		MaxSockRevNat4MapEntries = params.MaxSockRevNatMapEntries
+		MaxSockRevNat6MapEntries = params.MaxSockRevNatMapEntries
+	}
 
-	MaxEntries = lbMapMaxEntries
+	if params.MaxEntries != 0 {
+		MaxEntries = params.MaxEntries
+	}
+
+	initSVC(params)
+	initAffinity(params)
+	initSourceRange(params)
+}
+
+// InitParams represents the parameters to be passed to Init().
+type InitParams struct {
+	IPv4, IPv6 bool
+
+	MaxSockRevNatMapEntries, MaxEntries int
 }
