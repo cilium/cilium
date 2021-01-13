@@ -72,6 +72,7 @@ type IPCache interface {
 type Configuration interface {
 	RemoteNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
+	EncryptionEnabled() bool
 }
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -334,7 +335,7 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 	// ipcache. This resulted in a behavioral change. New deployments will
 	// provide this behavior out of the gate, existing deployments will
 	// have to opt into this by enabling remote-node identities.
-	return !m.conf.NodeEncryptionEnabled() && !m.conf.RemoteNodeIdentitiesEnabled()
+	return !m.conf.EncryptionEnabled() && !m.conf.RemoteNodeIdentitiesEnabled()
 }
 
 // NodeUpdated is called after the information of a node has been updated. The
@@ -359,10 +360,13 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 
 	for _, address := range n.IPAddresses {
 		var tunnelIP net.IP
+		key := n.EncryptionKey
+
 		// If the host firewall is enabled, all traffic to remote nodes must go
 		// through the tunnel to preserve the source identity as part of the
-		// encapsulation.
-		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
+		// encapsulation. In encryption case we also want to use vxlan device
+		// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
+		if address.Type == addressing.NodeCiliumInternalIP || m.conf.EncryptionEnabled() ||
 			option.Config.EnableHostFirewall || option.Config.JoinCluster {
 			tunnelIP = nodeIP
 		}
@@ -371,7 +375,17 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 
-		isOwning, _ := m.ipcache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
+		// If we are doing encryption, but not node based encryption, then do not
+		// add a key to the nodeIPs so that we avoid a trip through stack and attempting
+		// to encrypt something we know does not have an encryption policy installed
+		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
+		// being sent unencrypted over overlay device.
+		if !m.conf.NodeEncryptionEnabled() &&
+			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP) {
+			key = 0
+		}
+
+		isOwning, _ := m.ipcache.Upsert(address.IP.String(), tunnelIP, key, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
