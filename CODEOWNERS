@@ -182,6 +182,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/lock @cilium/agent
 /pkg/logging/ @cilium/cli
 /pkg/mac @cilium/bpf
+/pkg/maglev @cilium/loadbalancer
 /pkg/maps/ @cilium/bpf
 /pkg/mcastmanager @cilium/bpf
 /pkg/metrics @cilium/metrics
