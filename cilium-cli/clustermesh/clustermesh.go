@@ -623,7 +623,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	}
 
 	if verbose {
-		k.Log("🔑 Extracing secrets from cluster %s...", clusterName)
+		k.Log("🔑 Extracting secrets from cluster %s...", clusterName)
 	}
 	caSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
 	if err != nil {
