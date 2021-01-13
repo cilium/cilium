@@ -84,7 +84,7 @@ require (
 	golang.org/x/sys v0.0.0-20210110051926-789bb1bd4061
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20210108195828-e2f9c7f1fc8e
-	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
+	google.golang.org/genproto v0.0.0-20210111234610-22ae2b108f89
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
