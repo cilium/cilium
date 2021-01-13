@@ -36,6 +36,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/logger"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/yamlpc"
 )
 
 // TLSClientOptions to configure client authentication with mutual TLS
@@ -244,6 +245,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 
 	// TODO: actually infer this stuff from the spec
 	rt.Consumers = map[string]runtime.Consumer{
+		runtime.YAMLMime:    yamlpc.YAMLConsumer(),
 		runtime.JSONMime:    runtime.JSONConsumer(),
 		runtime.XMLMime:     runtime.XMLConsumer(),
 		runtime.TextMime:    runtime.TextConsumer(),
@@ -252,6 +254,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 		runtime.DefaultMime: runtime.ByteStreamConsumer(),
 	}
 	rt.Producers = map[string]runtime.Producer{
+		runtime.YAMLMime:    yamlpc.YAMLProducer(),
 		runtime.JSONMime:    runtime.JSONProducer(),
 		runtime.XMLMime:     runtime.XMLProducer(),
 		runtime.TextMime:    runtime.TextProducer(),

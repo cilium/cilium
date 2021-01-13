@@ -25,7 +25,14 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// PathLoader function to use when loading remote refs
+// PathLoader is a function to use when loading remote refs.
+//
+// This is a package level default. It may be overridden or bypassed by
+// specifying the loader in ExpandOptions.
+//
+// NOTE: if you are using the go-openapi/loads package, it will override
+// this value with its own default (a loader to retrieve YAML documents as
+// well as JSON ones).
 var PathLoader func(string) (json.RawMessage, error)
 
 func init() {
@@ -48,12 +55,27 @@ type resolverContext struct {
 	// concurrent access, unless we chose to implement a parallel spec walking.
 	circulars map[string]bool
 	basePath  string
+	loadDoc   func(string) (json.RawMessage, error)
 }
 
-func newResolverContext(originalBasePath string) *resolverContext {
+func newResolverContext(expandOptions *ExpandOptions) *resolverContext {
+	absBase, _ := absPath(expandOptions.RelativeBase)
+
+	// path loader may be overridden from option
+	var loader func(string) (json.RawMessage, error)
+	if expandOptions.PathLoader == nil {
+		loader = PathLoader
+	} else {
+		loader = expandOptions.PathLoader
+	}
+
 	return &resolverContext{
 		circulars: make(map[string]bool),
-		basePath:  originalBasePath, // keep the root base path in context
+		basePath:  absBase, // keep the root base path in context
+		loadDoc: func(path string) (json.RawMessage, error) {
+			debugLog("fetching document at %q", path)
+			return loader(path)
+		},
 	}
 }
 
@@ -62,7 +84,6 @@ type schemaLoader struct {
 	options *ExpandOptions
 	cache   ResolutionCache
 	context *resolverContext
-	loadDoc func(string) (json.RawMessage, error)
 }
 
 func (r *schemaLoader) transitiveResolver(basePath string, ref Ref) (*schemaLoader, error) {
@@ -161,9 +182,8 @@ func (r *schemaLoader) load(refURL *url.URL) (interface{}, url.URL, bool, error)
 
 	data, fromCache := r.cache.Get(normalized)
 	if !fromCache {
-		b, err := r.loadDoc(normalized)
+		b, err := r.context.loadDoc(normalized)
 		if err != nil {
-			debugLog("unable to load the document: %v", err)
 			return nil, url.URL{}, false, err
 		}
 
@@ -256,24 +276,18 @@ func defaultSchemaLoader(
 	cache ResolutionCache,
 	context *resolverContext) (*schemaLoader, error) {
 
-	if cache == nil {
-		cache = resCache
-	}
 	if expandOptions == nil {
 		expandOptions = &ExpandOptions{}
 	}
-	absBase, _ := absPath(expandOptions.RelativeBase)
+
 	if context == nil {
-		context = newResolverContext(absBase)
+		context = newResolverContext(expandOptions)
 	}
+
 	return &schemaLoader{
 		root:    root,
 		options: expandOptions,
-		cache:   cache,
+		cache:   cacheOrDefault(cache),
 		context: context,
-		loadDoc: func(path string) (json.RawMessage, error) {
-			debugLog("fetching document at %q", path)
-			return PathLoader(path)
-		},
 	}, nil
 }
