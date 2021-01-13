@@ -423,8 +423,6 @@ github.com/kevinburke/ssh_config
 # github.com/kisielk/errcheck v1.5.0
 github.com/kisielk/errcheck
 github.com/kisielk/errcheck/errcheck
-# github.com/konsorten/go-windows-terminal-sequences v1.0.3
-github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/pretty v0.2.1
 ## explicit
 github.com/kr/pretty
@@ -547,7 +545,7 @@ github.com/shirou/gopsutil/load
 github.com/shirou/gopsutil/mem
 github.com/shirou/gopsutil/net
 github.com/shirou/gopsutil/process
-# github.com/sirupsen/logrus v1.6.0
+# github.com/sirupsen/logrus v1.7.0
 ## explicit
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
