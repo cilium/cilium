@@ -242,6 +242,7 @@ bpf
 bpfClockProbe
 bpfMasquerade
 bpfTProxy
+bpffs
 bpftool
 bpftrace
 breakpoint
