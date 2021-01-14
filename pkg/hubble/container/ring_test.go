@@ -29,12 +29,12 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func BenchmarkRingWrite(b *testing.B) {
@@ -196,14 +196,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x9 (idx: 1), last written: 0x8 (idx: 0)
 				write: 0x9,
@@ -211,7 +211,7 @@ func TestRing_Read(t *testing.T) {
 			args: args{
 				read: 0x7,
 			},
-			want:    &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 7}},
+			want:    &v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 			wantErr: nil,
 		},
 		{
@@ -220,14 +220,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x9 (idx: 2), last written: 0x8 (idx: 0)
 				write: 0x9,
@@ -244,14 +244,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x10 (idx: 0), last written: 0x0f (idx: 7)
 				write: 0x10,
@@ -269,14 +269,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x10 (idx: 0), last written: 0x0f (idx: 7)
 				write: 0x10,
@@ -285,7 +285,7 @@ func TestRing_Read(t *testing.T) {
 				// The next possible entry that we can read is 0x10-0x7-0x1 = 0x8 (idx: 0)
 				read: 0x8,
 			},
-			want:    &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 0}},
+			want:    &v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
 			wantErr: nil,
 		},
 		{
@@ -294,14 +294,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x0 (idx: 0), last written: 0xffffffffffffffff (idx: 7)
 				write: 0x0,
@@ -320,14 +320,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x1 (idx: 1), last written: 0x0 (idx: 0)
 				write: 0x1,
@@ -336,7 +336,7 @@ func TestRing_Read(t *testing.T) {
 				// next to be read: ^uint64(0) (idx: 7), last read: 0xfffffffffffffffe (idx: 6)
 				read: ^uint64(0),
 			},
-			want:    &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 7}},
+			want:    &v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 			wantErr: nil,
 		},
 		{
@@ -345,14 +345,14 @@ func TestRing_Read(t *testing.T) {
 				mask:     0x7,
 				cycleExp: 0x3, // 7+1=8=2^3
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
-					0x4: {Timestamp: &timestamp.Timestamp{Seconds: 4}},
-					0x5: {Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					0x6: {Timestamp: &timestamp.Timestamp{Seconds: 6}},
-					0x7: {Timestamp: &timestamp.Timestamp{Seconds: 7}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+					0x4: {Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+					0x5: {Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					0x6: {Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+					0x7: {Timestamp: &timestamppb.Timestamp{Seconds: 7}},
 				},
 				// next to be written: 0x8 (idx: 1), last written: 0xffffffffffffffff (idx: 7)
 				write: 0x8,
@@ -406,52 +406,52 @@ func TestRing_Write(t *testing.T) {
 		{
 			name: "normal write",
 			args: args{
-				event: &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 5}},
+				event: &v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
 			},
 			fields: fields{
 				len:   0x3,
 				write: 0,
 				data: []*v1.Event{
-					0x0: {Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					0x1: {Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					0x2: {Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					0x3: {Timestamp: &timestamp.Timestamp{Seconds: 3}},
+					0x0: {Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					0x1: {Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					0x2: {Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					0x3: {Timestamp: &timestamppb.Timestamp{Seconds: 3}},
 				},
 			},
 			want: fields{
 				len:   0x3,
 				write: 1,
 				data: []*v1.Event{
-					{Timestamp: &timestamp.Timestamp{Seconds: 5}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 3}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 3}},
 				},
 			},
 		},
 		{
 			name: "overflow write",
 			args: args{
-				event: &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 5}},
+				event: &v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
 			},
 			fields: fields{
 				len:   0x3,
 				write: ^uint64(0),
 				data: []*v1.Event{
-					{Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 3}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 3}},
 				},
 			},
 			want: fields{
 				len:   0x3,
 				write: 0,
 				data: []*v1.Event{
-					{Timestamp: &timestamp.Timestamp{Seconds: 0}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 1}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 2}},
-					{Timestamp: &timestamp.Timestamp{Seconds: 5}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 1}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+					{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
 				},
 			},
 		},
@@ -577,13 +577,13 @@ func TestRingFunctionalityInParallel(t *testing.T) {
 		t.Errorf("lastWrite should be %x. Got %x", ^uint64(0)-1, lastWrite)
 	}
 
-	r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 0}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 0}})
 	lastWrite = r.LastWriteParallel()
 	if lastWrite != ^uint64(0) {
 		t.Errorf("lastWrite should be %x. Got %x", ^uint64(0), lastWrite)
 	}
 
-	r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 1}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 1}})
 	lastWrite = r.LastWriteParallel()
 	if lastWrite != 0x0 {
 		t.Errorf("lastWrite should be 0x0. Got %x", lastWrite)
@@ -594,7 +594,7 @@ func TestRingFunctionalityInParallel(t *testing.T) {
 		t.Errorf("Should be able to read position %x, got %v", lastWrite, err)
 	}
 	if entry.Timestamp.Seconds != int64(0) {
-		t.Errorf("Read Event should be %+v, got %+v instead", &timestamp.Timestamp{Seconds: 0}, entry.Timestamp)
+		t.Errorf("Read Event should be %+v, got %+v instead", &timestamppb.Timestamp{Seconds: 0}, entry.Timestamp)
 	}
 	lastWrite--
 	_, err = r.read(lastWrite)
@@ -616,13 +616,13 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 		t.Errorf("lastWrite should be %x. Got %x", ^uint64(0)-1, lastWrite)
 	}
 
-	r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 0}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 0}})
 	lastWrite = r.LastWrite()
 	if lastWrite != 0x0 {
 		t.Errorf("lastWrite should be %x. Got %x", 0x0, lastWrite)
 	}
 
-	r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 1}})
+	r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 1}})
 	lastWrite = r.LastWrite()
 	if lastWrite != 0x1 {
 		t.Errorf("lastWrite should be 0x1. Got %x", lastWrite)
@@ -638,7 +638,7 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 		t.Errorf("Should be able to read position %x, got %v", lastWrite, err)
 	}
 	if entry.Timestamp.Seconds != int64(0) {
-		t.Errorf("Read Event should be %+v, got %+v instead", &timestamp.Timestamp{Seconds: 0}, entry.Timestamp)
+		t.Errorf("Read Event should be %+v, got %+v instead", &timestamppb.Timestamp{Seconds: 0}, entry.Timestamp)
 	}
 }
 
@@ -666,7 +666,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 
 	// Add 5 events
 	for i := uint64(0); i < 5; i++ {
-		r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
+		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 		lastWrite = r.LastWrite()
 		if lastWrite != i {
 			t.Errorf("lastWrite should be %x. Got %x", i, lastWrite)
@@ -684,7 +684,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 	i := int64(0)
 	for entry := range ch {
 		require.NotNil(t, entry)
-		want := &timestamp.Timestamp{Seconds: i}
+		want := &timestamppb.Timestamp{Seconds: i}
 		if entry.Timestamp.Seconds != want.Seconds {
 			t.Errorf("Read Event should be %+v, got %+v instead", want, entry.Timestamp)
 		}
@@ -728,7 +728,7 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 
 	// Add 20 events
 	for i := uint64(0); i < 20; i++ {
-		r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
+		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 		lastWrite = r.LastWrite()
 		if lastWrite != i {
 			t.Errorf("lastWrite should be %x. Got %x", i, lastWrite)
@@ -768,8 +768,8 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 				t.Errorf("LostEvent mismatch (-want +got):\n%s", diff)
 			}
 		default:
-			want := &timestamp.Timestamp{Seconds: i}
-			if diff := cmp.Diff(want, event.Timestamp, cmpopts.IgnoreUnexported(timestamp.Timestamp{})); diff != "" {
+			want := &timestamppb.Timestamp{Seconds: i}
+			if diff := cmp.Diff(want, event.Timestamp, cmpopts.IgnoreUnexported(timestamppb.Timestamp{})); diff != "" {
 				t.Errorf("Event timestamp mismatch (-want +got):\n%s", diff)
 			}
 		}
@@ -787,9 +787,9 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 
 	// Add 20 more events that we read back immediately
 	for i := uint64(0); i < 20; i++ {
-		r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(20 + i)}})
+		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(20 + i)}})
 
-		want := &timestamp.Timestamp{Seconds: int64(20 + (i - 1))}
+		want := &timestamppb.Timestamp{Seconds: int64(20 + (i - 1))}
 		entry, ok := <-ch
 		if !ok {
 			t.Errorf("Channel was have been closed, expected %+v", entry)
@@ -826,7 +826,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 
 	// Add 20 events
 	for i := uint64(0); i < 20; i++ {
-		r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
+		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 		lastWrite = r.LastWrite()
 		if lastWrite != i {
 			t.Errorf("lastWrite should be %x. Got %x", i, lastWrite)
@@ -866,8 +866,8 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 				t.Errorf("%d LostEvent mismatch (-want +got):\n%s", i, diff)
 			}
 		default:
-			want := &timestamp.Timestamp{Seconds: int64(i)}
-			if diff := cmp.Diff(want, entry.Timestamp, cmpopts.IgnoreUnexported(timestamp.Timestamp{})); diff != "" {
+			want := &timestamppb.Timestamp{Seconds: int64(i)}
+			if diff := cmp.Diff(want, entry.Timestamp, cmpopts.IgnoreUnexported(timestamppb.Timestamp{})); diff != "" {
 				t.Errorf("Event timestamp mismatch (-want +got):\n%s", diff)
 			}
 		}
@@ -885,9 +885,9 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 
 	// Add 20 more events that we read back immediately
 	for i := uint64(0); i < 20; i++ {
-		r.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(20 + i)}})
+		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(20 + i)}})
 
-		want := &timestamp.Timestamp{Seconds: int64(20 + (i - 1))}
+		want := &timestamppb.Timestamp{Seconds: int64(20 + (i - 1))}
 		entry, ok := <-ch
 		if !ok {
 			t.Errorf("Channel was have been closed, expected %+v", entry)

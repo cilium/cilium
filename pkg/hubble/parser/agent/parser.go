@@ -23,12 +23,12 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func notifyTimeNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.TimeNotification) *flowpb.AgentEvent {
-	var ts *timestamp.Timestamp
+	var ts *timestamppb.Timestamp
 	if goTime, err := time.Parse(time.RFC3339Nano, n.Time); err == nil {
 		ts, _ = ptypes.TimestampProto(goTime)
 	}
