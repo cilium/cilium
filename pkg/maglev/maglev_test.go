@@ -33,7 +33,7 @@ type MaglevTestSuite struct{}
 var _ = Suite(&MaglevTestSuite{})
 
 func (s *MaglevTestSuite) SetUpTest(c *C) {
-	if err := InitMaglevSeeds(DefaultHashSeed); err != nil {
+	if err := Init(DefaultHashSeed, DefaultTableSize); err != nil {
 		c.Fatal(err)
 	}
 }
@@ -91,6 +91,10 @@ func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
 	backendCount := 1000
 	m := uint64(131071)
+
+	if err := Init(DefaultHashSeed, m); err != nil {
+		c.Fatal(err)
+	}
 
 	backends := make([]string, 0, backendCount)
 	for i := 0; i < backendCount; i++ {
