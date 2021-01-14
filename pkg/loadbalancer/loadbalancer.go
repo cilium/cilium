@@ -15,10 +15,10 @@
 package loadbalancer
 
 import (
-	"crypto/sha512"
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -475,17 +475,26 @@ func (a *L3n4Addr) DeepCopy() *L3n4Addr {
 	}
 }
 
-// Hash calculates L3n4Addr's internal SHA256Sum.
+// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps
 func (a L3n4Addr) Hash() string {
-	// FIXME: Remove Protocol's omission once we care about protocols.
-	protoBak := a.Protocol
-	a.Protocol = ""
-	defer func() {
-		a.Protocol = protoBak
-	}()
+	const lenIPv4 = 15
+	const lenProto = 1
+	const lenPort = 6
+	const lenScope = 2
 
-	str := []byte(fmt.Sprintf("%+v", a))
-	return fmt.Sprintf("%x", sha512.Sum512_256(str))
+	// Note: This capacity will not be enough for long IPv6 addresses, but it
+	// is cheaper to reallocate on overflow than to check the length of a.IP
+	b := make([]byte, 0, lenIPv4+lenProto+lenPort+lenScope)
+
+	b = append(b, a.IP.String()...)
+	b = append(b, '|')
+	// FIXME: Remove Protocol's omission once we care about protocols.
+	b = append(b, '|')
+	b = strconv.AppendUint(b, uint64(a.Port), 10)
+	b = append(b, '|')
+	b = strconv.AppendUint(b, uint64(a.Scope), 10)
+
+	return string(b)
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
