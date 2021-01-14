@@ -14,10 +14,11 @@ managed with Istio.  It is a detailed walk-through of getting a
 single-node Cilium + Istio environment running on your machine.
 
 Cilium's Istio integration allows Cilium to enforce HTTP L7 network
-policies within the Istio sidecar proxies. Note that Istio can also be
-deployed without Cilium integration by running a standard version of
-``istioctl``.  In that case Cilium will enforce HTTP L7 policies outside
-of the Istio sidecar proxy.
+policies for mTLS protected traffic within the Istio sidecar
+proxies. Note that Istio can also be deployed without Cilium
+integration by running a standard version of ``istioctl``.  In that
+case Cilium will enforce HTTP L7 policies outside of the Istio sidecar
+proxy, but that will only work if mTLS is not used.
 
 .. include:: gsg_requirements.rst
 
@@ -37,20 +38,20 @@ Step 2: Install cilium-istioctl
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Download the `cilium enhanced istioctl version 1.6.14 <https://github.com/cilium/istio/releases/tag/1.6.14>`_:
+Download the `cilium enhanced istioctl version 1.7.6 <https://github.com/cilium/istio/releases/tag/1.7.6>`_:
 
 .. tabs::
   .. group-tab:: Linux
 
     .. parsed-literal::
 
-     curl -L https://github.com/cilium/istio/releases/download/1.6.14/cilium-istioctl-1.6.14-linux-amd64.tar.gz | tar xz
+     curl -L https://github.com/cilium/istio/releases/download/1.7.6/cilium-istioctl-1.7.6-linux-amd64.tar.gz | tar xz
 
   .. group-tab:: OSX
 
     .. parsed-literal::
 
-     curl -L https://github.com/cilium/istio/releases/download/1.6.14/cilium-istioctl-1.6.14-osx.tar.gz | tar xz
+     curl -L https://github.com/cilium/istio/releases/download/1.7.6/cilium-istioctl-1.7.6-osx.tar.gz | tar xz
 
 .. note::
 
@@ -62,7 +63,7 @@ Deploy the default Istio configuration profile onto Kubernetes:
 
 ::
 
-    ./cilium-istioctl manifest apply -y
+    ./cilium-istioctl install -y
 
 Add a namespace label to instruct Istio to automatically inject Envoy sidecar proxies when you deploy your application later:
 
