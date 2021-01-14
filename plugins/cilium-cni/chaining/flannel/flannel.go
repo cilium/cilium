@@ -65,7 +65,7 @@ func (f *flannelChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCo
 	defer func() {
 		if err != nil {
 			pluginCtx.Logger.WithError(err).
-				WithFields(logrus.Fields{"cni-pre-result": pluginCtx.NetConf.PrevResult.String()}).
+				WithFields(logrus.Fields{"cni-pre-result": pluginCtx.NetConf.PrevResult}).
 				Errorf("Unable to create endpoint")
 		}
 	}()
