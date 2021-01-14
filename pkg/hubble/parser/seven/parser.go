@@ -31,11 +31,11 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/gopacket/layers"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Parser is a parser for L7 payloads
@@ -188,7 +188,7 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	return 0
 }
 
-func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamp.Timestamp, err error) {
+func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timestamp, err error) {
 	goTime, err = time.Parse(time.RFC3339Nano, timestamp)
 	if err != nil {
 		return

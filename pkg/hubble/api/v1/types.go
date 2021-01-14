@@ -17,13 +17,13 @@ package v1
 import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Event represents a single event observed and stored by Hubble
 type Event struct {
 	// Timestamp when event was observed in Hubble
-	Timestamp *timestamp.Timestamp
+	Timestamp *timestamppb.Timestamp
 	// Event contains the actual event
 	Event interface{}
 }
