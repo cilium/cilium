@@ -22,8 +22,8 @@ require (
 	github.com/cilium/ebpf v0.3.0
 	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
 	github.com/cilium/proxy v0.0.0-20201222161048-8bceb17eb027
-	github.com/containernetworking/cni v0.7.1
-	github.com/containernetworking/plugins v0.8.2
+	github.com/containernetworking/cni v0.8.0
+	github.com/containernetworking/plugins v0.9.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
@@ -57,8 +57,8 @@ require (
 	github.com/mattn/go-shellwords v1.0.10
 	github.com/miekg/dns v1.0.14
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/onsi/ginkgo v1.11.0
-	github.com/onsi/gomega v1.8.1
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.3
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
