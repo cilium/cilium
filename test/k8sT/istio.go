@@ -36,7 +36,7 @@ var _ = Describe("K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.7.6"
+		istioVersion = "1.8.2"
 
 		// Modifiers for pre-release testing, normally empty
 		prerelease     = "" // "-beta.1"
@@ -46,9 +46,9 @@ var _ = Describe("K8sIstioTest", func() {
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
-		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.7.6" +
-		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.7.6" +
-		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.7.6" +
+		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.8.2" +
+		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.8.2" +
+		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.8.2" +
 		// " --set values.global.proxy.logLevel=trace"
 		// " --set values.global.logging.level=debug"
 		// " --set values.global.mtls.auto=false"
@@ -287,12 +287,14 @@ var _ = Describe("K8sIstioTest", func() {
 
 		// shouldHaveService checks that srcPod has service properly configured.
 		shouldHaveService := func(pod, service, port, direction string) bool {
-			target := fmt.Sprintf("%s.%s.svc.cluster.local", service, helpers.DefaultNamespace)
-
+			var target string
+			if service != "" {
+				target = fmt.Sprintf("%s.%s.svc.cluster.local", service, helpers.DefaultNamespace)
+			}
 			By("Checking that Istio proxy config at %q has service %q on port %q for %q", pod, target, port, direction)
 			res := kubectl.Exec(fmt.Sprintf(`./cilium-istioctl proxy-config cluster %s | grep "%s.*%s.*%s"`, pod, target, port, direction))
 			if !res.WasSuccessful() {
-				GinkgoPrint("Service %q not configured at %q", target, pod)
+				GinkgoPrint("Service %q on port %s for %s not configured at %q", target, port, direction, pod)
 				return false
 			}
 			return true
@@ -376,13 +378,13 @@ var _ = Describe("K8sIstioTest", func() {
 				allGood := true
 
 				allGood = shouldHaveService(reviewsPodV1.String(), ratings, apiPort, outbound) && allGood
-				allGood = shouldHaveService(ratingsPodV1.String(), ratings, apiPort, inbound) && allGood
+				allGood = shouldHaveService(ratingsPodV1.String(), "", apiPort, inbound) && allGood
 				allGood = shouldHaveService(productpagePodV1.String(), details, apiPort, outbound) && allGood
-				allGood = shouldHaveService(detailsPodV1.String(), details, apiPort, inbound) && allGood
+				allGood = shouldHaveService(detailsPodV1.String(), "", apiPort, inbound) && allGood
 				allGood = shouldHaveService(productpagePodV1.String(), ratings, apiPort, outbound) && allGood
 
 				return allGood
-			}, helpers.HelperTimeout, 1*time.Second).Should(BeTrue(), "Istio sidecar proxies are not configured")
+			}, helpers.HelperTimeout, 10*time.Second).Should(BeTrue(), "Istio sidecar proxies are not configured")
 
 			By("Testing service local access")
 
