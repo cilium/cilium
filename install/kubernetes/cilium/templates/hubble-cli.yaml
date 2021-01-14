@@ -1,0 +1,48 @@
+{{- if .Values.hubble.cli.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hubble-cli
+  labels:
+    k8s-app: hubble-cli
+  namespace: {{ .Release.Namespace }}
+spec:
+  containers:
+  - name: hubble-cli
+    image: "{{ .Values.hubble.cli.image.repository }}:{{ .Values.hubble.cli.image.tag }}"
+    imagePullPolicy: {{ .Values.hubble.cli.image.pullPolicy }}
+    command:
+      - tail -f /dev/null
+    volumeMounts:
+      - mountPath: {{ dir .Values.hubble.socketPath }}
+        name: hubble-sock-dir
+        readOnly: true
+{{- if .Values.hubble.tls.enabled }}
+      - mountPath: /var/lib/hubble-relay/tls
+        name: tls
+        readOnly: true
+{{- end }}
+  restartPolicy: Always
+  volumes:
+  - hostPath:
+      path: {{ dir .Values.hubble.socketPath }}
+      type: Directory
+    name: hubble-sock-dir
+{{- if .Values.hubble.tls.enabled }}
+  - name: tls
+    projected:
+      sources:
+      - secret:
+          name: hubble-relay-client-certs
+          items:
+            - key: tls.crt
+              path: client.crt
+            - key: tls.key
+              path: client.key
+      - configMap:
+          name: hubble-ca-cert
+          items:
+            - key: ca.crt
+              path: hubble-server-ca.crt
+{{- end }}
+{{- end }}

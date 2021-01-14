@@ -794,6 +794,14 @@ hubble:
       #  - secretName: chart-example-tls
       #    hosts:
       #      - chart-example.local
+  cli:
+    # -- Enable the hubble-cli Pod
+    enabled: false
+    # -- Hubble-cli container image.
+    image:
+      repository: quay.io/cilium/hubble
+      tag: latest
+      pullPolicy: Always
 
 
 # TODO: Add documentation

@@ -175,6 +175,8 @@ contributors across the globe, there is almost always someone available to help.
 | hostServices | object | `{"enabled":false,"protocols":"tcp,udp"}` | Configure ClusterIP service handling in the host namespace (the node). |
 | hostServices.enabled | bool | `false` | Enable host reachable services. |
 | hostServices.protocols | string | `"tcp,udp"` | Supported list of protocols to apply ClusterIP translation to. |
+| hubble.cli.enabled | bool | `false` | Enable the hubble-cli Pod |
+| hubble.cli.image | object | `{"pullPolicy":"Always","repository":"quay.io/cilium/hubble","tag":"latest"}` | Hubble-cli container image. |
 | hubble.enabled | bool | `true` | Enable Hubble (true by default). |
 | hubble.listenAddress | string | `":4244"` | An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244. |
 | hubble.metrics | object | `{"enabled":null,"port":9091,"serviceMonitor":{"enabled":false}}` | Buffer size of the channel Hubble uses to receive monitor events. If this value is not set, the queue size is set to the default monitor queue size. eventQueueSize: "" -- Number of recent flows for Hubble to cache. Defaults to 4095. Possible values are:   1, 3, 7, 15, 31, 63, 127, 255, 511, 1023,   2047, 4095, 8191, 16383, 32767, 65535 eventBufferCapacity: "4095" -- Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics. |
