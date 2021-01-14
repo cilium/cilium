@@ -36,19 +36,19 @@ var _ = Describe("K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.6.14"
+		istioVersion = "1.7.6"
 
 		// Modifiers for pre-release testing, normally empty
-		prerelease     = "" // "-beta.10"
+		prerelease     = "" // "-beta.1"
 		istioctlParams = ""
 
 		// Keeping these here in comments serve multiple purposes:
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
-		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.6.14" +
-		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.6.14" +
-		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.6.14" +
+		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.7.6" +
+		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.7.6" +
+		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.7.6" +
 		// " --set values.global.proxy.logLevel=trace"
 		// " --set values.global.logging.level=debug"
 		// " --set values.global.mtls.auto=false"
@@ -115,7 +115,7 @@ var _ = Describe("K8sIstioTest", func() {
 		res.ExpectSuccess("unable to label namespace %q", helpers.DefaultNamespace)
 
 		By("Deploying Istio")
-		res = kubectl.Exec("./cilium-istioctl manifest apply -y" + istioctlParams)
+		res = kubectl.Exec("./cilium-istioctl install -y" + istioctlParams)
 		res.ExpectSuccess("unable to deploy Istio")
 	})
 
