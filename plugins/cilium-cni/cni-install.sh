@@ -109,8 +109,12 @@ if [ "${CNI_EXCLUSIVE}" != "false" ]; then
      -exec mv {} {}.cilium_bak \;
 fi
 
+# The CILIUM_CUSTOM_CNI_CONF env is set if the user specifies a custom
+# CNI config in a ConfigMap and if the cni.customConf Helm option is set.
+# Skip the remainder of the script, since this custom config is written
+# to disk by the Cilium agent itself after initialization.
 if [ "${CILIUM_CUSTOM_CNI_CONF}" = "true" ]; then
-	echo "Using custom ${CILIUM_CNI_CONF}..."
+	echo "Using custom ${CILIUM_CNI_CONF}, exiting..."
 	exit 0
 fi
 
