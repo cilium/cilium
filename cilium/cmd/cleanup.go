@@ -34,10 +34,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// configCmd represents the config command
+// cleanupCmd represents the cleanup command
 var cleanupCmd = &cobra.Command{
 	Use:   "cleanup",
-	Short: "Reset the agent state",
+	Short: "Remove system state installed by Cilium at runtime",
+	Long: `Clean up CNI configurations, CNI binaries, attached BPF programs,
+bpffs, tc filters, routes, links and named network namespaces.
+
+Running this command might be necessary to get the worker node back into
+working condition after uninstalling the Cilium agent.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cleanup")
 		runCleanup()

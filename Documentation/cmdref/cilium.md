@@ -20,7 +20,7 @@ CLI for interacting with the local Cilium Agent
 ### SEE ALSO
 
 * [cilium bpf](../cilium_bpf)	 - Direct access to local BPF maps
-* [cilium cleanup](../cilium_cleanup)	 - Reset the agent state
+* [cilium cleanup](../cilium_cleanup)	 - Remove system state installed by Cilium at runtime
 * [cilium completion](../cilium_completion)	 - Output shell completion code
 * [cilium config](../cilium_config)	 - Cilium configuration options
 * [cilium debuginfo](../cilium_debuginfo)	 - Request available debugging information from agent
