@@ -16,8 +16,9 @@ spec:
 {{- end }}
   template:
     metadata:
+      annotations:
 {{- with .Values.clustermesh.apiserver.podAnnotations }}
-      annotations: {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
 {{- end }}
       labels:
         k8s-app: clustermesh-apiserver

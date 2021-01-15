@@ -13,8 +13,12 @@ spec:
       k8s-app: hubble-ui
   template:
     metadata:
-{{- with .Values.hubble.ui.podAnnotations }}
       annotations:
+{{- if .Values.hubble.ui.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/hubble-ui-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-ui-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
+{{- with .Values.hubble.ui.podAnnotations }}
         {{- toYaml . | nindent 8 }}
 {{- end }}
       labels:
