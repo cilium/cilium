@@ -39,6 +39,10 @@ spec:
         prometheus.io/port: "{{ .Values.prometheus.port }}"
         prometheus.io/scrape: "true"
 {{- end }}
+{{- if .Values.rollOutCiliumPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
         # This annotation plus the CriticalAddonsOnly toleration makes
         # cilium to be a critical pod in the cluster, which ensures cilium
         # gets priority scheduling.

@@ -27,6 +27,10 @@ spec:
   template:
     metadata:
       annotations:
+{{- if .Values.operator.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
 {{- if and .Values.operator.prometheus.enabled (not .Values.operator.prometheus.serviceMonitor.enabled) }}
         prometheus.io/port: {{ .Values.operator.prometheus.port | quote }}
         prometheus.io/scrape: "true"

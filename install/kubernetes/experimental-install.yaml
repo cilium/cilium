@@ -1079,6 +1079,7 @@ spec:
     type: RollingUpdate
   template:
     metadata:
+      annotations:
       labels:
         k8s-app: hubble-relay
     spec:
@@ -1165,6 +1166,7 @@ spec:
       k8s-app: hubble-ui
   template:
     metadata:
+      annotations:
       labels:
         k8s-app: hubble-ui
     spec:
