@@ -61,12 +61,13 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubs
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	Manager     *nodemanager.Manager
-	LocalConfig datapath.LocalNodeConfiguration
-	Registrar   nodestore.NodeRegistrar
-	LocalNode   nodeTypes.Node
-	Registered  chan struct{}
-	NetConf     *cnitypes.NetConf
+	Manager               *nodemanager.Manager
+	LocalConfig           datapath.LocalNodeConfiguration
+	Registrar             nodestore.NodeRegistrar
+	LocalNode             nodeTypes.Node
+	Registered            chan struct{}
+	LocalStateInitialized chan struct{}
+	NetConf               *cnitypes.NetConf
 }
 
 func enableLocalNodeRoute() bool {
@@ -117,8 +118,9 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		LocalNode: nodeTypes.Node{
 			Source: source.Local,
 		},
-		Registered: make(chan struct{}),
-		NetConf:    netConf,
+		Registered:            make(chan struct{}),
+		LocalStateInitialized: make(chan struct{}),
+		NetConf:               netConf,
 	}
 }
 
@@ -229,6 +231,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	}()
 
 	n.Manager.NodeUpdated(n.LocalNode)
+	close(n.LocalStateInitialized)
 
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
