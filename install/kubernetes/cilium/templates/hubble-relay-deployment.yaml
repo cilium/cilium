@@ -18,9 +18,13 @@ spec:
 {{- end }}
   template:
     metadata:
-{{- with .Values.hubble.relay.podAnnotations }}
       annotations:
-        {{ toYaml . | trim | indent 8 }}
+{{- if .Values.hubble.relay.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/hubble-relay-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-relay-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
+{{- with .Values.hubble.relay.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
 {{- end }}
       labels:
         k8s-app: hubble-relay

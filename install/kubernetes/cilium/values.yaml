@@ -64,6 +64,9 @@ agent: true
 # -- Agent container name.
 name: cilium
 
+# -- Roll out cilium agent pods automatically when configmap is updated.
+rollOutCiliumPods: false
+
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
@@ -567,6 +570,9 @@ hubble:
     # -- Enable Hubble Relay (requires hubble.enabled=true)
     enabled: false
 
+    # -- Roll out Hubble Relay pods automatically when configmap is updated.
+    rollOutPods: false
+
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
@@ -643,6 +649,9 @@ hubble:
 
   ui:
     enabled: false
+
+    # -- Roll out Hubble-ui pods automatically when configmap is updated.
+    rollOutPods: false
 
     backend:
       # -- Hubble-ui backend image.
@@ -1078,6 +1087,9 @@ etcd:
 operator:
   # -- Enable the cilium-operator component (required).
   enabled: true
+
+  # -- Roll out cilium-operator pods automatically when configmap is updated.
+  rollOutPods: false
 
   # -- cilium-operator image.
   image:
