@@ -50,10 +50,10 @@ WORKDIR /tmp
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       curl ca-certificates xz-utils binutils && \
-    curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.8.6/cni-plugins-linux-${ARCH}-v0.8.6.tgz -o cni-plugins-linux-${ARCH}-v0.8.6.tgz && \
-    curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.8.6/cni-plugins-linux-${ARCH}-v0.8.6.tgz.sha512 -o cni-plugins-linux-${ARCH}-v0.8.6.tgz.sha512 && \
-    sha512sum -c cni-plugins-linux-${ARCH}-v0.8.6.tgz.sha512 && \
-    tar -xvf cni-plugins-linux-${ARCH}-v0.8.6.tgz ./loopback && \
+    curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.9.0/cni-plugins-linux-${ARCH}-v0.9.0.tgz -o cni-plugins-linux-${ARCH}-v0.9.0.tgz && \
+    curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.9.0/cni-plugins-linux-${ARCH}-v0.9.0.tgz.sha512 -o cni-plugins-linux-${ARCH}-v0.9.0.tgz.sha512 && \
+    sha512sum -c cni-plugins-linux-${ARCH}-v0.9.0.tgz.sha512 && \
+    tar -xvf cni-plugins-linux-${ARCH}-v0.9.0.tgz ./loopback && \
     strip -s ./loopback
 COPY --from=docker.io/cilium/cilium-llvm:cae23fe2f43497ae268bd8ec186930bc5f32afac /usr/local/bin/clang /usr/local/bin/llc /bin/
 COPY --from=docker.io/cilium/cilium-bpftool:906ffee7cd996bf6bde2c074cdd5954703a0fd5f /usr/local/bin/bpftool /bin/
