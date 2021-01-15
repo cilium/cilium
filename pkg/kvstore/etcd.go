@@ -1654,14 +1654,20 @@ func (e *etcdClient) Close() {
 	}
 	e.RLock()
 	defer e.RUnlock()
-	if err := e.lockSession.Close(); err != nil {
-		e.getLogger().WithError(err).Warning("Failed to revoke lock session while closing etcd client")
+	if e.lockSession != nil {
+		if err := e.lockSession.Close(); err != nil {
+			e.getLogger().WithError(err).Warning("Failed to revoke lock session while closing etcd client")
+		}
 	}
-	if err := e.session.Close(); err != nil {
-		e.getLogger().WithError(err).Warning("Failed to revoke main session while closing etcd client")
+	if e.session != nil {
+		if err := e.session.Close(); err != nil {
+			e.getLogger().WithError(err).Warning("Failed to revoke main session while closing etcd client")
+		}
 	}
-	if err := e.client.Close(); err != nil {
-		e.getLogger().WithError(err).Warning("Failed to close etcd client")
+	if e.client != nil {
+		if err := e.client.Close(); err != nil {
+			e.getLogger().WithError(err).Warning("Failed to close etcd client")
+		}
 	}
 }
 
