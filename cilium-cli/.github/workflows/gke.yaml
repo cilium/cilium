@@ -1,0 +1,63 @@
+name: GKE
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+env:
+  clusterName: cilium-cli-ci-${{ github.run_number }}
+  zone: us-west2-a
+
+jobs:
+  installation-and-connectivitiy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build cilium CLI binary
+        run: |
+          cd cmd/cilium
+          go build
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: gcloud info
+        run: |
+          gcloud info
+
+      - name: Create GKE cluster
+        run: |
+          gcloud container clusters create ${{ env.clusterName }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
+
+      - name: Get Credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.clusterName}} --zone ${{ env.zone }}
+
+      - name: Install cilium
+        run: |
+          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --restart-unmanaged-pods=false
+
+      - name: Enable Relay
+        run: |
+          cmd/cilium/cilium hubble enable
+
+      - name: Status
+        run: |
+          cmd/cilium/cilium status --wait
+
+      - name: Connectivity test
+        run: |
+          cmd/cilium/cilium connectivity test --hubble=false
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }}
