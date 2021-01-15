@@ -1,0 +1,85 @@
+name: AKS
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+env:
+  clusterName: cluster-${{ github.run_number }}
+  tenantId: "ef0bd011-1c76-4e1a-8595-99bc5f0adbb3"
+  clientId: "7c6ffc0e-f1ba-4591-9ed5-ea3b138c7523"
+
+jobs:
+  installation-and-connectivitiy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build cilium CLI binary
+        run: |
+          cd cmd/cilium
+          go build
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Azure CLI info
+        uses: azure/CLI@v1
+        with:
+          azcliversion: 2.0.72
+          inlineScript: |
+            az account show
+
+      - name: Create AKS cluster
+        run: |
+          az aks create \
+            --resource-group cilium-ci \
+            --name ${{ env.clusterName }} \
+            --location westeurope \
+            --node-count 2 \
+            --network-plugin azure \
+            --generate-ssh-keys
+
+      - name: Get Credentials
+        run: |
+          az aks get-credentials --name ${{ env.clusterName }} --resource-group cilium-ci
+
+      - name: Install cilium
+        run: |
+          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --azure-resource-group cilium-ci --azure-tenant-id ${{ secrets.AZURE_TENANT_ID}} --azure-client-id ${{ secrets.AZURE_CLIENT_ID }} --azure-client-secret ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Enable relay
+        run: |
+          cmd/cilium/cilium hubble enable
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+
+      - name: Status
+        run: |
+          cmd/cilium/cilium status --wait
+
+      - name: Connectivity test
+        run: |
+          cmd/cilium/cilium connectivity test --hubble=false
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cmd/cilium/cilium status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+          az aks delete --yes --name ${{ env.clusterName }} --resource-group cilium-ci
+
+      - name: Upload Artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
