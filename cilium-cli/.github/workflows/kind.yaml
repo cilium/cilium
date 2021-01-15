@@ -1,4 +1,4 @@
-name: Cilium installation
+name: Kind
 
 on:
   pull_request: {}
