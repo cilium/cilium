@@ -1192,6 +1192,7 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["auto-create-cilium-node-resource"] = "true"
 		m.Data["enable-local-node-route"] = "false"
 		m.Data["masquerade"] = "false"
+		m.Data["enable-bpf-masquerade"] = "false"
 	}
 
 	return m
