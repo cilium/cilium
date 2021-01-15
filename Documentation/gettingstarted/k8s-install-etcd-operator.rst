@@ -40,7 +40,8 @@ Deploy Cilium release via Helm:
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
       --set etcd.enabled=true \\
-      --set etcd.managed=true
+      --set etcd.managed=true \\
+      --set etcd.k8sService=true
 
 
 Validate the Installation

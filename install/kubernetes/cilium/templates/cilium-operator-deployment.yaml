@@ -192,7 +192,7 @@ spec:
           {{- toYaml .Values.operator.resources | trim | nindent 10 }}
 {{- end }}
       hostNetwork: true
-{{- if .Values.etcd.managed }}
+{{- if (and .Values.etcd.managed (not .Values.etcd.k8sService)) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
