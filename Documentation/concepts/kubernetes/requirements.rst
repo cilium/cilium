@@ -51,8 +51,13 @@ The :ref:`k8s_install_etcd_operator` relies on the etcd-operator to manage an
 etcd cluster. In order for the etcd cluster to be available, the Cilium pod is
 being run with ``dnsPolicy: ClusterFirstWithHostNet`` in order for Cilium to be
 able to look up Kubernetes service names via DNS. This creates a dependency on
-kube-dns. If you would like to avoid running kube-dns, choose a different
-installation method and remove the ``dnsPolicy`` field from the ``DaemonSet``.
+kube-dns. It is possible to avoid this dependency by deploying Cilium with
+``etcd.k8sService=true``. This option will allow Cilium to perform the name
+translation automatically by checking the service IP of the service name for
+the etcd cluster. This service name is usually in the form of ``cilium-etcd-client.<namespace>.svc``
+and it is automatically created by Cilium etcd Operator.
+
+For more information about ``dnsPolicy`` see: https://pkg.go.dev/k8s.io/api@v0.20.2/core/v1#DNSPolicy
 
 Enable automatic node CIDR allocation (Recommended)
 ===================================================
