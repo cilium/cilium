@@ -56,27 +56,32 @@ type accountInfo struct {
 }
 
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
-	k.Log("🚀 Creating service principal for Cilium operator...")
-	args := []string{"ad", "sp", "create-for-rbac", "--name", "cilium-operator"}
+	if k.params.Azure.TenantID == "" {
+		k.Log("🚀 Creating service principal for Cilium operator...")
+		args := []string{"ad", "sp", "create-for-rbac", "--name", "cilium-operator"}
+		cmd := exec.Command("az", args...)
+		bytes, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
+		}
+
+		p := azurePrincipalOutput{}
+		if err := json.Unmarshal(bytes, &p); err != nil {
+			return fmt.Errorf("unable to unmarshal az output: %w", err)
+		}
+
+		k.Log("✅ Created service principal for cilium operator with App ID %s and tenant ID %s", p.AppID, p.Tenant)
+		k.params.Azure.TenantID = p.Tenant
+		k.params.Azure.ClientID = p.AppID
+		k.params.Azure.ClientSecret = p.Password
+	} else {
+		k.Log("✅ Using manually configured principal for cilium operator with App ID %s and tenant ID %s",
+			k.params.Azure.ClientID, k.params.Azure.TenantID)
+	}
+
+	args := []string{"account", "show"}
 	cmd := exec.Command("az", args...)
 	bytes, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
-	}
-
-	p := azurePrincipalOutput{}
-	if err := json.Unmarshal(bytes, &p); err != nil {
-		return fmt.Errorf("unable to unmarshal az output: %w", err)
-	}
-
-	k.Log("✅ Created service principal for cilium operator with App ID %s and tenant ID %s", p.AppID, p.Tenant)
-	k.params.Azure.TenantID = p.Tenant
-	k.params.Azure.ClientID = p.AppID
-	k.params.Azure.ClientSecret = p.Password
-
-	args = []string{"account", "show"}
-	cmd = exec.Command("az", args...)
-	bytes, err = cmd.Output()
 	if err != nil {
 		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
 	}
