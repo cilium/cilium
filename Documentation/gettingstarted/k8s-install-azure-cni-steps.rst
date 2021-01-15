@@ -21,7 +21,6 @@ desired CNI chaining configuration:
             {
               "type": "azure-vnet",
               "mode": "transparent",
-              "bridge": "azure0",
               "ipam": {
                  "type": "azure-vnet-ipam"
                }
