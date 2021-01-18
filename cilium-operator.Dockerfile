@@ -36,4 +36,6 @@ COPY --from=builder /go/src/github.com/cilium/cilium/operator/cilium-operator /u
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
 WORKDIR /
+# FIXME Remove me once we add support for Go 1.16
+ENV GODEBUG="madvdontneed=1"
 CMD ["/usr/bin/cilium-operator"]
