@@ -351,7 +351,7 @@ function bpf_clear_cgroups()
 	HOOK=$2
 
 	set +e
-	ID=$(bpftool cgroup show $CGRP | grep $HOOK | awk '{print $1}')
+	ID=$(bpftool cgroup show $CGRP | grep -w $HOOK | awk '{print $1}')
 	set -e
 	if [ -n "$ID" ]; then
 		bpftool cgroup detach $CGRP $HOOK id $ID
