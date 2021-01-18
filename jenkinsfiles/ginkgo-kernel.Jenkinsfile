@@ -169,10 +169,7 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
                     )}"""
-                KUBEPROXY="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
-                    )}"""
+                KUBEPROXY="1"
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
@@ -221,10 +218,7 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
                     )}"""
-                KUBEPROXY="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
-                    )}"""
+                KUBEPROXY="1"
                 CILIUM_IMAGE = """${sh(
                         returnStdout: true,
                         script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/cilium'

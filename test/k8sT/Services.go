@@ -1932,7 +1932,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			deploymentManager.SetKubectl(kubectl)
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"encryption.enabled": "true",
+				"encryption.enabled":   "true",
+				"kubeProxyReplacement": "partial",
+				"hostServices.enabled": "true",
 				// When kube-proxy is enabled, the host firewall is not
 				// compatible with externalTrafficPolicy=Local because traffic
 				// from pods to remote nodes goes through the tunnel.

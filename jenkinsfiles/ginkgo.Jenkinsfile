@@ -134,7 +134,7 @@ pipeline {
                         K8S_VERSION="1.13"
                         K8S_NODES="3"
                         NO_CILIUM_ON_NODE="k8s3"
-                        KUBEPROXY="0"
+                        KUBEPROXY="1"
                         KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
@@ -248,7 +248,7 @@ pipeline {
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.13"
                         K8S_NODES="3"
-                        KUBEPROXY="0"
+                        KUBEPROXY="1"
                         NO_CILIUM_ON_NODE="k8s3"
                         HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
                     }
