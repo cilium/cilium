@@ -14,7 +14,7 @@ The cluster-scope IPAM mode assigns per-node PodCIDRs to each node and
 allocates IPs using a host-scope allocator on each node. It is thus similar to
 the :ref:`k8s_hostscope` mode. The difference is that instead of Kubernetes
 assigning the per-node PodCIDRs via the Kubernetes ``v1.Node`` resource, the
-Cilium operator will manage the per-node PodCIDRs via the ``v2.CilumNode``
+Cilium operator will manage the per-node PodCIDRs via the ``v2.CiliumNode``
 resource. The advantage of this mode is that it does not depend on Kubernetes
 being configured to hand out per-node PodCIDRs.
 
