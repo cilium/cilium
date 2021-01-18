@@ -69,6 +69,7 @@ cilium connectivity test`,
 
 	cmd.AddCommand(
 		newCmdClusterMesh(),
+		newCmdCompletion(),
 		newCmdConnectivity(),
 		newCmdContext(),
 		newCmdHubble(),
