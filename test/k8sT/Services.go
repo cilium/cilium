@@ -1485,10 +1485,6 @@ var _ = Describe("K8sServicesTest", func() {
 			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT)
 		}
 
-		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
-			testNodePort(false, false, false, 0)
-		})
-
 		testMaglev := func() {
 			var (
 				data  v1.Service
@@ -1534,15 +1530,37 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				// When kube-proxy is enabled, the host firewall is not
-				// compatible with externalTrafficPolicy=Local because traffic
-				// from pods to remote nodes goes through the tunnel.
-				// This issue is tracked at #12542.
-				"hostFirewall": "false",
+		SkipContextIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
+			SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "with IPSec and externalTrafficPolicy=Local", func() {
+				deploymentManager.SetKubectl(kubectl)
+				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"encryption.enabled": "true",
+					// When kube-proxy is enabled, the host firewall is not
+					// compatible with externalTrafficPolicy=Local because traffic
+					// from pods to remote nodes goes through the tunnel.
+					// This issue is tracked at #12542.
+					"hostFirewall": "false",
+				})
+				testExternalTrafficPolicyLocal()
+				deploymentManager.DeleteAll()
+				deploymentManager.DeleteCilium()
 			})
-			testExternalTrafficPolicyLocal()
+
+			It("with externalTrafficPolicy=Local", func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					// When kube-proxy is enabled, the host firewall is not
+					// compatible with externalTrafficPolicy=Local because traffic
+					// from pods to remote nodes goes through the tunnel.
+					// This issue is tracked at #12542.
+					"hostFirewall": "false",
+				})
+				testExternalTrafficPolicyLocal()
+			})
+
+			It("", func() {
+				testNodePort(false, false, false, 0)
+			})
 		})
 
 		// IPv6 tests do not work on Integrations like GKE as we don't have IPv6
