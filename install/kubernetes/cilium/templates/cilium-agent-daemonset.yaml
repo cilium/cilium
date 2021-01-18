@@ -225,7 +225,8 @@ spec:
             exec:
               command:
               - "/cni-install.sh"
-              -{{- if .Values.debug.enabled }} "--enable-debug=true"{{- else }} "--enable-debug=false"{{- end }}
+              - "--enable-debug={{- if .Values.debug.enabled }}true{{- else }}false{{- end }}"
+              - "--cni-exclusive={{- if .Values.cni.exclusive }}true{{- else }}false{{- end }}"
           preStop:
             exec:
               command:

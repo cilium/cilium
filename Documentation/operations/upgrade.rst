@@ -339,6 +339,14 @@ Annotations:
 * When using the ENI-based IPAM in conjunction with the ``--eni-tags``, failures
   to create tags are treated as errors which will result in ENIs not being
   created. Ensure that the ``ec2:CreateTags`` IAM permissions are granted.
+* To prevent Pods being scheduled by other CNI plugins during Cilium agent
+  downtime (upgrades, crashes,..), Cilium now assumes ownership of the node's
+  CNI configuration directory (``/etc/cni/net.d``) by default.
+  Existing CNI configurations are renamed to ``*.cilium_bak``, which will
+  disable solutions like [CNI-Genie](https://github.com/cni-genie/CNI-Genie)
+  as well as the default CNI plugins shipped by most managed Kubernetes
+  distributions. Set the ``cni.exclusive=false`` Helm flag to disable this
+  behaviour.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -366,6 +374,8 @@ New Options
   IPv6 masquerading in the roadmap.
 * ``enable-ipv4-masquerade``: This option enables/disables masquerading for IPv4 traffic
   and has the same desired effect as ``masquerade`` option.
+* ``cni.exclusive``: Use to toggle Cilium installing itself as the only available CNI
+  plugin on all nodes.
 
 Removed Options
 ~~~~~~~~~~~~~~~
