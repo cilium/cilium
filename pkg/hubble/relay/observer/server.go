@@ -23,10 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -284,10 +284,10 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	}()
 	resp := &observerpb.ServerStatusResponse{
 		Version: build.RelayVersion.String(),
-		NumConnectedNodes: &wrappers.UInt32Value{
+		NumConnectedNodes: &wrapperspb.UInt32Value{
 			Value: numConnectedNodes,
 		},
-		NumUnavailableNodes: &wrappers.UInt32Value{
+		NumUnavailableNodes: &wrapperspb.UInt32Value{
 			Value: numUnavailableNodes,
 		},
 		UnavailableNodes: unavailableNodes,

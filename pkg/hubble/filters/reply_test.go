@@ -23,7 +23,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func Test_filterByReplyField(t *testing.T) {
@@ -49,7 +49,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "empty-param",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: true}}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: true}}},
 			},
 			want: true,
 		},
@@ -57,7 +57,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "empty-param-2",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: false}}},
 			},
 			want: true,
 		},
@@ -65,7 +65,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-reply",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: false}}},
 			},
 			want: true,
 		},
@@ -92,7 +92,7 @@ func Test_filterByReplyField(t *testing.T) {
 						Type:    monitorAPI.MessageTypeTrace,
 						SubType: monitorAPI.TraceToLxc,
 					},
-					IsReply: &wrappers.BoolValue{Value: false},
+					IsReply: &wrapperspb.BoolValue{Value: false},
 				}},
 			},
 			want: true,
@@ -101,7 +101,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "reply",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: true}}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: true}}},
 			},
 			want: true,
 		},
@@ -117,7 +117,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: false}}},
 			},
 			want: false,
 		},
@@ -125,7 +125,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-match-2",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrappers.BoolValue{Value: true}}},
+				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: true}}},
 			},
 			want: false,
 		},
