@@ -61,6 +61,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVarP(&params.CiliumNamespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run a particular set of tests")
 
 	return cmd
 }
