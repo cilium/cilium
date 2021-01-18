@@ -733,8 +733,11 @@ func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *n
 
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
+	fmt.Println("!!! deleteNeighbor", oldNode)
+
 	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
 	if !found {
+		fmt.Println("!!! node not found")
 		return
 	}
 	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
@@ -751,12 +754,18 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 					logfields.LinkIndex:    neigh.LinkIndex,
 				}).WithError(err).Warn("Failed to remove neighbor entry")
 				return
+			} else {
+				fmt.Println("!!! deleted neigh", neigh.IP, neigh.HardwareAddr, neigh.LinkIndex)
 			}
 
 			if option.Config.NodePortHairpin {
 				neighborsmap.NeighRetire(neigh.IP)
 			}
+		} else {
+			fmt.Println("!!! node not found", oldNode)
 		}
+	} else {
+		fmt.Println("!!! node is still used", oldNode)
 	}
 }
 
@@ -905,13 +914,19 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	fmt.Println("!!! NodeDelete")
+
 	nodeIdentity := oldNode.Identity()
 	if oldCachedNode, nodeExists := n.nodes[nodeIdentity]; nodeExists {
 		delete(n.nodes, nodeIdentity)
 
 		if n.isInitialized {
 			return n.nodeDelete(oldCachedNode)
+		} else {
+			fmt.Println("!!! self node is not initialized")
 		}
+	} else {
+		fmt.Println("!!! node not found", oldNode)
 	}
 
 	return nil
@@ -919,6 +934,7 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 
 func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if oldNode.IsLocal() {
+		fmt.Println("!!! node is self", oldNode)
 		return nil
 	}
 
@@ -942,6 +958,8 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 
 	if n.enableNeighDiscovery {
 		n.deleteNeighbor(oldNode)
+	} else {
+		fmt.Println("!!! neigh discovery is disabled", oldNode)
 	}
 
 	if n.nodeConfig.EnableIPSec {
