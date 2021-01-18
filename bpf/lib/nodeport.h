@@ -376,7 +376,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET6,
-			.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+			.ifindex	= FIB_LOOKUP_DEV_IFINDEX,
 		},
 	};
 	union macaddr *dmac = NULL;
@@ -449,7 +449,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		}
 	}
 
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+	return ctx_redirect(ctx, DIRECT_ROUTING_DEV_IFINDEX, 0);
 
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
@@ -464,7 +464,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET6,
-			.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+			.ifindex	= FIB_LOOKUP_DEV_IFINDEX,
 		},
 	};
 	struct ipv6_nat_target target = {
@@ -576,7 +576,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		}
 	}
 out_send: __maybe_unused
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+	return ctx_redirect(ctx, DIRECT_ROUTING_DEV_IFINDEX, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 				      dir == NAT_DIR_INGRESS ?
@@ -1203,7 +1203,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET,
-			.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+			.ifindex	= FIB_LOOKUP_DEV_IFINDEX,
 		},
 	};
 	union macaddr *dmac = NULL;
@@ -1270,7 +1270,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		}
 	}
 
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+	return ctx_redirect(ctx, DIRECT_ROUTING_DEV_IFINDEX, 0);
 
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
@@ -1284,7 +1284,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET,
-			.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+			.ifindex	= FIB_LOOKUP_DEV_IFINDEX,
 		},
 	};
 	struct ipv4_nat_target target = {
@@ -1398,7 +1398,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		}
 	}
 out_send: __maybe_unused
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+	return ctx_redirect(ctx, DIRECT_ROUTING_DEV_IFINDEX, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 				      dir == NAT_DIR_INGRESS ?
