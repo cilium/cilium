@@ -56,4 +56,6 @@ COPY --from=builder /go/src/github.com/cilium/cilium/clustermesh-apiserver/clust
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
 COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
+# FIXME Remove me once we add support for Go 1.16
+ENV GODEBUG="madvdontneed=1"
 ENTRYPOINT ["/usr/bin/clustermesh-apiserver"]

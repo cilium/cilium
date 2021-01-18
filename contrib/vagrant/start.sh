@@ -348,6 +348,8 @@ sleep 2s
 if [ -n "\${K8S}" ]; then
     echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
 fi
+# FIXME Remove me once we add support for Go 1.16
+echo 'GODEBUG="madvdontneed=1"' >> /etc/sysconfig/cilium
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
