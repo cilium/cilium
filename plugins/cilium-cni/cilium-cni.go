@@ -352,6 +352,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	netNs, err = ns.GetNS(args.Netns)
 	if err != nil {
 		err = fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
+		return
 	}
 	defer netNs.Close()
 
