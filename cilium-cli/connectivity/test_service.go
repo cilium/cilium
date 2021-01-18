@@ -16,6 +16,8 @@ package connectivity
 
 import (
 	"context"
+	"net"
+	"strconv"
 )
 
 type connectivityTestPodToService struct{}
@@ -24,28 +26,62 @@ func (p *connectivityTestPodToService) Name() string {
 	return "pod-to-service"
 }
 
+type serviceDefinition struct {
+	port int
+	name string
+	dns  bool
+}
+
 func (p *connectivityTestPodToService) Run(ctx context.Context, c TestContext) {
 	for _, client := range c.ClientPods() {
 		for _, echoSvc := range c.EchoServices() {
-			run := NewTestRun(p.Name(), c, client, echoSvc)
-
-			_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, curlCommand(echoSvc.Address()+":8080"))
-			if err != nil {
-				run.Failure("curl connectivity check command failed: %s", err)
+			serviceDestinations := map[string]serviceDefinition{
+				echoSvc.Service.Name: serviceDefinition{
+					port: 8080,
+					name: "ClusterIP",
+					dns:  true,
+				},
 			}
 
-			run.ValidateFlows(ctx, client.Name(), []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-				{Filter: UDPFilter(client.Pod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request not found"},
-				{Filter: UDPFilter("", client.Pod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response not found"},
-				{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 8080, true, false, false, false), Expect: true, Msg: "SYN not found"},
-				{Filter: TCPFilter("", client.Pod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
-				{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 8080, false, true, true, false), Expect: true, Msg: "FIN not found"},
-				{Filter: TCPFilter("", client.Pod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
-			})
+			for _, echo := range c.EchoPods() {
+				serviceDestinations[echo.Pod.Status.HostIP] = serviceDefinition{
+					port: int(echoSvc.Service.Spec.Ports[0].NodePort),
+					name: "NodePort",
+				}
+			}
 
-			run.End()
+			for peer, definition := range serviceDestinations {
+				destination := net.JoinHostPort(peer, strconv.Itoa(definition.port))
+				run := NewTestRun(p.Name(), c, client, NetworkEndpointContext{
+					CustomName: destination + " (" + definition.name + ")",
+					Peer:       destination,
+				})
+
+				_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, curlCommand(destination))
+				if err != nil {
+					run.Failure("curl connectivity check command failed: %s", err)
+				}
+
+				flowRequirements := []FilterPair{
+					{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
+					{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
+					{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 8080, true, false, false, false), Expect: true, Msg: "SYN not found"},
+					{Filter: TCPFilter("", client.Pod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
+					{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 8080, false, true, true, false), Expect: true, Msg: "FIN not found"},
+					{Filter: TCPFilter("", client.Pod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
+				}
+
+				if definition.dns {
+					flowRequirements = append(flowRequirements, []FilterPair{
+						{Filter: UDPFilter(client.Pod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request not found"},
+						{Filter: UDPFilter("", client.Pod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response not found"},
+					}...)
+				}
+
+				run.ValidateFlows(ctx, client.Name(), flowRequirements)
+
+				run.End()
+			}
 		}
 	}
 }

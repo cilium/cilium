@@ -50,13 +50,18 @@ func curlCommand(target string) []string {
 	return []string{"curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", target}
 }
 
-func newService(name string, selector map[string]string, portName string, port int) *corev1.Service {
+var serviceLabels = map[string]string{
+	"kind": kindEchoName,
+}
+
+func newService(name string, selector map[string]string, labels map[string]string, portName string, port int) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: labels,
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{Name: name, Port: int32(port)},
 			},
@@ -138,6 +143,7 @@ type k8sConnectivityImplementation interface {
 	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
+	ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error)
 	GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error)
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
 	ClusterName() (name string)
@@ -165,31 +171,34 @@ func (p PodContext) Address() string {
 
 // ServiceContext is a service acting as a peer in a connectivity test
 type ServiceContext struct {
-	// Namespace is the namespace the service is deployed in
-	Namespace string
-
-	// ServiceName is the name of the service
-	ServiceName string
+	// Service  is the Kubernetes service resource
+	Service *corev1.Service
 }
 
 // Name returns the absolute name of the service
 func (s ServiceContext) Name() string {
-	return s.Namespace + "/" + s.ServiceName
+	return s.Service.Namespace + "/" + s.Service.Name
 }
 
 // Address returns the network address of the service
 func (s ServiceContext) Address() string {
-	return s.ServiceName
+	return s.Service.Name
 }
 
 // NetworkEndpointContext is a network endpoint acting as a peer in a connectivity test
 type NetworkEndpointContext struct {
+	CustomName string
+
 	// Peer is the network address
 	Peer string
 }
 
 // Name is the absolute name of the network endpoint
 func (n NetworkEndpointContext) Name() string {
+	if n.CustomName != "" {
+		return n.CustomName
+	}
+
 	return n.Peer
 }
 
@@ -771,7 +780,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 
 	if srcDeploymentNeeded {
 		k.Log("✨ [%s] Deploying echo-same-node service...", k.clients.src.ClusterName())
-		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, "http", 8080)
+		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080)
 		_, err = k.clients.src.CreateService(ctx, connectivityCheckNamespace, svc, metav1.CreateOptions{})
 		if err != nil {
 			return err
@@ -779,7 +788,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 
 		if k.params.MultiCluster != "" {
 			k.Log("✨ [%s] Deploying echo-other-node service...", k.clients.src.ClusterName())
-			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, "http", 8080)
+			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
 			svc.ObjectMeta.Annotations = map[string]string{}
 			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
 
@@ -826,7 +835,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 	if dstDeploymentNeeded {
 		if !k.params.SingleNode || k.params.MultiCluster != "" {
 			k.Log("✨ [%s] Deploying echo-other-node service...", k.clients.dst.ClusterName())
-			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, "http", 8080)
+			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
 
 			if k.params.MultiCluster != "" {
 				svc.ObjectMeta.Annotations = map[string]string{}
@@ -951,9 +960,17 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 	}
 
 	k.echoServices = map[string]ServiceContext{}
-	k.echoServices[echoSameNodeDeploymentName] = ServiceContext{Namespace: connectivityCheckNamespace, ServiceName: echoSameNodeDeploymentName}
-	if !k.params.SingleNode {
-		k.echoServices[echoOtherNodeDeploymentName] = ServiceContext{Namespace: connectivityCheckNamespace, ServiceName: echoOtherNodeDeploymentName}
+	for _, client := range k.clients.clients() {
+		echoServices, err := client.ListServices(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
+		if err != nil {
+			return fmt.Errorf("unable to list echo servies: %s", err)
+		}
+
+		for _, echoService := range echoServices.Items {
+			k.echoServices[echoService.Name] = ServiceContext{
+				Service: echoService.DeepCopy(),
+			}
+		}
 	}
 
 	return nil
