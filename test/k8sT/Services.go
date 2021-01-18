@@ -2607,7 +2607,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 		// Run on net-next and 4.19 but not on old versions, because of
 		// LRU requirement.
-		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Supports IPv4 fragments", func() {
+		SkipItIf(func() bool {
+			return helpers.DoesNotRunOnNetNextOr419Kernel() || helpers.RunsOnGKE()
+		}, "Supports IPv4 fragments", func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 			testIPv4FragmentSupport()
 		})
