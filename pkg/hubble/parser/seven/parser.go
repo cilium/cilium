@@ -31,11 +31,11 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/gopacket/layers"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser is a parser for L7 payloads
@@ -401,8 +401,8 @@ func decodeLayer7(r *accesslog.LogRecord) *pb.Layer7 {
 	}
 }
 
-func decodeIsReply(t accesslog.FlowType) *wrappers.BoolValue {
-	return &wrappers.BoolValue{
+func decodeIsReply(t accesslog.FlowType) *wrapperspb.BoolValue {
+	return &wrapperspb.BoolValue{
 		Value: t == accesslog.TypeResponse,
 	}
 }

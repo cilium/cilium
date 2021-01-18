@@ -31,9 +31,9 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var log *logrus.Logger
@@ -124,7 +124,7 @@ func Test_EventType_RecordLost(t *testing.T) {
 		Timestamp: protoTimestamp,
 		Event: &flowpb.LostEvent{
 			NumEventsLost: 1001,
-			Cpu:           &wrappers.Int32Value{Value: 3},
+			Cpu:           &wrapperspb.Int32Value{Value: 3},
 			Source:        flowpb.LostEventSource_PERF_EVENT_RING_BUFFER,
 		},
 	}, ev)

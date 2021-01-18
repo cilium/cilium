@@ -30,8 +30,8 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type mockEndpoint struct {
@@ -248,7 +248,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 					IpcacheUpdate: &flowpb.IPCacheNotification{
 						Cidr:     "192.168.10.11/32",
 						Identity: 1023,
-						OldIdentity: &wrappers.UInt32Value{
+						OldIdentity: &wrapperspb.UInt32Value{
 							Value: oldID,
 						},
 						HostIp:     "10.1.5.4",

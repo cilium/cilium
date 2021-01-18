@@ -28,8 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser for all flows
@@ -134,7 +134,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 		ev.Event = &pb.LostEvent{
 			Source:        lostEventSourceToProto(payload.Source),
 			NumEventsLost: payload.NumLostEvents,
-			Cpu: &wrappers.Int32Value{
+			Cpu: &wrapperspb.Int32Value{
 				Value: int32(payload.CPU),
 			},
 		}

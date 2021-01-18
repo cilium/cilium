@@ -32,7 +32,6 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
@@ -41,6 +40,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestGetFlows(t *testing.T) {
@@ -870,8 +870,8 @@ func TestServerStatus(t *testing.T) {
 					MaxFlows:            0,
 					SeenFlows:           0,
 					UptimeNs:            0,
-					NumConnectedNodes:   &wrappers.UInt32Value{Value: 0},
-					NumUnavailableNodes: &wrappers.UInt32Value{Value: 1},
+					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 0},
+					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 1},
 					UnavailableNodes:    []string{"noip"},
 				},
 				log: []string{
@@ -946,8 +946,8 @@ func TestServerStatus(t *testing.T) {
 					MaxFlows:            3333,
 					SeenFlows:           3333,
 					UptimeNs:            111111111,
-					NumConnectedNodes:   &wrappers.UInt32Value{Value: 2},
-					NumUnavailableNodes: &wrappers.UInt32Value{Value: 0},
+					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 2},
+					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 0},
 				},
 			},
 		}, {
@@ -1012,8 +1012,8 @@ func TestServerStatus(t *testing.T) {
 					MaxFlows:            1111,
 					SeenFlows:           1111,
 					UptimeNs:            111111111,
-					NumConnectedNodes:   &wrappers.UInt32Value{Value: 1},
-					NumUnavailableNodes: &wrappers.UInt32Value{Value: 1},
+					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 1},
+					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 1},
 					UnavailableNodes:    []string{"two"},
 				},
 				log: []string{
@@ -1072,8 +1072,8 @@ func TestServerStatus(t *testing.T) {
 					MaxFlows:            0,
 					SeenFlows:           0,
 					UptimeNs:            0,
-					NumConnectedNodes:   &wrappers.UInt32Value{Value: 0},
-					NumUnavailableNodes: &wrappers.UInt32Value{Value: 2},
+					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 0},
+					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 2},
 					UnavailableNodes:    []string{"one", "two"},
 				},
 				log: []string{

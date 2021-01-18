@@ -34,10 +34,10 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser is a parser for L3/L4 payloads
@@ -484,20 +484,20 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
-func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrappers.BoolValue {
+func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
 	case tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint):
 		// Unfortunately, not all trace points have the connection
 		// tracking state available. For certain trace point
 		// events, we do not know if it actually was a reply or not.
-		return &wrappers.BoolValue{
+		return &wrapperspb.BoolValue{
 			Value: tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply,
 		}
 	case pvn != nil && pvn.Verdict >= 0:
 		// Forwarded PolicyVerdictEvents are emitted for the first packet of
 		// connection, therefore we statically assume that they are not reply
 		// packets
-		return &wrappers.BoolValue{Value: false}
+		return &wrapperspb.BoolValue{Value: false}
 	default:
 		// For other events, such as drops, we simply do not know if they were
 		// replies or not.
