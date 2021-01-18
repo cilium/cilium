@@ -29,8 +29,8 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/golang/protobuf/jsonpb"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var _ = Describe("K8sHubbleTest", func() {
@@ -110,7 +110,7 @@ var _ = Describe("K8sHubbleTest", func() {
 					}
 
 					f := &pb.Flow{}
-					if err := jsonpb.UnmarshalString(line, f); err != nil {
+					if err := protojson.Unmarshal([]byte(line), f); err != nil {
 						return fmt.Errorf("failed to decode in %q: %w", lines, err)
 					}
 					flows = append(flows, f)
