@@ -15,6 +15,7 @@ on:
 
 jobs:
   analyze:
+    if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
