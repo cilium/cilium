@@ -67,14 +67,16 @@ cilium hubble enable
 cilium connectivity test`,
 	}
 
-	cmd.AddCommand(newCmdContext())
-	cmd.AddCommand(newCmdStatus())
-	cmd.AddCommand(newCmdPolicy())
-	cmd.AddCommand(newCmdConnectivity())
-	cmd.AddCommand(newCmdInstall())
-	cmd.AddCommand(newCmdUninstall())
-	cmd.AddCommand(newCmdClusterMesh())
-	cmd.AddCommand(newCmdHubble())
+	cmd.AddCommand(
+		newCmdClusterMesh(),
+		newCmdConnectivity(),
+		newCmdContext(),
+		newCmdHubble(),
+		newCmdInstall(),
+		newCmdPolicy(),
+		newCmdStatus(),
+		newCmdUninstall(),
+	)
 	cmd.SetOut(os.Stdout)
 	cmd.SetErr(os.Stderr)
 
