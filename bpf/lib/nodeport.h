@@ -385,8 +385,10 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	union v6addr addr;
 	int ret;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	addr.p1 = ctx_load_meta(ctx, CB_ADDR_V6_1);
 	addr.p2 = ctx_load_meta(ctx, CB_ADDR_V6_2);
@@ -403,19 +405,25 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
 	if (ret)
-		return ret;
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
+		goto drop_err;
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	if (nodeport_lb_hairpin())
 		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->daddr);
 	if (dmac) {
 		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.l.ifindex);
 
-		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
-			return DROP_WRITE_ERROR;
-		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0)
-			return DROP_WRITE_ERROR;
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
 	} else {
 		ipv6_addr_copy((union v6addr *) &fib_params.l.ipv6_src,
 			       (union v6addr *) &ip6->saddr);
@@ -424,18 +432,27 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 
 		ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params),
 				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		if (ret != 0)
-			return DROP_NO_FIB;
+		if (ret != 0) {
+			ret = DROP_NO_FIB;
+			goto drop_err;
+		}
 		if (nodeport_lb_hairpin())
 			map_update_elem(&NODEPORT_NEIGH6, &ip6->daddr,
 					fib_params.l.dmac, 0);
-		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0)
-			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0)
-			return DROP_WRITE_ERROR;
+		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
 	}
 
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }
 #endif /* ENABLE_DSR */
 
@@ -1194,8 +1211,10 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	struct iphdr *ip4;
 	int ret;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
@@ -1209,37 +1228,52 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
 	if (ret)
-		return ret;
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+		goto drop_err;
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	if (nodeport_lb_hairpin())
 		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
 	if (dmac) {
 		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.l.ifindex);
 
-		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
-			return DROP_WRITE_ERROR;
-		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0)
-			return DROP_WRITE_ERROR;
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
 	} else {
 		fib_params.l.ipv4_src = ip4->saddr;
 		fib_params.l.ipv4_dst = ip4->daddr;
 
 		ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params),
 				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		if (ret != 0)
-			return DROP_NO_FIB;
+		if (ret != 0) {
+			ret = DROP_NO_FIB;
+			goto drop_err;
+		}
 		if (nodeport_lb_hairpin())
 			map_update_elem(&NODEPORT_NEIGH4, &ip4->daddr,
 					fib_params.l.dmac, 0);
-		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0)
-			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0)
-			return DROP_WRITE_ERROR;
+		if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
 	}
 
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }
 #endif /* ENABLE_DSR */
 
@@ -1267,24 +1301,30 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	if (dir == NAT_DIR_EGRESS) {
 		struct remote_endpoint_info *info;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
 
 		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 						  SECLABEL, TRACE_PAYLOAD_LEN);
 			if (ret)
-				return ret;
+				goto drop_err;
 
 			target.addr = IPV4_GATEWAY;
 			fib_params.l.ifindex = ENCAP_IFINDEX;
 
 			/* fib lookup not necessary when going over tunnel. */
-			if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0)
-				return DROP_WRITE_ERROR;
+			if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto drop_err;
+			}
+			if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto drop_err;
+			}
 		}
 	}
 #endif
