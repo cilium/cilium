@@ -76,7 +76,14 @@ var (
 
 	verboseLog = log.New(ioutil.Discard, "", 0)
 	timeout    = 1 * time.Second
+	retries    = 3
 )
+
+type PingResult struct {
+	mac      net.HardwareAddr
+	duration time.Duration
+	err      error
+}
 
 // Ping sends an arp ping to 'dstIP'
 func Ping(dstIP net.IP) (net.HardwareAddr, time.Duration, error) {
@@ -110,7 +117,7 @@ func PingOverIfaceByName(dstIP net.IP, ifaceName string, srcIP net.IP) (net.Hard
 }
 
 // PingOverIface sends an arp ping over interface 'iface' to 'dstIP' from 'srcIP'
-func PingOverIface(dstIP net.IP, iface net.Interface, srcIP net.IP) (net.HardwareAddr, time.Duration, error) {
+func PingOverIface(dstIP net.IP, iface net.Interface, srcIP net.IP) (hwAddr net.HardwareAddr, duration time.Duration, err error) {
 	if err := validateIP(dstIP); err != nil {
 		return nil, 0, err
 	}
@@ -125,11 +132,17 @@ func PingOverIface(dstIP net.IP, iface net.Interface, srcIP net.IP) (net.Hardwar
 	}
 	defer req.deinitialize()
 
-	type PingResult struct {
-		mac      net.HardwareAddr
-		duration time.Duration
-		err      error
+	for i := 0; i < retries; i++ {
+		hwAddr, duration, err = ping(req, request, dstIP, iface, srcIP)
+		if !errors.Is(err, ErrTimeout) {
+			return
+		}
 	}
+
+	return
+}
+
+func ping(req *requester, request arpDatagram, dstIP net.IP, iface net.Interface, srcIP net.IP) (net.HardwareAddr, time.Duration, error) {
 	pingResultChan := make(chan PingResult)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
