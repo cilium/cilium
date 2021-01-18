@@ -25,22 +25,36 @@ func (p *connectivityTestPodToHost) Name() string {
 }
 
 func (p *connectivityTestPodToHost) Run(ctx context.Context, c TestContext) {
+	// Construct a map of all unique host IPs where pods are running on.
+	// This will include:
+	// - The local host
+	// - Remote hosts unless running in single node environments
+	// - Remote hosts in remote clusters when running in multi-cluster mode
+	hostIPs := map[string]struct{}{}
 	for _, client := range c.ClientPods() {
-		hostIP := client.Pod.Status.HostIP
-		cmd := []string{"ping", "-c", "3", hostIP}
-		run := NewTestRun(p.Name(), c, client, NetworkEndpointContext{Peer: hostIP})
+		hostIPs[client.Pod.Status.HostIP] = struct{}{}
+	}
+	for _, echo := range c.EchoPods() {
+		hostIPs[echo.Pod.Status.HostIP] = struct{}{}
+	}
 
-		_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, cmd)
-		if err != nil {
-			run.Failure("ping command failed: %s", err)
+	for _, client := range c.ClientPods() {
+		for hostIP := range hostIPs {
+			cmd := []string{"ping", "-c", "3", hostIP}
+			run := NewTestRun(p.Name(), c, client, NetworkEndpointContext{Peer: hostIP})
+
+			_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, cmd)
+			if err != nil {
+				run.Failure("ping command failed: %s", err)
+			}
+
+			run.ValidateFlows(ctx, client.Name(), []FilterPair{
+				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
+				{Filter: ICMPFilter(client.Pod.Status.PodIP, hostIP, 8), Expect: true, Msg: "ICMP request not found"},
+				{Filter: ICMPFilter(hostIP, client.Pod.Status.PodIP, 0), Expect: true, Msg: "ICMP response not found"},
+			})
+
+			run.End()
 		}
-
-		run.ValidateFlows(ctx, client.Name(), []FilterPair{
-			{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-			{Filter: ICMPFilter(client.Pod.Status.PodIP, hostIP, 8), Expect: true, Msg: "ICMP request not found"},
-			{Filter: ICMPFilter(hostIP, client.Pod.Status.PodIP, 0), Expect: true, Msg: "ICMP response not found"},
-		})
-
-		run.End()
 	}
 }
