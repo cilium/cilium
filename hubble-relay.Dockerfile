@@ -32,4 +32,6 @@ COPY --from=builder /go/src/github.com/cilium/cilium/hubble-relay/hubble-relay /
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
 ENTRYPOINT ["/usr/bin/hubble-relay"]
+# FIXME Remove me once we add support for Go 1.16
+ENV GODEBUG="madvdontneed=1"
 CMD ["serve"]
