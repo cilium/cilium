@@ -143,14 +143,228 @@ type k8sConnectivityImplementation interface {
 	ClusterName() (name string)
 }
 
+// PodContext is a pod acting as a peer in a connectivity test
+type PodContext struct {
+	// K8sClient is the Kubernetes client of the cluster this pod is
+	// running in
+	k8sClient k8sConnectivityImplementation
+
+	// Pod is the Kubernetes Pod resource
+	Pod *corev1.Pod
+}
+
+// Name returns the absolute name of the pod
+func (p PodContext) Name() string {
+	return p.Pod.Namespace + "/" + p.Pod.Name
+}
+
+// Address returns the network address of the pod
+func (p PodContext) Address() string {
+	return p.Pod.Status.PodIP
+}
+
+// ServiceContext is a service acting as a peer in a connectivity test
+type ServiceContext struct {
+	// Namespace is the namespace the service is deployed in
+	Namespace string
+
+	// ServiceName is the name of the service
+	ServiceName string
+}
+
+// Name returns the absolute name of the service
+func (s ServiceContext) Name() string {
+	return s.Namespace + "/" + s.ServiceName
+}
+
+// Address returns the network address of the service
+func (s ServiceContext) Address() string {
+	return s.ServiceName
+}
+
+// NetworkEndpointContext is a network endpoint acting as a peer in a connectivity test
+type NetworkEndpointContext struct {
+	// Peer is the network address
+	Peer string
+}
+
+// Name is the absolute name of the network endpoint
+func (n NetworkEndpointContext) Name() string {
+	return n.Peer
+}
+
+// Address it the network address of the network endpoint
+func (n NetworkEndpointContext) Address() string {
+	return n.Peer
+}
+
+// TestContext is the context a test uses to interact with the test framework
+type TestContext interface {
+	// EchoPods returns a map of all deployed echo pods
+	EchoPods() map[string]PodContext
+
+	// ClientPods returns a map of all deployed client pods
+	ClientPods() map[string]PodContext
+
+	// EchoServices returns a map of all deployed echo services
+	EchoServices() map[string]ServiceContext
+
+	// Log is used to log a status update
+	Log(format string, a ...interface{})
+
+	// Header logs a header to segment tests
+	Header(format string, a ...interface{})
+
+	// Relax is invoked in between tests to relax the test framework
+	Relax()
+
+	// HubbleClient returns the Hubble client to retrieve flow logs
+	HubbleClient() observer.ObserverClient
+
+	// PrintFlows returns true if flow logs should be printed
+	PrintFlows() bool
+}
+
+// TestRun is the state of an individual test run
+type TestRun struct {
+	// name is the name of the test being run
+	name string
+
+	// context is the test context of the framework
+	context TestContext
+
+	// src is the peer used as the source (client)
+	src TestPeer
+
+	// dst is the peer used as the destination (server)
+	dst TestPeer
+
+	// flows is a map of all flow logs, indexed by pod name
+	flows map[string]*flowsSet
+
+	// started is the timestamp the test started
+	started time.Time
+
+	// failures is the number of failures encountered in this test run
+	failures int
+}
+
+// NewTestRun creates a new test run
+func NewTestRun(name string, c TestContext, src, dst TestPeer) *TestRun {
+	c.Header("🔌 [%s] Testing %s -> %s...", name, src.Name(), dst.Name())
+
+	return &TestRun{
+		name:    name,
+		context: c,
+		src:     src,
+		dst:     dst,
+		started: time.Now(),
+		flows:   map[string]*flowsSet{},
+	}
+}
+
+// Failure must be called when a failure is detected performing the test
+func (t *TestRun) Failure(format string, a ...interface{}) {
+	t.context.Log("❌ "+format, a...)
+	t.failures++
+}
+
+func (t *TestRun) printFlows(pod string, f *flowsSet) {
+	if f == nil {
+		t.context.Log("📄 No flows recorded for pod %s", pod)
+		return
+	}
+
+	t.context.Log("📄 Flow logs of pod %s:", pod)
+	printer := hubprinter.New(hubprinter.Compact())
+	defer printer.Close()
+	for _, flow := range f.flows {
+		if err := printer.WriteProtoFlow(flow); err != nil {
+			t.context.Log("Unable to print flow: %s", err)
+		}
+	}
+}
+
+// ValidateFlows retrieves the flow pods of the specified pod and validates
+// that all filters find a match. On failure, t.Failure() is called.
+func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []FilterPair) {
+	hubbleClient := t.context.HubbleClient()
+	if hubbleClient == nil {
+		return
+	}
+
+	flows, ok := t.flows[pod]
+	if !ok {
+		var err error
+		flows, err = getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod)
+		if err != nil {
+			t.context.Log("Unable to retrieve flows of pod %s: %s", pod, err)
+			t.Failure("Unable to retrieve flows of pod %q: %s", pod, err)
+			return
+		}
+
+		t.flows[pod] = flows
+	}
+
+	for _, p := range filter {
+		if flows.Contains(p.Filter) != p.Expect {
+			t.Failure("%s in pod %s", p.Msg, pod)
+		}
+	}
+}
+
+// End is called at the end of a test run to signal completion. It must be
+// called for both successful and failed test runs. It will log a summary and
+// print flow logs if necessary.
+func (t *TestRun) End() {
+	if t.context.PrintFlows() || t.failures > 0 {
+		for name, flows := range t.flows {
+			t.printFlows(name, flows)
+		}
+	}
+
+	prefix := "✅"
+	if t.failures > 0 {
+		prefix = "❌"
+	}
+
+	t.context.Log("%s [%s] %s (%s) -> %s (%s)",
+		prefix, t.name,
+		t.src.Name(), t.src.Address(),
+		t.dst.Name(), t.dst.Address())
+
+	t.context.Relax()
+}
+
+// TestPeer is the abstraction used for all peer types (pods, services, IPs,
+// DNS names) used for connectivity testing
+type TestPeer interface {
+	// Name must return the absolute name of the peer
+	Name() string
+
+	// Address must return the network address of the peer. This can be a
+	// DNS name or an IP address.
+	Address() string
+}
+
+// ConnectivityTest is the interface to implement for all connectivity tests
+type ConnectivityTest interface {
+	// Name must return the name of the test
+	Name() string
+
+	// Run is called to run the connectivity test
+	Run(ctx context.Context, c TestContext)
+}
+
 type K8sConnectivityCheck struct {
-	clients         *deploymentClients
 	client          k8sConnectivityImplementation
-	params          Parameters
 	ciliumNamespace string
 	hubbleClient    observer.ObserverClient
-	clientPods      *corev1.PodList
-	echoPods        map[string]string
+	params          Parameters
+	clients         *deploymentClients
+	echoPods        map[string]PodContext
+	clientPods      map[string]PodContext
+	echoServices    map[string]ServiceContext
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) *K8sConnectivityCheck {
@@ -191,10 +405,10 @@ type flowsSet struct {
 	flows []*observer.GetFlowsResponse
 }
 
-func (k *K8sConnectivityCheck) getFlows(ctx context.Context, since time.Time, pod string) (*flowsSet, error) {
+func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod string) (*flowsSet, error) {
 	set := &flowsSet{}
 
-	if k.hubbleClient == nil {
+	if hubbleClient == nil {
 		return set, nil
 	}
 
@@ -215,7 +429,7 @@ func (k *K8sConnectivityCheck) getFlows(ctx context.Context, since time.Time, po
 		Since:     sinceTimestamp,
 	}
 
-	b, err := k.hubbleClient.GetFlows(ctx, request)
+	b, err := hubbleClient.GetFlows(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -396,228 +610,12 @@ func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
 	}
 }
 
-func (k *K8sConnectivityCheck) validatePodToPod(ctx context.Context) {
-	for _, clientPod := range k.clientPods.Items {
-		for echoName, echoIP := range k.echoPods {
-			var (
-				srcPod     = connectivityCheckNamespace + "/" + clientPod.Name
-				dstPod     = connectivityCheckNamespace + "/" + echoName
-				printFlows = k.params.PrintFlows
-				success    = true
-			)
-
-			k.Header("🔌 Validating from pod %s to pod %s...", srcPod, dstPod)
-			now := time.Now()
-			_, err := k.client.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand(echoIP+":8080"))
-			if err != nil {
-				k.Log("❌ curl connectivity check command failed: %s", err)
-				printFlows = true
-				success = false
-			}
-
-			srcFlows, err := k.getFlows(ctx, now.Add(-2*time.Second), srcPod)
-			if err != nil {
-				k.Log("Unable to retrieve flows of pod %s: %s", srcPod, err)
-			}
-
-			dstFlows, err := k.getFlows(ctx, now.Add(-2*time.Second), dstPod)
-			if err != nil {
-				k.Log("Unable to retrieve flows of pod %s: %s", dstPod, err)
-			}
-
-			if k.params.Hubble {
-				if !k.Validate(srcPod, srcFlows, []FilterPair{
-					{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-					{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-					{Filter: TCPFilter(echoIP, clientPod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
-					{Filter: TCPFilter(echoIP, clientPod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
-				}) {
-					printFlows = true
-				}
-
-				if !k.Validate(dstPod, dstFlows, []FilterPair{
-					{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-					{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-					{Filter: TCPFilter(clientPod.Status.PodIP, echoIP, 0, 8080, true, false, false, false), Expect: true, Msg: "SYN not found"},
-					{Filter: TCPFilter(clientPod.Status.PodIP, echoIP, 0, 8080, false, true, true, false), Expect: true, Msg: "FIN not found"},
-				}) {
-					printFlows = true
-				}
-			}
-
-			if printFlows {
-				k.Print(srcPod, srcFlows)
-				k.Print(dstPod, dstFlows)
-			}
-
-			if success {
-				k.Log("✅ client pod %s was able to communicate with echo pod %s (%s)", clientPod.Name, echoName, echoIP)
-			} else {
-				k.Log("❌ client pod %s was not able to communicate with echo pod %s (%s)", clientPod.Name, echoName, echoIP)
-			}
-
-			k.Relax()
-		}
-	}
-}
-
-func (k *K8sConnectivityCheck) validatePodToService(ctx context.Context) {
-	services := []string{echoSameNodeDeploymentName}
-	if !k.params.SingleNode {
-		services = append(services, echoOtherNodeDeploymentName)
-	}
-
-	for _, clientPod := range k.clientPods.Items {
-		for _, echoSvc := range services {
-			var (
-				srcPod     = connectivityCheckNamespace + "/" + clientPod.Name
-				printFlows = k.params.PrintFlows
-				success    = true
-			)
-
-			k.Header("🔌 Validating from pod %s to service %s...", srcPod, echoSvc)
-			now := time.Now()
-			_, err := k.clients.src.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand(echoSvc+":8080"))
-			if err != nil {
-				k.Log("❌ curl connectivity check command failed: %s", err)
-				success = false
-			}
-
-			srcFlows, err := k.getFlows(ctx, now.Add(-2*time.Second), srcPod)
-			if err != nil {
-				k.Log("Unable to retrieve flows of pod %s: %s", srcPod, err)
-			}
-
-			if k.params.Hubble {
-				if !k.Validate(srcPod, srcFlows, []FilterPair{
-					{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-					{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-					{Filter: UDPFilter(clientPod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request not found"},
-					{Filter: UDPFilter("", clientPod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response not found"},
-					{Filter: TCPFilter(clientPod.Status.PodIP, "", 0, 8080, true, false, false, false), Expect: true, Msg: "SYN not found"},
-					{Filter: TCPFilter("", clientPod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
-					{Filter: TCPFilter(clientPod.Status.PodIP, "", 0, 8080, false, true, true, false), Expect: true, Msg: "FIN not found"},
-					{Filter: TCPFilter("", clientPod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
-				}) {
-					printFlows = true
-				}
-			}
-
-			if printFlows {
-				k.Print(srcPod, srcFlows)
-			}
-
-			if success {
-				k.Log("✅ client pod %s was able to communicate with service %s", clientPod.Name, echoSvc)
-			} else {
-				k.Log("❌ client pod %s was not able to communicate with service %s", clientPod.Name, echoSvc)
-			}
-
-			k.Relax()
-		}
-	}
-}
-
-func (k *K8sConnectivityCheck) validatePodToWorld(ctx context.Context) {
-	for _, clientPod := range k.clientPods.Items {
-		var (
-			success    = true
-			printFlows = k.params.PrintFlows
-			srcPod     = connectivityCheckNamespace + "/" + clientPod.Name
-		)
-
-		k.Header("🔌 Validating from pod %s to outside of cluster...", srcPod)
-		now := time.Now()
-		_, err := k.clients.src.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, curlCommand("https://google.com"))
-		if err != nil {
-			k.Log("❌ curl connectivity check command failed: %s", err)
-			success = false
-			printFlows = true
-		}
-
-		srcFlows, err := k.getFlows(ctx, now.Add(-2*time.Second), srcPod)
-		if err != nil {
-			k.Log("unable to retrieve flows of pod %s: %s", srcPod, err)
-		}
-
-		if k.params.Hubble {
-			if !k.Validate(srcPod, srcFlows, []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-				{Filter: UDPFilter(clientPod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request not found"},
-				{Filter: UDPFilter("", clientPod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response not found"},
-				{Filter: TCPFilter(clientPod.Status.PodIP, "", 0, 443, true, false, false, false), Expect: true, Msg: "SYN not found"},
-				{Filter: TCPFilter("", clientPod.Status.PodIP, 443, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
-				{Filter: TCPFilter(clientPod.Status.PodIP, "", 0, 443, false, true, true, false), Expect: true, Msg: "FIN not found"},
-				{Filter: TCPFilter("", clientPod.Status.PodIP, 443, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
-			}) {
-				printFlows = true
-			}
-		}
-
-		if printFlows {
-			k.Print(srcPod, srcFlows)
-		}
-
-		if success {
-			k.Log("✅ client pod %s was able to communicate with google.com", clientPod.Name)
-		} else {
-			k.Log("❌ client pod %s was not able to communicate with google.com", clientPod.Name)
-		}
-
-		k.Relax()
-	}
-}
-
-func (k *K8sConnectivityCheck) validatePodToHost(ctx context.Context) {
-	for _, clientPod := range k.clientPods.Items {
-		var (
-			success    = true
-			printFlows = k.params.PrintFlows
-			srcPod     = connectivityCheckNamespace + "/" + clientPod.Name
-		)
-
-		k.Header("🔌 Validating from pod %s to local host...", srcPod)
-		now := time.Now()
-		cmd := []string{"ping", "-c", "3", clientPod.Status.HostIP}
-		_, err := k.client.ExecInPod(ctx, connectivityCheckNamespace, clientPod.Name, clientDeploymentName, cmd)
-		if err != nil {
-			k.Log("❌ ping command failed: %s", err)
-			success = false
-			printFlows = true
-		}
-
-		srcFlows, err := k.getFlows(ctx, now.Add(-2*time.Second), srcPod)
-		if err != nil {
-			k.Log("Unable to retrieve flows of pod %s: %s", srcPod, err)
-		}
-
-		if k.params.Hubble {
-			if !k.Validate(srcPod, srcFlows, []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: ICMPFilter(clientPod.Status.PodIP, clientPod.Status.HostIP, 8), Expect: true, Msg: "ICMP request not found"},
-				{Filter: ICMPFilter(clientPod.Status.HostIP, clientPod.Status.PodIP, 0), Expect: true, Msg: "ICMP response not found"},
-			}) {
-				printFlows = true
-			}
-		}
-
-		if printFlows {
-			k.Print(srcPod, srcFlows)
-		}
-
-		if success {
-			k.Log("✅ client pod %s was able to communicate with local host", clientPod.Name)
-		} else {
-			k.Log("❌ client pod %s was not able to communicate with local host", clientPod.Name)
-		}
-
-		k.Relax()
-	}
-}
-
 func (k *K8sConnectivityCheck) Relax() {
-	time.Sleep(2 * time.Second)
+	// Only sleep between tests when Hubble flow validation is enabled.
+	// Otherwise, tests can be run as quickly as possible.
+	if k.params.Hubble {
+		time.Sleep(2 * time.Second)
+	}
 }
 
 type Parameters struct {
@@ -894,8 +892,6 @@ func (k *K8sConnectivityCheck) waitForDeploymentsReady(ctx context.Context, clie
 }
 
 func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
-	var err error
-
 	srcDeployments, dstDeployments := k.deploymentList()
 	if err := k.waitForDeploymentsReady(ctx, k.clients.src, srcDeployments); err != nil {
 		return err
@@ -904,34 +900,49 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 		return err
 	}
 
-	k.clientPods, err = k.client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
+	clientPods, err := k.client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
 	if err != nil {
 		return fmt.Errorf("unable to list client pods: %s", err)
 	}
 
-	for _, pod := range k.clientPods.Items {
+	k.clientPods = map[string]PodContext{}
+	for _, pod := range clientPods.Items {
 		ctx, cancel := context.WithTimeout(ctx, k.params.ciliumEndpointTimeout())
 		defer cancel()
 		if err := k.validateCiliumEndpoint(ctx, k.clients.src, connectivityCheckNamespace, pod.Name); err != nil {
 			return err
 		}
+
+		k.clientPods[pod.Name] = PodContext{
+			k8sClient: k.client,
+			Pod:       pod.DeepCopy(),
+		}
 	}
 
-	k.echoPods = map[string]string{}
+	k.echoPods = map[string]PodContext{}
 	for _, client := range k.clients.clients() {
 		echoPods, err := client.ListPods(ctx, connectivityCheckNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
 		if err != nil {
 			return fmt.Errorf("unable to list echo pods: %s", err)
 		}
 		for _, echoPod := range echoPods.Items {
-			k.echoPods[echoPod.Name] = echoPod.Status.PodIP
-
 			ctx, cancel := context.WithTimeout(ctx, k.params.ciliumEndpointTimeout())
 			defer cancel()
 			if err := k.validateCiliumEndpoint(ctx, client, connectivityCheckNamespace, echoPod.Name); err != nil {
 				return err
 			}
+
+			k.echoPods[echoPod.Name] = PodContext{
+				k8sClient: client,
+				Pod:       echoPod.DeepCopy(),
+			}
 		}
+	}
+
+	k.echoServices = map[string]ServiceContext{}
+	k.echoServices[echoSameNodeDeploymentName] = ServiceContext{Namespace: connectivityCheckNamespace, ServiceName: echoSameNodeDeploymentName}
+	if !k.params.SingleNode {
+		k.echoServices[echoOtherNodeDeploymentName] = ServiceContext{Namespace: connectivityCheckNamespace, ServiceName: echoOtherNodeDeploymentName}
 	}
 
 	return nil
@@ -945,6 +956,33 @@ func (k *K8sConnectivityCheck) Header(format string, a ...interface{}) {
 	k.Log("-------------------------------------------------------------------------------------------")
 	k.Log(format, a...)
 	k.Log("-------------------------------------------------------------------------------------------")
+}
+
+func (k *K8sConnectivityCheck) HubbleClient() observer.ObserverClient {
+	return k.hubbleClient
+}
+
+func (k *K8sConnectivityCheck) PrintFlows() bool {
+	return k.params.PrintFlows
+}
+
+func (k *K8sConnectivityCheck) EchoPods() map[string]PodContext {
+	return k.echoPods
+}
+
+func (k *K8sConnectivityCheck) ClientPods() map[string]PodContext {
+	return k.clientPods
+}
+
+func (k *K8sConnectivityCheck) EchoServices() map[string]ServiceContext {
+	return k.echoServices
+}
+
+var tests = []ConnectivityTest{
+	&connectivityTestPodToPod{},
+	&connectivityTestPodToService{},
+	&connectivityTestPodToWorld{},
+	&connectivityTestPodToHost{},
 }
 
 func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
@@ -970,10 +1008,9 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 		}
 	}
 
-	k.validatePodToPod(ctx)
-	k.validatePodToWorld(ctx)
-	k.validatePodToHost(ctx)
-	k.validatePodToService(ctx)
+	for _, test := range tests {
+		test.Run(ctx, k)
+	}
 
 	return nil
 }
