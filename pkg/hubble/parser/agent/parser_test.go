@@ -29,8 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -57,8 +57,8 @@ func TestDecodeAgentEvent(t *testing.T) {
 	unknownNotificationJSON, _ := json.Marshal(unknownNotification)
 
 	agentStartTS := time.Now()
-	protoAgentStartTimestamp, err := ptypes.TimestampProto(agentStartTS)
-	assert.NoError(t, err)
+	agentStartTSProto := timestamppb.New(agentStartTS)
+	assert.NoError(t, agentStartTSProto.CheckValid())
 
 	mockEP := &mockEndpoint{
 		ID:        65535,
@@ -127,7 +127,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 				Type: flowpb.AgentEventType_AGENT_STARTED,
 				Notification: &flowpb.AgentEvent_AgentStart{
 					AgentStart: &flowpb.TimeNotification{
-						Time: protoAgentStartTimestamp,
+						Time: agentStartTSProto,
 					},
 				},
 			},

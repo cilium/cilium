@@ -26,10 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func isAvailable(conn poolTypes.ClientConn) bool {
@@ -137,7 +137,7 @@ func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsRespons
 
 	return &observerpb.GetFlowsResponse{
 		NodeName: nodeTypes.GetName(),
-		Time:     ptypes.TimestampNow(),
+		Time:     timestamppb.New(time.Now()),
 		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
 			NodeStatus: &relaypb.NodeStatusEvent{
 				StateChange: relaypb.NodeState_NODE_ERROR,
@@ -151,7 +151,7 @@ func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsRespons
 func nodeStatusEvent(state relaypb.NodeState, nodeNames ...string) *observerpb.GetFlowsResponse {
 	return &observerpb.GetFlowsResponse{
 		NodeName: nodeTypes.GetName(),
-		Time:     ptypes.TimestampNow(),
+		Time:     timestamppb.New(time.Now()),
 		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
 			NodeStatus: &relaypb.NodeStatusEvent{
 				StateChange: state,

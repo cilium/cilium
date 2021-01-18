@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/gopacket/layers"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
@@ -194,12 +193,9 @@ func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timesta
 		return
 	}
 
-	pbTime, err = ptypes.TimestampProto(goTime)
-	if err != nil {
-		return
-	}
-
-	return goTime, pbTime, err
+	pbTime = timestamppb.New(goTime)
+	err = pbTime.CheckValid()
+	return
 }
 
 func decodeVerdict(verdict accesslog.FlowVerdict) pb.Verdict {

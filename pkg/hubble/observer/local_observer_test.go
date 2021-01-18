@@ -35,10 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -136,8 +136,8 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 	queueSize := 0
 
 	since := time.Unix(5, 0)
-	sinceProto, err := ptypes.TimestampProto(since)
-	assert.NoError(t, err)
+	sinceProto := timestamppb.New(since)
+	assert.NoError(t, sinceProto.CheckValid())
 	req := &observerpb.GetFlowsRequest{
 		Since:  sinceProto,
 		Follow: true,
@@ -177,8 +177,8 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
 
-			ts, err := ptypes.Timestamp(response.GetTime())
-			assert.NoError(t, err)
+			assert.NoError(t, response.GetTime().CheckValid())
+			ts := response.GetTime().AsTime()
 			assert.True(t, !ts.Before(since), "flow had invalid timestamp. ts=%s, since=%s", ts, since)
 
 			// start producing flows once we have seen the most recent one.
