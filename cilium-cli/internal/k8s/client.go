@@ -216,6 +216,10 @@ func (c *Client) ListPods(ctx context.Context, namespace string, options metav1.
 	return c.Clientset.CoreV1().Pods(namespace).List(ctx, options)
 }
 
+func (c *Client) ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error) {
+	return c.Clientset.CoreV1().Services(namespace).List(ctx, options)
+}
+
 func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
 	result, err := c.execInPod(ctx, ExecParameters{
 		Namespace: namespace,
