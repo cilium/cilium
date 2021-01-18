@@ -359,6 +359,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
 
+		fibLookupIfIndex := directRoutingIfIndex
+		if option.Config.LBDevInheritIPAddr != "" {
+			fibLookupIfIndex, err = link.GetIfIndex(option.Config.LBDevInheritIPAddr)
+			if err != nil {
+				return err
+			}
+		}
+		cDefinesMap["FIB_LOOKUP_DEV_IFINDEX"] = fmt.Sprintf("%d", fibLookupIfIndex)
+
 		if option.Config.EnableIPv4 {
 			nodePortIPv4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 			ipv4 := byteorder.HostSliceToNetwork(nodePortIPv4Addrs[directRoutingIface], reflect.Uint32).(uint32)
@@ -373,6 +382,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	} else {
 		var directRoutingIPv6 net.IP
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
+		cDefinesMap["FIB_LOOKUP_DEV_IFINDEX"] = "0"
 		if option.Config.EnableIPv4 {
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
 		}
