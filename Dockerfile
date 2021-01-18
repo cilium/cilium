@@ -81,4 +81,6 @@ RUN groupadd -f cilium \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 
 ENV INITSYSTEM="SYSTEMD"
+# FIXME Remove me once we add support for Go 1.16
+ENV GODEBUG="madvdontneed=1"
 CMD ["/usr/bin/cilium"]
