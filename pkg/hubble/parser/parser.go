@@ -27,8 +27,8 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -86,7 +86,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 	}
 
 	// TODO: Pool decoded flows instead of allocating new objects each time.
-	ts, _ := ptypes.TimestampProto(monitorEvent.Timestamp)
+	ts := timestamppb.New(monitorEvent.Timestamp)
 	ev := &v1.Event{
 		Timestamp: ts,
 	}

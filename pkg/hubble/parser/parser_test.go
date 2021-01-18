@@ -30,9 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -118,8 +118,8 @@ func Test_EventType_RecordLost(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	protoTimestamp, err := ptypes.TimestampProto(ts)
-	assert.NoError(t, err)
+	protoTimestamp := timestamppb.New(ts)
+	assert.NoError(t, protoTimestamp.CheckValid())
 	assert.Equal(t, &v1.Event{
 		Timestamp: protoTimestamp,
 		Event: &flowpb.LostEvent{

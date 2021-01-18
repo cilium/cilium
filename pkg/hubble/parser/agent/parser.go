@@ -22,7 +22,6 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -30,7 +29,7 @@ import (
 func notifyTimeNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.TimeNotification) *flowpb.AgentEvent {
 	var ts *timestamppb.Timestamp
 	if goTime, err := time.Parse(time.RFC3339Nano, n.Time); err == nil {
-		ts, _ = ptypes.TimestampProto(goTime)
+		ts = timestamppb.New(goTime)
 	}
 	return &flowpb.AgentEvent{
 		Type: typ,

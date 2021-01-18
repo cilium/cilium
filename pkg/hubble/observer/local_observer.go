@@ -36,7 +36,6 @@ import (
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -337,18 +336,18 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 	}
 
 	if req.Since != nil {
-		since, err := ptypes.Timestamp(req.Since)
-		if err != nil {
+		if err := req.Since.CheckValid(); err != nil {
 			return nil, err
 		}
+		since := req.Since.AsTime()
 		reader.since = &since
 	}
 
 	if req.Until != nil {
-		until, err := ptypes.Timestamp(req.Until)
-		if err != nil {
+		if err := req.Until.CheckValid(); err != nil {
 			return nil, err
 		}
+		until := req.Until.AsTime()
 		reader.until = &until
 	}
 
@@ -393,10 +392,10 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 		_, isLostEvent := e.Event.(*flowpb.LostEvent)
 		if !isLostEvent {
 			if r.timeRange {
-				ts, err := ptypes.Timestamp(e.Timestamp)
-				if err != nil {
+				if err := e.Timestamp.CheckValid(); err != nil {
 					return nil, err
 				}
+				ts := e.Timestamp.AsTime()
 
 				if r.until != nil && ts.After(*r.until) {
 					return nil, io.EOF
@@ -450,13 +449,12 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		return container.NewRingReader(ring, ring.LastWriteParallel()), nil
 	}
 
-	var err error
 	var since time.Time
 	if req.Since != nil {
-		since, err = ptypes.Timestamp(req.Since)
-		if err != nil {
+		if err := req.Since.CheckValid(); err != nil {
 			return nil, err
 		}
+		since = req.Since.AsTime()
 	}
 
 	idx := ring.LastWriteParallel()
@@ -484,10 +482,10 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		}
 		flowsCount++
 		if req.Since != nil {
-			ts, err := ptypes.Timestamp(e.Timestamp)
-			if err != nil {
+			if err := e.Timestamp.CheckValid(); err != nil {
 				return nil, err
 			}
+			ts := e.Timestamp.AsTime()
 			if ts.Before(since) {
 				idx++ // we went backward 1 too far
 				break

@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -203,7 +202,7 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 	err = parser.Decode(lr, f)
 	require.NoError(t, err)
 
-	ts, _ := ptypes.Timestamp(f.GetTime())
+	ts := f.GetTime().AsTime()
 	assert.Equal(t, fakeTimestamp, ts.Format(time.RFC3339Nano))
 
 	assert.Equal(t, fakeSourceEndpoint.IPv6, f.GetIP().GetDestination())
