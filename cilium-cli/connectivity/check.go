@@ -365,14 +365,24 @@ type K8sConnectivityCheck struct {
 	echoPods        map[string]PodContext
 	clientPods      map[string]PodContext
 	echoServices    map[string]ServiceContext
+	tests           map[string]struct{}
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) *K8sConnectivityCheck {
-	return &K8sConnectivityCheck{
+	k := &K8sConnectivityCheck{
 		client:          client,
 		ciliumNamespace: "kube-system",
 		params:          p,
 	}
+
+	if len(p.Tests) > 0 {
+		k.tests = map[string]struct{}{}
+		for _, testName := range p.Tests {
+			k.tests[testName] = struct{}{}
+		}
+	}
+
+	return k
 }
 
 func (k *K8sConnectivityCheck) enableHubbleClient(ctx context.Context) error {
@@ -626,6 +636,7 @@ type Parameters struct {
 	Hubble          bool
 	HubbleServer    string
 	MultiCluster    string
+	Tests           []string
 	PostRelax       time.Duration
 	PreFlowRelax    time.Duration
 	Writer          io.Writer
@@ -1009,6 +1020,11 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 	}
 
 	for _, test := range tests {
+		if k.tests != nil {
+			if _, ok := k.tests[test.Name()]; !ok {
+				continue
+			}
+		}
 		test.Run(ctx, k)
 	}
 
