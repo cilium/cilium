@@ -18,7 +18,7 @@ export KUBECONFIG="${script_dir}/gke-kubeconfig"
 while [ $locked -ne 0 ]; do
     rm -f "${KUBECONFIG}"
     echo "selecting random cluster"
-    for cluster_uri in $(gcloud container clusters list --project "${project}" --filter="name ~ ^cilium-ci-" --uri | sort -R); do
+    for cluster_uri in $(gcloud container clusters list --project "${project}" --filter="name ~ ^test-cluster-repair" --uri | sort -R); do
 
 	echo "checking whether cluster ${cluster_uri} has any node pools"
 	node_pools=$(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --format="value(name)")
