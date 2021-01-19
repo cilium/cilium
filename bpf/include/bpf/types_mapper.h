@@ -30,4 +30,6 @@ typedef __u32 __wsum;
 
 typedef __u64 __aligned_u64;
 
+typedef __u64 __net_cookie;
+
 #endif /* __BPF_TYPES_MAPPER__ */

@@ -742,7 +742,7 @@ struct ipv4_revnat_entry {
 
 union lb4_affinity_client_id {
 	__u32 client_ip;
-	__u64 client_cookie; /* netns cookie */
+	__net_cookie client_cookie;
 } __packed;
 
 struct lb4_affinity_key {
@@ -756,7 +756,7 @@ struct lb4_affinity_key {
 
 union lb6_affinity_client_id {
 	union v6addr client_ip;
-	__u64 client_cookie; /* netns cookie */
+	__net_cookie client_cookie;
 } __packed;
 
 struct lb6_affinity_key {
