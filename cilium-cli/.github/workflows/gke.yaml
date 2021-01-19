@@ -53,9 +53,14 @@ jobs:
         run: |
           cmd/cilium/cilium status --wait
 
-      - name: Connectivity test
+      - name: Relay Port Forward
         run: |
-          cmd/cilium/cilium connectivity test --hubble=false
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Connectivity Test
+        run: |
+          cmd/cilium/cilium connectivity test
 
       - name: Cleanup
         if: ${{ always() }}
