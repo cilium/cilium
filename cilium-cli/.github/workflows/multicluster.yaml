@@ -85,9 +85,14 @@ jobs:
           cmd/cilium/cilium clustermesh status --context kind-cluster1 --wait
           cmd/cilium/cilium clustermesh status --context kind-cluster2 --wait
 
-      - name: cilium connectivity test
+      - name: Relay Port Forward
         run: |
-          cmd/cilium/cilium connectivity test --context kind-cluster1 --hubble=false --multi-cluster kind-cluster2
+          kubectl --context kind-cluster1 port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Connectivity test
+        run: |
+          cmd/cilium/cilium connectivity test --context kind-cluster1 --multi-cluster kind-cluster2
           kubectl --context kind-cluster1 get pods --all-namespaces -o wide
           kubectl --context kind-cluster1 -n cilium-test get pods -o wide
           kubectl --context kind-cluster1 -n cilium-test get svc -o wide
