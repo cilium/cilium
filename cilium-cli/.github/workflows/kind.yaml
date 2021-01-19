@@ -29,7 +29,7 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
-      - name: Install cilium
+      - name: Install Cilium
         run: |
           cmd/cilium/cilium install
 
@@ -38,16 +38,21 @@ jobs:
           # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
-      - name: cilium connectivity test
-        run: |
-          cmd/cilium/cilium connectivity test --hubble=false
-
-      - name: enable relay
+      - name: Enable Relay
         run: |
           cmd/cilium/cilium hubble enable
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
-      - name: cilium status with relay
+      - name: Status
         run: |
           cmd/cilium/cilium status --wait
+
+      - name: Relay Port Forward
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Connectivity Test
+        run: |
+          cmd/cilium/cilium connectivity test
