@@ -42,7 +42,7 @@ static __u64 BPF_FUNC(jiffies64);
 #define jiffies	jiffies64()
 
 /* We have cookies! ;-) */
-static __u64 BPF_FUNC(get_socket_cookie, void *ctx);
+static __sock_cookie BPF_FUNC(get_socket_cookie, void *ctx);
 static __net_cookie BPF_FUNC(get_netns_cookie, void *ctx);
 
 /* Debugging */

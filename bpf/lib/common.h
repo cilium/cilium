@@ -679,7 +679,7 @@ struct lb6_reverse_nat {
 } __packed;
 
 struct ipv6_revnat_tuple {
-	__u64 cookie;
+	__sock_cookie cookie;
 	union v6addr address;
 	__be16 port;
 	__u16 pad;
@@ -728,7 +728,7 @@ struct lb4_reverse_nat {
 } __packed;
 
 struct ipv4_revnat_tuple {
-	__u64 cookie;
+	__sock_cookie cookie;
 	__be32 address;
 	__be16 port;
 	__u16 pad;

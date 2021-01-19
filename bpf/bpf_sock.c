@@ -96,7 +96,7 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 }
 
 static __always_inline __maybe_unused
-__u64 sock_local_cookie(struct bpf_sock_addr *ctx)
+__sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 {
 #ifdef BPF_HAVE_SOCKET_COOKIE
 	/* prandom() breaks down on UDP, hence preference is on
