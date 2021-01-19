@@ -1262,6 +1262,13 @@ func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
 		return fmt.Errorf("unable to list pods: %w", err)
 	}
 
+	// If not pods are running, skip. This avoids attemptingm to retrieve
+	// CiliumEndpoints if no pods are present at all. Cilium will not be
+	// running either.
+	if len(pods.Items) == 0 {
+		return nil
+	}
+
 	ceps, err := k.client.ListCiliumEndpoints(ctx, "", metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list cilium endpoints: %w", err)
