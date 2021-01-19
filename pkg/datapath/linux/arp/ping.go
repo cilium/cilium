@@ -47,11 +47,11 @@ func PingOverLink(link netlink.Link, src net.IP, dst net.IP) (hwAddr net.Hardwar
 	}
 	defer p.close()
 
-	if err := p.setDeadline(time.Now().Add(timeout)); err != nil {
-		return nil, err
-	}
-
 	for i := 0; i < retries; i++ {
+		if err := p.setDeadline(time.Now().Add(timeout)); err != nil {
+			return nil, err
+		}
+
 		hwAddr, err = p.resolve(dst)
 		if err == nil {
 			return
