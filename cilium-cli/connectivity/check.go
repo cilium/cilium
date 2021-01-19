@@ -224,14 +224,17 @@ type TestContext interface {
 	// Header logs a header to segment tests
 	Header(format string, a ...interface{})
 
-	// Relax is invoked in between tests to relax the test framework
-	Relax()
-
 	// HubbleClient returns the Hubble client to retrieve flow logs
 	HubbleClient() observer.ObserverClient
 
 	// PrintFlows returns true if flow logs should be printed
 	PrintFlows() bool
+
+	// FlowSettleSleepDuration is the duration to wait before collecting flows
+	FlowSettleSleepDuration() time.Duration
+
+	// PostTestSleepDuration is the duration to sleep after each test
+	PostTestSleepDuration() time.Duration
 }
 
 // TestRun is the state of an individual test run
@@ -256,6 +259,9 @@ type TestRun struct {
 
 	// failures is the number of failures encountered in this test run
 	failures int
+
+	// flowsSettled is true once flows have been given time to settle so they can be collected
+	flowsSettled bool
 }
 
 // NewTestRun creates a new test run
@@ -294,11 +300,30 @@ func (t *TestRun) printFlows(pod string, f *flowsSet) {
 	}
 }
 
+func (t *TestRun) settleFlows(ctx context.Context) error {
+	if t.flowsSettled {
+		return nil
+	}
+
+	select {
+	case <-time.After(t.context.FlowSettleSleepDuration()):
+	case <-ctx.Done():
+		return fmt.Errorf("flow settling interrupted: %w", ctx.Err())
+	}
+
+	t.flowsSettled = true
+	return nil
+}
+
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Failure() is called.
 func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []FilterPair) {
 	hubbleClient := t.context.HubbleClient()
 	if hubbleClient == nil {
+		return
+	}
+
+	if err := t.settleFlows(ctx); err != nil {
 		return
 	}
 
@@ -342,7 +367,9 @@ func (t *TestRun) End() {
 		t.src.Name(), t.src.Address(),
 		t.dst.Name(), t.dst.Address())
 
-	t.context.Relax()
+	if duration := t.context.PostTestSleepDuration(); duration != time.Duration(0) {
+		time.Sleep(duration)
+	}
 }
 
 // TestPeer is the abstraction used for all peer types (pods, services, IPs,
@@ -430,8 +457,6 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 	if hubbleClient == nil {
 		return set, nil
 	}
-
-	time.Sleep(time.Second)
 
 	sinceTimestamp, err := ptypes.TimestampProto(since)
 	if err != nil {
@@ -629,26 +654,18 @@ func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
 	}
 }
 
-func (k *K8sConnectivityCheck) Relax() {
-	// Only sleep between tests when Hubble flow validation is enabled.
-	// Otherwise, tests can be run as quickly as possible.
-	if k.params.Hubble {
-		time.Sleep(2 * time.Second)
-	}
-}
-
 type Parameters struct {
-	CiliumNamespace string
-	SingleNode      bool
-	PrintFlows      bool
-	ForceDeploy     bool
-	Hubble          bool
-	HubbleServer    string
-	MultiCluster    string
-	Tests           []string
-	PostRelax       time.Duration
-	PreFlowRelax    time.Duration
-	Writer          io.Writer
+	CiliumNamespace         string
+	SingleNode              bool
+	PrintFlows              bool
+	ForceDeploy             bool
+	Hubble                  bool
+	HubbleServer            string
+	MultiCluster            string
+	Tests                   []string
+	PostTestSleepDuration   time.Duration
+	FlowSettleSleepDuration time.Duration
+	Writer                  io.Writer
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
@@ -1004,6 +1021,14 @@ func (k *K8sConnectivityCheck) ClientPods() map[string]PodContext {
 
 func (k *K8sConnectivityCheck) EchoServices() map[string]ServiceContext {
 	return k.echoServices
+}
+
+func (k *K8sConnectivityCheck) FlowSettleSleepDuration() time.Duration {
+	return k.params.FlowSettleSleepDuration
+}
+
+func (k *K8sConnectivityCheck) PostTestSleepDuration() time.Duration {
+	return k.params.PostTestSleepDuration
 }
 
 var tests = []ConnectivityTest{
