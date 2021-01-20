@@ -58,8 +58,14 @@ func TestL34Decode(t *testing.T) {
 	//SOURCE          					DESTINATION           TYPE   SUMMARY
 	//192.168.33.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 246, 141, 178, 45, 33, 217, 246, 141, 178,
+		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		1, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		0x80,       // encrypt  bit
+		0,          // flags
+		0, 0, 0, 0, // ifindex
+		246, 141, 178, 45, 33, 217, 246, 141, 178,
 		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
 		168, 33, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
@@ -139,6 +145,7 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, []string{"host-192.168.33.11"}, f.GetSourceNames())
 	assert.Equal(t, "192.168.33.11", f.GetIP().GetSource())
+	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
 	assert.Equal(t, "pod-192.168.33.11", f.GetSource().GetPodName())
 	assert.Equal(t, "remote", f.GetSource().GetNamespace())
