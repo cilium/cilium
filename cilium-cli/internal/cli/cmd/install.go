@@ -61,6 +61,8 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait for status")
 	cmd.Flags().StringVar(&params.Azure.ResourceGroupName, "azure-resource-group", "", "Azure resource group name the cluster is in")
 	cmd.Flags().BoolVar(&params.RestartUnmanagedPods, "restart-unmanaged-pods", true, "Restart pods which are not being managed by Cilium")
+	cmd.Flags().BoolVar(&params.Encryption, "encryption", false, "Enable encryption of all workloads traffic")
+	cmd.Flags().BoolVar(&params.NodeEncryption, "node-encryption", false, "Enable encryption of all node to node traffic")
 	cmd.Flags().StringVar(&params.Azure.TenantID, "azure-tenant-id", "", "Azure tenant ID")
 	cmd.Flags().StringVar(&params.Azure.ClientID, "azure-client-id", "", "Azure client (application) ID")
 	cmd.Flags().StringVar(&params.Azure.ClientSecret, "azure-client-secret", "", "Azure client secret")

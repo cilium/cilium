@@ -631,7 +631,24 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	}
 
 	nodeInitContainers := []corev1.Container{}
-	nodeInitVolumes := []corev1.Volume{}
+	auxVolumes := []corev1.Volume{}
+	auxVolumeMounts := []corev1.VolumeMount{}
+
+	if k.params.Encryption {
+		auxVolumes = append(auxVolumes, corev1.Volume{
+			Name: "cilium-ipsec-secrets",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: defaults.EncryptionSecretName,
+				},
+			},
+		})
+
+		auxVolumeMounts = append(auxVolumeMounts, corev1.VolumeMount{
+			Name:      "cilium-ipsec-secrets",
+			MountPath: "/etc/ipsec",
+		})
+	}
 
 	switch k.flavor.Kind {
 	case k8s.KindGKE:
@@ -648,7 +665,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 			},
 		})
 
-		nodeInitVolumes = append(nodeInitVolumes, corev1.Volume{
+		auxVolumes = append(auxVolumes, corev1.Volume{
 			Name: "cilium-bootstrap",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
@@ -688,7 +705,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 		},
 	})
 
-	nodeInitVolumes = append(nodeInitVolumes, corev1.Volume{
+	auxVolumes = append(auxVolumes, corev1.Volume{
 		Name: "host-proc",
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
@@ -699,7 +716,8 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	})
 
 	ds.Spec.Template.Spec.InitContainers = append(nodeInitContainers, ds.Spec.Template.Spec.InitContainers...)
-	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, nodeInitVolumes...)
+	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, auxVolumes...)
+	ds.Spec.Template.Spec.Containers[0].VolumeMounts = append(ds.Spec.Template.Spec.Containers[0].VolumeMounts, auxVolumeMounts...)
 
 	return ds
 }
@@ -969,6 +987,8 @@ type InstallParameters struct {
 	KubeProxyReplacement string
 	Azure                AzureParameters
 	RestartUnmanagedPods bool
+	Encryption           bool
+	NodeEncryption       bool
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -1195,6 +1215,15 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["enable-bpf-masquerade"] = "false"
 	}
 
+	if k.params.Encryption {
+		m.Data["enable-ipsec"] = "true"
+		m.Data["ipsec-key-file"] = "/etc/ipsec/keys"
+
+		if k.params.NodeEncryption {
+			m.Data["encrypt-node"] = "true"
+		}
+	}
+
 	return m
 }
 
@@ -1373,6 +1402,12 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	if _, err := k.client.CreateClusterRoleBinding(ctx, k8s.NewClusterRoleBinding(defaults.OperatorClusterRoleName, k.params.Namespace, defaults.OperatorServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
+	}
+
+	if k.params.Encryption {
+		if err := k.createEncryptionSecret(ctx); err != nil {
+			return err
+		}
 	}
 
 	k.Log("🚀 Creating ConfigMap...")
