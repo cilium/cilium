@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,6 +68,8 @@ const (
 	ClusterMeshClientSecretName     = "clustermesh-apiserver-client-certs"
 	ClusterMeshClientSecretCertName = "tls.crt"
 	ClusterMeshClientSecretKeyName  = "tls.key"
+
+	ConnectivityCheckNamespace = "cilium-test"
 
 	ConfigMapName = "cilium-config"
 	Version       = "v1.9.1"
