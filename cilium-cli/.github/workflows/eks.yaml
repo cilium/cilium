@@ -45,7 +45,7 @@ jobs:
 
       - name: Add nodegroup
         run: |
-          ./eksctl create nodegroup --cluster ${{ env.clusterName }} --nodes 2
+          ./eksctl create nodegroup --cluster ${{ env.clusterName }} --nodes 2 --node-private-networking --spot --managed
 
       - name: Enable Relay
         run: |
