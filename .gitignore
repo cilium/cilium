@@ -37,6 +37,7 @@ coverage-all-tmp.out
 
 .DS_Store
 .idea/
+.vscode/
 *.plist
 
 *_bash_completion
