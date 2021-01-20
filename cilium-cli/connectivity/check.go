@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -235,12 +236,18 @@ type TestContext interface {
 
 	// PostTestSleepDuration is the duration to sleep after each test
 	PostTestSleepDuration() time.Duration
+
+	// Report is called to report the outcome of a test
+	Report(r TestResult)
 }
 
 // TestRun is the state of an individual test run
 type TestRun struct {
 	// name is the name of the test being run
 	name string
+
+	// verboseName is the name of the test including the name of the peers
+	verboseName string
 
 	// context is the test context of the framework
 	context TestContext
@@ -269,12 +276,13 @@ func NewTestRun(name string, c TestContext, src, dst TestPeer) *TestRun {
 	c.Header("🔌 [%s] Testing %s -> %s...", name, src.Name(), dst.Name())
 
 	return &TestRun{
-		name:    name,
-		context: c,
-		src:     src,
-		dst:     dst,
-		started: time.Now(),
-		flows:   map[string]*flowsSet{},
+		name:        name,
+		verboseName: name + ": " + src.Name() + " -> " + dst.Name(),
+		context:     c,
+		src:         src,
+		dst:         dst,
+		started:     time.Now(),
+		flows:       map[string]*flowsSet{},
 	}
 }
 
@@ -388,6 +396,11 @@ func (t *TestRun) End() {
 	if duration := t.context.PostTestSleepDuration(); duration != time.Duration(0) {
 		time.Sleep(duration)
 	}
+
+	t.context.Report(TestResult{
+		Name:     t.verboseName,
+		Failures: t.failures,
+	})
 }
 
 // TestPeer is the abstraction used for all peer types (pods, services, IPs,
@@ -410,6 +423,29 @@ type ConnectivityTest interface {
 	Run(ctx context.Context, c TestContext)
 }
 
+type TestResult struct {
+	Name     string
+	Failures int
+}
+
+func (t TestResult) String() string {
+	if t.Failures > 0 {
+		return "❌ " + t.Name
+	}
+	return "✅ " + t.Name
+}
+
+type TestResults map[string]TestResult
+
+func (t TestResults) Failed() (failed int) {
+	for _, result := range t {
+		if result.Failures > 0 {
+			failed++
+		}
+	}
+	return
+}
+
 type K8sConnectivityCheck struct {
 	client          k8sConnectivityImplementation
 	ciliumNamespace string
@@ -420,6 +456,7 @@ type K8sConnectivityCheck struct {
 	clientPods      map[string]PodContext
 	echoServices    map[string]ServiceContext
 	tests           map[string]struct{}
+	results         TestResults
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) *K8sConnectivityCheck {
@@ -1016,9 +1053,10 @@ func (k *K8sConnectivityCheck) Log(format string, a ...interface{}) {
 }
 
 func (k *K8sConnectivityCheck) Header(format string, a ...interface{}) {
-	k.Log("-------------------------------------------------------------------------------------------")
+	k.Log("")
+	k.Log("---------------------------------------------------------------------------------------------------------------------")
 	k.Log(format, a...)
-	k.Log("-------------------------------------------------------------------------------------------")
+	k.Log("---------------------------------------------------------------------------------------------------------------------")
 }
 
 func (k *K8sConnectivityCheck) HubbleClient() observer.ObserverClient {
@@ -1047,6 +1085,14 @@ func (k *K8sConnectivityCheck) FlowSettleSleepDuration() time.Duration {
 
 func (k *K8sConnectivityCheck) PostTestSleepDuration() time.Duration {
 	return k.params.PostTestSleepDuration
+}
+
+func (k *K8sConnectivityCheck) Report(r TestResult) {
+	if k.results == nil {
+		k.results = TestResults{}
+	}
+
+	k.results[r.Name] = r
 }
 
 var tests = []ConnectivityTest{
@@ -1086,6 +1132,21 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 			}
 		}
 		test.Run(ctx, k)
+	}
+
+	k.Header("📋 Test Report")
+	failed := k.results.Failed()
+	if failed == 0 {
+		k.Log("✅ %d/%d tests sucessful", len(k.results), len(k.results))
+	} else {
+		k.Log("❌ %d/%d tests failed", failed, len(k.results))
+
+		var testStatus []string
+		for _, result := range k.results {
+			testStatus = append(testStatus, result.String())
+		}
+		k.Log("")
+		k.Log("Failed tests: " + strings.Join(testStatus, ", "))
 	}
 
 	return nil
