@@ -174,10 +174,16 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary := decodeLayers(p.packet)
-	if tn != nil && !tn.OriginalIP().IsUnspecified() {
-		srcIP = tn.OriginalIP()
+	if tn != nil {
+		if !tn.OriginalIP().IsUnspecified() {
+			srcIP = tn.OriginalIP()
+			if ip != nil {
+				ip.Source = srcIP.String()
+			}
+		}
+
 		if ip != nil {
-			ip.Source = srcIP.String()
+			ip.Encrypted = (tn.Reason & monitor.TraceReasonEncryptMask) != 0
 		}
 	}
 
