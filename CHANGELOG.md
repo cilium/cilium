@@ -1,5 +1,85 @@
 # Changelog
 
+## v1.9.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Update Go to 1.15.6 (#14303, @tklauser)
+* k8s: Update libraries to v1.19.6 (#14480, @christarazi)
+* daemon, node: refresh neighbor by sending arping periodically (Backport PR #14578, Upstream PR #14498, @jaffcheng)
+* install: Provide quick-hubble-install.yaml for Relay and UI (Backport PR #14443, Upstream PR #14221, @gandro)
+* ipsec: Fatal on unsupported, <4.19 kernels in tunneling mode (Backport PR #14585, Upstream PR #14525, @pchaigno)
+* Istio integration is updated to Istio release 1.6.14 (Backport PR #14538, Upstream PR #14271, @jrajahalme)
+* No longer wait for and modify `/var/run/azure-vnet.json`. This confuses azure-vnet during Pod removal, causing it to incorrectly clean up machine state.
+  In Azure IPAM mode, remove /var/run/azure-vnet.json on Cilium agent startup, flush ebtables and remove permanent neigh entries. (Backport PR #14613, Upstream PR #14452, @ti-mo)
+
+**Bugfixes:**
+* Add missing requireIPv6PodCIDR setting (Backport PR #14538, Upstream PR #14508, @NeilW)
+* bpf: fix misconfigured nat to 0.0.0.0 on !masquerade config (Backport PR #14613, Upstream PR #14596, @borkmann)
+* cilium, gops: remap to fixed port to avoid collision with nodeport range (Backport PR #14419, Upstream PR #14329, @borkmann)
+* clustermesh: Ignore symlink files on fsnotify events (Backport PR #14613, Upstream PR #14565, @tgraf)
+* Fix BPF verifier rejection with IPv6 prefilter (Backport PR #14538, Upstream PR #14447, @pchaigno)
+* Fix bug where CCNPs are not validated properly in preflight (Backport PR #14613, Upstream PR #14557, @christarazi)
+* Fix bug where Cilium would constantly regenerate endpoints in environments with etcd and Linux 4.15 or below. (Backport PR #14405, Upstream PR #14300, @dctrwatson)
+* Fix CIDR rule bug potentially dropping allowed traffic or allowing denied traffic for deny policies (beta feature) when using ExceptCIDRs expressions. (Backport PR #14613, Upstream PR #14516, @jrajahalme)
+* Fix clustermesh-apiserver dependencies on pkg/option (Backport PR #14613, Upstream PR #14577, @tgraf)
+* Fix missing packet mark mask that can cause policy deny drops in IPSec configuration. (Backport PR #14419, Upstream PR #14381, @pchaigno)
+* Fix possible overflow in values presented in the `k8s_event_lag_seconds` metric. (Backport PR #14405, Upstream PR #14313, @aanm)
+* Fix potential nil pointer exception for an invalid CCNP in the Cilium Operator (Backport PR #14405, Upstream PR #14375, @aanm)
+* Fix potential panic when closing etcd connection on error (Backport PR #14644, Upstream PR #14623, @aanm)
+* Fix rare crash on startup when kubernetes initialization occurs before IP address configuration (Backport PR #14405, Upstream PR #14299, @joestringer)
+* Fixing Hubble ServiceMonitor k8s-app label (Backport PR #14538, Upstream PR #14473, @guilhermef)
+* Handle cluster names with dots for TLS server names. This prevented Hubble Relay from connecting to peers with TLS enabled in such a scenario. (Backport PR #14405, Upstream PR #14378, @Rolinh)
+* helm/cilium-configmap: added checks to deduplicate keys (Backport PR #14308, Upstream PR #14153, @PranaviRoy)
+* helm: Fix preflight check resource quota conflict (Backport PR #14308, Upstream PR #14295, @gandro)
+* install/kubernetes: set the right option for expectAzureVnet (Backport PR #14538, Upstream PR #14449, @aanm)
+* maglev: Delete map if previous M's do not match (Backport PR #14424, Upstream PR #14345, @brb)
+* node: Remove check whether nextHop is in same L2 (#14453, @brb)
+* Split AKS node-init into two stages. Use azure0 presence as a condition for flushing ebtables & neigh. (Backport PR #14613, Upstream PR #14616, @ti-mo)
+* Remove 'bridge' parameter in Azure CNI chaining configuration. (Backport PR #14644, Upstream PR #14624, @ti-mo)
+
+**CI Changes:**
+* ci/helpers: Clean-up resource quotas (Backport PR #14405, Upstream PR #14294, @gandro)
+* ci: check if gke cluster has a nodepool before reserving it (Backport PR #14613, Upstream PR #14576, @nebril)
+* ci: Use correct `agent` value in preflight check (Backport PR #14419, Upstream PR #14393, @gandro)
+* jenkinsfile: Allow enabling host firewall in k8s-all CI (Backport PR #14644, Upstream PR #14524, @pchaigno)
+* test: Fix flake on policy verdict count check (Backport PR #14405, Upstream PR #14286, @pchaigno)
+* test: Fix microk8s deployment hurdles (Backport PR #14538, Upstream PR #14420, @joestringer)
+* test: RuntimePolicies: Fix flake when validating logs (Backport PR #14585, Upstream PR #14529, @pchaigno)
+* test: Test policy enforcement through tunnels (Backport PR #14538, Upstream PR #14412, @pchaigno)
+* test: Add missing gomega Eventually intervals (Backport PR #14538, Upstream PR #14388, @jrajahalme)
+
+**Misc Changes:**
+* docs: Add cgroups kernel config requirements (Backport PR #14538, Upstream PR #14517, @joestringer)
+* docs: add info about tailcalls in bpf subprograms (Backport PR #14538, Upstream PR #13888, @mfijalko)
+* docs: Clarify from/toRequires documentation with a new example (Backport PR #14308, Upstream PR #14262, @pchaigno)
+* docs: Document expected behavior for node-local DNS (Backport PR #14405, Upstream PR #14297, @aditighag)
+* docs: Fix connectivity check output (Backport PR #14308, Upstream PR #14278, @errordeveloper)
+* docs: Fix dependency conflict (Backport PR #14308, Upstream PR #14264, @joestringer)
+* docs: Fix values.yaml upgrade guide to match helm args (Backport PR #14308, Upstream PR #14237, @joestringer)
+* docs: Update linux distribution compatibility (Backport PR #14538, Upstream PR #14434, @joestringer)
+* Fix bug Cilium hangs with kvstore configured (#14629, @aanm)
+* helm: 'bpf.ctTcpMax' and 'bpf.ctAnyMax' need to be strings, not integers (Backport PR #14538, Upstream PR #14021, @mvisonneau)
+* helm: Do not deploy Hubble mTLS secrets unless Relay is enabled (Backport PR #14443, Upstream PR #14394, @gandro)
+* helm: fix TLS cert server name for cluster names containing dots (Backport PR #14538, Upstream PR #14413, @kaworu)
+* helm: fix TLS cert server name for cluster names containing dots with certgen (Backport PR #14538, Upstream PR #14416, @kaworu)
+* hubble relay: various logging improvements (Backport PR #14613, Upstream PR #14521, @kaworu)
+* microk8s: fix  add-on-command for enabling cilium (Backport PR #14405, Upstream PR #14325, @brandshaide)
+* pkg/datapath: fix arp ping handling (Backport PR #14613, Upstream PR #14501, @aanm)
+* pkg/endpoint: Readd GetRealizedPolicyRuleLabelsForKey (Backport PR #14308, Upstream PR #14257, @gandro)
+* pkg/logging: Init klog with flag set name (Backport PR #14538, Upstream PR #14346, @fafucoder)
+* pkg/node: fix concurrent access of entry node (Backport PR #14613, Upstream PR #14591, @aanm)
+* Update policy-creation.rst (Backport PR #14538, Upstream PR #14241, @gecube)
+* vendor: Update vishvananda/netlink (Backport PR #14538, Upstream PR #14513, @pchaigno)
+
+**Other Changes:**
+* [v1.9] docker: bump cilium-iproute2 image (#14619, @qmonnet)
+* backport 1.9: vendor: Bump github.com/cilium/arping (#14637, @brb)
+* policy: Don't nil an empty selectors map. (#14391, @jrajahalme)
+* policy: Track selectors that contribute to MapStateEntries (#14362, @jrajahalme)
+
 ## v1.9.1
 
 Summary of Changes
