@@ -9,7 +9,6 @@ assignees: ''
 
 ## Pre-release
 
-- [ ] Create a [new project] for the next release version
 - [ ] Add build targets for the new release on [Docker Hub]
   - All versions:
     - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds/edit)
@@ -26,17 +25,18 @@ assignees: ''
 - [ ] Ensure that outstanding [backport PRs] are merged
 - [ ] Consider building new [cilium-runtime images] and bumping the base image
       versions on this branch
-- [ ] Move any unresolved issues/PRs from old release project into the newly
-      created release project
 - [ ] Push a PR including the changes necessary for the new release:
   - [ ] Pull latest branch
-  - [ ] Run `contrib/release/start-release.sh'
+  - [ ] Run `contrib/release/start-release.sh`
   - [ ] (If applicable) Update the `cilium_version` and `cilium_tag` in
         `examples/getting-started/Vagrantfile`
   - [ ] Run `Documentation/check-crd-compat-table.sh vX.Y` and if needed, follow the
         instructions.
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
   - [ ] Submit PR (`contrib/release/submit-release.sh`)
+- [ ] Execute `release --current-version X.Y.Z --next-dev-version X.Y.W` to automatically
+      move any unresolved issues/PRs from old release project into the new
+      project. (`W` should be calculation of `Z+1`)
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
@@ -73,7 +73,6 @@ assignees: ''
 
 [release blockers]: https://github.com/cilium/cilium/labels/priority%2Frelease-blocker
 [backport PRs]: https://github.com/cilium/cilium/pulls?utf8=%E2%9C%93&q=is%3Aopen+is%3Apr+backports
-[new project]: https://github.com/cilium/cilium/projects/new
 [Cilium release-notes tool]: https://github.com/cilium/release
 [Docker Hub]: https://hub.docker.com/orgs/cilium/repositories
 [Cilium charts]: https://github.com/cilium/charts
