@@ -986,9 +986,14 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
+#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+	/* See comment in IPv4 path. */
+	ctx_change_type(ctx, PACKET_HOST);
+#else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_peer(ifindex, 0);
+#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1222,9 +1227,21 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
+#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+	/* In tunneling mode, we execute this code to send the packet from
+	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+	 * redirect() because that would bypass conntrack and the reverse DNAT.
+	 * Thus, we send packets to the stack, but since they have the wrong
+	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+	 * will drop them.
+	 * See #14646 for details.
+	 */
+	ctx_change_type(ctx, PACKET_HOST);
+#else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_peer(ifindex, 0);
+#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
