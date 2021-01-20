@@ -43,6 +43,12 @@ Deploy Cilium release via Helm:
       --set etcd.managed=true \\
       --set etcd.k8sService=true
 
+If you do not want Cilium to store state in Kubernetes custom resources (CRDs),
+consider setting ``identityAllocationMode``:
+
+.. parsed-literal::
+
+    --set identityAllocationMode=kvstore
 
 Validate the Installation
 =========================

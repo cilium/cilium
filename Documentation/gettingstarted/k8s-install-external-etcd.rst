@@ -61,6 +61,13 @@ Deploy Cilium release via Helm:
       --set "etcd.endpoints[1]=http://etcd-endpoint2:2379" \\
       --set "etcd.endpoints[2]=http://etcd-endpoint3:2379"
 
+If you do not want Cilium to store state in Kubernetes custom resources (CRDs),
+consider setting ``identityAllocationMode``:
+
+.. parsed-literal::
+
+    --set identityAllocationMode=kvstore
+
 
 Optional: Configure the SSL certificates
 ----------------------------------------
