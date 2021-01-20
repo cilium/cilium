@@ -50,8 +50,8 @@ func (p *connectivityTestPodToHost) Run(ctx context.Context, c TestContext) {
 
 			run.ValidateFlows(ctx, client.Name(), []FilterPair{
 				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: ICMPFilter(client.Pod.Status.PodIP, hostIP, 8), Expect: true, Msg: "ICMP request not found"},
-				{Filter: ICMPFilter(hostIP, client.Pod.Status.PodIP, 0), Expect: true, Msg: "ICMP response not found"},
+				{Filter: ICMPFilter(client.Pod.Status.PodIP, hostIP, 8), Expect: true, Msg: "ICMP request"},
+				{Filter: ICMPFilter(hostIP, client.Pod.Status.PodIP, 0), Expect: true, Msg: "ICMP response"},
 			})
 
 			run.End()
