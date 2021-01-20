@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -25,9 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var retryInterval = 2 * time.Second
+
 type UninstallParameters struct {
 	Namespace string
 	Writer    io.Writer
+	Wait      bool
 }
 
 type K8sUninstaller struct {
@@ -80,6 +84,21 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		k.Log("🔥 Deleting resource quotas...")
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.AgentResourceQuota, metav1.DeleteOptions{})
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{})
+	}
+
+	if k.params.Wait {
+		k.Log("⌛ Waiting for Cilium to be uninstalled...")
+
+	retry:
+		pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+		if err != nil {
+			return err
+		}
+
+		if len(pods.Items) > 0 {
+			time.Sleep(retryInterval)
+			goto retry
+		}
 	}
 
 	return nil
