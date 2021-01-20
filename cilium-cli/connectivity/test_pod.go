@@ -35,17 +35,17 @@ func (p *connectivityTestPodToPod) Run(ctx context.Context, c TestContext) {
 			}
 
 			run.ValidateFlows(ctx, client.Name(), []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-				{Filter: TCPFilter(echo.Pod.Status.PodIP, client.Pod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
-				{Filter: TCPFilter(echo.Pod.Status.PodIP, client.Pod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
+				{Filter: DropFilter(), Expect: false, Msg: "Drop"},
+				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "RST"},
+				{Filter: TCPFilter(echo.Pod.Status.PodIP, client.Pod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK"},
+				{Filter: TCPFilter(echo.Pod.Status.PodIP, client.Pod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK"},
 			})
 
 			run.ValidateFlows(ctx, echo.Name(), []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-				{Filter: TCPFilter(client.Pod.Status.PodIP, echo.Pod.Status.PodIP, 0, 8080, true, false, false, false), Expect: true, Msg: "SYN not found"},
-				{Filter: TCPFilter(client.Pod.Status.PodIP, echo.Pod.Status.PodIP, 0, 8080, false, true, true, false), Expect: true, Msg: "FIN not found"},
+				{Filter: DropFilter(), Expect: false, Msg: "Drop"},
+				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "RST"},
+				{Filter: TCPFilter(client.Pod.Status.PodIP, echo.Pod.Status.PodIP, 0, 8080, true, false, false, false), Expect: true, Msg: "SYN"},
+				{Filter: TCPFilter(client.Pod.Status.PodIP, echo.Pod.Status.PodIP, 0, 8080, false, true, true, false), Expect: true, Msg: "FIN"},
 			})
 
 			run.End()
