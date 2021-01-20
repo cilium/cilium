@@ -25,6 +25,8 @@ const (
 	CASecretKeyName  = "ca.key"
 	CASecretCertName = "ca.crt"
 
+	EncryptionSecretName = "cilium-ipsec-keys"
+
 	OperatorServiceAccountName = "cilium-operator"
 	OperatorClusterRoleName    = "cilium-operator"
 	OperatorDeploymentName     = "cilium-operator"
