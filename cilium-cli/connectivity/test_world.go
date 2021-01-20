@@ -36,14 +36,14 @@ func (p *connectivityTestPodToWorld) Run(ctx context.Context, c TestContext) {
 		}
 
 		run.ValidateFlows(ctx, client.Name(), []FilterPair{
-			{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-			{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "Found RST"},
-			{Filter: UDPFilter(client.Pod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request not found"},
-			{Filter: UDPFilter("", client.Pod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response not found"},
-			{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 443, true, false, false, false), Expect: true, Msg: "SYN not found"},
-			{Filter: TCPFilter("", client.Pod.Status.PodIP, 443, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK not found"},
-			{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 443, false, true, true, false), Expect: true, Msg: "FIN not found"},
-			{Filter: TCPFilter("", client.Pod.Status.PodIP, 443, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK not found"},
+			{Filter: DropFilter(), Expect: false, Msg: "Drop"},
+			{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "RST"},
+			{Filter: UDPFilter(client.Pod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request"},
+			{Filter: UDPFilter("", client.Pod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response"},
+			{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 443, true, false, false, false), Expect: true, Msg: "SYN"},
+			{Filter: TCPFilter("", client.Pod.Status.PodIP, 443, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK"},
+			{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 443, false, true, true, false), Expect: true, Msg: "FIN"},
+			{Filter: TCPFilter("", client.Pod.Status.PodIP, 443, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK"},
 		})
 
 		run.End()

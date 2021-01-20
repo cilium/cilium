@@ -340,9 +340,27 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []Filter
 		t.flows[pod] = flows
 	}
 
+	var goodLog []string
+
 	for _, p := range filter {
 		if flows.Contains(p.Filter) != p.Expect {
-			t.Failure("%s in pod %s", p.Msg, pod)
+			for _, g := range goodLog {
+				t.context.Log(g)
+			}
+			goodLog = []string{}
+
+			msgSuffix := "found"
+			if p.Expect {
+				msgSuffix = "not found"
+			}
+			t.Failure(fmt.Sprintf("%s %s for pod %s", p.Msg, msgSuffix, pod))
+		} else {
+			msgSuffix := "not found"
+			if p.Expect {
+				msgSuffix = "found"
+			}
+			msg := fmt.Sprintf("%s %s for pod %s", p.Msg, msgSuffix, pod)
+			goodLog = append(goodLog, "✅ "+msg)
 		}
 	}
 }
