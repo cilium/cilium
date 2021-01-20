@@ -57,3 +57,19 @@ jobs:
       - name: Connectivity Test
         run: |
           cmd/cilium/cilium connectivity test
+
+      - name: Uninstall cilium
+        run: |
+          cmd/cilium/cilium uninstall --wait
+
+      - name: Install Cilium with Encryption
+        run: |
+          cmd/cilium/cilium install --encryption
+
+      - name: Status
+        run: |
+          cmd/cilium/cilium status --wait
+
+      - name: Connectivity test
+        run: |
+          cmd/cilium/cilium connectivity test
