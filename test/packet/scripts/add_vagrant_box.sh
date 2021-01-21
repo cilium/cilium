@@ -175,4 +175,7 @@ for box in $boxes; do
             vagrant box add cilium/$box --box-version $version
         fi
     fi
+
+    rm -f -- "$outdir/metadata.json"
+    rm -f -- "$outdir/package.box"
 done
