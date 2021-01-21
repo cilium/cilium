@@ -646,6 +646,21 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 	})
+
+	Context("Node routes MTU", func() {
+		SkipItIf(func() bool {
+			return helpers.IsIntegration(helpers.CIIntegrationGKE)
+		}, "Check connectivity over local routes", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"k8s.requireIPv4PodCIDR":  "true",
+				"enable-local-node-route": "true",
+				"ipv4.enabled":            "true",
+				"ipv6.enabled":            "false",
+			}, DeployCiliumOptionsAndDNS)
+			// Send large packets with "Don't fragment" bit set.
+			Expect(testPodCustomPingConnectivityAndReturnIP(kubectl, false, 1, "-M do -s 2000 ")).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
+	})
 })
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
@@ -718,6 +733,29 @@ func applyL3Policy(kubectl *helpers.Kubectl, ns string) {
 	By(fmt.Sprintf("Applying policy %s", demoPolicyL3))
 	_, err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoPolicyL3, err))
+}
+
+func testPodCustomPingConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int, pingCmdOptions string) (bool, string) {
+	callOffset++
+
+	randomNamespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
+	applyL3Policy(kubectl, randomNamespace)
+	deploymentManager.WaitUntilReady()
+
+	By("Checking pod connectivity between nodes")
+	srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "client", "zgroup=testDSClient", "", requireMultiNode, callOffset)
+	srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
+
+	dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "server", "zgroup=testDS", srcHost.String(), requireMultiNode, callOffset)
+	podIP, err := dstPodJSON.Filter("{.status.podIP}")
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve IP of pod %s", dstPod)
+	targetIP := podIP.String()
+
+	// ICMP connectivity test
+	res := kubectl.ExecPodCmd(randomNamespace, srcPod, helpers.PingWithOptions(targetIP, pingCmdOptions))
+
+	return res.WasSuccessful(), targetIP
 }
 
 func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {

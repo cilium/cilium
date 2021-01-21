@@ -58,6 +58,16 @@ func Ping(endpoint string) string {
 	return PingWithCount(endpoint, PingCount)
 }
 
+// PingWithOptions returns the string representing the ping command to ping the
+// specified endpoint, and takes custom options string for the ping command.
+func PingWithOptions(endpoint string, options string) string {
+	pingCmd := fmt.Sprintf("ping -W %d -c %d", PingTimeout, PingCount)
+	if len(options) > 0 {
+		pingCmd = fmt.Sprintf("%s %s", pingCmd, options)
+	}
+	return fmt.Sprintf("%s %s", pingCmd, endpoint)
+}
+
 // Ping6 returns the string representing the ping6 command to ping6 the
 // specified endpoint.
 func Ping6(endpoint string) string {
