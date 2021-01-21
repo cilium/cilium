@@ -43,8 +43,8 @@ type NetworkPolicyHosts struct {
 
 	// The unique identifier of the network policy enforced on the hosts.
 	Policy uint64 `protobuf:"varint,1,opt,name=policy,proto3" json:"policy,omitempty"`
-	// The set of IP addresses of the hosts on which the network policy is enforced.
-	// Optional. May be empty.
+	// The set of IP addresses of the hosts on which the network policy is
+	// enforced. Optional. May be empty.
 	HostAddresses []string `protobuf:"bytes,2,rep,name=host_addresses,json=hostAddresses,proto3" json:"host_addresses,omitempty"`
 }
 

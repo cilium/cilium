@@ -169,7 +169,8 @@ type NetworkPolicy struct {
 	EgressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,4,rep,name=egress_per_port_policies,json=egressPerPortPolicies,proto3" json:"egress_per_port_policies,omitempty"`
 	// Name of the conntrack map to use with this policy.
 	// The paths to various Cilium conntrack maps are derived using this name.
-	// Optional. If empty, proxymap lookup is used instead of conntrack map.
+	// Optional. If empty, ipcache or hostmap lookup is used instead of conntrack
+	// map.
 	ConntrackMapName string `protobuf:"bytes,5,opt,name=conntrack_map_name,json=conntrackMapName,proto3" json:"conntrack_map_name,omitempty"`
 }
 
@@ -318,14 +319,16 @@ type TLSContext struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// CA certificates. If present, the counterparty must provide a valid certificate.
+	// CA certificates. If present, the counterparty must provide a valid
+	// certificate.
 	TrustedCa string `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa,proto3" json:"trusted_ca,omitempty"`
 	// Certificate chain
 	CertificateChain string `protobuf:"bytes,2,opt,name=certificate_chain,json=certificateChain,proto3" json:"certificate_chain,omitempty"`
 	// Private key
 	PrivateKey string `protobuf:"bytes,3,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
-	// Server Name Indicator. For downstream this helps choose the certificate to present to the client.
-	// For upstream this will be used as the SNI on the client connection.
+	// Server Name Indicator. For downstream this helps choose the certificate to
+	// present to the client. For upstream this will be used as the SNI on the
+	// client connection.
 	ServerNames []string `protobuf:"bytes,4,rep,name=server_names,json=serverNames,proto3" json:"server_names,omitempty"`
 }
 
@@ -403,12 +406,15 @@ type PortNetworkPolicyRule struct {
 	// A flow is matched by this predicate if the identifier of the policy
 	// applied on the flow's remote host is contained in this set.
 	// Optional. If not specified, any remote host is matched by this predicate.
-	// TODO: Make this uint32 in later versions to reduce format conversion overhead
+	// TODO: Make this uint32 in later versions to reduce format conversion
+	// overhead
 	// TODO: Consider cost of uniqueness validation
 	RemotePolicies []uint64 `protobuf:"varint,1,rep,packed,name=remote_policies,json=remotePolicies,proto3" json:"remote_policies,omitempty"`
-	// Optional downstream TLS context. If present, the incoming connection must be a TLS connection.
+	// Optional downstream TLS context. If present, the incoming connection must
+	// be a TLS connection.
 	DownstreamTlsContext *TLSContext `protobuf:"bytes,3,opt,name=downstream_tls_context,json=downstreamTlsContext,proto3" json:"downstream_tls_context,omitempty"`
-	// Optional upstream TLS context. If present, the outgoing connection will use TLS.
+	// Optional upstream TLS context. If present, the outgoing connection will use
+	// TLS.
 	UpstreamTlsContext *TLSContext `protobuf:"bytes,4,opt,name=upstream_tls_context,json=upstreamTlsContext,proto3" json:"upstream_tls_context,omitempty"`
 	// Optional L7 protocol parser name. This is only used if the parser is not
 	// one of the well knows ones. If specified, the l7 parser having this name
@@ -673,16 +679,16 @@ func (x *HeaderMatch) GetMismatchAction() HeaderMatch_MismatchAction {
 }
 
 // An HTTP network policy rule, as a conjunction of predicates on HTTP requests.
-// If all the predicates of a rule match an HTTP request, the request is allowed. Otherwise, it is
-// denied.
+// If all the predicates of a rule match an HTTP request, the request is
+// allowed. Otherwise, it is denied.
 type HttpNetworkPolicyRule struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// A set of matchers on the HTTP request's headers' names and values.
-	// If all the matchers in this set match an HTTP request, the request is allowed by this rule.
-	// Otherwise, it is denied.
+	// If all the matchers in this set match an HTTP request, the request is
+	// allowed by this rule. Otherwise, it is denied.
 	//
 	// Some special header names are:
 	//
@@ -693,9 +699,9 @@ type HttpNetworkPolicyRule struct {
 	// Optional. If empty, matches any HTTP request.
 	Headers []*v31.HeaderMatcher `protobuf:"bytes,1,rep,name=headers,proto3" json:"headers,omitempty"`
 	// header_matches is a set of HTTP header name and value pairs that
-	// will be matched against the request headers, if all the other match requirements
-	// in 'headers' are met. Each HeaderAction determines what to do when there is a match
-	// or mismatch.
+	// will be matched against the request headers, if all the other match
+	// requirements in 'headers' are met. Each HeaderAction determines what to do
+	// when there is a match or mismatch.
 	//
 	// Optional.
 	HeaderMatches []*HeaderMatch `protobuf:"bytes,2,rep,name=header_matches,json=headerMatches,proto3" json:"header_matches,omitempty"`
@@ -798,9 +804,9 @@ func (x *KafkaNetworkPolicyRules) GetKafkaRules() []*KafkaNetworkPolicyRule {
 	return nil
 }
 
-// A Kafka network policy rule, as a conjunction of predicates on Kafka requests.
-// If all the predicates of a rule match a Kafka request, the request is allowed. Otherwise, it is
-// denied.
+// A Kafka network policy rule, as a conjunction of predicates on Kafka
+// requests. If all the predicates of a rule match a Kafka request, the request
+// is allowed. Otherwise, it is denied.
 type KafkaNetworkPolicyRule struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -813,15 +819,16 @@ type KafkaNetworkPolicyRule struct {
 	// If none, all Kafka requests are matched by this predicate.
 	ApiKeys []int32 `protobuf:"varint,2,rep,packed,name=api_keys,json=apiKeys,proto3" json:"api_keys,omitempty"`
 	// The Kafka request's client ID.
-	// Optional. If not specified, all Kafka requests are matched by this predicate.
-	// If specified, this predicates only matches requests that contain this client ID, and never
-	// matches requests that don't contain any client ID.
+	// Optional. If not specified, all Kafka requests are matched by this
+	// predicate. If specified, this predicates only matches requests that contain
+	// this client ID, and never matches requests that don't contain any client
+	// ID.
 	ClientId string `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	// The Kafka request's topic.
-	// Optional. If not specified, this rule will not consider the Kafka request's topics.
-	// If specified, this predicates only matches requests that contain this topic, and never
-	// matches requests that don't contain any topic. However, messages that can not contain
-	// a topic will also me matched.
+	// Optional. If not specified, this rule will not consider the Kafka request's
+	// topics. If specified, this predicates only matches requests that contain
+	// this topic, and never matches requests that don't contain any topic.
+	// However, messages that can not contain a topic will also me matched.
 	Topic string `protobuf:"bytes,4,opt,name=topic,proto3" json:"topic,omitempty"`
 }
 
@@ -951,8 +958,8 @@ func (x *L7NetworkPolicyRules) GetL7DenyRules() []*L7NetworkPolicyRule {
 }
 
 // A generic L7 policy rule, as a conjunction of predicates on l7 requests.
-// If all the predicates of a rule match a request, the request is allowed. Otherwise, it is
-// denied.
+// If all the predicates of a rule match a request, the request is allowed.
+// Otherwise, it is denied.
 type L7NetworkPolicyRule struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -961,11 +968,12 @@ type L7NetworkPolicyRule struct {
 	// Optional rule name, can be used in logging and error messages.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Generic rule for Go extensions.
-	// Optional. If empty, matches any request. Not allowed if 'metadata_rule' is present.
+	// Optional. If empty, matches any request. Not allowed if 'metadata_rule' is
+	// present.
 	Rule map[string]string `protobuf:"bytes,1,rep,name=rule,proto3" json:"rule,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// Generic rule for Envoy metadata enforcement. All matchers must match for the rule to
-	// allow the request/connection.
-	// Optional. If empty, matches any request. Not allowed if 'rule' is present.
+	// Generic rule for Envoy metadata enforcement. All matchers must match for
+	// the rule to allow the request/connection. Optional. If empty, matches any
+	// request. Not allowed if 'rule' is present.
 	MetadataRule []*v32.MetadataMatcher `protobuf:"bytes,2,rep,name=metadata_rule,json=metadataRule,proto3" json:"metadata_rule,omitempty"`
 }
 
