@@ -195,34 +195,34 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 
 	if s.enableIPv4 {
 		// add & remove IPv4 node route
-		err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true)
+		err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 
-		err = linuxNodeHandler.deleteNodeRoute(ip4CIDR)
+		err = linuxNodeHandler.deleteNodeRoute(ip4CIDR, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
 		// add & remove IPv6 node route
-		err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true)
+		err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6CIDR)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 
-		err = linuxNodeHandler.deleteNodeRoute(ip6CIDR)
+		err = linuxNodeHandler.deleteNodeRoute(ip6CIDR, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -243,13 +243,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -261,12 +261,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+	foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
 	c.Assert(err, check.IsNil)
 	c.Assert(foundRoute, check.IsNil)
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -280,13 +280,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -309,13 +309,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -329,13 +329,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -349,13 +349,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -405,7 +405,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -415,7 +415,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -444,7 +444,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -454,7 +454,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -491,12 +491,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -508,12 +508,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -537,14 +537,14 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -574,7 +574,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -586,7 +586,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -611,14 +611,14 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -853,7 +853,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 }
 
 func insertFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) {
-	nodeRoute, err := n.createNodeRoute(prefix)
+	nodeRoute, err := n.createNodeRouteSpec(prefix, false)
 	c.Assert(err, check.IsNil)
 
 	nodeRoute.Device = dummyExternalDeviceName
@@ -863,7 +863,7 @@ func insertFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) {
 }
 
 func lookupFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) bool {
-	routeSpec, err := n.createNodeRoute(prefix)
+	routeSpec, err := n.createNodeRouteSpec(prefix, false)
 	c.Assert(err, check.IsNil)
 
 	routeSpec.Device = dummyExternalDeviceName
