@@ -17,6 +17,7 @@ package v2
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -35,20 +36,16 @@ import (
 // modified version of CiliumNetworkPolicy which is cluster scoped rather than
 // namespace scoped.
 type CiliumClusterwideNetworkPolicy struct {
-	// Note: The following two fields are required (regardless of embedding
-	// CiliumNetworkPolicy below which bring these in), because controller-gen
-	// ignores structs when generating CRDs that do not have these fields. The
-	// controller-gen code responsible:
-	// https://github.com/kubernetes-sigs/controller-tools/blob/4a903ddb7005459a7baf4777c67244a74c91083d/pkg/crd/gen.go#L221
-
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
-	// Embedded fields require json inline tag, source:
-	// https://github.com/kubernetes-sigs/controller-tools/issues/244
-	*CiliumNetworkPolicy `json:",inline"`
+	// Spec is the desired Cilium specific rule specification.
+	Spec *api.Rule `json:"spec,omitempty"`
+
+	// Specs is a list of desired Cilium specific rule specification.
+	Specs api.Rules `json:"specs,omitempty"`
 
 	// Status is the status of the Cilium policy rule.
 	//
@@ -63,7 +60,44 @@ type CiliumClusterwideNetworkPolicy struct {
 // DeepEqual compares 2 CCNPs while ignoring the LastAppliedConfigAnnotation
 // and ignoring the Status field of the CCNP.
 func (in *CiliumClusterwideNetworkPolicy) DeepEqual(other *CiliumClusterwideNetworkPolicy) bool {
-	return sharedCNPDeepEqual(in.CiliumNetworkPolicy, other.CiliumNetworkPolicy) && in.deepEqual(other)
+	return objectMetaDeepEqual(in.ObjectMeta, other.ObjectMeta) && in.deepEqual(other)
+}
+
+// GetPolicyStatus returns the CiliumClusterwideNetworkPolicyNodeStatus corresponding to
+// nodeName in the provided CiliumClusterwideNetworkPolicy. If Nodes within the rule's
+// Status is nil, returns an empty CiliumClusterwideNetworkPolicyNodeStatus.
+func (r *CiliumClusterwideNetworkPolicy) GetPolicyStatus(nodeName string) CiliumNetworkPolicyNodeStatus {
+	if r.Status.Nodes == nil {
+		return CiliumNetworkPolicyNodeStatus{}
+	}
+	return r.Status.Nodes[nodeName]
+}
+
+// SetPolicyStatus sets the given policy status for the given nodes' map.
+func (r *CiliumClusterwideNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetworkPolicyNodeStatus) {
+	if r.Status.Nodes == nil {
+		r.Status.Nodes = map[string]CiliumNetworkPolicyNodeStatus{}
+	}
+	r.Status.Nodes[nodeName] = cnpns
+}
+
+// SetDerivedPolicyStatus set the derivative policy status for the given
+// derivative policy name.
+func (r *CiliumClusterwideNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string, status CiliumNetworkPolicyNodeStatus) {
+	if r.Status.DerivativePolicies == nil {
+		r.Status.DerivativePolicies = map[string]CiliumNetworkPolicyNodeStatus{}
+	}
+	r.Status.DerivativePolicies[derivativePolicyName] = status
+}
+
+// AnnotationsEquals returns true if ObjectMeta.Annotations of each
+// CiliumClusterwideNetworkPolicy are equivalent (i.e., they contain equivalent key-value
+// pairs).
+func (r *CiliumClusterwideNetworkPolicy) AnnotationsEquals(o *CiliumClusterwideNetworkPolicy) bool {
+	if o == nil {
+		return r == nil
+	}
+	return reflect.DeepEqual(r.ObjectMeta.Annotations, o.ObjectMeta.Annotations)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

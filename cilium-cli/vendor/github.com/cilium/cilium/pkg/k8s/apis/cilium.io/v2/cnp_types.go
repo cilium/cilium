@@ -62,20 +62,13 @@ type CiliumNetworkPolicy struct {
 
 // DeepEqual compares 2 CNPs.
 func (in *CiliumNetworkPolicy) DeepEqual(other *CiliumNetworkPolicy) bool {
-	return sharedCNPDeepEqual(in, other) && in.deepEqual(other)
+	return objectMetaDeepEqual(in.ObjectMeta, other.ObjectMeta) && in.deepEqual(other)
 }
 
-// sharedCNPDeepEqual performs an equality check for CNP that ignores the
-// LastAppliedConfigAnnotation and ignores the Status field of the CNP. This
-// function's usage is shared among CNP and CCNP as CCNP embeds a CNP.
-func sharedCNPDeepEqual(in, other *CiliumNetworkPolicy) bool {
-	switch {
-	case (in == nil) != (other == nil):
-		return false
-	case (in == nil) && (other == nil):
-		return true
-	}
-
+// objectMetaDeepEqual performs an equality check for metav1.ObjectMeta that
+// ignores the LastAppliedConfigAnnotation. This function's usage is shared
+// among CNP and CCNP as they have the same structure.
+func objectMetaDeepEqual(in, other metav1.ObjectMeta) bool {
 	if !(in.Name == other.Name && in.Namespace == other.Namespace) {
 		return false
 	}
@@ -213,10 +206,11 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	// convert them back to CCNPs to allow proper parsing.
 	if namespace == "" {
 		ccnp := CiliumClusterwideNetworkPolicy{
-			TypeMeta:            r.TypeMeta,
-			ObjectMeta:          r.ObjectMeta,
-			CiliumNetworkPolicy: r,
-			Status:              r.Status,
+			TypeMeta:   r.TypeMeta,
+			ObjectMeta: r.ObjectMeta,
+			Spec:       r.Spec,
+			Specs:      r.Specs,
+			Status:     r.Status,
 		}
 		return ccnp.Parse()
 	}
