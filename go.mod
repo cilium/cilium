@@ -21,7 +21,8 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.3.0
 	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
-	github.com/cilium/proxy v0.0.0-20201222161048-8bceb17eb027
+	github.com/cilium/proxy v0.0.0-20210121022617-de819bff23ee
+	github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd // indirect
 	github.com/containernetworking/cni v0.8.0
 	github.com/containernetworking/plugins v0.9.0
 	github.com/davecgh/go-spew v1.1.1
@@ -64,7 +65,7 @@ require (
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.9.0
-	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0

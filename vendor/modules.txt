@@ -108,7 +108,7 @@ github.com/beorn7/perks/quantile
 # github.com/blang/semver/v4 v4.0.0
 ## explicit
 github.com/blang/semver/v4
-# github.com/census-instrumentation/opencensus-proto v0.2.2-0.20191220023634-be218fb6bd67
+# github.com/census-instrumentation/opencensus-proto v0.3.0
 github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.1
@@ -134,7 +134,7 @@ github.com/cilium/ebpf/perf
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20201222161048-8bceb17eb027
+# github.com/cilium/proxy v0.0.0-20210121022617-de819bff23ee
 ## explicit
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/annotations
@@ -161,6 +161,7 @@ github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 # github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd
+## explicit
 github.com/cncf/udpa/go/udpa/annotations
 github.com/cncf/udpa/go/xds/core/v3
 # github.com/containernetworking/cni v0.8.0
@@ -235,7 +236,7 @@ github.com/docker/libnetwork/types
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/protoc-gen-validate v0.2.0-java.0.20191226181232-973ea075fe98
+# github.com/envoyproxy/protoc-gen-validate v0.3.0-java.0.20200608183405-278964a8052f
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.9.0+incompatible
 github.com/evanphx/json-patch
@@ -518,7 +519,7 @@ github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/testutil
 github.com/prometheus/client_golang/prometheus/testutil/promlint
-# github.com/prometheus/client_model v0.2.0
+# github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
 ## explicit
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.15.0
@@ -551,7 +552,7 @@ github.com/shirou/gopsutil/process
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
 github.com/sirupsen/logrus/hooks/test
-# github.com/spf13/afero v1.2.2
+# github.com/spf13/afero v1.3.3
 github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.3.0

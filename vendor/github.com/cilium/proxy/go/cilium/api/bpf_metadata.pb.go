@@ -34,8 +34,9 @@ type BpfMetadata struct {
 	BpfRoot string `protobuf:"bytes,1,opt,name=bpf_root,json=bpfRoot,proto3" json:"bpf_root,omitempty"`
 	// 'true' if the filter is on ingress listener, 'false' for egress listener.
 	IsIngress bool `protobuf:"varint,2,opt,name=is_ingress,json=isIngress,proto3" json:"is_ingress,omitempty"`
-	// Use of the original source address requires kernel datapath support which may or may not be available.
-	// 'true' if original source address functionality is availeble. Original source address use may still be
+	// Use of the original source address requires kernel datapath support which
+	// may or may not be available. 'true' if original source address
+	// functionality is availeble. Original source address use may still be
 	// skipped in scenarios where it is knows to not work.
 	MayUseOriginalSourceAddress bool `protobuf:"varint,3,opt,name=may_use_original_source_address,json=mayUseOriginalSourceAddress,proto3" json:"may_use_original_source_address,omitempty"`
 }
