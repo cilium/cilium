@@ -295,15 +295,19 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 	}
 }
 
-// createNodeRoute creates a route that points the specified prefix to the host
-// device via the router IP
+// createNodeRouteSpec creates a route spec that points the specified prefix to the host
+// device via the router IP. The route is configured with a computed MTU for non-local
+// nodes (i.e isLocalNode is set to false).
 //
 // Example:
 // 10.10.0.0/24 via 10.10.0.1 dev cilium_host src 10.10.0.1
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
 //
-func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) (route.Route, error) {
-	var local, nexthop net.IP
+func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bool) (route.Route, error) {
+	var (
+		local, nexthop net.IP
+		mtu            int
+	)
 	if prefix.IP.To4() != nil {
 		if n.nodeAddressing.IPv4() == nil {
 			return route.Route{}, fmt.Errorf("IPv4 addressing unavailable")
@@ -332,22 +336,26 @@ func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) (route.Route, erro
 		local = n.nodeAddressing.IPv6().PrimaryExternal()
 	}
 
+	if !isLocalNode {
+		mtu = n.nodeConfig.MtuConfig.GetRouteMTU()
+	}
+
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
 		Nexthop: &nexthop,
 		Local:   local,
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *prefix.IPNet,
-		MTU:     n.nodeConfig.MtuConfig.GetRouteMTU(),
+		MTU:     mtu,
 	}, nil
 }
 
-func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR) (*route.Route, error) {
+func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR, isLocalNode bool) (*route.Route, error) {
 	if prefix == nil {
 		return nil, nil
 	}
 
-	routeSpec, err := n.createNodeRoute(prefix)
+	routeSpec, err := n.createNodeRouteSpec(prefix, isLocalNode)
 	if err != nil {
 		return nil, err
 	}
@@ -355,12 +363,12 @@ func (n *linuxNodeHandler) lookupNodeRoute(prefix *cidr.CIDR) (*route.Route, err
 	return route.Lookup(routeSpec)
 }
 
-func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabled bool) error {
+func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabled bool, isLocalNode bool) error {
 	if prefix == nil || !addressFamilyEnabled {
 		return nil
 	}
 
-	nodeRoute, err := n.createNodeRoute(prefix)
+	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
 	if err != nil {
 		return err
 	}
@@ -372,12 +380,12 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	return nil
 }
 
-func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR) error {
+func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) error {
 	if prefix == nil {
 		return nil
 	}
 
-	nodeRoute, err := n.createNodeRoute(prefix)
+	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
 	if err != nil {
 		return err
 	}
@@ -393,16 +401,16 @@ func (n *linuxNodeHandler) familyEnabled(c *cidr.CIDR) bool {
 	return (c.IP.To4() != nil && n.nodeConfig.EnableIPv4) || (c.IP.To4() == nil && n.nodeConfig.EnableIPv6)
 }
 
-func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR) {
+func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR, isLocalNode bool) {
 	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
 	for _, prefix := range addedAuxRoutes {
 		if prefix != nil {
-			n.updateNodeRoute(prefix, n.familyEnabled(prefix))
+			n.updateNodeRoute(prefix, n.familyEnabled(prefix), isLocalNode)
 		}
 	}
 	for _, prefix := range removedAuxRoutes {
-		if rt, _ := n.lookupNodeRoute(prefix); rt != nil {
-			n.deleteNodeRoute(prefix)
+		if rt, _ := n.lookupNodeRoute(prefix, isLocalNode); rt != nil {
+			n.deleteNodeRoute(prefix, isLocalNode)
 		}
 	}
 }
@@ -815,6 +823,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newIP4                 = newNode.GetNodeIP(false)
 		newIP6                 = newNode.GetNodeIP(true)
 		oldKey, newKey         uint8
+		isLocalNode            = false
 	)
 
 	if oldNode != nil {
@@ -845,9 +854,10 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if newNode.IsLocal() {
+		isLocalNode = true
 		if n.nodeConfig.EnableLocalNodeRoute {
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR}, isLocalNode)
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR}, isLocalNode)
 		}
 		if n.subnetEncryption() {
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
@@ -870,8 +880,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
-			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR}, isLocalNode)
+			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR}, isLocalNode)
 		}
 
 		return nil
@@ -881,11 +891,11 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		deleteTunnelMapping(newNode.IPv4AllocCIDR, true)
 		deleteTunnelMapping(newNode.IPv6AllocCIDR, true)
 
-		if rt, _ := n.lookupNodeRoute(newNode.IPv4AllocCIDR); rt != nil {
-			n.deleteNodeRoute(newNode.IPv4AllocCIDR)
+		if rt, _ := n.lookupNodeRoute(newNode.IPv4AllocCIDR, isLocalNode); rt != nil {
+			n.deleteNodeRoute(newNode.IPv4AllocCIDR, isLocalNode)
 		}
-		if rt, _ := n.lookupNodeRoute(newNode.IPv6AllocCIDR); rt != nil {
-			n.deleteNodeRoute(newNode.IPv6AllocCIDR)
+		if rt, _ := n.lookupNodeRoute(newNode.IPv6AllocCIDR, isLocalNode); rt != nil {
+			n.deleteNodeRoute(newNode.IPv6AllocCIDR, isLocalNode)
 		}
 	}
 
@@ -927,8 +937,8 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		deleteTunnelMapping(oldNode.IPv6AllocCIDR, false)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.deleteNodeRoute(oldNode.IPv4AllocCIDR)
-			n.deleteNodeRoute(oldNode.IPv6AllocCIDR)
+			n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false)
+			n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false)
 		}
 	}
 
@@ -946,9 +956,9 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAddressingFamily, addressFamilyEnabled bool) {
 	allocCIDR := addressing.AllocationCIDR()
 	if addressFamilyEnabled {
-		n.updateNodeRoute(allocCIDR, addressFamilyEnabled)
-	} else if rt, _ := n.lookupNodeRoute(allocCIDR); rt != nil {
-		n.deleteNodeRoute(allocCIDR)
+		n.updateNodeRoute(allocCIDR, addressFamilyEnabled, false)
+	} else if rt, _ := n.lookupNodeRoute(allocCIDR, false); rt != nil {
+		n.deleteNodeRoute(allocCIDR, false)
 	}
 }
 
@@ -1238,7 +1248,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		(option.Config.EnableNodePort ||
 			(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled))
 
-	n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes)
+	n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true)
 
 	if newConfig.EnableIPSec {
 		if err := n.replaceHostRules(); err != nil {
@@ -1257,8 +1267,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		n.updateOrRemoveClusterRoute(n.nodeAddressing.IPv6(), newConfig.EnableIPv6)
 	} else if prevConfig.UseSingleClusterRoute {
 		// single cluster route has been disabled, remove route
-		n.deleteNodeRoute(n.nodeAddressing.IPv4().AllocationCIDR())
-		n.deleteNodeRoute(n.nodeAddressing.IPv6().AllocationCIDR())
+		n.deleteNodeRoute(n.nodeAddressing.IPv4().AllocationCIDR(), false)
+		n.deleteNodeRoute(n.nodeAddressing.IPv6().AllocationCIDR(), false)
 	}
 
 	if !n.isInitialized {
