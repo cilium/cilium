@@ -29,12 +29,11 @@ type Event struct {
 }
 
 // GetFlow returns the decoded flow, or nil if there is no event
-func (ev *Event) GetFlow() Flow {
+func (ev *Event) GetFlow() *pb.Flow {
 	if ev == nil || ev.Event == nil {
-		// returns typed nil so getter methods still work
-		return (*pb.Flow)(nil)
+		return nil
 	}
-	if f, ok := ev.Event.(Flow); ok {
+	if f, ok := ev.Event.(*pb.Flow); ok {
 		return f
 	}
 	return nil

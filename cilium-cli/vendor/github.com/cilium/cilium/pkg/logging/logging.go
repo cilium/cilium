@@ -89,17 +89,20 @@ var (
 func init() {
 	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
 
+	//Create a new flag set and set error handler
+	klogFlags := flag.NewFlagSet("cilium", flag.ExitOnError)
+
 	// Make sure that klog logging variables are initialized so that we can
 	// update them from this file.
-	klog.InitFlags(nil)
+	klog.InitFlags(klogFlags)
 
 	// Make sure klog does not log to stderr as we want it to control the output
 	// of klog so we want klog to log the errors to each writer of each level.
-	flag.Set("logtostderr", "false")
+	klogFlags.Set("logtostderr", "false")
 
 	// We don't need all headers because logrus will already print them if
 	// necessary.
-	flag.Set("skip_headers", "true")
+	klogFlags.Set("skip_headers", "true")
 
 	klog.SetOutputBySeverity("INFO", log.WriterLevel(logrus.InfoLevel))
 	klog.SetOutputBySeverity("WARNING", log.WriterLevel(logrus.WarnLevel))
