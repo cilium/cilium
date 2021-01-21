@@ -21,9 +21,24 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/mtu"
 
 	"gopkg.in/check.v1"
+)
+
+var (
+	nh = linuxNodeHandler{
+		nodeConfig: datapath.LocalNodeConfiguration{
+			MtuConfig: mtu.NewConfiguration(0, false, false, 100, net.IP("1.1.1.1")),
+		},
+		nodeAddressing: fake.NewNodeAddressing(),
+		datapathConfig: DatapathConfiguration{
+			HostDevice: "host_device",
+		},
+	}
+	cr1 = cidr.MustParseCIDR("10.1.0.0/16")
 )
 
 func (s *linuxTestSuite) TestTunnelCIDRUpdateRequired(c *check.C) {
@@ -66,7 +81,7 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
-	generatedRoute, err := nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	generatedRoute, err := nodeHandler.(*linuxNodeHandler).createNodeRouteSpec(c1, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
@@ -74,10 +89,22 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv4().Router())
 
 	c1 = cidr.MustParseCIDR("beef:beef::/48")
-	generatedRoute, err = nodeHandler.(*linuxNodeHandler).createNodeRoute(c1)
+	generatedRoute, err = nodeHandler.(*linuxNodeHandler).createNodeRouteSpec(c1, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
 	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv6().Router())
 	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv6().PrimaryExternal())
+}
+
+func (s *linuxTestSuite) TestCreateNodeRouteSpecMtu(c *check.C) {
+	generatedRoute, err := nh.createNodeRouteSpec(cr1, false)
+
+	c.Assert(err, check.IsNil)
+	c.Assert(generatedRoute.MTU, check.Not(check.Equals), 0)
+
+	generatedRoute, err = nh.createNodeRouteSpec(cr1, true)
+
+	c.Assert(err, check.IsNil)
+	c.Assert(generatedRoute.MTU, check.Equals, 0)
 }
