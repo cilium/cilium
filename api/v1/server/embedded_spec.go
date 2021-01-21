@@ -111,6 +111,32 @@ func init() {
         }
       }
     },
+    "/crd": {
+      "put": {
+        "description": "Registers a CRD to the K8s apiserver.\n",
+        "tags": [
+          "k8s"
+        ],
+        "summary": "Register CRD",
+        "parameters": [
+          {
+            "$ref": "#/parameters/crd"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "500": {
+            "description": "Registration failure",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/debuginfo": {
       "get": {
         "tags": [
@@ -3601,6 +3627,16 @@ func init() {
       "name": "cidr",
       "in": "query"
     },
+    "crd": {
+      "name": "crd",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "description": "Serialized bytes representing a CRD YAML",
+        "type": "string",
+        "format": "binary"
+      }
+    },
     "endpoint-change-request": {
       "name": "endpoint",
       "in": "body",
@@ -3822,6 +3858,39 @@ func init() {
           },
           "500": {
             "description": "Recompilation failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/crd": {
+      "put": {
+        "description": "Registers a CRD to the K8s apiserver.\n",
+        "tags": [
+          "k8s"
+        ],
+        "summary": "Register CRD",
+        "parameters": [
+          {
+            "name": "crd",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "description": "Serialized bytes representing a CRD YAML",
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "500": {
+            "description": "Registration failure",
             "schema": {
               "$ref": "#/definitions/Error"
             },
@@ -7803,6 +7872,16 @@ func init() {
       "description": "A CIDR range of IPs",
       "name": "cidr",
       "in": "query"
+    },
+    "crd": {
+      "name": "crd",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "description": "Serialized bytes representing a CRD YAML",
+        "type": "string",
+        "format": "binary"
+      }
     },
     "endpoint-change-request": {
       "name": "endpoint",

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
+	"github.com/cilium/cilium/api/v1/server/restapi/k8s"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
@@ -173,6 +174,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		IpamPostIpamIPHandler: ipam.PostIpamIPHandlerFunc(func(params ipam.PostIpamIPParams) middleware.Responder {
 			return middleware.NotImplemented("operation ipam.PostIpamIP has not yet been implemented")
 		}),
+		K8sPutCrdHandler: k8s.PutCrdHandlerFunc(func(params k8s.PutCrdParams) middleware.Responder {
+			return middleware.NotImplemented("operation k8s.PutCrd has not yet been implemented")
+		}),
 		EndpointPutEndpointIDHandler: endpoint.PutEndpointIDHandlerFunc(func(params endpoint.PutEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.PutEndpointID has not yet been implemented")
 		}),
@@ -296,6 +300,8 @@ type CiliumAPIAPI struct {
 	IpamPostIpamHandler ipam.PostIpamHandler
 	// IpamPostIpamIPHandler sets the operation handler for the post ipam IP operation
 	IpamPostIpamIPHandler ipam.PostIpamIPHandler
+	// K8sPutCrdHandler sets the operation handler for the put crd operation
+	K8sPutCrdHandler k8s.PutCrdHandler
 	// EndpointPutEndpointIDHandler sets the operation handler for the put endpoint ID operation
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
 	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
@@ -497,6 +503,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.IpamPostIpamIPHandler == nil {
 		unregistered = append(unregistered, "ipam.PostIpamIPHandler")
+	}
+	if o.K8sPutCrdHandler == nil {
+		unregistered = append(unregistered, "k8s.PutCrdHandler")
 	}
 	if o.EndpointPutEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.PutEndpointIDHandler")
@@ -755,6 +764,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
 	o.handlers["POST"]["/ipam/{ip}"] = ipam.NewPostIpamIP(o.context, o.IpamPostIpamIPHandler)
+	if o.handlers["PUT"] == nil {
+		o.handlers["PUT"] = make(map[string]http.Handler)
+	}
+	o.handlers["PUT"]["/crd"] = k8s.NewPutCrd(o.context, o.K8sPutCrdHandler)
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}

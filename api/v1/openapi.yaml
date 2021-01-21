@@ -90,6 +90,23 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+  "/crd":
+    put:
+      summary: Register CRD
+      description: |
+        Registers a CRD to the K8s apiserver.
+      tags:
+      - k8s
+      parameters:
+      - "$ref": "#/parameters/crd"
+      responses:
+        '201':
+          description: Success
+        '500':
+          description: Registration failure
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/endpoint/{id}":
     get:
       summary: Get endpoint by endpoint ID
@@ -989,6 +1006,14 @@ parameters:
     required: false
     in: query
     type: string
+  crd:
+    name: crd
+    in: body
+    required: true
+    schema:
+      description: Serialized bytes representing a CRD YAML
+      type: string
+      format: binary
 
 
 definitions:
