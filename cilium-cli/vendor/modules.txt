@@ -27,7 +27,7 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
-# github.com/cilium/cilium v1.9.1
+# github.com/cilium/cilium v1.9.2
 ## explicit
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/daemon
@@ -144,7 +144,7 @@ github.com/go-openapi/errors
 github.com/go-openapi/jsonpointer
 # github.com/go-openapi/jsonreference v0.19.4
 github.com/go-openapi/jsonreference
-# github.com/go-openapi/loads v0.19.5
+# github.com/go-openapi/loads v0.19.6
 github.com/go-openapi/loads
 # github.com/go-openapi/runtime v0.19.20
 github.com/go-openapi/runtime
@@ -162,7 +162,7 @@ github.com/go-openapi/spec
 github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.19.9
 github.com/go-openapi/swag
-# github.com/go-openapi/validate v0.19.10
+# github.com/go-openapi/validate v0.19.12
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
@@ -339,7 +339,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
+# golang.org/x/sys v0.0.0-20201231184435-2d18734c6014
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
@@ -349,7 +349,7 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+# golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 golang.org/x/time/rate
 # google.golang.org/appengine v1.6.6
 google.golang.org/appengine
@@ -452,7 +452,7 @@ gopkg.in/ini.v1
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit
 gopkg.in/yaml.v2
-# k8s.io/api v0.19.4
+# k8s.io/api v0.19.6
 ## explicit
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -495,7 +495,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apimachinery v0.19.4
+# k8s.io/apimachinery v0.19.6
 ## explicit
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
@@ -536,7 +536,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v0.19.4
+# k8s.io/client-go v0.19.6
 ## explicit
 k8s.io/client-go/discovery
 k8s.io/client-go/kubernetes
