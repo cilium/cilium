@@ -11,8 +11,8 @@ ACTS_YAML=".github/cilium-actions.yml"
 
 usage() {
     logecho "usage: $0 <VERSION> <GH-PROJECT>"
-    logecho "VERSION    Target release version"
-    logecho "GH-PROJECT Project ID for next release"
+    logecho "VERSION    Target release version (format: X.Y.Z)"
+    logecho "GH-PROJECT Project Number for next (X.Y.Z+1) development release"
     logecho
     logecho "--help     Print this help message"
 }
