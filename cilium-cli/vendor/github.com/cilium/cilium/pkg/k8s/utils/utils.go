@@ -20,7 +20,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
-	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,6 +68,13 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	return ns + "/" + obj.GetName()
 }
 
+// ServiceConfiguration is the required configuration for GetServiceListOptionsModifier
+type ServiceConfiguration interface {
+	// K8sServiceProxyName must return the value of the proxy name
+	// annotation. If set, only services with this label will be handled.
+	K8sServiceProxyName() string
+}
+
 // GetServiceListOptionsModifier returns the options modifier for service object list.
 // This methods returns a ListOptions modifier which adds a label selector to only
 // select services that are in context of Cilium.
@@ -77,7 +83,7 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 // handle services that match our service proxy name. If the service proxy name for Cilium
 // is an empty string, we assume that Cilium is the default service handler in which case
 // we select all services that don't have the above mentioned label.
-func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) {
+func GetServiceListOptionsModifier(cfg ServiceConfiguration) (func(options *v1meta.ListOptions), error) {
 	var (
 		serviceNameSelector, nonHeadlessServiceSelector *labels.Requirement
 		err                                             error
@@ -88,12 +94,12 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 		return nil, err
 	}
 
-	if option.Config.K8sServiceProxyName == "" {
+	if cfg.K8sServiceProxyName() == "" {
 		serviceNameSelector, err = labels.NewRequirement(
 			serviceProxyNameLabel, selection.DoesNotExist, nil)
 	} else {
 		serviceNameSelector, err = labels.NewRequirement(
-			serviceProxyNameLabel, selection.DoubleEquals, []string{option.Config.K8sServiceProxyName})
+			serviceProxyNameLabel, selection.DoubleEquals, []string{cfg.K8sServiceProxyName()})
 	}
 
 	if err != nil {

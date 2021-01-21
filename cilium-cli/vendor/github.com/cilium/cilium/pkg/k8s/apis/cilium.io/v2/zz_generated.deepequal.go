@@ -82,10 +82,17 @@ func (in *CiliumClusterwideNetworkPolicy) deepEqual(other *CiliumClusterwideNetw
 		return false
 	}
 
-	if (in.CiliumNetworkPolicy == nil) != (other.CiliumNetworkPolicy == nil) {
+	if (in.Spec == nil) != (other.Spec == nil) {
 		return false
-	} else if in.CiliumNetworkPolicy != nil {
-		if !in.CiliumNetworkPolicy.DeepEqual(other.CiliumNetworkPolicy) {
+	} else if in.Spec != nil {
+		if !in.Spec.DeepEqual(other.Spec) {
+			return false
+		}
+	}
+
+	if ((in.Specs != nil) && (other.Specs != nil)) || ((in.Specs == nil) != (other.Specs == nil)) {
+		in, other := &in.Specs, &other.Specs
+		if other == nil || !in.DeepEqual(other) {
 			return false
 		}
 	}
