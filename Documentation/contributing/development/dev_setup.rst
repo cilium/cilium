@@ -91,7 +91,7 @@ existing cluster. For example, to add a net-next VM to a one-node cluster:
 
 ::
 
-    $ NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
+    $ K8S=1 NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
 
 Cilium Vagrantfiles look for a file ``.devvmrc`` in the root of your
 Cilium repository. This file is ignored for Git, so it does not exist
