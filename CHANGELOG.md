@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.9.3
+
+Summary of Changes
+------------------
+
+**This version fixes v1.9.2 docker images that were released in quay.io. These
+images were accidentally build from the master branch and they are not safe to
+run in production environments. Users using quay.io images are advised to
+upgrade to v1.9.3.**
+
+**Misc Changes:**
+* [v1.9] .github: update v1.9 cilium-actions project number (#14685, @aanm)
+
+**Other Changes:**
+* [v1.9] docs: Add `quick-hubble-install.yaml` method (#14468, @gandro)
+
 ## v1.9.2
 
 Summary of Changes
