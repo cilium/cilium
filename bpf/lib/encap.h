@@ -113,7 +113,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		    __u32 seclabel, __u32 monitor)
+		    __u32 seclabel)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -137,8 +137,6 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
-			  0, monitor);
 	return 0;
 }
 
@@ -146,10 +144,12 @@ static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 monitor)
 {
-	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
-
+	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel);
 	if (ret != 0)
 		return ret;
+
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
+			  0, monitor);
 	return redirect(ENCAP_IFINDEX, 0);
 }
 

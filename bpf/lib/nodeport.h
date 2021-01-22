@@ -472,6 +472,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	__u8 obs_point = TRACE_TO_NETWORK;
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -489,7 +490,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  SECLABEL, TRACE_PAYLOAD_LEN);
+						  SECLABEL);
 			if (ret)
 				return ret;
 
@@ -529,8 +530,10 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 #ifdef ENCAP_IFINDEX
-	if (fib_params.l.ifindex == ENCAP_IFINDEX)
+	if (fib_params.l.ifindex == ENCAP_IFINDEX) {
+		obs_point = TRACE_TO_OVERLAY;
 		goto out_send;
+	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -576,6 +579,8 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		}
 	}
 out_send: __maybe_unused
+	send_trace_notify(ctx, obs_point, SECLABEL, 0, 0, fib_params.l.ifindex,
+			  0, TRACE_PAYLOAD_LEN);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -797,7 +802,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							  SECLABEL, TRACE_PAYLOAD_LEN);
+							  SECLABEL);
 				if (ret)
 					return ret;
 
@@ -853,8 +858,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
-	int ifindex = 0;
-	int ret = 0;
+	__u8 obs_point = TRACE_TO_NETWORK;
+	int ifindex = 0, ret = 0;
+
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
@@ -873,7 +879,14 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
 	edt_set_aggregate(ctx, 0);
+#ifdef ENCAP_IFINDEX
+	if (ifindex == ENCAP_IFINDEX)
+		obs_point = TRACE_TO_OVERLAY;
+#endif
+	send_trace_notify(ctx, obs_point, SECLABEL, 0, 0, ifindex, 0,
+			  TRACE_PAYLOAD_LEN);
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
@@ -1292,6 +1305,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	__u8 obs_point = TRACE_TO_NETWORK;
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1309,7 +1323,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						  SECLABEL, TRACE_PAYLOAD_LEN);
+						  SECLABEL);
 			if (ret)
 				goto drop_err;
 
@@ -1353,8 +1367,10 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 #ifdef ENCAP_IFINDEX
-	if (fib_params.l.ifindex == ENCAP_IFINDEX)
+	if (fib_params.l.ifindex == ENCAP_IFINDEX) {
+		obs_point = TRACE_TO_OVERLAY;
 		goto out_send;
+	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -1398,6 +1414,8 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		}
 	}
 out_send: __maybe_unused
+	send_trace_notify(ctx, obs_point, SECLABEL, 0, 0, fib_params.l.ifindex,
+			  0, TRACE_PAYLOAD_LEN);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -1626,7 +1644,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							  SECLABEL, TRACE_PAYLOAD_LEN);
+							  SECLABEL);
 				if (ret)
 					return ret;
 
@@ -1683,8 +1701,9 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 {
-	int ifindex = 0;
-	int ret = 0;
+	__u8 obs_point = TRACE_TO_NETWORK;
+	int ifindex = 0, ret = 0;
+
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
@@ -1703,7 +1722,14 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb4(ctx, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
 	edt_set_aggregate(ctx, 0);
+#ifdef ENCAP_IFINDEX
+	if (ifindex == ENCAP_IFINDEX)
+		obs_point = TRACE_TO_OVERLAY;
+#endif
+	send_trace_notify(ctx, obs_point, SECLABEL, 0, 0, ifindex, 0,
+			  TRACE_PAYLOAD_LEN);
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
