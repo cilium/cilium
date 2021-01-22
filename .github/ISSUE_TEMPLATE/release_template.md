@@ -25,8 +25,11 @@ assignees: ''
 - [ ] Ensure that outstanding [backport PRs] are merged
 - [ ] Consider building new [cilium-runtime images] and bumping the base image
       versions on this branch
+- [ ] Execute `release --current-version X.Y.Z --next-dev-version X.Y.W` to automatically
+  move any unresolved issues/PRs from old release project into the new
+  project. (`W` should be calculation of `Z+1`)
 - [ ] Push a PR including the changes necessary for the new release:
-  - [ ] Pull latest branch
+  - [ ] Pull latest changes from the branch being released
   - [ ] Run `contrib/release/start-release.sh`
   - [ ] (If applicable) Update the `cilium_version` and `cilium_tag` in
         `examples/getting-started/Vagrantfile`
@@ -34,9 +37,6 @@ assignees: ''
         instructions.
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
   - [ ] Submit PR (`contrib/release/submit-release.sh`)
-- [ ] Execute `release --current-version X.Y.Z --next-dev-version X.Y.W` to automatically
-      move any unresolved issues/PRs from old release project into the new
-      project. (`W` should be calculation of `Z+1`)
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
