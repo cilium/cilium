@@ -1679,6 +1679,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	// /ip/
 	restAPI.PolicyGetIPHandler = NewGetIPHandler()
 
+	// /crd
+	restAPI.K8sPutCrdHandler = newPutCRDHandler()
+
 	return restAPI
 }
 
