@@ -1284,6 +1284,15 @@ func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
 // NodeNeighborRefresh is called to refresh node neighbor table.
 // This is currently triggered by controller neighbor-table-refresh
 func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node) {
+	n.mutex.Lock()
+	isInitialized := n.isInitialized
+	n.mutex.Unlock()
+	if !isInitialized {
+		// Wait until the node is initialized. When it's not, insertNeighbor()
+		// is not invoked, so there is nothing to refresh.
+		return
+	}
+
 	var ifaceName string
 	if option.Config.EnableNodePort {
 		ifaceName = option.Config.DirectRoutingDevice
