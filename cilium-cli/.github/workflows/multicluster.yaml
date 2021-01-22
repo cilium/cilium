@@ -13,6 +13,7 @@ env:
 jobs:
   installation-and-connectivitiy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v2
