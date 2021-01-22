@@ -1599,17 +1599,19 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				// but not from k8s2 to k8s1. In the k8s2 to k8s1 case, kube-proxy
 				// would send traffic to k8s1, where it would be subsequently
 				// dropped, because k8s1 has no service backend.
-				// However, if HostReachableServices is enabled, then Cilium does
-				// the service translation already on the client node, bypassing
-				// kube-proxy completely.
+				// If HostReachableServices is enabled, Cilium does the service
+				// translation for ClusterIP services on the client node, bypassing
+				// kube-proxy completely. Here, we are probing NodePort service, so we
+				// need BPF NodePort to be enabled as well for the requests to succeed.
 				hostReachableServicesTCP := kubectl.HasHostReachableServices(ciliumPodK8s2, true, false)
 				hostReachableServicesUDP := kubectl.HasHostReachableServices(ciliumPodK8s2, false, true)
-				if hostReachableServicesTCP {
+				bpfNodePort := kubectl.HasBPFNodePort(ciliumPodK8s2)
+				if (hostReachableServicesTCP && bpfNodePort) || !isSupported(k8sVersion) {
 					testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
 				} else {
 					testCurlFailFromPodInHostNetNS(httpURL, 1, k8s2NodeName)
 				}
-				if hostReachableServicesUDP {
+				if (hostReachableServicesUDP && bpfNodePort) || !isSupported(k8sVersion) {
 					testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
 				} else {
 					testCurlFailFromPodInHostNetNS(tftpURL, 1, k8s2NodeName)
