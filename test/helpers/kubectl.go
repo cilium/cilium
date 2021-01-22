@@ -2077,7 +2077,7 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary() {
 		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s -l %s", KubectlCmd, KubeSystemNamespace, kubeDNSLabel))
 		ginkgoext.By(desc.GetDebugMessage())
 
-		ginkgoext.Fail("Kubernetes DNS did not become ready in time")
+		Fail("Kubernetes DNS did not become ready in time")
 	}
 }
 
