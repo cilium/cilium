@@ -562,11 +562,11 @@ func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP, ifaceName strin
 	// Figure out whether nodeIPv4 is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGet(nodeIPv4)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to retrieve route for remote node IP: %w", err)
+		return nil, nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
 
 	if len(routes) == 0 {
-		return nil, nil, fmt.Errorf("Remote node IP is not routable. Connectivity to pods on that node may be unavailable.")
+		return nil, nil, fmt.Errorf("remote node IP is non-routable")
 	}
 
 	// Use the first available route by default
@@ -608,15 +608,18 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	copy(nextHopIPv4, newNodeIP)
 
 	scopedLog := log.WithFields(logrus.Fields{
+		logfields.LogSubsys: "node-neigh",
 		logfields.Interface: ifaceName,
-		logfields.IPAddr:    nextHopIPv4,
+		logfields.IPAddr:    newNodeIP,
 	})
 
 	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4, ifaceName)
 	if err != nil {
-		scopedLog.WithError(err).Error("Failed to determine source and next hop ip for arping")
+		scopedLog.WithError(err).Error("Failed to determine source and nexthop IP addr")
 		return
 	}
+
+	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
 
 	nextHopStr := nextHopIPv4.String()
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
@@ -635,7 +638,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 			neigh, found := n.neighByNextHop[existingNextHopStr]
 			if found {
 				if err := netlink.NeighDel(neigh); err != nil {
-					log.WithFields(logrus.Fields{
+					scopedLog.WithFields(logrus.Fields{
 						logfields.IPAddr:       neigh.IP,
 						logfields.HardwareAddr: neigh.HardwareAddr,
 						logfields.LinkIndex:    neigh.LinkIndex,
@@ -728,6 +731,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 		if found {
 			if err := netlink.NeighDel(neigh); err != nil {
 				log.WithFields(logrus.Fields{
+					logfields.LogSubsys:    "node-neigh",
 					logfields.IPAddr:       neigh.IP,
 					logfields.HardwareAddr: neigh.HardwareAddr,
 					logfields.LinkIndex:    neigh.LinkIndex,
