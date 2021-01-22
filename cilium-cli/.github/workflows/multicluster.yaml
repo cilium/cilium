@@ -76,14 +76,6 @@ jobs:
 
           cmd/cilium/cilium clustermesh connect --context kind-cluster1 --destination-context kind-cluster2
 
-          # Workaround: Restart cilium to work around fsnotify bug
-          kubectl --context kind-cluster1 -n kube-system delete pod -l k8s-app=cilium
-          kubectl --context kind-cluster2 -n kube-system delete pod -l k8s-app=cilium
-
-          # Wait for Cilium to come back up
-          cmd/cilium/cilium status --context kind-cluster1 --wait
-          cmd/cilium/cilium status --context kind-cluster2 --wait
-
           # Wait for cluster connections to be estblished
           cmd/cilium/cilium clustermesh status --context kind-cluster1 --wait
           cmd/cilium/cilium clustermesh status --context kind-cluster2 --wait
