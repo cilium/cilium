@@ -586,8 +586,18 @@ func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP, ifaceName strin
 	return srcIPv4, nextHopIPv4, nil
 }
 
-// Must be called with linuxNodeHandler.mutex held.
-func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
+// insertNeighbor inserts a permanent ARP entry for a nexthop to the given
+// "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop
+// is determined by sending ARP request for the nexthop from an iface specified
+// by the given "ifaceName".
+//
+// The given "refresh" param denotes whether the method is called by a controller
+// which tries to update ARP entries previously inserted by insertNeighbor(). In
+// this case it does not bail out early if the ARP entry already exists, and
+// sends the ARP request anyway.
+//
+// The method must be called with linuxNodeHandler.mutex held.
+func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, ifaceName string, refresh bool) {
 	if newNode.IsLocal() {
 		return
 	}
@@ -613,13 +623,16 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			// We already know about the nextHop of the given newNode. Can happen
 			// when insertNeighbor is called by NodeUpdate multiple times for
 			// the same node.
-			return
-		}
-		// nextHop has changed, so remove the old one.
-		if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+			if !refresh {
+				// In the case of refresh, don't return early, as we want to
+				// update the related neigh entry even if the nextHop is the same
+				// (e.g. to detect the GW MAC addr change).
+				return
+			}
+		} else if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+			// nextHop has changed and nobody else is using it, so remove the old one.
 			neigh, found := n.neighByNextHop[existingNextHopStr]
 			if found {
-				delete(n.neighByNextHop, nextHopStr)
 				if err := netlink.NeighDel(neigh); err != nil {
 					log.WithFields(logrus.Fields{
 						logfields.IPAddr:       neigh.IP,
@@ -627,6 +640,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 						logfields.LinkIndex:    neigh.LinkIndex,
 					}).WithError(err).Warn("Failed to remove neighbor entry")
 				}
+				delete(n.neighByNextHop, nextHopStr)
 				if option.Config.NodePortHairpin {
 					neighborsmap.NeighRetire(net.ParseIP(existingNextHopStr))
 				}
@@ -635,10 +649,14 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	}
 
 	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
-	_, found := n.neighByNextHop[nextHopStr]
 
-	// nextHop hasn't been arpinged before OR it was but the arping failed
-	if n.neighNextHopRefCount.Add(nextHopStr) || !found {
+	nextHopIsNew := false
+	if !refresh {
+		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
+	}
+
+	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
+	if nextHopIsNew || refresh {
 		iface, err := net.InterfaceByName(ifaceName)
 		if err != nil {
 			scopedLog.WithError(err).Error("Failed to retrieve iface by name")
@@ -657,6 +675,14 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			scopedLog.WithError(err).Error("arping failed")
 			return
 		}
+
+		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
+			// Nothing to update, return early to avoid calling to netlink. This
+			// is based on the assumption that n.neighByNextHop gets populated
+			// after the netlink call to insert the neigh has succeeded.
+			return
+		}
+
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
 		neigh := netlink.Neigh{
@@ -665,104 +691,31 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			HardwareAddr: hwAddr,
 			State:        netlink.NUD_PERMANENT,
 		}
+		// Don't proceed if the refresh controller cancelled the context
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		if err := netlink.NeighSet(&neigh); err != nil {
 			scopedLog.WithError(err).Error("Failed to insert neighbor")
 			return
 		}
-
 		n.neighByNextHop[nextHopStr] = &neigh
+
 		if option.Config.NodePortHairpin {
 			neighborsmap.NeighRetire(nextHopIPv4)
 		}
 	}
 }
 
-func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, ifaceName string, ch chan struct{}) {
-	defer close(ch)
-	if nodeToRefresh.IsLocal() {
-		return
-	}
-
-	nodeIP := nodeToRefresh.GetNodeIP(false).To4()
-	nextHopIPv4 := make(net.IP, len(nodeIP))
-	copy(nextHopIPv4, nodeIP)
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Interface: ifaceName,
-		logfields.IPAddr:    nextHopIPv4,
-	})
-
-	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4, ifaceName)
-	if err != nil {
-		scopedLog.WithError(err).Error("Failed to determine source and next hop ip for arping")
-		return
-	}
-
-	nextHopStr := nextHopIPv4.String()
-	n.mutex.Lock()
-	n.neighNextHopByNode[nodeToRefresh.Identity()] = nextHopStr
-	oldNeigh, oldNeighFound := n.neighByNextHop[nextHopStr]
-	_, refCountExists := n.neighNextHopRefCount[nextHopStr]
-
-	// If somehow the next hop of the neighbor we are refreshing hasn't been referenced, add it.
-	if !refCountExists {
-		n.neighNextHopRefCount.Add(nextHopStr)
-	}
-	n.mutex.Unlock()
-
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		scopedLog.WithError(err).Error("Failed to retrieve iface by name")
-		return
-	}
-
-	linkAttr, err := netlink.LinkByName(ifaceName)
-	if err != nil {
-		scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
-		return
-	}
-	link := linkAttr.Attrs().Index
-
-	hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface, srcIPv4)
-	if err != nil {
-		scopedLog.WithError(err).Error("arping failed")
-		return
-	}
-
-	// MAC address hasn't changed.
-	if oldNeighFound && hwAddr.String() == oldNeigh.HardwareAddr.String() {
-		return
-	}
-
-	scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
-
-	neigh := netlink.Neigh{
-		LinkIndex:    link,
-		IP:           nextHopIPv4,
-		HardwareAddr: hwAddr,
-		State:        netlink.NUD_PERMANENT,
-	}
-
-	// Don't proceed if the refresh controller canceled the context
-	select {
-	case <-ctx.Done():
-		return
-	default:
-	}
-
-	if err := netlink.NeighSet(&neigh); err != nil {
-		scopedLog.WithError(err).Error("Failed to replace neighbor entry")
-		return
-	}
-	scopedLog.Debug("Neighbor MAC address has changed, replaced neighbor entry")
+func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, ifaceName string, completed chan struct{}) {
+	defer close(completed)
 
 	n.mutex.Lock()
-	n.neighByNextHop[nextHopStr] = &neigh
-	if option.Config.NodePortHairpin {
-		neighborsmap.NeighRetire(nextHopIPv4)
-	}
-	n.mutex.Unlock()
-	return
+	defer n.mutex.Unlock()
+
+	n.insertNeighbor(ctx, nodeToRefresh, ifaceName, true)
 }
 
 // Must be called with linuxNodeHandler.mutex held.
@@ -881,7 +834,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		} else {
 			ifaceName = option.Config.EncryptInterface
 		}
-		n.insertNeighbor(newNode, ifaceName)
+		n.insertNeighbor(context.Background(), newNode, ifaceName, false)
 	}
 
 	if n.nodeConfig.EnableIPSec {
