@@ -56,7 +56,11 @@ assignees: ''
       & push to repository
 - [ ] Run sanity check of Helm install using connectivity-check script.
       Suggested approach: Follow the full [GKE getting started guide].
-- [ ] Check draft release from [releases] page and publish the release
+- [ ] Check draft release from [releases] page
+  - [ ] Update the text at the top with 2-3 highlights of the release
+  - [ ] Run `contrib/release/pull-docker-manifests.sh` to fetch the image SHAs
+        and copy the text into the end of the release
+  - [ ] Publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
 - [ ] Update Grafana dashboards (only for vX.Y.0)
   - Install the dashboards available in ``./examples/kubernetes/addons/prometheus``
