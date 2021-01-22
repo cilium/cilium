@@ -19,26 +19,27 @@ RUNDIR=$2
 IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
+TUNNEL_MODE=$6
 # Only set if MODE = "direct", "ipvlan", "flannel"
-NATIVE_DEVS=$6
-HOST_DEV1=$7
-HOST_DEV2=$8
-XDP_DEV=$9
-XDP_MODE=${10}
-MTU=${11}
-IPSEC=${12}
-ENCRYPT_DEV=${13}
-HOSTLB=${14}
-HOSTLB_UDP=${15}
-HOSTLB_PEER=${16}
-CGROUP_ROOT=${17}
-BPFFS_ROOT=${18}
-NODE_PORT=${19}
-NODE_PORT_BIND=${20}
-MCPU=${21}
-NR_CPUS=${22}
-ENDPOINT_ROUTES=${23}
-PROXY_RULE=${24}
+NATIVE_DEVS=$7
+HOST_DEV1=$8
+HOST_DEV2=$9
+XDP_DEV=${10}
+XDP_MODE=${11}
+MTU=${12}
+IPSEC=${13}
+ENCRYPT_DEV=${14}
+HOSTLB=${15}
+HOSTLB_UDP=${16}
+HOSTLB_PEER=${17}
+CGROUP_ROOT=${18}
+BPFFS_ROOT=${19}
+NODE_PORT=${20}
+NODE_PORT_BIND=${21}
+MCPU=${22}
+NR_CPUS=${23}
+ENDPOINT_ROUTES=${24}
+PROXY_RULE=${25}
 
 ID_HOST=1
 ID_WORLD=2
@@ -481,10 +482,10 @@ else
 	ip link del cilium_sit   2> /dev/null || true
 fi
 
-if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
-	ENCAP_DEV="cilium_${MODE}"
+if [ "$MODE" = "tunnel" ]; then
+	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 	ip link show $ENCAP_DEV || {
-		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $MODE external || encap_fail
+		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE external || encap_fail
 	}
 	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 
