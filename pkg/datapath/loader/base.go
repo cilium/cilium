@@ -50,6 +50,7 @@ const (
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
 	initArgMode
+	initArgTunnelMode
 	initArgDevices
 	initArgHostDev1
 	initArgHostDev2
@@ -304,11 +305,13 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	var mode baseDeviceMode
+	args[initArgTunnelMode] = "<nil>"
 	switch {
 	case option.Config.IsFlannelMasterDeviceSet():
 		mode = flannelMode
 	case option.Config.Tunnel != option.TunnelDisabled:
-		mode = baseDeviceMode(option.Config.Tunnel)
+		mode = tunnelMode
+		args[initArgTunnelMode] = option.Config.Tunnel
 	case option.Config.DatapathMode == datapathOption.DatapathModeIpvlan:
 		mode = ipvlanMode
 	case option.Config.EnableHealthDatapath:

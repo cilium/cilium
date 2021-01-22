@@ -35,6 +35,7 @@ const (
 	flannelMode = baseDeviceMode("flannel")
 	ipvlanMode  = baseDeviceMode("ipvlan")
 	directMode  = baseDeviceMode("direct")
+	tunnelMode  = baseDeviceMode("tunnel")
 
 	libbpfFixupMsg = "struct bpf_elf_map fixup performed due to size mismatch!"
 )
