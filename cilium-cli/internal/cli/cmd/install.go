@@ -51,7 +51,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	cmd.Flags().StringVar(&params.Version, "version", "", "Cilium version to install")
-	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Cilium version to install")
+	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use")
 	cmd.Flags().StringVar(&params.NativeRoutingCIDR, "native-routing-cidr", "", "CIDR within which native routing is possible")
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
