@@ -1321,6 +1321,18 @@ func initEnv(cmd *cobra.Command) {
 	if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
 		option.Config.NeedsRelaxVerifier = true
 	}
+
+	if option.Config.IPAM == ipamOption.IPAMAzure {
+		option.Config.EgressMultiHomeIPRuleCompat = true
+		log.WithFields(logrus.Fields{
+			"URL": "https://github.com/cilium/cilium/issues/14705",
+		}).Infof(
+			"Auto-set %q to `true` because the Azure datapath has not been migrated over to a new scheme. "+
+				"A future version of Cilium will support a newer Azure datapath. "+
+				"Connectivity is not affected.",
+			option.EgressMultiHomeIPRuleCompat,
+		)
+	}
 }
 
 func (d *Daemon) initKVStore() {
