@@ -55,7 +55,7 @@ checkpatch:
 		--workdir /workspace \
 		--volume $(CURDIR)/..:/workspace \
 		--user "$(shell id -u):$(shell id -g)" \
-		cilium/cilium-checkpatch:5b099019bf0db775b33b3f32cd5ecea55dd15f21
+		cilium/cilium-checkpatch:e6a6843cef50a43c38819badb55a21061967ce64
 
 coccicheck:
 	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/contrib/coccinelle/ -name '*.cocci'), \
