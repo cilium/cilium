@@ -587,6 +587,8 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
+// HasHostReachableServices returns true if the given Cilium pod has TCP and/or
+// UDP host reachable services are enabled.
 func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
 		"cilium status -o jsonpath='{.kube-proxy-replacement.features.hostReachableServices}'")
@@ -603,6 +605,16 @@ func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool
 		return false
 	}
 	return true
+}
+
+// HasBPFNodePort returns true if the given Cilium pod has BPF NodePort enabled.
+func (kub *Kubectl) HasBPFNodePort(pod string) bool {
+	status := kub.CiliumExecContext(context.TODO(), pod,
+		"cilium status -o jsonpath='{.kube-proxy-replacement.features.nodePort.enabled}'")
+	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
+	lines := status.ByLines()
+	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get nodePort status")
+	return strings.Contains(lines[0], "true")
 }
 
 // GetNodeWithoutCilium returns a name of a node which does not run cilium.
