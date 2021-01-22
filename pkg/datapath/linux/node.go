@@ -609,10 +609,36 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	}
 
 	nextHopStr := nextHopIPv4.String()
+	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
+		if existingNextHopStr == nextHopStr {
+			// We already know about the nextHop of the given newNode. Can happen
+			// when insertNeighbor is called by NodeUpdate multiple times for
+			// the same node.
+			return
+		}
+		// nextHop has changed, so remove the old one.
+		if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+			neigh, found := n.neighByNextHop[existingNextHopStr]
+			if found {
+				delete(n.neighByNextHop, nextHopStr)
+				if err := netlink.NeighDel(neigh); err != nil {
+					log.WithFields(logrus.Fields{
+						logfields.IPAddr:       neigh.IP,
+						logfields.HardwareAddr: neigh.HardwareAddr,
+						logfields.LinkIndex:    neigh.LinkIndex,
+					}).WithError(err).Warn("Failed to remove neighbor entry")
+				}
+				if option.Config.NodePortHairpin {
+					neighborsmap.NeighRetire(net.ParseIP(existingNextHopStr))
+				}
+			}
+		}
+	}
+
 	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
 	_, found := n.neighByNextHop[nextHopStr]
 
-	// nextHop hasn't been arpinged before OR the arping failed
+	// nextHop hasn't been arpinged before OR it was but the arping failed
 	if n.neighNextHopRefCount.Add(nextHopStr) || !found {
 		linkAttr, err := netlink.LinkByName(ifaceName)
 		if err != nil {
