@@ -60,6 +60,12 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services, IPVLAN
       L: https://www.alibabacloud.com/blog/how-does-alibaba-cloud-build-high-performance-cloud-native-pod-networks-in-production-environments_596590
 
+    * N: ArangoDB Oasis
+      D: ArangoDB Oasis is using Cilium in to separate database deployments in our multi-tenant cloud environment
+      U: Networking, CiliumNetworkPolicy(cluster & local), Hubble, IPAM
+      L: https://cloud.arangodb.com
+      Q: @ewoutp @Robert-Stam
+
     * N: Canonical
       D: Canonical's Kubernetes distribution microk8s uses Cilium as CNI plugin
       U: Networking, NetworkPolicy, and Kubernetes services
