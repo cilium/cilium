@@ -1292,26 +1292,32 @@ var _ = Describe("K8sServicesTest", func() {
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"global.encryption.enabled": "true",
-					// When kube-proxy is enabled, the host firewall is not
-					// compatible with externalTrafficPolicy=Local because traffic
-					// from pods to remote nodes goes through the tunnel.
-					// This issue is tracked at #12542.
-					"global.hostFirewall": "false",
 				})
 				testExternalTrafficPolicyLocal()
 				deploymentManager.DeleteAll()
 				deploymentManager.DeleteCilium()
 			})
-			It("with externalTrafficPolicy=Local", func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					// When kube-proxy is enabled, the host firewall is not
-					// compatible with externalTrafficPolicy=Local because traffic
-					// from pods to remote nodes goes through the tunnel.
-					// This issue is tracked at #12542.
-					"global.hostFirewall": "false",
-				})
+
+			It("with the host firewall and externalTrafficPolicy=Local", func() {
+				options := map[string]string{
+					"global.hostFirewall": "true",
+				}
+				// We can't rely on gke.enabled because it enables
+				// per-endpoint routes which are incompatible with
+				// the host firewall.
+				if helpers.GetCurrentIntegration() == helpers.CIIntegrationGKE {
+					options["global.gke.enabled"] = "false"
+					options["global.tunnel"] = "disabled"
+				}
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 				testExternalTrafficPolicyLocal()
 			})
+
+			It("with externalTrafficPolicy=Local", func() {
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
+				testExternalTrafficPolicyLocal()
+			})
+
 			It("", func() {
 				testNodePort(false, false, false, 0)
 			})
