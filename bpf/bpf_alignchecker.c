@@ -83,6 +83,8 @@ int main(void)
 	DECLARE(struct, lb6_src_range_key, iter);
 	DECLARE(struct, edt_id, iter);
 	DECLARE(struct, edt_info, iter);
+	DECLARE(struct, egress_key, iter);
+	DECLARE(struct, egress_info, iter);
 
 	return 0;
 }

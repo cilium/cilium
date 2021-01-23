@@ -210,6 +210,11 @@ struct endpoint_info {
 	__u32		pad[4];
 };
 
+struct egress_info {
+	__u32 egress_ip;
+	__u32 tunnel_endpoint;
+};
+
 struct edt_id {
 	__u64		id;
 };
