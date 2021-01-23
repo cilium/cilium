@@ -119,6 +119,10 @@ func (k *K8sClusterMesh) generateService() *corev1.Service {
 			svc.ObjectMeta.Annotations["cloud.google.com/load-balancer-type"] = "Internal"
 			// if all the clusters are in the same region the next annotation can be removed
 			svc.ObjectMeta.Annotations["networking.gke.io/internal-load-balancer-allow-global-access"] = "true"
+		case k8s.KindAKS:
+			k.Log("🔮 Auto-exposing service within Azure VPC (service.beta.kubernetes.io/azure-load-balancer-internal)")
+			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+			svc.ObjectMeta.Annotations["service.beta.kubernetes.io/azure-load-balancer-internal"] = "true"
 		case k8s.KindEKS:
 			k.Log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0")
 			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
