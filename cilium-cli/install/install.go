@@ -1269,14 +1269,18 @@ func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
 		return nil
 	}
 
+	cepMap := map[string]struct{}{}
 	ceps, err := k.client.ListCiliumEndpoints(ctx, "", metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to list cilium endpoints: %w", err)
-	}
-
-	cepMap := map[string]struct{}{}
-	for _, cep := range ceps.Items {
-		cepMap[cep.Namespace+"/"+cep.Name] = struct{}{}
+		// When the CEP has not been registered yet, it's impossible
+		// for any pods to be managed by Cilium.
+		if err.Error() != "the server could not find the requested resource (get ciliumendpoints.cilium.io)" {
+			return fmt.Errorf("unable to list cilium endpoints: %w", err)
+		}
+	} else {
+		for _, cep := range ceps.Items {
+			cepMap[cep.Namespace+"/"+cep.Name] = struct{}{}
+		}
 	}
 
 	for _, pod := range pods.Items {
