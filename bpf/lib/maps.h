@@ -165,6 +165,23 @@ struct bpf_elf_map __section_maps ENCRYPT_MAP = {
 	.max_elem	= 1,
 };
 
+struct egress_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32 sip;
+	__u32 dip;
+};
+
+#ifdef ENABLE_EGRESS_GATEWAY
+struct bpf_elf_map __section_maps EGRESS_MAP = {
+	.type		= LPM_MAP_TYPE,
+	.size_key	= sizeof(struct egress_key),
+	.size_value	= sizeof(struct egress_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= EGRESS_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif /* ENABLE_EGRESS_GATEWAY */
+
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx,
 					 const __u32 index)
