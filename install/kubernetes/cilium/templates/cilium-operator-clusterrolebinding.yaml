@@ -9,6 +9,6 @@ roleRef:
   name: cilium-operator
 subjects:
 - kind: ServiceAccount
-  name: cilium-operator
+  name: {{ .Values.operator.serviceAccountName | quote }}
   namespace: {{ .Release.Namespace }}
 {{- end }}
