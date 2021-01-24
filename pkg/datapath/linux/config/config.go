@@ -148,6 +148,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	// TODO(anfernee): Update Documentation/concepts/ebpf/maps.rst when egress gateway support is merged.
+	cDefinesMap["EGRESS_MAP"] = egressmap.MapName
 	cDefinesMap["EGRESS_MAP_SIZE"] = fmt.Sprintf("%d", egressmap.MaxEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)

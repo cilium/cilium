@@ -52,6 +52,7 @@
 #include "lib/lb.h"
 #include "lib/nodeport.h"
 #include "lib/eps.h"
+#include "lib/egress_gw.h"
 #include "lib/host_firewall.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
@@ -1026,6 +1027,16 @@ out:
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       -DROP_EDT_HORIZON);
 		return ret;
+	}
+#endif
+
+#if defined(ENABLE_EGRESS_GATEWAY)
+	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+		ret = egress_nat_fwd(ctx);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, 0, ret,
+						      CTX_ACT_DROP,
+						      METRIC_EGRESS);
 	}
 #endif
 

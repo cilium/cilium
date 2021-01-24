@@ -704,6 +704,30 @@ ct_recreate4:
 		}
 	}
 
+#ifdef ENABLE_EGRESS_GATEWAY
+	{
+		struct egress_info *info;
+		struct endpoint_key key = {};
+
+		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
+		if (!info)
+			goto skip_egress_gateway;
+
+		/* Encap and redirect the packet to egress gateway node through a tunnel.
+		 * Even if the tunnel endpoint is on the same host, follow the same data
+		 * path to be consistent. In future, it can be optimized by directly
+		 * direct to external interface.
+		 */
+		ret = encap_and_redirect_lxc(ctx, info->tunnel_endpoint, encrypt_key,
+					     &key, SECLABEL, monitor);
+		if (ret == IPSEC_ENDPOINT)
+			goto encrypt_to_stack;
+		else
+			return ret;
+	}
+skip_egress_gateway:
+#endif
+
 #ifdef ENCAP_IFINDEX
 	{
 		struct endpoint_key key = {};
@@ -712,7 +736,7 @@ ct_recreate4:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, SECLABEL, monitor);
+					    &key, SECLABEL, monitor);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
