@@ -267,6 +267,9 @@ type TestRun struct {
 	// failures is the number of failures encountered in this test run
 	failures int
 
+	// warnings is the number of warnings encountered in this test run
+	warnings int
+
 	// flowsSettled is true once flows have been given time to settle so they can be collected
 	flowsSettled bool
 }
@@ -290,6 +293,12 @@ func NewTestRun(name string, c TestContext, src, dst TestPeer) *TestRun {
 func (t *TestRun) Failure(format string, a ...interface{}) {
 	t.context.Log("❌ "+format, a...)
 	t.failures++
+}
+
+// Warning must be called when a warning is detected performing the test
+func (t *TestRun) Warning(format string, a ...interface{}) {
+	t.context.Log("⚠️  "+format, a...)
+	t.warnings++
 }
 
 func (t *TestRun) printFlows(pod string, f *flowsSet) {
@@ -377,7 +386,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []Filter
 // called for both successful and failed test runs. It will log a summary and
 // print flow logs if necessary.
 func (t *TestRun) End() {
-	if t.context.PrintFlows() || t.failures > 0 {
+	if t.context.PrintFlows() || t.failures > 0 || t.warnings > 0 {
 		for name, flows := range t.flows {
 			t.printFlows(name, flows)
 		}
@@ -386,6 +395,8 @@ func (t *TestRun) End() {
 	prefix := "✅"
 	if t.failures > 0 {
 		prefix = "❌"
+	} else if t.warnings > 0 {
+		prefix = "⚠️ "
 	}
 
 	t.context.Log("%s [%s] %s (%s) -> %s (%s)",
@@ -400,6 +411,7 @@ func (t *TestRun) End() {
 	t.context.Report(TestResult{
 		Name:     t.verboseName,
 		Failures: t.failures,
+		Warnings: t.warnings,
 	})
 }
 
@@ -426,16 +438,30 @@ type ConnectivityTest interface {
 type TestResult struct {
 	Name     string
 	Failures int
+	Warnings int
 }
 
 func (t TestResult) String() string {
-	if t.Failures > 0 {
+	switch {
+	case t.Failures > 0:
 		return "❌ " + t.Name
+	case t.Warnings > 0:
+		return "⚠️  " + t.Name
+	default:
+		return "✅ " + t.Name
 	}
-	return "✅ " + t.Name
 }
 
 type TestResults map[string]TestResult
+
+func (t TestResults) Warnings() (warnings int) {
+	for _, result := range t {
+		if result.Warnings > 0 {
+			warnings++
+		}
+	}
+	return
+}
 
 func (t TestResults) Failed() (failed int) {
 	for _, result := range t {
@@ -459,7 +485,11 @@ type K8sConnectivityCheck struct {
 	results         TestResults
 }
 
-func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) *K8sConnectivityCheck {
+func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) (*K8sConnectivityCheck, error) {
+	if err := p.validate(); err != nil {
+		return nil, err
+	}
+
 	k := &K8sConnectivityCheck{
 		client:          client,
 		ciliumNamespace: "kube-system",
@@ -473,7 +503,7 @@ func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters)
 		}
 	}
 
-	return k
+	return k, nil
 }
 
 func (k *K8sConnectivityCheck) enableHubbleClient(ctx context.Context) error {
@@ -495,6 +525,11 @@ func (k *K8sConnectivityCheck) enableHubbleClient(ctx context.Context) error {
 		k.Log("ℹ️  Disabling Hubble telescope and flow validation...")
 		k.hubbleClient = nil
 		k.params.Hubble = false
+
+		if k.params.FlowValidation == FlowValidationModeStrict {
+			k.Log("❌ In --flow-validation=strict mode, Hubble must be available to validate flows")
+			return fmt.Errorf("Hubble is not available: %w", err)
+		}
 	} else {
 		k.Log("ℹ️  Hubble is OK, flows: %d/%d", status.NumFlows, status.MaxFlows)
 	}
@@ -600,6 +635,12 @@ func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
 	}
 }
 
+const (
+	FlowValidationModeDisabled = "disabled"
+	FlowValidationModeWarning  = "warning"
+	FlowValidationModeStrict   = "strict"
+)
+
 type Parameters struct {
 	CiliumNamespace         string
 	TestNamespace           string
@@ -612,6 +653,7 @@ type Parameters struct {
 	Tests                   []string
 	PostTestSleepDuration   time.Duration
 	FlowSettleSleepDuration time.Duration
+	FlowValidation          string
 	Writer                  io.Writer
 }
 
@@ -621,6 +663,16 @@ func (p Parameters) ciliumEndpointTimeout() time.Duration {
 
 func (p Parameters) podReadyTimeout() time.Duration {
 	return 5 * time.Minute
+}
+
+func (p Parameters) validate() error {
+	switch p.FlowValidation {
+	case FlowValidationModeDisabled, FlowValidationModeWarning, FlowValidationModeStrict:
+	default:
+		return fmt.Errorf("invalid flow validation mode %q", p.FlowValidation)
+	}
+
+	return nil
 }
 
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {
@@ -1028,10 +1080,11 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 
 	k.Header("📋 Test Report")
 	failed := k.results.Failed()
+	warnings := k.results.Warnings()
 	if failed == 0 {
-		k.Log("✅ %d/%d tests sucessful", len(k.results), len(k.results))
+		k.Log("✅ %d/%d tests sucessful (%d warnings)", len(k.results), len(k.results), warnings)
 	} else {
-		k.Log("❌ %d/%d tests failed", failed, len(k.results))
+		k.Log("❌ %d/%d tests failed (%d warnings)", failed, len(k.results), warnings)
 
 		var testStatus []string
 		for _, result := range k.results {
