@@ -43,7 +43,7 @@ jobs:
 
       - name: Install cilium
         run: |
-          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --restart-unmanaged-pods=false
+          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --restart-unmanaged-pods=false --config monitor-aggregation=none
 
       - name: Enable Relay
         run: |

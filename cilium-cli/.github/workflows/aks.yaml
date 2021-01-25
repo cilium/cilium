@@ -51,7 +51,7 @@ jobs:
 
       - name: Install cilium
         run: |
-          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --azure-resource-group cilium-ci --azure-tenant-id ${{ secrets.AZURE_TENANT_ID}} --azure-client-id ${{ secrets.AZURE_CLIENT_ID }} --azure-client-secret ${{ secrets.AZURE_CLIENT_SECRET }}
+          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --azure-resource-group cilium-ci --azure-tenant-id ${{ secrets.AZURE_TENANT_ID}} --azure-client-id ${{ secrets.AZURE_CLIENT_ID }} --azure-client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --config monitor-aggregation=none
 
       - name: Enable relay
         run: |
