@@ -18,6 +18,8 @@ import (
 	"context"
 	"net"
 	"strconv"
+
+	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
 type connectivityTestPodToService struct{}
@@ -62,19 +64,24 @@ func (p *connectivityTestPodToService) Run(ctx context.Context, c TestContext) {
 					run.Failure("curl connectivity check command failed: %s", err)
 				}
 
+				clientToEcho := filters.IP(client.Pod.Status.PodIP, "")
+				echoToClient := filters.IP("", client.Pod.Status.PodIP) // echo -> client response
+				tcpRequest := filters.TCP(0, 8080)                      // request to 8080
+				tcpResponse := filters.TCP(8080, 0)                     // response from port 8080
+
 				flowRequirements := []FilterPair{
-					{Filter: DropFilter(), Expect: false, Msg: "Drop"},
-					{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "RST"},
-					{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 8080, true, false, false, false), Expect: true, Msg: "SYN"},
-					{Filter: TCPFilter("", client.Pod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK"},
-					{Filter: TCPFilter(client.Pod.Status.PodIP, "", 0, 8080, false, true, true, false), Expect: true, Msg: "FIN"},
-					{Filter: TCPFilter("", client.Pod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK"},
+					{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
+					{Filter: filters.RST(), Expect: false, Msg: "RST"},
+					{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Expect: true, Msg: "SYN"},
+					{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
+					{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Expect: true, Msg: "FIN"},
+					{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Expect: true, Msg: "FIN-ACK"},
 				}
 
 				if definition.dns {
 					flowRequirements = append(flowRequirements, []FilterPair{
-						{Filter: UDPFilter(client.Pod.Status.PodIP, "", 0, 53), Expect: true, Msg: "DNS request"},
-						{Filter: UDPFilter("", client.Pod.Status.PodIP, 53, 0), Expect: true, Msg: "DNS response"},
+						{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Expect: true, Msg: "DNS request"},
+						{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Expect: true, Msg: "DNS response"},
 					}...)
 				}
 
