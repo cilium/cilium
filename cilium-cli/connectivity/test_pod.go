@@ -16,6 +16,8 @@ package connectivity
 
 import (
 	"context"
+
+	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
 type connectivityTestPodToPod struct{}
@@ -34,18 +36,23 @@ func (p *connectivityTestPodToPod) Run(ctx context.Context, c TestContext) {
 				run.Failure("curl connectivity check command failed: %s", err)
 			}
 
+			echoToClient := filters.IP(echo.Pod.Status.PodIP, client.Pod.Status.PodIP) // echo -> client response
+			clientToEcho := filters.IP(client.Pod.Status.PodIP, echo.Pod.Status.PodIP) // client -> echo request
+			tcpRequest := filters.TCP(0, 8080)                                         // request to port 8080
+			tcpResponse := filters.TCP(8080, 0)                                        // response from port 8080
+
 			run.ValidateFlows(ctx, client.Name(), []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Drop"},
-				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "RST"},
-				{Filter: TCPFilter(echo.Pod.Status.PodIP, client.Pod.Status.PodIP, 8080, 0, true, true, false, false), Expect: true, Msg: "SYN-ACK"},
-				{Filter: TCPFilter(echo.Pod.Status.PodIP, client.Pod.Status.PodIP, 8080, 0, false, true, true, false), Expect: true, Msg: "FIN-ACK"},
+				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
+				{Filter: filters.RST(), Expect: false, Msg: "RST"},
+				{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
+				{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Expect: true, Msg: "FIN-ACK"},
 			})
 
 			run.ValidateFlows(ctx, echo.Name(), []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Drop"},
-				{Filter: TCPFilter("", "", 0, 0, false, true, false, true), Expect: false, Msg: "RST"},
-				{Filter: TCPFilter(client.Pod.Status.PodIP, echo.Pod.Status.PodIP, 0, 8080, true, false, false, false), Expect: true, Msg: "SYN"},
-				{Filter: TCPFilter(client.Pod.Status.PodIP, echo.Pod.Status.PodIP, 0, 8080, false, true, true, false), Expect: true, Msg: "FIN"},
+				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
+				{Filter: filters.RST(), Expect: false, Msg: "RST"},
+				{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Expect: true, Msg: "SYN"},
+				{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Expect: true, Msg: "FIN"},
 			})
 
 			run.End()
