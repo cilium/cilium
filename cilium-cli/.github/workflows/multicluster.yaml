@@ -33,7 +33,7 @@ jobs:
       - name: Install cilium in cluster1
         run: |
           # No wait so we can start building cluster 2 in parallel
-          cmd/cilium/cilium install --context kind-cluster1 --cluster-name cluster1 --cluster-id 1 --kube-proxy-replacement disabled --wait=false
+          cmd/cilium/cilium install --context kind-cluster1 --cluster-name cluster1 --cluster-id 1 --kube-proxy-replacement disabled --wait=false --config monitor-aggregation=none
           cmd/cilium/cilium hubble enable --context kind-cluster1
 
       - name: Create kind cluster2
@@ -45,7 +45,7 @@ jobs:
 
       - name: Install cilium in cluster2
         run: |
-          cmd/cilium/cilium install --context kind-cluster2 --cluster-name cluster2 --cluster-id 2 --kube-proxy-replacement disabled --wait=false --inherit-ca kind-cluster1
+          cmd/cilium/cilium install --context kind-cluster2 --cluster-name cluster2 --cluster-id 2 --kube-proxy-replacement disabled --wait=false --inherit-ca kind-cluster1 --config monitor-aggregation=none
           cmd/cilium/cilium hubble enable --context kind-cluster2
 
       - name: Status cluster1
