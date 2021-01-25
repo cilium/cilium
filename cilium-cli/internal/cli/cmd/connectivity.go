@@ -48,7 +48,10 @@ func newCmdConnectivityCheck() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			check := connectivity.NewK8sConnectivityCheck(k8sClient, params)
-			return check.Run(context.Background())
+			if err := check.Run(context.Background()); err != nil {
+				fatalf("Connectivity test failed:  %s", err)
+			}
+			return nil
 		},
 	}
 

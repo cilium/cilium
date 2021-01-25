@@ -51,7 +51,10 @@ func newCmdClusterMeshEnable() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			return cm.Enable(context.Background())
+			if err := cm.Enable(context.Background()); err != nil {
+				fatalf("Unable to enable ClusterMesh: %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -74,7 +77,10 @@ func newCmdClusterMeshDisable() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			return cm.Disable(context.Background())
+			if err := cm.Disable(context.Background()); err != nil {
+				fatalf("Unable to disable ClusterMesh: %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -95,7 +101,10 @@ func newCmdClusterMeshConnect() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			return cm.Connect(context.Background())
+			if err := cm.Connect(context.Background()); err != nil {
+				fatalf("Unable to connect cluster: %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -119,7 +128,10 @@ func newCmdClusterMeshDisconnect() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			return cm.Disconnect(context.Background())
+			if err := cm.Disconnect(context.Background()); err != nil {
+				fatalf("Unable to disconnect cluster: %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -141,8 +153,10 @@ func newCmdClusterMeshStatus() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
-			_, err := cm.Status(context.Background(), true)
-			return err
+			if _, err := cm.Status(context.Background(), true); err != nil {
+				fatalf("Unable to determine status:  %s", err)
+			}
+			return nil
 		},
 	}
 
