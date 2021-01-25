@@ -1039,6 +1039,8 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 		}
 		k.Log("")
 		k.Log("Failed tests: " + strings.Join(testStatus, ", "))
+
+		return fmt.Errorf("%d tests failed", failed)
 	}
 
 	return nil
