@@ -11,4 +11,5 @@ updates:
     schedule:
       interval: weekly
     labels:
-    - enhancement
+    - kind/enhancement
+    - release-note/misc
