@@ -237,6 +237,33 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 
 }
 
+// This test ensures that L7 rules reject unspecified ports.
+func (s *PolicyAPITestSuite) TestL7RuleRejectsEmptyPort(c *C) {
+	invalidL7PortRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "0", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err := invalidL7PortRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+}
+
 // This test ensures that PortRules using the HTTP protocol have valid regular
 // expressions for the method and path fields.
 func (s *PolicyAPITestSuite) TestHTTPRuleRegexes(c *C) {

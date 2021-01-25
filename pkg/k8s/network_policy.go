@@ -278,16 +278,12 @@ func ipBlockToCIDRRule(block *slim_networkingv1.IPBlock) api.CIDRRule {
 func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
 	portRules := []api.PortRule{}
 	for _, port := range ports {
-		if port.Protocol == nil && port.Port == nil {
-			continue
-		}
-
 		protocol := api.ProtoTCP
 		if port.Protocol != nil {
 			protocol, _ = api.ParseL4Proto(string(*port.Protocol))
 		}
 
-		portStr := ""
+		portStr := "0"
 		if port.Port != nil {
 			portStr = port.Port.String()
 		}
