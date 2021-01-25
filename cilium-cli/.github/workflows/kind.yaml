@@ -32,7 +32,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cmd/cilium/cilium install
+          cmd/cilium/cilium install --config monitor-aggregation=none
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
           # To make sure that cilium CRD is available (default timeout is 5m)
