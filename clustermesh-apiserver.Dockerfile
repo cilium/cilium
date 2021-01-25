@@ -23,7 +23,7 @@ RUN make GOARCH=$TARGETARCH licenses-all
 
 # CGO_ENABLED=0 GOOS=linux go build
 
-FROM docker.io/library/alpine:3.12.0 as certs
+FROM docker.io/library/alpine:3.13.0 as certs
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 RUN apk --update add ca-certificates
