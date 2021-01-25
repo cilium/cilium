@@ -48,7 +48,10 @@ func newCmdHubbleEnable() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h := hubble.NewK8sHubble(k8sClient, params)
-			return h.Enable(context.Background())
+			if err := h.Enable(context.Background()); err != nil {
+				fatalf("Unable to enable Hubble:  %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -73,7 +76,10 @@ func newCmdHubbleDisable() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h := hubble.NewK8sHubble(k8sClient, params)
-			return h.Disable(context.Background())
+			if err := h.Disable(context.Background()); err != nil {
+				fatalf("Unable to disable Hubble:  %s", err)
+			}
+			return nil
 		},
 	}
 
