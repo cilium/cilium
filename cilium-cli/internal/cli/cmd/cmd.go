@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -27,11 +26,6 @@ var (
 	contextName string
 	k8sClient   *k8s.Client
 )
-
-func fatalf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
-	os.Exit(1)
-}
 
 func NewDefaultCiliumCommand() *cobra.Command {
 	cmd := &cobra.Command{
