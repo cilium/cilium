@@ -1,4 +1,4 @@
-FROM docker.io/library/alpine:3.12
+FROM docker.io/library/alpine:3.13.0
 
 LABEL maintainer="maintainer@cilium.io"
 

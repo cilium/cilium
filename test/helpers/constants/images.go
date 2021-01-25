@@ -48,7 +48,7 @@ const (
 	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.2"
 
 	// AlpineImage is used during the memcached tests as the text client.
-	AlpineImage = "docker.io/library/alpine:3.9"
+	AlpineImage = "docker.io/library/alpine:3.13.0"
 
 	// CassandraImage is the image used for testing of the cassandra proxy
 	// functionality in Cilium.
