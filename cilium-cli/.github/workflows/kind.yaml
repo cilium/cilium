@@ -73,3 +73,19 @@ jobs:
       - name: Connectivity test
         run: |
           cmd/cilium/cilium connectivity test
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cmd/cilium/cilium status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+
+      - name: Upload Artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
