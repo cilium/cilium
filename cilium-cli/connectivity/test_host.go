@@ -16,6 +16,8 @@ package connectivity
 
 import (
 	"context"
+
+	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
 type connectivityTestPodToHost struct{}
@@ -49,9 +51,9 @@ func (p *connectivityTestPodToHost) Run(ctx context.Context, c TestContext) {
 			}
 
 			run.ValidateFlows(ctx, client.Name(), []FilterPair{
-				{Filter: DropFilter(), Expect: false, Msg: "Found drop"},
-				{Filter: ICMPFilter(client.Pod.Status.PodIP, hostIP, 8), Expect: true, Msg: "ICMP request"},
-				{Filter: ICMPFilter(hostIP, client.Pod.Status.PodIP, 0), Expect: true, Msg: "ICMP response"},
+				{Filter: filters.Drop(), Expect: false, Msg: "Found drop"},
+				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, hostIP), filters.ICMP(8)), Expect: true, Msg: "ICMP request"},
+				{Filter: filters.And(filters.IP(hostIP, client.Pod.Status.PodIP), filters.ICMP(0)), Expect: true, Msg: "ICMP response"},
 			})
 
 			run.End()

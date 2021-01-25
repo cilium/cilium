@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
 
@@ -553,9 +554,7 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 	}
 }
 
-type FlowFilterFunc func(flow *flow.Flow) bool
-
-func (f *flowsSet) Contains(fn FlowFilterFunc) bool {
+func (f *flowsSet) Contains(fn filters.FlowFilterFunc) bool {
 	if f == nil {
 		return false
 	}
@@ -570,7 +569,7 @@ func (f *flowsSet) Contains(fn FlowFilterFunc) bool {
 }
 
 type FilterPair struct {
-	Filter FlowFilterFunc
+	Filter filters.FlowFilterFunc
 	Msg    string
 	Expect bool
 }
@@ -583,113 +582,6 @@ func (k *K8sConnectivityCheck) Validate(pod string, f *flowsSet, filter []Filter
 		}
 	}
 	return
-}
-
-func DropFilter() FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
-		r := flow.GetDropReason()
-		return r != uint32(0)
-	}
-}
-
-func ipFilter(flow *flow.Flow, srcIP, dstIP string) bool {
-	ip := flow.GetIP()
-	if ip == nil {
-		return false
-	}
-	if srcIP != "" && ip.Source != srcIP {
-		return false
-	}
-
-	if dstIP != "" && ip.Destination != dstIP {
-		return false
-	}
-
-	return true
-}
-
-func ICMPFilter(srcIP, dstIP string, typ uint32) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
-		if !ipFilter(flow, srcIP, dstIP) {
-			return false
-		}
-
-		l4 := flow.GetL4()
-		if l4 == nil {
-			return false
-		}
-
-		icmp := l4.GetICMPv4()
-		if icmp == nil {
-			return false
-		}
-
-		if icmp.Type != typ {
-			return false
-		}
-
-		return true
-	}
-}
-
-func UDPFilter(srcIP, dstIP string, srcPort, dstPort int) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
-		if !ipFilter(flow, srcIP, dstIP) {
-			return false
-		}
-
-		l4 := flow.GetL4()
-		if l4 == nil {
-			return false
-		}
-
-		udp := l4.GetUDP()
-		if udp == nil {
-			return false
-		}
-
-		if srcPort != 0 && udp.SourcePort != uint32(srcPort) {
-			return false
-		}
-
-		if dstPort != 0 && udp.DestinationPort != uint32(dstPort) {
-			return false
-		}
-
-		return true
-	}
-}
-
-func TCPFilter(srcIP, dstIP string, srcPort, dstPort int, syn, ack, fin, rst bool) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
-		if !ipFilter(flow, srcIP, dstIP) {
-			return false
-		}
-
-		l4 := flow.GetL4()
-		if l4 == nil {
-			return false
-		}
-
-		tcp := l4.GetTCP()
-		if tcp == nil || tcp.Flags == nil {
-			return false
-		}
-
-		if srcPort != 0 && tcp.SourcePort != uint32(srcPort) {
-			return false
-		}
-
-		if dstPort != 0 && tcp.DestinationPort != uint32(dstPort) {
-			return false
-		}
-
-		if tcp.Flags.SYN != syn || tcp.Flags.ACK != ack || tcp.Flags.FIN != fin || tcp.Flags.RST != rst {
-			return false
-		}
-
-		return true
-	}
 }
 
 func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
