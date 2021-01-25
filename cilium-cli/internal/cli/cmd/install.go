@@ -43,7 +43,10 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 		RunE: func(cmd *cobra.Command, args []string) error {
 			installer := install.NewK8sInstaller(k8sClient, params)
 			cmd.SilenceUsage = true
-			return installer.Install(context.Background())
+			if err := installer.Install(context.Background()); err != nil {
+				fatalf("Unable to install Cilium:  %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -79,7 +82,10 @@ func newCmdUninstall() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
-			return uninstaller.Uninstall(context.Background())
+			if err := uninstaller.Uninstall(context.Background()); err != nil {
+				fatalf("Unable to uninstall Cilium:  %s", err)
+			}
+			return nil
 		},
 	}
 

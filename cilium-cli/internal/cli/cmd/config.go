@@ -53,7 +53,7 @@ func newCmdConfigView() *cobra.Command {
 			check := config.NewK8sConfig(k8sClient, params)
 			out, err := check.View(context.Background())
 			if err != nil {
-				return err
+				fatalf("Unable to view config:  %s", err)
 			}
 			fmt.Print(out)
 			return nil
@@ -77,7 +77,10 @@ func newCmdConfigSet() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			check := config.NewK8sConfig(k8sClient, params)
-			return check.Set(context.Background(), args[0], args[1])
+			if err := check.Set(context.Background(), args[0], args[1]); err != nil {
+				fatalf("Unable to set config:  %s", err)
+			}
+			return nil
 		},
 	}
 
@@ -98,7 +101,10 @@ func newCmdConfigDelete() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			check := config.NewK8sConfig(k8sClient, params)
-			return check.Delete(context.Background(), args[0])
+			if err := check.Delete(context.Background(), args[0]); err != nil {
+				fatalf("Unable to delete config:  %s", err)
+			}
+			return nil
 		},
 	}
 
