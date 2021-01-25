@@ -1,14 +1,7 @@
 # Copyright 2020 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-.PHONY: builder-info
-# nothing by default
-builder-info:
-
 DOCKER_BUILDER := default
-
-ifdef DOCKER_BUILDKIT
-
 BUILD_DIR := _build
 
 # Export with value expected by docker
@@ -27,6 +20,7 @@ ifeq ($(DOCKER_BUILDER),default)
 endif
 endif
 
+.PHONY: builder-info
 builder-info:
 	@echo "Using Docker Buildx builder \"$(DOCKER_BUILDER)\" with build flags \"$(DOCKER_FLAGS)\"."
 
@@ -138,7 +132,5 @@ _build/context/GIT_VERSION: GIT_VERSION _build/context
 
 check-status:
 	@if [ -n "`git status --porcelain`" ] ; then git status && echo "These changes will not be included in build, aborting. Define IGNORE_GIT_STATUS to build anyway." && test $(IGNORE_GIT_STATUS); fi
-
-endif
 
 endif
