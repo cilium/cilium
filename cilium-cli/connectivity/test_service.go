@@ -65,9 +65,14 @@ func (p *connectivityTestPodToService) Run(ctx context.Context, c TestContext) {
 				}
 
 				clientToEcho := filters.IP(client.Pod.Status.PodIP, "")
-				echoToClient := filters.IP("", client.Pod.Status.PodIP) // echo -> client response
-				tcpRequest := filters.TCP(0, 8080)                      // request to 8080
-				tcpResponse := filters.TCP(8080, 0)                     // response from port 8080
+				echoToClient := filters.IP("", client.Pod.Status.PodIP)
+
+				// Depending on whether NodePort is enabled or
+				// not, the port will be differnt. Ideally we
+				// look at Cilium to define this but this
+				// information is not yet available.
+				tcpRequest := filters.Or(filters.TCP(0, definition.port), filters.TCP(0, 8080))  // request to 8080 or NodePort
+				tcpResponse := filters.Or(filters.TCP(definition.port, 0), filters.TCP(8080, 0)) // response from port 8080 or NodePort
 
 				flowRequirements := []FilterPair{
 					{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
