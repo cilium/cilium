@@ -10,7 +10,6 @@ debug: all
 
 include Makefile.defs
 
-# This is a no-op unless DOCKER_BUILDKIT is defined
 # Provides buildkit specific defaults BUILD_DIR and DOCKER_BUILD_DIR
 include Makefile.buildkit
 

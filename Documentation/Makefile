@@ -12,6 +12,8 @@ clean:
 	-$(QUIET)rm -rf _build _preview Pipfile Pipfile.lock
 
 builder-image: Dockerfile requirements.txt
+	# Pre-pull FROM docker images due to Buildkit sometimes failing to pull them.
+	grep "^FROM " $< | cut -d ' ' -f2 | xargs -n1 docker pull
 	$(QUIET)tar c requirements.txt Dockerfile \
 	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
 
