@@ -1,7 +1,11 @@
 # Next-Gen Cilium CLI (Experimental)
 
 ![Go](https://github.com/isovalent/cilium-cli/workflows/Go/badge.svg)
-![Smoke Test](https://github.com/isovalent/cilium-cli/workflows/Cilium%20installation/badge.svg)
+![Kind](https://github.com/isovalent/cilium-cli/workflows/Kind/badge.svg)
+![EKS](https://github.com/isovalent/cilium-cli/workflows/EKS/badge.svg)
+![GKE](https://github.com/isovalent/cilium-cli/workflows/GKE/badge.svg)
+![AKS](https://github.com/isovalent/cilium-cli/workflows/AKS/badge.svg)
+![Multicluster](https://github.com/isovalent/cilium-cli/workflows/Multicluster/badge.svg)
 
 ## Installation
 
