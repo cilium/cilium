@@ -98,7 +98,8 @@ func (p *pinger) resolve(ip net.IP) (net.HardwareAddr, error) {
 			return nil, err
 		}
 
-		if resp.Operation != layers.ARPReply || !bytes.Equal(resp.SourceProtAddress, ip.To4()) {
+		if !(resp.Operation == layers.ARPReply && bytes.Equal(resp.SourceProtAddress, ip.To4()) &&
+			bytes.Equal(resp.DstProtAddress, p.ip.To4())) {
 			continue
 		}
 
