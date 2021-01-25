@@ -41,7 +41,7 @@ jobs:
 
       - name: Install cilium
         run: |
-          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --wait=false
+          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --wait=false --config monitor-aggregation=None
 
       - name: Add nodegroup
         run: |
