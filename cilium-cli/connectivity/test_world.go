@@ -39,12 +39,11 @@ func (p *connectivityTestPodToWorld) Run(ctx context.Context, c TestContext) {
 
 		run.ValidateFlows(ctx, client.Name(), []FilterPair{
 			{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
-			{Filter: filters.RST(), Expect: false, Msg: "RST"},
 			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Expect: true, Msg: "DNS request"},
 			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Expect: true, Msg: "DNS response"},
 			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.SYN()), Expect: true, Msg: "SYN"},
 			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
-			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.FIN()), Expect: true, Msg: "FIN"},
+			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.Or(filters.FIN(), filters.RST())), Expect: true, Msg: "FIN or RST"},
 			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.FIN()), Expect: true, Msg: "FIN-ACK"},
 		})
 
