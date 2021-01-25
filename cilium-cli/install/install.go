@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -989,6 +990,22 @@ type InstallParameters struct {
 	RestartUnmanagedPods bool
 	Encryption           bool
 	NodeEncryption       bool
+	ConfigOverwrites     []string
+	configOverwrites     map[string]string
+}
+
+func (p *InstallParameters) validate() error {
+	p.configOverwrites = map[string]string{}
+	for _, config := range p.ConfigOverwrites {
+		t := strings.SplitN(config, "=", 2)
+		if len(t) != 2 {
+			return fmt.Errorf("invalid config overwrite %q, must be in the form key=valye", config)
+		}
+
+		p.configOverwrites[t[0]] = t[1]
+	}
+
+	return nil
 }
 
 func (k *K8sInstaller) cniBinPathOnHost() string {
@@ -1027,14 +1044,18 @@ func (k *K8sInstaller) operatorCommand() []string {
 	return []string{"cilium-operator-generic"}
 }
 
-func NewK8sInstaller(client k8sInstallerImplementation, p InstallParameters) *K8sInstaller {
+func NewK8sInstaller(client k8sInstallerImplementation, p InstallParameters) (*K8sInstaller, error) {
+	if err := (&p).validate(); err != nil {
+		return nil, fmt.Errorf("invalid parameters: %w", err)
+	}
+
 	cm := certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace})
 
 	return &K8sInstaller{
 		client:      client,
 		params:      p,
 		certManager: cm,
-	}
+	}, nil
 }
 
 func (k *K8sInstaller) Log(format string, a ...interface{}) {
@@ -1222,6 +1243,11 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		if k.params.NodeEncryption {
 			m.Data["encrypt-node"] = "true"
 		}
+	}
+
+	for key, value := range k.params.configOverwrites {
+		k.Log("ℹ️  Manual overwrite in ConfigMap: %s=%s", key, value)
+		m.Data[key] = value
 	}
 
 	return m

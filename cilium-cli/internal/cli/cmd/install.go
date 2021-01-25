@@ -41,7 +41,10 @@ cilium install
 cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			installer := install.NewK8sInstaller(k8sClient, params)
+			installer, err := install.NewK8sInstaller(k8sClient, params)
+			if err != nil {
+				return err
+			}
 			cmd.SilenceUsage = true
 			if err := installer.Install(context.Background()); err != nil {
 				fatalf("Unable to install Cilium:  %s", err)
@@ -62,10 +65,12 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "probe", "Enable/disable kube-proxy replacement { disabled | probe | strict }")
 	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait for status")
-	cmd.Flags().StringVar(&params.Azure.ResourceGroupName, "azure-resource-group", "", "Azure resource group name the cluster is in")
 	cmd.Flags().BoolVar(&params.RestartUnmanagedPods, "restart-unmanaged-pods", true, "Restart pods which are not being managed by Cilium")
 	cmd.Flags().BoolVar(&params.Encryption, "encryption", false, "Enable encryption of all workloads traffic")
 	cmd.Flags().BoolVar(&params.NodeEncryption, "node-encryption", false, "Enable encryption of all node to node traffic")
+	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "Set ConfigMap entries (key=value)")
+
+	cmd.Flags().StringVar(&params.Azure.ResourceGroupName, "azure-resource-group", "", "Azure resource group name the cluster is in")
 	cmd.Flags().StringVar(&params.Azure.TenantID, "azure-tenant-id", "", "Azure tenant ID")
 	cmd.Flags().StringVar(&params.Azure.ClientID, "azure-client-id", "", "Azure client (application) ID")
 	cmd.Flags().StringVar(&params.Azure.ClientSecret, "azure-client-secret", "", "Azure client secret")
