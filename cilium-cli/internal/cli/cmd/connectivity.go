@@ -47,7 +47,10 @@ func newCmdConnectivityCheck() *cobra.Command {
 		Short: "Validate connectivity in cluster",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			check := connectivity.NewK8sConnectivityCheck(k8sClient, params)
+			check, err := connectivity.NewK8sConnectivityCheck(k8sClient, params)
+			if err != nil {
+				return err
+			}
 			if err := check.Run(context.Background()); err != nil {
 				fatalf("Connectivity test failed:  %s", err)
 			}
@@ -67,6 +70,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run a particular set of tests")
+	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", connectivity.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 
 	return cmd
 }
