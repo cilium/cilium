@@ -47,16 +47,17 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q, %q, %q features",
+		log.Infof("Auto-disabling %q, %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableHostReachableServices, option.EnableHostPort,
-			option.EnableSessionAffinity)
+			option.EnableSessionAffinity, option.EnableHostLegacyRouting)
 
 		disableNodePort()
 		option.Config.EnableHostReachableServices = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
 		option.Config.EnableSessionAffinity = false
+		option.Config.EnableHostLegacyRouting = true
 
 		return
 	}
