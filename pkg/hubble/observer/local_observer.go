@@ -265,14 +265,14 @@ func (s *LocalObserverServer) GetFlows(
 		return err
 	}
 
-	flowsReader, err := newFlowsReader(ringReader, req, log, whitelist, blacklist)
+	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
 	}
 
-nextFlow:
+nextEvent:
 	for ; ; i++ {
-		resp, err := flowsReader.Next(ctx)
+		resp, err := eventsReader.Next(ctx)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -286,7 +286,7 @@ nextFlow:
 				return err
 			}
 			if stop {
-				continue nextFlow
+				continue nextEvent
 			}
 		}
 
@@ -305,32 +305,32 @@ func logFilters(filters []*flowpb.FlowFilter) string {
 	return "{" + strings.Join(s, ",") + "}"
 }
 
-// flowsReader reads flows using a RingReader. It applies the flow request
-// criteria (blacklist, whitelist, follow, ...) before returning flows.
-type flowsReader struct {
+// eventsReader reads flows using a RingReader. It applies the GetFlows request
+// criteria (blacklist, whitelist, follow, ...) before returning events.
+type eventsReader struct {
 	ringReader           *container.RingReader
 	whitelist, blacklist filters.FilterFuncs
-	maxFlows             uint64
+	maxEvents            uint64
 	follow, timeRange    bool
-	flowsCount           uint64
+	eventCount           uint64
 	since, until         *time.Time
 }
 
-// newFlowsReader creates a new flowsReader that uses the given RingReader to
-// read through the ring buffer. Only flows that match the request criteria
+// newEventsReader creates a new eventsReader that uses the given RingReader to
+// read through the ring buffer. Only events that match the request criteria
 // are returned.
-func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*flowsReader, error) {
+func newEventsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*eventsReader, error) {
 	log.WithFields(logrus.Fields{
 		"req":       req,
 		"whitelist": whitelist,
 		"blacklist": blacklist,
-	}).Debug("creating a new flowsReader")
+	}).Debug("creating a new eventsReader")
 
-	reader := &flowsReader{
+	reader := &eventsReader{
 		ringReader: r,
 		whitelist:  whitelist,
 		blacklist:  blacklist,
-		maxFlows:   req.Number,
+		maxEvents:  req.Number,
 		follow:     req.Follow,
 		timeRange:  req.Since != nil || req.Until != nil,
 	}
@@ -355,7 +355,7 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 }
 
 // Next returns the next flow that matches the request criteria.
-func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, error) {
+func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -367,7 +367,7 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 		if r.follow {
 			e = r.ringReader.NextFollow(ctx)
 		} else {
-			if r.maxFlows > 0 && (r.flowsCount >= r.maxFlows) {
+			if r.maxEvents > 0 && (r.eventCount >= r.maxEvents) {
 				return nil, io.EOF
 			}
 			e, err = r.ringReader.Next()
@@ -413,7 +413,7 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
-			r.flowsCount++
+			r.eventCount++
 			return &observerpb.GetFlowsResponse{
 				Time:     ev.GetTime(),
 				NodeName: ev.GetNodeName(),
@@ -468,7 +468,7 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 	idx := ring.LastWriteParallel()
 	reader := container.NewRingReader(ring, idx)
 
-	var flowsCount uint64
+	var eventCount uint64
 	// We need to find out what the right index is; that is the index with the
 	// oldest entry that is within time range boundaries (if any is defined)
 	// or until we find enough events.
@@ -488,7 +488,7 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		if !ok || !filters.Apply(whitelist, blacklist, e) {
 			continue
 		}
-		flowsCount++
+		eventCount++
 		if req.Since != nil {
 			if err := e.Timestamp.CheckValid(); err != nil {
 				return nil, err
@@ -498,7 +498,7 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 				idx++ // we went backward 1 too far
 				break
 			}
-		} else if flowsCount == req.Number {
+		} else if eventCount == req.Number {
 			break // we went backward far enough
 		}
 	}
