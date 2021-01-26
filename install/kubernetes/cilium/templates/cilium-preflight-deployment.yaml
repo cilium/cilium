@@ -71,8 +71,8 @@ spec:
 {{- end }}
       hostNetwork: true
       restartPolicy: Always
-      serviceAccount: cilium-pre-flight
-      serviceAccountName: cilium-pre-flight
+      serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
       terminationGracePeriodSeconds: 1
 {{- with .Values.preflight.nodeSelector }}
       nodeSelector:

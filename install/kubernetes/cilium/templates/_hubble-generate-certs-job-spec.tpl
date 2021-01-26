@@ -6,8 +6,8 @@ spec:
       labels:
         k8s-app: hubble-generate-certs
     spec:
-      serviceAccount: hubble-generate-certs
-      serviceAccountName: hubble-generate-certs
+      serviceAccount: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
       containers:
         - name: certgen
           image: {{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}

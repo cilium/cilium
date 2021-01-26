@@ -3,14 +3,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cilium
+  name: "cilium"
   namespace: kube-system
 ---
 # Source: cilium/templates/cilium-operator-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cilium-operator
+  name: "cilium-operator"
   namespace: kube-system
 ---
 # Source: cilium/templates/cilium-configmap.yaml
@@ -349,7 +349,7 @@ roleRef:
   name: cilium
 subjects:
 - kind: ServiceAccount
-  name: cilium
+  name: "cilium"
   namespace: kube-system
 ---
 # Source: cilium/templates/cilium-operator-clusterrolebinding.yaml
@@ -578,8 +578,8 @@ spec:
             memory: 100Mi
       restartPolicy: Always
       priorityClassName: system-node-critical
-      serviceAccount: cilium
-      serviceAccountName: cilium
+      serviceAccount: "cilium"
+      serviceAccountName: "cilium"
       terminationGracePeriodSeconds: 1
       tolerations:
       - operator: Exists
@@ -725,8 +725,8 @@ spec:
       hostNetwork: true
       restartPolicy: Always
       priorityClassName: system-cluster-critical
-      serviceAccount: cilium-operator
-      serviceAccountName: cilium-operator
+      serviceAccount: "cilium-operator"
+      serviceAccountName: "cilium-operator"
       tolerations:
       - operator: Exists
       volumes:

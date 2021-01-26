@@ -93,8 +93,8 @@ spec:
       priorityClassName: system-cluster-critical
 {{- end }}
       restartPolicy: Always
-      serviceAccount: cilium-etcd-operator
-      serviceAccountName: cilium-etcd-operator
+      serviceAccount: {{ .Values.serviceAccounts.etcd.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.etcd.name | quote }}
 {{- with .Values.etcd.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
