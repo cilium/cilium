@@ -430,6 +430,7 @@ func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, 
 				},
 			}, nil
 		case *flowpb.AgentEvent:
+			r.eventCount++
 			return &observerpb.GetFlowsResponse{
 				Time:     e.Timestamp,
 				NodeName: nodeTypes.GetName(),
@@ -438,6 +439,7 @@ func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, 
 				},
 			}, nil
 		case *flowpb.DebugEvent:
+			r.eventCount++
 			return &observerpb.GetFlowsResponse{
 				Time:     e.Timestamp,
 				NodeName: nodeTypes.GetName(),
@@ -484,8 +486,8 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		}
 		// Note: LostEvent type is ignored here and this is expected as lost
 		// events will never be explicitly requested by the caller
-		_, ok := e.Event.(*flowpb.Flow)
-		if !ok || !filters.Apply(whitelist, blacklist, e) {
+		_, isLostEvent := e.Event.(*flowpb.LostEvent)
+		if isLostEvent || !filters.Apply(whitelist, blacklist, e) {
 			continue
 		}
 		eventCount++
