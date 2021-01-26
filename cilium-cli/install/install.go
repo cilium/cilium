@@ -96,7 +96,7 @@ var ciliumClusterRole = &rbacv1.ClusterRole{
 		{
 			APIGroups: []string{"apiextensions.k8s.io"},
 			Resources: []string{"customresourcedefinitions"},
-			Verbs:     []string{"create", "list", "watch", "update"},
+			Verbs:     []string{"get", "create", "list", "watch", "update"},
 		},
 		{
 			APIGroups: []string{"cilium.io"},
