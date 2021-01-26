@@ -51,6 +51,7 @@ var (
 type dummyEndpoint struct {
 	ID               uint16
 	SecurityIdentity *identity.Identity
+	Endpoint         // Implement methods of the interface that need to mock out real behavior.
 }
 
 func (d *dummyEndpoint) GetID16() uint16 {
@@ -63,9 +64,6 @@ func (d *dummyEndpoint) IsHost() bool {
 
 func (d *dummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
 	return d.SecurityIdentity, nil
-}
-
-func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
 }
 
 func GenerateNumIdentities(numIdentities int) {
