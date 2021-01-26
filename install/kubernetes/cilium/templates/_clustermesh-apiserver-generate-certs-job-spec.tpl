@@ -6,8 +6,8 @@ spec:
       labels:
         k8s-app: clustermesh-apiserver-generate-certs
     spec:
-      serviceAccount: clustermesh-apiserver-generate-certs
-      serviceAccountName: clustermesh-apiserver-generate-certs
+      serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
       containers:
         - name: certgen
           image: {{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}

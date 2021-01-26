@@ -27,7 +27,8 @@ spec:
       imagePullSecrets: {{- toYaml . | nindent 8 }}
 {{- end }}
       restartPolicy: Always
-      serviceAccount: clustermesh-apiserver
+      serviceAccount: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       initContainers:
       - name: etcd-init
         image: {{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}

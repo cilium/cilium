@@ -28,8 +28,8 @@ spec:
       securityContext:
         runAsUser: 1001
       {{- end }}
-      serviceAccount: hubble-ui
-      serviceAccountName: hubble-ui
+      serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.ui.name | quote }}
 {{- with .Values.hubble.ui.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

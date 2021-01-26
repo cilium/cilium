@@ -347,6 +347,8 @@ Annotations:
   as well as the default CNI plugins shipped by most managed Kubernetes
   distributions. Set the ``cni.exclusive=false`` Helm flag to disable this
   behaviour.
+* Helm option ``serviceAccounts.certgen`` is removed, please use ``serviceAccounts.clustermeshcertgen``
+  for Clustermesh certificate generation and ``serviceAccounts.hubblecertgen`` for Hubble certificate generation.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~

@@ -225,13 +225,8 @@ spec:
 {{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-cluster-critical
 {{- end }}
-{{- if .Values.serviceAccounts.operator.create }}
-      serviceAccount: cilium-operator
-      serviceAccountName: cilium-operator
-{{- else }}
-      serviceAccount: {{ .Values.operator.serviceAccountName | quote }}
-      serviceAccountName: {{ .Values.operator.serviceAccountName | quote }}
-{{- end }}
+      serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
 {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

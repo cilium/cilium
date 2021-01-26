@@ -326,7 +326,8 @@ contributors across the globe, there is almost always someone available to help.
 | rollOutCiliumPods | bool | `false` | Roll out cilium agent pods automatically when configmap is updated. |
 | securityContext | object | `{}` | Security context to be added to agent pods |
 | serviceAccounts | object | Component's fully qualified name. | Define serviceAccount names for components. |
-| serviceAccounts.certgen | object | `{"annotations":{},"create":true}` | Certgen is used if hubble.tls.auto.method=cronJob |
+| serviceAccounts.clustermeshcertgen | object | `{"annotations":{},"create":true,"name":"clustermesh-apiserver-generate-certs"}` | Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob |
+| serviceAccounts.hubblecertgen | object | `{"annotations":{},"create":true,"name":"hubble-generate-certs"}` | Hubblecertgen is used if hubble.tls.auto.method=cronJob |
 | sleepAfterInit | bool | `false` |  |
 | sockops | object | `{"enabled":false}` | Configure BPF socket operations configuration |
 | tls.enabled | bool | `true` |  |

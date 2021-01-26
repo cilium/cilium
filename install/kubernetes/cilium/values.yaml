@@ -34,28 +34,41 @@ cluster:
 serviceAccounts:
   cilium:
     create: true
+    name: cilium
     annotations: {}
   etcd:
     create: true
+    name: cilium-etcd-operator
     annotations: {}
   operator:
     create: true
+    name: cilium-operator
     annotations: {}
   preflight:
     create: true
+    name: cilium-pre-flight 
     annotations: {}
   relay:
     create: true
+    name: hubble-relay
     annotations: {}
   ui:
     create: true
+    name: hubble-ui
     annotations: {}
   clustermeshApiserver:
     create: true
+    name: clustermesh-apiserver
     annotations: {}
-  # -- Certgen is used if hubble.tls.auto.method=cronJob
-  certgen:
+  # -- Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
+  clustermeshcertgen:
     create: true
+    name: clustermesh-apiserver-generate-certs
+    annotations: {}
+  # -- Hubblecertgen is used if hubble.tls.auto.method=cronJob
+  hubblecertgen:
+    create: true
+    name: hubble-generate-certs
     annotations: {}
 
 # -- Install the cilium agent resources.

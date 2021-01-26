@@ -10,5 +10,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   namespace: {{ .Release.Namespace }}
-  name: hubble-relay
+  name: {{ .Values.serviceAccounts.relay.name | quote }}
 {{- end }}
