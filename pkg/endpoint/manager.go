@@ -110,16 +110,6 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 	mgr.RemoveIPv6Address(e.IPv6)
 
 	go func(ep *Endpoint) {
-
-		// The endpoint's EventQueue may not be stopped yet (depending on whether
-		// the caller of the EventQueue has stopped it or not). Call it here
-		// to be safe so that ep.WaitToBeDrained() does not hang forever.
-		ep.eventQueue.Stop()
-
-		// Wait for no more events (primarily regenerations) to be occurring for
-		// this endpoint.
-		ep.eventQueue.WaitToBeDrained()
-
 		err := mgr.ReleaseID(ep)
 		if err != nil {
 			// While restoring, endpoint IDs may not have been reused yet.

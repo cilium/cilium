@@ -302,6 +302,7 @@ func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 // the endpoint have been completed.
 // Note: only used for unit tests
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
+	ep.Stop()
 	<-ep.Unexpose(mgr)
 }
 
