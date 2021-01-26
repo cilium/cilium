@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -267,6 +268,10 @@ func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bo
 		return nil, false
 	}
 	return ep, true
+}
+
+func (d *Daemon) GetEndpoints() map[policy.Endpoint]struct{} {
+	return d.endpointManager.GetPolicyEndpoints()
 }
 
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
