@@ -69,7 +69,6 @@ cilium connectivity test`,
 		newCmdContext(),
 		newCmdHubble(),
 		newCmdInstall(),
-		newCmdPolicy(),
 		newCmdStatus(),
 		newCmdUninstall(),
 	)
