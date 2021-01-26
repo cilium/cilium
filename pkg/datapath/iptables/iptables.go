@@ -1013,9 +1013,10 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 			m.waitArgs,
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"!", "-s", allocRange,
+			"!", "-s", hostMasqueradeIP,
 			"!", "-d", allocRange,
 			"-o", "cilium_host",
+			"-m", "conntrack", "--ctstate", "NEW",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
 			return err
