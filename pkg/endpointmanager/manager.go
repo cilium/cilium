@@ -377,22 +377,22 @@ func (mgr *EndpointManager) UpdateIDReference(ep *endpoint.Endpoint) {
 
 // UpdateReferences updates maps the contents of mappings to the specified
 // endpoint.
-func (mgr *EndpointManager) UpdateReferences(mappings map[endpointid.PrefixType]string, ep *endpoint.Endpoint) {
+func (mgr *EndpointManager) UpdateReferences(identifiers endpointid.Identifiers, ep *endpoint.Endpoint) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	for k := range mappings {
-		id := endpointid.NewID(k, mappings[k])
+	for k := range identifiers {
+		id := endpointid.NewID(k, identifiers[k])
 		mgr.endpointsAux[id] = ep
 
 	}
 }
 
 // RemoveReferences removes the mappings from the endpointmanager.
-func (mgr *EndpointManager) RemoveReferences(mappings map[endpointid.PrefixType]string) {
+func (mgr *EndpointManager) RemoveReferences(identifiers endpointid.Identifiers) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	for prefix := range mappings {
-		id := endpointid.NewID(prefix, mappings[prefix])
+	for prefix := range identifiers {
+		id := endpointid.NewID(prefix, identifiers[prefix])
 		delete(mgr.endpointsAux, id)
 	}
 }

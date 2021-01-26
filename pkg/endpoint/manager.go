@@ -27,9 +27,9 @@ import (
 type endpointManager interface {
 	AllocateID(id uint16) (uint16, error)
 	RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration)
-	UpdateReferences(map[id.PrefixType]string, *Endpoint)
+	UpdateReferences(id.Identifiers, *Endpoint)
 	UpdateIDReference(*Endpoint)
-	RemoveReferences(map[id.PrefixType]string)
+	RemoveReferences(id.Identifiers)
 	RemoveID(uint16)
 	ReleaseID(*Endpoint) error
 	AddIPv6Address(addressing.CiliumIPv6)
@@ -91,40 +91,11 @@ func (e *Endpoint) UpdateReferences(mgr endpointManager) error {
 }
 
 func (e *Endpoint) updateReferences(mgr endpointManager) {
-	refs := e.generateReferences()
+	refs := e.IdentifiersLocked()
 	mgr.UpdateReferences(refs, e)
 }
-
-func (e *Endpoint) generateReferences() map[id.PrefixType]string {
-	refs := make(map[id.PrefixType]string, 6)
-	if e.containerID != "" {
-		refs[id.ContainerIdPrefix] = e.containerID
-	}
-
-	if e.dockerEndpointID != "" {
-		refs[id.DockerEndpointPrefix] = e.dockerEndpointID
-	}
-
-	if e.IPv4.IsSet() {
-		refs[id.IPv4Prefix] = e.IPv4.String()
-	}
-
-	if e.IPv6.IsSet() {
-		refs[id.IPv6Prefix] = e.IPv6.String()
-	}
-
-	if e.containerName != "" {
-		refs[id.ContainerNamePrefix] = e.containerName
-	}
-
-	if podName := e.getK8sNamespaceAndPodName(); podName != "" {
-		refs[id.PodNamePrefix] = podName
-	}
-	return refs
-}
-
 func (e *Endpoint) removeReferences(mgr endpointManager) {
-	refs := e.generateReferences()
+	refs := e.IdentifiersLocked()
 	mgr.RemoveReferences(refs)
 }
 
