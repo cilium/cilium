@@ -71,7 +71,7 @@ assignees: ''
   - [ ] [kubespray]
 
 
-[release blockers]: https://github.com/cilium/cilium/labels/priority%2Frelease-blocker
+[release blockers]: https://github.com/cilium/cilium/labels/release-blocker%2F1.X
 [backport PRs]: https://github.com/cilium/cilium/pulls?utf8=%E2%9C%93&q=is%3Aopen+is%3Apr+backports
 [Cilium release-notes tool]: https://github.com/cilium/release
 [Docker Hub]: https://hub.docker.com/orgs/cilium/repositories
