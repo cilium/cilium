@@ -73,7 +73,8 @@ func (datagram arpDatagram) SenderMac() net.HardwareAddr {
 }
 
 func (datagram arpDatagram) IsResponseOf(request arpDatagram) bool {
-	return datagram.oper == responseOper && bytes.Compare(request.spa, datagram.tpa) == 0
+	return datagram.oper == responseOper && bytes.Equal(request.spa, datagram.tpa) &&
+		bytes.Equal(request.tpa, datagram.spa)
 }
 
 func parseArpDatagram(buffer []byte) arpDatagram {
