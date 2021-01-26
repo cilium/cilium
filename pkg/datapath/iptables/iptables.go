@@ -1003,20 +1003,17 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 
 	if option.Config.Tunnel != option.TunnelDisabled {
 		// Masquerade all traffic from the host into the ifName
-		// interface if the source is not the internal IP
+		// interface if the source is not in the node's pod CIDR.
 		//
 		// The following conditions must be met:
 		// * Must be targeted for the ifName interface
 		// * Must be targeted to an IP that is not local
-		// * Tunnel mode:
-		//   * May not already be originating from the masquerade IP
-		// * Non-tunnel mode:
-		//   * May not orignate from any IP inside of the cluster range
+		// * May not already be originating from the node's pod CIDR.
 		if err := runProg(prog, append(
 			m.waitArgs,
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"!", "-s", hostMasqueradeIP,
+			"!", "-s", allocRange,
 			"!", "-d", allocRange,
 			"-o", "cilium_host",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
