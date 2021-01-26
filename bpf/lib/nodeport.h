@@ -482,8 +482,10 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		struct remote_endpoint_info *info;
 		union v6addr *dst;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
 
 		dst = (union v6addr *)&ip6->daddr;
 		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
@@ -491,16 +493,20 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 						  SECLABEL, TRACE_PAYLOAD_LEN);
 			if (ret)
-				return ret;
+				goto drop_err;
 
 			BPF_V6(target.addr, ROUTER_IP);
 			fib_params.l.ifindex = ENCAP_IFINDEX;
 
 			/* fib lookup not necessary when going over tunnel. */
-			if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0)
-				return DROP_WRITE_ERROR;
+			if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto drop_err;
+			}
+			if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto drop_err;
+			}
 		}
 	}
 #endif
