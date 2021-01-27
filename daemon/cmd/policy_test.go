@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -828,40 +827,6 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
 	c.Assert(networkPolicies, HasLen, 0)
-}
-
-type dummyManager struct{}
-
-func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
-	return uint16(1), nil
-}
-
-func (d *dummyManager) RunK8sCiliumEndpointSync(*endpoint.Endpoint, endpoint.EndpointStatusConfiguration) {
-}
-
-func (d *dummyManager) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-}
-
-func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *endpoint.Endpoint) {
-}
-
-func (d *dummyManager) UpdateIDReference(*endpoint.Endpoint) {
-}
-
-func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
-}
-
-func (d *dummyManager) RemoveID(uint16) {
-}
-
-func (d *dummyManager) ReleaseID(*endpoint.Endpoint) error {
-	return nil
-}
-
-func (d *dummyManager) AddIPv6Address(addressing.CiliumIPv6) {
-}
-
-func (d *dummyManager) RemoveIPv6Address(addressing.CiliumIPv6) {
 }
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
