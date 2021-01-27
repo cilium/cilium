@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.7.13
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* k8s: Update libraries to v1.17.16 (#14444, @christarazi)
+
+**Bugfixes:**
+* routing: Fix route collisions in AWS ENI (#14337, @christarazi)
+* cilium-cni: Fix error handling for bad netns (Backport PR #14669, Upstream PR #14645, @joestringer)
+* clustermesh: Ignore symlink files on fsnotify events (Backport PR #14669, Upstream PR #14565, @tgraf)
+* Fix bug where Cilium endpoints are not cleaned up, eventually leading to IP exhaustion despite a small number of endpoints on the node. (#14541, @joestringer)
+* Fix bug where Cilium would constantly regenerate endpoints in environments with etcd and Linux 4.15 or below. (Backport PR #14440, Upstream PR #14300, @dctrwatson)
+* Fix CIDR rule bug potentially dropping allowed traffic or allowing denied traffic for deny policies (beta feature) when using ExceptCIDRs expressions. (Backport PR #14669, Upstream PR #14516, @jrajahalme)
+* Fix possible overflow in values presented in the `k8s_event_lag_seconds` metric. (Backport PR #14440, Upstream PR #14313, @aanm)
+* pkg/node: Skip setting MTU on local node routes (#14687, @aditighag)
+* policy: Don't nil an empty selectors map. (#14389, @jrajahalme)
+* policy: Track selectors that contribute to MapStateEntries (#14368, @jrajahalme)
+
+**Misc Changes:**
+* contrib/release: clarify project number for release process (Backport PR #14727, Upstream PR #14684, @aanm)
+* Dockerfile: Bump cilium-runtime image (#14757, @joestringer)
+* docs: Fix dependency conflict (Backport PR #14440, Upstream PR #14264, @joestringer)
+* docker: rebuild cilium-runtime image (#14428, @jibi)
+
 ## v1.7.12
 
 Summary of Changes
