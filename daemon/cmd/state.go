@@ -278,7 +278,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
-		if err := ep.Expose(d.endpointManager); err != nil {
+		if err := d.endpointManager.RestoreEndpoint(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
 			state.restored = append(state.restored[:i], state.restored[i+1:]...)
