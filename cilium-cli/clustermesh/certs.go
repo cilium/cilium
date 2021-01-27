@@ -156,9 +156,8 @@ func (k *K8sClusterMesh) installCertificates(ctx context.Context) error {
 	if err != nil {
 		k.Log("❌ Cilium CA not found: %s", err)
 		return err
-	} else {
-		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 	}
+	k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 
 	k.Log("🔑 Generating certificates for ClusterMesh...")
 	if err := k.createClusterMeshServerCertificate(ctx); err != nil {
