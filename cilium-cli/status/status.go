@@ -192,7 +192,7 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 				continue
 			}
 
-			s.AddAggregatedError(deployment, podName, fmt.Errorf("Controller %s is failing since %s (%dx): %s",
+			s.AddAggregatedError(deployment, podName, fmt.Errorf("controller %s is failing since %s (%dx): %s",
 				ctrl.Name,
 				time.Since(time.Time(ctrl.Status.LastFailureTimestamp)).Truncate(time.Second).String(),
 				ctrl.Status.ConsecutiveFailureCount,
