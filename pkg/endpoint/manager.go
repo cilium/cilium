@@ -25,75 +25,39 @@ import (
 )
 
 type endpointManager interface {
-	AllocateID(id uint16) (uint16, error)
-	RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration)
-	UpdateReferences(id.Identifiers, *Endpoint)
-	UpdateIDReference(*Endpoint)
 	RemoveReferences(id.Identifiers)
 	RemoveID(uint16)
 	ReleaseID(*Endpoint) error
-	AddIPv6Address(addressing.CiliumIPv6)
 	RemoveIPv6Address(addressing.CiliumIPv6)
 }
 
-// Expose exposes the endpoint to the endpointmanager. After this function
-// is called, the endpoint may be accessed by any lookup in the endpointmanager.
-func (e *Endpoint) Expose(mgr endpointManager) error {
+// Start assigns a Cilium Endpoint ID to the endpoint and prepares it to
+// receive events from other subsystems.
+//
+// The endpoint must not already be exposed via the endpointmanager prior to
+// calling Start(), as it assumes unconditional access over the Endpoint
+// object.
+func (e *Endpoint) Start(id uint16) {
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
 	// 'e.ID' written below, read lock is not enough.
 	e.unconditionalLock()
+	defer e.unlock()
 
-	newID, err := mgr.AllocateID(e.ID)
-	if err != nil {
-		e.unlock()
-		return err
-	}
-
-	e.ID = newID
+	e.ID = id
 	e.UpdateLogger(map[string]interface{}{
 		logfields.EndpointID: e.ID,
 	})
 
+	// Start goroutines that are responsible for handling events.
 	e.startRegenerationFailureHandler()
-	// Now that the endpoint has its ID, it can be created with a name based on
-	// its ID, and its eventqueue can be safely started. Ensure that it is only
-	// started once it is exposed to the endpointmanager so that it will be
-	// stopped when the endpoint is removed from the endpointmanager.
 	if e.eventQueue == nil {
 		e.InitEventQueue()
 	}
 	e.eventQueue.Run()
-
-	mgr.AddIPv6Address(e.IPv6)
-
-	// No need to check liveness as an endpoint can only be deleted via the
-	// API after it has been inserted into the manager.
-	mgr.UpdateIDReference(e)
-	e.updateReferences(mgr)
 	e.getLogger().Info("New endpoint")
-	e.unlock()
-
-	mgr.RunK8sCiliumEndpointSync(e, option.Config)
-	return nil
 }
 
-// UpdateReferences updates the endpointmanager mappings of identifiers to
-// endpoints for the given endpoint. Returns an error if the endpoint is
-// being deleted.
-func (e *Endpoint) UpdateReferences(mgr endpointManager) error {
-	if err := e.rlockAlive(); err != nil {
-		return err
-	}
-	defer e.runlock()
-	e.updateReferences(mgr)
-	return nil
-}
-
-func (e *Endpoint) updateReferences(mgr endpointManager) {
-	refs := e.IdentifiersLocked()
-	mgr.UpdateReferences(refs, e)
-}
 func (e *Endpoint) removeReferences(mgr endpointManager) {
 	refs := e.IdentifiersLocked()
 	mgr.RemoveReferences(refs)

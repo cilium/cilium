@@ -772,7 +772,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 			return api.Error(PatchEndpointIDConfigFailedCode, err)
 		}
 	}
-	if err := ep.UpdateReferences(d.endpointManager); err != nil {
+	if err := d.endpointManager.UpdateReferences(ep); err != nil {
 		return api.Error(PatchEndpointIDNotFoundCode, err)
 	}
 

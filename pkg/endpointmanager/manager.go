@@ -365,27 +365,34 @@ func (mgr *EndpointManager) lookupContainerID(id string) *endpoint.Endpoint {
 	return nil
 }
 
-// UpdateIDReference updates the endpoints map in the EndpointManager for
+// updateIDReferenceLocked updates the endpoints map in the EndpointManager for
 // the given Endpoint.
-func (mgr *EndpointManager) UpdateIDReference(ep *endpoint.Endpoint) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
+func (mgr *EndpointManager) updateIDReferenceLocked(ep *endpoint.Endpoint) {
 	if ep == nil {
 		return
 	}
 	mgr.endpoints[ep.ID] = ep
 }
 
-// UpdateReferences updates maps the contents of mappings to the specified
-// endpoint.
-func (mgr *EndpointManager) UpdateReferences(identifiers endpointid.Identifiers, ep *endpoint.Endpoint) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
+func (mgr *EndpointManager) updateReferencesLocked(ep *endpoint.Endpoint, identifiers endpointid.Identifiers) {
 	for k := range identifiers {
 		id := endpointid.NewID(k, identifiers[k])
 		mgr.endpointsAux[id] = ep
-
 	}
+}
+
+// UpdateReferences updates maps the contents of mappings to the specified endpoint.
+func (mgr *EndpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	identifiers, err := ep.Identifiers()
+	if err != nil {
+		return err
+	}
+	mgr.updateReferencesLocked(ep, identifiers)
+
+	return nil
 }
 
 // RemoveReferences removes the mappings from the endpointmanager.
@@ -467,6 +474,33 @@ func (mgr *EndpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 	return eps
 }
 
+func (mgr *EndpointManager) expose(ep *endpoint.Endpoint) error {
+	newID, err := mgr.AllocateID(ep.ID)
+	if err != nil {
+		return err
+	}
+
+	mgr.mutex.Lock()
+	// Get a copy of the identifiers before exposing the endpoint
+	identifiers := ep.IdentifiersLocked()
+	ep.Start(newID)
+	mgr.AddIPv6Address(ep.IPv6)
+	mgr.updateIDReferenceLocked(ep)
+	mgr.updateReferencesLocked(ep, identifiers)
+	mgr.mutex.Unlock()
+
+	mgr.RunK8sCiliumEndpointSync(ep, option.Config)
+
+	return nil
+}
+
+// RestoreEndpoint exposes the specified endpoint to other subsystems via the
+// manager.
+func (mgr *EndpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
+	ep.SetDefaultConfiguration(true)
+	return mgr.expose(ep)
+}
+
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
 	ep.SetDefaultConfiguration(false)
@@ -474,7 +508,7 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
-	err = ep.Expose(mgr)
+	err = mgr.expose(ep)
 	if err != nil {
 		return err
 	}
