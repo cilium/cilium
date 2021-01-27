@@ -21,4 +21,6 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
+  targetLabels:
+  - io.cilium/app
 {{- end }}
