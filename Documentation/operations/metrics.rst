@@ -213,7 +213,7 @@ Datapath
 ============================================= ================================================== ========================================================
 Name                                          Labels                                             Description
 ============================================= ================================================== ========================================================
-``datapath_errors_total``                     ``area``, ``name``, ``family``                     Total number of errors occurred in datapath management
+``datapath_conntrack_dump_resets_total``      ``area``, ``name``, ``family``                     Number of conntrack dump resets. Happens when a BPF entry gets removed while dumping the map is in progress.
 ``datapath_conntrack_gc_runs_total``          ``status``                                         Number of times that the conntrack garbage collector process was run
 ``datapath_conntrack_gc_key_fallbacks_total``                                                    The number of alive and deleted conntrack entries at the end of a garbage collector run labeled by datapath family
 ``datapath_conntrack_gc_entries``             ``family``                                         The number of alive and deleted conntrack entries at the end of a garbage collector run

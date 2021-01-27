@@ -304,10 +304,6 @@ var (
 
 	// Datapath statistics
 
-	// DatapathErrors is the number of errors managing datapath components
-	// such as BPF maps.
-	DatapathErrors = NoOpCounterVec
-
 	// ConntrackGCRuns is the number of times that the conntrack GC
 	// process was run.
 	ConntrackGCRuns = NoOpCounterVec
@@ -323,6 +319,9 @@ var (
 
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
+
+	// ConntrackDumpReset marks the count for conntrack dump resets
+	ConntrackDumpResets = NoOpCounterVec
 
 	// Signals
 
@@ -477,11 +476,11 @@ type Configuration struct {
 	DropBytesEnabled                        bool
 	NoOpCounterVecEnabled                   bool
 	ForwardBytesEnabled                     bool
-	DatapathErrorsEnabled                   bool
 	ConntrackGCRunsEnabled                  bool
 	ConntrackGCKeyFallbacksEnabled          bool
 	ConntrackGCSizeEnabled                  bool
 	ConntrackGCDurationEnabled              bool
+	ConntrackDumpResetsEnabled              bool
 	SignalsHandledEnabled                   bool
 	ServicesCountEnabled                    bool
 	ErrorsWarningsEnabled                   bool
@@ -541,7 +540,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_drop_bytes_total":                                              {},
 		Namespace + "_forward_count_total":                                           {},
 		Namespace + "_forward_bytes_total":                                           {},
-		Namespace + "_" + SubsystemDatapath + "_errors_total":                        {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":         {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_entries":                {},
@@ -866,17 +865,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, ForwardBytes)
 			c.ForwardBytesEnabled = true
 
-		case Namespace + "_" + SubsystemDatapath + "_errors_total":
-			DatapathErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemDatapath,
-				Name:      "errors_total",
-				Help:      "Number of errors that occurred in the datapath or datapath management",
-			}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
-
-			collectors = append(collectors, DatapathErrors)
-			c.DatapathErrorsEnabled = true
-
 		case Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":
 			ConntrackGCRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -933,6 +921,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ConntrackGCDuration)
 			c.ConntrackGCDurationEnabled = true
+
+		case Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":
+			ConntrackDumpResets = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemDatapath,
+				Name:      "conntrack_dump_resets_total",
+				Help:      "Number of conntrack dump resets. Happens when a BPF entry gets removed while dumping the map is in progress",
+			}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+			collectors = append(collectors, ConntrackDumpResets)
+			c.ConntrackDumpResetsEnabled = true
 
 		case Namespace + "_" + SubsystemDatapath + "_signals_handled_total":
 			SignalsHandled = prometheus.NewCounterVec(prometheus.CounterOpts{

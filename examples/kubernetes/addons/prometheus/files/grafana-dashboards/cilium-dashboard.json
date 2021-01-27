@@ -3784,7 +3784,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(cilium_datapath_errors_total{k8s_app=\"cilium\"}) by (pod, area, family, name)",
+          "expr": "sum(cilium_datapath_conntrack_dump_resets_total{k8s_app=\"cilium\"}) by (pod, area, family, name)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{name}} {{area}} {{family}}",
@@ -3795,7 +3795,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Datapath Errors",
+      "title": "Datapath Conntrack Dump Resets",
       "tooltip": {
         "shared": true,
         "sort": 0,
