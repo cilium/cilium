@@ -18,9 +18,10 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build cilium CLI binary
-        run: |
-          cd cmd/cilium
-          go build
+        run: make
+
+      - name: Install cilium CLI binary
+        run: sudo make install
 
       - name: Install eksctl
         run: |
@@ -41,7 +42,7 @@ jobs:
 
       - name: Install cilium
         run: |
-          cmd/cilium/cilium install --cluster-name ${{ env.clusterName }} --wait=false --config monitor-aggregation=None
+          cilium install --cluster-name ${{ env.clusterName }} --wait=false --config monitor-aggregation=None
 
       - name: Add nodegroup
         run: |
@@ -49,11 +50,11 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cmd/cilium/cilium hubble enable
+          cilium hubble enable
 
       - name: Status
         run: |
-          cmd/cilium/cilium status --wait
+          cilium status --wait
 
       - name: Relay Port Forward
         run: |
@@ -62,12 +63,12 @@ jobs:
 
       - name: Connectivity Test
         run: |
-          cmd/cilium/cilium connectivity test
+          cilium connectivity test
 
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          cmd/cilium/cilium status
+          cilium status
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
