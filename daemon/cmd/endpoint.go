@@ -699,9 +699,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
-	// id can be an endpoint iD or an IP so not using logfields.EndpointID
-	log.WithField("id", id).Info("Delete endpoint request")
-
 	if ep, err := d.endpointManager.Lookup(id); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
@@ -709,6 +706,18 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	} else if err = endpoint.APICanModify(ep); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else {
+		msg := "Delete endpoint request"
+		switch containerID := ep.GetShortContainerID(); containerID {
+		case "":
+			log.WithFields(logrus.Fields{
+				logfields.IPv4: ep.GetIPv4Address(),
+				logfields.IPv6: ep.GetIPv6Address(),
+			}).Info(msg)
+		default:
+			log.WithFields(logrus.Fields{
+				logfields.ContainerID: containerID,
+			}).Info(msg)
+		}
 		return d.deleteEndpoint(ep), nil
 	}
 }
