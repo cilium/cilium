@@ -1,4 +1,5 @@
 import re
+from functools import lru_cache
 from validate_email import validate_email
 import ipaddress
 try:
@@ -21,7 +22,32 @@ regex_map = {
     "HEADER_STRING": r'^[^\u0000\u000A\u000D]*$'
 }
 
+class ValidatingMessage(object):
+    """Wrap a proto message to cache validate functions with the message class name.
+
+    A validate function is defined per message class in protoc-gen-validate,
+     so we can reuse an already generated function for the same message class.
+    """
+
+    def __init__(self, proto_message):
+        self.DESCRIPTOR = proto_message.DESCRIPTOR
+
+    def __hash__(self):
+        return hash(self.DESCRIPTOR.full_name)
+
+    def __eq__(self, other):
+        if isinstance(other, ValidatingMessage):
+            return self.DESCRIPTOR.full_name == other.DESCRIPTOR.full_name
+        else:
+            return False
+
 def validate(proto_message):
+    return _validate_inner(ValidatingMessage(proto_message))
+
+# Cache generated functions to avoid the performance issue caused by repeated proto messages,
+#   which generate the same functions repeatedly.
+@lru_cache()
+def _validate_inner(proto_message):
     func = file_template(proto_message)
     global printer
     printer += func + "\n"
@@ -49,17 +75,20 @@ def byte_len(s):
         return len(s)
 
 def _validateHostName(host):
+    if not host:
+        return False
     if len(host) > 253:
         return False
 
-    s = host.rsplit(".",1)[0].lower()
+    if host[-1] == '.':
+        host = host[:-1]
 
-    for part in s.split("."):
+    for part in host.split("."):
         if len(part) == 0 or len(part) > 63:
             return False
 
         # Host names cannot begin or end with hyphens
-        if s[0] == "-" or s[len(s)-1] == '-':
+        if part[0] == "-" or part[-1] == '-':
             return False
         for r in part:
             if (r < 'A' or r > 'Z') and (r < 'a' or r > 'z') and (r < '0' or r > '9') and r != '-':
@@ -353,17 +382,17 @@ def duration_template(option_value, name, repeated = False):
     {% endif %}
         dur = {{ name }}.seconds + round((10**-9 * {{ name }}.nanos), 9)
         {%- set dur = o.duration -%}
-        {%- if dur.HasField('lt') %} 
-        lt = {{ dur_lit(dur['lt']) }} 
+        {%- if dur.HasField('lt') %}
+        lt = {{ dur_lit(dur['lt']) }}
         {% endif %}
-        {%- if dur.HasField('lte') %} 
-        lte = {{ dur_lit(dur['lte']) }} 
+        {%- if dur.HasField('lte') %}
+        lte = {{ dur_lit(dur['lte']) }}
         {% endif %}
-        {%- if dur.HasField('gt') %} 
-        gt = {{ dur_lit(dur['gt']) }} 
+        {%- if dur.HasField('gt') %}
+        gt = {{ dur_lit(dur['gt']) }}
         {% endif %}
-        {%- if dur.HasField('gte') %} 
-        gte = {{ dur_lit(dur['gte']) }} 
+        {%- if dur.HasField('gte') %}
+        gte = {{ dur_lit(dur['gte']) }}
         {% endif %}
         {%- if dur.HasField('const') %}
         if dur != {{ dur_lit(dur['const']) }}:
@@ -371,11 +400,11 @@ def duration_template(option_value, name, repeated = False):
         {%- endif -%}
         {%- if dur['in'] %}
         if dur not in {{ dur_arr(dur['in']) }}:
-            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(dur['in']) }}\") 
+            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(dur['in']) }}\")
         {%- endif -%}
         {%- if dur['not_in'] %}
         if dur in {{ dur_arr(dur['not_in']) }}:
-            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(dur['not_in']) }}\") 
+            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(dur['not_in']) }}\")
         {%- endif -%}
         {%- if dur.HasField('lt') %}
             {%- if dur.HasField('gt') %}
@@ -396,7 +425,7 @@ def duration_template(option_value, name, repeated = False):
                 {%- endif -%}
             {%- else -%}
         if dur >= lt:
-            raise ValidationFailed(\"{{ name }} is not lesser than {{ dur_lit(dur['lt']) }}\")    
+            raise ValidationFailed(\"{{ name }} is not lesser than {{ dur_lit(dur['lt']) }}\")
             {%- endif -%}
         {%- elif dur.HasField('lte') %}
             {%- if dur.HasField('gt') %}
@@ -417,7 +446,7 @@ def duration_template(option_value, name, repeated = False):
                 {%- endif -%}
             {%- else -%}
         if dur > lte:
-            raise ValidationFailed(\"{{ name }} is not lesser than or equal to {{ dur_lit(dur['lte']) }}\")                   
+            raise ValidationFailed(\"{{ name }} is not lesser than or equal to {{ dur_lit(dur['lte']) }}\")
             {%- endif -%}
         {%- elif dur.HasField('gt') %}
         if dur <= gt:
@@ -439,17 +468,17 @@ def timestamp_template(option_value, name, repeated = False):
     {% endif %}
         ts = {{ name }}.seconds + round((10**-9 * {{ name }}.nanos), 9)
         {%- set ts = o.timestamp -%}
-        {%- if ts.HasField('lt') %} 
-        lt = {{ dur_lit(ts['lt']) }} 
+        {%- if ts.HasField('lt') %}
+        lt = {{ dur_lit(ts['lt']) }}
         {% endif -%}
-        {%- if ts.HasField('lte') %} 
-        lte = {{ dur_lit(ts['lte']) }} 
+        {%- if ts.HasField('lte') %}
+        lte = {{ dur_lit(ts['lte']) }}
         {% endif -%}
-        {%- if ts.HasField('gt') %} 
-        gt = {{ dur_lit(ts['gt']) }} 
+        {%- if ts.HasField('gt') %}
+        gt = {{ dur_lit(ts['gt']) }}
         {% endif -%}
-        {%- if ts.HasField('gte') %} 
-        gte = {{ dur_lit(ts['gte']) }} 
+        {%- if ts.HasField('gte') %}
+        gte = {{ dur_lit(ts['gte']) }}
         {% endif -%}
         {%- if ts.HasField('const') %}
         if ts != {{ dur_lit(ts['const']) }}:
@@ -457,11 +486,11 @@ def timestamp_template(option_value, name, repeated = False):
         {% endif %}
         {%- if ts['in'] %}
         if ts not in {{ dur_arr(ts['in']) }}:
-            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(ts['in']) }}\") 
+            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(ts['in']) }}\")
         {%- endif %}
         {%- if ts['not_in'] %}
         if ts in {{ dur_arr(ts['not_in']) }}:
-            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(ts['not_in']) }}\") 
+            raise ValidationFailed(\"{{ name }} is not in {{ dur_arr(ts['not_in']) }}\")
         {%- endif %}
         {%- if ts.HasField('lt') %}
             {%- if ts.HasField('gt') %}
@@ -482,7 +511,7 @@ def timestamp_template(option_value, name, repeated = False):
                 {%- endif -%}
             {%- else -%}
         if ts >= lt:
-            raise ValidationFailed(\"{{ name }} is not lesser than {{ dur_lit(ts['lt']) }}\")    
+            raise ValidationFailed(\"{{ name }} is not lesser than {{ dur_lit(ts['lt']) }}\")
             {%- endif -%}
         {%- elif ts.HasField('lte') %}
             {%- if ts.HasField('gt') %}
@@ -503,7 +532,7 @@ def timestamp_template(option_value, name, repeated = False):
                 {%- endif -%}
             {%- else -%}
         if ts > lte:
-            raise ValidationFailed(\"{{ name }} is not lesser than or equal to {{ dur_lit(ts['lte']) }}\")                   
+            raise ValidationFailed(\"{{ name }} is not lesser than or equal to {{ dur_lit(ts['lte']) }}\")
             {%- endif -%}
         {%- elif ts.HasField('gt') %}
         if ts <= gt:
@@ -515,21 +544,21 @@ def timestamp_template(option_value, name, repeated = False):
         now = time.time()
             {%- if ts.HasField('within') %}
         within = {{ dur_lit(ts['within']) }}
-        if ts >= now or ts >= now - within:
+        if ts >= now or ts <= now - within:
             raise ValidationFailed(\"{{ name }} is not within range {{ dur_lit(ts['within']) }}\")
             {%- else %}
         if ts >= now:
             raise ValidationFailed(\"{{ name }} is not lesser than now\")
-            {%- endif -%} 
+            {%- endif -%}
         {%- elif ts.HasField('gt_now') %}
         now = time.time()
             {%- if ts.HasField('within') %}
         within = {{ dur_lit(ts['within']) }}
-        if ts <= now or ts <= now + within:
+        if ts <= now or ts >= now + within:
             raise ValidationFailed(\"{{ name }} is not within range {{ dur_lit(ts['within']) }}\")
             {%- else %}
         if ts <= now:
-            raise ValidationFailed(\"{{ name }} is not greater than now\")    
+            raise ValidationFailed(\"{{ name }} is not greater than now\")
             {%- endif -%}
         {%- elif ts.HasField('within') %}
         now = time.time()
@@ -889,7 +918,7 @@ def rule_type(field):
                         str(option_value.double) or str(option_value.uint32) or str(option_value.uint64) or \
                         str(option_value.bool) or str(option_value.string) or str(option_value.bytes):
                     return wrapper_template(option_value, name)
-                elif str(option_value.message) is not "":
+                elif str(option_value.message) != "":
                     return message_template(option_value, field.name)
                 elif str(option_value.any):
                     return any_template(option_value, name)
@@ -911,6 +940,13 @@ def rule_type(field):
 
 def file_template(proto_message):
     file_tmp = """
+{%- set ns = namespace(ignored=false) -%}
+{%- for option_descriptor, option_value in p.DESCRIPTOR.GetOptions().ListFields() -%}
+    {%- if option_descriptor.full_name == "validate.ignored" and option_value -%}
+        {%- set ns.found = true -%}
+    {%- endif -%}
+{%- endfor -%}
+{%- if not ns.ignored -%}
 # Validates {{ p.DESCRIPTOR.name }}
 def generate_validate(p):
     {%- for option_descriptor, option_value in p.DESCRIPTOR.GetOptions().ListFields() %}
@@ -937,7 +973,9 @@ def generate_validate(p):
     {{ rule_type(field) -}}
         {%- endif %}
     {%- endfor %}
-    return None"""
+    return None
+{%- endif -%}
+"""
     return Template(file_tmp).render(rule_type = rule_type, p = proto_message)
 
 class UnimplementedException(Exception):
