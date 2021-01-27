@@ -9,8 +9,17 @@
 
 ## Installation
 
+To build and install, use the `install` target:
+
 ```console
-go build ./cmd/cilium
+make install
+```
+
+You may set the `BINDIR` environment variable to install the binary in a
+specific location instead of `/usr/local/bin`, e.g.
+
+```
+BINDIR=~/.local/bin make install
 ```
 
 ## Capabilities
