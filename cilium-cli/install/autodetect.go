@@ -31,11 +31,14 @@ type validationCheck interface {
 
 var (
 	validationChecks = map[k8s.Kind][]validationCheck{
-		k8s.KindMinikube: []validationCheck{
+		k8s.KindMinikube: {
 			&minikubeVersionValidation{},
 		},
-		k8s.KindKind: []validationCheck{
+		k8s.KindKind: {
 			&kindVersionValidation{},
+		},
+		k8s.KindAKS: {
+			&azureVersionValidation{},
 		},
 	}
 
