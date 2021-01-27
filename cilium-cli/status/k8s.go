@@ -138,7 +138,7 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 	}
 
 	if d == nil {
-		return fmt.Errorf("Deployment %s is not available", name)
+		return fmt.Errorf("deployment %s is not available", name)
 	}
 
 	stateCount := PodStateCount{Type: "Deployment"}
@@ -208,10 +208,10 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 
 		switch pod.Status.Phase {
 		case corev1.PodPending:
-			status.AddAggregatedWarning(name, pod.Name, fmt.Errorf("Pod is pending"))
+			status.AddAggregatedWarning(name, pod.Name, fmt.Errorf("pod is pending"))
 		case corev1.PodRunning, corev1.PodSucceeded:
 		case corev1.PodFailed:
-			status.AddAggregatedError(name, pod.Name, fmt.Errorf("Pod has failed: %s - %s", pod.Status.Reason, pod.Status.Message))
+			status.AddAggregatedError(name, pod.Name, fmt.Errorf("pod has failed: %s - %s", pod.Status.Reason, pod.Status.Message))
 		}
 
 		for _, container := range pod.Spec.Containers {
@@ -316,7 +316,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 	err = k.deploymentStatus(ctx, status, relayDeploymentName)
 	if err != nil {
 		if _, ok := status.PodState[relayDeploymentName]; !ok {
-			status.AddAggregatedWarning(relayDeploymentName, relayDeploymentName, fmt.Errorf("Relay is not deployed"))
+			status.AddAggregatedWarning(relayDeploymentName, relayDeploymentName, fmt.Errorf("hubble relay is not deployed"))
 		} else {
 			status.AddAggregatedError(relayDeploymentName, relayDeploymentName, err)
 			status.CollectionError(err)
@@ -334,7 +334,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 	err = k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
 	if err != nil {
 		if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; !ok {
-			status.AddAggregatedWarning(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, fmt.Errorf("ClusterMesh is not deployed"))
+			status.AddAggregatedWarning(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, fmt.Errorf("clustermesh is not deployed"))
 		} else {
 			status.AddAggregatedError(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, err)
 			status.CollectionError(err)

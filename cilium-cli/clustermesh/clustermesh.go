@@ -1085,7 +1085,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 			if log {
 				k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
 			}
-			return nil, fmt.Errorf("No IP available to reach cluster")
+			return nil, fmt.Errorf("no IP available to reach cluster")
 		}
 	}
 
