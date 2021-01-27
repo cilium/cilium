@@ -27,6 +27,10 @@ type SchemaVisitor interface {
 	// this visitor will be called again with `nil` to indicate that
 	// all children have been visited.  If a nil visitor is returned,
 	// children are not visited.
+	//
+	// It is *NOT* safe to save references to the given schema.
+	// Make deepcopies if you need to keep things around beyond
+	// the lifetime of the call.
 	Visit(schema *apiext.JSONSchemaProps) SchemaVisitor
 }
 
@@ -102,6 +106,8 @@ func (w schemaWalker) walkSchema(schema *apiext.JSONSchemaProps) {
 // walkMap walks over values of the given map, saving changes to them.
 func (w schemaWalker) walkMap(defs map[string]apiext.JSONSchemaProps) {
 	for name, def := range defs {
+		// this is iter var reference is because we immediately preseve it below
+		//nolint:gosec
 		w.walkSchema(&def)
 		// make sure the edits actually go through since we can't
 		// take a reference to the value in the map

@@ -244,10 +244,6 @@ func (c Config) clientConfig() admissionregv1.WebhookClientConfig {
 			Namespace: "system",
 			Path:      &path,
 		},
-		// OpenAPI marks the field as required before 1.13 because of a bug that got fixed in
-		// https://github.com/kubernetes/api/commit/e7d9121e9ffd63cea0288b36a82bcc87b073bd1b
-		// Put "\n" as an placeholder as a workaround til 1.13+ is almost everywhere.
-		CABundle: []byte("\n"),
 	}
 }
 

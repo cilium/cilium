@@ -18,7 +18,6 @@ package loader
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
@@ -29,10 +28,15 @@ type PositionedError struct {
 	error
 }
 
+// Node is the intersection of go/ast.Node and go/types.Var.
+type Node interface {
+	Pos() token.Pos // position of first character belonging to the node
+}
+
 // ErrFromNode returns the given error, with additional information
 // attaching it to the given AST node.  It will automatically map
 // over error lists.
-func ErrFromNode(err error, node ast.Node) error {
+func ErrFromNode(err error, node Node) error {
 	if asList, isList := err.(ErrList); isList {
 		resList := make(ErrList, len(asList))
 		for i, baseErr := range asList {

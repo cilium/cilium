@@ -40,6 +40,8 @@ var ValidationMarkers = mustMakeAllWithPrefix("kubebuilder:validation", markers.
 	ExclusiveMaximum(false),
 	ExclusiveMinimum(false),
 	MultipleOf(0),
+	MinProperties(0),
+	MaxProperties(0),
 
 	// string markers
 
@@ -72,21 +74,24 @@ var FieldOnlyMarkers = []*definitionWithHelp{
 	must(markers.MakeDefinition("optional", markers.DescribesField, struct{}{})).
 		WithHelp(markers.SimpleHelp("CRD validation", "specifies that this field is optional, if fields are required by default.")),
 
-	must(markers.MakeDefinition("kubebuilder:validation:OneOf", markers.DescribesField, struct{}{})).
-		WithHelp(markers.SimpleHelp("CRD validation", "specifies that this field is part of a oneOf group")),
-	must(markers.MakeDefinition("kubebuilder:validation:AnyOf", markers.DescribesField, struct{}{})).
-		WithHelp(markers.SimpleHelp("CRD validation", "specifies that this field is part of a anyOf group")),
-
 	must(markers.MakeDefinition("nullable", markers.DescribesField, Nullable{})).
 		WithHelp(Nullable{}.Help()),
 
 	must(markers.MakeAnyTypeDefinition("kubebuilder:default", markers.DescribesField, Default{})).
 		WithHelp(Default{}.Help()),
 
-	must(markers.MakeDefinition("kubebuilder:pruning:PreserveUnknownFields", markers.DescribesField, XPreserveUnknownFields{})).
-		WithHelp(XPreserveUnknownFields{}.Help()),
 	must(markers.MakeDefinition("kubebuilder:validation:EmbeddedResource", markers.DescribesField, XEmbeddedResource{})).
 		WithHelp(XEmbeddedResource{}.Help()),
+}
+
+// ValidationIshMarkers are field-and-type markers that don't fall under the
+// :validation: prefix, and/or don't have a name that directly matches their
+// type.
+var ValidationIshMarkers = []*definitionWithHelp{
+	must(markers.MakeDefinition("kubebuilder:pruning:PreserveUnknownFields", markers.DescribesField, XPreserveUnknownFields{})).
+		WithHelp(XPreserveUnknownFields{}.Help()),
+	must(markers.MakeDefinition("kubebuilder:pruning:PreserveUnknownFields", markers.DescribesType, XPreserveUnknownFields{})).
+		WithHelp(XPreserveUnknownFields{}.Help()),
 }
 
 func init() {
@@ -104,6 +109,7 @@ func init() {
 	}
 
 	AllDefinitions = append(AllDefinitions, FieldOnlyMarkers...)
+	AllDefinitions = append(AllDefinitions, ValidationIshMarkers...)
 }
 
 // +controllertools:marker:generateHelp:category="CRD validation"
@@ -111,7 +117,7 @@ func init() {
 type Maximum int
 
 // +controllertools:marker:generateHelp:category="CRD validation"
-// Minimum specifies the minimum numeric value that this field can have.
+// Minimum specifies the minimum numeric value that this field can have. Negative integers are supported.
 type Minimum int
 
 // +controllertools:marker:generateHelp:category="CRD validation"
@@ -149,6 +155,14 @@ type MinItems int
 // +controllertools:marker:generateHelp:category="CRD validation"
 // UniqueItems specifies that all items in this list must be unique.
 type UniqueItems bool
+
+// +controllertools:marker:generateHelp:category="CRD validation"
+// MaxProperties restricts the number of keys in an object
+type MaxProperties int
+
+// +controllertools:marker:generateHelp:category="CRD validation"
+// MinProperties restricts the number of keys in an object
+type MinProperties int
 
 // +controllertools:marker:generateHelp:category="CRD validation"
 // Enum specifies that this (scalar) field is restricted to the *exact* values specified here.
@@ -196,6 +210,10 @@ type Default struct {
 // if nested  properties or additionalProperties are specified in the schema.
 // This can either be true or undefined. False
 // is forbidden.
+//
+// NB: The kubebuilder:validation:XPreserveUnknownFields variant is deprecated
+// in favor of the kubebuilder:pruning:PreserveUnknownFields variant.  They function
+// identically.
 type XPreserveUnknownFields struct{}
 
 // +controllertools:marker:generateHelp:category="CRD validation"
@@ -291,6 +309,24 @@ func (m UniqueItems) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 		return fmt.Errorf("must apply uniqueitems to an array")
 	}
 	schema.UniqueItems = bool(m)
+	return nil
+}
+
+func (m MinProperties) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
+	if schema.Type != "object" {
+		return fmt.Errorf("must apply minproperties to an object")
+	}
+	val := int64(m)
+	schema.MinProperties = &val
+	return nil
+}
+
+func (m MaxProperties) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
+	if schema.Type != "object" {
+		return fmt.Errorf("must apply maxproperties to an object")
+	}
+	val := int64(m)
+	schema.MaxProperties = &val
 	return nil
 }
 

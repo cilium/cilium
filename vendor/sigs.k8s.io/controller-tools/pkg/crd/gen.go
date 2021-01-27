@@ -18,7 +18,9 @@ package crd
 
 import (
 	"fmt"
+	"go/ast"
 	"go/types"
+	"os"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextlegacy "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -84,6 +86,9 @@ type Generator struct {
 	CRDVersions []string `marker:"crdVersions,optional"`
 }
 
+func (Generator) CheckFilter() loader.NodeFilter {
+	return filterTypesForCRDs
+}
 func (Generator) RegisterMarkers(into *markers.Registry) error {
 	return crdmarkers.Register(into)
 }
@@ -197,9 +202,15 @@ func removeDefaultsFromSchemaProps(v *apiextlegacy.JSONSchemaProps) {
 		return
 	}
 
+	if v.Default != nil {
+		fmt.Fprintln(os.Stderr, "Warning: default unsupported in CRD version v1beta1, v1 required. Removing defaults.")
+	}
+
 	// nil-out the default field
 	v.Default = nil
 	for name, prop := range v.Properties {
+		// iter var reference is fine -- we handle the persistence of the modfications on the line below
+		//nolint:gosec
 		removeDefaultsFromSchemaProps(&prop)
 		v.Properties[name] = prop
 	}
@@ -318,4 +329,23 @@ func FindKubeKinds(parser *Parser, metav1Pkg *loader.Package) map[schema.GroupKi
 	}
 
 	return kubeKinds
+}
+
+// filterTypesForCRDs filters out all nodes that aren't used in CRD generation,
+// like interfaces and struct fields without JSON tag.
+func filterTypesForCRDs(node ast.Node) bool {
+	switch node := node.(type) {
+	case *ast.InterfaceType:
+		// skip interfaces, we never care about references in them
+		return false
+	case *ast.StructType:
+		return true
+	case *ast.Field:
+		_, hasTag := loader.ParseAstTag(node.Tag).Lookup("json")
+		// fields without JSON tags mean we have custom serialization,
+		// so only visit fields with tags.
+		return hasTag
+	default:
+		return true
+	}
 }

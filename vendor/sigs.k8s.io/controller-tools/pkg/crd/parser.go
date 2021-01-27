@@ -18,7 +18,6 @@ package crd
 
 import (
 	"fmt"
-	"go/ast"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -216,7 +215,7 @@ func (p *Parser) AddPackage(pkg *loader.Package) {
 		return
 	}
 	p.indexTypes(pkg)
-	p.Checker.Check(pkg, filterTypesForCRDs)
+	p.Checker.Check(pkg)
 	p.packages[pkg] = struct{}{}
 }
 
@@ -235,23 +234,4 @@ func (p *Parser) NeedPackage(pkg *loader.Package) {
 		return
 	}
 	p.AddPackage(pkg)
-}
-
-// filterTypesForCRDs filters out all nodes that aren't used in CRD generation,
-// like interfaces and struct fields without JSON tag.
-func filterTypesForCRDs(node ast.Node) bool {
-	switch node := node.(type) {
-	case *ast.InterfaceType:
-		// skip interfaces, we never care about references in them
-		return false
-	case *ast.StructType:
-		return true
-	case *ast.Field:
-		_, hasTag := loader.ParseAstTag(node.Tag).Lookup("json")
-		// fields without JSON tags mean we have custom serialization,
-		// so only visit fields with tags.
-		return hasTag
-	default:
-		return true
-	}
 }

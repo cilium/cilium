@@ -104,17 +104,13 @@ require (
 	// version number of the tool. We want the version number to match up with
 	// the fork, even though this specific version doesn't exist in upstream
 	// controller-tools.
-	sigs.k8s.io/controller-tools v0.3.1-0.20200716001835-4a903ddb7005
+	sigs.k8s.io/controller-tools v0.4.1
 	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-
-	// Using private fork of controller-tools. See commit msg for more context
-	// as to why we are using a private fork.
-	sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.3.1-0.20200911184030-7e668c1fb4c2
 
 	// Fork until
 	// https://github.com/kubernetes-sigs/structured-merge-diff/issues/172 is fixed.
