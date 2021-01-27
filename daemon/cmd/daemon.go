@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
@@ -92,6 +93,10 @@ import (
 const (
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
+
+	// ConfigModifyQueueSize is the size of the event queue for serializing
+	// configuration updates to the daemon
+	ConfigModifyQueueSize = 10
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -164,6 +169,9 @@ type Daemon struct {
 	redirectPolicyManager *redirectpolicy.Manager
 
 	apiLimiterSet *rate.APILimiterSet
+
+	// event queue for serializing configuration updates to the daemon.
+	configModifyQueue *eventqueue.EventQueue
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -338,6 +346,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
 	}
+
+	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
+	d.configModifyQueue.Run()
 
 	d.svc = service.NewService(&d)
 
