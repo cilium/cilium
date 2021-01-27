@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -28,17 +29,18 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 )
 
-type patchConfig struct {
-	daemon *Daemon
+// ConfigModifyEvent is a wrapper around the parameters for configModify.
+type ConfigModifyEvent struct {
+	params PatchConfigParams
+	h      *patchConfig
 }
 
-func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
-	return &patchConfig{daemon: d}
+// Handle implements pkg/eventqueue/EventHandler interface.
+func (c *ConfigModifyEvent) Handle(res chan interface{}) {
+	c.h.configModify(c.params, res)
 }
 
-func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /config request")
-
+func (h *patchConfig) configModify(params PatchConfigParams, resChan chan interface{}) {
 	d := h.daemon
 
 	cfgSpec := params.Configuration
@@ -46,7 +48,8 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	om, err := option.Config.Opts.Library.ValidateConfigurationMap(cfgSpec.Options)
 	if err != nil {
 		msg := fmt.Errorf("Invalid configuration option %s", err)
-		return api.Error(PatchConfigBadRequestCode, msg)
+		resChan <- api.Error(PatchConfigBadRequestCode, msg)
+		return
 	}
 
 	// Serialize configuration updates to the daemon.
@@ -54,27 +57,29 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	// Track changes to daemon's configuration
 	var changes int
+	var policyEnforcementChanged bool
+	oldEnforcementValue := policy.GetPolicyEnabled()
+	oldConfigOpts := option.Config.Opts.DeepCopy()
 
 	// Only update if value provided for PolicyEnforcement.
 	if enforcement := cfgSpec.PolicyEnforcement; enforcement != "" {
 		switch enforcement {
 		case option.NeverEnforce, option.DefaultEnforcement, option.AlwaysEnforce:
-			// Update policy enforcement configuration if needed.
-			oldEnforcementValue := policy.GetPolicyEnabled()
-
 			// If the policy enforcement configuration has indeed changed, we have
 			// to regenerate endpoints and update daemon's configuration.
 			if enforcement != oldEnforcementValue {
 				log.Debug("configuration request to change PolicyEnforcement for daemon")
 				changes++
 				policy.SetPolicyEnabled(enforcement)
+				policyEnforcementChanged = true
 			}
 
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
 			log.Warn(msg)
 			option.Config.ConfigPatchMutex.Unlock()
-			return api.Error(PatchConfigFailureCode, msg)
+			resChan <- api.Error(PatchConfigBadRequestCode, msg)
+			return
 		}
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
@@ -89,12 +94,53 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
-			return api.Error(PatchConfigFailureCode, msg)
+			// Revert configuration changes
+			option.Config.ConfigPatchMutex.Lock()
+			if policyEnforcementChanged {
+				policy.SetPolicyEnabled(oldEnforcementValue)
+			}
+			option.Config.Opts = oldConfigOpts
+			option.Config.ConfigPatchMutex.Unlock()
+			log.Debug("finished reverting agent configuration changes")
+			resChan <- api.Error(PatchConfigFailureCode, msg)
+			return
 		}
 		d.TriggerPolicyUpdates(true, "agent configuration update")
 	}
 
-	return NewPatchConfigOK()
+	resChan <- NewPatchConfigOK()
+	return
+}
+
+type patchConfig struct {
+	daemon *Daemon
+}
+
+func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
+	return &patchConfig{daemon: d}
+}
+
+func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /config request")
+
+	c := &ConfigModifyEvent{
+		params: params,
+		h:      h,
+	}
+	cfgModEvent := eventqueue.NewEvent(c)
+	resChan, err := h.daemon.configModifyQueue.Enqueue(cfgModEvent)
+	if err != nil {
+		msg := fmt.Errorf("enqueue of ConfigModifyEvent failed: %w", err)
+		return api.Error(PatchConfigFailureCode, msg)
+	}
+
+	res, ok := <-resChan
+	if ok {
+		return res.(middleware.Responder)
+	}
+
+	msg := fmt.Errorf("config modify event was cancelled")
+	return api.Error(PatchConfigFailureCode, msg)
 }
 
 type getConfig struct {
