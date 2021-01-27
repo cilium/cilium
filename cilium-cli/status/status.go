@@ -199,8 +199,6 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 				ctrl.Status.LastFailureMsg))
 		}
 	}
-
-	return
 }
 
 func (s *Status) statusSummary(name string) (text string) {
