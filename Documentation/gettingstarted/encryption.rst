@@ -13,7 +13,7 @@ Transparent Encryption
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
 configuration is complete all traffic between Cilium-managed endpoints, as well
-as Cilium managed host traffic, will be encrypted using IPsec. This guide uses
+as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
 Kubernetes secrets to distribute keys. Alternatively, keys may be manually
 distributed, but that is not shown here.
 
@@ -31,9 +31,16 @@ distributed, but that is not shown here.
 Generate & import the PSK
 =========================
 
-First, create a Kubernetes secret for the IPsec keys to be stored. This will
-generate the necessary IPsec keys which will be distributed as a Kubernetes
-secret called ``cilium-ipsec-keys``. In this example we use GMC-128-AES, but
+First, create a Kubernetes secret for the IPsec configuration to be stored. The
+example below demonstrates generation of the necessary IPsec configuration
+which will be distributed as a Kubernetes secret called ``cilium-ipsec-keys``.
+A Kubernetes secret should consist of one key-value pair where the key is the
+name of the file to be mounted as a volume in cilium-agent pods, and the
+value is an IPSec configuration in the following format:
+
+``key-id encryption-algorithms PSK-in-hex-format key-size``
+
+In the example below we use GMC-128-AES, but
 any of the supported Linux algorithms may be used. To generate, use the
 following:
 
@@ -64,6 +71,8 @@ Deploy Cilium release via Helm with the following options to enable encryption:
       --set encryption.enabled=true \\
       --set encryption.nodeEncryption=false
 
+``encryption.enabled`` enables encryption of the traffic between Cilium-managed pods and
+``encryption.nodeEncryption`` controls whether host traffic is encrypted.
 These options can be provided along with other options, such as when deploying
 to GKE, with VXLAN tunneling:
 
