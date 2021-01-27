@@ -15,16 +15,16 @@
 package filters
 
 import (
-	"github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 )
 
 // FlowFilterFunc is a function to filter on a condition in a flow. It returns
 // true if the condition is true.
-type FlowFilterFunc func(flow *flow.Flow) bool
+type FlowFilterFunc func(flow *flowpb.Flow) bool
 
 // And returns true if all FlowFilterFunc return true
 func And(funcs ...FlowFilterFunc) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		for _, f := range funcs {
 			if !f(flow) {
 				return false
@@ -36,7 +36,7 @@ func And(funcs ...FlowFilterFunc) FlowFilterFunc {
 
 // Or returns true if any FlowFilterFunc return true
 func Or(funcs ...FlowFilterFunc) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		for _, f := range funcs {
 			if f(flow) {
 				return true
@@ -48,15 +48,14 @@ func Or(funcs ...FlowFilterFunc) FlowFilterFunc {
 
 // Drop matches on drops
 func Drop() FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
-		r := flow.GetDropReason()
-		return r != uint32(0)
+	return func(flow *flowpb.Flow) bool {
+		return flow.GetDropReasonDesc() != flowpb.DropReason_DROP_REASON_UNKNOWN
 	}
 }
 
 // ICMP matches on ICMP messages of the specified type
 func ICMP(typ uint32) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		l4 := flow.GetL4()
 		if l4 == nil {
 			return false
@@ -77,7 +76,7 @@ func ICMP(typ uint32) FlowFilterFunc {
 
 // UDP matches on UDP packets with the specified source and destination ports
 func UDP(srcPort, dstPort int) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		l4 := flow.GetL4()
 		if l4 == nil {
 			return false
@@ -102,7 +101,7 @@ func UDP(srcPort, dstPort int) FlowFilterFunc {
 
 // TCPFlags matches on TCP packets with the specified TCP flags
 func TCPFlags(syn, ack, fin, rst bool) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		l4 := flow.GetL4()
 		if l4 == nil {
 			return false
@@ -143,7 +142,7 @@ func SYN() FlowFilterFunc {
 
 // IP matches on IP packets with specified source and destination IP
 func IP(srcIP, dstIP string) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		ip := flow.GetIP()
 		if ip == nil {
 			return false
@@ -162,7 +161,7 @@ func IP(srcIP, dstIP string) FlowFilterFunc {
 
 // TCP matches on TCP packets with the specified source and destination ports
 func TCP(srcPort, dstPort int) FlowFilterFunc {
-	return func(flow *flow.Flow) bool {
+	return func(flow *flowpb.Flow) bool {
 		l4 := flow.GetL4()
 		if l4 == nil {
 			return false
