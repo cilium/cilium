@@ -23,3 +23,7 @@ jobs:
 
     - name: Test
       run: make test
+
+    - name: Run static checks
+      # TODO: replace with `make check` once `make lint` is happy
+      run: make gofmt ineffassign staticcheck vet
