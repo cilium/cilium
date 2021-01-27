@@ -528,7 +528,7 @@ func (k *K8sConnectivityCheck) enableHubbleClient(ctx context.Context) error {
 
 		if k.params.FlowValidation == FlowValidationModeStrict {
 			k.Log("❌ In --flow-validation=strict mode, Hubble must be available to validate flows")
-			return fmt.Errorf("Hubble is not available: %w", err)
+			return fmt.Errorf("hubble is not available: %w", err)
 		}
 	} else {
 		k.Log("ℹ️  Hubble is OK, flows: %d/%d", status.NumFlows, status.MaxFlows)
@@ -732,7 +732,7 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 		daemonSet, err := k.client.GetDaemonSet(ctx, k.params.CiliumNamespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
 		if err != nil {
 			k.Log("❌ Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
-			return nil, fmt.Errorf("Unable to determine status of Cilium DaemonSet: %w", err)
+			return nil, fmt.Errorf("unable to determine status of Cilium DaemonSet: %w", err)
 		}
 
 		if daemonSet.Status.DesiredNumberScheduled == 1 && !k.params.SingleNode {

@@ -68,14 +68,14 @@ func (c *CertManager) LoadCAFromK8s(ctx context.Context) error {
 		c.caKey = make([]byte, len(key))
 		copy(c.caKey, key)
 	} else {
-		return fmt.Errorf("Secret %q does not contain a key %q", defaults.CASecretName, defaults.CASecretKeyName)
+		return fmt.Errorf("secret %q does not contain a key %q", defaults.CASecretName, defaults.CASecretKeyName)
 	}
 
 	if cert, ok := s.Data[defaults.CASecretCertName]; ok {
 		c.caCert = make([]byte, len(cert))
 		copy(c.caCert, cert)
 	} else {
-		return fmt.Errorf("Secret %q does not contain a key %q", defaults.CASecretName, defaults.CASecretCertName)
+		return fmt.Errorf("secret %q does not contain a key %q", defaults.CASecretName, defaults.CASecretCertName)
 	}
 
 	return nil
@@ -83,7 +83,7 @@ func (c *CertManager) LoadCAFromK8s(ctx context.Context) error {
 
 func (c *CertManager) StoreCAInK8s(ctx context.Context) error {
 	if len(c.caKey) == 0 || len(c.caCert) == 0 {
-		return fmt.Errorf("CA not available")
+		return fmt.Errorf("no CA available")
 	}
 
 	data := map[string][]byte{
