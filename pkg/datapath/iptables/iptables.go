@@ -1016,7 +1016,7 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 			"!", "-s", hostMasqueradeIP,
 			"!", "-d", allocRange,
 			"-o", "cilium_host",
-			"-m", "conntrack", "--ctstate", "NEW",
+			"!", "-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
 			return err
