@@ -118,6 +118,9 @@ func (c *CertManager) GenerateCA() error {
 func (c *CertManager) GenerateCertificate(profile string, certReq *csr.CertificateRequest, signingConf *config.Signing) (certBytes []byte, keyBytes []byte, err error) {
 	g := &csr.Generator{Validator: genkey.Validator}
 	csrBytes, keyBytes, err := g.ProcessRequest(certReq)
+	if err != nil {
+		return nil, nil, err
+	}
 	parsedCa, err := helpers.ParseCertificatePEM(c.caCert)
 	if err != nil {
 		return nil, nil, err
