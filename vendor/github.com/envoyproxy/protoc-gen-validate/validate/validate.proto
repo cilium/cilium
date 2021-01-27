@@ -13,6 +13,8 @@ extend google.protobuf.MessageOptions {
     // Disabled nullifies any validation rules for this message, including any
     // message fields associated with it that do support validation.
     optional bool disabled = 1071;
+    // Ignore skips generation of validation methods for this message.
+    optional bool ignored = 1072;
 }
 
 // Validation rules applied at the oneof level

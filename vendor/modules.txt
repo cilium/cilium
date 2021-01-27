@@ -134,7 +134,7 @@ github.com/cilium/ebpf/perf
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20210121022617-de819bff23ee
+# github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09
 ## explicit
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/annotations
@@ -236,7 +236,7 @@ github.com/docker/libnetwork/types
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/protoc-gen-validate v0.3.0-java.0.20200608183405-278964a8052f
+# github.com/envoyproxy/protoc-gen-validate v0.4.2-0.20210105193028-872b28c45782
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.9.0+incompatible
 github.com/evanphx/json-patch
@@ -332,8 +332,6 @@ github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
-github.com/golang/protobuf/ptypes/empty
-github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
 # github.com/golang/snappy v0.0.1
@@ -556,7 +554,7 @@ github.com/shirou/gopsutil/v3/process
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
 github.com/sirupsen/logrus/hooks/test
-# github.com/spf13/afero v1.3.3
+# github.com/spf13/afero v1.3.4
 github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.3.0
@@ -769,7 +767,7 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20210111234610-22ae2b108f89
+# google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
 ## explicit
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/rpc/status
