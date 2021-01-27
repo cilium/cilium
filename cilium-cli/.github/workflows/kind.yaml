@@ -20,9 +20,10 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build cilium CLI binary
-        run: |
-          cd cmd/cilium
-          go build
+        run: make
+
+      - name: Install cilium CLI binary
+        run: sudo make install
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0
@@ -32,7 +33,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cmd/cilium/cilium install --config monitor-aggregation=none
+          cilium install --config monitor-aggregation=none
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
           # To make sure that cilium CRD is available (default timeout is 5m)
@@ -41,13 +42,13 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cmd/cilium/cilium hubble enable
+          cilium hubble enable
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
       - name: Status
         run: |
-          cmd/cilium/cilium status --wait
+          cilium status --wait
 
       - name: Relay Port Forward
         run: |
@@ -56,28 +57,28 @@ jobs:
 
       - name: Connectivity Test
         run: |
-          cmd/cilium/cilium connectivity test
+          cilium connectivity test
 
       - name: Uninstall cilium
         run: |
-          cmd/cilium/cilium uninstall --wait
+          cilium uninstall --wait
 
       - name: Install Cilium with Encryption
         run: |
-          cmd/cilium/cilium install --encryption
+          cilium install --encryption
 
       - name: Status
         run: |
-          cmd/cilium/cilium status --wait
+          cilium status --wait
 
       - name: Connectivity test
         run: |
-          cmd/cilium/cilium connectivity test
+          cilium connectivity test
 
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          cmd/cilium/cilium status
+          cilium status
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
