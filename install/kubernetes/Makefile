@@ -119,7 +119,7 @@ check-docker-images:
          MANAGED_ETCD_VERSION=$(MANAGED_ETCD_VERSION) \
          ETCD_VERSION=$(ETCD_VERSION) \
          NODEINIT_VERSION=$(NODEINIT_VERSION) \
-         CERTGEN_VERSION=`echo $(CERTGEN_VERSION) | egrep -o '^.*@' | sed 's/@//'` \
+         CERTGEN_VERSION=$(CERTGEN_VERSION) \
          ../../contrib/release/check-docker-images.sh "v$(VERSION)"
 
 .PHONY: all check-docker-images clean docs experimental-install lint quick-install update-versions
