@@ -71,6 +71,7 @@ type Parameters struct {
 	RelayImage       string
 	RelayVersion     string
 	RelayServiceType string
+	CreateCA         bool
 	Writer           io.Writer
 }
 
@@ -135,9 +136,23 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 }
 
 func (k *K8sHubble) Enable(ctx context.Context) error {
-	if err := k.certManager.LoadCAFromK8s(ctx); err != nil {
-		k.Log("❌ Cilium CA not found: %s", err)
-		return err
+	err := k.certManager.LoadCAFromK8s(ctx)
+	if err != nil {
+		if !k.params.CreateCA {
+			k.Log("❌ Cilium CA not found: %s", err)
+			return err
+		}
+
+		k.Log("🔑 Generating CA...")
+		if err := k.certManager.GenerateCA(); err != nil {
+			return fmt.Errorf("unable to generate CA: %w", err)
+		}
+
+		if err := k.certManager.StoreCAInK8s(ctx); err != nil {
+			return fmt.Errorf("unable to store CA in secret: %w", err)
+		}
+	} else {
+		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 	}
 
 	if k.params.Relay {
