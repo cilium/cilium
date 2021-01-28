@@ -231,7 +231,7 @@ data:
 {{- end }}
 
 {{- if hasKey .Values.bpf "hostRouting" }}
-  enable-host-legacy-routing: {{ .Values.bpf.hostRouting | quote }}
+  enable-host-legacy-routing: {{ (not .Values.bpf.hostRouting) | quote }}
 {{- end }}
 
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
