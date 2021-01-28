@@ -440,6 +440,7 @@ type Parameters struct {
 	SourceEndpoints      []string
 	SkipServiceCheck     bool
 	ApiserverImage       string
+	CreateCA             bool
 	Writer               io.Writer
 }
 
