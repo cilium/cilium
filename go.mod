@@ -36,7 +36,7 @@ require (
 	github.com/go-openapi/loads v0.20.0
 	github.com/go-openapi/runtime v0.19.24
 	github.com/go-openapi/spec v0.20.0
-	github.com/go-openapi/strfmt v0.19.11
+	github.com/go-openapi/strfmt v0.20.0
 	github.com/go-openapi/swag v0.19.12
 	github.com/go-openapi/validate v0.20.0
 	github.com/gogo/protobuf v1.3.2
