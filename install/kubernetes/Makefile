@@ -2,6 +2,7 @@ include ../../Makefile.defs
 include $(ROOT_DIR)/Makefile.quiet
 
 MANAGED_ETCD_VERSION := "v2.0.7"
+NODEINIT_VERSION := "v1"
 
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
 MANAGED_ETCD_PATH := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium/charts/managed-etcd/values.yaml"
@@ -42,13 +43,10 @@ update-versions:
 clean:
 	$(RM) $(QUICK_INSTALL)
 
-	$(QUIET)\
-         HUBBLE_PROXY_VERSION=$(HUBBLE_PROXY_VERSION) \
-         HUBBLE_UI_VERSION=$(HUBBLE_UI_VERSION) \
-         MANAGED_ETCD_VERSION=$(MANAGED_ETCD_VERSION) \
-         ETCD_VERSION=$(ETCD_VERSION) \
-         NODEINIT_VERSION=$(NODEINIT_VERSION) \
-         CERTGEN_VERSION=`echo $(CERTGEN_VERSION) | egrep -o '^.*@' | sed 's/@//'` \
-         ../../contrib/release/check-docker-images.sh "v$(VERSION)"
+check-docker-images:
+	$(QUIET) \
+		MANAGED_ETCD_VERSION=$(MANAGED_ETCD_VERSION) \
+		NODEINIT_VERSION=$(NODEINIT_VERSION) \
+		$(ROOT_DIR)/contrib/release/check-docker-images.sh "v$(VERSION)"
 
 .phony: all check-docker-images clean update-versions
