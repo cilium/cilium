@@ -421,6 +421,18 @@ spec:
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
+        startupProbe:
+          httpGet:
+            host: '127.0.0.1'
+            path: /healthz
+            port: 9876
+            scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
+          failureThreshold: 24
+          periodSeconds: 2
+          successThreshold: 1
         livenessProbe:
           httpGet:
             host: '127.0.0.1'
@@ -431,12 +443,6 @@ spec:
             - name: "brief"
               value: "true"
           failureThreshold: 10
-          # The initial delay for the liveness probe is intentionally large to
-          # avoid an endless kill & restart cycle if in the event that the initial
-          # bootstrapping takes longer than expected.
-          # Starting from Kubernetes 1.20, we are using startupProbe instead
-          # of this field.
-          initialDelaySeconds: 120
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 5
@@ -450,7 +456,6 @@ spec:
             - name: "brief"
               value: "true"
           failureThreshold: 3
-          initialDelaySeconds: 5
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 5
