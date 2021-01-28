@@ -154,10 +154,22 @@ func (k *K8sClusterMesh) deleteCertificates(ctx context.Context) error {
 func (k *K8sClusterMesh) installCertificates(ctx context.Context) error {
 	err := k.certManager.LoadCAFromK8s(ctx)
 	if err != nil {
-		k.Log("❌ Cilium CA not found: %s", err)
-		return err
+		if !k.params.CreateCA {
+			k.Log("❌ Cilium CA not found: %s", err)
+			return err
+		}
+
+		k.Log("🔑 Generating CA...")
+		if err := k.certManager.GenerateCA(); err != nil {
+			return fmt.Errorf("unable to generate CA: %w", err)
+		}
+
+		if err := k.certManager.StoreCAInK8s(ctx); err != nil {
+			return fmt.Errorf("unable to store CA in secret: %w", err)
+		}
+	} else {
+		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 	}
-	k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 
 	k.Log("🔑 Generating certificates for ClusterMesh...")
 	if err := k.createClusterMeshServerCertificate(ctx); err != nil {
