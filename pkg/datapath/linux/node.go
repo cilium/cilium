@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/arp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -1293,9 +1294,18 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
 
-	n.enableNeighDiscovery = n.nodeConfig.EnableIPv4 &&
-		(option.Config.EnableNodePort ||
-			(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled))
+	if n.nodeConfig.EnableIPv4 {
+		switch {
+		case option.Config.EnableNodePort:
+			mac, err := link.GetHardwareAddr(option.Config.DirectRoutingDevice)
+			if err != nil {
+				return err
+			}
+			n.enableNeighDiscovery = mac != nil // No need to arping for L2-less devices
+		case n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled:
+			n.enableNeighDiscovery = true
+		}
+	}
 
 	n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true)
 

@@ -76,6 +76,9 @@ var ignoredELFPrefixes = []string{
 	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
 	// the endpoint restored.
 	"LXC_IP_",
+	// The default val (14) is used for all devices except for L2-less devices
+	// for which we set ETH_HLEN=0 during load time.
+	"ETH_HLEN",
 }
 
 // RestoreTemplates populates the object cache from templates on the filesystem

@@ -159,6 +159,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
 #  define IPV6_RSS_PREFIX_BITS 128
 # endif
+#define IS_L3_DEV(ifindex) false
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
