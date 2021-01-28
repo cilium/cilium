@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -193,4 +194,10 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 	// An Azure node can allocate up to 256 private IP addresses
 	// source: https://github.com/MicrosoftDocs/azure-docs/blob/master/includes/azure-virtual-network-limits.md#networking-limits---azure-resource-manager
 	return types.InterfaceAddressLimit
+}
+
+// GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
+// must be allocated to the instance.
+func (n *Node) GetMinimumAllocatableIPv4() int {
+	return defaults.IPAMPreAllocation
 }
