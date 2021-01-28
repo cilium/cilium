@@ -4,24 +4,19 @@ cilium_tag="${1}"
 org="cilium"
 
 external_dependencies_docker=(
-  "envoyproxy/envoy:${HUBBLE_PROXY_VERSION}" \
 )
 
 external_dependencies_quay=(
-  "coreos/etcd:${ETCD_VERSION}" \
 )
 
 internal_dependencies=(
-  "certgen:${CERTGEN_VERSION}" \
   "cilium-etcd-operator:${MANAGED_ETCD_VERSION}" \
   "startup-script:${NODEINIT_VERSION}"
   "hubble-ui:${HUBBLE_UI_VERSION}" \
-  "hubble-ui-backend:${HUBBLE_UI_VERSION}" \
 )
 
 cilium_images=(\
   "cilium" \
-  "clustermesh-apiserver" \
   "docker-plugin" \
   "hubble-relay" \
   "operator" \
