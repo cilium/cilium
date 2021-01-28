@@ -8,6 +8,25 @@
 {{- $defaultKeepDeprecatedProbes = "false" -}}
 {{- end -}}
 
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
+{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
+
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities.KubeVersion.Major -}}
+{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
+{{- if .Values.Capabilities.KubeVersion.Minor -}}
+{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -89,7 +108,7 @@ spec:
 {{- end }}
         command:
         - cilium-agent
-{{- if semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version }}
+{{- if semverCompare ">=1.20-0" $k8sVersion }}
         startupProbe:
           httpGet:
 {{- if .Values.ipv4.enabled }}
@@ -129,7 +148,7 @@ spec:
               value: "true"
 {{- end }}
           failureThreshold: 10
-{{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
+{{- if semverCompare "<1.20-0" $k8sVersion }}
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
           # bootstrapping takes longer than expected.
@@ -162,7 +181,7 @@ spec:
               value: "true"
 {{- end }}
           failureThreshold: 3
-{{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
+{{- if semverCompare "<1.20-0" $k8sVersion }}
           initialDelaySeconds: 5
 {{- end }}
           periodSeconds: 30
@@ -417,7 +436,7 @@ spec:
           {{- toYaml .Values.nodeinit.resources | trim | nindent 10 }}
 {{- end }}
       restartPolicy: Always
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")) .Values.enableCriticalPriorityClass }}
+{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-node-critical
 {{- end }}
       serviceAccount: cilium
