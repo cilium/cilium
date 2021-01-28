@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -154,6 +155,10 @@ func (n *nodeOperationsMock) ReleaseIPs(ctx context.Context, release *ReleaseAct
 
 func (n *nodeOperationsMock) GetMaximumAllocatableIPv4() int {
 	return 0
+}
+
+func (n *nodeOperationsMock) GetMinimumAllocatableIPv4() int {
+	return defaults.IPAMPreAllocation
 }
 
 func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
