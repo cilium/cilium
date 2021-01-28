@@ -20,7 +20,7 @@ spec:
     targetPort: envoy-metrics
   selector:
     k8s-app: cilium
-{{- else if .Values.prometheus.enabled }}
+{{- else if and (.Values.prometheus.enabled) (.Values.proxy.prometheus.enabled) }}
 kind: Service
 apiVersion: v1
 metadata:

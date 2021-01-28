@@ -112,7 +112,7 @@ contributors across the globe, there is almost always someone available to help.
 | enableCriticalPriorityClass | bool | `true` | Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in `helm template` calls, it depends on k8s libriaries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance. |
 | enableIPv4Masquerade | bool | `true` | hashSeed is the cluster-wide base64 encoded seed for the hashing hashSeed: -- Enables masquerading of IPv4 traffic leaving the node from endpoints. |
 | enableIPv6Masquerade | bool | `true` | Enables masquerading of IPv6 traffic leaving the node from endpoints. |
-| enableK8sEventHandover | bool | `false` | Configures the use of the KVStore to optimize Kubernetes event handling by  mirroring it into the KVstore for reduced overhead in large clusters. |
+| enableK8sEventHandover | bool | `false` | Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters. |
 | enableXTSocketFallback | bool | `true` |  |
 | encryption.enabled | bool | `false` | Enable transparent network encryption. |
 | encryption.keyFile | string | `"keys"` | Name of the key file inside the Kubernetes secret configured via secretName. |
@@ -317,7 +317,7 @@ contributors across the globe, there is almost always someone available to help.
 | priorityClassName | string | `""` |  |
 | prometheus | object | `{"enabled":false,"port":9090,"serviceMonitor":{"enabled":false}}` | Configure prometheus metrics on the configured port at /metrics |
 | prometheus.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
-| proxy | object | `{"prometheus":{"port":"9095"},"sidecarImageRegex":"cilium/istio_proxy"}` | Configure Istio proxy options. |
+| proxy | object | `{"prometheus":{"enabled":true,"port":"9095"},"sidecarImageRegex":"cilium/istio_proxy"}` | Configure Istio proxy options. |
 | proxy.sidecarImageRegex | string | `"cilium/istio_proxy"` | Regular expression matching compatible Istio sidecar istio-proxy container image names |
 | rbac.create | bool | `true` | Enable creation of Resource-Based Access Control configuration. |
 | remoteNodeIdentity | bool | `true` | Enable use of the remote node identity. ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity |

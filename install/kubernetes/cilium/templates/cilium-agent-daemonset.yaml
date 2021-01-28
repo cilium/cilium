@@ -263,10 +263,12 @@ spec:
           hostPort: {{ .Values.prometheus.port }}
           name: prometheus
           protocol: TCP
+{{- if .Values.proxy.prometheus.enabled }}          
         - containerPort: {{ .Values.proxy.prometheus.port }}
           hostPort: {{ .Values.proxy.prometheus.port }}
           name: envoy-metrics
           protocol: TCP
+{{- end }}
 {{- end }}
 {{- if .Values.hubble.metrics.enabled }}
         - containerPort: {{ .Values.hubble.metrics.port }}
