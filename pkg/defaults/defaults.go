@@ -329,8 +329,8 @@ const (
 	IPAMPreAllocation = 8
 
 	// ENIFirstInterfaceIndex is the default value for
-	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set
-	ENIFirstInterfaceIndex = 1
+	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
+	ENIFirstInterfaceIndex = 0
 
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
