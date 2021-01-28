@@ -5,7 +5,8 @@ updates:
     schedule:
       interval: weekly
     labels:
-    - enhancement
+    - kind/enhancement
+    - release-note/misc
   - package-ecosystem: github-actions
     directory: /
     schedule:
