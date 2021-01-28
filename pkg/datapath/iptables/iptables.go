@@ -980,7 +980,7 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 		m.waitArgs,
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
-		"!", "-o", localDeliveryInterface,
+		"!", "-o", ifName,
 		"-m", "comment", "--comment", "exclude non-"+ifName+" traffic from masquerade",
 		"-j", "RETURN"), false); err != nil {
 		return err
@@ -1016,7 +1016,6 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 			"!", "-s", hostMasqueradeIP,
 			"!", "-d", allocRange,
 			"-o", "cilium_host",
-			"!", "-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
 			"-j", "SNAT", "--to-source", hostMasqueradeIP), false); err != nil {
 			return err
