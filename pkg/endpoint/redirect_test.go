@@ -19,23 +19,21 @@ package endpoint
 import (
 	"context"
 
+	"gopkg.in/check.v1"
+
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"gopkg.in/check.v1"
 )
 
 type RedirectSuite struct{}
@@ -89,46 +87,16 @@ func (d *DummyIdentityAllocatorOwner) GetNodeSuffix() string {
 	return ""
 }
 
-// DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
+// DummyOwner mocks out pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
 	repo *policy.Repository
+	// Implement methods that need to mock out real behaviour in the following interface.
+	regeneration.Owner
 }
 
 // GetPolicyRepository returns the policy repository of the owner.
 func (d *DummyOwner) GetPolicyRepository() *policy.Repository {
 	return d.repo
-}
-
-// QueueEndpointBuild does nothing.
-func (d *DummyOwner) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	return nil, nil
-}
-
-// GetCompilationLock does nothing.
-func (d *DummyOwner) GetCompilationLock() *lock.RWMutex {
-	return nil
-}
-
-// GetCIDRPrefixLengths does nothing.
-func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return nil, nil
-}
-
-// SendNotification does nothing.
-func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
-}
-
-// Datapath returns a nil datapath.
-func (d *DummyOwner) Datapath() datapath.Datapath {
-	return nil
-}
-
-func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {
 }
 
 // GetNodeSuffix does nothing.

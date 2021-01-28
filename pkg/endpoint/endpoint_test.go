@@ -26,10 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -38,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
@@ -63,13 +60,6 @@ type EndpointSuite struct {
 	compilationMutex *lock.RWMutex
 	datapath         datapath.Datapath
 	mgr              *cache.CachingIdentityAllocator
-
-	// Owners interface mock
-	OnGetPolicyRepository     func() *policy.Repository
-	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
-	OnRemoveFromEndpointQueue func(epID uint64)
-	OnGetCompilationLock      func() *lock.RWMutex
-	OnSendNotification        func(msg monitorAPI.AgentNotifyMessage) error
 
 	// Metrics
 	collectors []prometheus.Collector
@@ -103,27 +93,8 @@ func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *EndpointSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	return nil, nil
-}
-
-func (s *EndpointSuite) GetCompilationLock() *lock.RWMutex {
-	return nil
-}
-
-func (s *EndpointSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
-	return nil
-}
-
 func (s *EndpointSuite) Datapath() datapath.Datapath {
 	return s.datapath
-}
-
-func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
-	return nil
-}
-
-func (s *EndpointSuite) RemoveRestoredDNSRules(epID uint16) {
 }
 
 func (s *EndpointSuite) SetUpTest(c *C) {
@@ -734,33 +705,10 @@ func (m *monitorOwnerDummy) NotifyMonitorDeleted(e *Endpoint) {
 	return
 }
 
-type dummyManager struct{}
+type dummyManager struct {
+	endpointManager
+}
 
 func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
 	return uint16(1), nil
-}
-
-func (d *dummyManager) RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration) {
-}
-
-func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *Endpoint) {
-}
-
-func (d *dummyManager) UpdateIDReference(*Endpoint) {
-}
-
-func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
-}
-
-func (d *dummyManager) RemoveID(uint16) {
-}
-
-func (d *dummyManager) ReleaseID(*Endpoint) error {
-	return nil
-}
-
-func (d *dummyManager) AddIPv6Address(addressing.CiliumIPv6) {
-}
-
-func (d *dummyManager) RemoveIPv6Address(addressing.CiliumIPv6) {
 }
