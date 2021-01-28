@@ -10,6 +10,18 @@ ETCD_VERSION := "v3.4.13"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
 CERTGEN_VERSION := "v0.1.3"
 
+MIN_K8S_MAJOR := 1
+# NOTE: The min k8s version that we support is 1.13 but the Cilium's HA operator
+# requires 1.14, in order to not break the quick-install.yaml for the majority
+# of the users, we set this minor version to 14.
+MIN_K8S_MINOR := 14
+MIN_K8S_VERSION := "v$(MIN_K8S_MAJOR).$(MIN_K8S_MINOR).0"
+
+MIN_K8S_OPTIONS := \
+    --set Capabilities.KubeVersion.Version=$(MIN_K8S_VERSION) \
+    --set Capabilities.KubeVersion.Major=$(MIN_K8S_MAJOR) \
+    --set Capabilities.KubeVersion.Minor=$(MIN_K8S_MINOR)
+
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
 QUICK_HUBBLE_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-hubble-install.yaml"
 EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
@@ -23,8 +35,10 @@ DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
 QUICK_OPTIONS := \
+    $(MIN_K8S_OPTIONS) \
     --set operator.replicas=1
 QUICK_HUBBLE_OPTIONS := \
+    $(MIN_K8S_OPTIONS) \
     --set agent=false \
     --set operator.enabled=false \
     --set hubble.tls.auto.enabled=true \
@@ -32,6 +46,7 @@ QUICK_HUBBLE_OPTIONS := \
     --set hubble.relay.enabled=true \
     --set hubble.ui.enabled=true
 EXPERIMENTAL_OPTIONS := \
+    $(MIN_K8S_OPTIONS) \
     --set hubble.tls.auto.enabled=true \
     --set hubble.tls.auto.method="cronJob" \
     --set hubble.metrics.enabled="{dns,drop,tcp,flow,icmp,http}" \
