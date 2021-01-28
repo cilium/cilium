@@ -355,7 +355,7 @@ daemon:
 
 enableCnpStatusUpdates: false
 
-# -- Configures the use of the KVStore to optimize Kubernetes event handling by 
+# -- Configures the use of the KVStore to optimize Kubernetes event handling by
 # mirroring it into the KVstore for reduced overhead in large clusters.
 enableK8sEventHandover: false
 
@@ -918,6 +918,7 @@ prometheus:
 # -- Configure Istio proxy options.
 proxy:
   prometheus:
+    enabled: true
     port: "9095"
   # -- Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
