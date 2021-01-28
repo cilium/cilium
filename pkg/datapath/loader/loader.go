@@ -154,6 +154,11 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	if err != nil {
 		return err
 	}
+	if mac == nil {
+		// L2-less device
+		mac = make([]byte, 6)
+		opts["ETH_HLEN"] = uint32(0)
+	}
 	opts["NODE_MAC_1"] = sliceToBe32(mac[0:4])
 	opts["NODE_MAC_2"] = uint32(sliceToBe16(mac[4:6]))
 

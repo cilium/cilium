@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -345,6 +346,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
+
+		macro, err := isL3DevMacro()
+		if err != nil {
+			return err
+		}
+		cDefinesMap["IS_L3_DEV(ifindex)"] = macro
 	}
 	const (
 		selectionRandom = iota + 1
@@ -510,6 +517,32 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	return fw.Flush()
 }
 
+// isL3DevMacro is used to generate a macro function which is written to
+// node_config.h, and it is used to determine whether a given netdev is L2-less.
+func isL3DevMacro() (string, error) {
+	anyL3Dev := false
+
+	macro := `({ \
+	bool is_l3 = false; \
+	switch (ifindex) { \`
+	for _, iface := range option.Config.Devices {
+		if link, err := netlink.LinkByName(iface); err != nil {
+			return "", err
+		} else if link.Attrs().HardwareAddr == nil {
+			anyL3Dev = true
+			macro += fmt.Sprintf("\ncase %d: is_l3 = true; break; \\", link.Attrs().Index)
+		}
+	}
+	macro += "\ndefault: break; \\"
+	macro += "\n} \\\n is_l3; })\n"
+
+	if !anyL3Dev {
+		return "false", nil
+	}
+
+	return macro, nil
+}
+
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
 	fmt.Fprint(w, cfg.GetOptions().GetFmtList())
 	if option.Config.IsFlannelMasterDeviceSet() {
@@ -566,6 +599,9 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		// Dummy value to avoid being optimized when 0
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 		fmt.Fprint(fw, defineUint32("HOST_EP_ID", uint32(e.GetID())))
+
+		// L2 hdr len (for L2-less devices it will be replaced with "0")
+		fmt.Fprint(fw, defineUint32("ETH_HLEN", mac.EthHdrLen))
 	} else {
 		// We want to ensure that the template BPF program always has "LXC_IP"
 		// defined and present as a symbol in the resulting object file after

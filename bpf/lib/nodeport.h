@@ -161,6 +161,32 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 	return false;
 }
 
+static __always_inline int
+maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
+		 __u32 ifindex __maybe_unused,
+		 bool *l2_hdr_required __maybe_unused)
+{
+	if (IS_L3_DEV(ifindex))
+		/* NodePort request is going to be redirected to L3 dev, so skip
+		 * L2 addr settings.
+		 */
+		*l2_hdr_required = false;
+	else if (ETH_HLEN == 0) {
+		/* NodePort request is going to be redirected from L3 to L2 dev,
+		 * so we need to create L2 hdr first.
+		 */
+		__u16 proto = ctx_get_protocol(ctx);
+
+		if (ctx_change_head(ctx, __ETH_HLEN, 0))
+			return DROP_INVALID;
+
+		if (eth_store_proto(ctx, proto, 0) < 0)
+			return DROP_WRITE_ERROR;
+	}
+
+	return 0;
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
@@ -492,6 +518,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	union v6addr addr;
 	int ret, ohead = 0;
+	bool l2_hdr_required = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -521,6 +548,16 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+
+	ret = maybe_add_l2_hdr(ctx, DIRECT_ROUTING_DEV_IFINDEX,
+			       &l2_hdr_required);
+	if (ret != 0)
+		goto drop_err;
+	if (!l2_hdr_required)
+		goto out_send;
+	else if (!revalidate_data_with_eth_hlen(ctx, &data, &data_end, &ip6,
+						__ETH_HLEN))
+		return DROP_INVALID;
 
 	if (nodeport_lb_hairpin())
 		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->daddr);
@@ -560,6 +597,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		}
 	}
 
+out_send:
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
@@ -585,6 +623,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	bool l2_hdr_required = true;
 
 	target.addr = tmp;
 #ifdef ENCAP_IFINDEX
@@ -653,6 +692,16 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
+	ret = maybe_add_l2_hdr(ctx, DIRECT_ROUTING_DEV_IFINDEX,
+			       &l2_hdr_required);
+	if (ret != 0)
+		goto drop_err;
+	if (!l2_hdr_required)
+		goto out_send;
+	else if (!revalidate_data_with_eth_hlen(ctx, &data, &data_end, &ip6,
+						__ETH_HLEN))
+		return DROP_INVALID;
+
 	if (nodeport_lb_hairpin())
 		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->daddr);
 	if (dmac) {
@@ -691,7 +740,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 		}
 	}
-out_send: __maybe_unused
+out_send:
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -875,6 +924,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 	struct bpf_fib_lookup fib_params = {};
 	union macaddr *dmac = NULL;
 	__u32 monitor = 0;
+	bool l2_hdr_required = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -929,6 +979,15 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			}
 		}
 #endif
+
+		ret = maybe_add_l2_hdr(ctx, *ifindex, &l2_hdr_required);
+		if (ret != 0)
+			return ret;
+		if (!l2_hdr_required)
+			return CTX_ACT_OK;
+		else if (!revalidate_data_with_eth_hlen(ctx, &data, &data_end,
+							&ip6, __ETH_HLEN))
+			return DROP_INVALID;
 
 		if (fib_lookup_bypass())
 			dmac = map_lookup_elem(&NODEPORT_NEIGH6, &tuple.daddr);
@@ -1422,6 +1481,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	int ret, ohead = 0;
 	struct iphdr *ip4;
+	bool l2_hdr_required = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -1448,6 +1508,16 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+
+	ret = maybe_add_l2_hdr(ctx, DIRECT_ROUTING_DEV_IFINDEX,
+			       &l2_hdr_required);
+	if (ret != 0)
+		goto drop_err;
+	if (!l2_hdr_required)
+		goto out_send;
+	else if (!revalidate_data_with_eth_hlen(ctx, &data, &data_end, &ip4,
+						__ETH_HLEN))
+		return DROP_INVALID;
 
 	if (nodeport_lb_hairpin())
 		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
@@ -1485,6 +1555,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		}
 	}
 
+out_send:
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
@@ -1509,6 +1580,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	bool l2_hdr_required = true;
 
 	target.addr = IPV4_DIRECT_ROUTING;
 #ifdef ENCAP_IFINDEX
@@ -1575,6 +1647,16 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
+	ret = maybe_add_l2_hdr(ctx, DIRECT_ROUTING_DEV_IFINDEX,
+			       &l2_hdr_required);
+	if (ret != 0)
+		goto drop_err;
+	if (!l2_hdr_required)
+		goto out_send;
+	else if (!revalidate_data_with_eth_hlen(ctx, &data, &data_end, &ip4,
+						__ETH_HLEN))
+		return DROP_INVALID;
+
 	if (nodeport_lb_hairpin())
 		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
 	if (dmac) {
@@ -1611,7 +1693,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			goto drop_err;
 		}
 	}
-out_send: __maybe_unused
+out_send:
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -1806,6 +1888,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	struct bpf_fib_lookup fib_params = {};
 	union macaddr *dmac = NULL;
 	__u32 monitor = 0;
+	bool l2_hdr_required = true;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1856,6 +1939,15 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 			}
 		}
 #endif
+
+		ret = maybe_add_l2_hdr(ctx, *ifindex, &l2_hdr_required);
+		if (ret != 0)
+			return ret;
+		if (!l2_hdr_required)
+			return CTX_ACT_OK;
+		else if (!revalidate_data_with_eth_hlen(ctx, &data, &data_end,
+							&ip4, __ETH_HLEN))
+			return DROP_INVALID;
 
 		if (fib_lookup_bypass())
 			dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);

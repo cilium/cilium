@@ -405,7 +405,7 @@ case "${MODE}" in
 	__mac; })"
 			for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
 				IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
-				MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
+				MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}' || echo "00:00:00:00:00:00")
 				MAC=$(mac2array $MAC)
 				MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}	case ${IDX}: {union macaddr __tmp = {.addr = ${MAC}}; __mac=__tmp;} break; \\\\\n"
 			done

@@ -22,6 +22,9 @@ import (
 	"net"
 )
 
+// Untagged ethernet (IEEE 802.3) frame header len
+const EthHdrLen = 14
+
 // MAC address is an net.HardwareAddr encapsulation to force cilium to only use MAC-48.
 type MAC net.HardwareAddr
 
