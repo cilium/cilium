@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+        # cannot be updated until the etcd library is updated
+      - dependency-name: "google.golang.org/grpc"
+        # using a cilium-specific fork
+      - dependency-name: "github.com/miekg/dns"
     labels:
     - kind/enhancement
     - release-note/misc
