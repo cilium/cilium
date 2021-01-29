@@ -188,11 +188,15 @@ func (mgr *EndpointManager) AllocateID(currID uint16) (uint16, error) {
 	return newID, nil
 }
 
+func (mgr *EndpointManager) removeIDLocked(currID uint16) {
+	delete(mgr.endpoints, currID)
+}
+
 // RemoveID removes the id from the endpoints map in the EndpointManager.
 func (mgr *EndpointManager) RemoveID(currID uint16) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	delete(mgr.endpoints, currID)
+	mgr.removeIDLocked(currID)
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -298,19 +302,31 @@ func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 	return idallocator.Release(ep.ID)
 }
 
-// Unexpose removes the endpoint from the EndpointManager so that other
+// unexpose removes the endpoint from the EndpointManager so that other
 // subsystems will no longer find it during future lookups. The endpoint may
 // still be in use from other subsystems if it was found prior to this call.
-//
-// Must be called while holding the Endpoint lock for reading.
-func (mgr *EndpointManager) Unexpose(ep *endpoint.Endpoint) chan struct{} {
+func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) chan struct{} {
 	epRemoved := make(chan struct{})
 
+	// Fetch the identifiers; this will only fail if the endpoint is
+	// already disconnected, in which case we don't need to proceed with
+	// the rest of cleaning up the endpoint.
+	identifiers, err := ep.Identifiers()
+	if err != nil {
+		// Already disconnecting
+		close(epRemoved)
+		return epRemoved
+	}
+	previousState := ep.GetState()
+
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
 	// This must be done before the ID is released for the endpoint!
-	mgr.RemoveID(ep.ID)
+	mgr.removeIDLocked(ep.ID)
 	mgr.RemoveIPv6Address(ep.IPv6)
 
-	go func(ep *endpoint.Endpoint) {
+	go func(ep *endpoint.Endpoint, state string) {
 		err := mgr.ReleaseID(ep)
 		if err != nil {
 			// While restoring, endpoint IDs may not have been reused yet.
@@ -320,16 +336,14 @@ func (mgr *EndpointManager) Unexpose(ep *endpoint.Endpoint) chan struct{} {
 			// While endpoint is disconnecting, ID is already available in ID cache.
 			//
 			// Avoid irritating warning messages.
-			state := ep.GetState()
 			if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting && state != endpoint.StateDisconnected {
 				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 			}
 		}
 
 		close(epRemoved)
-	}(ep)
-	refs := ep.IdentifiersLocked()
-	mgr.RemoveReferences(refs)
+	}(ep, previousState)
+	mgr.removeReferencesLocked(identifiers)
 	return epRemoved
 }
 
@@ -338,15 +352,16 @@ func (mgr *EndpointManager) Unexpose(ep *endpoint.Endpoint) chan struct{} {
 func (mgr *EndpointManager) RemoveEndpoint(monitor regeneration.Owner, ipam endpoint.IPReleaser, ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	defer monitor.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
 
-	return ep.Delete(ipam, mgr, conf)
+	<-mgr.unexpose(ep)
+	return ep.Delete(ipam, conf)
 }
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
 // Note: only used for unit tests
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
+	<-mgr.unexpose(ep)
 	ep.Stop()
-	<-mgr.Unexpose(ep)
 }
 
 // RemoveAll removes all endpoints from the global maps.
@@ -438,10 +453,8 @@ func (mgr *EndpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-// RemoveReferences removes the mappings from the endpointmanager.
-func (mgr *EndpointManager) RemoveReferences(identifiers endpointid.Identifiers) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
+// removeReferencesLocked removes the mappings from the endpointmanager.
+func (mgr *EndpointManager) removeReferencesLocked(identifiers endpointid.Identifiers) {
 	for prefix := range identifiers {
 		id := endpointid.NewID(prefix, identifiers[prefix])
 		delete(mgr.endpointsAux, id)

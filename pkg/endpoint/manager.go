@@ -22,10 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-type endpointManager interface {
-	Unexpose(*Endpoint) chan struct{}
-}
-
 // Start assigns a Cilium Endpoint ID to the endpoint and prepares it to
 // receive events from other subsystems.
 //

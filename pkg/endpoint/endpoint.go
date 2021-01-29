@@ -2098,6 +2098,9 @@ func (e *Endpoint) Stop() {
 	// if anything is blocking on it. If a delete request has already been
 	// enqueued for this endpoint, this is a no-op.
 	e.closeBPFProgramChannel()
+
+	// Cancel active controllers for the endpoint tied to e.aliveCtx.
+	e.aliveCancel()
 }
 
 // Delete cleans up all resources associated with this endpoint, including the
@@ -2108,7 +2111,7 @@ func (e *Endpoint) Stop() {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(ipam IPReleaser, manager endpointManager, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(ipam IPReleaser, conf DeleteConfig) []error {
 	errs := []error{}
 
 	e.Stop()
@@ -2120,12 +2123,7 @@ func (e *Endpoint) Delete(ipam IPReleaser, manager endpointManager, conf DeleteC
 	if err := e.lockAlive(); err != nil {
 		return []error{}
 	}
-	e.aliveCancel()
 	e.setState(StateDisconnecting, "Deleting endpoint")
-
-	// Remove the endpoint before we clean up. This ensures it is no longer
-	// listed or queued for rebuilds.
-	manager.Unexpose(e)
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {
