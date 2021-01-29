@@ -2070,12 +2070,8 @@ func (e *Endpoint) SyncEndpointHeaderFile() error {
 	return nil
 }
 
-type ipReleaser interface {
+type IPReleaser interface {
 	ReleaseIP(net.IP) error
-}
-
-type monitorOwner interface {
-	NotifyMonitorDeleted(e *Endpoint)
 }
 
 // Stop cleans up all goroutines managed by this endpoint (EventQueue,
@@ -2112,7 +2108,7 @@ func (e *Endpoint) Stop() {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(ipam IPReleaser, manager endpointManager, conf DeleteConfig) []error {
 	errs := []error{}
 
 	e.Stop()
@@ -2130,10 +2126,6 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	manager.Unexpose(e)
-
-	defer func() {
-		monitor.NotifyMonitorDeleted(e)
-	}()
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {
