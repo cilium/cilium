@@ -2129,7 +2129,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	e.Unexpose(manager)
+	manager.Unexpose(e)
 
 	defer func() {
 		monitor.NotifyMonitorDeleted(e)

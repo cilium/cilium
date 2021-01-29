@@ -17,18 +17,13 @@ package endpoint
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/addressing"
-	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 type endpointManager interface {
-	RemoveReferences(id.Identifiers)
-	RemoveID(uint16)
-	ReleaseID(*Endpoint) error
-	RemoveIPv6Address(addressing.CiliumIPv6)
+	Unexpose(*Endpoint) chan struct{}
 }
 
 // Start assigns a Cilium Endpoint ID to the endpoint and prepares it to
@@ -56,43 +51,6 @@ func (e *Endpoint) Start(id uint16) {
 	}
 	e.eventQueue.Run()
 	e.getLogger().Info("New endpoint")
-}
-
-func (e *Endpoint) removeReferences(mgr endpointManager) {
-	refs := e.IdentifiersLocked()
-	mgr.RemoveReferences(refs)
-}
-
-// Unexpose removes the endpoint from being globally acccessible via other
-// packages.
-func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
-	epRemoved := make(chan struct{})
-
-	// This must be done before the ID is released for the endpoint!
-	mgr.RemoveID(e.ID)
-
-	mgr.RemoveIPv6Address(e.IPv6)
-
-	go func(ep *Endpoint) {
-		err := mgr.ReleaseID(ep)
-		if err != nil {
-			// While restoring, endpoint IDs may not have been reused yet.
-			// Failure to release means that the endpoint ID was not reused
-			// yet.
-			//
-			// While endpoint is disconnecting, ID is already available in ID cache.
-			//
-			// Avoid irritating warning messages.
-			state := ep.GetState()
-			if state != StateRestoring && state != StateDisconnecting && state != StateDisconnected {
-				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
-			}
-		}
-
-		close(epRemoved)
-	}(e)
-	e.removeReferences(mgr)
-	return epRemoved
 }
 
 // InitEventQueue initializes the endpoint's event queue. Note that this
