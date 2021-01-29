@@ -174,6 +174,7 @@ cilium-agent [flags]
       --label-prefix-file string                             Valid label prefixes file path
       --labels strings                                       List of label prefixes used to determine identity of an endpoint
       --lib-dir string                                       Directory path to store runtime build environment (default "/var/lib/cilium")
+      --local-router-ip string                               Link-local IP used for Cilium's router devices
       --log-driver strings                                   Logging endpoints to use for example syslog
       --log-opt map                                          Log driver options for cilium (default map[])
       --log-system-load                                      Enable periodic logging of system load
