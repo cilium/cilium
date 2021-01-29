@@ -302,7 +302,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	}
 
 	var mtuConfig mtu.Configuration
-	externalIP := node.GetExternalIPv4()
+	externalIP := node.GetIPv4()
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}
@@ -649,7 +649,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			logfields.V6Prefix:       node.GetIPv6AllocRange(),
 			logfields.V4HealthIP:     d.nodeDiscovery.LocalNode.IPv4HealthIP,
 			logfields.V6HealthIP:     d.nodeDiscovery.LocalNode.IPv6HealthIP,
-			logfields.V4CiliumHostIP: node.GetInternalIPv4(),
+			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
@@ -657,7 +657,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
-			node.GetInternalIPv4(), node.GetIPv6Router())
+			node.GetInternalIPv4Router(), node.GetIPv6Router())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
@@ -855,7 +855,7 @@ func (d *Daemon) GetNodeSuffix() string {
 
 	switch {
 	case option.Config.EnableIPv4:
-		ip = node.GetExternalIPv4()
+		ip = node.GetIPv4()
 	case option.Config.EnableIPv6:
 		ip = node.GetIPv6()
 	}

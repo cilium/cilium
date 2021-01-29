@@ -223,7 +223,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgBpffsRoot] = bpf.GetMapRoot()
 
 	if option.Config.EnableIPv4 {
-		args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
+		args[initArgIPv4NodeIP] = node.GetInternalIPv4Router().String()
 	} else {
 		args[initArgIPv4NodeIP] = "<nil>"
 	}

@@ -86,14 +86,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6Addrs())
 		fmt.Fprintf(fw, "\n")
 	}
-	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetExternalIPv4().String())
-	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4().String())
+	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetIPv4().String())
+	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4Router().String())
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4Addrs())
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
 		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
 	}
-	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4()))
+	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4Router()))
 	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
@@ -104,7 +104,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableIPv4 {
-		ipv4GW := node.GetInternalIPv4()
+		ipv4GW := node.GetInternalIPv4Router()
 		loopbackIPv4 := node.GetIPv4Loopback()
 		ipv4Range := node.GetIPv4AllocRange()
 		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
