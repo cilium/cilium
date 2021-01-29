@@ -47,6 +47,10 @@ var (
 	ipv4AllocRange    *cidr.CIDR
 	ipv6AllocRange    *cidr.CIDR
 
+	// k8s Node External IP
+	ipv4ExternalAddress net.IP
+	ipv6ExternalAddress net.IP
+
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
@@ -250,6 +254,18 @@ func GetInternalIPv4Router() net.IP {
 	return ipv4RouterAddress
 }
 
+// SetK8sExternalIPv4 sets the external IPv4 node address. It must be a public IP that is routable
+// on the network as well as the internet.
+func SetK8sExternalIPv4(ip net.IP) {
+	ipv4ExternalAddress = ip
+}
+
+// GetK8sExternalIPv4 returns the external IPv4 node address. It must be a public IP that is routable
+// on the network as well as the internet. It can return nil if no External IPv4 address is assigned.
+func GetK8sExternalIPv4() net.IP {
+	return ipv4ExternalAddress
+}
+
 // GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading
 // any traffic that is being forwarded from the host into the Cilium cluster.
 func GetHostMasqueradeIPv4() net.IP {
@@ -377,6 +393,16 @@ func GetIPv6Router() net.IP {
 // SetIPv6Router returns the IPv6 address of the node
 func SetIPv6Router(ip net.IP) {
 	ipv6RouterAddress = ip
+}
+
+// SetK8sExternalIPv6 sets the external IPv6 node address. It must be a public IP.
+func SetK8sExternalIPv6(ip net.IP) {
+	ipv6ExternalAddress = ip
+}
+
+// GetK8sExternalIPv6 returns the external IPv6 node address.
+func GetK8sExternalIPv6() net.IP {
+	return ipv6ExternalAddress
 }
 
 // IsHostIPv4 returns true if the IP specified is a host IP
