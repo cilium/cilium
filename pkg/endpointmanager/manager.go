@@ -298,12 +298,47 @@ func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 	return idallocator.Release(ep.ID)
 }
 
+// Unexpose removes the endpoint from the EndpointManager so that other
+// subsystems will no longer find it during future lookups. The endpoint may
+// still be in use from other subsystems if it was found prior to this call.
+//
+// Must be called while holding the Endpoint lock for reading.
+func (mgr *EndpointManager) Unexpose(ep *endpoint.Endpoint) chan struct{} {
+	epRemoved := make(chan struct{})
+
+	// This must be done before the ID is released for the endpoint!
+	mgr.RemoveID(ep.ID)
+	mgr.RemoveIPv6Address(ep.IPv6)
+
+	go func(ep *endpoint.Endpoint) {
+		err := mgr.ReleaseID(ep)
+		if err != nil {
+			// While restoring, endpoint IDs may not have been reused yet.
+			// Failure to release means that the endpoint ID was not reused
+			// yet.
+			//
+			// While endpoint is disconnecting, ID is already available in ID cache.
+			//
+			// Avoid irritating warning messages.
+			state := ep.GetState()
+			if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting && state != endpoint.StateDisconnected {
+				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+			}
+		}
+
+		close(epRemoved)
+	}(ep)
+	refs := ep.IdentifiersLocked()
+	mgr.RemoveReferences(refs)
+	return epRemoved
+}
+
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
 // Note: only used for unit tests
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 	ep.Stop()
-	<-ep.Unexpose(mgr)
+	<-mgr.Unexpose(ep)
 }
 
 // RemoveAll removes all endpoints from the global maps.
