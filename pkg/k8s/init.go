@@ -236,7 +236,7 @@ func WaitForNodeInformation() error {
 		// addressing, e.g. an IPv6 only PodCIDR running over
 		// IPv4 encapsulation.
 		if nodeIP4 != nil {
-			node.SetExternalIPv4(nodeIP4)
+			node.SetIPv4(nodeIP4)
 		}
 
 		if nodeIP6 != nil {

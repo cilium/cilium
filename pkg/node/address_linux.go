@@ -214,7 +214,7 @@ func SetInternalIPv4From(ifaceName string) error {
 	}
 	for _, ip := range v4Addrs {
 		if netlink.Scope(ip.Scope) == netlink.SCOPE_UNIVERSE {
-			SetInternalIPv4(ip.IP)
+			SetInternalIPv4Router(ip.IP)
 			return nil
 		}
 	}

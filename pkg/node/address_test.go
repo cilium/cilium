@@ -44,9 +44,9 @@ func (s *NodeSuite) TestMaskCheck(c *C) {
 
 	allocCIDR := cidr.MustParseCIDR("1.1.1.1/16")
 	SetIPv4AllocRange(allocCIDR)
-	SetInternalIPv4(allocCIDR.IP)
-	c.Assert(IsHostIPv4(GetInternalIPv4()), Equals, true)
-	c.Assert(IsHostIPv4(GetExternalIPv4()), Equals, true)
+	SetInternalIPv4Router(allocCIDR.IP)
+	c.Assert(IsHostIPv4(GetInternalIPv4Router()), Equals, true)
+	c.Assert(IsHostIPv4(GetIPv4()), Equals, true)
 	c.Assert(IsHostIPv6(GetIPv6()), Equals, true)
 }
 

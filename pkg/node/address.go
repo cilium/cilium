@@ -36,16 +36,16 @@ import (
 const preferPublicIP bool = true
 
 var (
-	ipv4Loopback        net.IP
-	ipv4ExternalAddress net.IP
-	ipv4InternalAddress net.IP
-	ipv4NodePortAddrs   map[string]net.IP // iface name => ip addr
-	ipv4MasqAddrs       map[string]net.IP // iface name => ip addr
-	ipv6Address         net.IP
-	ipv6RouterAddress   net.IP
-	ipv6NodePortAddrs   map[string]net.IP // iface name => ip addr
-	ipv4AllocRange      *cidr.CIDR
-	ipv6AllocRange      *cidr.CIDR
+	ipv4Loopback      net.IP
+	ipv4Address       net.IP
+	ipv4RouterAddress net.IP
+	ipv4NodePortAddrs map[string]net.IP // iface name => ip addr
+	ipv4MasqAddrs     map[string]net.IP // iface name => ip addr
+	ipv6Address       net.IP
+	ipv6RouterAddress net.IP
+	ipv6NodePortAddrs map[string]net.IP // iface name => ip addr
+	ipv4AllocRange    *cidr.CIDR
+	ipv6AllocRange    *cidr.CIDR
 
 	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
@@ -69,13 +69,13 @@ func makeIPv6HostIP() net.IP {
 // scope will be regarded as the system's node address.
 func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv4 {
-		ip, err := firstGlobalV4Addr(device, GetInternalIPv4(), preferPublicIP)
+		ip, err := firstGlobalV4Addr(device, GetInternalIPv4Router(), preferPublicIP)
 		if err != nil {
 			return
 		}
 
-		if ipv4ExternalAddress == nil {
-			ipv4ExternalAddress = ip
+		if ipv4Address == nil {
+			ipv4Address = ip
 		}
 
 		if ipv4AllocRange == nil {
@@ -216,30 +216,44 @@ func GetIPv6AllocRange() *cidr.CIDR {
 	return ipv6AllocRange
 }
 
-// SetExternalIPv4 sets the external IPv4 node address. It must be reachable on the network.
-func SetExternalIPv4(ip net.IP) {
-	ipv4ExternalAddress = ip
+// SetIPv4 sets the IPv4 node address. It must be reachable on the network.
+// It is set based on the following priority:
+// - NodeInternalIP
+// - NodeExternalIP
+// - other IP address type
+func SetIPv4(ip net.IP) {
+	ipv4Address = ip
 }
 
-// GetExternalIPv4 returns the external IPv4 node address
-func GetExternalIPv4() net.IP {
-	return ipv4ExternalAddress
+// GetIPv4 returns one of the IPv4 node address available with the following
+// priority:
+// - NodeInternalIP
+// - NodeExternalIP
+// - other IP address type.
+// It must be reachable on the network.
+func GetIPv4() net.IP {
+	return ipv4Address
 }
 
-// SetInternalIPv4 sets the internal IPv4 node address, it is allocated from the node prefix
-func SetInternalIPv4(ip net.IP) {
-	ipv4InternalAddress = ip
+// SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
+// This must not be conflated with k8s internal IP as this IP address is only relevant within the
+// Cilium-managed network (this means within the node for direct routing mode and on the overlay
+// for tunnel mode).
+func SetInternalIPv4Router(ip net.IP) {
+	ipv4RouterAddress = ip
 }
 
-// GetInternalIPv4 returns the internal IPv4 node address
-func GetInternalIPv4() net.IP {
-	return ipv4InternalAddress
+// GetInternalIPv4Router returns the cilium internal IPv4 node address. This must not be conflated with
+// k8s internal IP as this IP address is only relevant within the Cilium-managed network (this means
+// within the node for direct routing mode and on the overlay for tunnel mode).
+func GetInternalIPv4Router() net.IP {
+	return ipv4RouterAddress
 }
 
 // GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading
 // any traffic that is being forwarded from the host into the Cilium cluster.
 func GetHostMasqueradeIPv4() net.IP {
-	return ipv4InternalAddress
+	return ipv4RouterAddress
 }
 
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
@@ -302,7 +316,7 @@ func AutoComplete() error {
 		ipv4GW, ipv6Router := getCiliumHostIPs()
 
 		if ipv4GW != nil && option.Config.EnableIPv4 {
-			SetInternalIPv4(ipv4GW)
+			SetInternalIPv4Router(ipv4GW)
 		}
 
 		if ipv6Router != nil && option.Config.EnableIPv6 {
@@ -327,12 +341,12 @@ func AutoComplete() error {
 // required
 func ValidatePostInit() error {
 	if option.Config.EnableIPv4 || option.Config.Tunnel != option.TunnelDisabled {
-		if ipv4ExternalAddress == nil {
+		if ipv4Address == nil {
 			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
 		}
 	}
 
-	if option.Config.EnableIPv4 && ipv4InternalAddress == nil {
+	if option.Config.EnableIPv4 && ipv4RouterAddress == nil {
 		return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 	}
 
@@ -367,7 +381,7 @@ func SetIPv6Router(ip net.IP) {
 
 // IsHostIPv4 returns true if the IP specified is a host IP
 func IsHostIPv4(ip net.IP) bool {
-	return ip.Equal(GetInternalIPv4()) || ip.Equal(GetExternalIPv4())
+	return ip.Equal(GetInternalIPv4Router()) || ip.Equal(GetIPv4())
 }
 
 // IsHostIPv6 returns true if the IP specified is a host IP
@@ -390,7 +404,7 @@ func GetNodeAddressing() *models.NodeAddressing {
 	if option.Config.EnableIPv4 {
 		a.IPV4 = &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv4,
-			IP:         GetInternalIPv4().String(),
+			IP:         GetInternalIPv4Router().String(),
 			AllocRange: GetIPv4AllocRange().String(),
 		}
 	}
