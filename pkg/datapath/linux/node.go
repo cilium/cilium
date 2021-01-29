@@ -681,6 +681,15 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 			return
 		}
 
+		if option.Config.NodePortHairpin {
+			defer func() {
+				// Remove nextHopIPv4 entry in the neigh BPF map. Otherwise,
+				// we risk to silently blackhole packets instead of emitting
+				// DROP_NO_FIB if the netlink.NeighSet() below fails.
+				neighborsmap.NeighRetire(nextHopIPv4)
+			}()
+		}
+
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
 		neigh := netlink.Neigh{
@@ -700,10 +709,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 			return
 		}
 		n.neighByNextHop[nextHopStr] = &neigh
-
-		if option.Config.NodePortHairpin {
-			neighborsmap.NeighRetire(nextHopIPv4)
-		}
 	}
 }
 
