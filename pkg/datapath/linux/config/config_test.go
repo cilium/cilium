@@ -53,12 +53,12 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 	err := bpf.ConfigureResourceLimits()
 	c.Assert(err, IsNil)
 	node.InitDefaultPrefix("")
-	node.SetInternalIPv4(ipv4DummyAddr)
+	node.SetInternalIPv4Router(ipv4DummyAddr)
 	node.SetIPv4Loopback(ipv4DummyAddr)
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
-	node.SetInternalIPv4(nil)
+	node.SetInternalIPv4Router(nil)
 	node.SetIPv4Loopback(nil)
 }
 

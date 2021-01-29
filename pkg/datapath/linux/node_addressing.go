@@ -70,11 +70,11 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 type addressFamilyIPv4 struct{}
 
 func (a *addressFamilyIPv4) Router() net.IP {
-	return node.GetInternalIPv4()
+	return node.GetInternalIPv4Router()
 }
 
 func (a *addressFamilyIPv4) PrimaryExternal() net.IP {
-	return node.GetExternalIPv4()
+	return node.GetIPv4()
 }
 
 func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
