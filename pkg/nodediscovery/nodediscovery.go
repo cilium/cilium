@@ -178,6 +178,13 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.Labels = node.GetLabels()
 	n.LocalNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
 
+	if node.GetK8sExternalIPv4() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeExternalIP,
+			IP:   node.GetK8sExternalIPv4(),
+		})
+	}
+
 	if node.GetIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
@@ -203,6 +210,13 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
+		})
+	}
+
+	if node.GetK8sExternalIPv6() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeExternalIP,
+			IP:   node.GetK8sExternalIPv6(),
 		})
 	}
 
