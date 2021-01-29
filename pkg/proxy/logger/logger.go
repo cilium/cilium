@@ -98,7 +98,7 @@ func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSo
 		localEndpointInfo:    getEndpointInfo(localEndpointInfoSource),
 	}
 
-	if ip := node.GetExternalIPv4(); ip != nil {
+	if ip := node.GetIPv4(); ip != nil {
 		lr.LogRecord.NodeAddressInfo.IPv4 = ip.String()
 	}
 

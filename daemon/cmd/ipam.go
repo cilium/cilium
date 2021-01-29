@@ -260,7 +260,7 @@ func (d *Daemon) allocateIPs() error {
 			return err
 		}
 		if routerIP != nil {
-			node.SetInternalIPv4(routerIP)
+			node.SetInternalIPv4Router(routerIP)
 		}
 	}
 
@@ -294,8 +294,8 @@ func (d *Daemon) allocateIPs() error {
 		}
 	}
 
-	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
-	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
+	log.Infof("  External-Node IPv4: %s", node.GetIPv4())
+	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4Router())
 
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())

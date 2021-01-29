@@ -625,7 +625,7 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	defer proxyPortsMutex.Unlock()
 
 	result := &models.ProxyStatus{
-		IP:             node.GetInternalIPv4().String(),
+		IP:             node.GetInternalIPv4Router().String(),
 		PortRange:      fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
 		TotalRedirects: int64(len(p.redirects)),
 	}

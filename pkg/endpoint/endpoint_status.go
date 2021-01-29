@@ -132,7 +132,7 @@ func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking
 	}
 
 	if option.Config.EnableIPv4 {
-		networking.NodeIP = node.GetExternalIPv4().String()
+		networking.NodeIP = node.GetIPv4().String()
 	} else {
 		networking.NodeIP = node.GetIPv6().String()
 	}
