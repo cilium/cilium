@@ -823,7 +823,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
+	e.Delete(ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
@@ -1005,7 +1005,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	})
 
 	// Delete the endpoint.
-	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
+	e.Delete(ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)

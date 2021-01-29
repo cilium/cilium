@@ -333,6 +333,14 @@ func (mgr *EndpointManager) Unexpose(ep *endpoint.Endpoint) chan struct{} {
 	return epRemoved
 }
 
+// RemoveEndpoint stops the active handling of events by the specified endpoint,
+// and prevents the endpoint from being globally acccessible via other packages.
+func (mgr *EndpointManager) RemoveEndpoint(monitor regeneration.Owner, ipam endpoint.IPReleaser, ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	defer monitor.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
+
+	return ep.Delete(ipam, mgr, conf)
+}
+
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
 // Note: only used for unit tests

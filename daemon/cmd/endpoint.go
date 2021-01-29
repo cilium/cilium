@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 
@@ -682,11 +681,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	return len(errs)
 }
 
-// NotifyMonitorDeleted notifies the monitor that an endpoint has been deleted.
-func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
-	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
-}
-
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes
 // it from Cilium, releasing all resources associated with it such as its
 // visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
@@ -695,7 +689,7 @@ func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return ep.Delete(d, d.ipam, d.endpointManager, conf)
+	return d.endpointManager.RemoveEndpoint(d, d.ipam, ep, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
