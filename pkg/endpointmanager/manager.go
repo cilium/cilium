@@ -302,20 +302,16 @@ func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 	return idallocator.Release(ep.ID)
 }
 
-// unexpose removes the endpoint from the EndpointManager so that other
-// subsystems will no longer find it during future lookups. The endpoint may
-// still be in use from other subsystems if it was found prior to this call.
-func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) chan struct{} {
-	epRemoved := make(chan struct{})
-
+// unexpose removes the endpoint from the endpointmanager, so subsequent
+// lookups will no longer find the endpoint.
+func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
 	// Fetch the identifiers; this will only fail if the endpoint is
 	// already disconnected, in which case we don't need to proceed with
 	// the rest of cleaning up the endpoint.
 	identifiers, err := ep.Identifiers()
 	if err != nil {
 		// Already disconnecting
-		close(epRemoved)
-		return epRemoved
+		return
 	}
 	previousState := ep.GetState()
 
@@ -326,25 +322,19 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) chan struct{} {
 	mgr.removeIDLocked(ep.ID)
 	mgr.RemoveIPv6Address(ep.IPv6)
 
-	go func(ep *endpoint.Endpoint, state string) {
-		err := mgr.ReleaseID(ep)
-		if err != nil {
-			// While restoring, endpoint IDs may not have been reused yet.
-			// Failure to release means that the endpoint ID was not reused
-			// yet.
-			//
-			// While endpoint is disconnecting, ID is already available in ID cache.
-			//
-			// Avoid irritating warning messages.
-			if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting && state != endpoint.StateDisconnected {
-				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
-			}
+	// We haven't yet allocated the ID for a restoring endpoint, so no
+	// need to release it.
+	if previousState != endpoint.StateRestoring {
+		if err = mgr.ReleaseID(ep); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"state":               previousState,
+				logfields.ContainerID: ep.GetShortContainerID(),
+				logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+			}).Warning("Unable to release endpoint ID")
 		}
+	}
 
-		close(epRemoved)
-	}(ep, previousState)
 	mgr.removeReferencesLocked(identifiers)
-	return epRemoved
 }
 
 // RemoveEndpoint stops the active handling of events by the specified endpoint,
@@ -352,15 +342,15 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) chan struct{} {
 func (mgr *EndpointManager) RemoveEndpoint(monitor regeneration.Owner, ipam endpoint.IPReleaser, ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	defer monitor.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
 
-	<-mgr.unexpose(ep)
+	mgr.unexpose(ep)
 	return ep.Delete(ipam, conf)
 }
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
-// Note: only used for unit tests
+// Note: only used for unit tests, to avoid ep.Delete()
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
-	<-mgr.unexpose(ep)
+	mgr.unexpose(ep)
 	ep.Stop()
 }
 
