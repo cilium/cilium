@@ -62,7 +62,9 @@ var _ = Describe("K8sVerifier", func() {
 	})
 
 	AfterFailed(func() {
-		res := kubectl.Exec("kubectl describe pod")
+		res := kubectl.Exec("kubectl describe nodes")
+		GinkgoPrint(res.CombineOutput().String())
+		res = kubectl.Exec("kubectl describe pods")
 		GinkgoPrint(res.CombineOutput().String())
 	})
 
