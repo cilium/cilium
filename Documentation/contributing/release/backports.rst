@@ -166,12 +166,6 @@ Creating the Backports Branch
    commit does not cherry-pick cleanly, please mention the necessary changes in
    the pull request description in the next section.
 
-#. Push your backports branch to cilium repo.
-
-   .. code-block:: bash
-
-      $ git push -u origin HEAD
-
 Creating the Backport Pull Request
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -192,6 +186,12 @@ the labels for the PRs that are backported, based on the
 
 Via GitHub Web Interface
 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+#. Push your backports branch to cilium repo.
+
+   .. code-block:: bash
+
+      $ git push -u origin HEAD
 
 #. Create a new PR from your branch towards the feature branch you are
    backporting to. Note that by default Github creates PRs against the
