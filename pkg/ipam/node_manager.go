@@ -206,7 +206,6 @@ func (n *NodeManager) Start(ctx context.Context) error {
 	// event driven trigger fails, and also release excess IP addresses
 	// if release-excess-ips is enabled
 	go func() {
-		time.Sleep(time.Minute)
 		mngr := controller.NewManager()
 		mngr.UpdateController("ipam-node-interval-refresh",
 			controller.ControllerParams{
