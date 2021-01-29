@@ -275,13 +275,18 @@ func haveCredentialProvider(p aws.CredentialsProvider) bool {
 type payloadHashKey struct{}
 
 // GetPayloadHash retrieves the payload hash to use for signing
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetPayloadHash(ctx context.Context) (v string) {
-	v, _ = ctx.Value(payloadHashKey{}).(string)
+	v, _ = middleware.GetStackValue(ctx, payloadHashKey{}).(string)
 	return v
 }
 
 // SetPayloadHash sets the payload hash to be used for signing the request
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func SetPayloadHash(ctx context.Context, hash string) context.Context {
-	ctx = context.WithValue(ctx, payloadHashKey{}, hash)
-	return ctx
+	return middleware.WithStackValue(ctx, payloadHashKey{}, hash)
 }

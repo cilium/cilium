@@ -50,6 +50,7 @@ import (
 	"fmt"
 	"hash"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"sort"
 	"strconv"
@@ -344,7 +345,17 @@ func (s *Signer) PresignHTTP(
 
 	logSigningInfo(ctx, options, &signedRequest, true)
 
-	return signedRequest.Request.URL.String(), signedRequest.SignedHeaders, nil
+	signedHeaders = make(http.Header)
+
+	// For the signed headers we canonicalize the header keys in the returned map.
+	// This avoids situations where can standard library double headers like host header. For example the standard
+	// library will set the Host header, even if it is present in lower-case form.
+	for k, v := range signedRequest.SignedHeaders {
+		key := textproto.CanonicalMIMEHeaderKey(k)
+		signedHeaders[key] = append(signedHeaders[key], v...)
+	}
+
+	return signedRequest.Request.URL.String(), signedHeaders, nil
 }
 
 func (s *httpSigner) buildCredentialScope() string {

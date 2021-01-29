@@ -50,67 +50,103 @@ type (
 )
 
 // GetServiceID retrieves the service id from the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetServiceID(ctx context.Context) (v string) {
-	v, _ = ctx.Value(serviceIDKey{}).(string)
+	v, _ = middleware.GetStackValue(ctx, serviceIDKey{}).(string)
 	return v
 }
 
 // GetSigningName retrieves the service signing name from the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetSigningName(ctx context.Context) (v string) {
-	v, _ = ctx.Value(signingNameKey{}).(string)
+	v, _ = middleware.GetStackValue(ctx, signingNameKey{}).(string)
 	return v
 }
 
 // GetSigningRegion retrieves the region from the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetSigningRegion(ctx context.Context) (v string) {
-	v, _ = ctx.Value(signingRegionKey{}).(string)
+	v, _ = middleware.GetStackValue(ctx, signingRegionKey{}).(string)
 	return v
 }
 
 // GetRegion retrieves the endpoint region from the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetRegion(ctx context.Context) (v string) {
-	v, _ = ctx.Value(regionKey{}).(string)
+	v, _ = middleware.GetStackValue(ctx, regionKey{}).(string)
 	return v
 }
 
 // GetOperationName retrieves the service operation metadata from the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetOperationName(ctx context.Context) (v string) {
-	v, _ = ctx.Value(operationNameKey{}).(string)
+	v, _ = middleware.GetStackValue(ctx, operationNameKey{}).(string)
 	return v
 }
 
 // GetPartitionID retrieves the endpoint partition id from the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func GetPartitionID(ctx context.Context) string {
-	v, _ := ctx.Value(partitionIDKey{}).(string)
+	v, _ := middleware.GetStackValue(ctx, partitionIDKey{}).(string)
 	return v
 }
 
 // SetSigningName set or modifies the signing name on the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func SetSigningName(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, signingNameKey{}, value)
+	return middleware.WithStackValue(ctx, signingNameKey{}, value)
 }
 
 // SetSigningRegion sets or modifies the region on the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func SetSigningRegion(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, signingRegionKey{}, value)
+	return middleware.WithStackValue(ctx, signingRegionKey{}, value)
 }
 
 // SetServiceID sets the service id on the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func SetServiceID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, serviceIDKey{}, value)
+	return middleware.WithStackValue(ctx, serviceIDKey{}, value)
 }
 
 // setRegion sets the endpoint region on the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func setRegion(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, regionKey{}, value)
+	return middleware.WithStackValue(ctx, regionKey{}, value)
 }
 
 // setOperationName sets the service operation on the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func setOperationName(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, operationNameKey{}, value)
+	return middleware.WithStackValue(ctx, operationNameKey{}, value)
 }
 
 // SetPartitionID sets the partition id of a resolved region on the context
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func SetPartitionID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, partitionIDKey{}, value)
+	return middleware.WithStackValue(ctx, partitionIDKey{}, value)
 }

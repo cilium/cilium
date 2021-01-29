@@ -19,13 +19,16 @@ type ider interface {
 // orderedIDs provides an ordered collection of items with relative ordering
 // by name.
 type orderedIDs struct {
-	order relativeOrder
+	order *relativeOrder
 	items map[string]ider
 }
 
+const baseOrderedItems = 5
+
 func newOrderedIDs() *orderedIDs {
 	return &orderedIDs{
-		items: map[string]ider{},
+		order: newRelativeOrder(),
+		items: make(map[string]ider, baseOrderedItems),
 	}
 }
 
@@ -136,6 +139,12 @@ func (g *orderedIDs) GetOrder() []interface{} {
 // relativeOrder provides ordering of item
 type relativeOrder struct {
 	order []string
+}
+
+func newRelativeOrder() *relativeOrder {
+	return &relativeOrder{
+		order: make([]string, 0, baseOrderedItems),
+	}
 }
 
 // Add inserts a item into the order relative to the position provided.

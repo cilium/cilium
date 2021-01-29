@@ -3,7 +3,7 @@ sudo: true
 dist: bionic
 
 install:
-    - eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=1.14.x bash)"
+    - eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=1.15.x bash)"
     - echo `go env`
     - echo `which go`
 
@@ -12,16 +12,12 @@ script: cd codegen && ./gradlew clean build -Plog-tests
 matrix:
   include:
     - language: java
-      go: 1.14.x
+      go: 1.15.x
       jdk: openjdk8
 
     - language: java
-      go: 1.14.x
+      go: 1.15.x
       jdk: openjdk11
-
-    - language: go
-      go: 1.14.x
-      script: go test -v ./...
 
     - language: go
       go: 1.15.x

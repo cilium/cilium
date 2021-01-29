@@ -11,6 +11,7 @@ import (
 	awsmiddle "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
 	"github.com/aws/smithy-go/logging"
+	"github.com/aws/smithy-go/middleware"
 	smithymiddle "github.com/aws/smithy-go/middleware"
 	"github.com/aws/smithy-go/transport/http"
 )
@@ -26,8 +27,6 @@ type retryMetadata struct {
 	AttemptClockSkew time.Duration
 }
 
-type retryMetadataKey struct{}
-
 // Attempt is a Smithy FinalizeMiddleware that handles retry attempts using the provided
 // Retryer implementation
 type Attempt struct {
@@ -35,12 +34,12 @@ type Attempt struct {
 	// This will include logging retry attempts, unretryable errors, and when max attempts are reached.
 	LogAttempts bool
 
-	retryer       Retryer
+	retryer       aws.Retryer
 	requestCloner RequestCloner
 }
 
-// NewAttemptMiddleware returns a new Attempt
-func NewAttemptMiddleware(retryer Retryer, requestCloner RequestCloner, optFns ...func(*Attempt)) *Attempt {
+// NewAttemptMiddleware returns a new Attempt retry middleware.
+func NewAttemptMiddleware(retryer aws.Retryer, requestCloner RequestCloner, optFns ...func(*Attempt)) *Attempt {
 	m := &Attempt{retryer: retryer, requestCloner: requestCloner}
 	for _, fn := range optFns {
 		fn(m)
@@ -64,19 +63,14 @@ func (r Attempt) logf(logger logging.Logger, classification logging.Classificati
 func (r Attempt) HandleFinalize(ctx context.Context, in smithymiddle.FinalizeInput, next smithymiddle.FinalizeHandler) (
 	out smithymiddle.FinalizeOutput, metadata smithymiddle.Metadata, err error,
 ) {
-	var attemptNum, retryCount int
+	var attemptNum int
 	var attemptClockSkew time.Duration
+	var attemptResults AttemptResults
 
 	maxAttempts := r.retryer.MaxAttempts()
 
-	relRetryToken := r.retryer.GetInitialToken()
-
-	logger := smithymiddle.GetLogger(ctx)
-	service, operation := awsmiddle.GetServiceID(ctx), awsmiddle.GetOperationName(ctx)
-
 	for {
 		attemptNum++
-
 		attemptInput := in
 		attemptInput.Request = r.requestCloner(attemptInput.Request)
 
@@ -87,61 +81,106 @@ func (r Attempt) HandleFinalize(ctx context.Context, in smithymiddle.FinalizeInp
 			AttemptClockSkew: attemptClockSkew,
 		})
 
-		if attemptNum > 1 {
-			if rewindable, ok := in.Request.(interface{ RewindStream() error }); ok {
-				if err := rewindable.RewindStream(); err != nil {
-					return out, metadata, fmt.Errorf("failed to rewind transport stream for retry, %w", err)
-				}
-			}
+		var attemptResult AttemptResult
 
-			r.logf(logger, logging.Debug, "retrying request %s/%s, attempt %d", service, operation, attemptNum)
+		out, attemptResult, err = r.handleAttempt(attemptCtx, attemptInput, next)
+
+		var ok bool
+		attemptClockSkew, ok = awsmiddle.GetAttemptSkew(attemptResult.ResponseMetadata)
+		if !ok {
+			attemptClockSkew = 0
 		}
 
-		out, metadata, reqErr := next.HandleFinalize(attemptCtx, attemptInput)
+		shouldRetry := attemptResult.Retried
 
-		if releaseError := relRetryToken(reqErr); releaseError != nil && reqErr != nil {
-			return out, metadata, fmt.Errorf("failed to release token after request error, %v", reqErr)
+		// add attempt metadata to list of all attempt metadata
+		attemptResults.Results = append(attemptResults.Results, attemptResult)
+
+		if !shouldRetry {
+			break
 		}
-
-		if reqErr == nil {
-			return out, metadata, nil
-		}
-
-		retryable := r.retryer.IsErrorRetryable(reqErr)
-		if !retryable {
-			r.logf(logger, logging.Debug, "request failed with unretryable error %v", reqErr)
-			return out, metadata, reqErr
-		}
-
-		if maxAttempts > 0 && attemptNum >= maxAttempts {
-			r.logf(logger, logging.Debug, "max retry attempts exhausted, max %d", maxAttempts)
-			err = &MaxAttemptsError{
-				Attempt: attemptNum,
-				Err:     reqErr,
-			}
-			return out, metadata, err
-		}
-
-		relRetryToken, err = r.retryer.GetRetryToken(ctx, reqErr)
-		if err != nil {
-			return out, metadata, err
-		}
-
-		retryDelay, err := r.retryer.RetryDelay(attemptNum, reqErr)
-		if err != nil {
-			return out, metadata, err
-		}
-
-		if err = sdk.SleepWithContext(ctx, retryDelay); err != nil {
-			err = &aws.RequestCanceledError{Err: err}
-			return out, metadata, err
-		}
-
-		responseMetadata := awsmiddle.GetResponseMetadata(metadata)
-		attemptClockSkew = responseMetadata.AttemptSkew
-
-		retryCount++
 	}
+
+	addAttemptResults(&metadata, attemptResults)
+	return out, metadata, err
+}
+
+// handleAttempt handles an individual request attempt.
+func (r Attempt) handleAttempt(ctx context.Context, in smithymiddle.FinalizeInput, next smithymiddle.FinalizeHandler) (
+	out smithymiddle.FinalizeOutput, attemptResult AttemptResult, err error,
+) {
+	defer func() {
+		attemptResult.Err = err
+	}()
+
+	relRetryToken := r.retryer.GetInitialToken()
+	logger := smithymiddle.GetLogger(ctx)
+	service, operation := awsmiddle.GetServiceID(ctx), awsmiddle.GetOperationName(ctx)
+
+	retryMetadata, _ := getRetryMetadata(ctx)
+	attemptNum := retryMetadata.AttemptNum
+	maxAttempts := retryMetadata.MaxAttempts
+
+	if attemptNum > 1 {
+		if rewindable, ok := in.Request.(interface{ RewindStream() error }); ok {
+			if rewindErr := rewindable.RewindStream(); rewindErr != nil {
+				err = fmt.Errorf("failed to rewind transport stream for retry, %w", rewindErr)
+				return out, attemptResult, err
+			}
+		}
+
+		r.logf(logger, logging.Debug, "retrying request %s/%s, attempt %d", service, operation, attemptNum)
+	}
+
+	var metadata smithymiddle.Metadata
+	out, metadata, err = next.HandleFinalize(ctx, in)
+	attemptResult.ResponseMetadata = metadata
+
+	if releaseError := relRetryToken(err); releaseError != nil && err != nil {
+		err = fmt.Errorf("failed to release token after request error, %w", err)
+		return out, attemptResult, err
+	}
+
+	if err == nil {
+		return out, attemptResult, err
+	}
+
+	retryable := r.retryer.IsErrorRetryable(err)
+	if !retryable {
+		r.logf(logger, logging.Debug, "request failed with unretryable error %v", err)
+		return out, attemptResult, err
+	}
+
+	// set retryable to true
+	attemptResult.Retryable = true
+
+	if maxAttempts > 0 && attemptNum >= maxAttempts {
+		r.logf(logger, logging.Debug, "max retry attempts exhausted, max %d", maxAttempts)
+		err = &MaxAttemptsError{
+			Attempt: attemptNum,
+			Err:     err,
+		}
+		return out, attemptResult, err
+	}
+
+	relRetryToken, reqErr := r.retryer.GetRetryToken(ctx, err)
+	if reqErr != nil {
+		return out, attemptResult, reqErr
+	}
+
+	retryDelay, reqErr := r.retryer.RetryDelay(attemptNum, err)
+	if reqErr != nil {
+		return out, attemptResult, reqErr
+	}
+
+	if reqErr = sdk.SleepWithContext(ctx, retryDelay); reqErr != nil {
+		err = &aws.RequestCanceledError{Err: reqErr}
+		return out, attemptResult, err
+	}
+
+	attemptResult.Retried = true
+
+	return out, attemptResult, err
 }
 
 // MetricsHeader attaches SDK request metric header for retries to the transport
@@ -156,10 +195,7 @@ func (r *MetricsHeader) ID() string {
 func (r MetricsHeader) HandleFinalize(ctx context.Context, in smithymiddle.FinalizeInput, next smithymiddle.FinalizeHandler) (
 	out smithymiddle.FinalizeOutput, metadata smithymiddle.Metadata, err error,
 ) {
-	retryMetadata, ok := getRetryMetadata(ctx)
-	if !ok {
-		return out, metadata, fmt.Errorf("retry metadata value not found on context")
-	}
+	retryMetadata, _ := getRetryMetadata(ctx)
 
 	const retryMetricHeader = "Amz-Sdk-Request"
 	var parts []string
@@ -191,20 +227,30 @@ func (r MetricsHeader) HandleFinalize(ctx context.Context, in smithymiddle.Final
 	return next.HandleFinalize(ctx, in)
 }
 
-// getRetryMetadata retrieves retryMetadata from the context and a bool indicating if it was set
+type retryMetadataKey struct{}
+
+// getRetryMetadata retrieves retryMetadata from the context and a bool
+// indicating if it was set.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func getRetryMetadata(ctx context.Context) (metadata retryMetadata, ok bool) {
-	metadata, ok = ctx.Value(retryMetadataKey{}).(retryMetadata)
+	metadata, ok = middleware.GetStackValue(ctx, retryMetadataKey{}).(retryMetadata)
 	return metadata, ok
 }
 
+// setRetryMetadata sets the retryMetadata on the context.
+//
+// Scoped to stack values. Use github.com/aws/smithy-go/middleware#ClearStackValues
+// to clear all stack values.
 func setRetryMetadata(ctx context.Context, metadata retryMetadata) context.Context {
-	return context.WithValue(ctx, retryMetadataKey{}, metadata)
+	return middleware.WithStackValue(ctx, retryMetadataKey{}, metadata)
 }
 
 // AddRetryMiddlewaresOptions is the set of options that can be passed to AddRetryMiddlewares for configuring retry
 // associated middleware.
 type AddRetryMiddlewaresOptions struct {
-	Retryer Retryer
+	Retryer aws.Retryer
 
 	// Enable the logging of retry attempts performed by the SDK.
 	// This will include logging retry attempts, unretryable errors, and when max attempts are reached.

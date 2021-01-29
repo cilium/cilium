@@ -44,7 +44,7 @@ github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
 ## explicit
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go-v2 v0.31.0
+# github.com/aws/aws-sdk-go-v2 v1.0.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/middleware
@@ -64,31 +64,31 @@ github.com/aws/aws-sdk-go-v2/internal/sdkio
 github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-# github.com/aws/aws-sdk-go-v2/config v0.4.0
+# github.com/aws/aws-sdk-go-v2/config v1.0.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/config
-# github.com/aws/aws-sdk-go-v2/credentials v0.2.0
+# github.com/aws/aws-sdk-go-v2/credentials v1.0.0
 github.com/aws/aws-sdk-go-v2/credentials
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
 github.com/aws/aws-sdk-go-v2/credentials/endpointcreds
 github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client
 github.com/aws/aws-sdk-go-v2/credentials/processcreds
 github.com/aws/aws-sdk-go-v2/credentials/stscreds
-# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v0.1.0
+# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.0.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
-# github.com/aws/aws-sdk-go-v2/service/ec2 v0.31.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.0.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
-# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v0.2.0
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.0.0
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
-# github.com/aws/aws-sdk-go-v2/service/sts v0.31.0
+# github.com/aws/aws-sdk-go-v2/service/sts v1.0.0
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/smithy-go v0.5.0
+# github.com/aws/smithy-go v1.0.0
 ## explicit
 github.com/aws/smithy-go
 github.com/aws/smithy-go/encoding

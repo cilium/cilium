@@ -38,12 +38,42 @@ func (d NodeDecoder) Token() (t xml.StartElement, done bool, err error) {
 		}
 
 		if t, ok := token.(xml.StartElement); ok {
-			return t, false, err
+			return restoreAttrNamespaces(t), false, err
 		}
 
 		// skip token if it is a comment or preamble or empty space value due to indentation
 		// or if it's a value and is not expected
 	}
+}
+
+// restoreAttrNamespaces update XML attributes to restore the short namespaces found within
+// the raw XML document.
+func restoreAttrNamespaces(node xml.StartElement) xml.StartElement {
+	if len(node.Attr) == 0 {
+		return node
+	}
+
+	// Generate a mapping of XML namespace values to their short names.
+	ns := map[string]string{}
+	for _, a := range node.Attr {
+		if a.Name.Space == "xmlns" {
+			ns[a.Value] = a.Name.Local
+			break
+		}
+	}
+
+	for i, a := range node.Attr {
+		if a.Name.Space == "xmlns" {
+			continue
+		}
+		// By default, xml.Decoder will fully resolve these namespaces. So if you had <foo xmlns:bar=baz bar:bin=hi/>
+		// then by default the second attribute would have the `Name.Space` resolved to `baz`. But we need it to
+		// continue to resolve as `bar` so we can easily identify it later on.
+		if v, ok := ns[node.Attr[i].Name.Space]; ok {
+			node.Attr[i].Name.Space = v
+		}
+	}
+	return node
 }
 
 // GetElement looks for the given tag name at the current level, and returns the element if found, and

@@ -53,6 +53,7 @@ var RequiredSignedHeaders = Rules{
 			"X-Amz-Storage-Class":                                         struct{}{},
 			"X-Amz-Website-Redirect-Location":                             struct{}{},
 			"X-Amz-Content-Sha256":                                        struct{}{},
+			"X-Amz-Tagging":                                               struct{}{},
 		},
 	},
 	Patterns{"X-Amz-Meta-"},

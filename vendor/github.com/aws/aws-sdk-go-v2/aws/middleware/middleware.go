@@ -42,23 +42,23 @@ func (r ClientRequestID) HandleBuild(ctx context.Context, in middleware.BuildInp
 	return next.HandleBuild(ctx, in)
 }
 
-// AttemptClockSkew calculates the clock skew of the SDK client
-// TODO: Could be a better name, since this calculates more then skew
-type AttemptClockSkew struct{}
+// RecordResponseTiming records the response timing for the SDK client requests.
+type RecordResponseTiming struct{}
 
 // ID is the middleware identifier
-func (a *AttemptClockSkew) ID() string {
-	return "AttemptClockSkew"
+func (a *RecordResponseTiming) ID() string {
+	return "RecordResponseTiming"
 }
 
 // HandleDeserialize calculates response metadata and clock skew
-func (a AttemptClockSkew) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+func (a RecordResponseTiming) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
 	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
 ) {
-	respMeta := ResponseMetadata{}
-
 	out, metadata, err = next.HandleDeserialize(ctx, in)
-	respMeta.ResponseAt = sdk.NowTime()
+	responseAt := sdk.NowTime()
+	setResponseAt(&metadata, responseAt)
+
+	var serverTime time.Time
 
 	switch resp := out.RawResponse.(type) {
 	case *smithyhttp.Response:
@@ -67,40 +67,61 @@ func (a AttemptClockSkew) HandleDeserialize(ctx context.Context, in middleware.D
 			break
 		}
 		var parseErr error
-		respMeta.ServerTime, parseErr = http.ParseTime(respDateHeader)
+		serverTime, parseErr = http.ParseTime(respDateHeader)
 		if parseErr != nil {
-			// TODO: What should logging of errors look like?
+			logger := middleware.GetLogger(ctx)
+			logger.Logf("failed to parse response Date Header value, got %v",
+				parseErr.Error())
 			break
 		}
+		setServerTime(&metadata, serverTime)
 	}
 
-	if !respMeta.ServerTime.IsZero() {
-		respMeta.AttemptSkew = respMeta.ServerTime.Sub(respMeta.ResponseAt)
+	if !serverTime.IsZero() {
+		attemptSkew := serverTime.Sub(responseAt)
+		setAttemptSkew(&metadata, attemptSkew)
 	}
-
-	setResponseMetadata(&metadata, respMeta)
 
 	return out, metadata, err
 }
 
-type responseMetadataKey struct{}
+type responseAtKey struct{}
 
-// ResponseMetadata is metadata about the transport layer response
-type ResponseMetadata struct {
-	ResponseAt  time.Time
-	ServerTime  time.Time
-	AttemptSkew time.Duration
+// GetResponseAt returns the time response was received at.
+func GetResponseAt(metadata middleware.Metadata) (v time.Time, ok bool) {
+	v, ok = metadata.Get(responseAtKey{}).(time.Time)
+	return v, ok
 }
 
-// GetResponseMetadata retrieves response metadata from the context, if nil returns an empty value
-func GetResponseMetadata(metadata middleware.Metadata) (v ResponseMetadata) {
-	v, _ = metadata.Get(responseMetadataKey{}).(ResponseMetadata)
-	return v
+// setResponseAt sets the response time on the metadata.
+func setResponseAt(metadata *middleware.Metadata, v time.Time) {
+	metadata.Set(responseAtKey{}, v)
 }
 
-// setResponseMetadata sets the ResponseMetadata on the given context
-func setResponseMetadata(metadata *middleware.Metadata, responseMetadata ResponseMetadata) {
-	metadata.Set(responseMetadataKey{}, responseMetadata)
+type serverTimeKey struct{}
+
+// GetServerTime returns the server time for response.
+func GetServerTime(metadata middleware.Metadata) (v time.Time, ok bool) {
+	v, ok = metadata.Get(serverTimeKey{}).(time.Time)
+	return v, ok
+}
+
+// setServerTime sets the server time on the metadata.
+func setServerTime(metadata *middleware.Metadata, v time.Time) {
+	metadata.Set(serverTimeKey{}, v)
+}
+
+type attemptSkewKey struct{}
+
+// GetAttemptSkew returns Attempt clock skew for response from metadata.
+func GetAttemptSkew(metadata middleware.Metadata) (v time.Duration, ok bool) {
+	v, ok = metadata.Get(attemptSkewKey{}).(time.Duration)
+	return v, ok
+}
+
+// setAttemptSkew sets the attempt clock skew on the metadata.
+func setAttemptSkew(metadata *middleware.Metadata, v time.Duration) {
+	metadata.Set(attemptSkewKey{}, v)
 }
 
 // AddClientRequestIDMiddleware adds ClientRequestID to the middleware stack
@@ -108,7 +129,40 @@ func AddClientRequestIDMiddleware(stack *middleware.Stack) error {
 	return stack.Build.Add(&ClientRequestID{}, middleware.After)
 }
 
-// AddAttemptClockSkewMiddleware adds AttemptClockSkew to the middleware stack
-func AddAttemptClockSkewMiddleware(stack *middleware.Stack) error {
-	return stack.Deserialize.Add(&AttemptClockSkew{}, middleware.After)
+// AddRecordResponseTiming adds RecordResponseTiming middleware to the
+// middleware stack.
+func AddRecordResponseTiming(stack *middleware.Stack) error {
+	return stack.Deserialize.Add(&RecordResponseTiming{}, middleware.After)
+}
+
+// rawResponseKey is the accessor key used to store and access the
+// raw response within the response metadata.
+type rawResponseKey struct{}
+
+// addRawResponse middleware adds raw response on to the metadata
+type addRawResponse struct{}
+
+// ID the identifier for the ClientRequestID
+func (m *addRawResponse) ID() string {
+	return "AddRawResponseToMetadata"
+}
+
+// HandleDeserialize adds raw response on the middleware metadata
+func (m addRawResponse) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (
+	out middleware.DeserializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleDeserialize(ctx, in)
+	metadata.Set(rawResponseKey{}, out.RawResponse)
+	return out, metadata, err
+}
+
+// AddRawResponseToMetadata adds middleware to the middleware stack that
+// store raw response on to the metadata.
+func AddRawResponseToMetadata(stack *middleware.Stack) error {
+	return stack.Deserialize.Add(&addRawResponse{}, middleware.Before)
+}
+
+// GetRawResponse returns raw response set on metadata
+func GetRawResponse(metadata middleware.Metadata) interface{} {
+	return metadata.Get(rawResponseKey{})
 }

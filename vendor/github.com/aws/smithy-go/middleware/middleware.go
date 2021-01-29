@@ -57,24 +57,6 @@ func (m decoratedHandler) Handle(ctx context.Context, input interface{}) (
 	return m.With.HandleMiddleware(ctx, input, m.Next)
 }
 
-type middlewareIDs struct{}
-
-// RecordMiddleware appends the middleware id to the list of middleware ids to
-// the context.
-func RecordMiddleware(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, middlewareIDs{}, append(GetMiddlewareIDs(ctx), id))
-}
-
-// GetMiddlewareIDs returns a list of middleware IDs in the order they were
-// added in.
-func GetMiddlewareIDs(ctx context.Context) []string {
-	v, ok := ctx.Value(middlewareIDs{}).([]string)
-	if !ok {
-		return nil
-	}
-	return v
-}
-
 // DecorateHandler decorates a handler with a middleware. Wrapping the handler
 // with the middleware.
 func DecorateHandler(h Handler, with ...Middleware) Handler {

@@ -45,7 +45,7 @@ func addRequestMiddleware(stack *middleware.Stack,
 	getPath func(interface{}) (string, error),
 	getOutput func(*smithyhttp.Response) (interface{}, error),
 ) (err error) {
-	err = awsmiddleware.AddUserAgentKey(ServiceID)(stack)
+	err = awsmiddleware.AddSDKAgentKey(awsmiddleware.FeatureMetadata, "ec2-imds")(stack)
 	if err != nil {
 		return err
 	}
