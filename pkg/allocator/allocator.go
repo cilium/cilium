@@ -508,9 +508,9 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		}
 
 		if firstUse {
-			log.WithField(fieldKey, k).Info("Reserved new local key")
+			log.WithField(fieldKey, k).Debug("Reserved new local key")
 		} else {
-			log.WithField(fieldKey, k).Info("Reusing existing local key")
+			log.WithField(fieldKey, k).Debug("Reusing existing local key")
 		}
 	}
 
