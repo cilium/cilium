@@ -245,6 +245,9 @@ func WaitForNodeInformation() error {
 
 		node.SetLabels(n.Labels)
 
+		node.SetK8sExternalIPv4(n.GetExternalIP(false))
+		node.SetK8sExternalIPv6(n.GetExternalIP(true))
+
 		// K8s Node IP is used by BPF NodePort devices auto-detection
 		node.SetK8sNodeIP(k8sNodeIP)
 	} else {
