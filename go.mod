@@ -56,7 +56,7 @@ require (
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
 	github.com/kr/pretty v0.2.1
 	github.com/mattn/go-shellwords v1.0.10
-	github.com/miekg/dns v1.0.14
+	github.com/miekg/dns v1.1.35
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.3
@@ -74,7 +74,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
@@ -96,7 +96,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.20.1
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v0.20.1
-	k8s.io/code-generator v0.20.1
+	k8s.io/code-generator v0.20.2
 	k8s.io/klog/v2 v2.4.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	// We specify the controller-tools version here to be the version of the
