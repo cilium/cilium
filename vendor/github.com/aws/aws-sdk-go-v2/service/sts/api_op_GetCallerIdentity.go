@@ -89,7 +89,10 @@ func addOperationGetCallerIdentityMiddlewares(stack *middleware.Stack, options O
 	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddAttemptClockSkewMiddleware(stack); err != nil {
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack); err != nil {
@@ -123,4 +126,28 @@ func newServiceMetadataMiddleware_opGetCallerIdentity(region string) *awsmiddlew
 		SigningName:   "sts",
 		OperationName: "GetCallerIdentity",
 	}
+}
+
+// PresignGetCallerIdentity is used to generate a presigned HTTP Request which
+// contains presigned URL, signed headers and HTTP method used.
+func (c *PresignClient) PresignGetCallerIdentity(ctx context.Context, params *GetCallerIdentityInput, optFns ...func(*PresignOptions)) (*v4.PresignedHTTPRequest, error) {
+	if params == nil {
+		params = &GetCallerIdentityInput{}
+	}
+	options := c.options.copy()
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	clientOptFns := append(options.ClientOptions, withNopHTTPClientAPIOption)
+
+	result, _, err := c.client.invokeOperation(ctx, "GetCallerIdentity", params, clientOptFns,
+		addOperationGetCallerIdentityMiddlewares,
+		presignConverter(options).convertToPresignMiddleware,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	out := result.(*v4.PresignedHTTPRequest)
+	return out, nil
 }

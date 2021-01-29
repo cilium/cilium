@@ -126,11 +126,11 @@ fallback:
 	return w.resolver.ResolveEndpoint(region, options)
 }
 
-// WithEndpointResolver returns an EndpointResolver that first delegates endpoint
+// withEndpointResolver returns an EndpointResolver that first delegates endpoint
 // resolution to the awsResolver. If awsResolver returns aws.EndpointNotFoundError
 // error, the resolver will use the the provided fallbackResolver for resolution.
 // awsResolver and fallbackResolver must not be nil
-func WithEndpointResolver(awsResolver aws.EndpointResolver, fallbackResolver EndpointResolver) EndpointResolver {
+func withEndpointResolver(awsResolver aws.EndpointResolver, fallbackResolver EndpointResolver) EndpointResolver {
 	return &wrappedEndpointResolver{
 		awsResolver: awsResolver,
 		resolver:    fallbackResolver,

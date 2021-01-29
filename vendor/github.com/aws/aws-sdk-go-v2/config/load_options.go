@@ -33,9 +33,9 @@ type LoadOptions struct {
 	// service and region Please see the `aws.EndpointResolver` documentation on usage.
 	EndpointResolver aws.EndpointResolver
 
-	// Retryer guides how HTTP requests should be retried in case of
-	// recoverable failures.
-	Retryer aws.Retryer
+	// Retryer is a function that provides a Retryer implementation. A Retryer guides how HTTP requests should be
+	// retried in case of recoverable failures.
+	Retryer func() aws.Retryer
 
 	// APIOptions provides the set of middleware mutations modify how the API
 	// client requests will be handled. This is useful for adding additional
@@ -477,7 +477,7 @@ func WithAPIOptions(v []func(*middleware.Stack) error) LoadOptionsFunc {
 	}
 }
 
-func (o LoadOptions) getRetryer(ctx context.Context) (aws.Retryer, bool, error) {
+func (o LoadOptions) getRetryer(ctx context.Context) (func() aws.Retryer, bool, error) {
 	if o.Retryer == nil {
 		return nil, false, nil
 	}
@@ -489,7 +489,7 @@ func (o LoadOptions) getRetryer(ctx context.Context) (aws.Retryer, bool, error) 
 // that sets Retryer on LoadOptions. If Retryer is set to nil, the
 // Retryer value is ignored. If multiple WithRetryer calls are
 // made, the last call overrides the previous call values.
-func WithRetryer(v aws.Retryer) LoadOptionsFunc {
+func WithRetryer(v func() aws.Retryer) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.Retryer = v
 		return nil

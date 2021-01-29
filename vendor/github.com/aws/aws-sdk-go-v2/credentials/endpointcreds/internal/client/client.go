@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -15,7 +16,7 @@ import (
 )
 
 // ServiceID is the client identifer
-const ServiceID = "EndpointCredentials"
+const ServiceID = "endpoint-credentials"
 
 // HTTPClient is a client for sending HTTP requests
 type HTTPClient interface {
@@ -33,7 +34,7 @@ type Options struct {
 
 	// Retryer guides how HTTP requests should be retried in case of recoverable
 	// failures. When nil the API client will use a default retryer.
-	Retryer retry.Retryer
+	Retryer aws.Retryer
 
 	// Set of options to modify how the credentials operation is invoked.
 	APIOptions []func(*smithymiddleware.Stack) error
@@ -92,7 +93,7 @@ func (c *Client) GetCredentials(ctx context.Context, params *GetCredentialsInput
 	stack.Build.Add(&buildEndpoint{Endpoint: options.Endpoint}, smithymiddleware.After)
 	stack.Deserialize.Add(&deserializeOpGetCredential{}, smithymiddleware.After)
 	retry.AddRetryMiddlewares(stack, retry.AddRetryMiddlewaresOptions{Retryer: options.Retryer})
-	middleware.AddUserAgentKey(ServiceID)
+	middleware.AddSDKAgentKey(middleware.FeatureMetadata, ServiceID)
 	smithyhttp.AddErrorCloseResponseBodyMiddleware(stack)
 	smithyhttp.AddCloseResponseBodyMiddleware(stack)
 

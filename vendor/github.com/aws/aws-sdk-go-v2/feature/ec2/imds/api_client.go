@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/smithy-go"
@@ -52,10 +51,6 @@ const (
 // such as changing the client's endpoint or adding custom middleware behavior.
 func New(options Options, optFns ...func(*Options)) *Client {
 	options = options.Copy()
-
-	options.APIOptions = append(options.APIOptions,
-		awsmiddleware.AddUserAgentKey("ec2imds"),
-	)
 
 	for _, fn := range optFns {
 		fn(&options)
@@ -101,7 +96,10 @@ func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 	opts := Options{
 		APIOptions: append([]func(*middleware.Stack) error{}, cfg.APIOptions...),
 		HTTPClient: cfg.HTTPClient,
-		Retryer:    cfg.Retryer,
+	}
+
+	if cfg.Retryer != nil {
+		opts.Retryer = cfg.Retryer()
 	}
 
 	return New(opts, optFns...)
@@ -130,7 +128,7 @@ type Options struct {
 
 	// Retryer guides how HTTP requests should be retried in case of recoverable
 	// failures. When nil the API client will use a default retryer.
-	Retryer retry.Retryer
+	Retryer aws.Retryer
 
 	// Changes if the EC2 Instance Metadata client is enabled or not. Client
 	// will default to enabled if not set to ClientDisabled. When the client is

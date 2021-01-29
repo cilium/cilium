@@ -42,10 +42,15 @@ type Config struct {
 	// service and region Please see the `aws.EndpointResolver` documentation on usage.
 	EndpointResolver EndpointResolver
 
-	// Retryer guides how HTTP requests should be retried in case of
-	// recoverable failures. When nil the API client will use a default
+	// Retryer is a function that provides a Retryer implementation. A Retryer guides how HTTP requests should be
+	// retried in case of recoverable failures. When nil the API client will use a default
 	// retryer.
-	Retryer Retryer
+	//
+	// In general, the provider function should return a new instance of a Retyer if you are attempting
+	// to provide a consistent Retryer configuration across all clients. This will ensure that each client will be
+	// provided a new instance of the Retryer implementation, and will avoid issues such as sharing the same retry token
+	// bucket across services.
+	Retryer func() Retryer
 
 	// ConfigSources are the sources that were used to construct the Config.
 	// Allows for additional configuration to be loaded by clients.

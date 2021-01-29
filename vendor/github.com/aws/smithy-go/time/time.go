@@ -2,6 +2,7 @@ package time
 
 import (
 	"context"
+	"math/big"
 	"time"
 )
 
@@ -12,6 +13,8 @@ const (
 	// httpDateFormat is a date time defined by RFC3339 section 5.6 with no UTC offset.
 	httpDateFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 )
+
+var millisecondFloat = big.NewFloat(1e3)
 
 // FormatDateTime format value as a date-time (RFC3339 section 5.6)
 //
@@ -43,16 +46,20 @@ func ParseHTTPDate(value string) (time.Time, error) {
 
 // FormatEpochSeconds returns value as a Unix time in seconds with with decimal precision
 //
-// Example: 1515531081.1234
+// Example: 1515531081.123
 func FormatEpochSeconds(value time.Time) float64 {
-	return float64(value.UnixNano()) / float64(time.Second)
+	ms := value.UnixNano() / int64(time.Millisecond)
+	return float64(ms)/1e3
 }
 
 // ParseEpochSeconds returns value as a Unix time in seconds with with decimal precision
 //
-// Example: 1515531081.1234
+// Example: 1515531081.123
 func ParseEpochSeconds(value float64) time.Time {
-	return time.Unix(0, int64(value*float64(time.Second))).UTC()
+	f := big.NewFloat(value)
+	f = f.Mul(f, millisecondFloat)
+	i, _ := f.Int64()
+	return time.Unix(0, i*1e6).UTC()
 }
 
 // SleepWithContext will wait for the timer duration to expire, or the context

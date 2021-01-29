@@ -161,7 +161,10 @@ func addOperationCopySnapshotMiddlewares(stack *middleware.Stack, options Option
 	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddAttemptClockSkewMiddleware(stack); err != nil {
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack); err != nil {
@@ -294,7 +297,6 @@ func (c *PresignClient) PresignCopySnapshot(ctx context.Context, params *CopySna
 	}
 	clientOptFns := append(options.ClientOptions, withNopHTTPClientAPIOption)
 
-	ctx = presignedurlcust.WithIsPresigning(ctx)
 	result, _, err := c.client.invokeOperation(ctx, "CopySnapshot", params, clientOptFns,
 		addOperationCopySnapshotMiddlewares,
 		presignConverter(options).convertToPresignMiddleware,

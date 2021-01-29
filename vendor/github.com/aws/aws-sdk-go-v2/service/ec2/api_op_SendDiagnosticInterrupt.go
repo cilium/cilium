@@ -89,7 +89,10 @@ func addOperationSendDiagnosticInterruptMiddlewares(stack *middleware.Stack, opt
 	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddAttemptClockSkewMiddleware(stack); err != nil {
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack); err != nil {
