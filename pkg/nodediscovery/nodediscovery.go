@@ -137,10 +137,10 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.LocalNode.Labels = node.GetLabels()
 
-	if node.GetExternalIPv4() != nil {
+	if node.GetIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
-			IP:   node.GetExternalIPv4(),
+			IP:   node.GetIPv4(),
 		})
 	}
 
@@ -151,10 +151,10 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
-	if node.GetInternalIPv4() != nil {
+	if node.GetInternalIPv4Router() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetInternalIPv4(),
+			IP:   node.GetInternalIPv4Router(),
 		})
 	}
 

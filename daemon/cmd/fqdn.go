@@ -379,7 +379,7 @@ func (d *Daemon) pollerResponseNotify(lookupTime time.Time, qname string, respon
 		},
 	}
 
-	if ip := node.GetExternalIPv4(); ip != nil {
+	if ip := node.GetIPv4(); ip != nil {
 		record.LogRecord.NodeAddressInfo.IPv4 = ip.String()
 	}
 
