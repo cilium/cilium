@@ -1120,9 +1120,9 @@ following commands can be used:
 ::
 
     $ git clone https://github.com/llvm/llvm-project.git
-    $ cd llvm/tools
-    $ git clone --depth 1 https://git.llvm.org/git/clang.git
-    $ cd ..; mkdir build; cd build
+    $ mv llvm-project/clang llvm-project/llvm/tools/
+    $ cd llvm-project/llvm/
+    $ mkdir build; cd build
     $ cmake .. -DLLVM_TARGETS_TO_BUILD="BPF;X86" -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLVM_BUILD_RUNTIME=OFF
     $ make -j $(getconf _NPROCESSORS_ONLN)
 
