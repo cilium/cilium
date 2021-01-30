@@ -1119,7 +1119,7 @@ following commands can be used:
 
 ::
 
-    $ git clone https://git.llvm.org/git/llvm.git
+    $ git clone https://github.com/llvm/llvm-project.git
     $ cd llvm/tools
     $ git clone --depth 1 https://git.llvm.org/git/clang.git
     $ cd ..; mkdir build; cd build
