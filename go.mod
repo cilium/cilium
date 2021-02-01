@@ -38,7 +38,7 @@ require (
 	github.com/go-openapi/spec v0.20.0
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/go-openapi/swag v0.19.12
-	github.com/go-openapi/validate v0.20.0
+	github.com/go-openapi/validate v0.20.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.4
