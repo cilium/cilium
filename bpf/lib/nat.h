@@ -507,12 +507,13 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct {
+	__u32 off;
+	int ret;
+
+	__maybe_unused struct {
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	__u32 off;
-	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
@@ -527,10 +528,19 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_IPV4_FRAGMENTS
+		ret = ipv4_handle_fragmentation(ctx, ip4, off, dir,
+						(struct ipv4_frag_l4ports *)&tuple.dport,
+						NULL);
+
+		if (IS_ERR(ret))
+			return ret;
+#else
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
+#endif
 		break;
 	case IPPROTO_ICMP:
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
