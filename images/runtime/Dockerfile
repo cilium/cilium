@@ -16,7 +16,7 @@ FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
 FROM ${CILIUM_IPROUTE2_IMAGE} as iproute2-dist
 
-FROM --platform=linux/amd64 ${COMPILERS_IMAGE} as builder
+FROM --platform=linux/amd64 ${COMPILERS_IMAGE} as cni-builder
 
 COPY cni-version.sh /tmp/cni-version.sh
 COPY download-cni.sh /tmp/download-cni.sh
@@ -41,7 +41,7 @@ COPY --from=bpftool-dist /usr/local /usr/local
 COPY --from=iproute2-dist /usr/local /usr/local
 
 ARG TARGETPLATFORM
-COPY --from=builder /out/${TARGETPLATFORM}/bin /bin
+COPY --from=cni-builder /out/${TARGETPLATFORM}/bin /cni
 COPY --from=go-builder /out/${TARGETPLATFORM}/bin /bin
 
 FROM ${TESTER_IMAGE} as test
