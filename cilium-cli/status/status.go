@@ -279,9 +279,9 @@ func (s *Status) Format() string {
 	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', 0)
 
 	fmt.Fprintf(w, Yellow+"    /¯¯\\\n")
-	fmt.Fprintf(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(ciliumDaemonSetName)+"\n")
-	fmt.Fprintf(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(operatorDeploymentName)+"\n")
-	fmt.Fprintf(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tHubble:\t"+s.statusSummary(relayDeploymentName)+"\n")
+	fmt.Fprintf(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(defaults.AgentDaemonSetName)+"\n")
+	fmt.Fprintf(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(defaults.OperatorDeploymentName)+"\n")
+	fmt.Fprintf(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tHubble:\t"+s.statusSummary(defaults.RelayDeploymentName)+"\n")
 	fmt.Fprintf(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\tClusterMesh:\t"+s.statusSummary(defaults.ClusterMeshDeploymentName)+"\n")
 	fmt.Fprintf(w, Blue+"    \\__/\n"+Reset)
 	fmt.Fprintf(w, "\n")
