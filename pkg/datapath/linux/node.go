@@ -44,6 +44,8 @@ import (
 const (
 	wildcardIPv4 = "0.0.0.0"
 	wildcardIPv6 = "0::0"
+	success      = "success"
+	failed       = "failed"
 )
 
 type linuxNodeHandler struct {
