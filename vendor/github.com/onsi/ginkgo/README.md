@@ -4,7 +4,23 @@
 
 Jump to the [docs](https://onsi.github.io/ginkgo/) to learn more.  To start rolling your Ginkgo tests *now* [keep reading](#set-me-up)!
 
-If you have a question, comment, bug report, feature request, etc. please open a GitHub issue.
+If you have a question, comment, bug report, feature request, etc. please open a GitHub issue, or visit the [Ginkgo Slack channel](https://app.slack.com/client/T029RQSE6/CQQ50BBNW).
+
+## TLDR
+Ginkgo builds on Go's `testing` package, allowing expressive [Behavior-Driven Development](https://en.wikipedia.org/wiki/Behavior-driven_development) ("BDD") style tests.
+It is typically (and optionally) paired with the [Gomega](https://github.com/onsi/gomega) matcher library.
+
+```go
+Describe("the strings package", func() {
+  Context("strings.Contains()", func() {
+    When("the string contains the substring in the middle", func() {
+      It("returns `true`", func() {
+        Expect(strings.Contains("Ginkgo is awesome", "is")).To(BeTrue())
+      })
+    })
+  })
+})
+```
 
 ## Feature List
 
@@ -59,15 +75,37 @@ Ginkgo is best paired with Gomega.  Learn more about Gomega [here](https://onsi.
 
 Agouti allows you run WebDriver integration tests.  Learn more about Agouti [here](https://agouti.org)
 
-## Set Me Up!
+## Getting Started
 
-You'll need the Go command-line tools. Ginkgo is tested with Go 1.6+, but preferably you should get the latest. Follow the [installation instructions](https://golang.org/doc/install) if you don't have it installed.
+You'll need the Go command-line tools. Follow the [installation instructions](https://golang.org/doc/install) if you don't have it installed.
 
+### Global installation
+To install the Ginkgo command line interface:
 ```bash
+go get -u github.com/onsi/ginkgo/ginkgo
+```
+Note that this will install it to `$GOBIN`, which will need to be in the `$PATH` (or equivalent). Run `go help install` for more information.
 
-go get -u github.com/onsi/ginkgo/ginkgo  # installs the ginkgo CLI
-go get -u github.com/onsi/gomega/...     # fetches the matcher library
+### Go module ["tools package"](https://github.com/golang/go/issues/25922):
+Create (or update) a file called `tools/tools.go` with the following contents:
+```go
+// +build tools
 
+package tools
+
+import (
+	_ "github.com/onsi/ginkgo/ginkgo"
+)
+
+// This file imports packages that are used when running go generate, or used
+// during the development process but not otherwise depended on by built code.
+```
+The Ginkgo command can then be run via `go run github.com/onsi/ginkgo/ginkgo`.
+This approach allows the version of Ginkgo to be maintained under source control for reproducible results,
+and is well suited to automated test pipelines.
+
+### Bootstrapping
+```bash
 cd path/to/package/you/want/to/test
 
 ginkgo bootstrap # set up a new ginkgo suite

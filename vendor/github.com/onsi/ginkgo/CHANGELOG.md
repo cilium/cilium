@@ -1,3 +1,45 @@
+## 1.14.2
+
+### Fixes
+- correct handling windows backslash in import path (#721) [97f3d51]
+- Add additional methods to GinkgoT() to improve compatibility with the testing.TB interface [b5fe44d]
+
+## 1.14.1
+
+### Fixes
+- Discard exported method declaration when running ginkgo bootstrap (#558) [f4b0240]
+
+## 1.14.0
+
+### Features
+- Defer running top-level container nodes until RunSpecs is called [d44dedf]
+- [Document Ginkgo lifecycle](http://onsi.github.io/ginkgo/#understanding-ginkgos-lifecycle)
+- Add `extensions/globals` package (#692) [3295c8f] - this can be helpful in contexts where you are test-driving your test-generation code (see [#692](https://github.com/onsi/ginkgo/pull/692))
+- Print Skip reason in JUnit reporter if one was provided [820dfab]
+
+## 1.13.0
+
+### Features
+- Add a version of table.Entry that allows dumping the entry parameters. (#689) [21eaef2]
+
+### Fixes
+- Ensure integration tests pass in an environment sans GOPATH [606fba2]
+- Add books package (#568) [fc0e44e]
+- doc(readme): installation via "tools package" (#677) [83bb20e]
+- Solve the undefined: unix.Dup2 compile error on mips64le (#680) [0624f75]
+- Import package without dot (#687) [6321024]
+- Fix integration tests to stop require GOPATH (#686) [a912ec5]
+
+## 1.12.3
+
+### Fixes
+- Print correct code location of failing table test (#666) [c6d7afb]
+
+## 1.12.2
+
+### Fixes
+- Update dependencies [ea4a036]
+
 ## 1.12.1
 
 ### Fixes
