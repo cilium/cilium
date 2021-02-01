@@ -28,12 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	ciliumDaemonSetName    = "cilium"
-	operatorDeploymentName = "cilium-operator"
-	relayDeploymentName    = "hubble-relay"
-)
-
 var retryInterval = 2 * time.Second
 
 type K8sStatusParameters struct {
@@ -285,16 +279,16 @@ retry:
 func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 	status := newStatus()
 
-	err := k.daemonSetStatus(ctx, status, ciliumDaemonSetName)
+	err := k.daemonSetStatus(ctx, status, defaults.AgentDaemonSetName)
 	if err != nil {
-		status.AddAggregatedError(ciliumDaemonSetName, ciliumDaemonSetName, err)
+		status.AddAggregatedError(defaults.AgentDaemonSetName, defaults.AgentDaemonSetName, err)
 		status.CollectionError(err)
 	}
 
-	err = k.podStatus(ctx, status, ciliumDaemonSetName, "k8s-app=cilium", func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
+	err = k.podStatus(ctx, status, defaults.AgentDaemonSetName, "k8s-app=cilium", func(ctx context.Context, status *Status, name string, pod *corev1.Pod) {
 		if pod.Status.Phase == corev1.PodRunning {
 			s, err := k.client.CiliumStatus(ctx, k.params.Namespace, pod.Name)
-			status.parseStatusResponse(ciliumDaemonSetName, pod.Name, s, err)
+			status.parseStatusResponse(defaults.AgentDaemonSetName, pod.Name, s, err)
 			status.CiliumStatus[pod.Name] = s
 		}
 	})
@@ -302,30 +296,30 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		status.CollectionError(err)
 	}
 
-	err = k.deploymentStatus(ctx, status, operatorDeploymentName)
+	err = k.deploymentStatus(ctx, status, defaults.OperatorDeploymentName)
 	if err != nil {
-		status.AddAggregatedError(operatorDeploymentName, operatorDeploymentName, err)
+		status.AddAggregatedError(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, err)
 		status.CollectionError(err)
 	}
 
-	err = k.podStatus(ctx, status, operatorDeploymentName, "name=cilium-operator", nil)
+	err = k.podStatus(ctx, status, defaults.OperatorDeploymentName, "name=cilium-operator", nil)
 	if err != nil {
 		status.CollectionError(err)
 	}
 
-	err = k.deploymentStatus(ctx, status, relayDeploymentName)
+	err = k.deploymentStatus(ctx, status, defaults.RelayDeploymentName)
 	if err != nil {
-		if _, ok := status.PodState[relayDeploymentName]; !ok {
-			status.AddAggregatedWarning(relayDeploymentName, relayDeploymentName, fmt.Errorf("hubble relay is not deployed"))
+		if _, ok := status.PodState[defaults.RelayDeploymentName]; !ok {
+			status.AddAggregatedWarning(defaults.RelayDeploymentName, defaults.RelayDeploymentName, fmt.Errorf("hubble relay is not deployed"))
 		} else {
-			status.AddAggregatedError(relayDeploymentName, relayDeploymentName, err)
+			status.AddAggregatedError(defaults.RelayDeploymentName, defaults.RelayDeploymentName, err)
 			status.CollectionError(err)
 		}
 	}
 
 	// pod status for relay is only validated if the deployment exists
-	if _, ok := status.PodState[relayDeploymentName]; ok {
-		err = k.podStatus(ctx, status, relayDeploymentName, "k8s-app=hubble-relay", nil)
+	if _, ok := status.PodState[defaults.RelayDeploymentName]; ok {
+		err = k.podStatus(ctx, status, defaults.RelayDeploymentName, "k8s-app=hubble-relay", nil)
 		if err != nil {
 			status.CollectionError(err)
 		}
