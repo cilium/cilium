@@ -10,6 +10,8 @@ updates:
       - dependency-name: "google.golang.org/grpc"
         # using a cilium-specific fork
       - dependency-name: "github.com/miekg/dns"
+        # newer versions break our CI
+      - dependency-name: "github.com/onsi/ginkgo"
     labels:
     - kind/enhancement
     - release-note/misc
