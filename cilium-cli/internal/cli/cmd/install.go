@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/install"
 
 	"github.com/spf13/cobra"
@@ -69,6 +70,8 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().BoolVar(&params.Encryption, "encryption", false, "Enable encryption of all workloads traffic")
 	cmd.Flags().BoolVar(&params.NodeEncryption, "node-encryption", false, "Enable encryption of all node to node traffic")
 	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "Set ConfigMap entries (key=value)")
+	cmd.Flags().StringVar(&params.AgentImage, "agent-image", defaults.AgentImage, "Image path to use for Cilium agent")
+	cmd.Flags().StringVar(&params.OperatorImage, "operator-image", defaults.OperatorImage, "Image path to use for Cilium operator")
 
 	cmd.Flags().StringVar(&params.Azure.ResourceGroupName, "azure-resource-group", "", "Azure resource group name the cluster is in")
 	cmd.Flags().StringVar(&params.Azure.TenantID, "azure-tenant-id", "", "Azure tenant ID")
