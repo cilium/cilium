@@ -1,11 +1,11 @@
 # Next-Gen Cilium CLI (Experimental)
 
-![Go](https://github.com/isovalent/cilium-cli/workflows/Go/badge.svg)
-![Kind](https://github.com/isovalent/cilium-cli/workflows/Kind/badge.svg)
-![EKS](https://github.com/isovalent/cilium-cli/workflows/EKS/badge.svg)
-![GKE](https://github.com/isovalent/cilium-cli/workflows/GKE/badge.svg)
-![AKS](https://github.com/isovalent/cilium-cli/workflows/AKS/badge.svg)
-![Multicluster](https://github.com/isovalent/cilium-cli/workflows/Multicluster/badge.svg)
+[![Go](https://github.com/isovalent/cilium-cli/workflows/Go/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AGo)
+[![Kind](https://github.com/isovalent/cilium-cli/workflows/Kind/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AKind)
+[![EKS](https://github.com/isovalent/cilium-cli/workflows/EKS/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AEKS)
+[![GKE](https://github.com/isovalent/cilium-cli/workflows/GKE/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AGKE)
+[![AKS](https://github.com/isovalent/cilium-cli/workflows/AKS/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AAKS)
+[![Multicluster](https://github.com/isovalent/cilium-cli/workflows/Multicluster/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AMulticluster)
 
 ## Installation
 
