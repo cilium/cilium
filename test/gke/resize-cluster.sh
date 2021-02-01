@@ -29,7 +29,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export KUBECONFIG="${script_dir}/resize-kubeconfig"
 gcloud container clusters get-credentials --project "${project}" --region "europe-west4" management-cluster-0
 
-kubectl get containernodepools.container.cnrm.cloud.google.com ${cluster_name} -n test-clusters -o yaml | sed "s/nodeCount:.*$/nodeCount: ${node_count}/g" | kubectl replace -f -
+kubectl get containernodepools.container.cnrm.cloud.google.com "${cluster_name}" -n test-clusters -o yaml | sed "s/nodeCount:.*$/nodeCount: ${node_count}/g" | kubectl replace -f -
 
 gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
@@ -39,4 +39,16 @@ if [ "${#node_pools[@]}" -ne 1 ] ; then
   exit 1
 fi
 
-gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[0]}" --num-nodes ${node_count} --quiet "${cluster_uri}"
+resize_retries=0
+scaled=1
+while [ $resize_retries -lt 4 ]; do
+	echo "trying to scale cluster up"
+	if gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[0]}" --num-nodes "${node_count}" --quiet "${cluster_uri}" ; then
+		scaled=0
+		break
+	fi
+	sleep 15
+	((resize_retries++))
+done
+
+exit $scaled
