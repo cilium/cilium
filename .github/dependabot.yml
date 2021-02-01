@@ -4,6 +4,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    rebase-strategy: "disabled"
     ignore:
         # cannot be updated until the etcd library is updated
       - dependency-name: "google.golang.org/grpc"
@@ -16,6 +17,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    rebase-strategy: "disabled"
     labels:
     - kind/enhancement
     - release-note/misc
