@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bandwidth"
@@ -322,4 +323,75 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 	res <- &EndpointRegenerationResult{
 		err: nil,
 	}
+}
+
+// InitEventQueue initializes the endpoint's event queue. Note that this
+// function does not begin processing events off the queue, as that's left up
+// to the caller to call Expose in order to allow other subsystems to access
+// the endpoint. This function assumes that the endpoint ID has already been
+// allocated!
+//
+// Having this be a separate function allows us to prepare
+// the event queue while the endpoint is being validated (during restoration)
+// so that when its metadata is resolved, events can be enqueued (such as
+// visibility policy and bandwidth policy).
+func (e *Endpoint) InitEventQueue() {
+	e.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
+}
+
+// Start assigns a Cilium Endpoint ID to the endpoint and prepares it to
+// receive events from other subsystems.
+//
+// The endpoint must not already be exposed via the endpointmanager prior to
+// calling Start(), as it assumes unconditional access over the Endpoint
+// object.
+func (e *Endpoint) Start(id uint16) {
+	// No need to check liveness as an endpoint can only be deleted via the
+	// API after it has been inserted into the manager.
+	// 'e.ID' written below, read lock is not enough.
+	e.unconditionalLock()
+	defer e.unlock()
+
+	e.ID = id
+	e.UpdateLogger(map[string]interface{}{
+		logfields.EndpointID: e.ID,
+	})
+
+	// Start goroutines that are responsible for handling events.
+	e.startRegenerationFailureHandler()
+	if e.eventQueue == nil {
+		e.InitEventQueue()
+	}
+	e.eventQueue.Run()
+	e.getLogger().Info("New endpoint")
+}
+
+// Stop cleans up all goroutines managed by this endpoint (EventQueue,
+// Controllers).
+// This function should be used directly in cleanup functions which aim to stop
+// goroutines managed by this endpoint, but without removing BPF maps and
+// datapath state (for instance, because the daemon is shutting down but the
+// endpoint should remain operational while the daemon is not running).
+func (e *Endpoint) Stop() {
+	// Since the endpoint is being deleted, we no longer need to run events
+	// in its event queue. This is a no-op if the queue has already been
+	// closed elsewhere.
+	e.eventQueue.Stop()
+
+	// Wait for the queue to be drained in case an event which is currently
+	// running for the endpoint tries to acquire the lock - we cannot be sure
+	// what types of events will be pushed onto the EventQueue for an endpoint
+	// and when they will happen. After this point, no events for the endpoint
+	// will be processed on its EventQueue, specifically regenerations.
+	e.eventQueue.WaitToBeDrained()
+
+	// Given that we are deleting the endpoint and that no more builds are
+	// going to occur for this endpoint, close the channel which signals whether
+	// the endpoint has its BPF program compiled or not to avoid it persisting
+	// if anything is blocking on it. If a delete request has already been
+	// enqueued for this endpoint, this is a no-op.
+	e.closeBPFProgramChannel()
+
+	// Cancel active controllers for the endpoint tied to e.aliveCtx.
+	e.aliveCancel()
 }
