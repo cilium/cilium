@@ -2074,35 +2074,6 @@ type IPReleaser interface {
 	ReleaseIP(net.IP) error
 }
 
-// Stop cleans up all goroutines managed by this endpoint (EventQueue,
-// Controllers).
-// This function should be used directly in cleanup functions which aim to stop
-// goroutines managed by this endpoint, but without removing BPF maps and
-// datapath state.
-func (e *Endpoint) Stop() {
-	// Since the endpoint is being deleted, we no longer need to run events
-	// in its event queue. This is a no-op if the queue has already been
-	// closed elsewhere.
-	e.eventQueue.Stop()
-
-	// Wait for the queue to be drained in case an event which is currently
-	// running for the endpoint tries to acquire the lock - we cannot be sure
-	// what types of events will be pushed onto the EventQueue for an endpoint
-	// and when they will happen. After this point, no events for the endpoint
-	// will be processed on its EventQueue, specifically regenerations.
-	e.eventQueue.WaitToBeDrained()
-
-	// Given that we are deleting the endpoint and that no more builds are
-	// going to occur for this endpoint, close the channel which signals whether
-	// the endpoint has its BPF program compiled or not to avoid it persisting
-	// if anything is blocking on it. If a delete request has already been
-	// enqueued for this endpoint, this is a no-op.
-	e.closeBPFProgramChannel()
-
-	// Cancel active controllers for the endpoint tied to e.aliveCtx.
-	e.aliveCancel()
-}
-
 // Delete cleans up all resources associated with this endpoint, including the
 // following:
 // * all goroutines managed by this Endpoint (EventQueue, Controllers)
