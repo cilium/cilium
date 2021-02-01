@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -43,6 +44,8 @@ import (
 const (
 	wildcardIPv4 = "0.0.0.0"
 	wildcardIPv6 = "0::0"
+	success      = "success"
+	failed       = "failed"
 )
 
 type linuxNodeHandler struct {
@@ -671,8 +674,10 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		hwAddr, err := arp.PingOverLink(linkAttr, srcIPv4, nextHopIPv4)
 		if err != nil {
 			scopedLog.WithError(err).Error("arping failed")
+			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
 			return
 		}
+		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
 
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
 			// Nothing to update, return early to avoid calling to netlink. This
