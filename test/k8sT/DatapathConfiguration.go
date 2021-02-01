@@ -631,6 +631,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("Host firewall", func() {
+		AfterEach(func() {
+			kubectl.Exec(fmt.Sprintf("%s delete --all ccnp", helpers.KubectlCmd))
+		})
+
 		SkipItIf(func() bool {
 			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
 		}, "Check connectivity with IPv6 disabled", func() {
@@ -645,8 +649,80 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
+
+		SkipItIf(helpers.RunsOnGKE, "With VXLAN", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"hostFirewall": "true",
+			}, DeployCiliumOptionsAndDNS)
+			testHostFirewall(kubectl)
+		})
+
+		// We need to skip this test when using kube-proxy because of #14859.
+		SkipItIf(helpers.RunsWithKubeProxy, "With native routing", func() {
+			options := map[string]string{
+				"hostFirewall": "true",
+				"tunnel":       "disabled",
+			}
+			// We can't rely on gke.enabled because it enables
+			// per-endpoint routes which are incompatible with
+			// the host firewall.
+			if helpers.RunsOnGKE() {
+				options["gke.enabled"] = "false"
+			} else {
+				options["autoDirectNodeRoutes"] = "true"
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			testHostFirewall(kubectl)
+		})
 	})
 })
+
+func testHostFirewall(kubectl *helpers.Kubectl) {
+	randomNs := deploymentManager.DeployRandomNamespaceShared(DemoHostFirewall)
+	deploymentManager.WaitUntilReady()
+
+	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
+	By(fmt.Sprintf("Applying policies %s", demoHostPolicies))
+	_, err := kubectl.CiliumPolicyAction(randomNs, demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
+
+	By("Checking host policies on ingress from local pod")
+	testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClient", "zgroup=testServerHost", false)
+
+	By("Checking host policies on ingress from remote pod")
+	testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClient", "zgroup=testServerHost", true)
+
+	By("Checking host policies on egress to local pod")
+	testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServer", false)
+
+	By("Checking host policies on egress to remote pod")
+	testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServer", true)
+
+	By("Checking host policies on ingress from remote node")
+	testHostFirewallWithPath(kubectl, randomNs, "zgroup=testServerHost", "zgroup=testClientHost", true)
+
+	By("Checking host policies on egress to remote node")
+	testHostFirewallWithPath(kubectl, randomNs, "zgroup=testClientHost", "zgroup=testServerHost", true)
+}
+
+func testHostFirewallWithPath(kubectl *helpers.Kubectl, randomNs, client, server string, crossNodes bool) {
+	srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, randomNs, "client", client, "", crossNodes, 3)
+	srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
+	ExpectWithOffset(2, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
+
+	dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, randomNs, "server", server, srcHost.String(), crossNodes, 3)
+	podIP, err := dstPodJSON.Filter("{.status.podIP}")
+	ExpectWithOffset(2, err).Should(BeNil(), "Failure to retrieve IP of pod %s", dstPod)
+	targetIP := podIP.String()
+
+	res := kubectl.ExecPodCmd(randomNs, srcPod, helpers.CurlFail("http://%s:80/", targetIP))
+	ExpectWithOffset(2, res).Should(helpers.CMDSuccess(),
+		"Failed to reach %s:80 from %s", targetIP, srcPod)
+
+	res = kubectl.ExecPodCmd(randomNs, srcPod, helpers.CurlFail("tftp://%s:69/hello", targetIP))
+	ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
+		"Managed to reach %s:69 from %s", targetIP, srcPod)
+}
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
 	result, _ := testPodConnectivityAndReturnIP(kubectl, true, 1)

@@ -48,6 +48,12 @@ var (
 		LabelSelector: "zgroup=http-clients",
 	}
 
+	DemoHostFirewall = helpers.Manifest{
+		Filename:       "demo_hostfw.yaml",
+		DaemonSetNames: []string{"testserver", "testclient", "testserver-host", "testclient-host"},
+		LabelSelector:  "zgroup=DS",
+	}
+
 	IPSecSecret = helpers.Manifest{
 		Filename: "ipsec_secret.yaml",
 	}
