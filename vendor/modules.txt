@@ -280,13 +280,13 @@ github.com/go-openapi/runtime/middleware/header
 github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
 github.com/go-openapi/runtime/yamlpc
-# github.com/go-openapi/spec v0.20.0
+# github.com/go-openapi/spec v0.20.2
 ## explicit
 github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.20.0
 ## explicit
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.19.12
+# github.com/go-openapi/swag v0.19.13
 ## explicit
 github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.20.1
@@ -652,7 +652,7 @@ golang.org/x/lint/golint
 # golang.org/x/mod v0.3.0
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20201224014010-6772e930b67b
+# golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 ## explicit
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -690,7 +690,7 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 golang.org/x/term
-# golang.org/x/text v0.3.4
+# golang.org/x/text v0.3.5
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
