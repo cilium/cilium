@@ -330,6 +330,13 @@ Annotations:
   See https://github.com/cilium/cilium/pull/14192 for context and related issues.
 * Helm option ``serviceAccounts.certgen`` is removed, please use ``serviceAccounts.clustermeshcertgen``
   for Clustermesh certificate generation and ``serviceAccounts.hubblecertgen`` for Hubble certificate generation.
+* For AWS ENI IPAM mode, Cilium has changed the ``first-interface-index``
+  default from ``1`` to ``0``. This means that pods will start using IPs of
+  ``eth0`` instead of ``eth1``. This allows using the maximum number of IPs
+  available on an instance by default. Be aware: Depending on your security
+  groups configuration of the ``eth0`` interface, pods may be associated with a
+  different security group all of a sudden. In order to stay with Cilium's
+  current behavior, set the value to ``1`` in the ``CiliumNode`` resource.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
