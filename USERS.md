@@ -113,7 +113,6 @@ Users (Alphabetically)
       U: Networking, network policies, kube-proxy replacement 
       L: https://github.com/postfinance
 
-      
     * N: Radio France
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
       U: Mainly Service load-balancing
