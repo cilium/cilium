@@ -3658,7 +3658,7 @@ func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
 	nodeName, err := kub.GetNodeNameByLabel(label)
 	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "Cannot get node by label "+label)
 	nodeIP, err = kub.GetNodeIPByLabel(label, false)
-	gomega.ExpectWithOffset(1, err).Should(gomega.BeNil(), "Can not retrieve Node IP for "+label)
+	gomega.ExpectWithOffset(1, err).Should(gomega.BeNil(), "Can not retrieve Node Internal IP for "+label)
 	return nodeName, nodeIP
 }
 
