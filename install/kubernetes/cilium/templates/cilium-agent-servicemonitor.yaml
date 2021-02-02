@@ -21,6 +21,8 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
+  targetLabels:
+  - k8s-app
 {{- end }}
 {{- if and .Values.hubble.metrics.enabled (.Values.hubble.metrics.serviceMonitor.enabled) }}
 ---

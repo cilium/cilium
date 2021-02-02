@@ -156,6 +156,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/datapath @cilium/bpf
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/agent
+/pkg/ebpf @cilium/bpf
 /pkg/elf @cilium/bpf
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint

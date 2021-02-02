@@ -1106,6 +1106,9 @@ operator:
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
 
+  # -- For using with an existing serviceAccount.
+  serviceAccountName: cilium-operator
+ 
   # -- cilium-operator priorityClassName
   priorityClassName: ""
 

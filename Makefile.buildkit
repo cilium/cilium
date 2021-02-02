@@ -78,7 +78,7 @@ _build/%ockerfile: %ockerfile _build/%ockerfile.dockerignore force
 	@-mkdir -p $(dir $@)
 	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
 ifeq ($(DOCKER_BUILDER),default)
-	@-grep "^FROM " $@ | cut -d ' ' -f2 | grep -v -e "scratch" -e "[\$$_{}]" | xargs -P4 -n1 docker pull
+	@-grep "^FROM " $< | cut -d ' ' -f2 | grep -v -e "scratch" -e "[\$$_{}]" | xargs -P4 -n1 docker pull
 endif
 
 #

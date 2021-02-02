@@ -267,9 +267,11 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	if option.Config.EnableEndpointRoutes {
+		disabled := false
 		dpConfig := &models.EndpointDatapathConfiguration{
 			InstallEndpointRoute: true,
 			RequireEgressProg:    true,
+			RequireRouting:       &disabled,
 		}
 		info.DatapathConfiguration = dpConfig
 	}

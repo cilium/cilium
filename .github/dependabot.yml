@@ -4,12 +4,22 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    rebase-strategy: "disabled"
+    ignore:
+        # cannot be updated until the etcd library is updated
+      - dependency-name: "google.golang.org/grpc"
+        # using a cilium-specific fork
+      - dependency-name: "github.com/miekg/dns"
+        # newer versions break our CI
+      - dependency-name: "github.com/onsi/ginkgo"
     labels:
-    - enhancement
+    - kind/enhancement
+    - release-note/misc
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    rebase-strategy: "disabled"
     labels:
     - kind/enhancement
     - release-note/misc

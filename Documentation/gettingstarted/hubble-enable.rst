@@ -5,6 +5,10 @@ Hubble is the component for observability in Cilium. To obtain cluster-wide
 visibility into your network traffic, deploy Hubble Relay and the UI as follows
 on your existing installation:
 
+.. note::
+   Hubble Relay will fail to connect to peers if a host firewall
+   is blocking ``tcp:4244``. Make sure the port is open in your network.
+
 .. tabs::
 
     .. group-tab:: Installation via Helm

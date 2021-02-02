@@ -175,6 +175,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
+	if !option.Config.EnableNodePort {
+		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
+	}
+
 	if !option.Config.EnableIPv4FragmentsTracking {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}

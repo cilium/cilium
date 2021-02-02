@@ -377,7 +377,7 @@ Cilium to print the follow message:
         level=warning msg="================================= WARNING ==========================================" subsys=bpf
         level=warning msg="BPF filesystem is not mounted. This will lead to network disruption when Cilium pods" subsys=bpf
         level=warning msg="are restarted. Ensure that the BPF filesystem is mounted in the host." subsys=bpf
-        level=warning msg="https://docs.cilium.io/en/stable/kubernetes/requirements/#mounted-bpf-filesystem" subsys=bpf
+        level=warning msg="https://docs.cilium.io/en/stable/operations/system_requirements/#mounted-ebpf-filesystem" subsys=bpf
         level=warning msg="====================================================================================" subsys=bpf
         level=info msg="Mounting BPF filesystem at /sys/fs/bpf" subsys=bpf
 
