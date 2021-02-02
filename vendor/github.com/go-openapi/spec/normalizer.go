@@ -159,8 +159,6 @@ func normalizeFileRef(ref *Ref, relativeBase string) *Ref {
 		return &r
 	}
 
-	debugLog("normalizing %s against %s", ref.String(), relativeBase)
-
 	s := normalizePaths(ref.String(), relativeBase)
 	r, _ := NewRef(s)
 	return &r

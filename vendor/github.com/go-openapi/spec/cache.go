@@ -44,10 +44,8 @@ func (s *simpleCache) ShallowClone() ResolutionCache {
 
 // Get retrieves a cached URI
 func (s *simpleCache) Get(uri string) (interface{}, bool) {
-	debugLog("getting %q from resolution cache", uri)
 	s.lock.RLock()
 	v, ok := s.store[uri]
-	debugLog("got %q from resolution cache: %t", uri, ok)
 
 	s.lock.RUnlock()
 	return v, ok

@@ -31,7 +31,7 @@ var isInitialism func(string) bool
 // GoNamePrefixFunc sets an optional rule to prefix go names
 // which do not start with a letter.
 //
-// e.g. to help converting "123" into "{prefix}123"
+// e.g. to help convert "123" into "{prefix}123"
 //
 // The default is to prefix with "X"
 var GoNamePrefixFunc func(string) string
