@@ -63,6 +63,14 @@ func (s *MaglevSuite) SetUpSuite(c *C) {
 	// Otherwise opening the map might fail with EPERM
 	err = unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim)
 	c.Assert(err, IsNil)
+
+	Init(InitParams{
+		IPv4: option.Config.EnableIPv4,
+		IPv6: option.Config.EnableIPv6,
+
+		MaxSockRevNatMapEntries: option.Config.SockRevNatEntries,
+		MaxEntries:              option.Config.LBMapEntries,
+	})
 }
 
 func (s *MaglevSuite) TeadDownTest(c *C) {
