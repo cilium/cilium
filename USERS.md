@@ -107,7 +107,12 @@ Users (Alphabetically)
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
-      
+
+    * N: PostFinance AG
+      D: PostFinance is using Cilium as their CNI for all mission critical, on premise k8s clusters
+      U: Networking, network policies, kube-proxy replacement
+      L: https://github.com/postfinance
+  
     * N: Radio France
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
       U: Mainly Service load-balancing
