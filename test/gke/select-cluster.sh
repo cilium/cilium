@@ -77,9 +77,6 @@ gcloud container clusters describe --project "${project}" --region "${region}" -
   | sed -E 's/([0-9]+\.[0-9]+)\..*/\1/' | tr -d '\n' > "${script_dir}/cluster-version"
 gcloud container clusters describe --project "${project}" --region "${region}" --format='value(clusterIpv4Cidr)' "${cluster_uri}" > "${script_dir}/cluster-cidr"
 
-echo "cleaning cluster before tests"
-"${script_dir}"/clean-cluster.sh
-
 echo "scaling ${cluster_uri} to 2"
 "${script_dir}"/resize-cluster.sh 2 "${cluster_uri}"
 
