@@ -70,6 +70,9 @@ type EndpointManager struct {
 	// EndpointSynchronizer updates external resources (e.g., Kubernetes) with
 	// up-to-date information about endpoints managed by the endpoint manager.
 	EndpointResourceSynchronizer
+
+	// subscribers are notified when events occur in the EndpointManager.
+	subscribers map[Subscriber]struct{}
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -86,6 +89,7 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
+		subscribers:                  make(map[Subscriber]struct{}),
 	}
 
 	return &mgr
@@ -343,7 +347,15 @@ func (mgr *EndpointManager) RemoveEndpoint(monitor regeneration.Owner, ipam endp
 	defer monitor.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
 
 	mgr.unexpose(ep)
-	return ep.Delete(ipam, conf)
+	result := ep.Delete(ipam, conf)
+
+	mgr.mutex.RLock()
+	for s := range mgr.subscribers {
+		s.EndpointDeleted(ep, conf)
+	}
+	mgr.mutex.RUnlock()
+
+	return result
 }
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
@@ -569,6 +581,13 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	if err != nil {
 		return err
 	}
+
+	mgr.mutex.RLock()
+	for s := range mgr.subscribers {
+		s.EndpointCreated(ep)
+	}
+	mgr.mutex.RUnlock()
+
 	owner.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 
 	return nil

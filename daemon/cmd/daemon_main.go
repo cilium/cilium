@@ -1509,6 +1509,8 @@ func runDaemon() {
 			ms.CollectStaleMapGarbage()
 			ms.RemoveDisabledMaps()
 		}()
+		d.endpointManager.Subscribe(d)
+		defer d.endpointManager.Unsubscribe(d)
 	}
 
 	// Migrating the ENI datapath must happen before the API is served to

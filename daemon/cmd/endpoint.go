@@ -716,6 +716,24 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	}
 }
 
+// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
+// which works around the difficulties in initializing various subsystems
+// involved in managing endpoints, such as the EndpointManager, IPAM and
+// the Monitor.
+//
+// It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
+func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint) {
+}
+
+// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
+// allowing the EndpointManager to be the primary implementer of the core
+// endpoint management functionality while deferring other responsibilities
+// to the daemon.
+//
+// It is called after Daemon calls into d.endpointManager.AddEndpoint().
+func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
+}
+
 type deleteEndpointID struct {
 	daemon *Daemon
 }
