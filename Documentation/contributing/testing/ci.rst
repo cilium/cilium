@@ -205,7 +205,7 @@ illustrating which subset of tests the job runs.
 | `Cilium-PR-Runtime-4.9 <https://jenkins.cilium.io/job/Cilium-PR-Runtime-4.9/>`_                                | test-me-please,   | Yes                |
 |                                                                                                                | retest-runtime    |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-Kernel-Focus <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel-Focus/>`_    | test-focus        | No                 |
+| `Cilium-PR-Ginkgo-Tests-Kernel-Focus <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel-Focus/>`_    | test-only         | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
