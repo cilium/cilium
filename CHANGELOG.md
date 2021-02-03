@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.9.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Helm Chart: add checksum to configmap to ensure pods roll when configmap is updated (Backport PR #14783, Upstream PR #14540, @travisghansen)
+
+**Bugfixes:**
+* bpf: Correctly use revalidate_data_pull() in do_decrypt() (Backport PR #14783, Upstream PR #14689, @tgraf)
+* cilium-cni: Fix error handling for bad netns (Backport PR #14783, Upstream PR #14645, @joestringer)
+* Fix a route MTU issue where pods cannot receive large packets from outside the cluster  when the sender sets the "don't fragment" (DF) bit. (Backport PR #14783, Upstream PR #14679, @aditighag)
+* Fix bug where Cilium did not respect `--bpf-lb-map-max` and wouldn't update the maximum size of BPF LB maps (Backport PR #14798, Upstream PR #14607, @christarazi)
+* Fix missing loopback CNI plugin in multi-arch images (Backport PR #14839, Upstream PR #14828, @aanm)
+* hubble: parser: Set Encrypted bit correctly (Backport PR #14783, Upstream PR #14677, @tgraf)
+* node-neigh: Fix node removal and invalid neigh entry due to buggy arping response correlation (Backport PR #14839, Upstream PR #14709, @brb)
+* routing: Fix route collisions in AWS ENI (Backport PR #14846, Upstream PR #14269, @christarazi)
+
+**CI Changes:**
+* Extend K8sVerifier to maximize program sizes on 4.19 and net-next kernels (Backport PR #14798, Upstream PR #14451, @pchaigno)
+* test: Enable K8sVerifier on 4.19 and net-next CI (Backport PR #14798, Upstream PR #13953, @pchaigno)
+
+**Misc Changes:**
+* [v1.9] release: Fix script to check presence of docker images (#14780, @joestringer)
+* bpf: do not enable host routing when kpr is disabled (Backport PR #14783, Upstream PR #14737, @borkmann)
+* bpf: Replace CALLS_MAP symbol in compile-tested binaries (Backport PR #14798, Upstream PR #13934, @pchaigno)
+* bpf: Send packet drop notify for ipv6 lb nat mode failures. (Backport PR #14783, Upstream PR #14730, @hzhou8)
+* bpf: Send packet drop notify for LB DSR mode failures. (Backport PR #14783, Upstream PR #14649, @hzhou8)
+* contrib/release: clarify project number for release process (Backport PR #14783, Upstream PR #14684, @aanm)
+* contrib: Add script to fetch docker manifests (Backport PR #14783, Upstream PR #14707, @joestringer)
+* docker: Pull llvm-objcopy in cilium-builder (Backport PR #14798, Upstream PR #13958, @pchaigno)
+* docs: Add section in external etcd about identity-allocation-mode (Backport PR #14783, Upstream PR #14673, @christarazi)
+* docs: fix typo (Backport PR #14783, Upstream PR #14647, @sslavic)
+* Fix wrong url (Backport PR #14839, Upstream PR #14818, @manuelbuil)
+* helm: set dnsPolicy based on etcd.k8sService (Backport PR #14783, Upstream PR #14626, @aanm)
+* Remove SNAT maps entries to support the case when the user toggles off from using BPF to kube-proxy. (Backport PR #14839, Upstream PR #14721, @mazzy89)
+* runtime: specify ICMP ids on connectivity test (Backport PR #14839, Upstream PR #13989, @kkourt)
+* v1.9: Update Go to 1.15.7 (#14665, @tklauser)
+
+**Other Changes:**
+* backport 1.9: vendor: Bump github.com/cilium/arping to fix correlation bug (#14733, @brb)
+
 ## v1.9.3
 
 Summary of Changes
