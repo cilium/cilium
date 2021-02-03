@@ -63,6 +63,12 @@ installation of the ``kube-proxy`` add-on:
       kubectl -n kube-system delete ds kube-proxy
       iptables-restore <(iptables-save | grep -v KUBE)
 
+    Delete ``kube-proxy`` ConfigMap to make sure kube-proxy is not reinstalled during kubeadm upgrade (only works for >= 1.19):
+
+    .. code:: bash
+
+      kubectl -n kube-system delete cm kube-proxy
+
 For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
 by using the following commands:
 
