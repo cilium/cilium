@@ -649,6 +649,9 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
 	fi
 	if [ "$NODE_PORT" = "true" ]; then
+		THIS_MTU=$(cat /sys/class/net/${XDP_DEV}/mtu)
+		echo "#define THIS_MTU $THIS_MTU" >> $RUNDIR/globals/node_config.h
+
 		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
 		COPTS="${COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
 	fi

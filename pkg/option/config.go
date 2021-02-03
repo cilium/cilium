@@ -1865,6 +1865,10 @@ type DaemonConfig struct {
 	LoadBalancerRSSv6CIDR string
 	LoadBalancerRSSv6     net.IPNet
 
+	// LoadBalancerPMTUDiscovery indicates whether LB should reply with ICMP
+	// frag needed messages to client (when needed)
+	LoadBalancerPMTUDiscovery bool
+
 	// Maglev backend table size (M) per service. Must be prime number.
 	MaglevTableSize int
 
