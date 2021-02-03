@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -662,6 +663,30 @@ func ConvertToCiliumLocalRedirectPolicy(obj interface{}) interface{} {
 		return cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
 			Obj: ciliumLocalRedirectPolicy,
+		}
+	default:
+		return obj
+	}
+}
+
+// ConvertToCiliumEgressNATPolicy converts a *cilium_v2.CiliumEgressNATPolicy into a
+// *cilium_v2.CiliumEgressNATPolicy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumEgressNATPolicy in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumEgressNATPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumEgressNATPolicy(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumEgressNATPolicy
+	switch concreteObj := obj.(type) {
+	case *cilium_v2alpha1.CiliumEgressNATPolicy:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumEgressNATPolicy, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumEgressNATPolicy,
 		}
 	default:
 		return obj
