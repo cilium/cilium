@@ -56,6 +56,11 @@ func TestParseContextOptions(t *testing.T) {
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.Status(), "source=pod")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.Status(), "destination=dns")
+	assert.EqualValues(t, opts.GetLabelNames(), []string{"destination"})
 }
 
 func TestParseGetLabelValues(t *testing.T) {
@@ -89,6 +94,14 @@ func TestParseGetLabelValues(t *testing.T) {
 	opts, err = ParseContextOptions(Options{"destinationContext": "pod-short"})
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}}), []string{"foo/bar-bar"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
 }
 
 func TestShortenPodName(t *testing.T) {
