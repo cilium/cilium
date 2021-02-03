@@ -39,12 +39,14 @@ const (
 	// ContextPodShort uses a short version of the pod name. It should
 	// typically map to the deployment/replicaset name
 	ContextPodShort
+	// ContextDNS uses the DNS name for identification purposes
+	ContextDNS
 )
 
 // ContextOptionsHelp is the help text for context options
 const ContextOptionsHelp = `
- sourceContext          := { identity | namespace | pod }
- destinationContext     := { identity | namespace | pod }`
+ sourceContext          := { identity | namespace | pod | pod-short | dns }
+ destinationContext     := { identity | namespace | pod | pod-short | dns }`
 
 var shortPodPattern = regexp.MustCompile("^(.+?)(-[a-z0-9]+){1,2}$")
 
@@ -61,6 +63,8 @@ func (c ContextIdentifier) String() string {
 		return "pod"
 	case ContextPodShort:
 		return "pod-short"
+	case ContextDNS:
+		return "dns"
 	}
 	return fmt.Sprintf("%d", c)
 }
@@ -84,6 +88,8 @@ func parseContext(s string) (ContextIdentifier, error) {
 		return ContextPod, nil
 	case "pod-short":
 		return ContextPodShort, nil
+	case "dns":
+		return ContextDNS, nil
 	default:
 		return ContextDisabled, fmt.Errorf("unknown context '%s'", s)
 	}
@@ -151,6 +157,13 @@ func sourcePodShortContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func sourceDNSContext(flow *pb.Flow) (context string) {
+	if flow.GetSourceNames() != nil {
+		context = strings.Join(flow.GetSourceNames(), ",")
+	}
+	return
+}
+
 func destinationNamespaceContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = flow.GetDestination().Namespace
@@ -185,6 +198,13 @@ func destinationPodShortContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func destinationDNSContext(flow *pb.Flow) (context string) {
+	if flow.GetDestinationNames() != nil {
+		context = strings.Join(flow.GetDestinationNames(), ",")
+	}
+	return
+}
+
 // GetLabelValues returns the values of the context relevant labels according
 // to the configured options. The order of the values is the same as the order
 // of the label names returned by GetLabelNames()
@@ -198,6 +218,8 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 		labels = append(labels, sourcePodContext(flow))
 	case ContextPodShort:
 		labels = append(labels, sourcePodShortContext(flow))
+	case ContextDNS:
+		labels = append(labels, sourceDNSContext(flow))
 	}
 
 	switch o.Destination {
@@ -209,6 +231,8 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 		labels = append(labels, destinationPodContext(flow))
 	case ContextPodShort:
 		labels = append(labels, destinationPodShortContext(flow))
+	case ContextDNS:
+		labels = append(labels, destinationDNSContext(flow))
 	}
 
 	return
