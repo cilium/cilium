@@ -34,7 +34,7 @@
 #define ctx_load_bytes		skb_load_bytes
 #define ctx_store_bytes		skb_store_bytes
 
-#define ctx_adjust_room		skb_adjust_room
+#define ctx_adjust_hroom	skb_adjust_room
 
 #define ctx_change_type		skb_change_type
 #define ctx_change_proto	skb_change_proto
@@ -60,6 +60,12 @@ static __always_inline __maybe_unused int
 ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
 	return redirect(ifindex, flags);
+}
+
+static __always_inline __maybe_unused int
+ctx_adjust_troom(struct __sk_buff *ctx, const __s32 len_diff)
+{
+	return skb_change_tail(ctx, ctx->len + len_diff, 0);
 }
 
 static __always_inline __maybe_unused __u32

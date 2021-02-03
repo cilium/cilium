@@ -15,6 +15,7 @@
 /* Packet misc meta data & encapsulation helper */
 static int BPF_FUNC(xdp_adjust_meta, struct xdp_md *xdp, int delta);
 static int BPF_FUNC(xdp_adjust_head, struct xdp_md *xdp, int delta);
+static int BPF_FUNC(xdp_adjust_tail, struct xdp_md *xdp, int delta);
 
 /* Packet redirection */
 static int BPF_STUB(redirect, int ifindex, __u32 flags);

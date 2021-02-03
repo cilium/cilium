@@ -42,7 +42,7 @@ var errors = map[uint8]string{
 	133: "Policy denied",
 	134: "Invalid packet",
 	135: "CT: Truncated or invalid header",
-	136: "CT: Missing TCP ACK flag", // Unused
+	136: "Fragmentation needed",
 	137: "CT: Unknown L4 protocol",
 	138: "CT: Can't create entry from packet", // Unused
 	139: "Unsupported L3 protocol",

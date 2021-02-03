@@ -1230,6 +1230,8 @@ func initEnv(cmd *cobra.Command) {
 		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
+		option.Config.LoadBalancerPMTUDiscovery =
+			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
 		option.Config.EnableHostReachableServices = true
 		option.Config.EnableHostPort = false

@@ -195,8 +195,14 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 }
 
 static __always_inline __maybe_unused int
-ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
-		const __u64 flags __maybe_unused)
+ctx_adjust_troom(struct xdp_md *ctx, const __s32 len_diff)
+{
+	return xdp_adjust_tail(ctx, len_diff);
+}
+
+static __always_inline __maybe_unused int
+ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
+		 const __u64 flags __maybe_unused)
 {
 	const __u32 move_len_v4 = 14 + 20;
 	const __u32 move_len_v6 = 14 + 40;
@@ -216,6 +222,8 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		data_end = ctx_data_end(ctx);
 		data = ctx_data(ctx);
 		switch (len_diff) {
+		case 28: /* struct {iphdr + icmphdr} */
+			break;
 		case 20: /* struct iphdr */
 		case 8:  /* __u32 opt[2] */
 			if (data + move_len_v4 + len_diff <= data_end)
@@ -223,6 +231,8 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 						  move_len_v4);
 			else
 				ret = -EFAULT;
+			break;
+		case 48: /* struct {ipv6hdr + icmp6hdr} */
 			break;
 		case 40: /* struct ipv6hdr */
 		case 24: /* struct dsr_opt_v6 */
