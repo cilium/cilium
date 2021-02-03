@@ -103,5 +103,42 @@ func TestFlowHandler(t *testing.T) {
 
 		assert.Equal(t, "type", *metric.Label[4].Name)
 		assert.Equal(t, "Unknown", *metric.Label[4].Value)
+
+		flow3 := &pb.Flow{
+			EventType: &pb.CiliumEventType{
+				Type: monitorAPI.MessageTypePolicyVerdict,
+			},
+			L4: &pb.Layer4{
+				Protocol: &pb.Layer4_UDP{
+					UDP: &pb.UDP{
+						DestinationPort: 53,
+						SourcePort:      31313,
+					},
+				},
+			},
+			Verdict: pb.Verdict_DROPPED,
+		}
+
+		h.ProcessFlow(context.TODO(), flow3)
+
+		metricFamilies, err = registry.Gather()
+		require.NoError(t, err)
+		require.Len(t, metricFamilies, 1)
+
+		assert.Equal(t, "hubble_flows_processed_total", *metricFamilies[0].Name)
+		require.Len(t, metricFamilies[0].Metric, 3)
+		metric = metricFamilies[0].Metric[0]
+
+		assert.Equal(t, "protocol", *metric.Label[1].Name)
+		assert.Equal(t, "UDP", *metric.Label[1].Value)
+
+		assert.Equal(t, "subtype", *metric.Label[3].Name)
+		assert.Equal(t, "", *metric.Label[3].Value)
+
+		assert.Equal(t, "type", *metric.Label[4].Name)
+		assert.Equal(t, "PolicyVerdict", *metric.Label[4].Value)
+
+		assert.Equal(t, "verdict", *metric.Label[5].Name)
+		assert.Equal(t, "DROPPED", *metric.Label[5].Value)
 	})
 }
