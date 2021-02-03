@@ -447,7 +447,17 @@ Option Value   Description
 ``namespace``  Kubernetes namespace name
 ``pod``        Kubernetes pod name
 ``pod-short``  Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``dns``        All known DNS names of the source or destination (comma-separated)
+``ip``         The IPv4 or IPv6 address
 ============== ====================================================================================
+
+When specifying the source and/or destination context, multiple contexts can be
+specified by separating them via the ``|`` symbol.
+When multiple are specified, then the first non-empty value is added to the
+metric as a label. For example, a metric configuration of
+``flow:destinationContext=dns|ip`` will first try to use the DNS name of the
+target for the label. If no DNS name is known for the target, it will fall back
+and use the IP address of the target instead.
 
 .. _hubble_exported_metrics:
 
