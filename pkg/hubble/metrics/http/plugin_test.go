@@ -33,7 +33,7 @@ Metrics:
   http_request_duration_seconds - Median, 90th and 99th percentile of request duration.
 
 Options:
- sourceContext          := { identity | namespace | pod }
- destinationContext     := { identity | namespace | pod }`
+ sourceContext          := { identity | namespace | pod | pod-short | dns }
+ destinationContext     := { identity | namespace | pod | pod-short | dns }`
 	assert.Equal(t, expected, plugin.HelpText())
 }
