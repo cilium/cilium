@@ -98,6 +98,7 @@ const Verdict_VERDICT_UNKNOWN = flow.Verdict_VERDICT_UNKNOWN
 const Verdict_FORWARDED = flow.Verdict_FORWARDED
 const Verdict_DROPPED = flow.Verdict_DROPPED
 const Verdict_ERROR = flow.Verdict_ERROR
+const Verdict_AUDIT = flow.Verdict_AUDIT
 
 var Verdict_name = flow.Verdict_name
 var Verdict_value = flow.Verdict_value
