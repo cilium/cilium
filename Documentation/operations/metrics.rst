@@ -447,6 +447,7 @@ Option Value   Description
 ``namespace``  Kubernetes namespace name
 ``pod``        Kubernetes pod name
 ``pod-short``  Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``dns``        All known DNS names of the source or destination (comma-separated)
 ============== ====================================================================================
 
 .. _hubble_exported_metrics:
