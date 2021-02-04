@@ -31,6 +31,9 @@ type DaemonConfigurationStatus struct {
 	// MTU on workload facing devices
 	DeviceMTU int64 `json:"deviceMTU,omitempty"`
 
+	// Configured compatibility mode for --egress-multi-home-ip-rule-compat
+	EgressMultiHomeIPRuleCompat bool `json:"egress-multi-home-ip-rule-compat,omitempty"`
+
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 
