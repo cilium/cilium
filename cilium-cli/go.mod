@@ -15,7 +15,7 @@ replace (
 )
 
 require (
-	github.com/cilium/cilium v1.9.3
+	github.com/cilium/cilium v1.9.4
 	github.com/cilium/hubble v0.7.1
 	github.com/cloudflare/cfssl v1.5.0
 	github.com/go-logr/logr v0.3.0 // indirect
