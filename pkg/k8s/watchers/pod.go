@@ -217,12 +217,15 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		return k.deleteK8sPodV1(pod)
 	}
 
-	skipped := false
+	if pod.Spec.HostNetwork {
+		logger.Debug("pod is using host networking")
+		return nil
+	}
+
 	var err error
 	podIPs := k8sUtils.ValidIPs(pod.Status)
-
 	if len(podIPs) > 0 {
-		skipped, err = k.updatePodHostData(pod, podIPs)
+		err = k.updatePodHostData(pod, podIPs)
 
 		// There might be duplicate callbacks here since this function is also
 		// called from updateK8sPodV1, the consumer will need to handle the duplicate
@@ -233,16 +236,12 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		}
 	}
 
-	switch {
-	case skipped:
-		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
-		return nil
-	case err != nil:
+	if err != nil {
 		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add")
-	default:
-		logger.Debug("Updated ipcache map entry on pod add")
+		return err
 	}
-	return err
+	logger.Debug("Updated ipcache map entry on pod add")
+	return nil
 }
 
 func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error {
@@ -640,19 +639,15 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	return nil
 }
 
-func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) (bool, error) {
-	if pod.Spec.HostNetwork {
-		return true, fmt.Errorf("pod is using host networking")
-	}
-
+func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) error {
 	err := k.UpsertHostPortMapping(pod, podIPs)
 	if err != nil {
-		return true, fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
+		return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
 	}
 
 	hostIP := net.ParseIP(pod.Status.HostIP)
 	if hostIP == nil {
-		return true, fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
@@ -670,10 +665,10 @@ func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) (b
 			}
 			p, err := u8proto.ParseProtocol(string(port.Protocol))
 			if err != nil {
-				return true, fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
+				return fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
 			}
 			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
-				return true, fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
+				return fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
 			}
 			if k8sMeta.NamedPorts == nil {
 				k8sMeta.NamedPorts = make(policy.NamedPortMap)
@@ -703,10 +698,10 @@ func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) (b
 		}
 	}
 	if len(errs) != 0 {
-		return true, errors.New(strings.Join(errs, ", "))
+		return errors.New(strings.Join(errs, ", "))
 	}
 
-	return false, nil
+	return nil
 }
 
 func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
