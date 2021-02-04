@@ -360,7 +360,7 @@ github.com/google/gops/signal
 # github.com/google/renameio v1.0.0
 ## explicit
 github.com/google/renameio
-# github.com/google/uuid v1.1.4
+# github.com/google/uuid v1.2.0
 ## explicit
 github.com/google/uuid
 # github.com/googleapis/gnostic v0.4.1
