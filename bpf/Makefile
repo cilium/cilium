@@ -252,9 +252,12 @@ bpf_lxc.o: bpf_lxc.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
+CT_TEST_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DENABLE_HOST_REDIRECT -DENABLE_NAT46 \
+	-DENABLE_ROUTING -DENABLE_IPSEC -DPOLICY_VERDICT_NOTIFY
+
 tests/bpf_ct_tests.ll: tests/bpf_ct_tests.c $(LIB)
 	@$(ECHO_CC)
-	$(QUIET) ${CLANG} $(patsubst %,%=1,${MAX_LXC_OPTIONS}) ${CLANG_FLAGS} -c $< -o $@
+	$(QUIET) ${CLANG} $(patsubst %,%=1,${CT_TEST_OPTIONS}) ${CLANG_FLAGS} -c $< -o $@
 
 tests/bpf_ct_tests.o: tests/bpf_ct_tests.ll
 	@$(ECHO_CC)
@@ -262,7 +265,7 @@ tests/bpf_ct_tests.o: tests/bpf_ct_tests.ll
 
 .PHONY: go_prog_test
 go_prog_test: $(BPF_TEST)
-	sudo go test -tags noci ./tests/prog_test
+	sudo go test -tags privileged_tests ./tests/prog_test
 
 subdirs: $(SUBDIRS)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
