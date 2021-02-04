@@ -106,8 +106,6 @@ var (
 	importMetadataCache = ruleImportMetadataCache{
 		ruleImportMetadataMap: make(map[string]policyImportMetadata),
 	}
-
-	errIPCacheOwnedByNonK8s = fmt.Errorf("ipcache entry owned by kvstore or agent")
 )
 
 type endpointManager interface {
