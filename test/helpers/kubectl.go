@@ -104,7 +104,7 @@ var (
 		"k8s.requireIPv4PodCIDR":        "true",
 		"pprof.enabled":                 "true",
 		"logSystemLoad":                 "true",
-		"bpf.preallocateMaps":           "true",
+		"bpf.preallocateMaps":           "false",
 		"etcd.leaseTTL":                 "30s",
 		"ipv4.enabled":                  "true",
 		"ipv6.enabled":                  "true",
