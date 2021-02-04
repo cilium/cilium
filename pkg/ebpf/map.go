@@ -67,6 +67,9 @@ func (m *Map) OpenOrCreate() error {
 		PinPath: bpf.MapPrefixPath(),
 	}
 
+	mapType := bpf.GetMapType(bpf.MapType(m.spec.Type))
+	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(mapType)
+
 	newMap, err := ciliumebpf.NewMapWithOptions(m.spec, opts)
 	if err != nil {
 		return fmt.Errorf("unable to create map: %w", err)
