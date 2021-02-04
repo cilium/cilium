@@ -62,6 +62,11 @@ func TestParseContextOptions(t *testing.T) {
 	assert.EqualValues(t, opts.Status(), "destination=dns")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"destination"})
 
+	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.Status(), "source=ip")
+	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+
 	opts, err = ParseContextOptions(Options{"sourceContext": "pod-short|dns"})
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.Status(), "source=pod-short|dns")
@@ -112,9 +117,20 @@ func TestParseGetLabelValues(t *testing.T) {
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "namespace|dns", "destinationContext": "identity|pod-short"})
+	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}), []string{"1.1.1.1"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{IP: &pb.IP{Destination: "2.2.2.2"}}), []string{"2.2.2.2"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "namespace|dns", "destinationContext": "identity|pod-short|ip"})
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		IP: &pb.IP{
+			Destination: "2.2.2.2",
+		},
 		Source: &pb.Endpoint{
 			Namespace: "foo",
 		},
@@ -125,6 +141,9 @@ func TestParseGetLabelValues(t *testing.T) {
 		},
 	}), []string{"foo", "bar/foo"})
 	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		IP: &pb.IP{
+			Destination: "2.2.2.2",
+		},
 		SourceNames: []string{"cilium.io"},
 		Destination: &pb.Endpoint{
 			Namespace: "bar",
@@ -133,10 +152,10 @@ func TestParseGetLabelValues(t *testing.T) {
 		},
 	}), []string{"cilium.io", "a,b"})
 	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
-		Destination: &pb.Endpoint{
-			Labels: []string{"a", "b"},
+		IP: &pb.IP{
+			Destination: "2.2.2.2",
 		},
-	}), []string{"", "a,b"})
+	}), []string{"", "2.2.2.2"})
 }
 
 func TestShortenPodName(t *testing.T) {
