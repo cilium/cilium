@@ -45,8 +45,10 @@ const (
 
 // ContextOptionsHelp is the help text for context options
 const ContextOptionsHelp = `
- sourceContext          := { identity | namespace | pod | pod-short | dns }
- destinationContext     := { identity | namespace | pod | pod-short | dns }`
+ sourceContext          := identifier , { "|", identifier }
+ destinationContext     := identifier , { "|", identifier }
+ identifier             := identity | namespace | pod | pod-short | dns
+`
 
 var shortPodPattern = regexp.MustCompile("^(.+?)(-[a-z0-9]+){1,2}$")
 
@@ -69,16 +71,26 @@ func (c ContextIdentifier) String() string {
 	return fmt.Sprintf("%d", c)
 }
 
+type ContextIdentifierList []ContextIdentifier
+
+func (cs ContextIdentifierList) String() string {
+	s := make([]string, 0, len(cs))
+	for _, c := range cs {
+		s = append(s, c.String())
+	}
+	return strings.Join(s, "|")
+}
+
 // ContextOptions is the set of options to define whether and how to include
 // sending and/or receiving context information
 type ContextOptions struct {
 	// Destination is the destination context to include in metrics
-	Destination ContextIdentifier
+	Destination ContextIdentifierList
 	// Source is the source context to include in metrics
-	Source ContextIdentifier
+	Source ContextIdentifierList
 }
 
-func parseContext(s string) (ContextIdentifier, error) {
+func parseContextIdentifier(s string) (ContextIdentifier, error) {
 	switch strings.ToLower(s) {
 	case "identity":
 		return ContextIdentity, nil
@@ -93,6 +105,18 @@ func parseContext(s string) (ContextIdentifier, error) {
 	default:
 		return ContextDisabled, fmt.Errorf("unknown context '%s'", s)
 	}
+}
+
+func parseContext(s string) (cs ContextIdentifierList, err error) {
+	for _, v := range strings.Split(s, "|") {
+		c, err := parseContextIdentifier(v)
+		if err != nil {
+			return nil, err
+		}
+		cs = append(cs, c)
+	}
+
+	return cs, nil
 }
 
 // ParseContextOptions parses a set of options and extracts the context
@@ -209,30 +233,50 @@ func destinationDNSContext(flow *pb.Flow) (context string) {
 // to the configured options. The order of the values is the same as the order
 // of the label names returned by GetLabelNames()
 func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
-	switch o.Source {
-	case ContextNamespace:
-		labels = append(labels, sourceNamespaceContext(flow))
-	case ContextIdentity:
-		labels = append(labels, sourceIdentityContext(flow))
-	case ContextPod:
-		labels = append(labels, sourcePodContext(flow))
-	case ContextPodShort:
-		labels = append(labels, sourcePodShortContext(flow))
-	case ContextDNS:
-		labels = append(labels, sourceDNSContext(flow))
+	if len(o.Source) != 0 {
+		var context string
+		for _, source := range o.Source {
+			switch source {
+			case ContextNamespace:
+				context = sourceNamespaceContext(flow)
+			case ContextIdentity:
+				context = sourceIdentityContext(flow)
+			case ContextPod:
+				context = sourcePodContext(flow)
+			case ContextPodShort:
+				context = sourcePodShortContext(flow)
+			case ContextDNS:
+				context = sourceDNSContext(flow)
+			}
+			// always use first non-empty context
+			if context != "" {
+				break
+			}
+		}
+		labels = append(labels, context)
 	}
 
-	switch o.Destination {
-	case ContextNamespace:
-		labels = append(labels, destinationNamespaceContext(flow))
-	case ContextIdentity:
-		labels = append(labels, destinationIdentityContext(flow))
-	case ContextPod:
-		labels = append(labels, destinationPodContext(flow))
-	case ContextPodShort:
-		labels = append(labels, destinationPodShortContext(flow))
-	case ContextDNS:
-		labels = append(labels, destinationDNSContext(flow))
+	if len(o.Destination) != 0 {
+		var context string
+		for _, destination := range o.Destination {
+			switch destination {
+			case ContextNamespace:
+				context = destinationNamespaceContext(flow)
+			case ContextIdentity:
+				context = destinationIdentityContext(flow)
+			case ContextPod:
+				context = destinationPodContext(flow)
+			case ContextPodShort:
+				context = destinationPodShortContext(flow)
+			case ContextDNS:
+				context = destinationDNSContext(flow)
+			}
+			// always use first non-empty context
+			if context != "" {
+				break
+			}
+		}
+		labels = append(labels, context)
 	}
 
 	return
@@ -241,11 +285,11 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 // GetLabelNames returns a slice of label names required to fulfil the
 // configured context description requirements
 func (o *ContextOptions) GetLabelNames() (labels []string) {
-	if o.Source != ContextDisabled {
+	if len(o.Source) != 0 {
 		labels = append(labels, "source")
 	}
 
-	if o.Destination != ContextDisabled {
+	if len(o.Destination) != 0 {
 		labels = append(labels, "destination")
 	}
 
@@ -256,11 +300,11 @@ func (o *ContextOptions) GetLabelNames() (labels []string) {
 // with Handler.Status
 func (o *ContextOptions) Status() string {
 	var status []string
-	if o.Source != ContextDisabled {
+	if len(o.Source) != 0 {
 		status = append(status, "source="+o.Source.String())
 	}
 
-	if o.Destination != ContextDisabled {
+	if len(o.Destination) != 0 {
 		status = append(status, "destination="+o.Destination.String())
 	}
 
