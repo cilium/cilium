@@ -2081,10 +2081,6 @@ func (e *Endpoint) SyncEndpointHeaderFile() error {
 	return nil
 }
 
-type IPReleaser interface {
-	ReleaseIP(net.IP) error
-}
-
 // Delete cleans up all resources associated with this endpoint, including the
 // following:
 // * all goroutines managed by this Endpoint (EventQueue, Controllers)
@@ -2093,7 +2089,7 @@ type IPReleaser interface {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(ipam IPReleaser, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	errs := []error{}
 
 	e.Stop()
@@ -2115,19 +2111,6 @@ func (e *Endpoint) Delete(ipam IPReleaser, conf DeleteConfig) []error {
 
 		if errs2 := e.deleteMaps(); errs2 != nil {
 			errs = append(errs, errs2...)
-		}
-	}
-
-	if !conf.NoIPRelease {
-		if option.Config.EnableIPv4 {
-			if err := ipam.ReleaseIP(e.IPv4.IP()); err != nil {
-				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := ipam.ReleaseIP(e.IPv6.IP()); err != nil {
-				errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
-			}
 		}
 	}
 

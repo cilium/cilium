@@ -690,7 +690,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return d.endpointManager.RemoveEndpoint(d.ipam, ep, conf)
+	return d.endpointManager.RemoveEndpoint(ep, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
@@ -723,8 +723,23 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 // the Monitor.
 //
 // It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
-func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint) {
+func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
 	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
+
+	if !conf.NoIPRelease {
+		if option.Config.EnableIPv4 {
+			if err := d.ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
+				scopedLog := ep.Logger(daemonSubsys).WithError(err)
+				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if err := d.ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+				scopedLog := ep.Logger(daemonSubsys).WithError(err)
+				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
+			}
+		}
+	}
 }
 
 // EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
