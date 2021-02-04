@@ -1,0 +1,100 @@
+name: Image Release Build
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+
+jobs:
+  build-and-push:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    environment: release
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./Dockerfile
+          - name: operator
+            dockerfile: ./cilium-operator.Dockerfile
+          - name: operator-aws
+            dockerfile: ./cilium-operator-aws.Dockerfile
+          - name: operator-azure
+            dockerfile: ./cilium-operator-azure.Dockerfile
+          - name: operator-generic
+            dockerfile: ./cilium-operator-generic.Dockerfile
+          - name: hubble-relay
+            dockerfile: ./hubble-relay.Dockerfile
+          - name: clustermesh-apiserver
+            dockerfile: ./clustermesh-apiserver.Dockerfile
+          - name: docker-plugin
+            dockerfile: ./cilium-docker-plugin.Dockerfile
+    steps:
+      - name: Set output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF##*/}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@154c24e1f33dbb5865a021c99f1318cfebf27b32 # v1.1.1
+
+      - name: Checkout Stable Branch Source Code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+      - name: Login to DockerHub
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a # v1.8.0
+        with:
+          username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
+      - name: Login to quay.io
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a # v1.8.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+      - name: Release Build ${{ matrix.name }}
+        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        id: docker_build_release
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.vars.outputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.vars.outputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
+      - name: Image Release Digest
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+          echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.vars.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.vars.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571 # v2
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+  image-digests:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    name: Display Digests
+    runs-on: ubuntu-20.04
+    needs: build-and-push
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+      - name: Download digests of all images built
+        uses: actions/download-artifact@4a7a711286f30c025902c28b541c10e147a9b843 # v2.0.8
+        with:
+          path: image-digest/
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat
