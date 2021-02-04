@@ -281,11 +281,18 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
 
+	if k8s.IsEnabled() {
+		if err := k8s.GetNodeSpec(); err != nil {
+			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
+		}
+	}
+
 	var mtuConfig mtu.Configuration
 	externalIP := node.GetExternalIPv4()
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}
+
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU, externalIP)
 
@@ -414,10 +421,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()
-		}
-
-		if err := k8s.GetNodeSpec(); err != nil {
-			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}
 
 		// Kubernetes demands that the localhost can always reach local
