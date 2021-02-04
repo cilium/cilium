@@ -238,12 +238,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
 		return nil
 	case err != nil:
-		msg := "Unable to update ipcache map entry on pod add"
-		if errors.Is(err, errIPCacheOwnedByNonK8s) {
-			logger.WithError(err).Debug(msg)
-		} else {
-			logger.WithError(err).Warning(msg)
-		}
+		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add")
 	default:
 		logger.Debug("Updated ipcache map entry on pod add")
 	}
