@@ -342,9 +342,9 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
 
 // RemoveEndpoint stops the active handling of events by the specified endpoint,
 // and prevents the endpoint from being globally acccessible via other packages.
-func (mgr *EndpointManager) RemoveEndpoint(ipam endpoint.IPReleaser, ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	mgr.unexpose(ep)
-	result := ep.Delete(ipam, conf)
+	result := ep.Delete(conf)
 
 	mgr.mutex.RLock()
 	for s := range mgr.subscribers {
