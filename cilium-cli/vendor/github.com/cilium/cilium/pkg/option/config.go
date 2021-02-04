@@ -874,6 +874,11 @@ const (
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
 	CRDWaitTimeout = "crd-wait-timeout"
+
+	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
+	// store rules and routes under ENI and Azure IPAM modes, if false.
+	// Otherwise, it will use the old scheme.
+	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -2041,6 +2046,11 @@ type DaemonConfig struct {
 	// to introduce state pruning points for the verifier in the datapath
 	// program.
 	NeedsRelaxVerifier bool
+
+	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
+	// store rules and routes under ENI and Azure IPAM modes, if false.
+	// Otherwise, it will use the old scheme.
+	EgressMultiHomeIPRuleCompat bool
 }
 
 var (
@@ -2581,6 +2591,7 @@ func (c *DaemonConfig) Populate() {
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
+	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)

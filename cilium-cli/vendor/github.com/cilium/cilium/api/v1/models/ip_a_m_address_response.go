@@ -29,6 +29,10 @@ type IPAMAddressResponse struct {
 	// IP of gateway
 	Gateway string `json:"gateway,omitempty"`
 
+	// InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.
+	//
+	InterfaceNumber string `json:"interface-number,omitempty"`
+
 	// Allocated IP for endpoint
 	IP string `json:"ip,omitempty"`
 

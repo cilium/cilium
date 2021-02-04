@@ -29,7 +29,7 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
-# github.com/cilium/cilium v1.9.3
+# github.com/cilium/cilium v1.9.4
 ## explicit
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/daemon
