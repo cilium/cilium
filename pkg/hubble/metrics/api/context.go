@@ -41,13 +41,15 @@ const (
 	ContextPodShort
 	// ContextDNS uses the DNS name for identification purposes
 	ContextDNS
+	// ContextIP uses the IP address for identification purposes
+	ContextIP
 )
 
 // ContextOptionsHelp is the help text for context options
 const ContextOptionsHelp = `
  sourceContext          := identifier , { "|", identifier }
  destinationContext     := identifier , { "|", identifier }
- identifier             := identity | namespace | pod | pod-short | dns
+ identifier             := identity | namespace | pod | pod-short | dns | ip
 `
 
 var shortPodPattern = regexp.MustCompile("^(.+?)(-[a-z0-9]+){1,2}$")
@@ -67,6 +69,8 @@ func (c ContextIdentifier) String() string {
 		return "pod-short"
 	case ContextDNS:
 		return "dns"
+	case ContextIP:
+		return "ip"
 	}
 	return fmt.Sprintf("%d", c)
 }
@@ -102,6 +106,8 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 		return ContextPodShort, nil
 	case "dns":
 		return ContextDNS, nil
+	case "ip":
+		return ContextIP, nil
 	default:
 		return ContextDisabled, fmt.Errorf("unknown context '%s'", s)
 	}
@@ -188,6 +194,13 @@ func sourceDNSContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func sourceIPContext(flow *pb.Flow) (context string) {
+	if flow.GetIP() != nil {
+		context = flow.GetIP().GetSource()
+	}
+	return
+}
+
 func destinationNamespaceContext(flow *pb.Flow) (context string) {
 	if flow.GetDestination() != nil {
 		context = flow.GetDestination().Namespace
@@ -229,6 +242,13 @@ func destinationDNSContext(flow *pb.Flow) (context string) {
 	return
 }
 
+func destinationIPContext(flow *pb.Flow) (context string) {
+	if flow.GetIP() != nil {
+		context = flow.GetIP().GetDestination()
+	}
+	return
+}
+
 // GetLabelValues returns the values of the context relevant labels according
 // to the configured options. The order of the values is the same as the order
 // of the label names returned by GetLabelNames()
@@ -247,6 +267,8 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 				context = sourcePodShortContext(flow)
 			case ContextDNS:
 				context = sourceDNSContext(flow)
+			case ContextIP:
+				context = sourceIPContext(flow)
 			}
 			// always use first non-empty context
 			if context != "" {
@@ -270,6 +292,8 @@ func (o *ContextOptions) GetLabelValues(flow *pb.Flow) (labels []string) {
 				context = destinationPodShortContext(flow)
 			case ContextDNS:
 				context = destinationDNSContext(flow)
+			case ContextIP:
+				context = destinationIPContext(flow)
 			}
 			// always use first non-empty context
 			if context != "" {
