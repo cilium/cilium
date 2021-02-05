@@ -348,7 +348,7 @@ var _ = Describe("K8sServicesTest", func() {
 				serviceNames = append(serviceNames, serviceNameIPv6)
 			}
 
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 			monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
 			defer func() {
@@ -904,9 +904,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				blockSize  = 5120
 				blockCount = 1
 			)
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 			ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
 			_, dstPodIPK8s1 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 1)
@@ -1494,7 +1494,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testDS)
 					ExpectWithOffset(1, err).Should(BeNil(), "Cannot get pod IP addrs for -l %s pods", testDS)
 					for _, ipAddr := range podIPs {
-						err = kubectl.WaitForIPCacheEntry(k8s1NodeName, ipAddr)
+						err = kubectl.WaitForIPCacheEntry(helpers.K8s1, ipAddr)
 						ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s ipcache entry on k8s1", ipAddr)
 					}
 				}
@@ -1562,7 +1562,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 				count := 10
 
-				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
 				if helpers.ExistNodeWithoutCilium() {
@@ -1762,7 +1762,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			// Destination address and port for fragmented datagram
 			// are not DNAT-ed with kube-proxy but without bpf_sock.
 			if helpers.RunsWithKubeProxy() {
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 				hasDNAT = kubectl.HasHostReachableServices(ciliumPodK8s1, false, true)
 			}
@@ -1800,7 +1800,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			// from previous tests with --node-port-algorithm=random
 			// won't interfere the backend selection.
 			for _, label := range []string{helpers.K8s1, helpers.K8s2} {
-				pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
 				kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 			}
@@ -2000,9 +2000,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			BeforeAll(func() {
 				var err error
-				ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				Expect(err).Should(BeNil(), "Cannot get cilium pod on %s", helpers.K8s1)
-				ciliumPodK8s2, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+				ciliumPodK8s2, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
 				Expect(err).Should(BeNil(), "Cannot get cilium pod on %s", helpers.K8s2)
 
 				// Find out the DNS proxy ports in use
@@ -2087,10 +2087,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 
 			It("Tests NodePort with L4 Policy", func() {
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 				monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
-				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 				monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
 				defer func() {
@@ -2113,10 +2113,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 
 			It("Tests NodePort with L7 Policy", func() {
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 				monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
-				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 				monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
 				defer func() {
@@ -2991,7 +2991,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			By("Checking that policies were correctly imported into Cilium")
 
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPodK8s1, policyCmd)
 			res.ExpectSuccess("Policy %s is not imported", policyCmd)

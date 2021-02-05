@@ -142,7 +142,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			})
 
 			var err error
-			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
 
 			ExpectHubbleRelayReady(kubectl, hubbleRelayNamespace)

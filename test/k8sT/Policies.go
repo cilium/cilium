@@ -203,7 +203,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "cannot get CiliumPod")
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
