@@ -25,9 +25,10 @@ import (
 	"testing"
 	"unsafe"
 
-	. "gopkg.in/check.v1"
-
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -571,6 +572,63 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 				}
 			},
 		},
+		{
+			name: "MapTypeLRUHash on 4.9 kernel: no prealloc to no prealloc upgrade",
+			run: func() []*Map {
+				// Asserts that maps with type MapTypeLRUHash on 4.9 kernels
+				// are normalized to MapTypeHash and that when preallocation is
+				// disabled, maps can be recreated without requiring them to be
+				// removed due to a flag mismatch (upgrade).
+
+				// Specify 4.9 kernel supported maps types and disable preallocation.
+				setMapTypesFromProber(newMockProber(mapTypes49))
+				DisableMapPreAllocation()
+
+				upgradeMap := NewMap("cilium_test_upgrade",
+					MapTypeLRUHash,
+					&TestKey{},
+					int(unsafe.Sizeof(TestKey{})),
+					&TestValue{},
+					int(unsafe.Sizeof(TestValue{})),
+					maxEntries,
+					0,
+					0,
+					ConvertKeyValue).WithCache()
+				_, err := upgradeMap.OpenOrCreate()
+				c.Assert(err, IsNil)
+
+				// Typically, MapTypeLRUHash requires preallocation. Given the
+				// underlying lack of LRU support in 4.9 kernels, this map type
+				// would actually use MapTypeHash.
+				//
+				// Since the map type is switched to hashmap, now preallocation
+				// can be disabled. When we try to upgrade the map, defining
+				// that its type should be LRU, there's no intermediate state
+				// where we decide that the map should be upgraded because the
+				// desired type is LRU (or the preallocation flags are
+				// mismatched).
+				//
+				// Instead, every single time the map info is evaluated, the
+				// type & flags are evaluated first and then the upgrade
+				// decision is made based on the attributes afterwards.
+				//
+				// In this case, we disabled preallocation and attempting to
+				// upgrade the map of type LRU results in a no-op because it
+				// was normalized to hashmap.
+				upgrade := upgradeMap.CheckAndUpgrade(&upgradeMap.MapInfo)
+				c.Assert(upgrade, Equals, false)
+
+				return []*Map{upgradeMap}
+			},
+			postRun: func(maps ...*Map) {
+				for _, m := range maps {
+					path, _ := m.Path()
+					os.Remove(path)
+
+					m.Close()
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		c.Log(tt.name)
@@ -646,4 +704,47 @@ func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 	err = LookupElement(m.fd, unsafe.Pointer(key1), unsafe.Pointer(&value2))
 	c.Assert(err, IsNil)
 	c.Assert(*value1, Equals, value2)
+}
+
+func newMockProber(mt probes.MapTypes) *mockProber {
+	return &mockProber{
+		mt: mt,
+	}
+}
+
+func (m *mockProber) Probe() probes.Features {
+	var f probes.Features
+	f.MapTypes = m.mt
+	return f
+}
+
+type mockProber struct {
+	mt probes.MapTypes
+}
+
+// mapTypes49 represents the supported map types on 4.9 kernels.
+var mapTypes49 = probes.MapTypes{
+	HaveHashMapType:                true,
+	HaveArrayMapType:               true,
+	HaveProgArrayMapType:           true,
+	HavePerfEventArrayMapType:      true,
+	HavePercpuHashMapType:          true,
+	HavePercpuArrayMapType:         true,
+	HaveStackTraceMapType:          true,
+	HaveCgroupArrayMapType:         true,
+	HaveLruHashMapType:             false,
+	HaveLruPercpuHashMapType:       false,
+	HaveLpmTrieMapType:             false,
+	HaveArrayOfMapsMapType:         false,
+	HaveHashOfMapsMapType:          false,
+	HaveDevmapMapType:              false,
+	HaveSockmapMapType:             false,
+	HaveCpumapMapType:              false,
+	HaveXskmapMapType:              false,
+	HaveSockhashMapType:            false,
+	HaveCgroupStorageMapType:       false,
+	HaveReuseportSockarrayMapType:  false,
+	HavePercpuCgroupStorageMapType: false,
+	HaveQueueMapType:               false,
+	HaveStackMapType:               false,
 }
