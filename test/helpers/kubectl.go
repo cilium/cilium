@@ -3637,9 +3637,9 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 	}
 }
 
-// GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in
+// getCiliumPodOnNodeByName returns the name of the Cilium pod that is running on / in
 //the specified node / namespace.
-func (kub *Kubectl) GetCiliumPodOnNode(node string) (string, error) {
+func (kub *Kubectl) getCiliumPodOnNodeByName(node string) (string, error) {
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
 
@@ -3662,14 +3662,14 @@ func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
 	return nodeName, nodeIP
 }
 
-// GetCiliumPodOnNodeWithLabel returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
-func (kub *Kubectl) GetCiliumPodOnNodeWithLabel(label string) (string, error) {
+// GetCiliumPodOnNode returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
+func (kub *Kubectl) GetCiliumPodOnNode(label string) (string, error) {
 	node, err := kub.GetNodeNameByLabel(label)
 	if err != nil {
 		return "", fmt.Errorf("Unable to get nodes with label '%s': %s", label, err)
 	}
 
-	return kub.GetCiliumPodOnNode(node)
+	return kub.getCiliumPodOnNodeByName(node)
 }
 
 func (kub *Kubectl) validateCilium() error {

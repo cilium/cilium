@@ -72,7 +72,7 @@ var _ = Describe("K8sCLI", func() {
 				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l id", helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "The pods were not ready after timeout")
 
-				ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(fooNode)
+				ciliumPod, err = kubectl.GetCiliumPodOnNode(fooNode)
 				Expect(err).Should(BeNil())
 
 				err := kubectl.WaitForCEPIdentity(helpers.DefaultNamespace, fooID)
@@ -138,9 +138,9 @@ var _ = Describe("K8sCLI", func() {
 					namespaceForTest, l3L4DenyPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Cannot apply L3 Deny Policy")
 
-				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 				ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
 				countBeforeK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Policy denied by denylist", "ingress")
@@ -175,7 +175,7 @@ var _ = Describe("K8sCLI", func() {
 			)
 
 			BeforeAll(func() {
-				ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel("k8s1")
+				ciliumPod, err = kubectl.GetCiliumPodOnNode("k8s1")
 				Expect(err).Should(BeNil())
 			})
 

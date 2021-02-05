@@ -124,10 +124,10 @@ var _ = Describe("K8sFQDNTest", func() {
 		// - On restart) Cilium will restore the IPS that were white-listted in
 		// the FQDN and connection will work as normal.
 
-		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 		monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
-		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
+		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 		monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
 		defer func() {
