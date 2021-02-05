@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,21 +160,27 @@ type ProbeManager struct {
 // feature checks.
 func NewProbeManager() *ProbeManager {
 	newProbeManager := func() {
-		var features Features
-		out, err := exec.WithTimeout(
-			defaults.ExecTimeout,
-			"bpftool", "-j", "feature", "probe",
-		).CombinedOutput(log, true)
-		if err != nil {
-			log.WithError(err).Fatal("could not run bpftool")
-		}
-		if err := json.Unmarshal(out, &features); err != nil {
-			log.WithError(err).Fatal("could not parse bpftool output")
-		}
-		probeManager = &ProbeManager{features: features}
+		probeManager = &ProbeManager{}
+		probeManager.features = probeManager.Probe()
 	}
 	once.Do(newProbeManager)
 	return probeManager
+}
+
+// Probe probes the underlying kernel for features.
+func (*ProbeManager) Probe() Features {
+	var features Features
+	out, err := exec.WithTimeout(
+		defaults.ExecTimeout,
+		"bpftool", "-j", "feature", "probe",
+	).CombinedOutput(log, true)
+	if err != nil {
+		log.WithError(err).Fatal("could not run bpftool")
+	}
+	if err := json.Unmarshal(out, &features); err != nil {
+		log.WithError(err).Fatal("could not parse bpftool output")
+	}
+	return features
 }
 
 func (p *ProbeManager) probeSystemKernelHz() (int, error) {
