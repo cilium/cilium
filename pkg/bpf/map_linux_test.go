@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -517,45 +517,66 @@ func (s *BPFPrivilegedTestSuite) TestGetModel(c *C) {
 }
 
 func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
-	// CheckAndUpgrade removes map file if upgrade is needed
-	// so we setup and use another map.
-	upgradeMap := NewMap("cilium_test_upgrade",
-		MapTypeHash,
-		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
-		maxEntries,
-		BPF_F_NO_PREALLOC,
-		0,
-		ConvertKeyValue).WithCache()
-	_, err := upgradeMap.OpenOrCreate()
-	c.Assert(err, IsNil)
-	defer func() {
-		path, _ := upgradeMap.Path()
-		os.Remove(path)
-	}()
-	defer upgradeMap.Close()
+	tests := []struct {
+		name    string
+		run     func() []*Map
+		postRun func(maps ...*Map)
+	}{
+		{
+			name: "MapTypeHash: no prealloc to prealloc upgrade",
+			run: func() []*Map {
+				// CheckAndUpgrade removes map file if upgrade is needed
+				// so we setup and use another map.
+				upgradeMap := NewMap("cilium_test_upgrade",
+					MapTypeHash,
+					&TestKey{},
+					int(unsafe.Sizeof(TestKey{})),
+					&TestValue{},
+					int(unsafe.Sizeof(TestValue{})),
+					maxEntries,
+					BPF_F_NO_PREALLOC,
+					0,
+					ConvertKeyValue).WithCache()
+				_, err := upgradeMap.OpenOrCreate()
+				c.Assert(err, IsNil)
 
-	// Exactly the same MapInfo so it won't be upgraded.
-	upgrade := upgradeMap.CheckAndUpgrade(&upgradeMap.MapInfo)
-	c.Assert(upgrade, Equals, false)
+				// Exactly the same MapInfo so it won't be upgraded.
+				upgrade := upgradeMap.CheckAndUpgrade(&upgradeMap.MapInfo)
+				c.Assert(upgrade, Equals, false)
 
-	// preallocMap unsets BPF_F_NO_PREALLOC so upgrade is needed.
-	EnableMapPreAllocation()
-	preallocMap := NewMap("cilium_test_upgrade",
-		MapTypeHash,
-		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
-		maxEntries,
-		0,
-		0,
-		ConvertKeyValue).WithCache()
-	upgrade = upgradeMap.CheckAndUpgrade(&preallocMap.MapInfo)
-	c.Assert(upgrade, Equals, true)
-	DisableMapPreAllocation()
+				// preallocMap unsets BPF_F_NO_PREALLOC so upgrade is needed.
+				EnableMapPreAllocation()
+				preallocMap := NewMap("cilium_test_upgrade",
+					MapTypeHash,
+					&TestKey{},
+					int(unsafe.Sizeof(TestKey{})),
+					&TestValue{},
+					int(unsafe.Sizeof(TestValue{})),
+					maxEntries,
+					0,
+					0,
+					ConvertKeyValue).WithCache()
+				upgrade = upgradeMap.CheckAndUpgrade(&preallocMap.MapInfo)
+				c.Assert(upgrade, Equals, true)
+				DisableMapPreAllocation()
+
+				return []*Map{upgradeMap, preallocMap}
+			},
+			postRun: func(maps ...*Map) {
+				for _, m := range maps {
+					path, _ := m.Path()
+					os.Remove(path)
+
+					m.Close()
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		maps := tt.run()
+		tt.postRun(maps...)
+	}
 }
 
 func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
