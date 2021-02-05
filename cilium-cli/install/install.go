@@ -1295,7 +1295,7 @@ func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
 					{
 						ScopeName: corev1.ResourceQuotaScopePriorityClass,
 						Operator:  corev1.ScopeSelectorOpIn,
-						Values:    []string{"system-node-critical"},
+						Values:    []string{"system-cluster-critical"},
 					},
 				},
 			},
