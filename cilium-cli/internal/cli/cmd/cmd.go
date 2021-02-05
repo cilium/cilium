@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -29,13 +30,23 @@ var (
 
 func NewDefaultCiliumCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// return early for commands that don't require the kubernetes client
+			if !cmd.HasParent() { // this is root
+				return nil
+			}
+			switch cmd.Name() {
+			case "completion", "help", "version":
+				return nil
+			}
+
 			c, err := k8s.NewClient(contextName, "")
 			if err != nil {
-				fatalf("Unable to create Kubernetes client: %s", err)
+				return fmt.Errorf("unable to create Kubernetes client: %w", err)
 			}
 
 			k8sClient = c
+			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
