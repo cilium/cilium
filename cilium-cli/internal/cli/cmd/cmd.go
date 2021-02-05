@@ -59,6 +59,8 @@ cilium hubble enable
 
 # Perform a connectivity test
 cilium connectivity test`,
+		SilenceErrors: true, // this is being handled in main, no need to duplicate error messages
+		SilenceUsage:  true, // avoid showing help when usage is correct but an error occured
 	}
 
 	cmd.AddCommand(
