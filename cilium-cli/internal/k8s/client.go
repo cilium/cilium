@@ -327,7 +327,7 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 	}
 
 	// When creating a cluster with kind create cluster --name foo,
-	// the context and clustername are kind-foo.
+	// the context and cluster name are kind-foo.
 	if strings.HasPrefix(c.ClusterName(), "kind-") || strings.HasPrefix(c.ContextName(), "kind-") {
 		f.Kind = KindKind
 		return
@@ -335,6 +335,14 @@ func (c *Client) AutodetectFlavor(ctx context.Context) (f Flavor, err error) {
 
 	if strings.HasPrefix(c.ClusterName(), "gke_") {
 		f.Kind = KindGKE
+		return
+	}
+
+	// When creating a cluster with eksctl create cluster --name foo,
+	// the cluster name is foo.<region>.eksctl.io
+	if strings.HasSuffix(c.ClusterName(), ".eksctl.io") {
+		f.ClusterName = strings.ReplaceAll(c.ClusterName(), ".", "-")
+		f.Kind = KindEKS
 		return
 	}
 
