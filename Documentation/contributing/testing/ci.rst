@@ -194,7 +194,8 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | Jenkins Job                                                                                                    | Trigger Phrases   | Required To Merge? |
 +================================================================================================================+===================+====================+
-| `Cilium-PR-K8s-1.19-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-1.19-kernel-4.9/>`_                | test-1.19-4.9     | Yes                |
+| `Cilium-PR-K8s-1.20-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-1.20-kernel-4.9/>`_                | test-me-please,   | Yes                |
+|                                                                                                                | retest-4.9        |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Kernel <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                | test-me-please,   | Yes                |
 |                                                                                                                | retest-4.19       |                    |
@@ -207,7 +208,7 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-Kernel-Focus <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel-Focus/>`_    | test-only         | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
+| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/job/Cilium-PR-Kubernetes-Upstream/>`_                | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
@@ -218,7 +219,7 @@ illustrating which subset of tests the job runs.
 | `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-K8s/>`_                      | test-missed-k8s   | No                 |
 |                                                                                                                | **(deprecated)**  |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please    | Yes                |
+| `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please,   | Yes                |
 |                                                                                                                | retest-gke        |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
