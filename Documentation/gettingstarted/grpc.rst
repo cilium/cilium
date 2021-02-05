@@ -171,7 +171,7 @@ Each gRPC method is mapped to an HTTP POST call to a URL of the form
 
 As a result, the following *CiliumNetworkPolicy* rule limits access of pods with label
 ``app=public-terminal`` to only invoke ``GetName``, ``GetLocation``, and ``RequestMaintenance``
-on the door service, identified by label ``app=cc-door-sgr``:
+on the door service, identified by label ``app=cc-door-mgr``:
 
 .. literalinclude:: ../../examples/kubernetes-grpc/cc-door-ingress-security.yaml
    :language: yaml
