@@ -1124,7 +1124,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 // Returns true if the map was upgraded.
 func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
 	desiredMapType := GetMapType(desired.MapType)
-	desired.Flags |= GetPreAllocateMapFlags(desired.MapType)
+	desired.Flags |= GetPreAllocateMapFlags(desiredMapType)
 
 	return objCheck(
 		m.fd,
