@@ -211,7 +211,12 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/job/Cilium-PR-Kubernetes-Upstream/>`_                | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-K8s-X.XX-kernel-4.9 <https://jenkins.cilium.io/view/PR/>`_ (where ``X.XX`` is a K8s version)        | test-X.XX-4.9     | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| All non-required `Cilium-PR-K8s-X.XX-kernel-4.9 <https://jenkins.cilium.io/view/PR/>`_                         | test-older-k8s    | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-K8s/>`_                      | test-missed-k8s   | No                 |
+|                                                                                                                | **(deprecated)**  |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please    | Yes                |
 |                                                                                                                | retest-gke        |                    |
@@ -220,6 +225,25 @@ illustrating which subset of tests the job runs.
 For a full list of Jenkins Jobs, see `Jenkins
 <https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
 each job's build triggers advanced options.
+
+``test-older-k8s`` allows testing older supported K8s versions, i.e. all
+non-required K8s jobs, by triggering all appropriate
+``Cilium-PR-K8s-X.XX-kernel-4.9`` jobs.
+For example, at the time of writing, it is identical to manually running
+``test-X.XX-4.9`` for versions 1.14 through 1.19.
+If a specific K8s version fails, it can be re-run using ``retest-X.XX-4.9``.
+
+``test-missed-k8s`` is deprecated and superseded by ``test-older-k8s``:
+
+- For new branches: it triggers a ``Cilium-PR-Ginkgo-Tests-K8s`` which does
+  exactly the same thing (triggers all ``Cilium-PR-K8s-X.XX-kernel-4.9`` jobs),
+  except that the compound job (and not the individual jobs) will be displayed
+  on the PR page. This makes it more cumbersome to detect which specific K8s
+  version failed in case of failure.
+- For older branches (where ``test-missed-k8s`` is unavailable): triggers a
+  ``Cilium-PR-Ginkgo-Tests-K8s`` testing older K8s versions by itself.
+  It should not be used for new branches, only for Backport PRs for which
+  ``test-older-k8s`` is unavailable.
 
 For Backport PRs, the phrase ``test-backport-x.x`` (with ``x.x`` being the target Cilium version) should be used to
 trigger all of the above jobs which are marked as required to validate changes
