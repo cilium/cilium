@@ -283,6 +283,7 @@ spec:
             - NET_ADMIN
             - SYS_MODULE
           privileged: true
+          {{- toYaml .Values.securityContext | trim | nindent 10 }}
         volumeMounts:
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
 {{- if not (eq .Values.containerRuntime.integration "crio") }}
