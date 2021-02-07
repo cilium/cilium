@@ -25,6 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally
@@ -763,7 +766,7 @@ func (zombies *DNSZombieMappings) isConnectionAlive(zombie *DNSZombieMapping) bo
 }
 
 // getAliveNames returns all the names that are alive
-//   a name is alive if at least one of the IPs that resolve to it are alive
+//   a name is alive if at least one of the IPs that resolve to it is alive
 func (zombies *DNSZombieMappings) getAliveNames() map[string]struct{} {
 	var aliveNames map[string]struct{} = map[string]struct{}{}
 	for _, z := range zombies.deletes {
@@ -789,6 +792,10 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 
 	for _, name := range zombie.Names {
 		if _, ok := aliveNames[name]; ok {
+			log.WithFields(logrus.Fields{
+				logfields.DNSName: name,
+				logfields.IPAddr:  zombie.IP,
+			}).Warn("FQDN has multiple IPs. One IP has an expired TTL.")
 			return true
 		}
 	}
