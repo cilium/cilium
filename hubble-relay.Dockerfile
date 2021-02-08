@@ -43,6 +43,7 @@ FROM ${BASE_IMAGE}
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
+ENV GOPS_CONFIG_DIR=/
 COPY --from=builder /go/src/github.com/cilium/cilium/hubble-relay/hubble-relay /usr/bin/hubble-relay
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /go/bin/gops /bin/gops
