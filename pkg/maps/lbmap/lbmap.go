@@ -151,6 +151,17 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	return nil
 }
 
+// UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
+// inserts into the Maglev BPF map.
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*maglev.BackendPoint, ipv6 bool) error {
+	maglev.GetLookupTable(backends, lbmap.maglevTableSize, lbmap.maglevBackendIDsBuffer)
+	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // DeleteService removes given service from a BPF map.
 func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool) error {
 	var (

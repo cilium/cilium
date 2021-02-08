@@ -16,6 +16,7 @@ package mockmaps
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/maglev"
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -70,7 +71,7 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*maglev.BackendPoint, ipv6 bool) error {
 	m.DummyMaglevTable[svcID] = len(backends)
 	return nil
 }
