@@ -83,9 +83,8 @@ below. This will ensure all pods are managed by Cilium.
 
 .. parsed-literal::
 
-    kubectl create namespace cilium
     helm install cilium |CHART_RELEASE| \\
-      --namespace cilium \\
+      --namespace kube-system \\
       --set nodeinit.enabled=true \\
       --set nodeinit.reconfigureKubelet=true \\
       --set nodeinit.removeCbrBridge=true \\

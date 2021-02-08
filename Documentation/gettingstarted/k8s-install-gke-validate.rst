@@ -5,7 +5,7 @@ You can monitor as Cilium and all required components are being installed:
 
 .. parsed-literal::
 
-    kubectl -n cilium get pods --watch
+    kubectl -n kube-system get pods --watch
     NAME                               READY   STATUS            RESTARTS   AGE
     cilium-bbpwg                       0/1     PodInitializing   0          27s
     cilium-node-init-jwtw6             1/1     Running           0          27s
@@ -17,7 +17,7 @@ It may take a couple of minutes for all components to come up:
 
 .. parsed-literal::
 
-    kubectl -n cilium get pods
+    kubectl -n kube-system get pods
     NAME                               READY   STATUS    RESTARTS   AGE
     cilium-bbpwg                       1/1     Running   0          70s
     cilium-node-init-jwtw6             1/1     Running   0          70s

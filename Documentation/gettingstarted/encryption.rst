@@ -79,7 +79,7 @@ to GKE, with VXLAN tunneling:
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
-      --namespace cilium \\
+      --namespace kube-system \\
       --set nodeinit.enabled=true \\
       --set nodeinit.reconfigureKubelet=true \\
       --set nodeinit.removeCbrBridge=true \\
