@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.4
         with:
           path: $HOME/.clang
           key: llvm-10.0
