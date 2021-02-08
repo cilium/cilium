@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 
@@ -689,7 +690,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return d.endpointManager.RemoveEndpoint(d, d.ipam, ep, conf)
+	return d.endpointManager.RemoveEndpoint(d.ipam, ep, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
@@ -723,6 +724,7 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 //
 // It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
 func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint) {
+	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
 }
 
 // EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
@@ -732,6 +734,7 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint) {
 //
 // It is called after Daemon calls into d.endpointManager.AddEndpoint().
 func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
+	d.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 }
 
 type deleteEndpointID struct {
