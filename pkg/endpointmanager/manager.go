@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -343,9 +342,7 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
 
 // RemoveEndpoint stops the active handling of events by the specified endpoint,
 // and prevents the endpoint from being globally acccessible via other packages.
-func (mgr *EndpointManager) RemoveEndpoint(monitor regeneration.Owner, ipam endpoint.IPReleaser, ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	defer monitor.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
-
+func (mgr *EndpointManager) RemoveEndpoint(ipam endpoint.IPReleaser, ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 	mgr.unexpose(ep)
 	result := ep.Delete(ipam, conf)
 
@@ -587,8 +584,6 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 		s.EndpointCreated(ep)
 	}
 	mgr.mutex.RUnlock()
-
-	owner.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 
 	return nil
 }
