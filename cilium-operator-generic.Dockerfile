@@ -24,7 +24,7 @@ RUN make GOARCH=$TARGETARCH NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG RACE=$RACE cil
 WORKDIR /go/src/github.com/cilium/cilium
 RUN make GOARCH=$TARGETARCH licenses-all
 
-FROM docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930 as certs
+FROM "docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930" as certs
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 RUN apk --update add ca-certificates
