@@ -61,3 +61,14 @@ func TestingUseNopSleep() func() {
 		Sleep = time.Sleep
 	}
 }
+
+// TestingUseReferenceTime is a utility for swapping the time function across the SDK to return a specific reference time
+// for testing purposes.
+func TestingUseReferenceTime(referenceTime time.Time) func() {
+	NowTime = func() time.Time {
+		return referenceTime
+	}
+	return func() {
+		NowTime = time.Now
+	}
+}

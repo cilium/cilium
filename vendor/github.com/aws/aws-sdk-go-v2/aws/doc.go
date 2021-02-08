@@ -26,7 +26,7 @@
 //    strPtr = aws.String("my string")
 //
 //    // Convert *string to string value
-//    str = aws.StringValue(strPtr)
+//    str = aws.ToString(strPtr)
 //
 // In addition to scalars the aws package also includes conversion utilities for
 // map and slice for commonly types used in API parameters. The map and slice
@@ -40,7 +40,7 @@
 //    strPtrs = aws.StringSlice(strs)
 //
 //    // Convert []*string to []string
-//    strs = aws.StringValueSlice(strPtrs)
+//    strs = aws.ToStringSlice(strPtrs)
 //
 // SDK Default HTTP Client
 //

@@ -44,7 +44,7 @@ github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
 ## explicit
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go-v2 v1.0.0
+# github.com/aws/aws-sdk-go-v2 v1.1.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/middleware
