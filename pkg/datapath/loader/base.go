@@ -321,6 +321,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgMode] = string(mode)
 
+	if option.Config.Tunnel == option.TunnelDisabled && option.Config.EnableEgressGateway {
+		// Enable tunnel mode to vxlan if egress gateway is configured
+		// Tunnel is required for egress traffic under this config
+		args[initArgTunnelMode] = option.TunnelVXLAN
+	}
+
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
 	} else {
