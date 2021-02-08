@@ -1,4 +1,4 @@
-name: EKS (ENI)
+name: EKS (tunnel)
 
 on:
   pull_request: {}
@@ -6,7 +6,7 @@ on:
     branches:
       - master
 env:
-  clusterName: cilium-cli-ci-eks-eni-${{ github.run_number }}
+  clusterName: cilium-cli-ci-eks-tunnel-${{ github.run_number }}
   region: us-east-2
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
 
       - name: Install cilium
         run: |
-          cilium install --cluster-name ${{ env.clusterName }} --wait=false --config monitor-aggregation=None
+          cilium install --cluster-name ${{ env.clusterName }} --wait=false --config monitor-aggregation=None --datapath-mode=tunnel --ipam cluster-pool
 
       - name: Add nodegroup
         run: |
