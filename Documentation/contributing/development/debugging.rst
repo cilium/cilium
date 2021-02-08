@@ -56,7 +56,7 @@ toFQDNs rules and events relating to those rules are also relevant.
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium monitor --related-to 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium monitor --related-to 3459
     Listening for events on 4 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
     level=info msg="Initializing dissection cache..." subsys=monitor
@@ -113,7 +113,7 @@ time is included in the json output of the command.
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium fqdn cache list
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium fqdn cache list
     Endpoint   Source   FQDN         TTL    ExpirationTime             IPs
     3459       lookup   cilium.io.   3600   2020-04-21T15:04:27.146Z   104.198.14.52
 
@@ -192,7 +192,7 @@ allocated Security Identities. These can be listed with:
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium identity list
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium identity list
     ID         LABELS
     1          reserved:host
     2          reserved:world
@@ -220,7 +220,7 @@ They can be listed along with other selectors (roughly corresponding to any L3 r
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium policy selectors
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium policy selectors
     SELECTOR                                                                                                         USERS   IDENTITIES
     MatchName: , MatchPattern: *                                                                                     1       16777217
     &LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}                   2       1
@@ -282,7 +282,7 @@ Endpoint with the new CIDR Identity of the IP. This can be verified:
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium bpf policy get 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get 3459
     DIRECTION   LABELS (source:key[=value])   PORT/PROTO   PROXY PORT   BYTES   PACKETS
     Ingress     reserved:unknown              ANY          NONE         1367    7
     Ingress     reserved:host                 ANY          NONE         0       0
@@ -296,7 +296,7 @@ there may be cases where this doesn't occur:
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium bpf policy get -n 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get -n 3459
     DIRECTION   IDENTITY   PORT/PROTO   PROXY PORT   BYTES   PACKETS
     Ingress     0          ANY          NONE         1367    7
     Ingress     1          ANY          NONE         0       0
