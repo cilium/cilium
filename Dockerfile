@@ -2,14 +2,14 @@
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:1bfbbd9c85907c5667f1abd24b7a6c1b5d8bbf29@sha256:05f556d53b53b062c5ec09fb153f0d0f06b470bc05b025e965bc36f3fb307b6d as cilium-envoy
+FROM "quay.io/cilium/cilium-envoy:1bfbbd9c85907c5667f1abd24b7a6c1b5d8bbf29@sha256:05f556d53b53b062c5ec09fb153f0d0f06b470bc05b025e965bc36f3fb307b6d" as cilium-envoy
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
 #
 # Hubble CLI
 #
-FROM quay.io/cilium/hubble:v0.7.1@sha256:cc76aa6394d613eaeeac0f15b72f50d426b3c47d4676557431661e6aa5e1597b as hubble
+FROM "quay.io/cilium/hubble:v0.7.1@sha256:cc76aa6394d613eaeeac0f15b72f50d426b3c47d4676557431661e6aa5e1597b" as hubble
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
@@ -31,7 +31,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 # augments the FROM line accordingly.
 #
 # FROM --platform=$BUILDPLATFORM
-FROM quay.io/cilium/cilium-builder:2021-01-20@sha256:09f63f516a88f82e714dac758362d34db9544188ac53b3ba88e85867b1a042bb as builder
+FROM "quay.io/cilium/cilium-builder:2021-01-20@sha256:09f63f516a88f82e714dac758362d34db9544188ac53b3ba88e85867b1a042bb" as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
@@ -64,7 +64,7 @@ RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2021-01-20@sha256:247eff116cc5d0b3a4931eabd67ea2e8679f7c12877729a73929d3f30753065b
+FROM "quay.io/cilium/cilium-runtime:2021-01-20@sha256:247eff116cc5d0b3a4931eabd67ea2e8679f7c12877729a73929d3f30753065b"
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
