@@ -79,9 +79,6 @@ gcloud container clusters describe --project "${project}" --region "${region}" -
 echo "cleaning cluster before tests"
 "${script_dir}"/clean-cluster.sh
 
-echo "creating cilium ns"
-kubectl create ns cilium || true
-
 echo "scaling ${cluster_uri} to 2"
 "${script_dir}"/resize-cluster.sh 2 "${cluster_uri}"
 

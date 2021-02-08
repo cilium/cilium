@@ -168,7 +168,6 @@ const (
 	DefaultNamespace       = "default"
 	KubeSystemNamespace    = "kube-system"
 	CiliumNamespaceDefault = KubeSystemNamespace
-	CiliumNamespaceGKE     = "cilium"
 
 	TestResultsPath = "test_results/"
 	RunDir          = "/var/run/cilium"
