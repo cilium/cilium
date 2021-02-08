@@ -30,6 +30,7 @@ ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 
 WORKDIR /
+ENV GOPS_CONFIG_DIR=/
 
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH} .
 
