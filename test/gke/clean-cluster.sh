@@ -12,9 +12,6 @@ kubectl label --overwrite namespace default istio-injection-
 echo "deleting cilium-monitoring namespace and contents"
 kubectl delete ns cilium-monitoring --force --grace-period=0
 
-echo "deleting cilium namespace and contents"
-kubectl delete ns cilium --force --grace-period=0
-
 echo "deleting all crds"
 kubectl delete crds --all
 
