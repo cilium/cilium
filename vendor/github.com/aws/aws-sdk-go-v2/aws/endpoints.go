@@ -54,7 +54,26 @@ type Endpoint struct {
 	// The signing method that should be used for signing the requests to the
 	// endpoint.
 	SigningMethod string
+
+	// The source of the Endpoint. By default, this will be EndpointSourceServiceMetadata.
+	// When providing a custom endpoint, you should set the source as EndpointSourceCustom.
+	// If source is not provided when providing a custom endpoint, the SDK may not
+	// perform required host mutations correctly. Source should be used along with
+	// HostnameImmutable property as per the usage requirement.
+	Source EndpointSource
 }
+
+// EndpointSource is the endpoint source type.
+type EndpointSource int
+
+const (
+	// EndpointSourceServiceMetadata denotes service modeled endpoint metadata is used as Endpoint Source.
+	EndpointSourceServiceMetadata EndpointSource = iota
+
+	// EndpointSourceCustom denotes endpoint is a custom endpoint. This source should be used when
+	// user provides a custom endpoint to be used by the SDK.
+	EndpointSourceCustom
+)
 
 // EndpointNotFoundError is a sentinel error to indicate that the
 // EndpointResolver implementation was unable to resolve an endpoint for the
