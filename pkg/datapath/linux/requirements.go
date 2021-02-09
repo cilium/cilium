@@ -15,6 +15,7 @@
 package linux
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -176,7 +177,11 @@ func CheckMinRequirements() {
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
-			log.WithError(err).Warning("BPF system config check: NOT OK.")
+			errMsg := "BPF system config check: NOT OK."
+			// TODO(brb) warn after GH#14314 has been resolved
+			if !errors.Is(err, probes.ErrKernelConfigNotFound) {
+				log.WithError(err).Warn(errMsg)
+			}
 		}
 		if err := probeManager.CreateHeadersFile(); err != nil {
 			log.WithError(err).Fatal("BPF check: NOT OK.")

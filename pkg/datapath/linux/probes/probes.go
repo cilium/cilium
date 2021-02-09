@@ -40,6 +40,10 @@ var (
 	probeManager *ProbeManager
 )
 
+// ErrKernelConfigNotFound is the error returned if the kernel config is unavailable
+// to the cilium agent.
+var ErrKernelConfigNotFound = errors.New("Kernel Config file not found")
+
 // KernelParam is a type based on string which represents CONFIG_* kernel
 // parameters which usually have values "y", "n" or "m".
 type KernelParam string
