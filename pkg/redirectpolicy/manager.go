@@ -48,7 +48,7 @@ type svcManager interface {
 
 type svcCache interface {
 	EnsureService(svcID k8s.ServiceID, swg *lock.StoppableWaitGroup) bool
-	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType lb.SVCType) map[lb.FEPortName]*lb.L3n4Addr
+	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType lb.SVCType) (map[lb.FEPortName][]*lb.L3n4Addr, int)
 	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
 }
 
@@ -356,16 +356,18 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 	switch config.frontendType {
 	case svcFrontendAll:
 		// Get all the service frontends.
-		addrsByPort := rpm.svcCache.GetServiceAddrsWithType(*config.serviceID,
+		addrsByPort, feIPsCount := rpm.svcCache.GetServiceAddrsWithType(*config.serviceID,
 			lb.SVCTypeClusterIP)
-		config.frontendMappings = make([]*feMapping, 0, len(addrsByPort))
-		for p, addr := range addrsByPort {
-			feM := &feMapping{
-				feAddr: addr,
-				fePort: string(p),
+		config.frontendMappings = make([]*feMapping, 0, len(addrsByPort)*feIPsCount)
+		for p, addrs := range addrsByPort {
+			for _, addr := range addrs {
+				feM := &feMapping{
+					feAddr: addr,
+					fePort: string(p),
+				}
+				config.frontendMappings = append(config.frontendMappings, feM)
 			}
-			config.frontendMappings = append(config.frontendMappings, feM)
-			rpm.updateConfigSvcFrontend(config, addr)
+			rpm.updateConfigSvcFrontend(config, addrs...)
 		}
 
 	case svcFrontendSinglePort:

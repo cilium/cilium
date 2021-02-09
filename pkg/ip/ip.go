@@ -806,3 +806,71 @@ func IPToPrefix(ip net.IP) *net.IPNet {
 func IsIPv4(ip net.IP) bool {
 	return ip.To4() != nil
 }
+
+// IsIPv6 returns if netIP is IPv6.
+func IsIPv6(ip net.IP) bool {
+	return ip != nil && ip.To4() == nil
+}
+
+// SortIPList sorts the provided net.IP slice in place.
+func SortIPList(ipList []net.IP) {
+	sort.Slice(ipList, func(i, j int) bool {
+		return bytes.Compare(ipList[i], ipList[j]) < 0
+	})
+}
+
+// getSortedIPList returns a new net.IP slice in which the IPs are sorted.
+func getSortedIPList(ipList []net.IP) []net.IP {
+	sortedIPList := make([]net.IP, len(ipList))
+	for i := 0; i < len(ipList); i++ {
+		sortedIPList[i] = ipList[i]
+	}
+
+	SortIPList(sortedIPList)
+	return sortedIPList
+}
+
+// SortedIPListsAreEqual compares two lists of sorted IPs. If any differ it returns
+// false.
+func SortedIPListsAreEqual(a, b []net.IP) bool {
+	// The IP set is definitely different if the lengths are different.
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Lengths are equal, so each member in one set must be in the other
+	// If any IPs at the same index differ the sorted IP list are not equal.
+	for i := range a {
+		if !a[i].Equal(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// UnsortedIPListsAreEqual returns true if the list of net.IP provided is same
+// without considering the order of the IPs in the list. The function will first
+// attempt to sort both the IP lists and then validate equality for sorted lists.
+func UnsortedIPListsAreEqual(ipList1, ipList2 []net.IP) bool {
+	// The IP set is definitely different if the lengths are different.
+	if len(ipList1) != len(ipList2) {
+		return false
+	}
+
+	sortedIPList1 := getSortedIPList(ipList1)
+	sortedIPList2 := getSortedIPList(ipList2)
+
+	return SortedIPListsAreEqual(sortedIPList1, sortedIPList2)
+}
+
+// GetIPFromListByFamily returns a single IP address of the provided family from a list
+// of ip addresses.
+func GetIPFromListByFamily(ipList []net.IP, v4Family bool) net.IP {
+	for _, ipAddr := range ipList {
+		if v4Family == IsIPv4(ipAddr) || (!v4Family && IsIPv6(ipAddr)) {
+			return ipAddr
+		}
+	}
+
+	return nil
+}
