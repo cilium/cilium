@@ -77,6 +77,9 @@ Limitations
 * When applying L7 policies at egress, the source identity context is lost as
   it is currently not carried in the packet. This means that traffic will look
   like it is coming from outside of the cluster to the receiving pod.
+* HostPort type services additionally requires the following configuration:
+
+   * :ref:`k8s_install_portmap`
 
 Troubleshooting
 ===============
