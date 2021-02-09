@@ -971,29 +971,18 @@ func (m *IptablesManager) installMasqueradeRules(prog, ifName, localDeliveryInte
 		return err
 	}
 
-	// The following rules exclude traffic from the remaining rules in this chain.
-	// If any of these rules match, none of the remaining rules in this chain
+	// The following rule exclude traffic from the remaining rules in this chain.
+	// If this rule matches, none of the remaining rules in this chain
 	// are considered.
-	// Exclude traffic for other than interface from the masquarade rules.
-	// RETURN fro the chain as it is possible that other rules need to be matched.
-	if err := runProg(prog, append(
-		m.waitArgs,
-		"-t", "nat",
-		"-A", ciliumPostNatChain,
-		"!", "-o", localDeliveryInterface,
-		"-m", "comment", "--comment", "exclude non-"+ifName+" traffic from masquerade",
-		"-j", "RETURN"), false); err != nil {
-		return err
-	}
 
-	// Exclude proxy return traffic from the masquarade rules
+	// Exclude proxy return traffic from the masquarade rules.
 	if err := runProg(prog, append(
 		m.waitArgs,
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
 		// Don't match proxy (return) traffic
 		"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask),
-		"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
+		"-m", "comment", "--comment", "exclude proxy return traffic from masquerade",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
