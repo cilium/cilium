@@ -1124,6 +1124,17 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 
 			if helpers.RunsOnGKE() {
+				k8s1ExternalIP, err := kubectl.GetNodeIPByLabel(helpers.K8s1, true)
+				Expect(err).Should(BeNil(), "Cannot retrieve Node External IP for %s", helpers.K8s1)
+				k8s2ExternalIP, err := kubectl.GetNodeIPByLabel(helpers.K8s2, true)
+				Expect(err).Should(BeNil(), "Cannot retrieve Node External IP for %s", helpers.K8s2)
+				testURLsFromPods = append(testURLsFromPods,
+					getHTTPLink(k8s1ExternalIP, data.Spec.Ports[0].NodePort),
+					getTFTPLink(k8s1ExternalIP, data.Spec.Ports[1].NodePort),
+					getHTTPLink(k8s2ExternalIP, data.Spec.Ports[0].NodePort),
+					getTFTPLink(k8s2ExternalIP, data.Spec.Ports[1].NodePort),
+				)
+
 				// Testing LoadBalancer types subject to bpf_sock.
 				lbIP, err := kubectl.GetLoadBalancerIP(helpers.DefaultNamespace, "test-lb", 60*time.Second)
 				Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")

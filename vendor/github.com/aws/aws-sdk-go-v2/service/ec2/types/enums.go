@@ -1114,7 +1114,7 @@ type DnsNameState string
 
 // Enum values for DnsNameState
 const (
-	DnsNameStatePendingverification DnsNameState = "pendingVerification"
+	DnsNameStatePendingVerification DnsNameState = "pendingVerification"
 	DnsNameStateVerified            DnsNameState = "verified"
 	DnsNameStateFailed              DnsNameState = "failed"
 )
@@ -1614,7 +1614,7 @@ type FlowLogsResourceType string
 const (
 	FlowLogsResourceTypeVpc              FlowLogsResourceType = "VPC"
 	FlowLogsResourceTypeSubnet           FlowLogsResourceType = "Subnet"
-	FlowLogsResourceTypeNetworkinterface FlowLogsResourceType = "NetworkInterface"
+	FlowLogsResourceTypeNetworkInterface FlowLogsResourceType = "NetworkInterface"
 )
 
 // Values returns all known values for FlowLogsResourceType. Note that this can be
@@ -1634,8 +1634,8 @@ type FpgaImageAttributeName string
 const (
 	FpgaImageAttributeNameDescription    FpgaImageAttributeName = "description"
 	FpgaImageAttributeNameName           FpgaImageAttributeName = "name"
-	FpgaImageAttributeNameLoadpermission FpgaImageAttributeName = "loadPermission"
-	FpgaImageAttributeNameProductcodes   FpgaImageAttributeName = "productCodes"
+	FpgaImageAttributeNameLoadPermission FpgaImageAttributeName = "loadPermission"
+	FpgaImageAttributeNameProductCodes   FpgaImageAttributeName = "productCodes"
 )
 
 // Values returns all known values for FpgaImageAttributeName. Note that this can
@@ -1808,11 +1808,11 @@ const (
 	ImageAttributeNameDescription        ImageAttributeName = "description"
 	ImageAttributeNameKernel             ImageAttributeName = "kernel"
 	ImageAttributeNameRamdisk            ImageAttributeName = "ramdisk"
-	ImageAttributeNameLaunchpermission   ImageAttributeName = "launchPermission"
-	ImageAttributeNameProductcodes       ImageAttributeName = "productCodes"
-	ImageAttributeNameBlockdevicemapping ImageAttributeName = "blockDeviceMapping"
-	ImageAttributeNameSriovnetsupport    ImageAttributeName = "sriovNetSupport"
-	ImageAttributeNameBootmode           ImageAttributeName = "bootMode"
+	ImageAttributeNameLaunchPermission   ImageAttributeName = "launchPermission"
+	ImageAttributeNameProductCodes       ImageAttributeName = "productCodes"
+	ImageAttributeNameBlockDeviceMapping ImageAttributeName = "blockDeviceMapping"
+	ImageAttributeNameSriovNetSupport    ImageAttributeName = "sriovNetSupport"
+	ImageAttributeNameBootMode           ImageAttributeName = "bootMode"
 )
 
 // Values returns all known values for ImageAttributeName. Note that this can be
@@ -1883,21 +1883,21 @@ type InstanceAttributeName string
 
 // Enum values for InstanceAttributeName
 const (
-	InstanceAttributeNameInstancetype                      InstanceAttributeName = "instanceType"
+	InstanceAttributeNameInstanceType                      InstanceAttributeName = "instanceType"
 	InstanceAttributeNameKernel                            InstanceAttributeName = "kernel"
 	InstanceAttributeNameRamdisk                           InstanceAttributeName = "ramdisk"
-	InstanceAttributeNameUserdata                          InstanceAttributeName = "userData"
-	InstanceAttributeNameDisableapitermination             InstanceAttributeName = "disableApiTermination"
-	InstanceAttributeNameInstanceinitiatedshutdownbehavior InstanceAttributeName = "instanceInitiatedShutdownBehavior"
-	InstanceAttributeNameRootdevicename                    InstanceAttributeName = "rootDeviceName"
-	InstanceAttributeNameBlockdevicemapping                InstanceAttributeName = "blockDeviceMapping"
-	InstanceAttributeNameProductcodes                      InstanceAttributeName = "productCodes"
-	InstanceAttributeNameSourcedestcheck                   InstanceAttributeName = "sourceDestCheck"
-	InstanceAttributeNameGroupset                          InstanceAttributeName = "groupSet"
-	InstanceAttributeNameEbsoptimized                      InstanceAttributeName = "ebsOptimized"
-	InstanceAttributeNameSriovnetsupport                   InstanceAttributeName = "sriovNetSupport"
-	InstanceAttributeNameEnasupport                        InstanceAttributeName = "enaSupport"
-	InstanceAttributeNameEnclaveoptions                    InstanceAttributeName = "enclaveOptions"
+	InstanceAttributeNameUserData                          InstanceAttributeName = "userData"
+	InstanceAttributeNameDisableApiTermination             InstanceAttributeName = "disableApiTermination"
+	InstanceAttributeNameInstanceInitiatedShutdownBehavior InstanceAttributeName = "instanceInitiatedShutdownBehavior"
+	InstanceAttributeNameRootDeviceName                    InstanceAttributeName = "rootDeviceName"
+	InstanceAttributeNameBlockDeviceMapping                InstanceAttributeName = "blockDeviceMapping"
+	InstanceAttributeNameProductCodes                      InstanceAttributeName = "productCodes"
+	InstanceAttributeNameSourceDestCheck                   InstanceAttributeName = "sourceDestCheck"
+	InstanceAttributeNameGroupSet                          InstanceAttributeName = "groupSet"
+	InstanceAttributeNameEbsOptimized                      InstanceAttributeName = "ebsOptimized"
+	InstanceAttributeNameSriovNetSupport                   InstanceAttributeName = "sriovNetSupport"
+	InstanceAttributeNameEnaSupport                        InstanceAttributeName = "enaSupport"
+	InstanceAttributeNameEnclaveOptions                    InstanceAttributeName = "enclaveOptions"
 )
 
 // Values returns all known values for InstanceAttributeName. Note that this can be
@@ -3224,8 +3224,8 @@ type MoveStatus string
 
 // Enum values for MoveStatus
 const (
-	MoveStatusMovingtovpc        MoveStatus = "movingToVpc"
-	MoveStatusRestoringtoclassic MoveStatus = "restoringToClassic"
+	MoveStatusMovingToVpc        MoveStatus = "movingToVpc"
+	MoveStatusRestoringToClassic MoveStatus = "restoringToClassic"
 )
 
 // Values returns all known values for MoveStatus. Note that this can be expanded
@@ -3285,8 +3285,8 @@ type NetworkInterfaceAttribute string
 // Enum values for NetworkInterfaceAttribute
 const (
 	NetworkInterfaceAttributeDescription     NetworkInterfaceAttribute = "description"
-	NetworkInterfaceAttributeGroupset        NetworkInterfaceAttribute = "groupSet"
-	NetworkInterfaceAttributeSourcedestcheck NetworkInterfaceAttribute = "sourceDestCheck"
+	NetworkInterfaceAttributeGroupSet        NetworkInterfaceAttribute = "groupSet"
+	NetworkInterfaceAttributeSourceDestCheck NetworkInterfaceAttribute = "sourceDestCheck"
 	NetworkInterfaceAttributeAttachment      NetworkInterfaceAttribute = "attachment"
 )
 
@@ -3370,7 +3370,7 @@ type NetworkInterfaceType string
 // Enum values for NetworkInterfaceType
 const (
 	NetworkInterfaceTypeInterface  NetworkInterfaceType = "interface"
-	NetworkInterfaceTypeNatgateway NetworkInterfaceType = "natGateway"
+	NetworkInterfaceTypeNatGateway NetworkInterfaceType = "natGateway"
 	NetworkInterfaceTypeEfa        NetworkInterfaceType = "efa"
 )
 
@@ -3623,7 +3623,7 @@ type PrincipalType string
 const (
 	PrincipalTypeAll              PrincipalType = "All"
 	PrincipalTypeService          PrincipalType = "Service"
-	PrincipalTypeOrganizationunit PrincipalType = "OrganizationUnit"
+	PrincipalTypeOrganizationUnit PrincipalType = "OrganizationUnit"
 	PrincipalTypeAccount          PrincipalType = "Account"
 	PrincipalTypeUser             PrincipalType = "User"
 	PrincipalTypeRole             PrincipalType = "Role"
@@ -3829,7 +3829,7 @@ type ResetFpgaImageAttributeName string
 
 // Enum values for ResetFpgaImageAttributeName
 const (
-	ResetFpgaImageAttributeNameLoadpermission ResetFpgaImageAttributeName = "loadPermission"
+	ResetFpgaImageAttributeNameLoadPermission ResetFpgaImageAttributeName = "loadPermission"
 )
 
 // Values returns all known values for ResetFpgaImageAttributeName. Note that this
@@ -3845,7 +3845,7 @@ type ResetImageAttributeName string
 
 // Enum values for ResetImageAttributeName
 const (
-	ResetImageAttributeNameLaunchpermission ResetImageAttributeName = "launchPermission"
+	ResetImageAttributeNameLaunchPermission ResetImageAttributeName = "launchPermission"
 )
 
 // Values returns all known values for ResetImageAttributeName. Note that this can
@@ -4003,9 +4003,9 @@ type RouteOrigin string
 
 // Enum values for RouteOrigin
 const (
-	RouteOriginCreateroutetable          RouteOrigin = "CreateRouteTable"
-	RouteOriginCreateroute               RouteOrigin = "CreateRoute"
-	RouteOriginEnablevgwroutepropagation RouteOrigin = "EnableVgwRoutePropagation"
+	RouteOriginCreateRouteTable          RouteOrigin = "CreateRouteTable"
+	RouteOriginCreateRoute               RouteOrigin = "CreateRoute"
+	RouteOriginEnableVgwRoutePropagation RouteOrigin = "EnableVgwRoutePropagation"
 )
 
 // Values returns all known values for RouteOrigin. Note that this can be expanded
@@ -4146,7 +4146,7 @@ type ServiceType string
 const (
 	ServiceTypeInterface           ServiceType = "Interface"
 	ServiceTypeGateway             ServiceType = "Gateway"
-	ServiceTypeGatewayloadbalancer ServiceType = "GatewayLoadBalancer"
+	ServiceTypeGatewayLoadBalancer ServiceType = "GatewayLoadBalancer"
 )
 
 // Values returns all known values for ServiceType. Note that this can be expanded
@@ -4182,8 +4182,8 @@ type SnapshotAttributeName string
 
 // Enum values for SnapshotAttributeName
 const (
-	SnapshotAttributeNameProductcodes           SnapshotAttributeName = "productCodes"
-	SnapshotAttributeNameCreatevolumepermission SnapshotAttributeName = "createVolumePermission"
+	SnapshotAttributeNameProductCodes           SnapshotAttributeName = "productCodes"
+	SnapshotAttributeNameCreateVolumePermission SnapshotAttributeName = "createVolumePermission"
 )
 
 // Values returns all known values for SnapshotAttributeName. Note that this can be
@@ -4303,7 +4303,7 @@ type State string
 
 // Enum values for State
 const (
-	StatePendingacceptance State = "PendingAcceptance"
+	StatePendingAcceptance State = "PendingAcceptance"
 	StatePending           State = "Pending"
 	StateAvailable         State = "Available"
 	StateDeleting          State = "Deleting"
@@ -4351,9 +4351,9 @@ type Status string
 
 // Enum values for Status
 const (
-	StatusMoveinprogress Status = "MoveInProgress"
-	StatusInvpc          Status = "InVpc"
-	StatusInclassic      Status = "InClassic"
+	StatusMoveInProgress Status = "MoveInProgress"
+	StatusInVpc          Status = "InVpc"
+	StatusInClassic      Status = "InClassic"
 )
 
 // Values returns all known values for Status. Note that this can be expanded in
@@ -4698,9 +4698,9 @@ type TransitGatewayAttachmentState string
 // Enum values for TransitGatewayAttachmentState
 const (
 	TransitGatewayAttachmentStateInitiating        TransitGatewayAttachmentState = "initiating"
-	TransitGatewayAttachmentStateInitiatingrequest TransitGatewayAttachmentState = "initiatingRequest"
-	TransitGatewayAttachmentStatePendingacceptance TransitGatewayAttachmentState = "pendingAcceptance"
-	TransitGatewayAttachmentStateRollingback       TransitGatewayAttachmentState = "rollingBack"
+	TransitGatewayAttachmentStateInitiatingRequest TransitGatewayAttachmentState = "initiatingRequest"
+	TransitGatewayAttachmentStatePendingAcceptance TransitGatewayAttachmentState = "pendingAcceptance"
+	TransitGatewayAttachmentStateRollingBack       TransitGatewayAttachmentState = "rollingBack"
 	TransitGatewayAttachmentStatePending           TransitGatewayAttachmentState = "pending"
 	TransitGatewayAttachmentStateAvailable         TransitGatewayAttachmentState = "available"
 	TransitGatewayAttachmentStateModifying         TransitGatewayAttachmentState = "modifying"
@@ -4761,7 +4761,7 @@ type TransitGatewayMulitcastDomainAssociationState string
 
 // Enum values for TransitGatewayMulitcastDomainAssociationState
 const (
-	TransitGatewayMulitcastDomainAssociationStatePendingacceptance TransitGatewayMulitcastDomainAssociationState = "pendingAcceptance"
+	TransitGatewayMulitcastDomainAssociationStatePendingAcceptance TransitGatewayMulitcastDomainAssociationState = "pendingAcceptance"
 	TransitGatewayMulitcastDomainAssociationStateAssociating       TransitGatewayMulitcastDomainAssociationState = "associating"
 	TransitGatewayMulitcastDomainAssociationStateAssociated        TransitGatewayMulitcastDomainAssociationState = "associated"
 	TransitGatewayMulitcastDomainAssociationStateDisassociating    TransitGatewayMulitcastDomainAssociationState = "disassociating"
@@ -5090,8 +5090,8 @@ type VolumeAttributeName string
 
 // Enum values for VolumeAttributeName
 const (
-	VolumeAttributeNameAutoenableio VolumeAttributeName = "autoEnableIO"
-	VolumeAttributeNameProductcodes VolumeAttributeName = "productCodes"
+	VolumeAttributeNameAutoEnableIO VolumeAttributeName = "autoEnableIO"
+	VolumeAttributeNameProductCodes VolumeAttributeName = "productCodes"
 )
 
 // Values returns all known values for VolumeAttributeName. Note that this can be
@@ -5222,8 +5222,8 @@ type VpcAttributeName string
 
 // Enum values for VpcAttributeName
 const (
-	VpcAttributeNameEnablednssupport   VpcAttributeName = "enableDnsSupport"
-	VpcAttributeNameEnablednshostnames VpcAttributeName = "enableDnsHostnames"
+	VpcAttributeNameEnableDnsSupport   VpcAttributeName = "enableDnsSupport"
+	VpcAttributeNameEnableDnsHostnames VpcAttributeName = "enableDnsHostnames"
 )
 
 // Values returns all known values for VpcAttributeName. Note that this can be
@@ -5268,7 +5268,7 @@ type VpcEndpointType string
 const (
 	VpcEndpointTypeInterface           VpcEndpointType = "Interface"
 	VpcEndpointTypeGateway             VpcEndpointType = "Gateway"
-	VpcEndpointTypeGatewayloadbalancer VpcEndpointType = "GatewayLoadBalancer"
+	VpcEndpointTypeGatewayLoadBalancer VpcEndpointType = "GatewayLoadBalancer"
 )
 
 // Values returns all known values for VpcEndpointType. Note that this can be

@@ -373,10 +373,10 @@ func getClientLogMode(ctx context.Context, configs configs) (m aws.ClientLogMode
 
 // retryProvider is an configuration provider for custom Retryer.
 type retryProvider interface {
-	getRetryer(ctx context.Context) (aws.Retryer, bool, error)
+	getRetryer(ctx context.Context) (func() aws.Retryer, bool, error)
 }
 
-func getRetryer(ctx context.Context, configs configs) (v aws.Retryer, found bool, err error) {
+func getRetryer(ctx context.Context, configs configs) (v func() aws.Retryer, found bool, err error) {
 	for _, c := range configs {
 		if p, ok := c.(retryProvider); ok {
 			v, found, err = p.getRetryer(ctx)

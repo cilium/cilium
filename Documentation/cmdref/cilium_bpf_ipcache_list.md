@@ -9,7 +9,7 @@ List endpoint IPs (local and remote) and their corresponding security identities
 List endpoint IPs (local and remote) and their corresponding security identities.
 
 Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the native
-LPM map type used for implementing the IPCache does not provide the ability to
+LPM map type used for implementing this feature does not provide the ability to
 walk / dump the entries, so on these kernel versions this tool will never
 return any entries, even if entries exist in the map. You may instead run:
     cilium map get cilium_ipcache

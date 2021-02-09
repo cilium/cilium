@@ -120,20 +120,31 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 		}
 
 		// We need to pick up the smallest MTU among the one set from the above logic
-		// and among the devices configured using --devices
+		// and among the devices configured using --devices and --direct-routing-device
 
 		for _, device := range option.Config.Devices {
-			var link netlink.Link
-
 			link, err := netlink.LinkByName(device)
 			if err != nil {
 				log.WithError(err).WithField("Config device", device).
-					Fatal("Cannot find device interface")
+					Error("Cannot find device interface")
+			} else {
+				if mtu > link.Attrs().MTU {
+					// reset the MTU to the smaller value
+					mtu = link.Attrs().MTU
+				}
 			}
+		}
 
-			if mtu > link.Attrs().MTU {
-				// reset the MTU to the smaller value
-				mtu = link.Attrs().MTU
+		if option.Config.DirectRoutingDevice != "" {
+			link, err := netlink.LinkByName(option.Config.DirectRoutingDevice)
+			if err != nil {
+				log.WithError(err).WithField("Config device", option.Config.DirectRoutingDevice).
+					Error("Cannot find device interface")
+			} else {
+				if mtu > link.Attrs().MTU {
+					// reset the MTU to the smaller value
+					mtu = link.Attrs().MTU
+				}
 			}
 		}
 

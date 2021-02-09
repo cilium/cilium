@@ -729,7 +729,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 				IP := endpointIP.IP()
 				ID := e.SecurityIdentity.ID
-				hostIP := node.GetExternalIPv4()
+				hostIP := node.GetIPv4()
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace

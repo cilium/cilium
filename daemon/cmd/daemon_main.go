@@ -1291,7 +1291,7 @@ func initEnv(cmd *cobra.Command) {
 		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
 		} else {
-			node.SetExternalIPv4(ip)
+			node.SetIPv4(ip)
 		}
 	}
 

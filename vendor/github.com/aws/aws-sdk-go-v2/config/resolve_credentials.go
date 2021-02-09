@@ -202,7 +202,9 @@ func resolveHTTPCredProvider(ctx context.Context, cfg *aws.Config, url, authToke
 				options.AuthorizationToken = authToken
 			}
 			options.APIOptions = cfg.APIOptions
-			options.Retryer = cfg.Retryer
+			if cfg.Retryer != nil {
+				options.Retryer = cfg.Retryer()
+			}
 		},
 	}
 
@@ -258,10 +260,13 @@ func resolveEC2RoleCredentials(ctx context.Context, cfg *aws.Config, configs con
 	optFns = append(optFns, func(o *ec2rolecreds.Options) {
 		// Only define a client from config if not already defined.
 		if o.Client != nil {
-			o.Client = imds.New(imds.Options{
+			options := imds.Options{
 				HTTPClient: cfg.HTTPClient,
-				Retryer:    cfg.Retryer,
-			})
+			}
+			if cfg.Retryer != nil {
+				options.Retryer = cfg.Retryer()
+			}
+			o.Client = imds.New(options)
 		}
 	})
 

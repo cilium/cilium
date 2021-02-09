@@ -30,6 +30,7 @@ func (m *awsAwsquery_serializeOpAssumeRole) HandleSerialize(ctx context.Context,
 	}
 
 	input, ok := in.Parameters.(*AssumeRoleInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -85,6 +86,7 @@ func (m *awsAwsquery_serializeOpAssumeRoleWithSAML) HandleSerialize(ctx context.
 	}
 
 	input, ok := in.Parameters.(*AssumeRoleWithSAMLInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -140,6 +142,7 @@ func (m *awsAwsquery_serializeOpAssumeRoleWithWebIdentity) HandleSerialize(ctx c
 	}
 
 	input, ok := in.Parameters.(*AssumeRoleWithWebIdentityInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -195,6 +198,7 @@ func (m *awsAwsquery_serializeOpDecodeAuthorizationMessage) HandleSerialize(ctx 
 	}
 
 	input, ok := in.Parameters.(*DecodeAuthorizationMessageInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -250,6 +254,7 @@ func (m *awsAwsquery_serializeOpGetAccessKeyInfo) HandleSerialize(ctx context.Co
 	}
 
 	input, ok := in.Parameters.(*GetAccessKeyInfoInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -305,6 +310,7 @@ func (m *awsAwsquery_serializeOpGetCallerIdentity) HandleSerialize(ctx context.C
 	}
 
 	input, ok := in.Parameters.(*GetCallerIdentityInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -322,8 +328,6 @@ func (m *awsAwsquery_serializeOpGetCallerIdentity) HandleSerialize(ctx context.C
 	body := bodyEncoder.Object()
 	body.Key("Action").String("GetCallerIdentity")
 	body.Key("Version").String("2011-06-15")
-
-	_ = input
 
 	err = bodyEncoder.Encode()
 	if err != nil {
@@ -358,6 +362,7 @@ func (m *awsAwsquery_serializeOpGetFederationToken) HandleSerialize(ctx context.
 	}
 
 	input, ok := in.Parameters.(*GetFederationTokenInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}
@@ -413,6 +418,7 @@ func (m *awsAwsquery_serializeOpGetSessionToken) HandleSerialize(ctx context.Con
 	}
 
 	input, ok := in.Parameters.(*GetSessionTokenInput)
+	_ = input
 	if !ok {
 		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
 	}

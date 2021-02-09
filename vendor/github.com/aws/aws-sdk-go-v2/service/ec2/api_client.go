@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	presignedurlcust "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url"
 	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/aws/smithy-go/middleware"
@@ -91,11 +92,19 @@ type Options struct {
 
 	// Retryer guides how HTTP requests should be retried in case of recoverable
 	// failures. When nil the API client will use a default retryer.
-	Retryer retry.Retryer
+	Retryer aws.Retryer
 
 	// The HTTP client to invoke API calls with. Defaults to client's default HTTP
 	// implementation if nil.
 	HTTPClient HTTPClient
+}
+
+// WithAPIOptions returns a functional option for setting the Client's APIOptions
+// option.
+func WithAPIOptions(optFns ...func(*middleware.Stack) error) func(*Options) {
+	return func(o *Options) {
+		o.APIOptions = append(o.APIOptions, optFns...)
+	}
 }
 
 type HTTPClient interface {
@@ -110,6 +119,7 @@ func (o Options) Copy() Options {
 	return to
 }
 func (c *Client) invokeOperation(ctx context.Context, opID string, params interface{}, optFns []func(*Options), stackFns ...func(*middleware.Stack, Options) error) (result interface{}, metadata middleware.Metadata, err error) {
+	ctx = middleware.ClearStackValues(ctx)
 	stack := middleware.NewStack(opID, smithyhttp.NewStackRequest)
 	options := c.options.Copy()
 	for _, fn := range optFns {
@@ -155,13 +165,13 @@ func addSetLoggerMiddleware(stack *middleware.Stack, o Options) error {
 func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 	opts := Options{
 		Region:        cfg.Region,
-		Retryer:       cfg.Retryer,
 		HTTPClient:    cfg.HTTPClient,
 		Credentials:   cfg.Credentials,
 		APIOptions:    cfg.APIOptions,
 		Logger:        cfg.Logger,
 		ClientLogMode: cfg.ClientLogMode,
 	}
+	resolveAWSRetryerProvider(cfg, &opts)
 	resolveAWSEndpointResolver(cfg, &opts)
 	return New(opts, optFns...)
 }
@@ -180,15 +190,22 @@ func resolveRetryer(o *Options) {
 	o.Retryer = retry.NewStandard()
 }
 
+func resolveAWSRetryerProvider(cfg aws.Config, o *Options) {
+	if cfg.Retryer == nil {
+		return
+	}
+	o.Retryer = cfg.Retryer()
+}
+
 func resolveAWSEndpointResolver(cfg aws.Config, o *Options) {
 	if cfg.EndpointResolver == nil {
 		return
 	}
-	o.EndpointResolver = WithEndpointResolver(cfg.EndpointResolver, NewDefaultEndpointResolver())
+	o.EndpointResolver = withEndpointResolver(cfg.EndpointResolver, NewDefaultEndpointResolver())
 }
 
 func addClientUserAgent(stack *middleware.Stack) error {
-	return awsmiddleware.AddUserAgentKey("ec2")(stack)
+	return awsmiddleware.AddRequestUserAgentMiddleware(stack)
 }
 
 func addHTTPSignerV4Middleware(stack *middleware.Stack, o Options) error {
@@ -244,15 +261,6 @@ func addRequestIDRetrieverMiddleware(stack *middleware.Stack) error {
 
 func addResponseErrorMiddleware(stack *middleware.Stack) error {
 	return awshttp.AddResponseErrorMiddleware(stack)
-}
-
-func addRequestResponseLogging(stack *middleware.Stack, o Options) error {
-	return stack.Deserialize.Add(&smithyhttp.RequestResponseLogger{
-		LogRequest:          o.ClientLogMode.IsRequest(),
-		LogRequestWithBody:  o.ClientLogMode.IsRequestWithBody(),
-		LogResponse:         o.ClientLogMode.IsResponse(),
-		LogResponseWithBody: o.ClientLogMode.IsResponseWithBody(),
-	}, middleware.After)
 }
 
 // HTTPPresignerV4 represents presigner interface used by presign url client
@@ -345,5 +353,18 @@ func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, op
 	if err != nil {
 		return err
 	}
+	err = presignedurlcust.AddAsIsPresigingMiddleware(stack)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func addRequestResponseLogging(stack *middleware.Stack, o Options) error {
+	return stack.Deserialize.Add(&smithyhttp.RequestResponseLogger{
+		LogRequest:          o.ClientLogMode.IsRequest(),
+		LogRequestWithBody:  o.ClientLogMode.IsRequestWithBody(),
+		LogResponse:         o.ClientLogMode.IsResponse(),
+		LogResponseWithBody: o.ClientLogMode.IsResponseWithBody(),
+	}, middleware.After)
 }

@@ -176,10 +176,17 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.Labels = node.GetLabels()
 	n.LocalNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
 
-	if node.GetExternalIPv4() != nil {
+	if node.GetK8sExternalIPv4() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeExternalIP,
+			IP:   node.GetK8sExternalIPv4(),
+		})
+	}
+
+	if node.GetIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
-			IP:   node.GetExternalIPv4(),
+			IP:   node.GetIPv4(),
 		})
 	}
 
@@ -190,10 +197,10 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
-	if node.GetInternalIPv4() != nil {
+	if node.GetInternalIPv4Router() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetInternalIPv4(),
+			IP:   node.GetInternalIPv4Router(),
 		})
 	}
 
@@ -201,6 +208,13 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
+		})
+	}
+
+	if node.GetK8sExternalIPv6() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeExternalIP,
+			IP:   node.GetK8sExternalIPv6(),
 		})
 	}
 
