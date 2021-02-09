@@ -34,7 +34,6 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
@@ -82,7 +81,7 @@ func getInt(i int) *int {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(manager *nodemanager.Manager, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -106,7 +105,6 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 	return &NodeDiscovery{
 		Manager: manager,
 		LocalConfig: datapath.LocalNodeConfiguration{
-			MtuConfig:               mtuConfig,
 			UseSingleClusterRoute:   option.Config.UseSingleClusterRoute,
 			EnableIPv4:              option.Config.EnableIPv4,
 			EnableIPv6:              option.Config.EnableIPv6,
