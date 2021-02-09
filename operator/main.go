@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
@@ -254,6 +255,10 @@ func runOperator() {
 
 	if operatorOption.Config.EnableMetrics {
 		operatorMetrics.Register()
+	}
+
+	if operatorOption.Config.PProf {
+		pprof.Enable()
 	}
 
 	initK8s(k8sInitDone)

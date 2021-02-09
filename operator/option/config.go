@@ -73,6 +73,9 @@ const (
 	// metrics (pass ":Port" to bind on all interfaces, "" is off).
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
+	// PProf enabled pprof debugging endpoint
+	PProf = "pprof"
+
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
 
@@ -216,6 +219,9 @@ type OperatorConfig struct {
 	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
+	// PProf enables pprof debugging endpoint
+	PProf bool
+
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
@@ -328,6 +334,7 @@ func (c *OperatorConfig) Populate() {
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
+	c.PProf = viper.GetBool(PProf)
 	c.SyncK8sServices = viper.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = viper.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
