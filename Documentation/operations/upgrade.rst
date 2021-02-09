@@ -339,14 +339,15 @@ Annotations:
 * When using the ENI-based IPAM in conjunction with the ``--eni-tags``, failures
   to create tags are treated as errors which will result in ENIs not being
   created. Ensure that the ``ec2:CreateTags`` IAM permissions are granted.
-* To prevent Pods being scheduled by other CNI plugins during Cilium agent
-  downtime (upgrades, crashes,..), Cilium now assumes ownership of the node's
-  CNI configuration directory (``/etc/cni/net.d``) by default.
-  Existing CNI configurations are renamed to ``*.cilium_bak``, which will
-  disable solutions like [CNI-Genie](https://github.com/cni-genie/CNI-Genie)
-  as well as the default CNI plugins shipped by most managed Kubernetes
-  distributions. Set the ``cni.exclusive=false`` Helm flag to disable this
-  behaviour.
+* Cilium now takes ownership of the ``/etc/cni/net.d/`` directory on the host
+  by default. During agent startup, Cilium replaces all CNI configuration files
+  containing the word ``cilium``, and non-Cilium CNI configuration files are
+  renamed to ``*.cilium_bak``. During agent shutdown, all Cilium CNI configs
+  are removed. To disable the ``*.cilium_bak`` behaviour, set the
+  ``cni.exclusive=false`` Helm flag. To disable CNI config installation and
+  removal altogether, set the ``cni.customConf=true`` Helm flag.
+  This is useful for managing CNI configs externally.
+  See https://github.com/cilium/cilium/pull/14192 for context and related issues.
 * Helm option ``serviceAccounts.certgen`` is removed, please use ``serviceAccounts.clustermeshcertgen``
   for Clustermesh certificate generation and ``serviceAccounts.hubblecertgen`` for Hubble certificate generation.
 

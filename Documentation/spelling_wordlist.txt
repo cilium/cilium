@@ -286,6 +286,7 @@ committers
 conf
 confPath
 config
+configs
 conntrack
 conntrackGCInterval
 containerRuntime
