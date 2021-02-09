@@ -55,6 +55,7 @@ BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
 CNI_CONF_DIR="$(dirname "$CILIUM_CNI_CONF")"
+CILIUM_CUSTOM_CNI_CONF=${CILIUM_CUSTOM_CNI_CONF:-false}
 
 if [ ! -d "${CNI_DIR}/bin" ]; then
 	mkdir -p "${CNI_DIR}/bin"
@@ -78,6 +79,15 @@ if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
 fi
 
 cp "/opt/cni/bin/${BIN_NAME}" "${CNI_DIR}/bin/"
+
+# The CILIUM_CUSTOM_CNI_CONF env is set by the `cni.customConf` Helm option.
+# It stops this script from touching the host's CNI config directory.
+# However, the agent will still write to the location specified by the
+# `--write-cni-conf-when-ready` flag when `cni.configMap` is set.
+if [ "${CILIUM_CUSTOM_CNI_CONF}" == "true" ]; then
+	echo "User is managing Cilium's CNI config externally, exiting..."
+	exit 0
+fi
 
 # Remove any active Cilium CNI configurations left over from previous installs
 # to make sure the one we're installing later will take effect.
@@ -107,15 +117,6 @@ if [ "${CNI_EXCLUSIVE}" != "false" ]; then
      -not \( -name '*.cilium_bak' \
      -or -name "${CNI_CONF_NAME}" \) \
      -exec mv {} {}.cilium_bak \;
-fi
-
-# The CILIUM_CUSTOM_CNI_CONF env is set if the user specifies a custom
-# CNI config in a ConfigMap and if the cni.customConf Helm option is set.
-# Skip the remainder of the script, since this custom config is written
-# to disk by the Cilium agent itself after initialization.
-if [ "${CILIUM_CUSTOM_CNI_CONF}" = "true" ]; then
-	echo "Using custom ${CILIUM_CNI_CONF}, exiting..."
-	exit 0
 fi
 
 echo "Installing new ${CILIUM_CNI_CONF}..."
