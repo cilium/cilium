@@ -784,39 +784,89 @@ func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
 	}
 }
 
-func (s *IPTestSuite) TestIsIPv4(c *C) {
+func (s *IPTestSuite) TestIPVersion(c *C) {
 	type args struct {
 		ip net.IP
 	}
 	tests := []struct {
 		name string
 		args args
-		want bool
+		v4   bool
+		v6   bool
 	}{
 		{
 			name: "test-1",
 			args: args{
 				ip: nil,
 			},
-			want: false,
+			v4: false,
+			v6: false,
 		},
 		{
 			name: "test-2",
 			args: args{
 				ip: net.ParseIP("1.1.1.1"),
 			},
-			want: true,
+			v4: true,
+			v6: false,
 		},
 		{
 			name: "test-3",
 			args: args{
 				ip: net.ParseIP("fd00::1"),
 			},
-			want: false,
+			v4: false,
+			v6: true,
 		},
 	}
 	for _, tt := range tests {
 		got := IsIPv4(tt.args.ip)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, tt.v4, Commentf("v4 test Name: %s", tt.name))
+
+		got = IsIPv6(tt.args.ip)
+		c.Assert(got, checker.DeepEquals, tt.v6, Commentf("v6 test Name: %s", tt.name))
+	}
+}
+
+func (s *IPTestSuite) TestIPListEquals(c *C) {
+	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
+	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
+
+	sortedIPs := getSortedIPList(ips)
+	c.Assert(SortedIPListsAreEqual(sorted, sortedIPs), checker.Equals, true)
+
+	c.Assert(UnsortedIPListsAreEqual(ips, sorted), checker.Equals, true)
+}
+
+func (s *IPTestSuite) TestGetIPFromListByFamily(c *C) {
+	tests := []struct {
+		name          string
+		ips           []net.IP
+		needsV4Family bool
+		wants         net.IP
+	}{
+		{
+			name:          "test-1",
+			ips:           []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")},
+			needsV4Family: true,
+			wants:         net.ParseIP("1.1.1.1"),
+		},
+		{
+			name:          "test-2",
+			ips:           []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")},
+			needsV4Family: false,
+			wants:         net.ParseIP("fd00::1"),
+		},
+		{
+			name:          "test-2",
+			ips:           []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8")},
+			needsV4Family: false,
+			wants:         nil,
+		},
+	}
+
+	for _, tt := range tests {
+		got := GetIPFromListByFamily(tt.ips, tt.needsV4Family)
+		c.Assert(got.String(), checker.DeepEquals, tt.wants.String(), Commentf("Test Name: %s", tt.name))
 	}
 }
