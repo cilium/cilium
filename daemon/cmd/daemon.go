@@ -301,20 +301,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
 
-	if k8s.IsEnabled() {
-		if err := k8s.WaitForNodeInformation(); err != nil {
-			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
-		}
-	}
-
-	var mtuConfig mtu.Configuration
-	externalIP := node.GetExternalIPv4()
-	if externalIP == nil {
-		externalIP = node.GetIPv6()
-	}
-	// ExternalIP could be nil but we are covering that case inside NewConfiguration
-	mtuConfig = mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU, externalIP)
-
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipcache.IPIdentityCache, option.Config)
 	if err != nil {
 		return nil, nil, err
@@ -329,7 +315,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		metrics.Identity.Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
+	nd := nodediscovery.NewNodeDiscovery(nodeMngr, netConf)
 
 	d := Daemon{
 		ctx:               dCtx,
@@ -338,9 +324,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
 		netConf:           netConf,
-		mtuConfig:         mtuConfig,
 		datapath:          dp,
-		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
 	}
@@ -484,7 +468,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		if option.Config.IPAM == ipamOption.IPAMClusterPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
-			d.nodeDiscovery.UpdateCiliumNodeResource()
+			nd.UpdateCiliumNodeResource()
+		}
+
+		if err := k8s.WaitForNodeInformation(); err != nil {
+			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}
 
 		// Kubernetes demands that the localhost can always reach local
@@ -511,6 +499,19 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// which can be modified after the device detection.
 	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
+
+	var mtuConfig mtu.Configuration
+	externalIP := node.GetExternalIPv4()
+	if externalIP == nil {
+		externalIP = node.GetIPv6()
+	}
+	// ExternalIP could be nil but we are covering that case inside NewConfiguration
+	mtuConfig = mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU, externalIP)
+
+	d.mtuConfig = mtuConfig
+
+	nd.LocalConfig.MtuConfig = mtuConfig
+	d.nodeDiscovery = nd
 
 	// Launch the K8s watchers in parallel as we continue to process other
 	// daemon options.

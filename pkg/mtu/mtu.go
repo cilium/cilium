@@ -14,7 +14,12 @@
 
 package mtu
 
-import "net"
+import (
+	"net"
+
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/vishvananda/netlink"
+)
 
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
@@ -113,6 +118,25 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 			log.WithError(err).Warning("Unable to automatically detect MTU")
 			mtu = EthernetMTU
 		}
+
+		// We need to pick up the smallest MTU among the one set from the above logic
+		// and among the devices configured using --devices
+
+		for _, device := range option.Config.Devices {
+			var link netlink.Link
+
+			link, err := netlink.LinkByName(device)
+			if err != nil {
+				log.WithError(err).WithField("Config device", device).
+					Fatal("Cannot find device interface")
+			}
+
+			if mtu > link.Attrs().MTU {
+				// reset the MTU to the smaller value
+				mtu = link.Attrs().MTU
+			}
+		}
+
 	}
 
 	if encryptEnabled {
