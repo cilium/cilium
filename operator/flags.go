@@ -248,6 +248,9 @@ func init() {
 	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
 	option.BindEnv(operatorOption.OperatorAPIServeAddr)
 
+	flags.Bool(operatorOption.PProf, false, "Enable pprof debugging endpoint")
+	option.BindEnv(operatorOption.PProf)
+
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(operatorOption.SyncK8sServices)
 
