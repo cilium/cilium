@@ -70,7 +70,7 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool, size uint64) error {
 	m.DummyMaglevTable[svcID] = len(backends)
 	return nil
 }

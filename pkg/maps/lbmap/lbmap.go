@@ -74,6 +74,7 @@ type UpsertServiceParams struct {
 	SessionAffinityTimeoutSec uint32
 	CheckSourceRange          bool
 	UseMaglev                 bool
+	MaglevTableSize           uint64
 }
 
 // UpsertService inserts or updates the given service in a BPF map.
@@ -100,7 +101,16 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if p.UseMaglev && len(p.Backends) != 0 {
-		if err := lbmap.UpsertMaglevLookupTable(p.ID, p.Backends, p.IPv6); err != nil {
+		if p.MaglevTableSize == 0 {
+			p.MaglevTableSize = lbmap.defaultMaglevTableSize
+		}
+
+		if err := lbmap.UpsertMaglevLookupTable(
+			p.ID,
+			p.Backends,
+			p.IPv6,
+			p.MaglevTableSize,
+		); err != nil {
 			return err
 		}
 	}
@@ -153,7 +163,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool, m uint64) error {
 	backendNames := make([]string, 0, len(backends))
 	for name := range backends {
 		backendNames = append(backendNames, name)
@@ -163,12 +173,18 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	// backends by name, as the names are the same on all nodes (in opposite
 	// to backend IDs which are node-local).
 	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.defaultMaglevTableSize)
+	table := maglev.GetLookupTable(backendNames, m)
+	// Need to extend the backend ID buffer if lookup table is larger.
+	if t := len(table); t > len(lbmap.maglevBackendIDsBuffer) {
+		buf := make([]uint16, t)
+		copy(buf, lbmap.maglevBackendIDsBuffer)
+		lbmap.maglevBackendIDsBuffer = buf
+	}
 	for i, pos := range table {
 		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
 	}
 
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer[:len(table)]); err != nil {
 		return err
 	}
 

@@ -719,6 +719,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		if svcs[i].Type == loadbalancer.SVCTypeLoadBalancer {
 			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
 		}
+		svcs[i].MaglevTableSize = svc.MaglevTableSize
 	}
 
 	return svcs
@@ -770,19 +771,11 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 	}
 
 	for _, dpSvc := range svcs {
-		p := &loadbalancer.SVC{
-			Frontend:                  dpSvc.Frontend,
-			Backends:                  dpSvc.Backends,
-			Type:                      dpSvc.Type,
-			TrafficPolicy:             dpSvc.TrafficPolicy,
-			SessionAffinity:           dpSvc.SessionAffinity,
-			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
-			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
-			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
-			Name:                      svcID.Name,
-			Namespace:                 svcID.Namespace,
-		}
-		if _, _, err := k.svcManager.UpsertService(p); err != nil {
+		p := dpSvc
+		p.Name = svcID.Name
+		p.Namespace = svcID.Namespace
+
+		if _, _, err := k.svcManager.UpsertService(&p); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
 	}

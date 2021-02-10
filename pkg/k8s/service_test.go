@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -219,6 +220,59 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		K8sExternalIPs:           map[string]net.IP{},
 		LoadBalancerIPs:          map[string]net.IP{},
 		Type:                     loadbalancer.SVCTypeLoadBalancer,
+	})
+
+	oldNodePortAlg := option.Config.NodePortAlg
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	defer func() {
+		option.Config.NodePortAlg = oldNodePortAlg
+	}()
+	k8sSvc = &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+			Annotations: map[string]string{
+				annotation.MaglevTableSize: "101",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeNodePort,
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					NodePort: 31111,
+					Protocol: slim_corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	id, svc = ParseService(k8sSvc, fakeDatapath.NewIPv4OnlyNodeAddressing())
+	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
+	c.Assert(svc, checker.DeepEquals, &Service{
+		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
+		Labels:      map[string]string{"foo": "bar"},
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+			"http": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolTCP), uint16(80)),
+		},
+		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
+			"http": {
+				zeroFE.String():     zeroFE,
+				internalFE.String(): internalFE,
+				nodePortFE.String(): nodePortFE,
+			},
+		},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		K8sExternalIPs:           map[string]net.IP{},
+		LoadBalancerIPs:          map[string]net.IP{},
+		Type:                     loadbalancer.SVCTypeNodePort,
+		MaglevTableSize:          251,
 	})
 }
 
