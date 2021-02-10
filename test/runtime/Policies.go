@@ -1571,7 +1571,7 @@ var _ = Describe("RuntimePolicies", func() {
 				// Checks for a ingress policy verdict event (type 5)
 				err := hubbleRes.WaitUntilMatchFilterLine(
 					`{.source.labels} -> {.IP.destination} : {.verdict} {.event_type.type}`,
-					fmt.Sprintf(`["reserved:host"] -> %s : FORWARDED 5`, endpointIP.IPV4))
+					fmt.Sprintf(`["reserved:host"] -> %s : AUDIT 5`, endpointIP.IPV4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				hubbleRes.ExpectContainsFilterLine(
@@ -1617,7 +1617,7 @@ var _ = Describe("RuntimePolicies", func() {
 				// Checks for a ingress policy verdict event (type 5)
 				hubbleRes.ExpectContainsFilterLine(
 					`{.source.ID} -> {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
-					fmt.Sprintf(`%s -> ["reserved:host"] %s : FORWARDED 5`, endpointID, hostIP),
+					fmt.Sprintf(`%s -> ["reserved:host"] %s : AUDIT 5`, endpointID, hostIP),
 					"Default policy verdict on egress failed")
 
 				By("Testing cilium monitor output")
