@@ -276,6 +276,7 @@ clusterDomain
 clusterPoolIPv
 clusterSize
 clustermesh
+cmdref
 cni
 cnp
 cnpStatusUpdates
@@ -662,6 +663,7 @@ policyEnforcementMode
 policyMapMax
 poller
 portmap
+postcheck
 pprof
 pre
 preallocateMaps

@@ -100,6 +100,15 @@ requirements have been met:
       the first 12 characters of the git SHA followed by the full commit title
       as seen above without breaking the line.
 
+#. If you change CLI arguments of any binaries in this repo, the CI will reject your PR if you don't
+   also update the command reference docs. To do so, make sure to run the ``postcheck`` make target.
+
+   .. code-block:: shell-session
+
+      $ make postcheck
+      $ git add Documentation/cmdref
+      $ git commit
+
 #. All commits are signed off. See the section :ref:`dev_coo`.
 
 #. Document any user-facing or breaking changes in ``Documentation/install/upgrade.rst``.
