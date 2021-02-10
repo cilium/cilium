@@ -61,11 +61,19 @@ func (ipam *IPAM) lookupIPsByOwner(owner string) (ips []net.IP) {
 // AllocateIP allocates a IP address.
 func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 	needSyncUpstream := true
+	_, err = ipam.allocateIP(ip, owner, needSyncUpstream)
+	return
+}
+
+// AllocateIPWithAllocationResult allocates an IP address, and returns the
+// allocation result.
+func (ipam *IPAM) AllocateIPWithAllocationResult(ip net.IP, owner string) (result *AllocationResult, err error) {
+	needSyncUpstream := true
 	return ipam.allocateIP(ip, owner, needSyncUpstream)
 }
 
 // AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
-func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string) (err error) {
+func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string) (result *AllocationResult, err error) {
 	needSyncUpstream := false
 	return ipam.allocateIP(ip, owner, needSyncUpstream)
 }
@@ -80,7 +88,7 @@ func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
 	return ipam.AllocateIP(ip, owner)
 }
 
-func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (err error) {
+func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (result *AllocationResult, err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
@@ -97,11 +105,11 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (er
 		}
 
 		if needSyncUpstream {
-			if _, err = ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
+			if result, err = ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
 				return
 			}
 		} else {
-			if _, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+			if result, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
 				return
 			}
 		}
