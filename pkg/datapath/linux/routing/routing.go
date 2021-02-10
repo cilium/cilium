@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -195,6 +196,33 @@ func Delete(ip net.IP, compat bool) error {
 	return nil
 }
 
+// SetupRules installs routing rules based on the passed attributes. It accounts
+// for option.Config.EgressMultiHomeIPRuleCompat while configuring the rules.
+func SetupRules(from, to *net.IPNet, mac string, ifaceNum int) error {
+	var (
+		prio    int
+		tableId int
+	)
+
+	if option.Config.EgressMultiHomeIPRuleCompat {
+		prio = linux_defaults.RulePriorityEgress
+		ifindex, err := retrieveIfaceIdxFromMAC(mac)
+		if err != nil {
+			return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+		}
+		tableId = ifindex
+	} else {
+		prio = linux_defaults.RulePriorityEgressv2
+		tableId = computeTableIDFromIfaceNumber(ifaceNum)
+	}
+	return route.ReplaceRule(route.Rule{
+		Priority: prio,
+		From:     from,
+		To:       to,
+		Table:    tableId,
+	})
+}
+
 func deleteRule(r route.Rule) error {
 	rules, err := route.ListRules(netlink.FAMILY_V4, &r)
 	if err != nil {
@@ -255,6 +283,41 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
 	return
 }
 
+// computeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
+// ENI interface number.
 func computeTableIDFromIfaceNumber(num int) int {
 	return linux_defaults.RouteTableInterfacesOffset + num
+}
+
+// retrieveIfaceIdxFromMAC finds the corresponding interface index for a
+// given MAC address.
+// It returns -1 as the index for error conditions.
+func retrieveIfaceIdxFromMAC(mac string) (int, error) {
+	iface, err := retrieveIfaceFromMAC(mac)
+	if err != nil {
+		err = fmt.Errorf("failed to get iface index with MAC %w", err)
+		return -1, err
+	}
+	return iface.Attrs().Index, nil
+}
+
+// retrieveIfaceFromFromMAC finds the corresponding interface for a
+// given MAC address.
+func retrieveIfaceFromMAC(mac string) (link netlink.Link, err error) {
+	var links []netlink.Link
+
+	links, err = netlink.LinkList()
+	if err != nil {
+		err = fmt.Errorf("unable to list interfaces: %w", err)
+		return
+	}
+	for _, l := range links {
+		if l.Attrs().HardwareAddr.String() == mac {
+			link = l
+			return
+		}
+	}
+
+	err = fmt.Errorf("interface with MAC not found")
+	return
 }
