@@ -27,6 +27,7 @@
 # is not properly picked up in Github.
 * @cilium/janitors
 api/ @cilium/api
+/.github/workflows/ @cilium/maintainers
 pkg/apisocket/ @cilium/api
 pkg/monitor/payload @cilium/api
 pkg/policy/api/ @cilium/api
