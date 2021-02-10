@@ -182,9 +182,10 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	// In that case, removal and re-creation of the cilium_host is
 	// required. It will also cause disruption of networking until all
 	// endpoints have been regenerated.
+	var result *ipam.AllocationResult
 	routerIP = family.Router()
 	if routerIP != nil {
-		err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
+		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
 		if err != nil {
 			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
@@ -200,7 +201,6 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	}
 
 	if routerIP == nil {
-		var result *ipam.AllocationResult
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router")
 		if err != nil {
@@ -208,6 +208,16 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 			return
 		}
 		routerIP = result.IP
+	}
+	if option.Config.IPAM == ipamOption.IPAMENI && result != nil {
+		var routingInfo *linuxrouting.RoutingInfo
+		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
+			result.PrimaryMAC, result.InterfaceNumber, option.Config.EnableIPv4Masquerade)
+		if err != nil {
+			err = fmt.Errorf("failed to create router info %w", err)
+			return
+		}
+		node.SetRouterInfo(routingInfo)
 	}
 
 	return

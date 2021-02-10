@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -46,6 +47,7 @@ var (
 	ipv6NodePortAddrs map[string]net.IP // iface name => ip addr
 	ipv4AllocRange    *cidr.CIDR
 	ipv6AllocRange    *cidr.CIDR
+	routerInfo        RouterInfo
 
 	// k8s Node External IP
 	ipv4ExternalAddress net.IP
@@ -56,6 +58,12 @@ var (
 
 	ipsecKeyIdentity uint8
 )
+
+type RouterInfo interface {
+	GetIPv4CIDRs() []net.IPNet
+	GetMac() mac.MAC
+	GetInterfaceNumber() int
+}
 
 func makeIPv6HostIP() net.IP {
 	ipstr := "fc00::10CA:1"
@@ -264,6 +272,18 @@ func SetK8sExternalIPv4(ip net.IP) {
 // on the network as well as the internet. It can return nil if no External IPv4 address is assigned.
 func GetK8sExternalIPv4() net.IP {
 	return ipv4ExternalAddress
+}
+
+// GetRouterEniInfo returns additional information for the router. It is applicable
+// only in the ENI IPAM mode.
+func GetRouterInfo() RouterInfo {
+	return routerInfo
+}
+
+// SetRouterEniInfo sets additional information for the router. It is applicable
+// only in the ENI IPAM mode.
+func SetRouterInfo(info RouterInfo) {
+	routerInfo = info
 }
 
 // GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading
