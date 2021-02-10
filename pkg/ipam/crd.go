@@ -483,7 +483,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 	case ipamOption.IPAMENI:
 		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
 			if eni.ID == ipInfo.Resource {
-				result.Master = eni.MAC
+				result.PrimaryMAC = eni.MAC
 				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
 				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
 				// Add manually configured Native Routing CIDR
@@ -507,7 +507,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 	case ipamOption.IPAMAzure:
 		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
 			if iface.ID == ipInfo.Resource {
-				result.Master = iface.MAC
+				result.PrimaryMAC = iface.MAC
 				result.GatewayIP = iface.GatewayIP
 				return
 			}
