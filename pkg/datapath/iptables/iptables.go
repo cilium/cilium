@@ -338,6 +338,7 @@ var ciliumChains = []customChain{
 		table:      "filter",
 		hook:       "FORWARD",
 		feederArgs: []string{""},
+		ipv6:       true,
 	},
 }
 
@@ -734,6 +735,19 @@ func getDeliveryInterface(ifName string) string {
 }
 
 func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
+	if option.Config.EnableIPv4 {
+		err := m.installForwardChainRulesIpX("iptables", ifName, localDeliveryInterface, forwardChain)
+		if err != nil {
+			return err
+		}
+	}
+	if option.Config.EnableIPv6 {
+		return m.installForwardChainRulesIpX("ip6tables", ifName, localDeliveryInterface, forwardChain)
+	}
+	return nil
+}
+
+func (m *IptablesManager) installForwardChainRulesIpX(prog, ifName, localDeliveryInterface, forwardChain string) error {
 	transient := ""
 	if forwardChain == ciliumTransientForwardChain {
 		transient = " (transient)"
@@ -760,7 +774,7 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 	//  - Node running backend:
 	//       IN=eno1 OUT=cilium_host
 	//       IN=lxc... OUT=eno1
-	if err := runProg("iptables", append(
+	if err := runProg(prog, append(
 		m.waitArgs,
 		"-A", forwardChain,
 		"-o", ifName,
@@ -768,7 +782,7 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
-	if err := runProg("iptables", append(
+	if err := runProg(prog, append(
 		m.waitArgs,
 		"-A", forwardChain,
 		"-i", ifName,
@@ -776,7 +790,7 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
-	if err := runProg("iptables", append(
+	if err := runProg(prog, append(
 		m.waitArgs,
 		"-A", forwardChain,
 		"-i", "lxc+",
@@ -788,7 +802,7 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 	// TODO: Make 'cilium_net' configurable if we ever support other than "cilium_host" as the Cilium host device.
 	if ifName == "cilium_host" {
 		ifPeerName := "cilium_net"
-		if err := runProg("iptables", append(
+		if err := runProg(prog, append(
 			m.waitArgs,
 			"-A", forwardChain,
 			"-i", ifPeerName,
@@ -801,7 +815,7 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 	// same (enable-endpoint-routes), a separate set of rules to allow
 	// from/to delivery interface is required.
 	if localDeliveryInterface != ifName {
-		if err := runProg("iptables", append(
+		if err := runProg(prog, append(
 			m.waitArgs,
 			"-A", forwardChain,
 			"-o", localDeliveryInterface,
@@ -809,7 +823,7 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
-		if err := runProg("iptables", append(
+		if err := runProg(prog, append(
 			m.waitArgs,
 			"-A", forwardChain,
 			"-i", localDeliveryInterface,
@@ -887,11 +901,11 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 
 	localDeliveryInterface := getDeliveryInterface(ifName)
 
-	if option.Config.EnableIPv4 {
-		if err := m.installForwardChainRules(ifName, localDeliveryInterface, ciliumForwardChain); err != nil {
-			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
-		}
+	if err := m.installForwardChainRules(ifName, localDeliveryInterface, ciliumForwardChain); err != nil {
+		return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
+	}
 
+	if option.Config.EnableIPv4 {
 		// Mark all packets sourced from processes running on the host with a
 		// special marker so that we can differentiate traffic sourced locally
 		// vs. traffic from the outside world that was masqueraded to appear
