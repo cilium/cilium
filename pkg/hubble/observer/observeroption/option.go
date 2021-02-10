@@ -19,7 +19,6 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -45,8 +44,8 @@ type Server interface {
 
 // Options stores all the configurations values for the hubble server.
 type Options struct {
-	MaxFlows      container.Capacity // max number of flows that can be stored in the ring buffer
-	MonitorBuffer int                // buffer size for monitor payload
+	MaxFlows      int // max number of flows that can be stored in the ring buffer
+	MonitorBuffer int // buffer size for monitor payload
 
 	CiliumDaemon CiliumDaemon // when running inside Cilium, contains a reference to the daemon
 
@@ -141,7 +140,7 @@ func WithMonitorBuffer(size int) Option {
 }
 
 // WithMaxFlows that the ring buffer is initialized to hold.
-func WithMaxFlows(capacity container.Capacity) Option {
+func WithMaxFlows(capacity int) Option {
 	return func(o *Options) error {
 		o.MaxFlows = capacity
 		return nil

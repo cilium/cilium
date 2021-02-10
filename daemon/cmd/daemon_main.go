@@ -875,7 +875,7 @@ func init() {
 	flags.MarkDeprecated(option.HubbleFlowBufferSize, fmt.Sprintf("Use %s instead.", option.HubbleEventBufferCapacity))
 	option.BindEnv(option.HubbleFlowBufferSize)
 
-	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows.AsInt(), "Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
+	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows, "Capacity of Hubble events buffer.")
 	option.BindEnv(option.HubbleEventBufferCapacity)
 
 	flags.Int(option.HubbleEventQueueSize, 0, "Buffer size of the channel to receive monitor events.")
