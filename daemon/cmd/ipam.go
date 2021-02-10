@@ -70,7 +70,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 		resp.IPV4 = &models.IPAMAddressResponse{
 			Cidrs:           ipv4Result.CIDRs,
 			IP:              ipv4Result.IP.String(),
-			MasterMac:       ipv4Result.Master,
+			MasterMac:       ipv4Result.PrimaryMAC,
 			Gateway:         ipv4Result.GatewayIP,
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
@@ -82,7 +82,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 		resp.IPV6 = &models.IPAMAddressResponse{
 			Cidrs:           ipv6Result.CIDRs,
 			IP:              ipv6Result.IP.String(),
-			MasterMac:       ipv6Result.Master,
+			MasterMac:       ipv6Result.PrimaryMAC,
 			Gateway:         ipv6Result.GatewayIP,
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,
@@ -374,7 +374,7 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(
 		result.GatewayIP,
 		result.CIDRs,
-		result.Master,
+		result.PrimaryMAC,
 		result.InterfaceNumber,
 		option.Config.EnableIPv4Masquerade,
 	)
