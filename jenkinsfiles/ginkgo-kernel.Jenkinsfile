@@ -37,12 +37,6 @@ pipeline {
     }
 
     stages {
-        stage('Print env vars') {
-            steps {
-                sh 'env'
-
-            }
-        }
         stage('Set build name') {
             when {
                 not {environment name: 'GIT_BRANCH', value: 'origin/master'}
@@ -98,33 +92,21 @@ pipeline {
                         else
                             echo -n "K8s"
                         fi''', returnStdout: true
-                }
-            }
-        }
-        stage('Log in to dockerhub') {
-            steps{
-                withCredentials([usernamePassword(credentialsId: 'CILIUM_BOT_DUMMY', usernameVariable: 'DOCKER_LOGIN', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_LOGIN} --password-stdin'
-                }
-            }
-        }
-        stage('Make Cilium images') {
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-            }
-            steps {
-                retry(3){
-                    sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
-                }
-            }
-            post {
-                unsuccessful {
-                    script {
-                        if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
-                        }
+
+                    if (env.ghprbActualCommit != "") {
+                        env.DOCKER_TAG = env.ghprbActualCommit
+                    } else {
+                        env.DOCKER_TAG = env.GIT_COMMIT
+                    }
+                    if (env.RACE?.trim()) {
+                        env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                     }
                 }
+            }
+        }
+        stage('Print env vars') {
+            steps {
+                sh 'env'
             }
         }
         stage('Preload vagrant boxes') {
@@ -193,6 +175,19 @@ pipeline {
                 }
             }
         }
+        stage ("Wait for images") {
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                retry(25) {
+                    sleep(time: 60)
+                    sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/cilium-ci/tag/${DOCKER_TAG}/images"'
+                    sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/operator-ci/tag/${DOCKER_TAG}/images"'
+                    sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/hubble-relay-ci/tag/${DOCKER_TAG}/images"'
+                }
+            }
+        }
         stage ("BDD-Test-PR"){
             options {
                 timeout(time: 180, unit: 'MINUTES')
@@ -225,25 +220,16 @@ pipeline {
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
                     )}"""
-                CILIUM_IMAGE = """${sh(
-                        returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/cilium'
-                        )}"""
-                CILIUM_TAG = "latest"
-                CILIUM_OPERATOR_IMAGE= """${sh(
-                        returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator'
-                        )}"""
-                CILIUM_OPERATOR_TAG = "latest"
-                HUBBLE_RELAY_IMAGE= """${sh(
-                        returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/hubble-relay'
-                        )}"""
-                HUBBLE_RELAY_TAG = "latest"
+                CILIUM_IMAGE = "quay.io/cilium/cilium-ci"
+                CILIUM_TAG = "${DOCKER_TAG}"
+                CILIUM_OPERATOR_IMAGE= "quay.io/cilium/operator"
+                CILIUM_OPERATOR_TAG = "${DOCKER_TAG}"
+                HUBBLE_RELAY_IMAGE= "quay.io/cilium/hubble-relay-ci"
+                HUBBLE_RELAY_TAG = "${DOCKER_TAG}"
             }
             steps {
                 sh 'env'
-                sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.runQuarantined=${RUN_QUARANTINED} -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG}'
+                sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.runQuarantined=${RUN_QUARANTINED} -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG} -cilium.operator-suffix="-ci"'
             }
             post {
                 always {
