@@ -23,6 +23,9 @@ spec:
 {{- end }}
       labels:
         k8s-app: hubble-ui
+{{- with .Values.hubble.ui.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
       {{- if .Values.hubble.ui.securityContext.enabled }}
       securityContext:

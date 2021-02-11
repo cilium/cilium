@@ -493,6 +493,8 @@ certgen:
     pullPolicy: Always
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
+  # -- Labels to be added to hubble-certgen pods
+  podLabels: {}
 
 hubble:
   # -- Enable Hubble (true by default).
@@ -616,6 +618,10 @@ hubble:
     #
     podAnnotations: {}
 
+    # -- Labels to be added to hubble-relay pods
+    #
+    podLabels: {}
+
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     #
@@ -729,6 +735,10 @@ hubble:
     # -- Annotations to be added to hubble-ui pods
     #
     podAnnotations: {}
+
+    # -- Labels to be added to hubble-ui pods
+    #
+    podLabels: {}
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1471,6 +1481,9 @@ clustermesh:
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
+
+    # -- Labels to be added to clustermesh-apiserver pods
+    podLabels: {}
 
     # -- Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
     #     resources:

@@ -18,6 +18,9 @@ spec:
       labels:
         k8s-app: cilium-pre-flight-check
         kubernetes.io/cluster-service: "true"
+{{- with .Values.preflight.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:

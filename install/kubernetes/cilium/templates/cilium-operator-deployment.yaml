@@ -61,6 +61,9 @@ spec:
       labels:
         io.cilium/app: operator
         name: cilium-operator
+{{- with .Values.operator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- if or (ge $k8sMinor "14") (gt $k8sMajor "1") }}
       # In HA mode, cilium-operator pods must not be scheduled on the same
