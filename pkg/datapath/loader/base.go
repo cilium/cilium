@@ -346,6 +346,16 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}).Info("Setting up BPF datapath")
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
+		// For the ENI ipam mode on EKS, this will be the interface that
+		// the router (cilium_host) IP is associated to.
+		if info := node.GetRouterInfo(); info != nil {
+			mac := info.GetMac()
+			iface, err := linuxrouting.RetrieveIfaceNameFromMAC(mac.String())
+			if err != nil {
+				log.WithError(err).WithField("mac", mac).Fatal("Failed to set encrypt interface in the ENI ipam mode")
+			}
+			args[initArgEncryptInterface] = iface
+		}
 		var err error
 		if sysSettings, err = addENIRules(sysSettings, o.Datapath().LocalNodeAddressing()); err != nil {
 			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
