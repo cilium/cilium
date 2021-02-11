@@ -223,6 +223,17 @@ func SetupRules(from, to *net.IPNet, mac string, ifaceNum int) error {
 	})
 }
 
+// RetrieveIfaceNameFromMAC finds the corresponding device name for a
+// given MAC address.
+func RetrieveIfaceNameFromMAC(mac string) (string, error) {
+	iface, err := retrieveIfaceFromMAC(mac)
+	if err != nil {
+		err = fmt.Errorf("failed to get iface name with MAC %w", err)
+		return "", err
+	}
+	return iface.Attrs().Name, nil
+}
+
 func deleteRule(r route.Rule) error {
 	rules, err := route.ListRules(netlink.FAMILY_V4, &r)
 	if err != nil {
