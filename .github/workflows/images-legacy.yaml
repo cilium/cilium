@@ -61,6 +61,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
       - name: CI Image Releases digests
         if: ${{ github.event_name != 'pull_request_target' }}
