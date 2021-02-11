@@ -22,6 +22,9 @@ spec:
 {{- end }}
       labels:
         k8s-app: clustermesh-apiserver
+{{- with .Values.clustermesh.apiserver.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{- toYaml . | nindent 8 }}
