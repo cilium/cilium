@@ -28,6 +28,9 @@ spec:
 {{- end }}
       labels:
         k8s-app: hubble-relay
+{{- with .Values.hubble.relay.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
       affinity:
         podAffinity:
