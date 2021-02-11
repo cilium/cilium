@@ -46,15 +46,15 @@ type LBBPFMap struct {
 	// IDs. Concurrent access is protected by the
 	// pkg/service.go:(Service).UpsertService() lock.
 	maglevBackendIDsBuffer []uint16
-	maglevTableSize        uint64
+	defaultMaglevTableSize uint64
 }
 
-func New(maglev bool, maglevTableSize int) *LBBPFMap {
+func New(maglev bool, size int) *LBBPFMap {
 	m := &LBBPFMap{}
 
 	if maglev {
-		m.maglevBackendIDsBuffer = make([]uint16, maglevTableSize)
-		m.maglevTableSize = uint64(maglevTableSize)
+		m.maglevBackendIDsBuffer = make([]uint16, size)
+		m.defaultMaglevTableSize = uint64(size)
 	}
 
 	return m
@@ -163,7 +163,7 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 	// backends by name, as the names are the same on all nodes (in opposite
 	// to backend IDs which are node-local).
 	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
+	table := maglev.GetLookupTable(backendNames, lbmap.defaultMaglevTableSize)
 	for i, pos := range table {
 		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
 	}

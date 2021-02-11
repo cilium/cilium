@@ -142,9 +142,6 @@ func NewService(monitorNotify monitorNotify) *Service {
 		localHealthServer = healthserver.New()
 	}
 
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
-	maglevTableSize := option.Config.MaglevTableSize
-
 	svc := &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
@@ -152,7 +149,10 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
 		healthServer:    localHealthServer,
-		lbmap:           lbmap.New(maglev, maglevTableSize),
+		lbmap: lbmap.New(
+			option.Config.NodePortAlg == option.NodePortAlgMaglev,
+			option.Config.MaglevTableSize,
+		),
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 	return svc
