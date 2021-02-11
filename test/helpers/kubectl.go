@@ -2015,6 +2015,7 @@ func (kub *Kubectl) RestartUnmanagedPodsInNamespace(namespace string, excludePod
 		ginkgoext.Failf("Unable to unmarshal podlist: %s", err)
 	}
 
+	toDelete := make([]string, 0, len(podList.Items))
 iteratePods:
 	for _, pod := range podList.Items {
 		if pod.Spec.HostNetwork || pod.DeletionTimestamp != nil {
@@ -2029,12 +2030,16 @@ iteratePods:
 
 		ep, err := kub.GetCiliumEndpoint(namespace, pod.Name)
 		if err != nil || ep.Identity == nil || ep.Identity.ID == 0 {
-			ginkgoext.By("Restarting unmanaged pod %s/%s", namespace, pod.Name)
-			cmd = KubectlCmd + " -n " + namespace + " delete pod " + pod.Name
-			res = kub.Exec(cmd)
-			if !res.WasSuccessful() {
-				ginkgoext.Failf("Unable to restart unmanaged pod with '%s': %s", cmd, res.OutputPrettyPrint())
-			}
+			toDelete = append(toDelete, pod.Name)
+		}
+	}
+
+	if len(toDelete) > 0 {
+		ginkgoext.By("Restarting unmanaged pods %s in namespace %s", strings.Join(toDelete[:], ", "), namespace)
+		cmd = fmt.Sprintf("%s -n %s delete pods %s", KubectlCmd, namespace, strings.Join(toDelete[:], " "))
+		res = kub.Exec(cmd)
+		if !res.WasSuccessful() {
+			ginkgoext.Failf("Unable to restart unmanaged pods with '%s': %s", cmd, res.OutputPrettyPrint())
 		}
 	}
 }
