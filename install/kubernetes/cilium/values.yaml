@@ -116,6 +116,12 @@ priorityClassName: ""
 
 # -- Additional agent container arguments
 extraArgs: {}
+  # foo: bar
+  
+# -- Additional agent container arguments in list form (augments extraArgs above, and allows for duplicate arguments)
+extraArgsList: []
+  # - "foo=bar"
+  # - "foo=bar2"
 
 # -- Additional agent container environment variables
 extraEnv: {}

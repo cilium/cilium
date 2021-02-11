@@ -106,6 +106,9 @@ spec:
         - --{{ $key }}
 {{- end }}
 {{- end }}
+{{- range .Values.extraArgsList }}
+        - --{{ . }}
+{{- end }}
         command:
         - cilium-agent
 {{- if semverCompare ">=1.20-0" $k8sVersion }}

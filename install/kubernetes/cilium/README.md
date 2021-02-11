@@ -153,6 +153,7 @@ contributors across the globe, there is almost always someone available to help.
 | externalWorkloads | object | `{"enabled":false}` | Configure external workloads support |
 | externalWorkloads.enabled | bool | `false` | Enable support for external workloads, such as VMs (false by default). |
 | extraArgs | object | `{}` | Additional agent container arguments |
+| extraArgsList | list | `[]` | Additional agent container arguments in list form (allows for duplicate arguments). |
 | extraConfig | object | `{}` | extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap. |
 | extraConfigmapMounts | list | `[]` | Additional agent ConfigMap mounts |
 | extraEnv | object | `{}` | Additional agent container environment variables |
