@@ -19,6 +19,9 @@ spec:
       labels:
         k8s-app: cilium-pre-flight-check-deployment
         kubernetes.io/cluster-service: "true"
+{{- with .Values.preflight.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
       affinity:
         podAffinity:

@@ -5,6 +5,9 @@ spec:
     metadata:
       labels:
         k8s-app: hubble-generate-certs
+        {{- with .Values.certgen.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccount: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.hubblecertgen.name | quote }}
