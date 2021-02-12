@@ -34,22 +34,23 @@ type CiliumTestConfigType struct {
 	// PassCLIEnvironment passes through the environment invoking the gingko
 	// tests. When false all subcommands are executed with an empty environment,
 	// including PATH.
-	PassCLIEnvironment  bool
-	SSHConfig           string
-	ShowCommands        bool
-	TestScope           string
-	SkipLogGathering    bool
-	CiliumImage         string
-	CiliumTag           string
-	CiliumOperatorImage string
-	CiliumOperatorTag   string
-	HubbleRelayImage    string
-	HubbleRelayTag      string
-	ProvisionK8s        bool
-	Timeout             time.Duration
-	Kubeconfig          string
-	RegistryCredentials string
-	Benchmarks          bool
+	PassCLIEnvironment   bool
+	SSHConfig            string
+	ShowCommands         bool
+	TestScope            string
+	SkipLogGathering     bool
+	CiliumImage          string
+	CiliumTag            string
+	CiliumOperatorImage  string
+	CiliumOperatorTag    string
+	CiliumOperatorSuffix string
+	HubbleRelayImage     string
+	HubbleRelayTag       string
+	ProvisionK8s         bool
+	Timeout              time.Duration
+	Kubeconfig           string
+	RegistryCredentials  string
+	Benchmarks           bool
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
 	Multinode      bool
@@ -86,6 +87,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies which image of cilium-operator to use during tests")
 	flagset.StringVar(&c.CiliumOperatorTag, "cilium.operator-tag", "",
 		"Specifies which tag of cilium-operator to use during tests")
+	flagset.StringVar(&c.CiliumOperatorSuffix, "cilium.operator-suffix", "",
+		"Specifies a suffix to append to operator image after cloud-specific suffix")
 	flagset.StringVar(&c.HubbleRelayImage, "cilium.hubble-relay-image", "",
 		"Specifies which image of hubble-relay to use during tests")
 	flagset.StringVar(&c.HubbleRelayTag, "cilium.hubble-relay-tag", "",
