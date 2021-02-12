@@ -329,12 +329,16 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 // Kubernetes apiserver
 func (n *NodeManager) Delete(nodeName string) {
 	n.mutex.Lock()
+
 	if node, ok := n.nodes[nodeName]; ok {
 		if node.poolMaintainer != nil {
 			node.poolMaintainer.Shutdown()
 		}
 		if node.k8sSync != nil {
 			node.k8sSync.Shutdown()
+		}
+		if node.retry != nil {
+			node.retry.Shutdown()
 		}
 	}
 
