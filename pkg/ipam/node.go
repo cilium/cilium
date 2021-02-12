@@ -794,7 +794,8 @@ func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) 
 	} else if updateErr != nil {
 		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
 			logfields.Attempt: attempts,
-		}).Warning("Failed to update CiliumNode spec")
+			"updateStatus":    status,
+		}).Warning("Failed to update CiliumNode")
 
 		var newNode *v2.CiliumNode
 		newNode, err = n.manager.k8sAPI.Get(node.Name)
