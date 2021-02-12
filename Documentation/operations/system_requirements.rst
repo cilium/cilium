@@ -48,15 +48,6 @@ iproute2                 >= 5.0.0 [#iproute2_foot]_ yes
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
 
-.. hint:: 
-
-    ``cilium kernel-check`` can be invoked as a Kubernetes Job  
-    in order to check whether the machine provides the relevant eBPF capabilities: 
-
-    .. parsed-literal::
-
-       kubectl apply -f |SCM_WEB|/examples/kubernetes/kernel-check/kernel-check.yaml
-
 Linux Distribution Compatibility Matrix
 =======================================
 
