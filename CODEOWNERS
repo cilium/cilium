@@ -133,8 +133,8 @@ Dockerfile* @cilium/build
 /hubble-relay/ @cilium/hubble
 /hubble-relay.Dockerfile @cilium/hubble
 /images @cilium/build
-/install/kubernetes/ @cilium/kubernetes @cilium/docs-structure @cilium/helm
-/install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/docs-structure @cilium/helm @cilium/hubble
+/install/kubernetes/ @cilium/kubernetes @cilium/helm
+/install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/helm @cilium/hubble
 jenkinsfiles @cilium/ci-structure
 Jenkinsfile.nightly @cilium/ci-structure
 /operator/ @cilium/operator
