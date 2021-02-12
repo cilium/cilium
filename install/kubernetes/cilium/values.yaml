@@ -1116,6 +1116,7 @@ operator:
     repository: quay.io/cilium/operator
     tag: latest
     pullPolicy: Always
+    suffix: ""
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2

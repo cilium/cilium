@@ -156,11 +156,11 @@ spec:
           value: {{ $value }}
 {{- end }}
 {{- if .Values.eni.enabled }}
-        image: {{ .Values.operator.image.repository }}-aws:{{ .Values.operator.image.tag }}
+        image: {{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}
 {{- else if .Values.azure.enabled }}
-        image: {{ .Values.operator.image.repository }}-azure:{{ .Values.operator.image.tag }}
+        image: {{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}
 {{- else }}
-        image: {{ .Values.operator.image.repository }}-generic:{{ .Values.operator.image.tag }}
+        image: {{ .Values.operator.image.repository }}-generic{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}
 {{- end }}
         imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         name: cilium-operator
