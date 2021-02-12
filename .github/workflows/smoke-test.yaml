@@ -134,7 +134,7 @@ jobs:
           cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
           kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
-          go get -u github.com/prometheus/prometheus/cmd/promtool
+          GO111MODULE=on go get github.com/prometheus/prometheus/cmd/promtool@e4487274853c587717006eeda8804e597d120340 # This is commit hash for v2.24.1
           cat metrics.prom | $HOME/go/bin/promtool check metrics
 
       - name: Capture cilium-sysdump
