@@ -65,19 +65,19 @@ func GetCgroupRoot() string {
 // the same LB BPF map which is not shared among Kind nodes.
 //
 // To fix this, we need to attach the program to cgroup v2 root of each Kind node.
-// Pods on a Kind node belong a cgroup v2 which name format is the following:
+// Pods on a Kind node belong to a cgroup v2 which name format is the following:
 //
 //		0::/system.slice/docker-$(SOME_NODE_ID).scope/kubelet/kubepods/burstable/pod-$(SOME_POD_ID)
 //
 // So if we attach the program to "$(CGROUP_MOUNT_DIR)/system.slice/docker-$(SOME_NODE_ID).scope/kubelet/",
-// it's guaranteed that it will be ran for all pods on that node.
+// it's guaranteed that it will be run for all pods on that node.
 //
 // However, there is one problem when net_cls or net_prio of the legacy cgroup (v1)
 // is enabled together with cgroup v2. If any of these controllers store class_id
 // or prioridx (which is the case for Docker) in the socket cgroup data struct,
 // the kernel won't be able to retrieve the exact root, and it will fallback to
 // the default hierarchy of cgroup v2 (aka the mount path) [1]. This renders the
-// programs attached in a sub-hierarchy to be ineffective.
+// programs attached in a sub-hierarchy ineffective.
 //
 // [1]: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/cgroup.h?h=v5.10#n837
 func getCgroupRootForKind() (string, error) {
@@ -169,8 +169,8 @@ func cgrpCheckOrMountLocation(cgroupRoot string) error {
 // BPFFS case we simply mount at the cilium default regardless if the system
 // has another mount created by systemd or otherwise.
 //
-// runsOnKind indicates whether cilium-agent runs on Kind (see getCgroupRootForKind)
-// for details.
+// runsOnKind indicates whether cilium-agent runs on Kind (see getCgroupRootForKind
+// for details).
 func CheckOrMountCgrpFS(mapRoot string, runsOnKind bool) {
 	cgrpMountOnce.Do(func() {
 		if mapRoot == "" {
