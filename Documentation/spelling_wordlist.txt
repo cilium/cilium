@@ -88,6 +88,7 @@ Loadbalancing
 Login
 Lookup
 Lund
+lsm
 Lx
 Majkowski
 Marek
@@ -509,6 +510,7 @@ netfilter
 netperf
 netsec
 netvsc
+networkpolicy
 newproto
 newprotoparser
 nfp
