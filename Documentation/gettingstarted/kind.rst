@@ -53,6 +53,12 @@ Then, install Cilium release via Helm:
       --set image.pullPolicy=IfNotPresent \\
       --set ipam.mode=kubernetes
 
+.. note::
+
+   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v1
+   controllers ``net_cls`` and ``net_prio`` have to be disabled, or cgroup v1 has
+   to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
+
 .. include:: k8s-install-validate.rst
 .. include:: namespace-kube-system.rst
 .. include:: hubble-enable.rst
