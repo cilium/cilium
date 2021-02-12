@@ -1067,6 +1067,7 @@ operator:
     repository: quay.io/cilium/operator
     tag: v1.9.4
     pullPolicy: IfNotPresent
+    suffix: ""
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
