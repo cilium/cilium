@@ -178,8 +178,9 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationGKE:
-		vm.RestartUnmanagedPodsInNamespace(helpers.KubeSystemNamespace)
-		vm.RestartUnmanagedPodsInNamespace(helpers.CiliumNamespace)
+		if helpers.LogGathererNamespace != helpers.KubeSystemNamespace {
+			vm.RestartUnmanagedPodsInNamespace(helpers.KubeSystemNamespace)
+		}
 	}
 
 	switch helpers.GetCurrentIntegration() {
