@@ -98,6 +98,7 @@ var (
 		"preflight.image.tag":           "latest",
 		"operator.image.repository":     "k8s1:5000/cilium/operator",
 		"operator.image.tag":            "latest",
+		"operator.image.suffix":         "",
 		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
 		"hubble.relay.image.tag":        "latest",
 		"debug.enabled":                 "true",
@@ -255,6 +256,10 @@ func Init() {
 		os.Setenv("CILIUM_OPERATOR_TAG", config.CiliumTestConfig.CiliumOperatorTag)
 	}
 
+	if config.CiliumTestConfig.CiliumOperatorSuffix != "" {
+		os.Setenv("CILIUM_OPERATOR_SUFFIX", config.CiliumTestConfig.CiliumOperatorSuffix)
+	}
+
 	if config.CiliumTestConfig.HubbleRelayImage != "" {
 		os.Setenv("HUBBLE_RELAY_IMAGE", config.CiliumTestConfig.HubbleRelayImage)
 	}
@@ -269,12 +274,13 @@ func Init() {
 
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
-		"CILIUM_TAG":            "image.tag",
-		"CILIUM_IMAGE":          "image.repository",
-		"CILIUM_OPERATOR_TAG":   "operator.image.tag",
-		"CILIUM_OPERATOR_IMAGE": "operator.image.repository",
-		"HUBBLE_RELAY_IMAGE":    "hubble.relay.image.repository",
-		"HUBBLE_RELAY_TAG":      "hubble.relay.image.tag",
+		"CILIUM_TAG":             "image.tag",
+		"CILIUM_IMAGE":           "image.repository",
+		"CILIUM_OPERATOR_TAG":    "operator.image.tag",
+		"CILIUM_OPERATOR_IMAGE":  "operator.image.repository",
+		"CILIUM_OPERATOR_SUFFIX": "operator.image.suffix",
+		"HUBBLE_RELAY_IMAGE":     "hubble.relay.image.repository",
+		"HUBBLE_RELAY_TAG":       "hubble.relay.image.tag",
 	} {
 		if v := os.Getenv(envVar); v != "" {
 			defaultHelmOptions[helmVar] = v
