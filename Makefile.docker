@@ -24,6 +24,7 @@ $(1): GIT_VERSION $(BUILD_DIR)/$(2) build-context-update builder-info
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3))$(UNSTRIPPED))
 	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/$(subst %,$$*,$(2)) \
 		$(DOCKER_FLAGS) \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg RACE=${RACE}\
