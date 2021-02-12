@@ -553,6 +553,7 @@ lookup
 lookups
 loopback
 lrp
+lsm
 lspci
 luke
 lwt
@@ -610,6 +611,7 @@ netfilter
 netperf
 netsec
 netvsc
+networkpolicy
 newproto
 newprotoparser
 nfp
