@@ -50,3 +50,6 @@ jobs:
           V: 0
         run: |
           make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+      - name: Run BPF_PROG_TEST_RUN tests
+        run: |
+          make -C bpf go_prog_test || (echo "Run 'make -C bpf go_prog_test' locally to investigate failures"; exit 1)
