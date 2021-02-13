@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -456,7 +457,7 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		var oldSpi uint8
+		var oldKey *ipSecKey = nil
 		var authkey []byte
 		offset := 0
 
@@ -530,12 +531,12 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 
 		if len(s) == 6+offset {
 			if ipSecKeysGlobal[s[5+offset]] != nil {
-				oldSpi = ipSecKeysGlobal[s[5+offset]].Spi
+				oldKey = ipSecKeysGlobal[s[5+offset]]
 			}
 			ipSecKeysGlobal[s[5+offset]] = ipSecKey
 		} else {
 			if ipSecKeysGlobal[""] != nil {
-				oldSpi = ipSecKeysGlobal[""].Spi
+				oldKey = ipSecKeysGlobal[""]
 			}
 			ipSecKeysGlobal[""] = ipSecKey
 		}
@@ -545,12 +546,17 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		// we remove any stale keys for example when a restart changes keys.
 		// In the restart case oldSpi will be '0' and cause the delete logic
 		// to run.
-		if oldSpi != ipSecKey.Spi {
+		if oldKey == nil || oldKey.Spi != ipSecKey.Spi {
 			go func() {
 				time.Sleep(linux_defaults.IPsecKeyDeleteDelay)
 				scopedLog.Info("New encryption keys reclaiming SPI")
 				ipsecDeleteXfrmSpi(ipSecKey.Spi)
 			}()
+		} else if !compareIPsecKeys(oldKey, ipSecKey) {
+			// If the keys have changed this would indicate an attempted rotation without proper version
+			// management as the SPI has not changed.
+			return 0, 0, fmt.Errorf("The IPSec keys with SPI %d have been changed without incrementing the key id.\n"+
+				"For instructions on rotating keys, see https://docs.cilium.io/en/latest/gettingstarted/encryption/#key-rotation", oldKey.Spi)
 		}
 	}
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
@@ -558,6 +564,15 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		return 0, 0, err
 	}
 	return keyLen, spi, nil
+}
+
+// Check to see whether two ipSecKey structs have the same keys
+func compareIPsecKeys(oldKey *ipSecKey, newKey *ipSecKey) bool {
+	if oldKey.Aead != nil {
+		return reflect.DeepEqual(oldKey.Aead, newKey.Aead)
+	} else {
+		return reflect.DeepEqual(oldKey.Auth, newKey.Auth) && reflect.DeepEqual(oldKey.Crypt, newKey.Crypt)
+	}
 }
 
 // DeleteIPsecEncryptRoute removes nodes in main routing table by walking

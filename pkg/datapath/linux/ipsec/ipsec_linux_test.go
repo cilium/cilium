@@ -37,9 +37,10 @@ var _ = Suite(&IPSecSuitePrivileged{})
 
 var (
 	path           = "ipsec_keys_test"
-	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n1 digest_null \"\" cipher_null \"\"\n")
+	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n3 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+	badRolloverDat = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 01234567890123450123456789012345\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 01234567890123450123456789abcdef")
 )
 
 func (p *IPSecSuitePrivileged) SetUpTest(c *C) {
@@ -53,6 +54,8 @@ func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
 }
 
 func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+
 	keys := bytes.NewReader(invalidKeysDat)
 	_, _, err := loadIPSecKeys(keys)
 	c.Assert(err, NotNil)
@@ -67,12 +70,22 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 }
 
 func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+
 	keys := bytes.NewReader(keysDat)
 	_, _, err := loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
 	keys = bytes.NewReader(keysAeadDat)
 	_, _, err = loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
+}
+
+func (p *IPSecSuitePrivileged) TestErrorOnBadKeyRollover(c *C) {
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+
+	keys := bytes.NewReader(badRolloverDat)
+	_, _, err := loadIPSecKeys(keys)
+	c.Assert(err, ErrorMatches, "The IPSec keys with SPI 1 have been changed without incrementing the key id.\n.*")
 }
 
 func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
