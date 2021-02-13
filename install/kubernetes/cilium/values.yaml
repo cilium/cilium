@@ -432,6 +432,11 @@ eni:
   ec2APIEndpoint: ""
   # -- Tags to apply to the newly created ENIs
   eniTags: {}
+  # -- If using IAM role for Service Accounts will not try to
+  # inject identity values from cilium-aws kubernetes secret.
+  # Adds annotation to service account if managed by Helm.
+  # See https://github.com/aws/amazon-eks-pod-identity-webhook
+  iamRole: ""
   # -- Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs
   subnetIDsFilter: ""
   # -- Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs

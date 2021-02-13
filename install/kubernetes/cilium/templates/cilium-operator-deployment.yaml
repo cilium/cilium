@@ -106,7 +106,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-{{- if .Values.eni.enabled }}
+{{- if (and .Values.eni.enabled (not .Values.eni.iamRole )) }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
