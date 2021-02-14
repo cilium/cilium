@@ -595,6 +595,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
+	} else if option.Config.EnableEgressGateway {
+		log.Fatalf("Egress Gateway requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// There is not yet support for option.Config.EnableIPv6Masquerade
 		log.Infof("Auto-disabling %q feature since IPv4 masquerading was generally disabled",
