@@ -78,6 +78,13 @@ spec:
       - args:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
+{{- range $key, $value := .Values.operator.extraArgs }}
+{{- if $value }}
+        - --{{ $key }}={{ $value }}
+{{- else }}
+        - --{{ $key }}
+{{- end }}
+{{- end }}
         command:
 {{- if .Values.eni.enabled }}
         - cilium-operator-aws
