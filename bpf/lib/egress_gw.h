@@ -28,8 +28,8 @@ static __always_inline int handle_egress_nat_ipv4(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	bool from_endpoint = true;
 	struct ipv4_nat_target target = {
-		.min_port = 32767,
-		.max_port = 43835,
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))

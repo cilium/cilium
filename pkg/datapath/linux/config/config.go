@@ -231,6 +231,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_PREFILTER"] = "1"
 	}
 
+	if option.Config.EnableEgressGateway {
+		cDefinesMap["ENABLE_EGRESS_GATEWAY"] = "1"
+	}
+
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
 			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"

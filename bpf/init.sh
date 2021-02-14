@@ -471,7 +471,7 @@ else
 	ip link del cilium_sit   2> /dev/null || true
 fi
 
-if [ "$MODE" = "tunnel" ]; then
+if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 	ip link show $ENCAP_DEV || {
 		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE external || encap_fail

@@ -1031,6 +1031,7 @@ out:
 #endif
 
 #if defined(ENABLE_EGRESS_GATEWAY)
+	/* If the packet is revnat'ed, skip the egress gateway. */
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
 		ret = egress_nat_fwd(ctx);
 		if (IS_ERR(ret))
