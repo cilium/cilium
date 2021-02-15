@@ -6,7 +6,7 @@ ARG BASE_IMAGE=scratch
 # line for the parameter to be applied on BuildKit builds.
 #
 # FROM --platform=$BUILDPLATFORM
-FROM docker.io/library/golang:1.15.7 as builder
+FROM docker.io/library/golang:1.15.8 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 ADD . /go/src/github.com/cilium/cilium
@@ -32,7 +32,7 @@ RUN apk --update add ca-certificates
 # line for the parameter to be applied on BuildKit builds.
 #
 # FROM --platform=$BUILDPLATFORM
-FROM docker.io/library/golang:1.15.7 as gops
+FROM docker.io/library/golang:1.15.8 as gops
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.

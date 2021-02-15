@@ -31,7 +31,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 # augments the FROM line accordingly.
 #
 # FROM --platform=$BUILDPLATFORM
-FROM quay.io/cilium/cilium-builder:2021-01-20@sha256:09f63f516a88f82e714dac758362d34db9544188ac53b3ba88e85867b1a042bb as builder
+FROM quay.io/cilium/cilium-builder:2021-02-15@sha256:fe159317890aec50f94340f68c9d7d14426925de0757f936d50cad11692e584b as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
@@ -64,7 +64,7 @@ RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2021-01-20@sha256:247eff116cc5d0b3a4931eabd67ea2e8679f7c12877729a73929d3f30753065b
+FROM quay.io/cilium/cilium-runtime:2021-02-15@sha256:93f95a691deecc4c18eb029b5e04a0ad869320db15d75ca6376b4ed7d12d2b31
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
