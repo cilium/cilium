@@ -896,6 +896,9 @@ const (
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
+
+	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
+	EnableBPFBypassFIBLookup = "bpf-lb-bypass-fib-lookup"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -925,6 +928,7 @@ var HelpFlagSections = []FlagsSection{
 			EnableBPFClockProbe,
 			EnableBPFMasquerade,
 			EnableIdentityMark,
+			EnableBPFBypassFIBLookup,
 			LBMapEntriesName,
 		},
 	},
@@ -2096,6 +2100,9 @@ type DaemonConfig struct {
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat bool
+
+	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
+	EnableBPFBypassFIBLookup bool
 }
 
 var (
@@ -2640,6 +2647,7 @@ func (c *DaemonConfig) Populate() {
 	c.LoadBalancerDSRDispatch = viper.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = viper.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = viper.GetString(LoadBalancerRSSv6CIDR)
+	c.EnableBPFBypassFIBLookup = viper.GetBool(EnableBPFBypassFIBLookup)
 
 	err = c.populateMasqueradingSettings()
 	if err != nil {

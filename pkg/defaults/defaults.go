@@ -405,4 +405,7 @@ const (
 
 	// KubeProxyReplacementHealthzBindAddr is the default kubeproxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr = ""
+
+	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
+	EnableBPFBypassFIBLookup = true
 )
