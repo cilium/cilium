@@ -212,7 +212,7 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/job/Cilium-PR-Kubernetes-Upstream/>`_                | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-K8s-X.XX-kernel-4.9 <https://jenkins.cilium.io/view/PR/>`_ (where ``X.XX`` is a K8s version)        | test-X.XX-4.9     | No                 |
+| `Cilium-PR-K8s-X.XX-kernel-4.9 <https://jenkins.cilium.io/view/PR/>`_ (``X.XX`` = K8s version)                 | test-X.XX-4.9     | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | All non-required `Cilium-PR-K8s-X.XX-kernel-4.9 <https://jenkins.cilium.io/view/PR/>`_                         | test-older-k8s    | Backports          |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
@@ -244,9 +244,9 @@ If a specific K8s version fails, it can be re-run using ``retest-X.XX-4.9``.
   It should only be used on Backport PRs for which ``test-older-k8s`` is
   unavailable.
 
-For Backport PRs, the phrase ``test-backport-x.x`` (with ``x.x`` being the target Cilium version) should be used to
-trigger all of the above jobs which are marked as required to validate changes
-to existing releases.
+For Backport PRs, the phrase ``test-backport-x.x`` (with ``x.x`` being the
+target Cilium version) should be used to trigger all of the above jobs which are
+marked as required to validate changes to existing releases.
 
 There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
