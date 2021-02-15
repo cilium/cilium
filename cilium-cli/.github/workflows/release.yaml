@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Generate the artifacts
+        uses: skx/github-action-build@master
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -25,3 +27,10 @@ jobs:
             This is an automated release. See the Git history for changes.
           draft: false
           prerelease: false
+      - name: Upload the artifacts
+        uses: skx/github-action-publish-binaries@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ steps.create_release.outputs.id }}
+          args: 'release/*/*/*'
