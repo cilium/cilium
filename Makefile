@@ -275,6 +275,14 @@ install-container: install-bpf
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 
+install-container-binary: install-bpf
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-binary; done
+
+install-bash-completion:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-bash-completion; done
+
 # Workaround for not having git in the build environment
 # Touch the file only if needed
 GIT_VERSION: force
@@ -582,7 +590,7 @@ minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
 licenses-all:
-	@go run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
+	@$(GO) run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
 
 update-golang: update-golang-dev-doctor update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 

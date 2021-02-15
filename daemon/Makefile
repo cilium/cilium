@@ -31,11 +31,19 @@ install:
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link) || cp $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
 
+install-binary: install
+
+install-bash-completion:
+
 else
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link) || cp $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
+
+install-binary: install
+
+install-bash-completion:
 
 endif
