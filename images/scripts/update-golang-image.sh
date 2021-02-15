@@ -26,11 +26,11 @@ image="${1:-docker.io/library/golang:${go_version}}"
 image_digest="$("${script_dir}/get-image-digest.sh" "${image}")"
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l GOLANG_IMAGE= images/{builder,hubble-proto,runtime}))
+used_by=($(git grep -l GOLANG_IMAGE= images/*/Dockerfile))
 
 for i in "${used_by[@]}" ; do
     # golang images with image digest
-    sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*@.*|GOLANG_IMAGE=${image}@${image_digest}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+    sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)\?@.*|GOLANG_IMAGE=${image}@${image_digest}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
     # other golang images (e.g. golang-alpine images)
-    sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*-\(.*\)|GOLANG_IMAGE=${image}-\1|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+    sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)\?-\(.*\)@.*|GOLANG_IMAGE=${image}-\2@${image_digest}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done

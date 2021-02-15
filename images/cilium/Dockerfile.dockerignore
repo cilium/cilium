@@ -1,4 +1,4 @@
-# Copyright 2020 Authors of Cilium
+# Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 # since this is image is built with root context, most of the files
@@ -11,9 +11,6 @@
 !/go.sum
 !/go.mod
 !/VERSION
-# TODO: this is currently a make dependency, but should be removed
-# in the future
-!/Dockerfile
 
 # directories
 !/.git
@@ -25,8 +22,10 @@
 !/contrib/packaging/docker
 !/daemon
 !/envoy
+!/images/cilium/
 !/operator/option
 !/pkg
 !/plugins/cilium-cni
 !/proxylib
+!/tools
 !/vendor
