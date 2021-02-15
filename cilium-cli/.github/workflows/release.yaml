@@ -28,9 +28,10 @@ jobs:
           draft: false
           prerelease: false
       - name: Upload the artifacts
+        id: upload-release-artifacts
         uses: skx/github-action-publish-binaries@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           releaseId: ${{ steps.create_release.outputs.id }}
-          args: 'release/*/*/*'
+          args: 'release/*'
