@@ -591,7 +591,6 @@ update-golang-dev-doctor:
 	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
 
 update-golang-dockerfiles:
-	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
 	$(QUIET) for fl in $(shell find . \( -path ./vendor -prune -o -path ./images -prune \) -o -name "*Dockerfile*" -print) ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
 	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
 

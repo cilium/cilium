@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -o xtrace
-set -o errexit
 set -o pipefail
 set -o nounset
 

@@ -15,21 +15,21 @@ jobs:
       matrix:
         include:
           - name: cilium
-            dockerfile: ./Dockerfile
+            dockerfile: ./images/cilium/Dockerfile
           - name: operator
-            dockerfile: ./cilium-operator.Dockerfile
+            dockerfile: ./images/operator/Dockerfile
           - name: operator-aws
-            dockerfile: ./cilium-operator-aws.Dockerfile
+            dockerfile: ./images/operator-aws/Dockerfile
           - name: operator-azure
-            dockerfile: ./cilium-operator-azure.Dockerfile
+            dockerfile: ./images/operator-azure/Dockerfile
           - name: operator-generic
-            dockerfile: ./cilium-operator-generic.Dockerfile
+            dockerfile: ./images/operator-generic/Dockerfile
           - name: hubble-relay
-            dockerfile: ./hubble-relay.Dockerfile
+            dockerfile: ./images/hubble-relay/Dockerfile
           - name: clustermesh-apiserver
-            dockerfile: ./clustermesh-apiserver.Dockerfile
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
           - name: docker-plugin
-            dockerfile: ./cilium-docker-plugin.Dockerfile
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
     steps:
       - name: Set output
         id: vars
@@ -57,6 +57,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.vars.outputs.tag }}
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.vars.outputs.tag }}

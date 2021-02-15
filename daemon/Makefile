@@ -10,7 +10,7 @@ all: $(TARGET) links
 
 .PHONY: all $(TARGET) links
 
-$(TARGET): ../Dockerfile ../Makefile ../Makefile.defs Makefile
+$(TARGET): ../Makefile ../Makefile.defs Makefile
 	@$(ECHO_GO)
 	$(QUIET)$(GO_BUILD) -o $(TARGET)
 

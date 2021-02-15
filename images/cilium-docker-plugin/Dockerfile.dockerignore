@@ -19,8 +19,7 @@
 # directories
 !/.git
 !/api
-!/images/runtime/build-gops.sh
-!/hubble-relay
 !/pkg
 !/tools
 !/vendor
+!/plugins
