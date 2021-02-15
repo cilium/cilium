@@ -164,7 +164,7 @@ github.com/cilium/proxy/go/envoy/type/v3
 ## explicit
 github.com/cncf/udpa/go/udpa/annotations
 github.com/cncf/udpa/go/xds/core/v3
-# github.com/containernetworking/cni v0.8.0
+# github.com/containernetworking/cni v0.8.1
 ## explicit
 github.com/containernetworking/cni/pkg/skel
 github.com/containernetworking/cni/pkg/types
