@@ -272,6 +272,10 @@ bpf:
   # for implementing Layer 7 policy.
   # tproxy: true
 
+  # -- Configure the FIB lookup bypass optimization for nodeport reverse
+  # NAT handling.
+  # lbBypassFIBLookup: true
+
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
 # DaemonSet.
 #
