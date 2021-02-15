@@ -104,6 +104,11 @@ static __always_inline bool nodeport_lb_hairpin(void)
 	return is_defined(ENABLE_NODEPORT_HAIRPIN);
 }
 
+static __always_inline bool fib_lookup_bypass(void)
+{
+	return is_defined(ENABLE_FIB_LOOKUP_BYPASS);
+}
+
 static __always_inline void
 bpf_mark_snat_done(struct __ctx_buff *ctx __maybe_unused)
 {
@@ -868,7 +873,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
-	union macaddr *dmac;
+	union macaddr *dmac = NULL;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -925,7 +930,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 		}
 #endif
 
-		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &tuple.daddr);
+		if (fib_lookup_bypass())
+			dmac = map_lookup_elem(&NODEPORT_NEIGH6, &tuple.daddr);
 		if (dmac) {
 			union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(*ifindex);
 
@@ -1798,7 +1804,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	int ret, ret2, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
-	union macaddr *dmac;
+	union macaddr *dmac = NULL;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -1851,7 +1857,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		}
 #endif
 
-		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
+		if (fib_lookup_bypass())
+			dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
 		if (dmac) {
 			union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(*ifindex);
 

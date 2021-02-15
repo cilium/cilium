@@ -337,6 +337,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					fmt.Sprintf("%d", lbmap.SourceRange6Map.MapInfo.MaxEntries)
 			}
 		}
+		if option.Config.EnableBPFBypassFIBLookup {
+			cDefinesMap["ENABLE_FIB_LOOKUP_BYPASS"] = "1"
+		}
 
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
