@@ -615,11 +615,9 @@ hubble:
     nodeSelector: {}
 
     # -- Annotations to be added to hubble-relay pods
-    #
     podAnnotations: {}
 
     # -- Labels to be added to hubble-relay pods
-    #
     podLabels: {}
 
     # -- Node tolerations for pod assignment on nodes with taints
@@ -733,11 +731,9 @@ hubble:
     replicas: 1
 
     # -- Annotations to be added to hubble-ui pods
-    #
     podAnnotations: {}
 
     # -- Labels to be added to hubble-ui pods
-    #
     podLabels: {}
 
     # -- Node labels for pod assignment
@@ -1064,11 +1060,9 @@ etcd:
   nodeSelector: {}
 
   # -- Annotations to be added to cilium-etcd-operator pods
-  #
   podAnnotations: {}
 
   # -- Labels to be added to cilium-etcd-operator pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1207,11 +1201,9 @@ operator:
   nodeSelector: {}
 
   # -- Annotations to be added to cilium-operator pods
-  #
   podAnnotations: {}
 
   # -- Labels to be added to cilium-operator pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1304,11 +1296,9 @@ nodeinit:
   nodeSelector: {}
 
   # -- Annotations to be added to node-init pods
-  #
   podAnnotations: {}
 
   # -- Labels to be added to node-init pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1394,11 +1384,9 @@ preflight:
   nodeSelector: {}
 
   # -- Annotations to be added to preflight pods
-  #
   podAnnotations: {}
 
   # Labels to be added to preflight pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
