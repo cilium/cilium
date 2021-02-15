@@ -1,17 +1,23 @@
-# (first line comment needed for DOCKER_BUILDKIT use)
-#
+# syntax=docker/dockerfile:1.2
+
+# Copyright 2020-2021 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:11d2af8b77f8321473174a3c9187ecd64554f3eb
+ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:b5d706763fdc9b733a7c11bfdda4a998124c94a8
+
 # cilium-envoy from github.com/cilium/proxy
 #
 FROM quay.io/cilium/cilium-envoy:1bfbbd9c85907c5667f1abd24b7a6c1b5d8bbf29@sha256:05f556d53b53b062c5ec09fb153f0d0f06b470bc05b025e965bc36f3fb307b6d as cilium-envoy
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
 
 #
 # Hubble CLI
 #
-FROM quay.io/cilium/hubble:v0.7.1@sha256:cc76aa6394d613eaeeac0f15b72f50d426b3c47d4676557431661e6aa5e1597b as hubble
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
+FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as hubble
+COPY images/cilium/hubble-version.sh /tmp/hubble-version.sh
+COPY images/cilium/download-hubble.sh /tmp/download-hubble.sh
+RUN /tmp/download-hubble.sh
+RUN /out/linux/amd64/bin/hubble completion bash > /out/linux/bash_completion
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
@@ -23,20 +29,12 @@ LABEL cilium-sha=${CILIUM_SHA}
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-# BUILDPLATFORM note: BUILDPLATFORM is an automatic platform ARG enabled by
-# Docker BuildKit. The form we would want to use to enable cross-platform builds
-# is "--platform=$BUILDPLATFORM". This would break classic builds, as they would
-# see just "--platform=", which causes an invalid argument error.
-# Makefile.buildkit detects the "# FROM ..." comment on the previous line and
-# augments the FROM line accordingly.
-#
-# FROM --platform=$BUILDPLATFORM
-FROM quay.io/cilium/cilium-builder:2021-02-15@sha256:fe159317890aec50f94340f68c9d7d14426925de0757f936d50cad11692e584b as builder
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
-LABEL maintainer="maintainer@cilium.io"
-WORKDIR /go/src/github.com/cilium/cilium
-COPY . ./
+FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as builder
+
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
 ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
@@ -47,12 +45,23 @@ ARG LIBNETWORK_PLUGIN
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
 #
-# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
-#
-ARG TARGETARCH
-RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
-    SKIP_DOCS=true DESTDIR=/tmp/install build-container install-container \
-    licenses-all
+WORKDIR /go/src/github.com/cilium/cilium
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG} PKG_BUILD=1 V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+    SKIP_DOCS=true DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} build-container install-container-binary
+
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    # install-bash-completion will execute the bash_completion script. It is
+    # fine to run this with same architecture as BUILDARCH since the output of
+    # bash_completion is the same for both architectures.
+    make GOARCH=${BUILDARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG} PKG_BUILD=1 V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+    SKIP_DOCS=true DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} install-bash-completion licenses-all && \
+    mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all
+
+COPY images/cilium/init-container.sh \
+     plugins/cilium-cni/cni-install.sh \
+     plugins/cilium-cni/cni-uninstall.sh \
+       /tmp/install/${TARGETOS}/${TARGETARCH}
 
 #
 # Cilium runtime install.
@@ -64,21 +73,19 @@ RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2021-02-15@sha256:93f95a691deecc4c18eb029b5e04a0ad869320db15d75ca6376b4ed7d12d2b31
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
+FROM ${CILIUM_RUNTIME_IMAGE}
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
-COPY --from=builder /tmp/install /
-COPY --from=cilium-envoy / /
-COPY --from=hubble /usr/bin/hubble /usr/bin/hubble
-COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-install.sh /cni-install.sh
-COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
-COPY --from=builder /go/src/github.com/cilium/cilium/contrib/packaging/docker/init-container.sh /init-container.sh
-COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
-WORKDIR /home/cilium
 RUN groupadd -f cilium \
-    && /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
+COPY --from=cilium-envoy / /
+COPY --from=hubble /out/${TARGETOS}/${TARGETARCH}/bin/hubble /usr/bin/hubble
+COPY --from=hubble /out/linux/bash_completion /etc/bash_completion.d/hubble
+COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
+WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"
 # FIXME Remove me once we add support for Go 1.16

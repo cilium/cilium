@@ -20,7 +20,7 @@
 !/.git
 !/api
 !/images/runtime/build-gops.sh
-!/hubble-relay
+!/operator
 !/pkg
 !/tools
 !/vendor

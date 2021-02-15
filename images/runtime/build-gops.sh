@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017-2020 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 set -o xtrace
@@ -8,19 +8,22 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-mkdir /src
+gops_version="v0.3.14"
 
-cd /src
+mkdir -p /go/src/github.com/google
+cd /go/src/github.com/google
 
-unset GOPATH
+git clone https://github.com/google/gops.git
+cd gops
 
-# when updating this version, also update contrib/packaging/docker/Dockerfile.runtime
-gops_version="0.3.10"
-
-go mod init github.com/cilium/cilium/images/runtime
-go get "github.com/google/gops@v${gops_version}"
+git checkout -b "${gops_version}" "${gops_version}"
+git --no-pager remote -v
+git --no-pager log -1
 
 for arch in amd64 arm64 ; do
   mkdir -p "/out/linux/${arch}/bin"
   GOARCH="${arch}" go build -ldflags "-s -w" -o "/out/linux/${arch}/bin/gops" github.com/google/gops
 done
+
+strip "/out/linux/amd64/bin/gops"
+aarch64-linux-gnu-strip "/out/linux/arm64/bin/gops"

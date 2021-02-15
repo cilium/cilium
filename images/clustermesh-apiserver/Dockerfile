@@ -1,61 +1,67 @@
-# (first line comment needed for DOCKER_BUILDKIT use)
-#
-ARG BASE_IMAGE=scratch
+# syntax=docker/dockerfile:1.2
 
-# Cross-compile go, FROM comment must be located right before the FROM
-# line for the parameter to be applied on BuildKit builds.
-#
-# FROM --platform=$BUILDPLATFORM
-FROM docker.io/library/golang:1.15.8 as builder
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
-ADD . /go/src/github.com/cilium/cilium
-WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
+# Copyright 2020-2021 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+ARG BASE_IMAGE=scratch
+ARG GOLANG_IMAGE=docker.io/library/golang:1.15.8@sha256:9fdb74150f8d8b07ee4b65a4f00ca007e5ede5481fa06e9fd33710890a624331
+
+# BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
+# Represents the plataform where the build is happening, do not mix with
+# TARGETARCH
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as builder
+
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
 ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
-# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
-#
-ARG TARGETARCH
-RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG
+
+WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    mkdir -p /out/${TARGETOS}/${TARGETARCH} && cp etcd-config.yaml /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG} \
+    && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv clustermesh-apiserver /out/${TARGETOS}/${TARGETARCH}/usr/bin
+
 WORKDIR /go/src/github.com/cilium/cilium
-RUN make GOARCH=$TARGETARCH licenses-all
+# licenses-all is a "script" that executes "go run" so its ARCH should be set
+# to the same ARCH specified in the base image of this Docker stage (BUILDARCH)
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    make GOARCH=${BUILDARCH} licenses-all && mv LICENSE.all /out/${TARGETOS}/${TARGETARCH}
 
-# CGO_ENABLED=0 GOOS=linux go build
-
-FROM docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930 as certs
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
+# BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
+# Represents the plataform where the build is happening, do not mix with
+# TARGETARCH
+FROM --platform=${BUILDPLATFORM} docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930 as certs
 RUN apk --update add ca-certificates
 
-# Cross-compile go, FROM comment must be located right before the FROM
-# line for the parameter to be applied on BuildKit builds.
-#
-# FROM --platform=$BUILDPLATFORM
-FROM docker.io/library/golang:1.15.8 as gops
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
-# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
-#
-ARG TARGETARCH
-RUN GOARCH=$TARGETARCH && [ "$GOARCH" != "arm64" ] || CC="aarch64-linux-gnu-gcc" && \
-    go get -d github.com/google/gops && \
-    cd /go/src/github.com/google/gops && \
-    git checkout -b v0.3.14 v0.3.14 && \
-    git --no-pager remote -v && \
-    git --no-pager log -1 && \
-    CGO_ENABLED=0 go install && \
-    strip /go/bin/gops
+# BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
+# Represents the plataform where the build is happening, do not mix with
+# TARGETARCH
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as gops
+
+# build-gops.sh will build both archs at the same time
+WORKDIR /go/src/github.com/cilium/cilium/images/runtime
+RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+    ./build-gops.sh
 
 FROM ${BASE_IMAGE}
-ARG CILIUM_SHA=""
-LABEL cilium-sha=${CILIUM_SHA}
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
-COPY --from=builder /go/src/github.com/cilium/cilium/clustermesh-apiserver/etcd-config.yaml /var/lib/cilium/etcd-config.yaml
-COPY --from=builder /go/src/github.com/cilium/cilium/clustermesh-apiserver/clustermesh-apiserver /usr/bin/clustermesh-apiserver
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=gops /go/bin/gops /bin/gops
-COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
+COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml /var/lib/cilium/etcd-config.yaml
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/clustermesh-apiserver /usr/bin/clustermesh-apiserver
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
+WORKDIR /
+ENV GOPS_CONFIG_DIR=/
 # FIXME Remove me once we add support for Go 1.16
 ENV GODEBUG="madvdontneed=1"
 ENTRYPOINT ["/usr/bin/clustermesh-apiserver"]
