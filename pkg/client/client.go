@@ -579,7 +579,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 		if protocols != "" {
-			fmt.Fprintf(tab, "  Protocols:\t%s\n", protocols)
+			fmt.Fprintf(tab, "  Socket LB Protocols:\t%s\n", protocols)
 		}
 		if kubeProxyDevices != "" {
 			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)
