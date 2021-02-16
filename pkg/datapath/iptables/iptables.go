@@ -1124,7 +1124,7 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 		if err := transientChain.add(m.waitArgs); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", transientChain.name, err)
 		}
-		if err := m.installForwardChainRules(ifName, localDeliveryInterface, transientChain.name); err != nil {
+		if err := m.installForwardChainRulesIpX("iptables", ifName, localDeliveryInterface, transientChain.name); err != nil {
 			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 		if err := transientChain.installFeeder(m.waitArgs); err != nil {
