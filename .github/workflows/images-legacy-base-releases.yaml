@@ -3,6 +3,7 @@ name: Base Image Release Build
 on:
   push:
     branches:
+      - pr/add-multi-arch-support
       - pr/add-multi-arch-support-wip
     paths:
       - images/runtime/**
@@ -10,7 +11,7 @@ on:
 
 jobs:
   build-and-push:
-    timeout-minutes: 20
+    timeout-minutes: 30
     if: ${{ github.repository == 'aanm/cilium' }}
     environment: release
     runs-on: ubuntu-20.04

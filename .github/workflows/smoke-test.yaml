@@ -14,6 +14,7 @@ env:
 
 jobs:
   preflight-clusterrole:
+    if: ${{ github.repository == 'aanm/cilium' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -29,6 +30,7 @@ jobs:
              cilium-preflight-clusterrole.yaml
 
   lint:
+    if: ${{ github.repository == 'aanm/cilium' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,6 +41,7 @@ jobs:
           make -C install/kubernetes lint
 
   helm-docs:
+    if: ${{ github.repository == 'aanm/cilium' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -50,6 +53,7 @@ jobs:
           git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
   quick-install:
+    if: ${{ github.repository == 'aanm/cilium' }}
     strategy:
       matrix:
         target:
@@ -68,7 +72,7 @@ jobs:
           git diff --exit-code || (echo "please run 'make -C install/kubernetes ${{ matrix.target.name }}' and submit your changes"; exit 1)
 
   conformance-test:
-    if: ${{ github.repository == 'cilium/cilium' }}
+    if: ${{ github.repository == 'aanm/cilium' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
