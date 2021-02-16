@@ -42,7 +42,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_SYN_TIMEOUT			60
 #define CT_CLOSE_TIMEOUT		10
 #define CT_REPORT_INTERVAL		5
-#define CT_REPORT_FLAGS			0xff
+#ifndef CT_REPORT_FLAGS
+# define CT_REPORT_FLAGS		0xff
+#endif
 
 #define KERNEL_HZ 250   /* warp: 0 jiffies */
 
@@ -118,7 +120,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifndef SKIP_DEBUG
 #define LB_DEBUG
 #endif
+#ifndef MONITOR_AGGREGATION
 #define MONITOR_AGGREGATION 5
+#endif
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT46)
