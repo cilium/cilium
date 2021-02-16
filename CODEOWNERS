@@ -29,6 +29,158 @@
 * @cilium/janitors
 /.github/workflows/ @cilium/maintainers
 /api/ @cilium/api
-/pkg/monitor/payload @cilium/api
-/pkg/policy/api/ @cilium/api
-/pkg/proxy/accesslog @cilium/api
+/api/v1/flow/ @cilium/api @cilium/hubble
+/api/v1/observer/ @cilium/api @cilium/hubble
+/api/v1/operator/ @cilium/api @cilium/operator
+/api/v1/peer/ @cilium/api @cilium/hubble
+/bpf/ @cilium/bpf
+Makefile* @cilium/build
+/bpf/Makefile* @cilium/build @cilium/bpf
+/bpf/sockops/Makefile* @cilium/build @cilium/bpf
+Dockerfile* @cilium/build
+/bugtool/cmd/ @cilium/cli
+/cilium/ @cilium/cli
+/cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
+/cilium-health/ @cilium/health
+/cilium-health/cmd/ @cilium/health @cilium/cli
+/contrib/ @cilium/contributing
+/contrib/packaging/ @cilium/build
+/contrib/vagrant/ @cilium/contributing
+/contrib/checkpatch/ @cilium/bpf
+/contrib/coccinelle/ @cilium/bpf
+/daemon/ @cilium/agent
+/daemon/cmd/datapath.* @cilium/bpf
+/daemon/cmd/endpoint.* @cilium/endpoint
+/daemon/cmd/health.* @cilium/health
+/daemon/cmd/hubble.go @cilium/hubble
+/daemon/cmd/ipcache.* @cilium/ipcache
+/daemon/cmd/kube_proxy.* @cilium/bpf
+/daemon/cmd/loadbalancer.* @cilium/loadbalancer
+/daemon/cmd/metrics.* @cilium/metrics
+/daemon/cmd/policy.* @cilium/policy
+/daemon/cmd/prefilter.go @cilium/bpf
+/daemon/cmd/proxy.go @cilium/proxy
+/daemon/cmd/state.go @cilium/endpoint
+/daemon/cmd/sysctl_linux.go @cilium/bpf
+/Documentation/ @cilium/docs-structure
+/Documentation/_static/ @cilium/docs-structure
+/Documentation/api.rst @cilium/agent @cilium/docs-structure
+/Documentation/beta.rst @cilium/docs-structure
+/Documentation/bpf.rst @cilium/bpf @cilium/docs-structure
+/Documentation/check-build.sh @cilium/docs-structure
+/Documentation/check-cmdref.sh @cilium/docs-structure
+/Documentation/check-crd-compat-table.sh @cilium/docs-structure
+/Documentation/check-examples.sh @cilium/docs-structure
+/Documentation/cmdref/ @cilium/nonexistantteam
+/Documentation/commit-access.rst @cilium/contributing @cilium/docs-structure
+/Documentation/community.rst @cilium/contributing
+/Documentation/concepts/ebpf/ @cilium/bpf @cilium/docs-structure
+/Documentation/concepts/index.rst @cilium/docs-structure
+/Documentation/concepts/kubernetes/ @cilium/kubernetes @cilium/docs-structure
+/Documentation/concepts/networking/ipam/ @cilium/ipam @cilium/docs-structure
+/Documentation/concepts/networking/ipam/eni* @cilium/ipam @cilium/aws @cilium/docs-structure
+/Documentation/concepts/networking/ipam/azure* @cilium/ipam @cilium/azure @cilium/docs-structure
+/Documentation/concepts/observability/hubble-configuration.rst @cilium/hubble @cilium/docs-structure
+/Documentation/concepts/overview.rst @cilium/docs-structure
+/Documentation/concepts/security/proxy/ @cilium/proxy @cilium/docs-structure
+/Documentation/conf.py @cilium/docs-structure
+/Documentation/configuration/index.rst @cilium/docs-structure
+/Documentation/contributing/ @cilium/contributing @cilium/docs-structure
+/Documentation/Dockerfile @cilium/docs-structure
+/Documentation/gettinghelp.rst @cilium/contributing @cilium/docs-structure
+/Documentation/gettingstarted/aws* @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/bandwidth-manager.rst @cilium/bpf @cilium/docs-structure
+/Documentation/gettingstarted/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/cni-chaining-azure-cni.rst @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/docker.rst @cilium/docker @cilium/docs-structure
+/Documentation/gettingstarted/http.rst @cilium/policy @cilium/docs-structure
+/Documentation/gettingstarted/hubble* @cilium/hubble @cilium/docs-structure
+/Documentation/gettingstarted/index.rst @cilium/docs-structure
+/Documentation/gettingstarted/ipam.rst @cilium/ipam @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-eks.rst @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-remove-aws-node.rst @cilium/aws @cilium/docs-structure
+/Documentation/gettingstarted/k8s-install-aks* @cilium/azure @cilium/docs-structure
+/Documentation/gettingstarted/kind-configure.rst @cilium/docs-structure
+/Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
+/Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure
+/Documentation/glossary.rst @cilium/docs-structure
+/Documentation/hubble.rst @cilium/hubble @cilium/docs-structure
+/Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
+/Documentation/index.rst @cilium/docs-structure
+/Documentation/intro.rst @cilium/docs-structure
+/Documentation/images/bpf* @cilium/bpf @cilium/docs-structure
+/Documentation/images/hubble_getflows.png @cilium/hubble @cilium/docs-structure
+/Documentation/Makefile @cilium/docs-structure
+/Documentation/operations/performance/ @cilium/bpf @cilium/docs-structure
+/Documentation/operations/system_requirements.rst @cilium/bpf @cilium/docs-structure
+/Documentation/policy/ @cilium/policy @cilium/docs-structure
+/Documentation/requirements.txt @cilium/docs-structure
+/Documentation/spelling_wordlist.txt @cilium/docs-structure
+/Documentation/tech-preview.rst @cilium/docs-structure
+/Documentation/update-cmdref.sh @cilium/docs-structure
+/Documentation/update-spelling_wordlist.sh @cilium/docs-structure
+/Documentation/yaml.config @cilium/docs-structure
+/envoy/ @cilium/proxy
+/examples/ @cilium/docs-structure
+/examples/crds/ @cilium/kubernetes
+/examples/kubernetes/ @cilium/kubernetes
+/examples/minikube/ @cilium/kubernetes
+*.Jenkinsfile @cilium/ci-structure
+/hubble-relay/ @cilium/hubble
+/hubble-relay.Dockerfile @cilium/hubble
+/images @cilium/build
+/install/kubernetes/ @cilium/kubernetes @cilium/helm
+/install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/helm @cilium/hubble
+jenkinsfiles @cilium/ci-structure
+Jenkinsfile.nightly @cilium/ci-structure
+/operator/ @cilium/operator
+/pkg/annotation @cilium/kubernetes
+/pkg/api/ @cilium/api
+/pkg/aws/ @cilium/aws
+/pkg/azure/ @cilium/azure
+/pkg/bandwidth/ @cilium/bpf
+/pkg/bpf/ @cilium/bpf
+/pkg/byteorder/ @cilium/bpf @cilium/api
+/pkg/client @cilium/api
+/pkg/completion/ @cilium/proxy
+/pkg/components/ @cilium/agent
+/pkg/controller @cilium/agent
+/pkg/counter @cilium/bpf
+/pkg/datapath @cilium/bpf
+/pkg/datapath/ipcache/ @cilium/ipcache
+/pkg/defaults @cilium/agent
+/pkg/ebpf @cilium/bpf
+/pkg/elf @cilium/bpf
+/pkg/endpoint/ @cilium/endpoint
+/pkg/endpointmanager/ @cilium/endpoint
+/pkg/envoy/ @cilium/proxy
+/pkg/fqdn/ @cilium/agent
+/pkg/health/ @cilium/health
+/pkg/hubble/ @cilium/hubble
+/pkg/identity @cilium/policy
+/pkg/ipam/ @cilium/ipam
+/pkg/ipam/allocator/aws/ @cilium/ipam @cilium/aws
+/pkg/ipam/allocator/azure/ @cilium/ipam @cilium/azure
+/pkg/ipam/allocator/clusterpool/ @cilium/ipam @cilium/operator
+/pkg/ipcache/ @cilium/ipcache
+/pkg/ipmasq @cilium/agent
+/pkg/k8s/ @cilium/kubernetes
+/pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/kubernetes
+/pkg/k8s/client/clientset/versioned/ @cilium/api
+/pkg/k8s/client/informers/ @cilium/api
+/pkg/kafka/ @cilium/proxy
+/pkg/kvstore/ @cilium/kvstore
+/pkg/labels @cilium/policy @cilium/api
+/pkg/launcher @cilium/agent
+/pkg/loadbalancer @cilium/loadbalancer
+/pkg/lock @cilium/agent
+/pkg/logging/ @cilium/cli
+/pkg/mac @cilium/bpf
+/pkg/maglev @cilium/loadbalancer
+/pkg/maps/ @cilium/bpf
+/pkg/mcastmanager @cilium/bpf
+/pkg/metrics @cilium/metrics
+/pkg/monitor @cilium/monitor
+/pkg/monitor/api @cilium/api
+/pkg/monitor/datapath_debug.go @cilium/bpf
+/pkg/monitor/format @cilium/cli
