@@ -1,37 +1,59 @@
-# syntax=docker/dockerfile:1.1-experimental
+# (first line comment needed for DOCKER_BUILDKIT use)
+#
+ARG BASE_IMAGE=scratch
 
-# Copyright 2020 Authors of Cilium
-# SPDX-License-Identifier: Apache-2.0
+# Cross-compile go, FROM comment must be located right before the FROM
+# line for the parameter to be applied on BuildKit builds.
+#
+# FROM --platform=$BUILDPLATFORM
+FROM docker.io/library/golang:1.15.7 as builder
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
+LABEL maintainer="maintainer@cilium.io"
 
-ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:9f7c5a373facf77a3eaab0f68ff64a5d1fa18229
-ARG CA_CERTIFICATES_IMAGE=docker.io/cilium/ca-certificates:69a9f5d66ff96bf97e8b9dc107e92aa9ddbdc9a8
+ADD . /go/src/github.com/cilium/cilium
 
-FROM ${CILIUM_BUILDER_IMAGE} as builder
-
-ARG TARGETOS
-ARG TARGETARCH
+WORKDIR /go/src/github.com/cilium/cilium/operator
 ARG NOSTRIP
 ARG LOCKDEBUG
 ARG RACE
-
-ENV GOOS=${TARGETOS} \
-  GOARCH=${TARGETARCH}
-
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
-  make -C operator \
-  NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG RACE=$RACE PKG_BUILD=1 \
-  && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv operator/cilium-operator* /out/${TARGETOS}/${TARGETARCH}/usr/bin
-
-FROM ${CA_CERTIFICATES_IMAGE}
-
-ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+#
 ARG TARGETARCH
+RUN make GOARCH=$TARGETARCH RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG cilium-operator
+WORKDIR /go/src/github.com/cilium/cilium
+RUN make GOARCH=$TARGETARCH licenses-all
 
+FROM docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930 as certs
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
+RUN apk --update add ca-certificates
+
+FROM docker.io/library/golang:1.15.7 as gops
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+#
+ARG TARGETARCH
+RUN GOARCH=$TARGETARCH && [ "$GOARCH" != "arm64" ] || CC="aarch64-linux-gnu-gcc" && \
+    go get -d github.com/google/gops && \
+    cd /go/src/github.com/google/gops && \
+    git checkout -b v0.3.14 v0.3.14 && \
+    git --no-pager remote -v && \
+    git --no-pager log -1 && \
+    CGO_ENABLED=0 go install && \
+    strip /go/bin/gops
+
+FROM ${BASE_IMAGE}
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
-
-WORKDIR /
 ENV GOPS_CONFIG_DIR=/
-
-COPY --from=builder /out/${TARGETOS}/${TARGETARCH} .
-
-CMD ["/usr/bin/cilium-operator-generic"]
+COPY --from=builder /go/src/github.com/cilium/cilium/operator/cilium-operator /usr/bin/cilium-operator
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=gops /go/bin/gops /bin/gops
+COPY --from=builder /go/src/github.com/cilium/cilium/LICENSE.all /LICENSE.all
+WORKDIR /
+# FIXME Remove me once we add support for Go 1.16
+ENV GODEBUG="madvdontneed=1"
+CMD ["/usr/bin/cilium-operator"]
