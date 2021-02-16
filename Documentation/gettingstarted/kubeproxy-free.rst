@@ -762,11 +762,6 @@ NodePort XDP requires Cilium to run in direct routing mode (``tunnel=disabled``)
 It is recommended to use Azure IPAM for the pod IP address allocation, which
 will automatically configure your virtual network to route pod traffic correctly:
 
-.. warning::
-  Deploying Cilium with ``azure.enabled=true`` will disconnect all running Pods
-  in the cluster that were scheduled using the default ``azure-vnet`` CNI plugin.
-  We aim to remove this limitation before moving Azure IPAM out of Beta.
-
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
