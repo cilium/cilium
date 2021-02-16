@@ -218,7 +218,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 	}
 
 	if pod.Spec.HostNetwork {
-		logger.Debug("pod is using host networking")
+		logger.Debug("Pod is using host networking")
 		return nil
 	}
 
