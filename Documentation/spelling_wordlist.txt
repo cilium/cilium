@@ -713,6 +713,7 @@ reproducibility
 requireIPv
 retpoline
 retransmission
+retrigger
 retryTimeout
 rn
 roadmap
