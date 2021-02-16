@@ -201,6 +201,15 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 // ForeachInstance will iterate over each instance inside `instances`, and call
 // `fn`. This function is read-locked for the entire execution.
 func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.InterfaceIterator) {
+	// This is a safety net in case the InstanceID is not known for some
+	// reason. If we don't know the instanceID, we also can't derive the
+	// list of ENIs attached to this instance. Without this,
+	// ForeachInstance() would return the ENIs of all instances.
+	if instanceID == "" {
+		log.Error("BUG: Inconsistent CiliumNode state. The InstanceID is not known")
+		return
+	}
+
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	m.instances.ForeachInterface(instanceID, fn)
