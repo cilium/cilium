@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:11d2af8b77f8321473174a3c9187ecd64554f3eb
-ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:b5d706763fdc9b733a7c11bfdda4a998124c94a8
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:76800e860cc7f481b2e4024b38c8cda534f410ad
 
 # cilium-envoy from github.com/cilium/proxy
 #
