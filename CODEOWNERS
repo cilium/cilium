@@ -28,7 +28,7 @@
 # is not properly picked up in Github.
 * @cilium/janitors
 /.github/ @cilium/contributing
-/.github/workflows/ @cilium/maintainers
+/.github/workflows/ @cilium/maintainers @cilium/ci-structure
 /api/ @cilium/api
 /api/v1/flow/ @cilium/api @cilium/hubble
 /api/v1/observer/ @cilium/api @cilium/hubble
