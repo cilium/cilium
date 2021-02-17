@@ -576,7 +576,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 	return svcs
 }
 
-func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
+func (k *K8sWatcher) upsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
 	if !option.Config.EnableHostPort {
 		return nil
 	}
@@ -612,7 +612,7 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	return nil
 }
 
-func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
+func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
 	if !option.Config.EnableHostPort {
 		return nil
 	}
@@ -640,7 +640,7 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 }
 
 func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) error {
-	err := k.UpsertHostPortMapping(pod, podIPs)
+	err := k.upsertHostPortMapping(pod, podIPs)
 	if err != nil {
 		return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
 	}
@@ -714,7 +714,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		return true, nil
 	}
 
-	k.DeleteHostPortMapping(pod, podIPs)
+	k.deleteHostPortMapping(pod, podIPs)
 
 	var (
 		errs    []string
