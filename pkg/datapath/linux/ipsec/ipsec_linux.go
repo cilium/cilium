@@ -68,7 +68,6 @@ func ipSecNewState() *netlink.XfrmState {
 	state := netlink.XfrmState{
 		Mode:  netlink.XFRM_MODE_TUNNEL,
 		Proto: netlink.XFRM_PROTO_ESP,
-		ESN:   false,
 	}
 	return &state
 }
@@ -78,13 +77,14 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool, optional int) {
 	tmpl := netlink.XfrmPolicyTmpl{
-		Proto: netlink.XFRM_PROTO_ESP,
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Reqid: keys.ReqID,
-		Dst:   dstIP,
-		Src:   srcIP,
+		Proto:    netlink.XFRM_PROTO_ESP,
+		Mode:     netlink.XFRM_MODE_TUNNEL,
+		Reqid:    keys.ReqID,
+		Dst:      dstIP,
+		Src:      srcIP,
+		Optional: optional,
 	}
 
 	if spi {
@@ -118,8 +118,14 @@ func ipSecReplaceStateIn(remoteIP, localIP net.IP) (uint8, error) {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
+	/*
+		state.OutputMark = &netlink.XfrmMark{
+			Value: linux_defaults.RouteMarkDecrypt,
+			Mask:  linux_defaults.RouteMarkMask,
+		}
+	*/
 	state.OutputMark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
+		Value: 0, //linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
 
@@ -147,16 +153,9 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func ipSecReplacePolicyIn(src, dst *net.IPNet) error {
-	if err := ipSecReplacePolicyInFwd(src, dst, netlink.XFRM_DIR_IN); err != nil {
-		if !os.IsExist(err) {
-			return err
-		}
-	}
-	return ipSecReplacePolicyInFwd(src, dst, netlink.XFRM_DIR_FWD)
-}
+func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink.Dir) error {
+	optional := int(0)
 
-func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 	key := getIPSecKeys(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
@@ -166,12 +165,40 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 	policy.Dir = dir
 	policy.Src = &net.IPNet{IP: src.IP.Mask(src.Mask), Mask: src.Mask}
 	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
-	policy.Mark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
+	if dir == netlink.XFRM_DIR_IN {
+		policy.Mark = &netlink.XfrmMark{
+			Value: linux_defaults.RouteMarkDecrypt,
+			Mask:  linux_defaults.IPsecMarkMaskIn,
+		}
 	}
-	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, false)
+	// We always make forward rules optional. The only reason we have these
+	// at all is to apease the XFRM route hooks, we don't really care about
+	// policy because Cilium BPF programs do that.
+	if dir == netlink.XFRM_DIR_FWD {
+		optional = 1
+	}
+	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
+}
+
+func ipSecReplacePolicyIn(src, dst, tmplSrc, tmplDst *net.IPNet) error {
+	err := _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_IN)
+	if err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+	return err
+}
+
+func ipSecReplacePolicyFwd(src, dst, tmplSrc, tmplDst *net.IPNet) error {
+	err := _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_FWD)
+	if err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+	return err
 }
 
 func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) error {
@@ -199,9 +226,9 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	if tmplSrc != nil && tmplDst != nil {
-		ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true)
+		ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true, 0)
 	} else {
-		ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, true)
+		ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, true, 0)
 	}
 	return netlink.XfrmPolicyUpdate(policy)
 }
@@ -303,7 +330,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -325,7 +352,12 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 					return 0, fmt.Errorf("unable to replace local state: %s", err)
 				}
 			}
-			if err = ipSecReplacePolicyIn(remote, local); err != nil {
+			if err = ipSecReplacePolicyIn(remote, local, remote, local); err != nil {
+				if !os.IsExist(err) {
+					return 0, fmt.Errorf("unable to replace policy in: %s", err)
+				}
+			}
+			if err = ipSecReplacePolicyFwd(remote, fwd, remote, local); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
