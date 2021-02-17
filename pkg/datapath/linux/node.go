@@ -473,7 +473,9 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 		spi, err = ipsec.UpsertIPsecEndpoint(ipsecIPv4Wildcard, cidr, ipsec.IPSecDirOut)
 		upsertIPsecLog(err, "CNI Out IPv4", ipsecIPv4Wildcard, cidr, spi)
 
-		n.replaceNodeExternalIPSecOutRoute(cidr)
+		if n.nodeConfig.EncryptNode {
+			n.replaceNodeExternalIPSecOutRoute(cidr)
+		}
 	}
 
 	for _, cidr := range v6CIDR {
@@ -485,7 +487,9 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 		spi, err := ipsec.UpsertIPsecEndpoint(ipsecIPv6Wildcard, cidr, ipsec.IPSecDirOut)
 		upsertIPsecLog(err, "CNI Out IPv6", cidr, ipsecIPv6Wildcard, spi)
 
-		n.replaceNodeExternalIPSecOutRoute(cidr)
+		if n.nodeConfig.EncryptNode {
+			n.replaceNodeExternalIPSecOutRoute(cidr)
+		}
 	}
 }
 
@@ -847,7 +851,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		n.insertNeighbor(context.Background(), newNode, ifaceName, false)
 	}
 
-	if n.nodeConfig.EnableIPSec {
+	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
 		n.encryptNode(newNode)
 	}
 
