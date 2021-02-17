@@ -25,6 +25,11 @@ image="${1:-docker.io/library/golang:${go_version}}"
 
 image_digest="$("${script_dir}/get-image-digest.sh" "${image}")"
 
+if [ -z "${image_digest}" ]; then
+  echo "Image digest not available"
+  exit 1
+fi
+
 # shellcheck disable=SC2207
 used_by=($(git grep -l GOLANG_IMAGE= images/*/Dockerfile))
 
