@@ -1,5 +1,95 @@
 # Changelog
 
+## v1.8.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* [v1.8] k8s: Update libraries to v1.18.13 (#14408, @christarazi)
+* [v1.8] k8s: Update libraries to v1.18.14 (#14479, @christarazi)
+* daemon, node: refresh neighbor by sending arping periodically (Backport PR #14574, Upstream PR #14498, @jaffcheng)
+* ipsec: Fatal on unsupported, <4.19 kernels in tunneling mode (Backport PR #14586, Upstream PR #14525, @pchaigno)
+* Make Go runtime to return unused memory to OS more often (Backport PR #14953, Upstream PR #14634, @aanm)
+
+**Bugfixes:**
+* cilium-cni: Fix error handling for bad netns (Backport PR #14654, Upstream PR #14645, @joestringer)
+* clustermesh: Ignore symlink files on fsnotify events (Backport PR #14654, Upstream PR #14565, @tgraf)
+* Fix a bug that affects connectivity to NodePort service via ExternalIP of the local k8s node. (Backport PR #14953, Upstream PR #14793, @AnishShah)
+* Fix a route MTU issue where pods cannot receive large packets from outside the cluster when the sender sets the "don't fragment" (DF) bit. (Backport PR #14740, Upstream PR #14679, @aditighag)
+* Fix BPF verifier rejection with IPv6 prefilter (Backport PR #14539, Upstream PR #14447, @pchaigno)
+* Fix bug where Cilium would constantly regenerate endpoints in environments with etcd and Linux 4.15 or below. (Backport PR #14441, Upstream PR #14300, @dctrwatson)
+* Fix CIDR rule bug potentially dropping allowed traffic or allowing denied traffic for deny policies (beta feature) when using ExceptCIDRs expressions. (Backport PR #14654, Upstream PR #14516, @jrajahalme)
+* Fix connectivity to externalTrafficPolicy=Local services when using the host firewall with kube-proxy (Backport PR #14953, Upstream PR #14756, @pchaigno)
+* Fix ENI compatibility regression between 1.7 <-> 1.8 (Backport PR #15011, Upstream PR #14991, @tgraf)
+* Fix ipsec+vxlan bug where egressing packets would bypass masquerading on their way to remote nodes (Backport PR #14953, Upstream PR #14611, @jrfastab)
+* Fix missing packet mark mask that can cause policy deny drops in IPSec configuration. (Backport PR #14441, Upstream PR #14381, @pchaigno)
+* Fix pod-to-pod encryption bugs in the IPAM ENI mode. (Backport PR #14953, Upstream PR #14924, @aditighag)
+* Fix possible overflow in values presented in the `k8s_event_lag_seconds` metric. (Backport PR #14441, Upstream PR #14313, @aanm)
+* Fix potential nil pointer exception for an invalid CCNP in the Cilium Operator (Backport PR #14441, Upstream PR #14375, @aanm)
+* Fix potential panic when closing etcd connection on error (Backport PR #14654, Upstream PR #14623, @aanm)
+* Fix rare crash on startup when kubernetes initialization occurs before IP address configuration (Backport PR #14539, Upstream PR #14299, @joestringer)
+* Fix remote pod connectivity through VIP in tunneling mode with kube-proxy and per-endpoint routes. (Backport PR #14953, Upstream PR #14675, @pchaigno)
+* Fix IPv6 connectivity to BPF HostPort when kube-proxy is installed (Backport PR #14953, Upstream PR #14675, @pchaigno)
+* helm: Fix preflight check resource quota conflict (Backport PR #14296, Upstream PR #14295, @gandro)
+* hubble: parser: Set Encrypted bit correctly (Backport PR #14740, Upstream PR #14677, @tgraf)
+* iptables: Fix incorrect SNAT bypass with endpoint routes and tunneling (Backport PR #14953, Upstream PR #14913, @pchaigno)
+* labelsfilter: add reserved labels to default identity label list (Backport PR #14953, Upstream PR #14114, @ArthurChiao)
+* metricsmap: fix Prometheus exporter (Backport PR #14310, Upstream PR #14220, @jibi)
+* node-neigh: Fix node removal and invalid neigh entry due to buggy arping response correlation (Backport PR #14834, Upstream PR #14709, @brb)
+* routing: Fix route collisions in AWS ENI (Backport PR #14845, Upstream PR #14269, @christarazi)
+
+**CI Changes:**
+* bpf: Enable monitor aggregation in complexity tests (Backport PR #15011, Upstream PR #14995, @pchaigno)
+* Extend K8sVerifier to maximize program sizes on 4.19 and net-next kernels (Backport PR #14740, Upstream PR #14451, @pchaigno)
+* jenkinsfile: Allow enabling host firewall in k8s-all CI (Backport PR #14654, Upstream PR #14524, @pchaigno)
+* runtime: specify ICMP ids on connectivity test (Backport PR #14869, Upstream PR #13989, @kkourt)
+* test: Add missing gomega Eventually intervals (Backport PR #14539, Upstream PR #14388, @jrajahalme)
+* test: Enable K8sVerifier on 4.19 and net-next CI (Backport PR #14797, Upstream PR #13953, @pchaigno)
+* test: Fix flake on policy verdict count check (Backport PR #14441, Upstream PR #14286, @pchaigno)
+* test: K8sVerifier Fix test-verifier's scheduling (Backport PR #14869, Upstream PR #14803, @pchaigno)
+* test: Test policy enforcement through tunnels (Backport PR #14441, Upstream PR #14412, @pchaigno)
+* test: Use NFS by default in test VMs (Backport PR #14797, Upstream PR #13983, @pchaigno)
+
+**Misc Changes:**
+* .github: fix project ID (#14281, @aanm)
+* [v1.8] .github: add GitHub actions to build images (#14935, @aanm)
+* [v1.8] release: Fix script to check presence of docker images (#14779, @joestringer)
+* bpf: Replace `CALLS_MAP` symbol in compile-tested binaries (Backport PR #14797, Upstream PR #13934, @pchaigno)
+* bpf: Send packet drop notify for ipv6 lb nat mode failures. (Backport PR #14782, Upstream PR #14730, @hzhou8)
+* bpf: Send packet drop notify for LB DSR mode failures. (Backport PR #14740, Upstream PR #14649, @hzhou8)
+* contrib/release: clarify project number for release process (Backport PR #14740, Upstream PR #14684, @aanm)
+* contrib: Add script to fetch docker manifests (Backport PR #14782, Upstream PR #14707, @joestringer)
+* docker: Pull llvm-objcopy in cilium-builder (Backport PR #14797, Upstream PR #13958, @pchaigno)
+* docs: Add cgroups kernel config requirements (Backport PR #14539, Upstream PR #14517, @joestringer)
+* docs: Add FQDN limitation to IPVLAN docs (Backport PR #14953, Upstream PR #14893, @joestringer)
+* docs: Added instruction to also delete kube-proxy configmap (Backport PR #14953, Upstream PR #14847, @yoshz)
+* docs: Clarify from/toRequires documentation with a new example (Backport PR #14310, Upstream PR #14262, @pchaigno)
+* docs: Document hostport requirements in eni (Backport PR #14953, Upstream PR #14920, @joestringer)
+* docs: Fix dependency conflict (Backport PR #14310, Upstream PR #14264, @joestringer)
+* Fix bug Cilium hangs with kvstore configured (#14627, @christarazi)
+* Fix upgrade docs link to API ratelimiting page (#14894, @joestringer)
+* helm: set dnsPolicy based on etcd.k8sService (Backport PR #14740, Upstream PR #14626, @aanm)
+* iptables: Skip `CILIUM_TRANSIENT_FORWARD` for IPv6 (Backport PR #15011, Upstream PR #14994, @pchaigno)
+* labelsfilter: Update documentation and add unit tests (Backport PR #14953, Upstream PR #14338, @pchaigno)
+* pkg/node: fix concurrent access of entry node (Backport PR #14654, Upstream PR #14591, @aanm)
+* policy: Don't nil an empty selectors map. (#14390, @jrajahalme)
+* policy: Track selectors that contribute to MapStateEntries (#14366, @jrajahalme)
+* Remove SNAT maps entries to support the case when the user toggles off from using BPF to kube-proxy. (Backport PR #14834, Upstream PR #14721, @mazzy89)
+* test/vagrant: Fix NFS setup for test VMs (Backport PR #14797, Upstream PR #13527, @pchaigno)
+* test: Disable host firewall by default when running tests locally (Backport PR #14441, Upstream PR #13465, @pchaigno)
+* v1.8: Update Go to 1.14.13 (#14306, @tklauser)
+* v1.8: Update Go to 1.14.14 (#14667, @tklauser)
+* v1.8: Update Go to 1.14.15 (#14985, @tklauser)
+* vendor: Update vishvananda/netlink (Backport PR #14539, Upstream PR #14513, @pchaigno)
+
+**Other Changes:**
+* [v1.8] docker: bump cilium-iproute2 image (#14614, @qmonnet)
+* backport 1.8: vendor: Bump github.com/cilium/arping (#14636, @brb)
+* backport 1.8: vendor: Bump github.com/cilium/arping to fix correlation bug (#14734, @brb)
+* v1.8 backport: node: Remove check whether nextHop is in same L2 (#14455, @brb)
+* v1.8: travis: Fix ineffassign version to avoid breaking change (#14531, @pchaigno)
+
 ## v1.8.6
 
 Summary of Changes
