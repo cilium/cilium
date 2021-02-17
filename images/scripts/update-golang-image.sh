@@ -20,10 +20,23 @@ root_dir="$(git rev-parse --show-toplevel)"
 cd "${root_dir}"
 
 go_version=1.15.8
+go_version_alpine=${go_version}-alpine3.13
 
 image="${1:-docker.io/library/golang:${go_version}}"
-
 image_digest="$("${script_dir}/get-image-digest.sh" "${image}")"
+
+if [ -z "${image_digest}" ]; then
+  echo "Image digest not available"
+  exit 1
+fi
+
+image_alpine="${1:-docker.io/library/golang:${go_version_alpine}}"
+image_alpine_digest="$("${script_dir}/get-image-digest.sh" "${image}")"
+
+if [ -z "${image_alpine_digest}" ]; then
+  echo "Image alpine digest not available"
+  exit 1
+fi
 
 # shellcheck disable=SC2207
 used_by=($(git grep -l GOLANG_IMAGE= images/*/Dockerfile))
@@ -32,5 +45,5 @@ for i in "${used_by[@]}" ; do
     # golang images with image digest
     sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)\?@.*|GOLANG_IMAGE=${image}@${image_digest}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
     # other golang images (e.g. golang-alpine images)
-    sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)\?-\(.*\)@.*|GOLANG_IMAGE=${image}-\2@${image_digest}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+    sed "s|GOLANG_IMAGE=docker\.io/library/golang:[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)\?-\(.*\)@.*|GOLANG_IMAGE=${image_alpine}@${image_alpine_digest}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
