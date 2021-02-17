@@ -2281,14 +2281,18 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							})
 					})
 
-					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
-						"Tests with secondary NodePort device", func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"devices": fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
-							})
-
-							testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
+					SkipItIf(func() bool {
+						// Quarantine when running with the third node as it's
+						// flaky. See #12511.
+						return helpers.GetCurrentIntegration() != "" ||
+							(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+					}, "Tests with secondary NodePort device", func() {
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							"devices": fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 						})
+
+						testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
+					})
 				})
 
 				Context("Tests with direct routing", func() {
@@ -2419,17 +2423,21 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							})
 					})
 
-					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
-						"Tests with secondary NodePort device", func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"tunnel":               "disabled",
-								"autoDirectNodeRoutes": "true",
-								"loadBalancer.mode":    "snat",
-								"devices":              fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
-							})
-
-							testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
+					SkipItIf(func() bool {
+						// Quarantine when running with the third node as it's
+						// flaky. See #12511.
+						return helpers.GetCurrentIntegration() != "" ||
+							(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
+					}, "Tests with secondary NodePort device", func() {
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							"tunnel":               "disabled",
+							"autoDirectNodeRoutes": "true",
+							"loadBalancer.mode":    "snat",
+							"devices":              fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 						})
+
+						testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
+					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests GH#10983", func() {
 						var data v1.Service
