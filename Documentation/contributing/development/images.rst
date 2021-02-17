@@ -37,6 +37,13 @@ You can then push the image tag to your own registry for development builds:
 
     docker push quay.io/myaccount/cilium-dev:jane-developer-my-fix-amd64
 
+~~~~~~~~~~~~~~
+Race detection
+~~~~~~~~~~~~~~
+
+See section on :ref:`compiling Cilium with race detection
+<compile-cilium-with-race-detection>`.
+
 Official release images
 ~~~~~~~~~~~~~~~~~~~~~~~
 

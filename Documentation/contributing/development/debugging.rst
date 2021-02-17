@@ -339,11 +339,23 @@ To debug data races, Golang allows ``-race`` to be passed to the compiler to
 compile Cilium with race detection. Additionally, the flag can be provided to
 ``go test`` to detect data races in a testing context.
 
+.. _compile-cilium-with-race-detection:
+
+~~~~~~~~~~~~~~
+Race detection
+~~~~~~~~~~~~~~
+
 To compile a Cilium binary with race detection, you can do:
 
 .. code:: bash
 
     $ make RACE=1
+
+.. Note::
+
+    For building the Operator with race detection, you must also provide
+    ``BASE_IMAGE`` which can be the ``cilium/cilium-runtime`` image from the
+    root Dockerfile found in the Cilium repository.
 
 To run unit tests with race detection, you can do:
 
