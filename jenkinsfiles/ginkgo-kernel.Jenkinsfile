@@ -93,7 +93,7 @@ pipeline {
                             echo -n "K8s"
                         fi''', returnStdout: true
 
-                    if (env.ghprbActualCommit != "") {
+                    if (env.ghprbActualCommit?.trim()) {
                         env.DOCKER_TAG = env.ghprbActualCommit
                     } else {
                         env.DOCKER_TAG = env.GIT_COMMIT
