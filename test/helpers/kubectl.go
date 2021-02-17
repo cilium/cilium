@@ -111,11 +111,6 @@ var (
 		"ipv6.enabled":                  "true",
 		// "extraEnv[0].name":              "KUBE_CACHE_MUTATION_DETECTOR",
 		// "extraEnv[0].value":             "true",
-		"bpf.masquerade": "true",
-		// Disable by default, so that 4.9 CI build does not panic due to
-		// missing LRU support. On 4.19 and net-next we enable it with
-		// kubeProxyReplacement=strict.
-		"sessionAffinity": "false",
 
 		// Enable embedded Hubble, both on unix socket and TCP port 4244.
 		"hubble.enabled":       "true",
@@ -2353,6 +2348,17 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
 		}
+	}
+
+	// Disable unsupported features that will just generated unnecessary
+	// warnings otherwise.
+	if DoesNotRunOnNetNextOr419Kernel() {
+		addIfNotOverwritten(options, "kubeProxyReplacement", "disabled")
+		addIfNotOverwritten(options, "bpf.masquerade", "false")
+		addIfNotOverwritten(options, "sessionAffinity", "false")
+	}
+	if DoesNotRunOnNetNextKernel() {
+		addIfNotOverwritten(options, "bandwidthManager", "false")
 	}
 
 	if RunsWithHostFirewall() {
