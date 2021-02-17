@@ -16,6 +16,7 @@ package nodediscovery
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ import (
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,7 +55,7 @@ const (
 	AutoCIDR = "auto"
 
 	nodeDiscoverySubsys = "nodediscovery"
-	maxRetryCount       = 5
+	maxRetryCount       = 10
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
@@ -286,23 +287,37 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	ciliumClient := k8s.CiliumClient()
 
+	performGet := true
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+		var nodeResource *ciliumv2.CiliumNode
 		performUpdate := true
-		nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
-		if err != nil {
-			performUpdate = false
-			nodeResource = &ciliumv2.CiliumNode{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeTypes.GetName(),
-				},
+		if performGet {
+			var err error
+			nodeResource, err = ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
+			if err != nil {
+				performUpdate = false
+				nodeResource = &ciliumv2.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeTypes.GetName(),
+					},
+				}
+			} else {
+				performGet = false
 			}
 		}
 
-		n.mutateNodeResource(nodeResource)
+		if err := n.mutateNodeResource(nodeResource); err != nil {
+			log.WithError(err).WithField("retryCount", retryCount).Warning("Unable to mutate nodeResource")
+			continue
+		}
 
+		// if we retry after this point, is due to a conflict. We will do
+		// a new GET  to ensure we have the latest information before
+		// updating.
+		performGet = true
 		if performUpdate {
 			if _, err := ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
-				if errors.IsConflict(err) {
+				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
 					continue
 				}
@@ -311,8 +326,8 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 				return
 			}
 		} else {
-			if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
-				if errors.IsConflict(err) {
+			if _, err := ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
+				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
 					continue
 				}
@@ -326,7 +341,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	log.Fatal("Could not create or update CiliumNode resource, despite retries")
 }
 
-func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
+func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) error {
 	var (
 		providerID       string
 		k8sNodeAddresses []nodeTypes.Address
@@ -424,6 +439,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
 		}
 
+		if instanceID == "" {
+			return errors.New("InstanceID of own EC2 instance is empty")
+		}
+
 		// It is important to determine the interface index here because this
 		// function (mutateNodeResource) will be called when the agent is first
 		// coming up and is initializing the IPAM layer (CRD allocator in this
@@ -506,6 +525,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 			}
 		}
 	}
+
+	return nil
 }
 
 // determineFirstInterfaceIndex determines the appropriate default interface
