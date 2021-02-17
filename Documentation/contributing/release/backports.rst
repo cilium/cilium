@@ -88,7 +88,7 @@ One-time Setup
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | `PyGithub <https://pypi.org/project/PyGithub/>`_             | No        | ``pip3 install PyGithub``                               |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
-   | `Github hub CLI <https://github.com/github/hub>`_            | No        | N/A (OS-specific)                                       |
+   | `Github hub CLI (>= 2.8.3) <https://github.com/github/hub>`_ | No        | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
 
    Verify your machine is correctly configured by running
@@ -184,14 +184,28 @@ the labels for the PRs that are backported, based on the
 
       $ GITHUB_TOKEN=xxx contrib/backporting/submit-backport
 
-Via GitHub Web Interface
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-#. Push your backports branch to cilium repo.
+The script takes up to three positional arguments:
 
    .. code-block:: bash
 
-      $ git push -u origin HEAD
+      usage: submit-backport [branch version] [pr-summary] [your remote]
+
+- The first parameter is the version of the branch against which the PR should
+  be done, and defaults to the version passed to ``start-backport``.
+- The second one is the name of the file containing the text summary to use for
+  the PR, and defaults to the file created by ``start-backport``.
+- The third one is the name of the git remote of your (forked) repository to
+  which your changes will be pushed. It defaults to the git remote
+  which matches ``github.com/<your github username>/cilium``.
+
+Via GitHub Web Interface
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+#. Push your backports branch to your fork of the Cilium repo.
+
+   .. code-block:: bash
+
+      $ git push -u <remote_for_your_fork> HEAD
 
 #. Create a new PR from your branch towards the feature branch you are
    backporting to. Note that by default Github creates PRs against the
