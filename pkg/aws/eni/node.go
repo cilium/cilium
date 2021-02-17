@@ -59,6 +59,19 @@ type Node struct {
 
 	// manager is the EC2 node manager responsible for this node
 	manager *InstancesManager
+
+	// instanceID of the node
+	instanceID string
+}
+
+// NewNode returns a new Node
+func NewNode(node *ipam.Node, k8sObj *v2.CiliumNode, manager *InstancesManager) *Node {
+	return &Node{
+		node:       node,
+		k8sObj:     k8sObj,
+		manager:    manager,
+		instanceID: node.InstanceID(),
+	}
 }
 
 // UpdatedNode is called when an update to the CiliumNode is received.
@@ -69,11 +82,11 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 }
 
 func (n *Node) loggerLocked() *logrus.Entry {
-	if n == nil || n.node == nil {
+	if n == nil || n.instanceID == "" {
 		return log
 	}
 
-	return log.WithField("instanceID", n.node.InstanceID())
+	return log.WithField("instanceID", n.instanceID)
 }
 
 // PopulateStatusFields fills in the status field of the CiliumNode custom
