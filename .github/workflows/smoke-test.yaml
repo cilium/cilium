@@ -68,10 +68,20 @@ jobs:
           git diff --exit-code || (echo "please run 'make -C install/kubernetes ${{ matrix.target.name }}' and submit your changes"; exit 1)
 
   conformance-test:
+    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
 
       - name: Precheck generated connectivity manifest files
         run: |
@@ -79,21 +89,18 @@ jobs:
           make -C examples/kubernetes/connectivity-check all
           git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
 
-      - name: Build docker images
-        run: |
-          make docker-cilium-image
-          make docker-operator-generic-image
-
       - name: Create kind cluster
         uses: helm/kind-action@v1.1.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
-      - name: Load local images into kind cluster
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
         run: |
-          kind load docker-image --name chart-testing quay.io/cilium/cilium:latest
-          kind load docker-image --name chart-testing quay.io/cilium/operator-generic:latest
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
 
       - name: Install cilium chart
         run: |
@@ -108,10 +115,13 @@ jobs:
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
-             --set image.tag=latest \
-             --set image.pullPolicy=Never \
-             --set operator.image.tag=latest \
-             --set operator.image.pullPolicy=Never \
+             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+             --set image.tag=${{ steps.vars.outputs.tag }} \
+             --set image.pullPolicy=IfNotPresent \
+             --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+             --set operator.image.suffix=-ci \
+             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+             --set operator.image.pullPolicy=IfNotPresent \
              --set prometheus.enabled=true \
              --set operator.prometheus.enabled=true \
              --set hubble.enabled=true \
