@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2020 Authors of Cilium
+# Copyright 2020-2021 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,12 @@ source $DIR/common.sh
 
 require_linux
 
+if ! hub help | grep -q "api"; then
+    echo "This tool relies on a recent version of 'hub' from https://github.com/github/hub." 1>&2
+    echo "Please install this tool first." 1>&2
+    exit 1
+fi
+
 BRANCH="${1:-}"
 if [ "$BRANCH" = "" ]; then
     BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\.[0-9]\).*/\1/')
@@ -31,16 +37,23 @@ if [ "$SUMMARY" = "" ]; then
     SUMMARY="v$BRANCH-backport-$(date --rfc-3339=date).txt"
 fi
 
-if ! git branch -a | grep -q "origin/v$BRANCH$" || [ ! -e $SUMMARY ]; then
-    echo "usage: $0 [branch version] [pr-summary]" 1>&2
-    echo 1>&2
-    echo "Ensure 'branch version' is available in 'origin' and the summary file exists" 1>&2
-    exit 1
+USER_REMOTE=${3:-}
+if [ "$USER_REMOTE" = "" ]; then
+    gh_username=$(hub api user --flat | awk '/.login/ {print $2}')
+    if [ "$gh_username" = "" ]; then
+        echo "Error: could not get user info from hub" 1>&2
+        exit 1
+    fi
+    USER_REMOTE=$(get_remote "$gh_username")
+    echo "Using GitHub repository ${gh_username}/cilium (git remote: ${USER_REMOTE})"
 fi
 
-if ! hub help | grep -q "pull-request"; then
-    echo "This tool relies on 'hub' from https://github.com/github/hub." 1>&2
-    echo "Please install this tool first." 1>&2
+UPSTREAM_REMOTE=$(get_remote)
+if ! git branch -a | grep -q "${UPSTREAM_REMOTE}/v${BRANCH}$" || [ ! -e "$SUMMARY" ]; then
+    echo "usage: $0 [branch version] [pr-summary] [your remote]" 1>&2
+    echo 1>&2
+    echo "Ensure 'branch version' is available in 'upstream remote'/cilium and the summary file exists" 1>&2
+    echo "(branch version: ${BRANCH}, pr-summary: ${SUMMARY}, upstream remote: ${UPSTREAM_REMOTE})" 1>&2
     exit 1
 fi
 
@@ -48,7 +61,7 @@ echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
 echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git push origin "$PR_BRANCH"
+git push "$USER_REMOTE" "$PR_BRANCH"
 hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
 
 prs=$(grep "contrib/backporting/set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
