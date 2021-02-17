@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
@@ -556,6 +557,13 @@ func determineFirstInterfaceIndex(instanceType string) *int {
 		if defaults.IPAMPreAllocation > max {
 			idx = 0 // Include eth0
 		}
+	} else {
+		log.WithFields(logrus.Fields{
+			"instance-type": instanceType,
+		}).Warningf(
+			"Unable to find limits for instance type, consider setting --%s=true on the Operator",
+			operatorOption.UpdateEC2AdapterLimitViaAPI,
+		)
 	}
 
 	return &idx
