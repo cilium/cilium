@@ -1,0 +1,115 @@
+name: Base Image Release Build
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - images/runtime/**
+      - images/builder/**
+
+jobs:
+  build-and-push:
+    timeout-minutes: 30
+    if: ${{ github.repository == 'cilium/cilium' }}
+    environment: release-base-images
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium-runtime
+            dockerfile: ./images/runtime/Dockerfile
+            context: ./images/runtime
+
+          - name: cilium-builder
+            dockerfile: ./images/builder/Dockerfile
+            context: ./images/builder
+      fail-fast: false
+
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@154c24e1f33dbb5865a021c99f1318cfebf27b32 # v1.1.1
+
+      - name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@6520a2d2cb6db42c90c297c8025839c98e531268 # v1.0.1
+
+      - name: Checkout Stable Branch Source Code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+
+      - name: Generating image tag
+        id: tag
+        run: |
+          echo ::set-output name=tag::"$(git ls-tree --full-tree HEAD -- ${{ matrix.context }} | awk '{ print $3 }')"
+
+      - name: Checking if tag already exists
+        id: tag-in-repositories
+        shell: bash
+        run: |
+          if docker buildx imagetools inspect quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{  steps.tag.outputs.tag }} &>/dev/null; then
+            echo ::set-output name=exists::"true"
+          else
+            echo ::set-output name=exists::"false"
+          fi
+
+      - name: Login to quay.io
+        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a # v1.8.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD }}
+
+      - name: Release build ${{ matrix.name }}
+        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        id: docker_build_release
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+
+      - name: Image Release Digest
+        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+
+      - name: Upload artifact digests
+        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571 # v2
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+  image-digests:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    name: Display Digests
+    runs-on: ubuntu-20.04
+    needs: build-and-push
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@4a7a711286f30c025902c28b541c10e147a9b843 # v2.0.8
+        with:
+          path: image-digest/
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat
