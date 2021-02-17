@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2019 Authors of Cilium
+# Copyright 2019-2021 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ set -e
 
 get_remote () {
   local remote
+  local org=${1:-cilium}
   remote=$(git remote -v | \
-    grep "github.com[/:]cilium/cilium" | \
+    grep "github.com[/:]${org}/cilium" | \
     head -n1 | cut -f1)
   if [ -z "$remote" ]; then
-      echo "No remote git@github.com:cilium/cilium.git or https://github.com/cilium/cilium found" 1>&2
+      echo "No remote git@github.com:${org}/cilium.git or https://github.com/${org}/cilium found" 1>&2
       return 1
   fi
   echo "$remote"
