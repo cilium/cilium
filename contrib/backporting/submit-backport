@@ -18,8 +18,6 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source $DIR/../release/lib/common.sh
 source $DIR/common.sh
 
-require_linux
-
 if ! hub help | grep -q "api"; then
     echo "This tool relies on a recent version of 'hub' from https://github.com/github/hub." 1>&2
     echo "Please install this tool first." 1>&2
