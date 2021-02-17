@@ -65,7 +65,7 @@ func NewInstancesManager(api EC2API) *InstancesManager {
 // CreateNode is called on discovery of a new node and returns the ENI node
 // allocation implementation for the new node
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.NodeOperations {
-	return &Node{k8sObj: obj, manager: m, node: n}
+	return NewNode(n, obj, m)
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
