@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2019 Authors of Cilium
+# Copyright 2019-2021 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,8 +33,9 @@ BRANCH=$(echo "$BRANCH" | sed 's/^v//')
 # have the same conflicting branch name.
 SUFFIX="${2}"
 
-git fetch origin
-if ! git branch -a | grep -q "origin/v$BRANCH$" ; then
+REMOTE=$(get_remote)
+git fetch "${REMOTE}"
+if ! git branch -a | grep -q "${REMOTE}/v$BRANCH$" ; then
     echo "usage: start-backport <branch version> [suffix]" 1>&2
     echo "  (detected branch $BRANCH)" 1>&2
     common::exit 1
@@ -52,5 +53,5 @@ if (git --no-pager branch | grep -q "${PRBRANCH}"); then
     common::exit 1
 fi
 
-git checkout -b "${PRBRANCH}" origin/v$BRANCH
+git checkout -b "${PRBRANCH}" "${REMOTE}/v${BRANCH}"
 contrib/backporting/check-stable $BRANCH v$BRANCH-backport-$DATE.txt
