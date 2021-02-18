@@ -86,7 +86,7 @@ if [ -n "$(docker ps -a -q -f name=cilium)" ]; then
 fi
 
 echo "Launching Cilium agent..."
-sudo docker run --name cilium $DOCKER_OPTS cilium/cilium:latest cilium-agent $CILIUM_OPTS
+sudo docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
 
 # Copy Cilium CLI
 sudo docker cp cilium:/usr/bin/cilium /usr/bin/cilium
