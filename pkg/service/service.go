@@ -262,6 +262,16 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 			option.EnableSVCSourceRangeCheck)
 	}
 
+	ipv6Svc := params.Frontend.IsIPv6()
+	if ipv6Svc && !option.Config.EnableIPv6 {
+		err := fmt.Errorf("Unable to upsert service %s as IPv6 is disabled", params.Frontend.L3n4Addr.String())
+		return false, lb.ID(0), err
+	}
+	if !ipv6Svc && !option.Config.EnableIPv4 {
+		err := fmt.Errorf("Unable to upsert service %s as IPv4 is disabled", params.Frontend.L3n4Addr.String())
+		return false, lb.ID(0), err
+	}
+
 	// If needed, create svcInfo and allocate service ID
 	svc, new, prevSessionAffinity, prevLoadBalancerSourceRanges, err :=
 		s.createSVCInfoIfNotExist(params)
