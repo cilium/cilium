@@ -82,9 +82,11 @@ ifeq ($(NOSTRIP),)
     GO_BUILD_LDFLAGS += -s -w
 endif
 
-CILIUM_ENVOY_REF=$(shell grep -o "FROM .*cilium/cilium-envoy.*:[^ ]*" $(ROOT_DIR)/Dockerfile | cut -d ' ' -f 2)
-CILIUM_ENVOY_SHA=$(shell echo $(subst @,:,$(CILIUM_ENVOY_REF)) | cut -d : -f 2)
-GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
+    CILIUM_ENVOY_REF=$(shell grep -o "FROM .*cilium/cilium-envoy.*:[^ ]*" $(ROOT_DIR)/images/cilium/Dockerfile | cut -d ' ' -f 2)
+    CILIUM_ENVOY_SHA=$(shell echo $(subst @,:,$(CILIUM_ENVOY_REF)) | cut -d : -f 2)
+    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system
 BPF_SRCFILES_IGNORE = bpf/.gitignore

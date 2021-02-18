@@ -12,6 +12,9 @@
 !/go.mod
 !/VERSION
 
+# Source of Envoy dependency reference
+!/images/cilium/Dockerfile
+
 # directories
 !/.git
 !/api

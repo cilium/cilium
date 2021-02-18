@@ -12,9 +12,6 @@
 !/go.mod
 !/VERSION
 !/GO_VERSION
-# TODO: this is currently a make dependency, but should be removed
-# in the future
-!/Dockerfile
 
 # directories
 !/.git
