@@ -39,7 +39,6 @@
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/build @cilium/bpf
 /bpf/sockops/Makefile* @cilium/build @cilium/bpf
-Dockerfile* @cilium/build
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli
 /cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
@@ -129,7 +128,6 @@ Dockerfile* @cilium/build
 /examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/hubble
-/hubble-relay.Dockerfile @cilium/hubble
 /images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/kubernetes @cilium/helm @cilium/hubble
