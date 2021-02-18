@@ -6,22 +6,31 @@ DOCKER_BUILDER := default
 # Export with value expected by docker
 export DOCKER_BUILDKIT=1
 
-# Build with docker buildx
-CONTAINER_ENGINE := docker buildx
-
-# Docker Buildx support. If DOCKER_BUILDX is defined, a builder instance 'cross'
-# on the local node is configured for amd64 and arm64 platform targets. Otherwise build on the current (typically default) builder.
-ifdef DOCKER_BUILDX
+# Docker Buildx support. If ARCH is defined, a builder instance 'cross'
+# on the local node is configured for amd64 and arm64 platform targets.
+# Otherwise build on the current (typically default) builder for the host
+# platform only.
+ifdef ARCH
+  # Default to multi-arch builds, always create the builder for all the platforms we support
   DOCKER_PLATFORMS := linux/arm64,linux/amd64
-  DOCKER_FLAGS += --push --platform $(DOCKER_PLATFORMS)
   DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
   ifeq ($(DOCKER_BUILDER),default)
-    BUILDER_SETUP := $(shell docker buildx rm cross || true && docker buildx create --name cross --platform $(DOCKER_PLATFORMS) --use)
-    DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
+    DOCKER_BUILDKIT_DRIVER :=
+    ifdef DOCKER_BUILDKIT_IMAGE
+      DOCKER_BUILDKIT_DRIVER := --driver docker-container --driver-opt image=$(DOCKER_BUILDKIT_IMAGE)
+    endif
+    BUILDER_SETUP := $(shell docker buildx create --platform $(DOCKER_PLATFORMS) $(DOCKER_BUILDKIT_DRIVER) --use)
   endif
+  # Override default for a single platform
+  ifneq ($(ARCH),multi)
+    DOCKER_PLATFORMS := linux/$(ARCH)
+  endif
+  DOCKER_FLAGS += --push --platform $(DOCKER_PLATFORMS)
 else
+  # ARCH not specified, build for the host platfrom without pushing, mimicking regular docker build
   DOCKER_FLAGS += --load
 endif
+DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
 
 .PHONY: builder-info
 builder-info:
@@ -34,6 +43,7 @@ GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore -prin
 	@-mkdir -p $(dir $@)
 	@echo "/hack" > $@
 	@echo ".git" >> $@
+	@echo "/Makefile.docker" >> $@
 	echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
 		-e '# Remove lines with white space, comments and files that must be passed to docker, "$$" due to make. #' \
 			-e '/^[[:space:]]*$$/d' -e '/^#/d' -e '/GIT_VERSION/d' \
@@ -66,7 +76,7 @@ define DOCKER_IMAGE_TEMPLATE
 .PHONY: $(1)
 $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3))$(UNSTRIPPED))
-	$(QUIET)$(CONTAINER_ENGINE) build -f $(subst %,$$*,$(2)) \
+	$(QUIET)docker buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \

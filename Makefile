@@ -281,7 +281,7 @@ install-bash-completion:
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
 
-include Makefile.docker
+-include Makefile.docker
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 # Generate manifests e.g. CRD, RBAC etc.
@@ -501,7 +501,7 @@ LOCAL_IMAGE=localhost:32000/cilium/cilium:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
+	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
 precheck: logging-subsys-field
