@@ -10,9 +10,6 @@ debug: all
 
 include Makefile.defs
 
-# Provides buildkit specific defaults
-include Makefile.buildkit
-
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
 
