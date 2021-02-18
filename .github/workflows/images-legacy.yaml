@@ -58,11 +58,22 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME_CI }}
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
-      # master branch pushes
-      - name: Checkout Master Branch Source Code
-        if: ${{ github.event_name != 'pull_request_target' }}
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+      - name: Getting image tag
+        id: tag
+        shell: bash
+        run: |
+          if ${{ github.event_name }} -eq "pull_request_target"; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
 
+      - name: Checkout Source Code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
@@ -74,15 +85,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
-
-      - name: CI Image Releases digests
-        if: ${{ github.event_name != 'pull_request_target' }}
-        shell: bash
-        run: |
-          mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -95,26 +98,23 @@ jobs:
           platforms: linux/amd64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}-race
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:2021-01-20@sha256:247eff116cc5d0b3a4931eabd67ea2e8679f7c12877729a73929d3f30753065b
             LOCKDEBUG=1
             RACE=1
 
-      - name: CI race detection Image Releases digests
+      - name: CI Image Releases digests
         if: ${{ github.event_name != 'pull_request_target' }}
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # PR updates
-      - name: Checkout PR Source Code
-        if: ${{ github.event_name == 'pull_request_target' }}
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
-        with:
-         ref: ${{ github.event.pull_request.head.sha }}
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
         uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
@@ -125,14 +125,14 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.event.pull_request.head.sha }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: CI Image Releases digests
         if: ${{ github.event_name == 'pull_request_target' }}
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.event.pull_request.head.sha }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
@@ -144,18 +144,19 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.event.pull_request.head.sha }}-race
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:2021-01-20@sha256:247eff116cc5d0b3a4931eabd67ea2e8679f7c12877729a73929d3f30753065b
             LOCKDEBUG=1
             RACE=1
 
-      - name: CI race detection Image Releases digests
+      - name: CI Image Releases digests
         if: ${{ github.event_name == 'pull_request_target' }}
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.event.pull_request.head.sha }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
