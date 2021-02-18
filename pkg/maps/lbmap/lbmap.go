@@ -141,9 +141,19 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
-
+	if err := updateMasterService(
+		svcKey,
+		len(backendIDs),
+		int(p.ID),
+		p.SessionAffinityTimeoutSec,
+		loadbalancer.SvcFlagParam{
+			SvcType:          p.Type,
+			SvcLocal:         p.Local,
+			SessionAffinity:  p.SessionAffinity,
+			IsRoutable:       !svcKey.IsSurrogate(),
+			CheckSourceRange: p.CheckSourceRange,
+		},
+	); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
@@ -516,27 +526,23 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange bool) error {
-
+func updateMasterService(
+	fe ServiceKey,
+	nbackends, revNATID int,
+	sessionAffinityTimeoutSec uint32,
+	params loadbalancer.SvcFlagParam,
+) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
-		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+		(params.SvcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+	params.IsRoutable = isRoutable
 
 	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
-	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
-		SvcType:          svcType,
-		SvcLocal:         svcLocal,
-		SessionAffinity:  sessionAffinity,
-		IsRoutable:       isRoutable,
-		CheckSourceRange: checkSourceRange,
-	})
-	zeroValue.SetFlags(flag.UInt16())
-	if sessionAffinity {
+	zeroValue.SetFlags(loadbalancer.NewSvcFlag(&params).UInt16())
+	if params.SessionAffinity {
 		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
 	}
 
