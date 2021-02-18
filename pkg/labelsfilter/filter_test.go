@@ -95,7 +95,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"id.lizards":                  labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer),
 		"ignorE":                      labels.NewLabel("ignorE", "foo", labels.LabelSourceContainer),
 		"ignore":                      labels.NewLabel("ignore", "foo", labels.LabelSourceContainer),
-		"reserved:host":               labels.NewLabel("reserved:host", "", labels.LabelSourceAny),
+		"host":                        labels.NewLabel("host", "", labels.LabelSourceReserved),
 		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceContainer),
 	}
 
@@ -123,7 +123,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"controller-revision-hash":                                  "123456",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
-	allLabels["reserved:host"] = labels.NewLabel("reserved:host", "", labels.LabelSourceAny)
+	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 5)
 	allLabels["id.lizards"] = labels.NewLabel("id.lizards", "web", labels.LabelSourceContainer)
