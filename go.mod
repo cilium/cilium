@@ -35,9 +35,9 @@ require (
 	github.com/go-openapi/errors v0.19.9
 	github.com/go-openapi/loads v0.20.0
 	github.com/go-openapi/runtime v0.19.26
-	github.com/go-openapi/spec v0.20.2
+	github.com/go-openapi/spec v0.20.3
 	github.com/go-openapi/strfmt v0.20.0
-	github.com/go-openapi/swag v0.19.13
+	github.com/go-openapi/swag v0.19.14
 	github.com/go-openapi/validate v0.20.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
@@ -92,11 +92,11 @@ require (
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.2
-	k8s.io/apiextensions-apiserver v0.20.2
-	k8s.io/apimachinery v0.20.2
-	k8s.io/client-go v0.20.2
-	k8s.io/code-generator v0.20.2
+	k8s.io/api v0.20.3
+	k8s.io/apiextensions-apiserver v0.20.3
+	k8s.io/apimachinery v0.20.3
+	k8s.io/client-go v0.20.3
+	k8s.io/code-generator v0.20.3
 	k8s.io/klog/v2 v2.5.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	// We specify the controller-tools version here to be the version of the
