@@ -13,16 +13,15 @@ endif
 #
 # Template for Docker images. Paramaters are:
 # $(1) image target name
-# $(2) Dockerfile name
+# $(2) Dockerfile path
 # $(3) image name stem (e.g., cilium, cilium-operator, etc)
 # $(4) image tag
-# $(5) manifest target name
 #
 define DOCKER_IMAGE_TEMPLATE
 .PHONY: $(1)
-$(1): GIT_VERSION $(BUILD_DIR)/$(2) build-context-update builder-info
+$(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3))$(UNSTRIPPED))
-	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/$(subst %,$$*,$(2)) \
+	$(QUIET)$(CONTAINER_ENGINE) build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \
@@ -31,51 +30,39 @@ $(1): GIT_VERSION $(BUILD_DIR)/$(2) build-context-update builder-info
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
-		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4) $(DOCKER_BUILD_DIR)
-ifneq ($(DOCKER_BUILDER),default)
-  ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
+		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4) .
+ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
 	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
-  else
+else
 	docker buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)
 	@echo '^^^ Images pushed, multi-arch manifest should be above. ^^^'
-  endif
-else
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4) $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)-${GOARCH}
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4) cilium/$(IMAGE_NAME):$(4)
-	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)-${GOARCH}"
-
-.PHONY: $(5)
-$(5): $(BUILD_DIR)/$(2)
-	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh $(IMAGE_NAME) $(4)
-	$(QUIET) contrib/scripts/push_manifest.sh $(IMAGE_NAME) $(4)
 endif
 
 $(1)-unstripped: NOSTRIP=1
 $(1)-unstripped: UNSTRIPPED=-unstripped
-$(1)-unstripped: docker-cilium-image
+$(1)-unstripped: $(1)
 endef
 
 # docker-cilium-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-cilium-image,Dockerfile,cilium,$(DOCKER_IMAGE_TAG),docker-cilium-manifest))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-cilium-image,images/cilium/Dockerfile,cilium,$(DOCKER_IMAGE_TAG)))
 
 # dev-docker-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image,Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),docker-cilium-dev-manifest))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG)))
 
 # docker-plugin-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,cilium-docker-plugin.Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG),docker-plugin-manifest))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plugin/Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG)))
 
 # docker-hubble-relay-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,hubble-relay.Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG),docker-hubble-relay-manifest))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,images/hubble-relay/Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG)))
 
 # docker-clustermesh-apiserver-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,clustermesh-apiserver.Dockerfile,clustermesh-apiserver,$(DOCKER_IMAGE_TAG),docker-clustermesh-apiserver-manifest))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/clustermesh-apiserver/Dockerfile,clustermesh-apiserver,$(DOCKER_IMAGE_TAG)))
 
 # docker-operator-images.
 # We eat the ending of "operator" in to the stem ('%') to allow this pattern
 # to build also 'docker-operator-image', where the stem would be empty otherwise.
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,cilium-opera%.Dockerfile,opera%,$(DOCKER_IMAGE_TAG),docker-opera%-manifest))
-$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,cilium-opera%.Dockerfile,cilium-opera%,$(DOCKER_IMAGE_TAG),dev-docker-opera%-manifest))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/opera%/Dockerfile,opera%,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/opera%/Dockerfile,cilium-opera%,$(DOCKER_IMAGE_TAG)))
 
 #
 # docker-*-all targets are mainly used from the CI
@@ -87,31 +74,3 @@ docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image
 docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-generic-image
 
 docker-operator-images-all-unstripped: docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-generic-image-unstripped
-
-
-docker-image-runtime: builder-info
-	cd contrib/packaging/docker && $(CONTAINER_ENGINE) build $(DOCKER_FLAGS) -t $(IMAGE_REPOSITORY)/cilium-runtime:$(UTC_DATE) -f Dockerfile.runtime .
-
-ifeq ($(DOCKER_BUILDER),default)
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-runtime:$(UTC_DATE) $(IMAGE_REPOSITORY)/cilium-runtime:$(UTC_DATE)-${GOARCH}
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)
-
-docker-cilium-runtime-manifest:
-	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
-	$(QUIET) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
-endif
-
-
-docker-image-builder: builder-info
-	$(QUIET)$(CONTAINER_ENGINE) build $(DOCKER_FLAGS) -t $(IMAGE_REPOSITORY)/cilium-builder:$(UTC_DATE) -f Dockerfile.builder .
-
-ifeq ($(DOCKER_BUILDER),default)
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-builder:$(UTC_DATE) $(IMAGE_REPOSITORY)/cilium-builder:$(UTC_DATE)-${GOARCH}
-	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)
-
-docker-cilium-builder-manifest:
-	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
-	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
-endif
-
-.PHONY: docker-image-runtime docker-image-builder cilium-runtime-manifest docker-cilium-builder-manifest

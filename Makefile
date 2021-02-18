@@ -10,12 +10,8 @@ debug: all
 
 include Makefile.defs
 
-# Provides buildkit specific defaults BUILD_DIR and DOCKER_BUILD_DIR
+# Provides buildkit specific defaults
 include Makefile.buildkit
-
-# Use the main repo as the build-context by default.
-DOCKER_BUILD_DIR ?= .
-BUILD_DIR ?= .
 
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
@@ -29,7 +25,7 @@ GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -find -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	sed 's/ /\n/g' | \
-	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
+	grep -v '/api/v1\|/vendor\|/contrib' | \
 	grep -v '/test'))
 TESTPKGS_EVAL += "test/helpers/logutils"
 TESTPKGS ?= $(TESTPKGS_EVAL)
@@ -254,7 +250,7 @@ tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files
 clean-container:
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
 
-clean: clean-container clean-build
+clean: clean-container
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 
@@ -624,5 +620,5 @@ dev-doctor:
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
 
-.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
+.PHONY: clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
 force :;
