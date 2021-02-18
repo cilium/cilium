@@ -628,11 +628,11 @@ lb6_select_backend_id(struct __ctx_buff *ctx,
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u16
 lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
-		      struct lb6_key *key __maybe_unused,
+		      const struct lb6_key *key __maybe_unused,
 		      const struct ipv6_ct_tuple *tuple,
 		      const struct lb6_service *svc)
 {
-	__u32 zero = 0, index = svc->rev_nat_index;
+	__u32 zero = 0, index = svc->rev_nat_index, lut_size = LB_MAGLEV_LUT_SIZE;
 	__u16 *backend_ids;
 	void *maglev_lut;
 
@@ -644,8 +644,14 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(!backend_ids))
 		return 0;
 
-	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
-	return map_array_get_16(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 1);
+	/* TODO(christarazi): is this unlikely? */
+	if (unlikely(key->backend_slot == 0))
+		lut_size = svc->backend_id;
+
+	index = hash_from_tuple_v6(tuple) % lut_size;
+	if (unlikely(index >= lut_size))
+		return 0;
+	return READ_ONCE(backend_ids[index]);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
@@ -1156,11 +1162,11 @@ lb4_select_backend_id(struct __ctx_buff *ctx,
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u16
 lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
-		      struct lb4_key *key __maybe_unused,
+		      const struct lb4_key *key __maybe_unused,
 		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
 {
-	__u32 zero = 0, index = svc->rev_nat_index;
+	__u32 zero = 0, index = svc->rev_nat_index, lut_size = LB_MAGLEV_LUT_SIZE;
 	__u16 *backend_ids;
 	void *maglev_lut;
 
@@ -1172,8 +1178,14 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(!backend_ids))
 		return 0;
 
-	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
-	return map_array_get_16(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 1);
+	/* TODO(christarazi): is this unlikely? */
+	if (unlikely(key->backend_slot == 0))
+		lut_size = svc->backend_id;
+
+	index = hash_from_tuple_v4(tuple) % lut_size;
+	if (unlikely(index >= lut_size))
+		return 0;
+	return READ_ONCE(backend_ids[index]);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
