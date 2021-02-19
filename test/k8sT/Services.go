@@ -863,7 +863,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					}
 					res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-						"Can not connect to service %q from outside cluster", url)
+						"Can not connect to service %q from outside cluster (%d/%d)", url, i, count)
 					if checkSourceIP {
 						// Parse the IPs to avoid issues with 4-in-6 formats
 						sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
@@ -2423,21 +2423,32 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							})
 					})
 
-					SkipItIf(func() bool {
-						// Quarantine when running with the third node as it's
-						// flaky. See #12511.
-						return helpers.GetCurrentIntegration() != "" ||
-							(helpers.SkipQuarantined() && helpers.ExistNodeWithoutCilium())
-					}, "Tests with secondary NodePort device", func() {
-						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"tunnel":               "disabled",
-							"autoDirectNodeRoutes": "true",
-							"loadBalancer.mode":    "snat",
-							"devices":              fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
-						})
+					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
+						"Tests with secondary NodePort device", func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"tunnel":                 "disabled",
+								"autoDirectNodeRoutes":   "true",
+								"loadBalancer.mode":      "snat",
+								"devices":                fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
+								"bpf.monitorAggregation": "None",
+							})
 
-						testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
-					})
+							ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+							Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+							ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
+							Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+
+							monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
+							monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
+							defer func() {
+								monitorCancel1()
+								monitorCancel2()
+								helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "damn-flake-k8s1.log")
+								helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "damn-flake-k8s2.log")
+							}()
+
+							testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
+						})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests GH#10983", func() {
 						var data v1.Service
