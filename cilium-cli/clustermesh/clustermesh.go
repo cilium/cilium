@@ -1028,6 +1028,11 @@ retry:
 	for _, pod := range pods.Items {
 		s, err := k.statusCollector.ClusterMeshConnectivity(ctx, pod.Name)
 		if err != nil {
+			if k.params.Wait {
+				time.Sleep(retryInterval)
+				goto retry
+			}
+
 			return nil, fmt.Errorf("unable to determine status of cilium pod %q: %w", pod.Name, err)
 		}
 
@@ -1036,6 +1041,13 @@ retry:
 
 	status.GlobalServices.Avg /= float64(len(pods.Items))
 	status.Connected.Avg /= float64(len(pods.Items))
+
+	if k.params.Wait {
+		if status.NotReady > 0 || len(status.Errors) > 0 {
+			time.Sleep(retryInterval)
+			goto retry
+		}
+	}
 
 	return status, nil
 }
@@ -1047,9 +1059,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	)
 
 	collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
-		Namespace:    k.params.Namespace,
-		Wait:         k.params.Wait,
-		WaitDuration: k.params.WaitDuration,
+		Namespace: k.params.Namespace,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create client to collect status: %w", err)
