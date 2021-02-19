@@ -1042,6 +1042,8 @@ func (k *K8sConnectivityCheck) Report(r TestResult) {
 var tests = []ConnectivityTest{
 	&connectivityTestPodToPod{},
 	&connectivityTestPodToService{},
+	&connectivityTestPodToNodePort{},
+	&connectivityTestPodToLocalNodePort{},
 	&connectivityTestPodToWorld{},
 	&connectivityTestPodToHost{},
 }
