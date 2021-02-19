@@ -481,7 +481,6 @@ type K8sConnectivityCheck struct {
 	echoPods        map[string]PodContext
 	clientPods      map[string]PodContext
 	echoServices    map[string]ServiceContext
-	tests           map[string]struct{}
 	results         TestResults
 }
 
@@ -494,13 +493,6 @@ func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters)
 		client:          client,
 		ciliumNamespace: "kube-system",
 		params:          p,
-	}
-
-	if len(p.Tests) > 0 {
-		k.tests = map[string]struct{}{}
-		for _, testName := range p.Tests {
-			k.tests[testName] = struct{}{}
-		}
 	}
 
 	return k, nil
@@ -673,6 +665,40 @@ func (p Parameters) validate() error {
 	}
 
 	return nil
+}
+
+func (p Parameters) testEnabled(test string) bool {
+	if len(p.Tests) == 0 {
+		return true
+	}
+
+	numAllow := 0
+	numDeny := 0
+
+	for _, p := range p.Tests {
+		result := true
+		if p[0] == '!' {
+			numDeny++
+			p = p[1:]
+			result = false
+		} else {
+			numAllow++
+		}
+
+		if p == test {
+			return result
+		}
+	}
+
+	if numDeny == 0 {
+		return false
+	}
+
+	if numAllow > 0 {
+		return false
+	}
+
+	return true
 }
 
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {
@@ -1072,11 +1098,10 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 	}
 
 	for _, test := range tests {
-		if k.tests != nil {
-			if _, ok := k.tests[test.Name()]; !ok {
-				continue
-			}
+		if !k.params.testEnabled(test.Name()) {
+			continue
 		}
+
 		test.Run(ctx, k)
 	}
 
