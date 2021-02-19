@@ -1091,6 +1091,10 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
 	}
 
+	// Remove policy references from shared policy structures
+	e.desiredPolicy.Detach()
+	e.realizedPolicy.Detach()
+
 	// Remove restored rules of cleaned endpoint
 	e.owner.RemoveRestoredDNSRules(e.ID)
 
