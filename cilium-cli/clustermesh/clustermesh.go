@@ -1091,11 +1091,8 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	}
 
 	s.Connectivity, err = k.statusConnectivity(ctx)
-	if err != nil {
-		return nil, err
-	}
 
-	if log {
+	if log && s.Connectivity != nil {
 		if s.Connectivity.NotReady > 0 {
 			k.Log("⚠️  %d/%d nodes are not connected to all clusters [min:%d / avg:%.1f / max:%d]",
 				s.Connectivity.NotReady,
@@ -1134,6 +1131,10 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 				}
 			}
 		}
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return s, nil
