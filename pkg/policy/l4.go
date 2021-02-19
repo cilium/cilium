@@ -933,6 +933,20 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	l4.mutex.Unlock()
 }
 
+// removeUser removes a user that no longer needs incremental updates
+// from the L4Policy.
+func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
+	// 'users' is set to nil when the policy is detached. This
+	// happens to the old policy when it is being replaced with a
+	// new one, or when the last endpoint using this policy is
+	// removed.
+	l4.mutex.Lock()
+	if l4.users != nil {
+		delete(l4.users, user)
+	}
+	l4.mutex.Unlock()
+}
+
 // AccumulateMapChanges distributes the given changes to the registered users.
 //
 // The caller is responsible for making sure the same identity is not
