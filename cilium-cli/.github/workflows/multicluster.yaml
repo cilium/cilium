@@ -5,10 +5,11 @@ on:
   push:
     branches:
       - master
+
 env:
-  KIND_VERSION: v0.9.0
-  KIND_CONFIG1: .github/kind-config-1.yaml
-  KIND_CONFIG2: .github/kind-config-2.yaml
+  clusterName1: cilium-cli-ci-multicluster-1-${{ github.run_number }}
+  clusterName2: cilium-cli-ci-multicluster-2-${{ github.run_number }}
+  zone: us-west2-a
 
 jobs:
   installation-and-connectivitiy:
@@ -24,83 +25,102 @@ jobs:
       - name: Install cilium CLI binary
         run: sudo make install
 
-      - name: Create kind cluster1
-        uses: helm/kind-action@v1.0.0
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@master
         with:
-          version: ${{ env.KIND_VERSION }}
-          config: ${{ env.KIND_CONFIG1 }}
-          cluster_name: cluster1
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: gcloud info
+        run: |
+          gcloud info
+
+      - name: Create GKE cluster1
+        run: |
+          gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
 
       - name: Install cilium in cluster1
         run: |
-          # No wait so we can start building cluster 2 in parallel
-          cilium install --context kind-cluster1 --cluster-name cluster1 --cluster-id 1 --kube-proxy-replacement disabled --wait=false --config monitor-aggregation=none
-          cilium hubble enable --context kind-cluster1
+          cilium install --cluster-name ${{ env.clusterName1 }} --cluster-id 1 --kube-proxy-replacement disabled --config monitor-aggregation=none
+          cilium hubble enable
 
-      - name: Create kind cluster2
-        uses: helm/kind-action@v1.0.0
-        with:
-          version: ${{ env.KIND_VERSION }}
-          config: ${{ env.KIND_CONFIG2 }}
-          cluster_name: cluster2
+      - name: Enable ClusterMesh cluster1
+        run: |
+          cilium clustermesh enable
+
+      - name: Create GKE cluster2
+        run: |
+          gcloud container clusters create ${{ env.clusterName2 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
 
       - name: Install cilium in cluster2
         run: |
-          cilium install --context kind-cluster2 --cluster-name cluster2 --cluster-id 2 --kube-proxy-replacement disabled --wait=false --inherit-ca kind-cluster1 --config monitor-aggregation=none
-          cilium hubble enable --context kind-cluster2
+          cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --kube-proxy-replacement disabled --config monitor-aggregation=none
+          cilium hubble enable
 
-      - name: Status cluster1
+      - name: Enable ClusterMesh cluster2
         run: |
-          cilium status --context kind-cluster1 --wait
+          cilium clustermesh enable
 
-          kubectl wait --context kind-cluster1 -n kube-system --for=condition=Ready --all pod --timeout=5m
-          # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
-          kubectl wait --context kind-cluster1 --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
-
-      - name: Status cluster2
+      - name: Wait for ClusterMesh to be enabled cluster1
         run: |
-          cilium status --context kind-cluster2 --wait
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT1 clustermesh status --wait
 
-          kubectl wait --context kind-cluster2 -n kube-system --for=condition=Ready --all pod --timeout=5m
-          # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
-          kubectl wait --context kind-cluster2 --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
-
-      - name: Connect clusters...
+      - name: Wait for ClusterMesh to be enabled cluster2
         run: |
-          cilium clustermesh enable --context kind-cluster1 --service-type NodePort
-          cilium clustermesh enable --context kind-cluster2 --service-type NodePort
+          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT2 clustermesh status --wait
 
-          cilium clustermesh status --context kind-cluster1 --wait
-          cilium clustermesh status --context kind-cluster2 --wait
+      - name: Connect clusters
+        run: |
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT1 clustermesh connect --destination-context $CONTEXT2
 
-          cilium clustermesh connect --context kind-cluster1 --destination-context kind-cluster2
+      - name: Wait for ClusterMesh to be connected cluster1
+        run: |
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT1 clustermesh status --wait
 
-          # Wait for cluster connections to be estblished
-          cilium clustermesh status --context kind-cluster1 --wait
-          cilium clustermesh status --context kind-cluster2 --wait
+      - name: Wait for ClusterMesh to be connected cluster2
+        run: |
+          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT2 clustermesh status --wait
 
       - name: Relay Port Forward
         run: |
-          kubectl --context kind-cluster1 port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          kubectl --context $CONTEXT1 port-forward -n kube-system deployment/hubble-relay 4245:4245&
           sleep 5s
 
       - name: Connectivity test
         run: |
-          cilium connectivity test --context kind-cluster1 --multi-cluster kind-cluster2
-          kubectl --context kind-cluster1 get pods --all-namespaces -o wide
-          kubectl --context kind-cluster1 -n cilium-test get pods -o wide
-          kubectl --context kind-cluster1 -n cilium-test get svc -o wide
-          kubectl --context kind-cluster2 -n cilium-test get pods -o wide
-          kubectl --context kind-cluster2 -n cilium-test get svc -o wide
-          kubectl --context kind-cluster1 -n cilium-test describe pod 
-          kubectl --context kind-cluster2 -n cilium-test describe pod 
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT1 connectivity test --multi-cluster $CONTEXT2 --test '!pod-to-nodeport' --test '!pod-to-local-nodeport'
 
-      - name: Capture Debug Info
-        if: ${{ failure() }}
+      - name: Cleanup
+        if: ${{ always() }}
         run: |
-          kubectl --context kind-cluster1 get pods --all-namespaces -o wide
-          kubectl --context kind-cluster1 -n cilium-test describe pod 
-          kubectl --context kind-cluster2 get pods --all-namespaces -o wide
-          kubectl --context kind-cluster2 -n cilium-test describe pod 
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
+          cilium --context $CONTEXT1 status
+          cilium --context $CONTEXT1 clustermesh status
+          cilium --context $CONTEXT2 status
+          cilium --context $CONTEXT2 clustermesh status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+          gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }}
+          gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }}
+
+      - name: Upload Artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
