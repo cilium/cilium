@@ -99,6 +99,14 @@ func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
 	}
 }
 
+// removeUser removes a user from the L4Policy so the EndpointPolicy
+// can be freed when not needed any more
+func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
+	if p.L4Policy != nil {
+		p.L4Policy.removeUser(user)
+	}
+}
+
 // Detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
@@ -147,6 +155,13 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	}
 
 	return calculatedPolicy
+}
+
+// Detach removes EndpointPolicy references from selectorPolicy
+// to allow the EndpointPolicy to be GC'd.
+// PolicyOwner (aka Endpoint) is also locked during this call.
+func (p *EndpointPolicy) Detach() {
+	p.selectorPolicy.removeUser(p)
 }
 
 // computeDesiredL4PolicyMapEntries transforms the EndpointPolicy.L4Policy into
