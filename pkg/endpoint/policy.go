@@ -458,6 +458,8 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		e.syncPolicyMapController()
 	}
 
+	// Remove references to the old policy
+	e.realizedPolicy.Detach()
 	// Set realized state to desired state.
 	e.realizedPolicy = e.desiredPolicy
 
