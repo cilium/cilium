@@ -6,9 +6,7 @@ on:
     branches:
       - master
 env:
-  clusterName: cluster-${{ github.run_number }}
-  tenantId: "ef0bd011-1c76-4e1a-8595-99bc5f0adbb3"
-  clientId: "7c6ffc0e-f1ba-4591-9ed5-ea3b138c7523"
+  clusterName: cilium-cli-ci-${{ github.run_number }}
 
 jobs:
   installation-and-connectivitiy:
@@ -57,8 +55,6 @@ jobs:
       - name: Enable relay
         run: |
           cilium hubble enable
-
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
       - name: Status
         run: |
