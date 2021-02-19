@@ -63,7 +63,7 @@ jobs:
 
       - name: Connectivity Test
         run: |
-          cilium connectivity test
+          cilium connectivity test --test '!pod-to-local-nodeport'
 
       - name: Cleanup
         if: ${{ always() }}
