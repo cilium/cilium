@@ -9,6 +9,7 @@ name: Create Release
 jobs:
   build:
     name: Create Release
+    if: github.repository == 'cilium/cilium-cli'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
