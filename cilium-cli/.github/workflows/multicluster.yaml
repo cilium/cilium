@@ -83,12 +83,12 @@ jobs:
       - name: Wait for ClusterMesh to be connected cluster1
         run: |
           CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
-          cilium --context $CONTEXT1 clustermesh status --wait
+          cilium --context $CONTEXT1 clustermesh status --wait --wait-duration 5m
 
       - name: Wait for ClusterMesh to be connected cluster2
         run: |
           CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
-          cilium --context $CONTEXT2 clustermesh status --wait
+          cilium --context $CONTEXT2 clustermesh status --wait --wait-duration 5m
 
       - name: Relay Port Forward
         run: |
