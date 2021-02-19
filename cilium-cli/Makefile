@@ -35,7 +35,7 @@ local-release: clean
 		ARCHS=; \
 		case $$OS in \
 			darwin) \
-				ARCHS='amd64'; \
+				ARCHS='amd64 arm64'; \
 				;; \
 			linux) \
 				ARCHS='386 amd64 arm arm64'; \
