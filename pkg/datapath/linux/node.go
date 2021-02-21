@@ -458,6 +458,26 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	}
 }
 
+func getLinkLocalIp(family int) (*net.IPNet, error) {
+	link, err := netlink.LinkByName(option.Config.EncryptInterface)
+	if err != nil {
+		return nil, err
+	}
+	addr, err := netlink.AddrList(link, family)
+	if err != nil {
+		return nil, err
+	}
+	return addr[0].IPNet, nil
+}
+
+func getV4LinkLocalIp() (*net.IPNet, error) {
+	return getLinkLocalIp(netlink.FAMILY_V4)
+}
+
+func getV6LinkLocalIp() (*net.IPNet, error) {
+	return getLinkLocalIp(netlink.FAMILY_V6)
+}
+
 func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 	var spi uint8
 	var err error
@@ -475,6 +495,13 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 
 		if n.nodeConfig.EncryptNode {
 			n.replaceNodeExternalIPSecOutRoute(cidr)
+		} else {
+			linkAddr, err := getV4LinkLocalIp()
+			if err != nil {
+				upsertIPsecLog(err, "getV4LinkLocalIP failed", ipsecIPv4Wildcard, cidr, spi)
+			}
+			spi, err := ipsec.UpsertIPsecEndpoint(linkAddr, ipsecIPv4Wildcard, cidr, ipsec.IPSecDirIn)
+			upsertIPsecLog(err, "CNI In IPv4", linkAddr, ipsecIPv4Wildcard, spi)
 		}
 	}
 
@@ -489,6 +516,13 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 
 		if n.nodeConfig.EncryptNode {
 			n.replaceNodeExternalIPSecOutRoute(cidr)
+		} else {
+			linkAddr, err := getV6LinkLocalIp()
+			if err != nil {
+				upsertIPsecLog(err, "getV6LinkLocalIP failed", ipsecIPv6Wildcard, cidr, spi)
+			}
+			spi, err := ipsec.UpsertIPsecEndpoint(linkAddr, ipsecIPv6Wildcard, cidr, ipsec.IPSecDirIn)
+			upsertIPsecLog(err, "CNI In IPv6", linkAddr, ipsecIPv6Wildcard, spi)
 		}
 	}
 }
