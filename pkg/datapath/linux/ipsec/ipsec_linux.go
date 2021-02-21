@@ -160,9 +160,11 @@ func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink
 	policy.Dir = dir
 	policy.Src = &net.IPNet{IP: src.IP.Mask(src.Mask), Mask: src.Mask}
 	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
-	policy.Mark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
+	if dir == netlink.XFRM_DIR_IN {
+		policy.Mark = &netlink.XfrmMark{
+			Value: linux_defaults.RouteMarkDecrypt,
+			Mask:  linux_defaults.IPsecMarkMaskIn,
+		}
 	}
 	// We always make forward rules optional. The only reason we have these
 	// at all is to appease the XFRM route hooks, we don't really care about
