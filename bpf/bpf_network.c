@@ -49,7 +49,11 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx)
 	}
 
 	ctx->mark = 0;
+#ifdef ENABLE_ENDPOINT_ROUTES
+	return CTX_ACT_OK;
+#else
 	return redirect(CILIUM_IFINDEX, 0);
+#endif /* ENABLE_ROUTING */
 #endif
 	return 0;
 }
@@ -80,7 +84,11 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx)
 	}
 
 	ctx->mark = 0;
+#ifdef ENABLE_ENDPOINT_ROUTES
+	return CTX_ACT_OK;
+#else
 	return redirect(CILIUM_IFINDEX, 0);
+#endif /* ENABLE_ROUTING */
 out:
 #endif
 	return 0;

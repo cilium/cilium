@@ -535,6 +535,10 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
+	if e.RequireEndpointRoute() {
+		fmt.Fprintf(fw, "#define ENABLE_ENDPOINT_ROUTES 1\n")
+	}
+
 	if e.IsHost() {
 		// Only used to differentiate between host endpoint template and other templates.
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
