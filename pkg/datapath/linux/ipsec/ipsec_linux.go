@@ -107,7 +107,7 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Reqid = keys.ReqID
 }
 
-func ipSecReplaceStateIn(remoteIP, localIP net.IP) (uint8, error) {
+func ipSecReplaceStateIn(remoteIP, localIP net.IP, zeroMark bool) (uint8, error) {
 	key := getIPSecKeys(localIP)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
@@ -120,9 +120,16 @@ func ipSecReplaceStateIn(remoteIP, localIP net.IP) (uint8, error) {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
-	state.OutputMark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
-		Mask:  linux_defaults.RouteMarkMask,
+	if zeroMark != true {
+		state.OutputMark = &netlink.XfrmMark{
+			Value: linux_defaults.RouteMarkDecrypt,
+			Mask:  linux_defaults.RouteMarkMask,
+		}
+	} else {
+		state.OutputMark = &netlink.XfrmMark{
+			Value: 0,
+			Mask:  linux_defaults.RouteMarkMask,
+		}
 	}
 
 	return key.Spi, netlink.XfrmStateAdd(state)
@@ -309,7 +316,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir, outputMark bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -326,7 +333,7 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir) (uint8, er
 	 */
 	if !local.IP.Equal(remote.IP) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(local.IP, remote.IP); err != nil {
+			if spi, err = ipSecReplaceStateIn(local.IP, remote.IP, outputMark); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace local state: %s", err)
 				}
