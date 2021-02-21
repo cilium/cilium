@@ -487,7 +487,9 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 	for _, cidr := range v4CIDR {
 		ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
 
-		n.replaceNodeIPSecInRoute(cidr)
+		if !option.Config.EnableEndpointRoutes {
+			n.replaceNodeIPSecInRoute(cidr)
+		}
 
 		n.replaceNodeIPSecOutRoute(cidr)
 		spi, err = ipsec.UpsertIPsecEndpoint(ipsecIPv4Wildcard, cidr, ipsecIPv4Wildcard, ipsec.IPSecDirOut)
@@ -1006,10 +1008,12 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 	}
 
 	if n.nodeConfig.EnableIPv4 {
-		rule.Mark = linux_defaults.RouteMarkDecrypt
-		if err := route.ReplaceRule(rule); err != nil {
-			log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
-			return err
+		if !option.Config.EnableEndpointRoutes {
+			rule.Mark = linux_defaults.RouteMarkDecrypt
+			if err := route.ReplaceRule(rule); err != nil {
+				log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
+				return err
+			}
 		}
 		rule.Mark = linux_defaults.RouteMarkEncrypt
 		if err := route.ReplaceRule(rule); err != nil {
