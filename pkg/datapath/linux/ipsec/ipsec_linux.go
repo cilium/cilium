@@ -79,13 +79,14 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool, optional int) {
 	tmpl := netlink.XfrmPolicyTmpl{
-		Proto: netlink.XFRM_PROTO_ESP,
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Reqid: keys.ReqID,
-		Dst:   dstIP,
-		Src:   srcIP,
+		Proto:    netlink.XFRM_PROTO_ESP,
+		Mode:     netlink.XFRM_MODE_TUNNEL,
+		Reqid:    keys.ReqID,
+		Dst:      dstIP,
+		Src:      srcIP,
+		Optional: optional,
 	}
 
 	if spi {
@@ -149,6 +150,7 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 }
 
 func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink.Dir) error {
+	optional := int(0)
 	key := getIPSecKeys(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
@@ -162,7 +164,13 @@ func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
-	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, false)
+	// We always make forward rules optional. The only reason we have these
+	// at all is to appease the XFRM route hooks, we don't really care about
+	// policy because Cilium BPF programs do that.
+	if dir == netlink.XFRM_DIR_FWD {
+		optional = 1
+	}
+	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -198,7 +206,7 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true)
+	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true, 0)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
