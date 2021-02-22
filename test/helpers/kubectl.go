@@ -1120,6 +1120,18 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 	return data.Spec.ClusterIP, int(data.Spec.Ports[0].Port), nil
 }
 
+// GetServiceClusterIPs returns the list of cluster IPs associated with the service. The support
+// for this is only present in later version of Kubernetes(>= 1.20).
+func (kub *Kubectl) GetServiceClusterIPs(namespace string, service string) ([]string, error) {
+	var data v1.Service
+	err := kub.Get(namespace, "service "+service).Unmarshal(&data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data.Spec.ClusterIPs, nil
+}
+
 // GetLoadBalancerIP waits until a loadbalancer IP addr has been assigned for
 // the given service, and then returns the IP addr.
 func (kub *Kubectl) GetLoadBalancerIP(namespace string, service string, timeout time.Duration) (string, error) {

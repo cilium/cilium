@@ -290,17 +290,20 @@ var _ = Describe("K8sServicesTest", func() {
 
 	Context("Checks ClusterIP Connectivity", func() {
 		const (
-			serviceName     = "app1-service"
-			serviceNameIPv6 = "app1-service-ipv6"
-			echoServiceName = "echo"
-			echoPodLabel    = "name=echo"
+			serviceName              = "app1-service"
+			serviceNameIPv6          = "app1-service-ipv6"
+			echoServiceName          = "echo"
+			echoServiceNameDualStack = "echo-dualstack"
+			echoPodLabel             = "name=echo"
+			app2PodLabel             = "id=app2"
 			// echoServiceNameIPv6 = "echo-ipv6"
 		)
 
 		var (
 			demoYAML             string
-			demoYAMLDualStack    string
+			demoYAMLV6           string
 			echoSVCYAML          string
+			echoSVCYAMLV6        string
 			echoSVCYAMLDualStack string
 		)
 
@@ -312,20 +315,27 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", demoYAML)
 			res = kubectl.ApplyDefault(echoSVCYAML)
 			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAML)
+
 			if helpers.DualStackSupported() {
-				demoYAMLDualStack = helpers.ManifestGet(kubectl.BasePath(), "demo_dualstack.yaml")
-				echoSVCYAMLDualStack = helpers.ManifestGet(kubectl.BasePath(), "echo-svc_dualstack.yaml")
+				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_v6.yaml")
+				echoSVCYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "echo-svc_v6.yaml")
 
-				res = kubectl.ApplyDefault(demoYAMLDualStack)
-				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", demoYAMLDualStack)
+				res = kubectl.ApplyDefault(demoYAMLV6)
+				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", demoYAMLV6)
 
-				res = kubectl.ApplyDefault(echoSVCYAMLDualStack)
-				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAMLDualStack)
+				res = kubectl.ApplyDefault(echoSVCYAMLV6)
+				Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAMLV6)
+
+				if helpers.DualStackSupportBeta() {
+					echoSVCYAMLDualStack = helpers.ManifestGet(kubectl.BasePath(), "echo_svc_dualstack.yaml")
+
+					res = kubectl.ApplyDefault(echoSVCYAMLDualStack)
+					Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAMLDualStack)
+				}
 			}
 
+			// Wait for all app1, app2 and app3 pods to be in ready state.
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l id=app1", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
@@ -337,8 +347,12 @@ var _ = Describe("K8sServicesTest", func() {
 			_ = kubectl.Delete(demoYAML)
 			_ = kubectl.Delete(echoSVCYAML)
 			if helpers.DualStackSupported() {
-				_ = kubectl.Delete(demoYAMLDualStack)
-				_ = kubectl.Delete(echoSVCYAMLDualStack)
+				_ = kubectl.Delete(demoYAMLV6)
+				_ = kubectl.Delete(echoSVCYAMLV6)
+
+				if helpers.DualStackSupportBeta() {
+					_ = kubectl.Delete(echoSVCYAMLDualStack)
+				}
 			}
 		})
 
@@ -383,8 +397,46 @@ var _ = Describe("K8sServicesTest", func() {
 				}
 				// Send requests from "app2" pod which runs on the same node as
 				// "app1" pods
-				testCurlFromPods("id=app2", httpSVCURL, 10, 0)
-				testCurlFromPods("id=app2", tftpSVCURL, 10, 0)
+				testCurlFromPods(app2PodLabel, httpSVCURL, 10, 0)
+				testCurlFromPods(app2PodLabel, tftpSVCURL, 10, 0)
+			}
+		})
+
+		SkipItIf(func() bool {
+			return !helpers.DualStackSupportBeta()
+		}, "Checks DualStack services", func() {
+			ciliumPods, err := kubectl.GetCiliumPods()
+			Expect(err).To(BeNil(), "Cannot get cilium pods")
+
+			clusterIPs, err := kubectl.GetServiceClusterIPs(helpers.DefaultNamespace, echoServiceNameDualStack)
+			Expect(err).Should(BeNil(), "Cannot get service %q ClusterIPs", echoServiceNameDualStack)
+
+			for _, clusterIP := range clusterIPs {
+				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+
+				By("Validating that Cilium is handling all the ClusterIP for service")
+				Eventually(func() int {
+					validPods := 0
+					for _, pod := range ciliumPods {
+						serviceRes := kubectl.CiliumExecMustSucceed(
+							context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
+
+						if strings.Contains(serviceRes.Stdout(), clusterIP) {
+							validPods++
+						}
+					}
+
+					return validPods
+				}, 30*time.Second, 2*time.Second).
+					Should(Equal(len(ciliumPods)), "All Cilium pods must have the ClusterIP in services list")
+
+				By("Validating connectivity to dual stack service ClusterIP")
+				url := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
+				// TODO: Make use of echoPodLabel once the support for hairpin flow of IPv6 services
+				// is in.
+				testCurlFromPods(app2PodLabel, url, 10, 0)
+				url = fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
+				testCurlFromPods(app2PodLabel, url, 10, 0)
 			}
 		})
 
@@ -720,8 +772,8 @@ var _ = Describe("K8sServicesTest", func() {
 		)
 
 		var (
-			demoYAML          string
-			demoYAMLDualStack string
+			demoYAML   string
+			demoYAMLV6 string
 
 			primaryK8s1IPv6, primaryK8s2IPv6 string
 			outsideIPv6                      string
@@ -786,10 +838,10 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 
 			if helpers.DualStackSupported() {
-				demoYAMLDualStack = helpers.ManifestGet(kubectl.BasePath(), "demo_ds_dualstack.yaml")
+				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_ds_v6.yaml")
 
-				res = kubectl.ApplyDefault(demoYAMLDualStack)
-				Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAMLDualStack)
+				res = kubectl.ApplyDefault(demoYAMLV6)
+				Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAMLV6)
 			}
 
 			By(`Connectivity config:: helpers.DualStackSupported(): %v
@@ -806,7 +858,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
 			if helpers.DualStackSupported() {
-				_ = kubectl.Delete(demoYAMLDualStack)
+				_ = kubectl.Delete(demoYAMLV6)
 			}
 			ExpectAllPodsTerminated(kubectl)
 		})
