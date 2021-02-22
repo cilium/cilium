@@ -217,6 +217,8 @@ Update cilium-builder and cilium-runtime images
 
 #. Wait for the build to complete. Only after the image is available run:
 
+   .. code-block:: shell-session
+
     $ make -C images/ update-runtime-image update-builder-image
 
 #. Commit your changes and re-push to the PR in cilium/cilium.
@@ -229,6 +231,8 @@ Update cilium-builder and cilium-runtime images
    to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`_.
 
 #. Wait for the build to complete. Only after the image is available run:
+
+   .. code-block:: shell-session
 
     $ make -C images/ update-runtime-image update-builder-image
 
