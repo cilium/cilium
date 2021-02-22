@@ -10,10 +10,11 @@ import (
 	"strings"
 	"unicode"
 
-	"golang.org/x/tools/go/analysis"
-	"honnef.co/go/tools/code"
+	"honnef.co/go/tools/analysis/code"
+	"honnef.co/go/tools/analysis/report"
 	"honnef.co/go/tools/config"
-	"honnef.co/go/tools/report"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 // knownNameExceptions is a set of names that are known to be exempt from naming checks.
@@ -30,12 +31,16 @@ func CheckNames(pass *analysis.Pass) (interface{}, error) {
 	// licensed under the BSD 3-clause license.
 
 	allCaps := func(s string) bool {
+		hasUppercaseLetters := false
 		for _, r := range s {
+			if !hasUppercaseLetters && r >= 'A' && r <= 'Z' {
+				hasUppercaseLetters = true
+			}
 			if !((r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
 				return false
 			}
 		}
-		return true
+		return hasUppercaseLetters
 	}
 
 	check := func(id *ast.Ident, thing string, initialisms map[string]bool) {
