@@ -115,7 +115,7 @@ builder:
 
 Update the main Cilium Dockerfile with the new Hubble reference and
 build the multi-arch versions of the Cilium images:
-    
+
 ::
 
     make docker-images-all
@@ -217,7 +217,9 @@ Update cilium-builder and cilium-runtime images
 
 #. Wait for the build to complete. Only after the image is available run:
 
-    $ make -C images/ update-runtime-image update-builder-image
+   .. code-block:: shell-session
+
+       $ make -C images/ update-runtime-image update-builder-image
 
 #. Commit your changes and re-push to the PR in cilium/cilium.
 
@@ -230,7 +232,9 @@ Update cilium-builder and cilium-runtime images
 
 #. Wait for the build to complete. Only after the image is available run:
 
-    $ make -C images/ update-runtime-image update-builder-image
+   .. code-block:: shell-session
+
+       $ make -C images/ update-runtime-image update-builder-image
 
 #. Commit your changes and re-push to the PR in cilium/cilium.
 
