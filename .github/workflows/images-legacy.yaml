@@ -60,9 +60,8 @@ jobs:
 
       - name: Getting image tag
         id: tag
-        shell: bash
         run: |
-          if ${{ github.event_name }} -eq "pull_request_target"; then
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
             echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
           else
             echo ::set-output name=tag::${{ github.sha }}
