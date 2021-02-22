@@ -1,4 +1,4 @@
-package stylecheck // import "honnef.co/go/tools/stylecheck"
+package stylecheck
 
 import (
 	"fmt"
@@ -12,19 +12,22 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"honnef.co/go/tools/code"
+	"honnef.co/go/tools/analysis/code"
+	"honnef.co/go/tools/analysis/edit"
+	"honnef.co/go/tools/analysis/lint"
+	"honnef.co/go/tools/analysis/report"
 	"honnef.co/go/tools/config"
-	"honnef.co/go/tools/edit"
+	"honnef.co/go/tools/go/ast/astutil"
+	"honnef.co/go/tools/go/ir"
+	"honnef.co/go/tools/go/ir/irutil"
+	"honnef.co/go/tools/go/types/typeutil"
 	"honnef.co/go/tools/internal/passes/buildir"
-	"honnef.co/go/tools/ir"
-	. "honnef.co/go/tools/lint/lintdsl"
 	"honnef.co/go/tools/pattern"
-	"honnef.co/go/tools/report"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
-	"golang.org/x/tools/go/types/typeutil"
+	gotypeutil "golang.org/x/tools/go/types/typeutil"
 )
 
 func CheckPackageComment(pass *analysis.Pass) (interface{}, error) {
@@ -50,7 +53,6 @@ func CheckPackageComment(pass *analysis.Pass) (interface{}, error) {
 			if !strings.HasPrefix(strings.TrimSpace(f.Doc.Text()), prefix) {
 				report.Report(pass, f.Doc, fmt.Sprintf(`package comment should be of the form "%s..."`, prefix))
 			}
-			f.Doc.Text()
 		}
 	}
 
@@ -152,7 +154,7 @@ func CheckBlankImports(pass *analysis.Pass) (interface{}, error) {
 		for i, imp := range f.Imports {
 			pos := fset.Position(imp.Pos())
 
-			if !code.IsBlank(imp.Name) {
+			if !astutil.IsBlank(imp.Name) {
 				continue
 			}
 			// Only flag the first blank import in a group of imports,
@@ -161,7 +163,7 @@ func CheckBlankImports(pass *analysis.Pass) (interface{}, error) {
 			if i > 0 {
 				prev := f.Imports[i-1]
 				prevPos := fset.Position(prev.Pos())
-				if pos.Line-1 == prevPos.Line && code.IsBlank(prev.Name) {
+				if pos.Line-1 == prevPos.Line && astutil.IsBlank(prev.Name) {
 					continue
 				}
 			}
@@ -187,7 +189,7 @@ func CheckIncDec(pass *analysis.Pass) (interface{}, error) {
 			return
 		}
 		if (len(assign.Lhs) != 1 || len(assign.Rhs) != 1) ||
-			!code.IsIntLiteral(assign.Rhs[0], "1") {
+			!astutil.IsIntLiteral(assign.Rhs[0], "1") {
 			return
 		}
 
@@ -233,19 +235,19 @@ fnLoop:
 // types do not return unexported types.
 func CheckUnexportedReturn(pass *analysis.Pass) (interface{}, error) {
 	for _, fn := range pass.ResultOf[buildir.Analyzer].(*buildir.IR).SrcFuncs {
-		if fn.Synthetic != "" || fn.Parent() != nil {
+		if fn.Synthetic != 0 || fn.Parent() != nil {
 			continue
 		}
 		if !ast.IsExported(fn.Name()) || code.IsMain(pass) || code.IsInTest(pass, fn) {
 			continue
 		}
 		sig := fn.Type().(*types.Signature)
-		if sig.Recv() != nil && !ast.IsExported(code.Dereference(sig.Recv().Type()).(*types.Named).Obj().Name()) {
+		if sig.Recv() != nil && !ast.IsExported(typeutil.Dereference(sig.Recv().Type()).(*types.Named).Obj().Name()) {
 			continue
 		}
 		res := sig.Results()
 		for i := 0; i < res.Len(); i++ {
-			if named, ok := code.DereferenceR(res.At(i).Type()).(*types.Named); ok &&
+			if named, ok := typeutil.DereferenceR(res.At(i).Type()).(*types.Named); ok &&
 				!ast.IsExported(named.Obj().Name()) &&
 				named != types.Universe.Lookup("error").Type() {
 				report.Report(pass, fn, "should not return unexported type")
@@ -259,11 +261,11 @@ func CheckReceiverNames(pass *analysis.Pass) (interface{}, error) {
 	irpkg := pass.ResultOf[buildir.Analyzer].(*buildir.IR).Pkg
 	for _, m := range irpkg.Members {
 		if T, ok := m.Object().(*types.TypeName); ok && !T.IsAlias() {
-			ms := typeutil.IntuitiveMethodSet(T.Type(), nil)
+			ms := gotypeutil.IntuitiveMethodSet(T.Type(), nil)
 			for _, sel := range ms {
 				fn := sel.Obj().(*types.Func)
 				recv := fn.Type().(*types.Signature).Recv()
-				if code.Dereference(recv.Type()) != T.Type() {
+				if typeutil.Dereference(recv.Type()) != T.Type() {
 					// skip embedded methods
 					continue
 				}
@@ -286,7 +288,7 @@ func CheckReceiverNamesIdentical(pass *analysis.Pass) (interface{}, error) {
 
 		var firstFn *types.Func
 		if T, ok := m.Object().(*types.TypeName); ok && !T.IsAlias() {
-			ms := typeutil.IntuitiveMethodSet(T.Type(), nil)
+			ms := gotypeutil.IntuitiveMethodSet(T.Type(), nil)
 			for _, sel := range ms {
 				fn := sel.Obj().(*types.Func)
 				recv := fn.Type().(*types.Signature).Recv()
@@ -294,7 +296,7 @@ func CheckReceiverNamesIdentical(pass *analysis.Pass) (interface{}, error) {
 					// Don't concern ourselves with methods in generated code
 					continue
 				}
-				if code.Dereference(recv.Type()) != T.Type() {
+				if typeutil.Dereference(recv.Type()) != T.Type() {
 					// skip embedded methods
 					continue
 				}
@@ -325,7 +327,7 @@ func CheckContextFirstArg(pass *analysis.Pass) (interface{}, error) {
 	// 	func helperCommandContext(t *testing.T, ctx context.Context, s ...string) (cmd *exec.Cmd) {
 fnLoop:
 	for _, fn := range pass.ResultOf[buildir.Analyzer].(*buildir.IR).SrcFuncs {
-		if fn.Synthetic != "" || fn.Parent() != nil {
+		if fn.Synthetic != 0 || fn.Parent() != nil {
 			continue
 		}
 		params := fn.Signature.Params()
@@ -373,7 +375,7 @@ func CheckErrorStrings(pass *analysis.Pass) (interface{}, error) {
 				if !ok {
 					continue
 				}
-				if !code.IsCallToAny(call.Common(), "errors.New", "fmt.Errorf") {
+				if !irutil.IsCallToAny(call.Common(), "errors.New", "fmt.Errorf") {
 					continue
 				}
 
@@ -447,7 +449,7 @@ func CheckTimeNames(pass *analysis.Pass) (interface{}, error) {
 				continue
 			}
 			T := pass.TypesInfo.TypeOf(name)
-			if !code.IsType(T, "time.Duration") && !code.IsType(T, "*time.Duration") {
+			if !typeutil.IsType(T, "time.Duration") && !typeutil.IsType(T, "*time.Duration") {
 				continue
 			}
 			for _, suffix := range suffixes {
@@ -500,7 +502,7 @@ func CheckErrorVarNames(pass *analysis.Pass) (interface{}, error) {
 
 				for i, name := range spec.Names {
 					val := spec.Values[i]
-					if !code.IsCallToAnyAST(pass, val, "errors.New", "fmt.Errorf") {
+					if !code.IsCallToAny(pass, val, "errors.New", "fmt.Errorf") {
 						continue
 					}
 
@@ -594,7 +596,7 @@ func CheckHTTPStatusCodes(pass *analysis.Pass) (interface{}, error) {
 		call := node.(*ast.CallExpr)
 
 		var arg int
-		switch code.CallNameAST(pass, call) {
+		switch code.CallName(pass, call) {
 		case "net/http.Error":
 			arg = 2
 		case "net/http.Redirect":
@@ -604,6 +606,9 @@ func CheckHTTPStatusCodes(pass *analysis.Pass) (interface{}, error) {
 		case "net/http.RedirectHandler":
 			arg = 1
 		default:
+			return
+		}
+		if arg >= len(call.Args) {
 			return
 		}
 		lit, ok := call.Args[arg].(*ast.BasicLit)
@@ -652,7 +657,7 @@ var (
 
 func CheckYodaConditions(pass *analysis.Pass) (interface{}, error) {
 	fn := func(node ast.Node) {
-		if _, edits, ok := MatchAndEdit(pass, checkYodaConditionsQ, checkYodaConditionsR, node); ok {
+		if _, edits, ok := code.MatchAndEdit(pass, checkYodaConditionsQ, checkYodaConditionsR, node); ok {
 			report.Report(pass, node, "don't use Yoda conditions",
 				report.FilterGenerated(),
 				report.Fixes(edit.Fix("un-Yoda-fy", edits...)))
@@ -789,7 +794,7 @@ func CheckExportedFunctionDocs(pass *analysis.Pass) (interface{}, error) {
 					return
 				}
 			default:
-				ExhaustiveTypeSwitch(T)
+				lint.ExhaustiveTypeSwitch(T)
 			}
 		}
 		prefix := decl.Name.Name + " "
@@ -857,7 +862,7 @@ func CheckExportedTypeDocs(pass *analysis.Pass) (interface{}, error) {
 		case *ast.FuncLit, *ast.FuncDecl:
 			return false
 		default:
-			ExhaustiveTypeSwitch(node)
+			lint.ExhaustiveTypeSwitch(node)
 			return false
 		}
 	}
@@ -908,7 +913,7 @@ func CheckExportedVarDocs(pass *analysis.Pass) (interface{}, error) {
 		case *ast.FuncLit, *ast.FuncDecl:
 			return false
 		default:
-			ExhaustiveTypeSwitch(node)
+			lint.ExhaustiveTypeSwitch(node)
 			return false
 		}
 	}

@@ -1,13 +1,12 @@
 // staticcheck analyses Go code and makes it better.
-package main // import "honnef.co/go/tools/cmd/staticcheck"
+package main
 
 import (
 	"log"
 	"os"
 
 	"golang.org/x/tools/go/analysis"
-	"honnef.co/go/tools/lint"
-	"honnef.co/go/tools/lint/lintutil"
+	"honnef.co/go/tools/lintcmd"
 	"honnef.co/go/tools/simple"
 	"honnef.co/go/tools/staticcheck"
 	"honnef.co/go/tools/stylecheck"
@@ -15,8 +14,7 @@ import (
 )
 
 func main() {
-	fs := lintutil.FlagSet("staticcheck")
-	wholeProgram := fs.Bool("unused.whole-program", false, "Run unused in whole program mode")
+	fs := lintcmd.FlagSet("staticcheck")
 	debug := fs.String("debug.unused-graph", "", "Write unused's object graph to `file`")
 	fs.Parse(os.Args[1:])
 
@@ -31,14 +29,14 @@ func main() {
 		cs = append(cs, v)
 	}
 
-	u := unused.NewChecker(*wholeProgram)
+	cs = append(cs, unused.Analyzer)
 	if *debug != "" {
 		f, err := os.OpenFile(*debug, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 		if err != nil {
 			log.Fatal(err)
 		}
-		u.Debug = f
+		unused.Debug = f
 	}
-	cums := []lint.CumulativeChecker{u}
-	lintutil.ProcessFlagSet(cs, cums, fs)
+
+	lintcmd.ProcessFlagSet(cs, fs)
 }

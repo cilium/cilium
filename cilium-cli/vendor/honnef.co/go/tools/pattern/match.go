@@ -6,57 +6,59 @@ import (
 	"go/token"
 	"go/types"
 	"reflect"
-
-	"honnef.co/go/tools/lint"
 )
 
 var tokensByString = map[string]Token{
-	"INT":    Token(token.INT),
-	"FLOAT":  Token(token.FLOAT),
-	"IMAG":   Token(token.IMAG),
-	"CHAR":   Token(token.CHAR),
-	"STRING": Token(token.STRING),
-	"+":      Token(token.ADD),
-	"-":      Token(token.SUB),
-	"*":      Token(token.MUL),
-	"/":      Token(token.QUO),
-	"%":      Token(token.REM),
-	"&":      Token(token.AND),
-	"|":      Token(token.OR),
-	"^":      Token(token.XOR),
-	"<<":     Token(token.SHL),
-	">>":     Token(token.SHR),
-	"&^":     Token(token.AND_NOT),
-	"+=":     Token(token.ADD_ASSIGN),
-	"-=":     Token(token.SUB_ASSIGN),
-	"*=":     Token(token.MUL_ASSIGN),
-	"/=":     Token(token.QUO_ASSIGN),
-	"%=":     Token(token.REM_ASSIGN),
-	"&=":     Token(token.AND_ASSIGN),
-	"|=":     Token(token.OR_ASSIGN),
-	"^=":     Token(token.XOR_ASSIGN),
-	"<<=":    Token(token.SHL_ASSIGN),
-	">>=":    Token(token.SHR_ASSIGN),
-	"&^=":    Token(token.AND_NOT_ASSIGN),
-	"&&":     Token(token.LAND),
-	"||":     Token(token.LOR),
-	"<-":     Token(token.ARROW),
-	"++":     Token(token.INC),
-	"--":     Token(token.DEC),
-	"==":     Token(token.EQL),
-	"<":      Token(token.LSS),
-	">":      Token(token.GTR),
-	"=":      Token(token.ASSIGN),
-	"!":      Token(token.NOT),
-	"!=":     Token(token.NEQ),
-	"<=":     Token(token.LEQ),
-	">=":     Token(token.GEQ),
-	":=":     Token(token.DEFINE),
-	"...":    Token(token.ELLIPSIS),
-	"IMPORT": Token(token.IMPORT),
-	"VAR":    Token(token.VAR),
-	"TYPE":   Token(token.TYPE),
-	"CONST":  Token(token.CONST),
+	"INT":         Token(token.INT),
+	"FLOAT":       Token(token.FLOAT),
+	"IMAG":        Token(token.IMAG),
+	"CHAR":        Token(token.CHAR),
+	"STRING":      Token(token.STRING),
+	"+":           Token(token.ADD),
+	"-":           Token(token.SUB),
+	"*":           Token(token.MUL),
+	"/":           Token(token.QUO),
+	"%":           Token(token.REM),
+	"&":           Token(token.AND),
+	"|":           Token(token.OR),
+	"^":           Token(token.XOR),
+	"<<":          Token(token.SHL),
+	">>":          Token(token.SHR),
+	"&^":          Token(token.AND_NOT),
+	"+=":          Token(token.ADD_ASSIGN),
+	"-=":          Token(token.SUB_ASSIGN),
+	"*=":          Token(token.MUL_ASSIGN),
+	"/=":          Token(token.QUO_ASSIGN),
+	"%=":          Token(token.REM_ASSIGN),
+	"&=":          Token(token.AND_ASSIGN),
+	"|=":          Token(token.OR_ASSIGN),
+	"^=":          Token(token.XOR_ASSIGN),
+	"<<=":         Token(token.SHL_ASSIGN),
+	">>=":         Token(token.SHR_ASSIGN),
+	"&^=":         Token(token.AND_NOT_ASSIGN),
+	"&&":          Token(token.LAND),
+	"||":          Token(token.LOR),
+	"<-":          Token(token.ARROW),
+	"++":          Token(token.INC),
+	"--":          Token(token.DEC),
+	"==":          Token(token.EQL),
+	"<":           Token(token.LSS),
+	">":           Token(token.GTR),
+	"=":           Token(token.ASSIGN),
+	"!":           Token(token.NOT),
+	"!=":          Token(token.NEQ),
+	"<=":          Token(token.LEQ),
+	">=":          Token(token.GEQ),
+	":=":          Token(token.DEFINE),
+	"...":         Token(token.ELLIPSIS),
+	"IMPORT":      Token(token.IMPORT),
+	"VAR":         Token(token.VAR),
+	"TYPE":        Token(token.TYPE),
+	"CONST":       Token(token.CONST),
+	"BREAK":       Token(token.BREAK),
+	"CONTINUE":    Token(token.CONTINUE),
+	"GOTO":        Token(token.GOTO),
+	"FALLTHROUGH": Token(token.FALLTHROUGH),
 }
 
 func maybeToken(node Node) (Node, bool) {
@@ -440,26 +442,28 @@ func (tok Token) Match(m *Matcher, node interface{}) (interface{}, bool) {
 }
 
 func (Nil) Match(m *Matcher, node interface{}) (interface{}, bool) {
-	return nil, isNil(node)
+	return nil, isNil(node) || reflect.ValueOf(node).IsNil()
 }
 
 func (builtin Builtin) Match(m *Matcher, node interface{}) (interface{}, bool) {
-	ident, ok := node.(*ast.Ident)
+	r, ok := match(m, Ident(builtin), node)
 	if !ok {
 		return nil, false
 	}
+	ident := r.(*ast.Ident)
 	obj := m.TypesInfo.ObjectOf(ident)
 	if obj != types.Universe.Lookup(ident.Name) {
 		return nil, false
 	}
-	return match(m, builtin.Name, ident.Name)
+	return ident, true
 }
 
 func (obj Object) Match(m *Matcher, node interface{}) (interface{}, bool) {
-	ident, ok := node.(*ast.Ident)
+	r, ok := match(m, Ident(obj), node)
 	if !ok {
 		return nil, false
 	}
+	ident := r.(*ast.Ident)
 
 	id := m.TypesInfo.ObjectOf(ident)
 	_, ok = match(m, obj.Name, ident.Name)
@@ -469,12 +473,19 @@ func (obj Object) Match(m *Matcher, node interface{}) (interface{}, bool) {
 func (fn Function) Match(m *Matcher, node interface{}) (interface{}, bool) {
 	var name string
 	var obj types.Object
-	switch node := node.(type) {
+
+	r, ok := match(m, Or{Nodes: []Node{Ident{Any{}}, SelectorExpr{Any{}, Any{}}}}, node)
+	if !ok {
+		return nil, false
+	}
+
+	switch r := r.(type) {
 	case *ast.Ident:
-		obj = m.TypesInfo.ObjectOf(node)
+		obj = m.TypesInfo.ObjectOf(r)
 		switch obj := obj.(type) {
 		case *types.Func:
-			name = lint.FuncName(obj)
+			// OPT(dh): optimize this similar to code.FuncName
+			name = obj.FullName()
 		case *types.Builtin:
 			name = obj.Name()
 		default:
@@ -482,15 +493,16 @@ func (fn Function) Match(m *Matcher, node interface{}) (interface{}, bool) {
 		}
 	case *ast.SelectorExpr:
 		var ok bool
-		obj, ok = m.TypesInfo.ObjectOf(node.Sel).(*types.Func)
+		obj, ok = m.TypesInfo.ObjectOf(r.Sel).(*types.Func)
 		if !ok {
 			return nil, false
 		}
-		name = lint.FuncName(obj.(*types.Func))
+		// OPT(dh): optimize this similar to code.FuncName
+		name = obj.(*types.Func).FullName()
 	default:
-		return nil, false
+		panic("unreachable")
 	}
-	_, ok := match(m, fn.Name, name)
+	_, ok = match(m, fn.Name, name)
 	return obj, ok
 }
 

@@ -66,6 +66,19 @@ func WriteToFile(filename string, data io.Reader, perm os.FileMode) (err error) 
 	return robustio.Rename(f.Name(), filename)
 }
 
+// ReadFile is like ioutil.ReadFile, but on Windows retries spurious errors that
+// may occur if the file is concurrently replaced.
+//
+// Errors are classified heuristically and retries are bounded, so even this
+// function may occasionally return a spurious error on Windows.
+// If so, the error will likely wrap one of:
+// 	- syscall.ERROR_ACCESS_DENIED
+// 	- syscall.ERROR_FILE_NOT_FOUND
+// 	- internal/syscall/windows.ERROR_SHARING_VIOLATION
+func ReadFile(filename string) ([]byte, error) {
+	return robustio.ReadFile(filename)
+}
+
 // tempFile creates a new temporary file with given permission bits.
 func tempFile(dir, prefix string, perm os.FileMode) (f *os.File, err error) {
 	for i := 0; i < 10000; i++ {
@@ -77,17 +90,4 @@ func tempFile(dir, prefix string, perm os.FileMode) (f *os.File, err error) {
 		break
 	}
 	return
-}
-
-// ReadFile is like ioutil.ReadFile, but on Windows retries spurious errors that
-// may occur if the file is concurrently replaced.
-//
-// Errors are classified heuristically and retries are bounded, so even this
-// function may occasionally return a spurious error on Windows.
-// If so, the error will likely wrap one of:
-//     - syscall.ERROR_ACCESS_DENIED
-//     - syscall.ERROR_FILE_NOT_FOUND
-//     - internal/syscall/windows.ERROR_SHARING_VIOLATION
-func ReadFile(filename string) ([]byte, error) {
-	return robustio.ReadFile(filename)
 }
