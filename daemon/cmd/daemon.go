@@ -41,6 +41,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egresspolicy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -175,6 +176,8 @@ type Daemon struct {
 	redirectPolicyManager *redirectpolicy.Manager
 
 	bgpSpeaker *speaker.Speaker
+
+	egressPolicyManager *egresspolicy.Manager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -387,6 +390,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.bgpSpeaker = speaker.New()
 	}
 
+	d.egressPolicyManager = egresspolicy.NewEgressPolicyManager()
+
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
 		d.nodeDiscovery.Manager,
@@ -396,6 +401,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.datapath,
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
+		d.egressPolicyManager,
 		option.Config,
 	)
 

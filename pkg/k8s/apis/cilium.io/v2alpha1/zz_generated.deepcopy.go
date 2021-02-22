@@ -95,7 +95,7 @@ func (in *CiliumEgressNATPolicySpec) DeepCopyInto(out *CiliumEgressNATPolicySpec
 	}
 	if in.DestinationCIDRs != nil {
 		in, out := &in.DestinationCIDRs, &out.DestinationCIDRs
-		*out = make([]string, len(*in))
+		*out = make([]IPv4CIDR, len(*in))
 		copy(*out, *in)
 	}
 	return
