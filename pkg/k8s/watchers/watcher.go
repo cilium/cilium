@@ -28,12 +28,14 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/egresspolicy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -48,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	k8s_metrics "k8s.io/client-go/tools/metrics"
@@ -65,6 +68,7 @@ const (
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
+	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 
 	metricCNP            = "CiliumNetworkPolicy"
@@ -76,6 +80,7 @@ const (
 	metricCiliumNode     = "CiliumNode"
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
+	metricCENP           = "CiliumEgressNATPolicy"
 	metricPod            = "Pod"
 	metricNode           = "Node"
 	metricService        = "Service"
@@ -155,6 +160,12 @@ type bgpSpeakerManager interface {
 
 	OnUpdateNode(node *slim_corev1.Node)
 }
+type egressPolicyManager interface {
+	AddEgressPolicy(config egresspolicy.Config) (bool, error)
+	DeleteEgressPolicy(configID types.NamespacedName) error
+	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+}
 
 type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
@@ -179,6 +190,7 @@ type K8sWatcher struct {
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
+	egressPolicyManager   egressPolicyManager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -208,6 +220,7 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
+	egressPolicyManager egressPolicyManager,
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
@@ -222,6 +235,7 @@ func NewK8sWatcher(
 		datapath:              datapath,
 		redirectPolicyManager: redirectPolicyManager,
 		bgpSpeakerManager:     bgpSpeakerManager,
+		egressPolicyManager:   egressPolicyManager,
 		cfg:                   cfg,
 	}
 }
@@ -416,6 +430,10 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	// cilium local redirect policies
 	if option.Config.EnableLocalRedirectPolicy {
 		k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
+	}
+
+	if option.Config.EnableEgressGateway {
+		k.ciliumEgressNATPolicyInit(ciliumNPClient)
 	}
 
 	// kubernetes pods

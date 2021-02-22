@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -175,6 +176,10 @@ func (k *K8sWatcher) endpointUpdated(endpoint *types.CiliumEndpoint) {
 		if namedPortsChanged {
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
 		}
+
+		if option.Config.EnableEgressGateway {
+			k.egressPolicyManager.OnUpdateEndpoint(endpoint)
+		}
 	}
 }
 
@@ -199,5 +204,8 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 		if namedPortsChanged {
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
+	}
+	if option.Config.EnableEgressGateway {
+		k.egressPolicyManager.OnDeleteEndpoint(endpoint)
 	}
 }

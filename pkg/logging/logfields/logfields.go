@@ -279,6 +279,9 @@ const (
 	// CiliumLocalRedirectPolicyName is the name of a CiliumLocalRedirectPolicy
 	CiliumLocalRedirectName = "ciliumLocalRedirectPolicyName"
 
+	// CiliumEgressNATPolicyName is the name of a CiliumEgressNATPolicy
+	CiliumEgressNATPolicyName = "ciliumEgressNATPolicyName"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 
@@ -510,6 +513,9 @@ const (
 
 	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
 	LRPBackendPorts = "lrpBackendPorts"
+
+	// ENPName is the name of the egress nat policy
+	ENPName = "enpName"
 
 	// Mode describes an operations mode
 	Mode = "mode"
