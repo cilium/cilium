@@ -272,8 +272,6 @@ case $K8S_VERSION in
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
-        API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
     "1.18")
         # kubeadm 1.18 requires conntrack to be installed, we can remove this
