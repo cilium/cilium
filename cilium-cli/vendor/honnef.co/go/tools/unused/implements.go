@@ -37,7 +37,7 @@ func sameId(obj types.Object, pkg *types.Package, name string) bool {
 	return pkg.Path() == obj.Pkg().Path()
 }
 
-func (g *Graph) implements(V types.Type, T *types.Interface, msV *types.MethodSet) ([]*types.Selection, bool) {
+func (g *graph) implements(V types.Type, T *types.Interface, msV *types.MethodSet) ([]*types.Selection, bool) {
 	// fast path for common case
 	if T.Empty() {
 		return nil, true

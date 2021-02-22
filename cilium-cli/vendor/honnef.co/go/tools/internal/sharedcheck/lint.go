@@ -4,18 +4,19 @@ import (
 	"go/ast"
 	"go/types"
 
-	"golang.org/x/tools/go/analysis"
-	"honnef.co/go/tools/code"
+	"honnef.co/go/tools/go/ast/astutil"
+	"honnef.co/go/tools/go/ir"
+	"honnef.co/go/tools/go/ir/irutil"
 	"honnef.co/go/tools/internal/passes/buildir"
-	"honnef.co/go/tools/ir"
-	. "honnef.co/go/tools/lint/lintdsl"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 func CheckRangeStringRunes(pass *analysis.Pass) (interface{}, error) {
 	for _, fn := range pass.ResultOf[buildir.Analyzer].(*buildir.IR).SrcFuncs {
 		cb := func(node ast.Node) bool {
 			rng, ok := node.(*ast.RangeStmt)
-			if !ok || !code.IsBlank(rng.Key) {
+			if !ok || !astutil.IsBlank(rng.Key) {
 				return true
 			}
 
@@ -26,7 +27,7 @@ func CheckRangeStringRunes(pass *analysis.Pass) (interface{}, error) {
 			if val == nil {
 				return true
 			}
-			Tsrc, ok := val.X.Type().(*types.Basic)
+			Tsrc, ok := val.X.Type().Underlying().(*types.Basic)
 			if !ok || Tsrc.Kind() != types.String {
 				return true
 			}
@@ -48,7 +49,7 @@ func CheckRangeStringRunes(pass *analysis.Pass) (interface{}, error) {
 
 			// Expect two refs: one for obtaining the length of the slice,
 			// one for accessing the elements
-			if len(code.FilterDebug(*refs)) != 2 {
+			if len(irutil.FilterDebug(*refs)) != 2 {
 				// TODO(dh): right now, we check that only one place
 				// refers to our slice. This will miss cases such as
 				// ranging over the slice twice. Ideally, we'd ensure that
@@ -65,7 +66,9 @@ func CheckRangeStringRunes(pass *analysis.Pass) (interface{}, error) {
 
 			return true
 		}
-		Inspect(fn.Source(), cb)
+		if source := fn.Source(); source != nil {
+			ast.Inspect(source, cb)
+		}
 	}
 	return nil, nil
 }
