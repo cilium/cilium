@@ -77,7 +77,22 @@ func (c *Cache) fileName(id [HashSize]byte, key string) string {
 	return filepath.Join(c.dir, fmt.Sprintf("%02x", id[0]), fmt.Sprintf("%x", id)+"-"+key)
 }
 
-var errMissing = errors.New("cache entry not found")
+// An entryNotFoundError indicates that a cache entry was not found, with an
+// optional underlying reason.
+type entryNotFoundError struct {
+	Err error
+}
+
+func (e *entryNotFoundError) Error() string {
+	if e.Err == nil {
+		return "cache entry not found"
+	}
+	return fmt.Sprintf("cache entry not found: %v", e.Err)
+}
+
+func (e *entryNotFoundError) Unwrap() error {
+	return e.Err
+}
 
 const (
 	// action entry file is "v1 <hex id> <hex out> <decimal size space-padded to 20 bytes> <unixnano space-padded to 20 bytes>\n"
@@ -95,6 +110,8 @@ const (
 // verify is enabled by setting the environment variable
 // GODEBUG=gocacheverify=1.
 var verify = false
+
+var errVerifyMode = errors.New("gocacheverify=1")
 
 // DebugTest is set when GODEBUG=gocachetest=1 is in the environment.
 var DebugTest = false
@@ -124,7 +141,7 @@ func initEnv() {
 // saved file for that output ID is still available.
 func (c *Cache) Get(id ActionID) (Entry, error) {
 	if verify {
-		return Entry{}, errMissing
+		return Entry{}, &entryNotFoundError{Err: errVerifyMode}
 	}
 	return c.get(id)
 }
@@ -137,20 +154,27 @@ type Entry struct {
 
 // get is Get but does not respect verify mode, so that Put can use it.
 func (c *Cache) get(id ActionID) (Entry, error) {
-	missing := func() (Entry, error) {
-		return Entry{}, errMissing
+	missing := func(reason error) (Entry, error) {
+		return Entry{}, &entryNotFoundError{Err: reason}
 	}
 	f, err := os.Open(c.fileName(id, "a"))
 	if err != nil {
-		return missing()
+		return missing(err)
 	}
 	defer f.Close()
 	entry := make([]byte, entrySize+1) // +1 to detect whether f is too long
-	if n, err := io.ReadFull(f, entry); n != entrySize || err != io.ErrUnexpectedEOF {
-		return missing()
+	if n, err := io.ReadFull(f, entry); n > entrySize {
+		return missing(errors.New("too long"))
+	} else if err != io.ErrUnexpectedEOF {
+		if err == io.EOF {
+			return missing(errors.New("file is empty"))
+		}
+		return missing(err)
+	} else if n < entrySize {
+		return missing(errors.New("entry file incomplete"))
 	}
 	if entry[0] != 'v' || entry[1] != '1' || entry[2] != ' ' || entry[3+hexSize] != ' ' || entry[3+hexSize+1+hexSize] != ' ' || entry[3+hexSize+1+hexSize+1+20] != ' ' || entry[entrySize-1] != '\n' {
-		return missing()
+		return missing(errors.New("invalid header"))
 	}
 	eid, entry := entry[3:3+hexSize], entry[3+hexSize:]
 	eout, entry := entry[1:1+hexSize], entry[1+hexSize:]
@@ -158,27 +182,33 @@ func (c *Cache) get(id ActionID) (Entry, error) {
 	//lint:ignore SA4006 See https://github.com/dominikh/go-tools/issues/465
 	etime, entry := entry[1:1+20], entry[1+20:]
 	var buf [HashSize]byte
-	if _, err := hex.Decode(buf[:], eid); err != nil || buf != id {
-		return missing()
+	if _, err := hex.Decode(buf[:], eid); err != nil {
+		return missing(fmt.Errorf("decoding ID: %v", err))
+	} else if buf != id {
+		return missing(errors.New("mismatched ID"))
 	}
 	if _, err := hex.Decode(buf[:], eout); err != nil {
-		return missing()
+		return missing(fmt.Errorf("decoding output ID: %v", err))
 	}
 	i := 0
 	for i < len(esize) && esize[i] == ' ' {
 		i++
 	}
 	size, err := strconv.ParseInt(string(esize[i:]), 10, 64)
-	if err != nil || size < 0 {
-		return missing()
+	if err != nil {
+		return missing(fmt.Errorf("parsing size: %v", err))
+	} else if size < 0 {
+		return missing(errors.New("negative size"))
 	}
 	i = 0
 	for i < len(etime) && etime[i] == ' ' {
 		i++
 	}
 	tm, err := strconv.ParseInt(string(etime[i:]), 10, 64)
-	if err != nil || tm < 0 {
-		return missing()
+	if err != nil {
+		return missing(fmt.Errorf("parsing timestamp: %v", err))
+	} else if tm < 0 {
+		return missing(errors.New("negative timestamp"))
 	}
 
 	c.used(c.fileName(id, "a"))
@@ -195,8 +225,11 @@ func (c *Cache) GetFile(id ActionID) (file string, entry Entry, err error) {
 	}
 	file = c.OutputFile(entry.OutputID)
 	info, err := os.Stat(file)
-	if err != nil || info.Size() != entry.Size {
-		return "", Entry{}, errMissing
+	if err != nil {
+		return "", Entry{}, &entryNotFoundError{Err: err}
+	}
+	if info.Size() != entry.Size {
+		return "", Entry{}, &entryNotFoundError{Err: errors.New("file incomplete")}
 	}
 	return file, entry, nil
 }
@@ -211,7 +244,7 @@ func (c *Cache) GetBytes(id ActionID) ([]byte, Entry, error) {
 	}
 	data, _ := ioutil.ReadFile(c.OutputFile(entry.OutputID))
 	if sha256.Sum256(data) != entry.OutputID {
-		return nil, entry, errMissing
+		return nil, entry, &entryNotFoundError{Err: errors.New("bad checksum")}
 	}
 	return data, entry, nil
 }
@@ -327,7 +360,6 @@ func (c *Cache) putIndexEntry(id ActionID, out OutputID, size int64, allowVerify
 	// are entirely reproducible. As just noted, this may be unrealistic
 	// in some cases but the check is also useful for shaking out real bugs.
 	entry := fmt.Sprintf("v1 %x %x %20d %20d\n", id, out, size, time.Now().UnixNano())
-
 	if verify && allowVerify {
 		old, err := c.get(id)
 		if err == nil && (old.OutputID != out || old.Size != size) {

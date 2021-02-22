@@ -1,15 +1,16 @@
 package stylecheck
 
 import (
+	"honnef.co/go/tools/analysis/facts"
+	"honnef.co/go/tools/analysis/lint"
+	"honnef.co/go/tools/config"
+	"honnef.co/go/tools/internal/passes/buildir"
+
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
-	"honnef.co/go/tools/config"
-	"honnef.co/go/tools/facts"
-	"honnef.co/go/tools/internal/passes/buildir"
-	"honnef.co/go/tools/lint/lintutil"
 )
 
-var Analyzers = lintutil.InitializeAnalyzers(Docs, map[string]*analysis.Analyzer{
+var Analyzers = lint.InitializeAnalyzers(Docs, map[string]*analysis.Analyzer{
 	"ST1000": {
 		Run: CheckPackageComment,
 	},
@@ -38,8 +39,7 @@ var Analyzers = lintutil.InitializeAnalyzers(Docs, map[string]*analysis.Analyzer
 		Requires: []*analysis.Analyzer{inspect.Analyzer},
 	},
 	"ST1012": {
-		Run:      CheckErrorVarNames,
-		Requires: []*analysis.Analyzer{config.Analyzer},
+		Run: CheckErrorVarNames,
 	},
 	"ST1013": {
 		Run: CheckHTTPStatusCodes,
@@ -64,7 +64,7 @@ var Analyzers = lintutil.InitializeAnalyzers(Docs, map[string]*analysis.Analyzer
 	},
 	"ST1019": {
 		Run:      CheckDuplicatedImports,
-		Requires: []*analysis.Analyzer{facts.Generated, config.Analyzer},
+		Requires: []*analysis.Analyzer{facts.Generated},
 	},
 	"ST1020": {
 		Run:      CheckExportedFunctionDocs,
