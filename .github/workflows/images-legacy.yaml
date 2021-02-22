@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
         id: docker_build_ci_master
         with:
           context: .
@@ -72,7 +72,7 @@ jobs:
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
         id: docker_build_ci_master_detect_race_condition
         with:
           context: .
@@ -101,7 +101,7 @@ jobs:
          ref: ${{ github.event.pull_request.head.sha }}
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
         id: docker_build_ci_pr
         with:
           context: .
@@ -117,7 +117,7 @@ jobs:
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.event.pull_request.head.sha }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
         id: docker_build_ci_pr_detect_race_condition
         with:
           context: .
