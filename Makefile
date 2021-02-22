@@ -585,9 +585,9 @@ minikube:
 licenses-all:
 	@$(GO) run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
 
-update-golang: update-golang-dev-doctor update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+update-go-version: update-dev-doctor-go-version update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
-update-golang-dev-doctor:
+update-dev-doctor-go-version:
 	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
 	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
 
