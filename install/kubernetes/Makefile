@@ -104,17 +104,17 @@ update-versions:
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
 		sed -i 's/tag: .*/tag: '$$cilium_version'/g' $(CILIUM_VALUES);							\
 		# hubble.ui.frontend.image.tag hubble.ui.backend.image.tag;							\
-		sed -i '/repository.*hubble-ui.*/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
+		sed -i '/^ *\(name\|repository\):.*hubble-ui.*/{!b;n;s/tag: .*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);	\
 		# etcd.image.tag												\
-		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
+		sed -i '/^ *\(name\|repository\):.*etcd-operator.*/{!b;n;s/tag: .*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)\
 		# clustermesh.apiserver.etcd.image.tag										\
-		sed -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)			\
+		sed -i '/^ *\(name\|repository\):.*etcd$$/{!b;n;s/tag: .*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
 		# hubble.ui.proxy.image.tag											\
-		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
+		sed -i '/^ *\(name\|repository\):.*envoy.*/{!b;n;s/tag: .*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)	\
 		# nodeinit.image.tag												\
-		sed -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
+		sed -i '/^ *\(name\|repository\):.*startup-script.*/{!b;n;s/tag: .*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)\
 		# certgen.image.tag												\
-		sed -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
+		sed -i '/^ *\(name\|repository\):.*certgen.*/{!b;n;s/tag: .*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);	\
 		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);
 
 lint:

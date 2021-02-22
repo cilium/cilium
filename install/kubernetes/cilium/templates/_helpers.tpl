@@ -36,6 +36,17 @@ backend:
 {{- end -}}
 {{- end -}}
 
+{{/*
+Return the container image based on either .image.repository or .registry/.image.name.
+*/}}
+{{- define "container.image" -}}
+{{-  if .image.repository -}}
+{{- printf "%s%s:%s" .image.repository (.image.suffix | default "") (required ".tag is required" .image.tag) | quote -}}
+{{- else -}}
+{{- printf "%s/%s%s:%s" (required ".registry is required" .registry) (required ".name is required" .image.name) (.image.suffix | default "") (required ".tag is required" .image.tag) | quote -}}
+{{- end -}}
+{{- end -}}
+
 
 {{/*
 Generate TLS certificates for Hubble Server and Hubble Relay.

@@ -155,13 +155,30 @@ spec:
         - name: {{ $key }}
           value: {{ $value }}
 {{- end }}
+{{- $image := deepCopy .Values.operator.image -}}
 {{- if .Values.eni.enabled }}
-        image: {{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}
+    {{- if get $image "repository" -}}
+        {{- $_ := set $image "repository" (printf "%s-%s" (get $image "repository") "aws") -}}
+    {{- end -}}
+    {{- if get $image "name" -}}
+        {{- $_ := set $image "name" (printf "%s-%s" (get $image "name") "aws") -}}
+    {{- end -}}
 {{- else if .Values.azure.enabled }}
-        image: {{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}
+    {{- if get $image "repository" -}}
+        {{- $_ := set $image "repository" (printf "%s-%s" (get $image "repository") "azure") -}}
+    {{- end -}}
+    {{- if get $image "name" -}}
+        {{- $_ := set $image "name" (printf "%s-%s" (get $image "name") "azure") -}}
+    {{- end -}}
 {{- else }}
-        image: {{ .Values.operator.image.repository }}-generic{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}
+    {{- if get $image "repository" -}}
+        {{- $_ := set $image "repository" (printf "%s-%s" (get $image "repository") "generic") -}}
+    {{- end -}}
+    {{- if get $image "name" -}}
+        {{- $_ := set $image "name" (printf "%s-%s" (get $image "name") "generic") -}}
+    {{- end -}}
 {{- end }}
+        image: {{ template "container.image" (dict "registry" $.Values.registry "image" $image) }}
         imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         name: cilium-operator
 {{- if .Values.operator.prometheus.enabled }}

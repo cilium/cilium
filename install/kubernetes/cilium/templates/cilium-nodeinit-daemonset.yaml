@@ -54,7 +54,7 @@ spec:
 {{- end }}
       containers:
         - name: node-init
-          image: {{ .Values.nodeinit.image.repository }}:{{ .Values.nodeinit.image.tag }}
+          image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.nodeinit.image) }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
           securityContext:
             privileged: true

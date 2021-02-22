@@ -31,7 +31,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       initContainers:
       - name: etcd-init
-        image: {{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}
+        image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.clustermesh.apiserver.etcd.image) }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         env:
         - name: ETCDCTL_API
@@ -68,7 +68,7 @@ spec:
           name: etcd-data-dir
       containers:
       - name: etcd
-        image: {{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}
+        image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.clustermesh.apiserver.etcd.image) }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
         env:
         - name: ETCDCTL_API
@@ -97,7 +97,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: {{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}
+        image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.clustermesh.apiserver.image) }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
           - /usr/bin/clustermesh-apiserver

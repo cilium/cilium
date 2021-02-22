@@ -45,7 +45,7 @@ spec:
 {{- end }}
       containers:
         - name: hubble-relay
-          image: {{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}
+          image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.hubble.relay.image) }}
           imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
           command:
             - hubble-relay

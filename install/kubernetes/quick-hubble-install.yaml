@@ -322,7 +322,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: quay.io/cilium/hubble-relay:latest
+          image: "quay.io/cilium/hubble-relay:latest"
           imagePullPolicy: Always
           command:
             - hubble-relay
@@ -466,7 +466,7 @@ spec:
       serviceAccountName: "hubble-generate-certs"
       containers:
         - name: certgen
-          image: quay.io/cilium/certgen:v0.1.3
+          image: "quay.io/cilium/certgen:v0.1.3"
           imagePullPolicy: Always
           command:
             - "/usr/bin/cilium-certgen"
@@ -515,7 +515,7 @@ spec:
           serviceAccountName: "hubble-generate-certs"
           containers:
             - name: certgen
-              image: quay.io/cilium/certgen:v0.1.3
+              image: "quay.io/cilium/certgen:v0.1.3"
               imagePullPolicy: Always
               command:
                 - "/usr/bin/cilium-certgen"

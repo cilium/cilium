@@ -40,7 +40,7 @@ spec:
 {{- end }}
       containers:
         - name: frontend
-          image: "{{ .Values.hubble.ui.frontend.image.repository }}:{{ .Values.hubble.ui.frontend.image.tag }}"
+          image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.hubble.ui.frontend.image) }}
           imagePullPolicy: {{ .Values.hubble.ui.frontend.image.pullPolicy }}
           ports:
             - containerPort: 8080
@@ -48,7 +48,7 @@ spec:
           resources:
             {{- toYaml .Values.hubble.ui.frontend.resources | trim | nindent 12 }}
         - name: backend
-          image: "{{ .Values.hubble.ui.backend.image.repository }}:{{ .Values.hubble.ui.backend.image.tag }}"
+          image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.hubble.ui.backend.image) }}
           imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
           env:
             - name: EVENTS_SERVER_PORT
@@ -61,7 +61,7 @@ spec:
           resources:
             {{- toYaml .Values.hubble.ui.backend.resources  | trim | nindent 12 }}
         - name: proxy
-          image: "{{ .Values.hubble.ui.proxy.image.repository }}:{{ .Values.hubble.ui.proxy.image.tag }}"
+          image: {{ template "container.image" (dict "registry" $.Values.registry "image" .Values.hubble.ui.proxy.image) }}
           imagePullPolicy: {{ .Values.hubble.ui.proxy.image.pullPolicy }}
           ports:
             - containerPort: 8081

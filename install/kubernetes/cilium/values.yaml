@@ -14,6 +14,9 @@ rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
 
+# -- Default container images registry
+registry: quay.io/cilium
+
 # -- Configure image pull secrets for pulling container images
 imagePullSecrets:
 # - name: "image-pull-secret"
@@ -82,7 +85,8 @@ rollOutCiliumPods: false
 
 # -- Agent container image.
 image:
-  repository: quay.io/cilium/cilium
+  # repository: quay.io/cilium/cilium
+  name: cilium
   tag: latest
   pullPolicy: Always
 
@@ -488,7 +492,8 @@ hostServices:
 # (re)generate any certificates not provided manually.
 certgen:
   image:
-    repository: quay.io/cilium/certgen
+    # repository: quay.io/cilium/certgen
+    name: certgen
     tag: v0.1.3
     pullPolicy: Always
   # -- Seconds after which the completed job pod will be deleted
@@ -598,7 +603,8 @@ hubble:
 
     # -- Hubble-relay container image.
     image:
-      repository: quay.io/cilium/hubble-relay
+      # repository: quay.io/cilium/hubble-relay
+      name: hubble-relay
       tag: latest
       pullPolicy: Always
 
@@ -679,7 +685,8 @@ hubble:
     backend:
       # -- Hubble-ui backend image.
       image:
-        repository: quay.io/cilium/hubble-ui-backend
+        # repository: quay.io/cilium/hubble-ui-backend
+        name: hubble-ui-backend
         tag: latest
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
@@ -695,7 +702,8 @@ hubble:
     frontend:
       # -- Hubble-ui frontend image.
       image:
-        repository: quay.io/cilium/hubble-ui
+        # repository: quay.io/cilium/hubble-ui
+        name: hubble-ui
         tag: latest
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
@@ -1005,7 +1013,8 @@ etcd:
 
   # -- cilium-etcd-operator image.
   image:
-    repository: quay.io/cilium/cilium-etcd-operator
+    # repository: quay.io/cilium/cilium-etcd-operator
+    name: cilium-etcd-operator
     tag: v2.0.7
     pullPolicy: Always
 
@@ -1122,7 +1131,8 @@ operator:
 
   # -- cilium-operator image.
   image:
-    repository: quay.io/cilium/operator
+    # repository: quay.io/cilium/operator
+    name: operator
     tag: latest
     pullPolicy: Always
     suffix: ""
@@ -1249,7 +1259,8 @@ nodeinit:
 
   # -- node-init image.
   image:
-    repository: quay.io/cilium/startup-script
+    # repository: quay.io/cilium/startup-script
+    name: startup-script
     tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
     pullPolicy: Always
 
@@ -1331,7 +1342,8 @@ preflight:
 
   # -- Cilium pre-flight image.
   image:
-    repository: quay.io/cilium/cilium
+    # repository: quay.io/cilium/cilium
+    name: cilium
     tag: latest
     pullPolicy: Always
 
@@ -1439,7 +1451,8 @@ clustermesh:
   apiserver:
     # -- Clustermesh API server image.
     image:
-      repository: quay.io/cilium/clustermesh-apiserver
+      # repository: quay.io/cilium/clustermesh-apiserver
+      name: clustermesh-apiserver
       tag: latest
       pullPolicy: Always
 
