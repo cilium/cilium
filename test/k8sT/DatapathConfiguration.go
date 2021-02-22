@@ -631,9 +631,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
 		}, "Check connectivity with IPv6 disabled", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"ipv4.enabled": "true",
-				"ipv6.enabled": "false",
-				"hostFirewall": "true",
+				"ipv4.enabled":     "true",
+				"ipv6.enabled":     "false",
+				"hostFirewall":     "true",
+				"endpoint.enabled": "false",
 				// We need the default GKE config. except for per-endpoint
 				// routes (incompatible with host firewall for now).
 				"gke.enabled": "false",
@@ -644,7 +645,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		SkipItIf(helpers.RunsOnGKE, "With VXLAN", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"hostFirewall": "true",
+				"hostFirewall":           "true",
+				"endpointRoutes.enabled": "false",
 			}, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
@@ -652,8 +654,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		// We need to skip this test when using kube-proxy because of #14859.
 		SkipItIf(helpers.RunsWithKubeProxy, "With native routing", func() {
 			options := map[string]string{
-				"hostFirewall": "true",
-				"tunnel":       "disabled",
+				"hostFirewall":           "true",
+				"endpointRoutes.enabled": "false",
+				"tunnel":                 "disabled",
 			}
 			// We can't rely on gke.enabled because it enables
 			// per-endpoint routes which are incompatible with

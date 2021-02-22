@@ -1348,7 +1348,8 @@ var _ = Describe("K8sPolicyTest", func() {
 						"masquerade":     "false",
 						"bpf.masquerade": "false",
 
-						"hostFirewall": "true",
+						"hostFirewall":           "true",
+						"endpointRoutes.enabled": "false",
 					})
 
 				By("Retrieving backend pod and outside node IP addresses")

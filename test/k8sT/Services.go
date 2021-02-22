@@ -1992,7 +1992,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			It("with the host firewall and externalTrafficPolicy=Local", func() {
 				options := map[string]string{
-					"hostFirewall": "true",
+					"hostFirewall":           "true",
+					"endpointRoutes.enabled": "false",
 				}
 				// We can't rely on gke.enabled because it enables
 				// per-endpoint routes which are incompatible with
@@ -2258,7 +2259,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						BeforeAll(func() {
 							options := map[string]string{
-								"hostFirewall": "true",
+								"hostFirewall":           "true",
+								"endpointRoutes.enabled": "false",
 							}
 							// We can't rely on gke.enabled because it enables
 							// per-endpoint routes which are incompatible with
@@ -2393,9 +2395,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						BeforeAll(func() {
 							options := map[string]string{
-								"tunnel":               "disabled",
-								"autoDirectNodeRoutes": "true",
-								"hostFirewall":         "true",
+								"tunnel":                 "disabled",
+								"autoDirectNodeRoutes":   "true",
+								"hostFirewall":           "true",
+								"endpointRoutes.enabled": "false",
 							}
 							// We can't rely on gke.enabled because it enables
 							// per-endpoint routes which are incompatible with
