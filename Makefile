@@ -585,15 +585,11 @@ minikube:
 licenses-all:
 	@$(GO) run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
 
-update-golang: update-golang-dev-doctor update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+update-golang: update-golang-dev-doctor update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
 update-golang-dev-doctor:
 	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
 	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
-
-update-golang-dockerfiles:
-	$(QUIET) for fl in $(shell find . \( -path ./vendor -prune -o -path ./images -prune \) -o -name "*Dockerfile*" -print) ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
-	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
 
 update-gh-actions-go-version:
 	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_VERSION)/g' $$fl ; done
