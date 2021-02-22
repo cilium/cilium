@@ -51,7 +51,7 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@4a531fa5a603bab87dfa56578bd82b28508c9547 # v2.2.2
+        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
         id: docker_build_release
         with:
           context: .
