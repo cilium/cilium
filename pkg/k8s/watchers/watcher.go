@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -572,15 +573,19 @@ func genCartesianProduct(
 	}
 
 	svcs := make([]loadbalancer.SVC, 0, svcSize)
+	feFamilyIPv6 := ip.IsIPv6(fe)
 
 	for fePortName, fePort := range ports {
 		var besValues []loadbalancer.Backend
-		for ip, backend := range bes.Backends {
-			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil {
+		for netIP, backend := range bes.Backends {
+			parsedIP := net.ParseIP(netIP)
+
+			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == ip.IsIPv6(parsedIP) {
 				besValues = append(besValues, loadbalancer.Backend{
 					NodeName: backend.NodeName,
 					L3n4Addr: loadbalancer.L3n4Addr{
-						IP: net.ParseIP(ip), L4Addr: *backendPort,
+						IP:     parsedIP,
+						L4Addr: *backendPort,
 					},
 				})
 			}
