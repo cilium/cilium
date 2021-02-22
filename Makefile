@@ -53,6 +53,7 @@ JOB_BASE_NAME ?= cilium_test
 
 GO_VERSION := $(shell cat GO_VERSION)
 GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?/\1.\2/' GO_VERSION)
+GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
 
 DOCKER_FLAGS ?=
 
@@ -592,8 +593,8 @@ update-dev-doctor-go-version:
 	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
 
 update-gh-actions-go-version:
-	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_VERSION)/g' $$fl ; done
-	@echo "Updated go version in GitHub Actions to $(GO_VERSION)"
+	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_IMAGE_VERSION)/g' $$fl ; done
+	@echo "Updated go version in GitHub Actions to $(GO_IMAGE_VERSION)"
 
 update-travis-go-version:
 	$(QUIET) sed -i 's/go: ".*/go: "$(GO_VERSION)"/g' .travis.yml
@@ -605,9 +606,9 @@ update-test-go-version:
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
 update-images-go-version:
-	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_VERSION)/g' images/scripts/update-golang-image.sh
+	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_IMAGE_VERSION)/g' images/scripts/update-golang-image.sh
 	$(QUIET) $(MAKE) -C images update-golang-image
-	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
+	@echo "Updated go version in image Dockerfiles to $(GO_IMAGE_VERSION)"
 
 dev-doctor:
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
