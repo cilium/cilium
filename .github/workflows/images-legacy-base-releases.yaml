@@ -36,8 +36,10 @@ jobs:
         id: qemu
         uses: docker/setup-qemu-action@6520a2d2cb6db42c90c297c8025839c98e531268 # v1.0.1
 
-      - name: Checkout Stable Branch Source Code
+      - name: Checkout Source Code
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Generating image tag
         id: tag
