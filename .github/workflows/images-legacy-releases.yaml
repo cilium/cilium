@@ -72,8 +72,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
+            ${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
 
       - name: Image Release Digest
@@ -82,8 +82,8 @@ jobs:
           mkdir -p image-digest/
           echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
