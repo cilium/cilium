@@ -238,6 +238,7 @@ func (s *SVC) GetModel() *models.Service {
 		ID:               id,
 		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
+		BackendWeights:   make([]*models.BackendWeight, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
 			Type:                string(s.Type),
 			TrafficPolicy:       string(s.TrafficPolicy),
@@ -256,6 +257,7 @@ func (s *SVC) GetModel() *models.Service {
 		func(i, j int) bool { return placements[i].id < placements[j].id })
 	for i, placement := range placements {
 		spec.BackendAddresses[i] = s.Backends[placement.pos].GetBackendModel()
+		spec.BackendWeights[i] = s.Backends[placement.pos].GetBackendWeight()
 	}
 
 	return &models.Service{

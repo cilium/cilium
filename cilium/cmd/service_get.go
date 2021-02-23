@@ -68,7 +68,7 @@ var serviceGetCmd = &cobra.Command{
 		}
 
 		for i, be := range slice {
-			fmt.Printf("\t\t%d => %s (%d)\n", i+1, be, svc.Status.Realized.ID)
+			fmt.Printf("\t\t%d => %s (%d, %d)\n", i+1, be, svc.Status.Realized.ID, svc.Status.Realized.BackendWeights[i].Weight)
 		}
 	},
 }

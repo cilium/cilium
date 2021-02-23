@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -152,15 +151,10 @@ func updateService(cmd *cobra.Command, args []string) {
 	}
 
 	if len(backendWeights) == 0 {
-		fmt.Printf("Reading backend weights list from stdin...\n")
+		fmt.Printf("Set backend weights list default value to 1...\n")
 
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			if backendWeight, err := strconv.ParseUint(scanner.Text(), 10, 32); err == nil {
-				backendWeights = append(backendWeights, uint(backendWeight))
-			} else {
-				Fatalf("Cannot parse backend weight \"%s\": %s", scanner.Text(), err)
-			}
+		for i := 0; i < len(backends); i++ {
+			backendWeights = append(backendWeights, 1)
 		}
 	}
 

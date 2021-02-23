@@ -975,15 +975,18 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
+				backends[i].Weight = backend.Weight
 				newBackends = append(newBackends, backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = &backends[i]
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
+				backends[i].Weight = s.backendByHash[hash].Weight
 			}
 			svc.backendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
+			backends[i].Weight = b.Weight
 		}
 	}
 
