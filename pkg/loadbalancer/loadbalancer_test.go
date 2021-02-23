@@ -88,8 +88,8 @@ func TestL4Addr_Equals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := tt.fields
-			if got := l.Equals(tt.args.o); got != tt.want {
-				t.Errorf("L4Addr.Equals() = %v, want %v", got, tt.want)
+			if got := l.DeepEqual(tt.args.o); got != tt.want {
+				t.Errorf("L4Addr.DeepEqual() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -218,7 +218,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := tt.fields
-			if got := f.Equals(tt.args.o); got != tt.want {
+			if got := f.DeepEqual(tt.args.o); got != tt.want {
 				t.Errorf("L3n4AddrID.Equals() = %v, want %v", got, tt.want)
 			}
 		})
