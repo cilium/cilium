@@ -322,7 +322,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: quay.io/cilium/hubble-relay:latest
+          image: quay.io/cilium/hubble-relay:stable
           imagePullPolicy: Always
           command:
             - hubble-relay
@@ -403,7 +403,7 @@ spec:
       serviceAccountName: "hubble-ui"
       containers:
         - name: frontend
-          image: "quay.io/cilium/hubble-ui:latest"
+          image: "quay.io/cilium/hubble-ui:stable"
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -411,7 +411,7 @@ spec:
           resources:
             {}
         - name: backend
-          image: "quay.io/cilium/hubble-ui-backend:latest"
+          image: "quay.io/cilium/hubble-ui-backend:stable"
           imagePullPolicy: Always
           env:
             - name: EVENTS_SERVER_PORT

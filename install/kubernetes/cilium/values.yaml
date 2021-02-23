@@ -83,7 +83,7 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: latest
+  tag: stable
   pullPolicy: Always
 
 # -- Pod affinity for cilium-agent.
@@ -601,7 +601,7 @@ hubble:
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
-      tag: latest
+      tag: stable
       pullPolicy: Always
 
     # -- Specifies the resources for the hubble-relay pods
@@ -684,7 +684,7 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         repository: quay.io/cilium/hubble-ui-backend
-        tag: latest
+        tag: stable
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -700,7 +700,7 @@ hubble:
       # -- Hubble-ui frontend image.
       image:
         repository: quay.io/cilium/hubble-ui
-        tag: latest
+        tag: stable
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -1127,7 +1127,7 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: latest
+    tag: stable
     pullPolicy: Always
     suffix: ""
 
@@ -1332,7 +1332,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: latest
+    tag: stable
     pullPolicy: Always
 
   priorityClassName: ""
@@ -1438,7 +1438,7 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: latest
+      tag: stable
       pullPolicy: Always
 
     etcd:

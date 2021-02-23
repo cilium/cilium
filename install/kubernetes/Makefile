@@ -90,9 +90,9 @@ update-versions:
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		pull_policy="IfNotPresent";											\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
-			cilium_version="latest";										\
+			cilium_version="stable";										\
 			branch="master";											\
-			hubble_version="latest";										\
+			hubble_version="stable";										\
 			pull_policy="Always";											\
 		elif echo "$(VERSION)" | grep -q $(DEV_VERSION_REGEX); then							\
 			cilium_version="v$(subst -dev,,$(VERSION))";								\
