@@ -10,10 +10,11 @@
 # Cluster.
 helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
-  --set image.tag=latest \
-  --set image.repository=k8s1:5000/cilium/cilium-dev \
-  --set operator.image.repository=k8s1:5000/cilium/operator \
-  --set operator.image.tag=latest \
+  --set image.tag=$1 \
+  --set image.repository=quay.io/cilium/cilium-ci \
+  --set operator.image.repository=quay.io/cilium/operator \
+  --set operator.image.tag=$1 \
+  --set operator.image.suffix=-ci \
   --set debug.enabled=true \
   --set k8s.requireIPv4PodCIDR=true \
   --set pprof.enabled=true \

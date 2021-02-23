@@ -80,6 +80,17 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
+        stage('Set programmatic env vars') {
+            steps {
+                script {
+                    if (env.ghprbActualCommit?.trim()) {
+                        env.DOCKER_TAG = env.ghprbActualCommit
+                    } else {
+                        env.DOCKER_TAG = env.GIT_COMMIT
+                    }
+                }
+            }
+        }
         stage('Preload vagrant boxes'){
             options {
                 timeout(time: 20, unit: 'MINUTES')
@@ -98,7 +109,7 @@ pipeline {
                 retry(3){
                     sh 'cd ${TESTDIR}; vagrant destroy k8s1-${K8S_VERSION} --force'
                     sh 'cd ${TESTDIR}; vagrant destroy k8s2-${K8S_VERSION} --force'
-                    sh 'cd ${TESTDIR}; timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
+                    sh 'cd ${TESTDIR}; CILIUM_REGISTRY=quay.io timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
                 }
             }
         }
@@ -109,7 +120,7 @@ pipeline {
             }
 
             steps {
-                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh"'
+                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh ${DOCKER_TAG}"'
             }
         }
 
