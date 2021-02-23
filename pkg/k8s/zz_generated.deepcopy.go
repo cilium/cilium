@@ -38,7 +38,8 @@ func (in *Backend) DeepCopyInto(out *Backend) {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = (*in).DeepCopy()
+				*out = new(loadbalancer.L4Addr)
+				**out = **in
 			}
 			(*out)[key] = outVal
 		}
@@ -104,21 +105,22 @@ func (in *Service) DeepCopyInto(out *Service) {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = (*in).DeepCopy()
+				*out = new(loadbalancer.L4Addr)
+				**out = **in
 			}
 			(*out)[key] = outVal
 		}
 	}
 	if in.NodePorts != nil {
 		in, out := &in.NodePorts, &out.NodePorts
-		*out = make(map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID, len(*in))
+		*out = make(map[loadbalancer.FEPortName]NodePortToFrontend, len(*in))
 		for key, val := range *in {
 			var outVal map[string]*loadbalancer.L3n4AddrID
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = make(map[string]*loadbalancer.L3n4AddrID, len(*in))
+				*out = make(NodePortToFrontend, len(*in))
 				for key, val := range *in {
 					var outVal *loadbalancer.L3n4AddrID
 					if val == nil {
