@@ -61,6 +61,4 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 WORKDIR /
 ENV GOPS_CONFIG_DIR=/
 ENTRYPOINT ["/usr/bin/hubble-relay"]
-# FIXME Remove me once we add support for Go 1.16
-ENV GODEBUG="madvdontneed=1"
 CMD ["serve"]
