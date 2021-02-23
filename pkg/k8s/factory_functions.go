@@ -245,7 +245,7 @@ func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datap
 
 	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
 	// method.
-	return svc1.DeepEquals(svc2)
+	return svc1.DeepEqual(svc2)
 }
 
 // AnnotationsEqual returns whether the annotation with any key in
