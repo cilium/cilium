@@ -1625,11 +1625,17 @@ func init() {
             "quarantined",
             "maintenance"
           ]
-        },
+        }
+      }
+    },
+    "BackendWeight": {
+      "description": "Service backend weight",
+      "type": "object",
+      "properties": {
         "weight": {
           "description": "Backend weight",
           "type": "integer",
-          "format": "uint8"
+          "format": "uint16"
         }
       }
     },
@@ -3858,6 +3864,13 @@ func init() {
           "type": "array",
           "items": {
             "$ref": "#/definitions/BackendAddress"
+          }
+        },
+        "backend-weights": {
+          "description": "List of backend weights",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BackendWeight"
           }
         },
         "flags": {
@@ -6118,12 +6131,17 @@ func init() {
             "quarantined",
             "maintenance"
           ]
-        },
+        }
+      }
+    },
+    "BackendWeight": {
+      "description": "Service backend weight",
+      "type": "object",
+      "properties": {
         "weight": {
           "description": "Backend weight",
           "type": "integer",
-          "format": "uint8",
-          "minimum": 0
+          "format": "uint16"
         }
       }
     },
@@ -8709,6 +8727,13 @@ func init() {
           "type": "array",
           "items": {
             "$ref": "#/definitions/BackendAddress"
+          }
+        },
+        "backend-weights": {
+          "description": "List of backend weights",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BackendWeight"
           }
         },
         "flags": {

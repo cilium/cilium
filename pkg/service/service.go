@@ -1181,8 +1181,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		scopedLog.WithFields(logrus.Fields{
-			logfields.BackendID: b.ID,
-			logfields.L3n4Addr:  b.L3n4Addr,
+			logfields.BackendID:     b.ID,
+			logfields.BackendWeight: b.Weight,
+			logfields.L3n4Addr:      b.L3n4Addr,
 		}).Debug("Adding new backend")
 
 		if err := s.lbmap.AddBackend(b, b.L3n4Addr.IsIPv6()); err != nil {
@@ -1461,6 +1462,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
+				backends[i].Weight = backend.Weight
 				newBackends = append(newBackends, backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = backends[i]

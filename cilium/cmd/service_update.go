@@ -164,6 +164,7 @@ func updateService(cmd *cobra.Command, args []string) {
 	}
 
 	spec.BackendAddresses = nil
+	spec.BackendWeights = nil
 	backendState, _ := loadbalancer.BackendStateActive.String()
 
 	switch {
@@ -184,7 +185,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint8(backendWeights[i]))
+		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint16(backendWeights[i]))
 
 		if !skipFrontendCheck && fa.Port == 0 && beAddr.Port != 0 {
 			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)
@@ -202,6 +203,9 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		spec.BackendAddresses = append(spec.BackendAddresses, ba)
+
+		bw := be.GetBackendWeightModel()
+		spec.BackendWeights = append(spec.BackendWeights, bw)
 	}
 
 	if created, err := client.PutServiceID(id, spec); err != nil {
