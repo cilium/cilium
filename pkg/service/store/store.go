@@ -44,24 +44,9 @@ type ServiceMerger interface {
 // PortConfiguration is the L4 port configuration of a frontend or backend. The
 // map is indexed by the name of the port and the value constains the L4 port
 // and protocol.
+//
+// +deepequal-gen=true
 type PortConfiguration map[string]*loadbalancer.L4Addr
-
-// DeepEquals returns true if both PortConfigurations are identical
-func (p PortConfiguration) DeepEquals(o PortConfiguration) bool {
-	if len(p) != len(o) {
-		return false
-	}
-
-	for portName1, port1 := range p {
-		port2, ok := o[portName1]
-
-		if !ok || !port1.Equals(port2) {
-			return false
-		}
-	}
-
-	return true
-}
 
 // ClusterService is the definition of a service in a cluster
 //

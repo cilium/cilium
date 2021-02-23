@@ -85,10 +85,10 @@ type ServiceCache struct {
 	// value.
 	mutex    lock.RWMutex
 	services map[ServiceID]*Service
-	// endpoints maps a service to a map of endpointSlices. In case the cluster
+	// endpoints maps a service to a map of EndpointSlices. In case the cluster
 	// is still using the v1.Endpoints, the key used in the internal map of
-	// endpointSlices is the v1.Endpoint name.
-	endpoints map[ServiceID]*endpointSlices
+	// EndpointSlices is the v1.Endpoint name.
+	endpoints map[ServiceID]*EndpointSlices
 
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
@@ -100,7 +100,7 @@ type ServiceCache struct {
 func NewServiceCache(nodeAddressing datapath.NodeAddressing) ServiceCache {
 	return ServiceCache{
 		services:          map[ServiceID]*Service{},
-		endpoints:         map[ServiceID]*endpointSlices{},
+		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 		nodeAddressing:    nodeAddressing,
@@ -174,7 +174,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 
 	oldService, ok := s.services[svcID]
 	if ok {
-		if oldService.DeepEquals(newService) {
+		if oldService.DeepEqual(newService) {
 			return svcID
 		}
 	}
@@ -248,7 +248,7 @@ func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpo
 
 	eps, ok := s.endpoints[esID.ServiceID]
 	if ok {
-		if eps.epSlices[esID.EndpointSliceName].DeepEquals(newEndpoints) {
+		if eps.epSlices[esID.EndpointSliceName].DeepEqual(newEndpoints) {
 			return esID.ServiceID, newEndpoints
 		}
 	} else {
