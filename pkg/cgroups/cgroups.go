@@ -38,6 +38,9 @@ var (
 
 	// Only mount a single instance
 	cgrpMountOnce sync.Once
+
+	// Regex to match 'kubelet'
+	kubeletRegex = regexp.MustCompile(`^.*kubelet`)
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroups")
@@ -96,9 +99,8 @@ func getCgroupRootForKind() (string, error) {
 		}
 
 		if strings.HasPrefix(line, "0::") { // cgroup v2 starts with "0::"
-			re := regexp.MustCompile(`^.*kubelet`)
 			p := path.Join(cgroupRoot, strings.Split(line, "::")[1])
-			match := re.FindString(p)
+			match := kubeletRegex.FindString(p)
 			if match == "" {
 				return "", fmt.Errorf("cannot find \"kubelet\" in cgroup v2 path: %q", p)
 			}
