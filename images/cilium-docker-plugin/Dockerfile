@@ -32,6 +32,4 @@ ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-docker /usr/bin/cilium-docker
 WORKDIR /
-# FIXME Remove me once we add support for Go 1.16
-ENV GODEBUG="madvdontneed=1"
 CMD ["/usr/bin/cilium-docker"]

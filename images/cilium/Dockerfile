@@ -88,6 +88,4 @@ COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
 WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"
-# FIXME Remove me once we add support for Go 1.16
-ENV GODEBUG="madvdontneed=1"
 CMD ["/usr/bin/cilium"]
