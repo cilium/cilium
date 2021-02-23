@@ -26,6 +26,9 @@ type ServiceSpec struct {
 	// List of backend addresses
 	BackendAddresses []*BackendAddress `json:"backend-addresses"`
 
+	// List of backend weights
+	BackendWeights []*BackendWeight `json:"backend-weights"`
+
 	// flags
 	Flags *ServiceSpecFlags `json:"flags,omitempty"`
 
@@ -47,6 +50,10 @@ func (m *ServiceSpec) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateBackendAddresses(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateBackendWeights(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -79,6 +86,31 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 			if err := m.BackendAddresses[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *ServiceSpec) validateBackendWeights(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.BackendWeights) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.BackendWeights); i++ {
+		if swag.IsZero(m.BackendWeights[i]) { // not required
+			continue
+		}
+
+		if m.BackendWeights[i] != nil {
+			if err := m.BackendWeights[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("backend-weights" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

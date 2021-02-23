@@ -324,7 +324,7 @@ type Backend struct {
 	// ID of the backend
 	ID BackendID
 	// Weight of backend
-	Weight uint8
+	Weight uint16
 	// Node hosting this backend. This is used to determine backends local to
 	// a node.
 	NodeName string
@@ -572,13 +572,13 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint8) *Backend {
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
-		ID:       BackendID(id),
-		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		ID:        id,
+		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *lbport},
 		Preferred: Preferred(false),
-		Weight:   weight,
+		Weight:    weight,
 	}
 
 	if weight == 0 {
@@ -605,7 +605,7 @@ func NewBackendWithState(id BackendID, protocol L4Type, ip net.IP, portNumber ui
 	return &b
 }
 
-func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
+func NewBackendFromBackendModel(base *models.BackendAddress, bw *models.BackendWeight) (*Backend, error) {
 	if base.IP == nil {
 		return nil, fmt.Errorf("missing IP address")
 	}
@@ -621,7 +621,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
 	}
 
-	if *base.Weight == 0 {
+	if bw.Weight == 0 {
 		state = BackendStateMaintenance
 	}
 	return &Backend{
@@ -629,7 +629,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		L3n4Addr:  L3n4Addr{IP: ip, L4Addr: *l4addr},
 		State:     state,
 		Preferred: Preferred(base.Preferred),
-		Weight: *base.Weight,
+		Weight:    bw.Weight,
 	}, nil
 }
 
@@ -671,13 +671,20 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	ip := b.IP.String()
 	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
-		IP:       &ip,
-		Port:     b.Port,
-		NodeName: b.NodeName,
-		State:    stateStr,
+		IP:        &ip,
+		Port:      b.Port,
+		NodeName:  b.NodeName,
+		State:     stateStr,
 		Preferred: bool(b.Preferred),
-		Weight:   &b.Weight,
 	}
+}
+
+func (b *Backend) GetBackendWeightModel() *models.BackendWeight {
+	if b == nil {
+		return nil
+	}
+
+	return &models.BackendWeight{Weight: b.Weight}
 }
 
 // String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
