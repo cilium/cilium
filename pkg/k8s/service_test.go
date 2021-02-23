@@ -115,7 +115,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Selector:                 map[string]string{"foo": "bar"},
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
@@ -135,7 +135,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
@@ -156,7 +156,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		TrafficPolicy:            loadbalancer.SVCTrafficPolicyLocal,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeNodePort,
 	})
@@ -208,7 +208,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 			"tftp": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolUDP), uint16(69)),
 		},
 		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+		NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 			"http": {
 				zeroFE.String():     zeroFE,
 				internalFE.String(): internalFE,
@@ -287,7 +287,7 @@ func TestService_Equals(t *testing.T) {
 						Port:     1,
 					},
 				},
-				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+				NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 					loadbalancer.FEPortName("foo"): {
 						"0.0.0.0:31000": {
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -319,7 +319,7 @@ func TestService_Equals(t *testing.T) {
 							Port:     1,
 						},
 					},
-					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 						loadbalancer.FEPortName("foo"): {
 							"0.0.0.0:31000": {
 								L3n4Addr: loadbalancer.L3n4Addr{
@@ -541,7 +541,7 @@ func TestService_Equals(t *testing.T) {
 						Port:     1,
 					},
 				},
-				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+				NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 					loadbalancer.FEPortName("foo"): {
 						"1.1.1.1:31000": {
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -573,7 +573,7 @@ func TestService_Equals(t *testing.T) {
 							Port:     1,
 						},
 					},
-					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 						loadbalancer.FEPortName("foo"): {
 							"0.0.0.0:31000": {
 								L3n4Addr: loadbalancer.L3n4Addr{
@@ -731,7 +731,7 @@ func TestService_Equals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			si := tt.fields
-			if got := si.DeepEquals(tt.args.o); got != tt.want {
+			if got := si.DeepEqual(tt.args.o); got != tt.want {
 				t.Errorf("Service.Equals() = %v, want %v", got, tt.want)
 			}
 		})

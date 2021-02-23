@@ -238,18 +238,30 @@ func ParseServiceIDFrom(dn string) *ServiceID {
 	return nil
 }
 
+// +deepequal-gen=true
+type NodePortToFrontend map[string]*loadbalancer.L3n4AddrID
+
 // Service is an abstraction for a k8s service that is composed by the frontend IP
 // address (FEIP) and the map of the frontend ports (Ports).
+//
 // +k8s:deepcopy-gen=true
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type Service struct {
+	//
+	// Until deepequal-gen adds support for net.IP we need to compare this field
+	// manually.
+	// +deepequal-gen=false
 	FrontendIP net.IP
 	IsHeadless bool
 
 	// IncludeExternal is true when external endpoints from other clusters
 	// should be included
+	// +deepequal-gen=false
 	IncludeExternal bool
 
 	// Shared is true when the service should be exposed/shared to other clusters
+	// +deepequal-gen=false
 	Shared bool
 
 	// TrafficPolicy controls how backends are selected. If set to "Local", only
@@ -266,12 +278,20 @@ type Service struct {
 	// NodePorts stores mapping for port name => NodePort frontend addr string =>
 	// NodePort fronted addr. The string addr => addr indirection is to avoid
 	// storing duplicates.
-	NodePorts map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID
+	NodePorts map[loadbalancer.FEPortName]NodePortToFrontend
 	// K8sExternalIPs stores mapping of the endpoint in a string format to the
 	// externalIP in net.IP format.
+	//
+	// Until deepequal-gen adds support for net.IP we need to compare this field
+	// manually.
+	// +deepequal-gen=false
 	K8sExternalIPs map[string]net.IP
 
 	// LoadBalancerIPs stores LB IPs assigned to the service (string(IP) => IP).
+	//
+	// Until deepequal-gen adds support for net.IP we need to compare this field
+	// manually.
+	// +deepequal-gen=false
 	LoadBalancerIPs          map[string]net.IP
 	LoadBalancerSourceRanges map[string]*cidr.CIDR
 
@@ -284,7 +304,63 @@ type Service struct {
 	SessionAffinityTimeoutSec uint32
 
 	// Type is the internal service type
+	// +deepequal-gen=false
 	Type loadbalancer.SVCType
+}
+
+// DeepEqual returns true if both the receiver and 'o' are deeply equal.
+func (s *Service) DeepEqual(other *Service) bool {
+	if s == nil {
+		return other == nil
+	}
+
+	if !s.FrontendIP.Equal(other.FrontendIP) {
+		return false
+	}
+
+	if ((s.K8sExternalIPs != nil) && (other.K8sExternalIPs != nil)) || ((s.K8sExternalIPs == nil) != (other.K8sExternalIPs == nil)) {
+		in, other := s.K8sExternalIPs, other.K8sExternalIPs
+		if other == nil {
+			return false
+		}
+
+		if len(in) != len(other) {
+			return false
+		} else {
+			for key, inValue := range in {
+				if otherValue, present := other[key]; !present {
+					return false
+				} else {
+					if !inValue.Equal(otherValue) {
+						return false
+					}
+				}
+			}
+		}
+	}
+
+	if ((s.LoadBalancerIPs != nil) && (other.LoadBalancerIPs != nil)) || ((s.LoadBalancerIPs == nil) != (other.LoadBalancerIPs == nil)) {
+		in, other := s.LoadBalancerIPs, other.LoadBalancerIPs
+		if other == nil {
+			return false
+		}
+
+		if len(in) != len(other) {
+			return false
+		} else {
+			for key, inValue := range in {
+				if otherValue, present := other[key]; !present {
+					return false
+				} else {
+					if !inValue.Equal(otherValue) {
+						return false
+					}
+				}
+			}
+		}
+	}
+
+	return s.deepEqual(other)
 }
 
 // String returns the string representation of a service resource
@@ -306,101 +382,6 @@ func (s *Service) String() string {
 // IsExternal returns true if the service is expected to serve out-of-cluster endpoints:
 func (s Service) IsExternal() bool {
 	return len(s.Selector) == 0
-}
-
-// DeepEquals returns true if both services are equal
-func (s *Service) DeepEquals(o *Service) bool {
-	switch {
-	case (s == nil) != (o == nil):
-		return false
-	case (s == nil) && (o == nil):
-		return true
-	}
-	if s.IsHeadless == o.IsHeadless &&
-		s.TrafficPolicy == o.TrafficPolicy &&
-		s.HealthCheckNodePort == o.HealthCheckNodePort &&
-		s.FrontendIP.Equal(o.FrontendIP) &&
-		comparator.MapStringEquals(s.Labels, o.Labels) &&
-		comparator.MapStringEquals(s.Selector, o.Selector) &&
-		s.SessionAffinity == o.SessionAffinity {
-
-		if ((s.Ports == nil) != (o.Ports == nil)) ||
-			len(s.Ports) != len(o.Ports) {
-			return false
-		}
-		for portName, port := range s.Ports {
-			oPort, ok := o.Ports[portName]
-			if !ok {
-				return false
-			}
-			if !port.Equals(oPort) {
-				return false
-			}
-		}
-
-		if ((s.NodePorts == nil) != (o.NodePorts == nil)) ||
-			len(s.NodePorts) != len(o.NodePorts) {
-			return false
-		}
-		for portName, nodePorts := range s.NodePorts {
-			oNodePorts, ok := o.NodePorts[portName]
-			if !ok {
-				return false
-			}
-			if ((nodePorts == nil) != (oNodePorts == nil)) ||
-				len(nodePorts) != len(oNodePorts) {
-				return false
-			}
-			for nodePortName, nodePort := range nodePorts {
-				oNodePort, ok := oNodePorts[nodePortName]
-				if !ok {
-					return false
-				}
-				if !nodePort.Equals(oNodePort) {
-					return false
-				}
-			}
-		}
-
-		if ((s.K8sExternalIPs == nil) != (o.K8sExternalIPs == nil)) ||
-			len(s.K8sExternalIPs) != len(o.K8sExternalIPs) {
-			return false
-		}
-		for k, v := range s.K8sExternalIPs {
-			vOther, ok := o.K8sExternalIPs[k]
-			if !ok || !v.Equal(vOther) {
-				return false
-			}
-		}
-
-		if ((s.LoadBalancerIPs == nil) != (o.LoadBalancerIPs == nil)) ||
-			len(s.LoadBalancerIPs) != len(o.LoadBalancerIPs) {
-			return false
-		}
-		for k, v := range s.LoadBalancerIPs {
-			vOther, ok := o.LoadBalancerIPs[k]
-			if !ok || !v.Equal(vOther) {
-				return false
-			}
-		}
-		if ((s.LoadBalancerSourceRanges == nil) != (o.LoadBalancerSourceRanges == nil)) ||
-			len(s.LoadBalancerSourceRanges) != len(o.LoadBalancerSourceRanges) {
-			return false
-		}
-		for k, v := range s.LoadBalancerSourceRanges {
-			vOther, ok := o.LoadBalancerSourceRanges[k]
-			if !ok || !v.Equal(vOther) {
-				return false
-			}
-		}
-
-		if s.SessionAffinity && s.SessionAffinityTimeoutSec != o.SessionAffinityTimeoutSec {
-			return false
-		}
-
-		return true
-	}
-	return false
 }
 
 func parseIPs(externalIPs []string) map[string]net.IP {
@@ -445,7 +426,7 @@ func NewService(ip net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRange
 		HealthCheckNodePort: healthCheckNodePort,
 
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		K8sExternalIPs:           k8sExternalIPs,
 		LoadBalancerIPs:          k8sLoadBalancerIPs,
 		LoadBalancerSourceRanges: loadBalancerSourceCIDRs,
