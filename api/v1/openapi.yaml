@@ -1758,6 +1758,10 @@ definitions:
         - Probe
         - Partial
       devices:
+        type: array
+        items:
+          type: string
+      deviceList:
         description: |-
 
 

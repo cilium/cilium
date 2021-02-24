@@ -28,7 +28,10 @@ type KubeProxyReplacement struct {
 	//
 	//
 	// +k8s:deepcopy-gen=true
-	Devices []*KubeProxyReplacementDevicesItems0 `json:"devices"`
+	DeviceList []*KubeProxyReplacementDeviceListItems0 `json:"deviceList"`
+
+	// devices
+	Devices []string `json:"devices"`
 
 	// direct routing device
 	DirectRoutingDevice string `json:"directRoutingDevice,omitempty"`
@@ -45,7 +48,7 @@ type KubeProxyReplacement struct {
 func (m *KubeProxyReplacement) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateDevices(formats); err != nil {
+	if err := m.validateDeviceList(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -63,21 +66,21 @@ func (m *KubeProxyReplacement) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *KubeProxyReplacement) validateDevices(formats strfmt.Registry) error {
+func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Devices) { // not required
+	if swag.IsZero(m.DeviceList) { // not required
 		return nil
 	}
 
-	for i := 0; i < len(m.Devices); i++ {
-		if swag.IsZero(m.Devices[i]) { // not required
+	for i := 0; i < len(m.DeviceList); i++ {
+		if swag.IsZero(m.DeviceList[i]) { // not required
 			continue
 		}
 
-		if m.Devices[i] != nil {
-			if err := m.Devices[i].Validate(formats); err != nil {
+		if m.DeviceList[i] != nil {
+			if err := m.DeviceList[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("devices" + "." + strconv.Itoa(i))
+					return ve.ValidateName("deviceList" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -173,12 +176,12 @@ func (m *KubeProxyReplacement) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// KubeProxyReplacementDevicesItems0
+// KubeProxyReplacementDeviceListItems0
 //
 // +k8s:deepcopy-gen=true
 //
-// swagger:model KubeProxyReplacementDevicesItems0
-type KubeProxyReplacementDevicesItems0 struct {
+// swagger:model KubeProxyReplacementDeviceListItems0
+type KubeProxyReplacementDeviceListItems0 struct {
 
 	//
 	//
@@ -189,13 +192,13 @@ type KubeProxyReplacementDevicesItems0 struct {
 	Name string `json:"name,omitempty"`
 }
 
-// Validate validates this kube proxy replacement devices items0
-func (m *KubeProxyReplacementDevicesItems0) Validate(formats strfmt.Registry) error {
+// Validate validates this kube proxy replacement device list items0
+func (m *KubeProxyReplacementDeviceListItems0) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
 // MarshalBinary interface implementation
-func (m *KubeProxyReplacementDevicesItems0) MarshalBinary() ([]byte, error) {
+func (m *KubeProxyReplacementDeviceListItems0) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -203,8 +206,8 @@ func (m *KubeProxyReplacementDevicesItems0) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *KubeProxyReplacementDevicesItems0) UnmarshalBinary(b []byte) error {
-	var res KubeProxyReplacementDevicesItems0
+func (m *KubeProxyReplacementDeviceListItems0) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementDeviceListItems0
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

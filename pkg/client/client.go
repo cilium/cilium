@@ -298,7 +298,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	if sr.KubeProxyReplacement != nil {
 		devices := ""
 		if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
-			for i, dev := range sr.KubeProxyReplacement.Devices {
+			for i, dev := range sr.KubeProxyReplacement.DeviceList {
 				kubeProxyDevices += fmt.Sprintf("%s %s", dev.Name, strings.Join(dev.IP, " "))
 				if dev.Name == sr.KubeProxyReplacement.DirectRoutingDevice {
 					kubeProxyDevices += " (Direct Routing)"
@@ -307,7 +307,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					kubeProxyDevices += ", "
 				}
 			}
-			if len(sr.KubeProxyReplacement.Devices) > 0 {
+			if len(sr.KubeProxyReplacement.DeviceList) > 0 {
 				devices = "[" + kubeProxyDevices + "]"
 			}
 		}
@@ -418,9 +418,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					// When BPF Masquerading is enabled we don't do any masquerading for IPv6
 					// traffic so no SNAT Exclusion IPv6 CIDR is listed in status output.
 					devStr := ""
-					for i, dev := range sr.KubeProxyReplacement.Devices {
+					for i, dev := range sr.KubeProxyReplacement.DeviceList {
 						devStr += dev.Name
-						if i+1 != len(sr.KubeProxyReplacement.Devices) {
+						if i+1 != len(sr.KubeProxyReplacement.DeviceList) {
 							devStr += ", "
 						}
 					}
