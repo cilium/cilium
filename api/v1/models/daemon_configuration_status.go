@@ -53,7 +53,10 @@ type DaemonConfigurationStatus struct {
 	KvstoreConfiguration *KVstoreConfiguration `json:"kvstoreConfiguration,omitempty"`
 
 	// masquerade
-	Masquerade *DaemonConfigurationStatusMasquerade `json:"masquerade,omitempty"`
+	Masquerade bool `json:"masquerade,omitempty"`
+
+	// masquerade protocols
+	MasqueradeProtocols *DaemonConfigurationStatusMasqueradeProtocols `json:"masqueradeProtocols,omitempty"`
 
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
@@ -89,7 +92,7 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateMasquerade(formats); err != nil {
+	if err := m.validateMasqueradeProtocols(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -193,16 +196,16 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 	return nil
 }
 
-func (m *DaemonConfigurationStatus) validateMasquerade(formats strfmt.Registry) error {
+func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Masquerade) { // not required
+	if swag.IsZero(m.MasqueradeProtocols) { // not required
 		return nil
 	}
 
-	if m.Masquerade != nil {
-		if err := m.Masquerade.Validate(formats); err != nil {
+	if m.MasqueradeProtocols != nil {
+		if err := m.MasqueradeProtocols.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("masquerade")
+				return ve.ValidateName("masqueradeProtocols")
 			}
 			return err
 		}
@@ -265,10 +268,10 @@ func (m *DaemonConfigurationStatus) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// DaemonConfigurationStatusMasquerade Status of masquerading feature
+// DaemonConfigurationStatusMasqueradeProtocols Status of masquerading feature
 //
-// swagger:model DaemonConfigurationStatusMasquerade
-type DaemonConfigurationStatusMasquerade struct {
+// swagger:model DaemonConfigurationStatusMasqueradeProtocols
+type DaemonConfigurationStatusMasqueradeProtocols struct {
 
 	// Status of masquerading for IPv4 traffic
 	IPV4 bool `json:"ipv4,omitempty"`
@@ -277,13 +280,13 @@ type DaemonConfigurationStatusMasquerade struct {
 	IPV6 bool `json:"ipv6,omitempty"`
 }
 
-// Validate validates this daemon configuration status masquerade
-func (m *DaemonConfigurationStatusMasquerade) Validate(formats strfmt.Registry) error {
+// Validate validates this daemon configuration status masquerade protocols
+func (m *DaemonConfigurationStatusMasqueradeProtocols) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
 // MarshalBinary interface implementation
-func (m *DaemonConfigurationStatusMasquerade) MarshalBinary() ([]byte, error) {
+func (m *DaemonConfigurationStatusMasqueradeProtocols) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -291,8 +294,8 @@ func (m *DaemonConfigurationStatusMasquerade) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *DaemonConfigurationStatusMasquerade) UnmarshalBinary(b []byte) error {
-	var res DaemonConfigurationStatusMasquerade
+func (m *DaemonConfigurationStatusMasqueradeProtocols) UnmarshalBinary(b []byte) error {
+	var res DaemonConfigurationStatusMasqueradeProtocols
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

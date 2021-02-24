@@ -405,7 +405,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			return "Disabled"
 		}
 
-		if !sr.Masquerading.Enabled.IPV4 && !sr.Masquerading.Enabled.IPV6 {
+		if !sr.Masquerading.EnabledProtocols.IPV4 && !sr.Masquerading.EnabledProtocols.IPV6 {
 			status = enabled(false)
 		} else {
 			if sr.Masquerading.Mode == models.MasqueradingModeBPF {
@@ -434,7 +434,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			}
 
 			status = fmt.Sprintf("%s [IPv4: %s, IPv6: %s]", status,
-				enabled(sr.Masquerading.Enabled.IPV4), enabled(sr.Masquerading.Enabled.IPV6))
+				enabled(sr.Masquerading.EnabledProtocols.IPV4), enabled(sr.Masquerading.EnabledProtocols.IPV6))
 		}
 		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
 	}

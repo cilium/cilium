@@ -1790,6 +1790,9 @@ func init() {
           "$ref": "#/definitions/KVstoreConfiguration"
         },
         "masquerade": {
+          "type": "boolean"
+        },
+        "masqueradeProtocols": {
           "description": "Status of masquerading feature",
           "type": "object",
           "properties": {
@@ -2927,6 +2930,9 @@ func init() {
       "type": "object",
       "properties": {
         "enabled": {
+          "type": "boolean"
+        },
+        "enabledProtocols": {
           "description": "Is masquerading enabled",
           "type": "object",
           "properties": {
@@ -5737,6 +5743,9 @@ func init() {
           "$ref": "#/definitions/KVstoreConfiguration"
         },
         "masquerade": {
+          "type": "boolean"
+        },
+        "masqueradeProtocols": {
           "description": "Status of masquerading feature",
           "type": "object",
           "properties": {
@@ -5764,7 +5773,7 @@ func init() {
         }
       }
     },
-    "DaemonConfigurationStatusMasquerade": {
+    "DaemonConfigurationStatusMasqueradeProtocols": {
       "description": "Status of masquerading feature",
       "type": "object",
       "properties": {
@@ -7102,6 +7111,9 @@ func init() {
       "type": "object",
       "properties": {
         "enabled": {
+          "type": "boolean"
+        },
+        "enabledProtocols": {
           "description": "Is masquerading enabled",
           "type": "object",
           "properties": {
@@ -7136,7 +7148,7 @@ func init() {
         }
       }
     },
-    "MasqueradingEnabled": {
+    "MasqueradingEnabledProtocols": {
       "description": "Is masquerading enabled",
       "type": "object",
       "properties": {
