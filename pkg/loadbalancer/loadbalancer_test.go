@@ -374,6 +374,11 @@ func BenchmarkL3n4Addr_Hash_IPv4(b *testing.B) {
 	benchmarkHash(b, addr)
 }
 
+func BenchmarkL3n4Addr_Hash_IPv4_4bytes(b *testing.B) {
+	addr := NewL3n4Addr(TCP, net.IPv4(1, 2, 3, 4).To4(), 8080, ScopeInternal)
+	benchmarkHash(b, addr)
+}
+
 func BenchmarkL3n4Addr_Hash_IPv6_Short(b *testing.B) {
 	addr := NewL3n4Addr(TCP, net.ParseIP("fd00::1:36c6"), 8080, ScopeInternal)
 	benchmarkHash(b, addr)
