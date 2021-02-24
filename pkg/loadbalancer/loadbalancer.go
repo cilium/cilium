@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -169,9 +168,9 @@ const (
 
 const (
 	// ScopeExternal is the lookup scope for services from outside the node.
-	ScopeExternal = 0
+	ScopeExternal uint8 = iota
 	// ScopeInternal is the lookup scope for services from inside the node.
-	ScopeInternal = 1
+	ScopeInternal
 )
 
 var (
@@ -468,25 +467,22 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps
+// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
+// Note: the resulting string is meant to be used as a key for maps and is not
+// readable by a human eye when printed out.
 func (a L3n4Addr) Hash() string {
-	const lenIPv4 = 15
-	const lenProto = 1
-	const lenPort = 6
-	const lenScope = 2
+	const lenProto = 0 // proto is omitted for now
+	const lenScope = 1 // scope is uint8 which is an alias for byte
+	const lenPort = 2  // port is uint16 which is 2 bytes
 
-	// Note: This capacity will not be enough for long IPv6 addresses, but it
-	// is cheaper to reallocate on overflow than to check the length of a.IP
-	b := make([]byte, 0, lenIPv4+lenProto+lenPort+lenScope)
-
-	b = append(b, a.IP.String()...)
-	b = append(b, '|')
-	// FIXME: Remove Protocol's omission once we care about protocols.
-	b = append(b, '|')
-	b = strconv.AppendUint(b, uint64(a.Port), 10)
-	b = append(b, '|')
-	b = strconv.AppendUint(b, uint64(a.Scope), 10)
-
+	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort)
+	copy(b, a.IP.To16())
+	// FIXME: add Protocol once we care about protocols
+	// scope is a uint8 which is an alias for byte so a cast is safe
+	b[net.IPv6len+lenProto] = byte(a.Scope)
+	// port is a uint16, so 2 bytes
+	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
+	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
 	return string(b)
 }
 
