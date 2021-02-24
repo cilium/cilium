@@ -2670,7 +2670,7 @@ func init() {
       "description": "Status of kube-proxy replacement\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "devices": {
+        "deviceList": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "array",
           "items": {
@@ -2688,6 +2688,12 @@ func init() {
                 "type": "string"
               }
             }
+          }
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "directRoutingDevice": {
@@ -6664,11 +6670,17 @@ func init() {
       "description": "Status of kube-proxy replacement\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "devices": {
+        "deviceList": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KubeProxyReplacementDevicesItems0"
+            "$ref": "#/definitions/KubeProxyReplacementDeviceListItems0"
+          }
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "directRoutingDevice": {
@@ -6774,7 +6786,7 @@ func init() {
         }
       }
     },
-    "KubeProxyReplacementDevicesItems0": {
+    "KubeProxyReplacementDeviceListItems0": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {

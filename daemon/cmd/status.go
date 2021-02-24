@@ -201,11 +201,13 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devices := make([]*models.KubeProxyReplacementDevicesItems0, len(option.Config.Devices))
+	devicesLegacy := make([]string, len(option.Config.Devices))
+	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(option.Config.Devices))
 	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
 	for i, iface := range option.Config.Devices {
-		info := &models.KubeProxyReplacementDevicesItems0{
+		devicesLegacy[i] = iface
+		info := &models.KubeProxyReplacementDeviceListItems0{
 			Name: iface,
 			IP:   make([]string, 0),
 		}
@@ -267,7 +269,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 
 	return &models.KubeProxyReplacement{
 		Mode:                mode,
-		Devices:             devices,
+		Devices:             devicesLegacy,
+		DeviceList:          devices,
 		DirectRoutingDevice: option.Config.DirectRoutingDevice,
 		Features:            features,
 	}
