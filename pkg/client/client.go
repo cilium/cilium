@@ -190,6 +190,8 @@ func FormatStatusResponseBrief(w io.Writer, sr *models.StatusResponse) {
 	switch {
 	case statusUnhealthy(sr.Kvstore):
 		msg = fmt.Sprintf("kvstore: %s", sr.Kvstore.Msg)
+	case statusUnhealthy(sr.ContainerRuntime):
+		msg = fmt.Sprintf("container runtime: %s", sr.ContainerRuntime.Msg)
 	case sr.Kubernetes != nil && stateUnhealthy(sr.Kubernetes.State):
 		msg = fmt.Sprintf("kubernetes: %s", sr.Kubernetes.Msg)
 	case statusUnhealthy(sr.Cilium):
@@ -278,6 +280,10 @@ var (
 func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetails) {
 	if sr.Kvstore != nil {
 		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
+	}
+	if sr.ContainerRuntime != nil {
+		fmt.Fprintf(w, "ContainerRuntime:\t%s\t%s\n",
+			sr.ContainerRuntime.State, sr.ContainerRuntime.Msg)
 	}
 
 	kubeProxyDevices := ""

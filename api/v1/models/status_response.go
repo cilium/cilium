@@ -46,6 +46,9 @@ type StatusResponse struct {
 	// Status of ClusterMesh
 	ClusterMesh *ClusterMeshStatus `json:"cluster-mesh,omitempty"`
 
+	// Status of local container runtime
+	ContainerRuntime *Status `json:"container-runtime,omitempty"`
+
 	// Status of all endpoint controllers
 	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
@@ -105,6 +108,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateClusterMesh(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateContainerRuntime(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -258,6 +265,24 @@ func (m *StatusResponse) validateClusterMesh(formats strfmt.Registry) error {
 		if err := m.ClusterMesh.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster-mesh")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ContainerRuntime) { // not required
+		return nil
+	}
+
+	if m.ContainerRuntime != nil {
+		if err := m.ContainerRuntime.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("container-runtime")
 			}
 			return err
 		}
