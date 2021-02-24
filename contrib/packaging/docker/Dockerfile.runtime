@@ -1,8 +1,11 @@
+ARG CILIUM_RUNTIME_TAG=2020-02-24
+
 #
 # Cilium runtime base image
 #
 FROM docker.io/library/ubuntu:18.04 as runtime-base
-RUN apt-get update && \
+RUN echo "Updated on "${ARG} && \
+apt-get update && \
 apt-get upgrade -y && \
 #
 # Prepackaged Cilium runtime dependencies
