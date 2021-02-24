@@ -25,7 +25,10 @@ import (
 type Masquerading struct {
 
 	// enabled
-	Enabled *MasqueradingEnabled `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty"`
+
+	// enabled protocols
+	EnabledProtocols *MasqueradingEnabledProtocols `json:"enabledProtocols,omitempty"`
 
 	// Is BPF ip-masq-agent enabled
 	IPMasqAgent bool `json:"ip-masq-agent,omitempty"`
@@ -48,7 +51,7 @@ type Masquerading struct {
 func (m *Masquerading) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateEnabled(formats); err != nil {
+	if err := m.validateEnabledProtocols(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -62,16 +65,16 @@ func (m *Masquerading) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *Masquerading) validateEnabled(formats strfmt.Registry) error {
+func (m *Masquerading) validateEnabledProtocols(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Enabled) { // not required
+	if swag.IsZero(m.EnabledProtocols) { // not required
 		return nil
 	}
 
-	if m.Enabled != nil {
-		if err := m.Enabled.Validate(formats); err != nil {
+	if m.EnabledProtocols != nil {
+		if err := m.EnabledProtocols.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("enabled")
+				return ve.ValidateName("enabledProtocols")
 			}
 			return err
 		}
@@ -141,10 +144,10 @@ func (m *Masquerading) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// MasqueradingEnabled Is masquerading enabled
+// MasqueradingEnabledProtocols Is masquerading enabled
 //
-// swagger:model MasqueradingEnabled
-type MasqueradingEnabled struct {
+// swagger:model MasqueradingEnabledProtocols
+type MasqueradingEnabledProtocols struct {
 
 	// Is masquerading enabled for IPv4 traffic
 	IPV4 bool `json:"ipv4,omitempty"`
@@ -153,13 +156,13 @@ type MasqueradingEnabled struct {
 	IPV6 bool `json:"ipv6,omitempty"`
 }
 
-// Validate validates this masquerading enabled
-func (m *MasqueradingEnabled) Validate(formats strfmt.Registry) error {
+// Validate validates this masquerading enabled protocols
+func (m *MasqueradingEnabledProtocols) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
 // MarshalBinary interface implementation
-func (m *MasqueradingEnabled) MarshalBinary() ([]byte, error) {
+func (m *MasqueradingEnabledProtocols) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -167,8 +170,8 @@ func (m *MasqueradingEnabled) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *MasqueradingEnabled) UnmarshalBinary(b []byte) error {
-	var res MasqueradingEnabled
+func (m *MasqueradingEnabledProtocols) UnmarshalBinary(b []byte) error {
+	var res MasqueradingEnabledProtocols
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

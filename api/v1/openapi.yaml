@@ -2065,6 +2065,8 @@ definitions:
         description: Configured IPAM mode
         type: string
       masquerade:
+        type: boolean
+      masqueradeProtocols:
         description: Status of masquerading feature
         type: object
         properties:
@@ -2527,6 +2529,8 @@ definitions:
     type: object
     properties:
       enabled:
+        type: boolean
+      enabledProtocols:
         description: Is masquerading enabled
         type: object
         properties:

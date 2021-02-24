@@ -33,9 +33,9 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 
 	var masq bool
 	if ipConfig.Version == "4" {
-		masq = conf.Masquerade.IPV4
+		masq = conf.MasqueradeProtocols.IPV4
 	} else if ipConfig.Version == "6" {
-		masq = conf.Masquerade.IPV6
+		masq = conf.MasqueradeProtocols.IPV6
 	} else {
 		return fmt.Errorf("Invalid IPConfig version: %s", ipConfig.Version)
 	}
