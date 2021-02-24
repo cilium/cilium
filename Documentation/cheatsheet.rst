@@ -106,6 +106,7 @@ Check the status of the agent
 
     $ cilium status
     KVStore:                Ok         Consul: 172.17.0.3:8300
+    ContainerRuntime:       Ok
     Kubernetes:             Disabled
     Cilium:                 Ok         OK
     NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
@@ -120,6 +121,7 @@ Get a detailed status of the agent:
 
     $ cilium status --all-controllers --all-health --all-redirects
     KVStore:                Ok         Consul: 172.17.0.3:8300
+    ContainerRuntime:       Ok
     Kubernetes:             Disabled
     Cilium:                 Ok         OK
     NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory

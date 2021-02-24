@@ -1598,6 +1598,9 @@ definitions:
       kvstore:
         description: Status of key/value datastore
         "$ref": "#/definitions/Status"
+      container-runtime:
+        description: Status of local container runtime
+        "$ref": "#/definitions/Status"
       hubble:
         description: Status of Hubble server
         "$ref": "#/definitions/HubbleStatus"

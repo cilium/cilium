@@ -427,6 +427,7 @@ test an exhaustive data will be added.
 	level=info msg="Vagrant: running command \"vagrant ssh-config runtime\""
 	cmd: "sudo cilium status" exitCode: 0
 	 KVStore:            Ok         Consul: 172.17.0.3:8300
+	ContainerRuntime:   Ok
 	Kubernetes:         Disabled
 	Kubernetes APIs:    [""]
 	Cilium:             Ok   OK
