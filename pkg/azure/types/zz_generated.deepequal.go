@@ -80,13 +80,13 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.GatewayIP != other.GatewayIP {
 		return false
 	}
-	if in.VMSSName != other.VMSSName {
+	if in.vmssName != other.vmssName {
 		return false
 	}
-	if in.VMID != other.VMID {
+	if in.vmID != other.vmID {
 		return false
 	}
-	if in.ResourceGroup != other.ResourceGroup {
+	if in.resourceGroup != other.resourceGroup {
 		return false
 	}
 
