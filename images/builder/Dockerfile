@@ -15,6 +15,10 @@ FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 
 FROM ${CILIUM_RUNTIME_IMAGE} as rootfs
 
+# Change the number to force the generation of a new git-tree SHA. Useful when
+# we want to re-run 'apt-get upgrade' for stale images.
+ENV FORCE_BUILD=1
+
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 RUN \
@@ -38,10 +42,6 @@ RUN \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Change the number to force the generation of a new git-tree SHA. Useful when
-# we want to re-run 'apt-get upgrade' for stale images.
-ENV FORCE_BUILD=1
 
 COPY --from=compilers-image /usr/lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu
 
