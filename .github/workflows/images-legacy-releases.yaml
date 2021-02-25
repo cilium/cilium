@@ -85,7 +85,7 @@ jobs:
           job_name_underscored=${job_name_capital//-/_}
           echo "${job_name_underscored}_DIGEST := \"${{ steps.docker_build_release.outputs.digest }}\"" > image-digest/makefile-digest.txt
 
-          echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
+          echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
           echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
@@ -123,7 +123,9 @@ jobs:
         shell: bash
         run: |
           cd image-digest/
-          find -type f -not -name "makefile-digest.txt" | sort | xargs -d '\n' cat > ../image-digest-output.txt
+          echo "## Docker Manifests" > ../image-digest-output.txt
+          echo "" >> ../image-digest-output.txt
+          find -type f -not -name "makefile-digest.txt" | sort | xargs -d '\n' cat >> ../image-digest-output.txt
 
       - name: Image Makefile Digests
         shell: bash
