@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.7.14
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* k8s: update k8s libraries and tests to 1.17.17 (#15027, @aanm)
+
+**Bugfixes:**
+* Fix memory leak on stable policy identity churn. (Backport PR #15045, Upstream PR #15042, @jrajahalme)
+
+**CI Changes:**
+* runtime: specify ICMP ids on connectivity test (Backport PR #14868, Upstream PR #13989, @kkourt)
+
+**Misc Changes:**
+* .github: publish into official repo for next release (#15031, @aanm)
+* [v1.7] .github: add GitHub actions to build images (#14934, @aanm)
+* [v1.7] release: Fix script to check presence of docker images (#14777, @joestringer)
+* add GH action to push hot fix images into -dev repositories (#15064, @aanm)
+* backporting: Add support for forked cilium repositories (Backport PR #15040, Upstream PR #15008, @gandro)
+* contrib: Add script to fetch docker manifests (Backport PR #14781, Upstream PR #14707, @joestringer)
+* Dockerfile: Bump cilium-runtime image dependency (#15102, @joestringer)
+* docs: Add FQDN limitation to IPVLAN docs (Backport PR #15014, Upstream PR #14893, @joestringer)
+* docs: Document hostport requirements in eni (Backport PR #15014, Upstream PR #14920, @joestringer)
+* labelsfilter: Update documentation and add unit tests (Backport PR #15014, Upstream PR #14338, @pchaigno)
+* Minor backporting script tweaks (Backport PR #15052, Upstream PR #14027, @twpayne)
+
+**Other Changes:**
+* test: Redeploy registry during Vagrant provision (#15115, @joestringer)
+
 ## v1.7.13
 
 Summary of Changes
