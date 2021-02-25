@@ -45,7 +45,7 @@ COPY iptables-wrapper /usr/sbin/iptables-wrapper
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./configure-iptables-wrapper.sh
 
-COPY --from=llvm-dist /usr/local /usr/local
+COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /bin/
 COPY --from=bpftool-dist /usr/local /usr/local
 COPY --from=iproute2-dist /usr/local /usr/local
 
