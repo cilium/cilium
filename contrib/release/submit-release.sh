@@ -6,6 +6,7 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source $DIR/lib/common.sh
 source $DIR/../backporting/common.sh
 
+REMOTE="$(get_remote)"
 BRANCH="${1:-""}"
 if [ "$BRANCH" = "" ]; then
     BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\.[0-9]\).*/\1/')
@@ -20,10 +21,10 @@ if [ "$SUMMARY" = "" ]; then
     GENERATE_SUMMARY=true
 fi
 
-if ! git branch -a | grep -q "origin/v$BRANCH$" || [ ! -e $SUMMARY ]; then
+if ! git branch -a | grep -q "$REMOTE/v$BRANCH$" || [ ! -e $SUMMARY ]; then
     echo "usage: $0 [branch version] [release-summary]" 1>&2
     echo 1>&2
-    echo "Ensure 'branch version' is available in 'origin' and the summary file exists" 1>&2
+    echo "Ensure 'branch version' is available in '$REMOTE' and the summary file exists" 1>&2
     exit 1
 fi
 
