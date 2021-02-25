@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium-cli/install"
 
 	"github.com/spf13/cobra"
@@ -89,6 +90,13 @@ func newCmdUninstall() *cobra.Command {
 		Short: "Uninstall Cilium",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			h := hubble.NewK8sHubble(k8sClient, hubble.Parameters{
+				Namespace: params.Namespace,
+				Writer:    params.Writer,
+			})
+			if err := h.Disable(context.Background()); err != nil {
+				fatalf("Unable to disable Hubble:  %s", err)
+			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
 			if err := uninstaller.Uninstall(context.Background()); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
