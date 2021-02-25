@@ -1648,18 +1648,20 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 // Close closes the etcd session
 func (e *etcdClient) Close() {
 	close(e.stopStatusChecker)
-	<-e.firstSession
+	sessionErr := e.waitForInitialSession(context.Background())
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
 	}
 	e.RLock()
 	defer e.RUnlock()
-	if e.lockSession != nil {
+	// Only close e.lockSession if the initial session was successful
+	if sessionErr == nil {
 		if err := e.lockSession.Close(); err != nil {
 			e.getLogger().WithError(err).Warning("Failed to revoke lock session while closing etcd client")
 		}
 	}
-	if e.session != nil {
+	// Only close e.session if the initial session was successful
+	if sessionErr == nil {
 		if err := e.session.Close(); err != nil {
 			e.getLogger().WithError(err).Warning("Failed to revoke main session while closing etcd client")
 		}
