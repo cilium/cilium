@@ -36,7 +36,7 @@ minor release, corresponding image pull tags and their release notes:
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 | `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2021-02-17 | ``docker.io/cilium/cilium:v1.8.7``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.7>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2021-01-27 | ``docker.io/cilium/cilium:v1.7.13``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.13>`__ | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
+| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2021-02-25 | ``docker.io/cilium/cilium:v1.7.14``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.14>`__ | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 
 Functionality Overview
