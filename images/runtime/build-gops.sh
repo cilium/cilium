@@ -25,5 +25,5 @@ for arch in amd64 arm64 ; do
   GOARCH="${arch}" go build -ldflags "-s -w" -o "/out/linux/${arch}/bin/gops" github.com/google/gops
 done
 
-strip "/out/linux/amd64/bin/gops"
-aarch64-linux-gnu-strip "/out/linux/arm64/bin/gops"
+x86_64-linux-gnu-strip /out/linux/amd64/bin/gops
+aarch64-linux-gnu-strip /out/linux/arm64/bin/gops
