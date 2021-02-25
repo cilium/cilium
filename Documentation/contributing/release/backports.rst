@@ -65,8 +65,15 @@ One-time Setup
       $ git config --global user.name "John Doe"
       $ git config --global user.email johndoe@example.com
 
+#. Add remotes for the Cilium upstream repository and your Cilium repository fork.
+
+   .. code-block:: bash
+
+      $ git remote add johndoe git@github.com:johndoe/cilium.git
+      $ git remote add upstream https://github.com/cilium/cilium.git
+
 #. Make sure you have a GitHub developer access token with the ``public_repos``
-   scope available. You can do this directly from
+   ``workflow`` scopes available. You can do this directly from
    https://github.com/settings/tokens or by opening GitHub and then navigating
    to: User Profile -> Settings -> Developer Settings -> Personal access token
    -> Generate new token.
