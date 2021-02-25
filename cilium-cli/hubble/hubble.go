@@ -130,9 +130,7 @@ func (k *K8sHubble) Validate(ctx context.Context) error {
 }
 
 func (k *K8sHubble) Disable(ctx context.Context) error {
-	k.disableRelay(ctx)
-
-	return nil
+	return k.disableRelay(ctx)
 }
 
 func (k *K8sHubble) Enable(ctx context.Context) error {
