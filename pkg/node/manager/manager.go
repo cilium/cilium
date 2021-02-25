@@ -507,14 +507,6 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	entry.mutex.Unlock()
 }
 
-// Exists returns true if a node with the name exists
-func (m *Manager) Exists(id nodeTypes.Identity) bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	_, ok := m.nodes[id]
-	return ok
-}
-
 // GetNodeIdentities returns a list of all node identities store in node
 // manager.
 func (m *Manager) GetNodeIdentities() []nodeTypes.Identity {
@@ -542,20 +534,6 @@ func (m *Manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	}
 
 	return nodes
-}
-
-// DeleteAllNodes deletes all nodes from the node manager.
-func (m *Manager) DeleteAllNodes() {
-	m.mutex.Lock()
-	for _, entry := range m.nodes {
-		entry.mutex.Lock()
-		m.Iter(func(nh datapath.NodeHandler) {
-			nh.NodeDelete(entry.node)
-		})
-		entry.mutex.Unlock()
-	}
-	m.nodes = map[nodeTypes.Identity]*nodeEntry{}
-	m.mutex.Unlock()
 }
 
 // StartNeighborRefresh spawns a controller which refreshes neighbor table
