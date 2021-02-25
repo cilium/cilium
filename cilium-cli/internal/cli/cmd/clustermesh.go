@@ -31,11 +31,13 @@ func newCmdClusterMesh() *cobra.Command {
 		Long:  ``,
 	}
 
-	cmd.AddCommand(newCmdClusterMeshEnable())
-	cmd.AddCommand(newCmdClusterMeshDisable())
-	cmd.AddCommand(newCmdClusterMeshConnect())
-	cmd.AddCommand(newCmdClusterMeshDisconnect())
-	cmd.AddCommand(newCmdClusterMeshStatus())
+	cmd.AddCommand(
+		newCmdClusterMeshEnable(),
+		newCmdClusterMeshDisable(),
+		newCmdClusterMeshConnect(),
+		newCmdClusterMeshDisconnect(),
+		newCmdClusterMeshStatus(),
+	)
 
 	return cmd
 }
