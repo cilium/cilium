@@ -31,8 +31,10 @@ func newCmdHubble() *cobra.Command {
 		Long:  ``,
 	}
 
-	cmd.AddCommand(newCmdHubbleEnable())
-	cmd.AddCommand(newCmdHubbleDisable())
+	cmd.AddCommand(
+		newCmdHubbleEnable(),
+		newCmdHubbleDisable(),
+	)
 
 	return cmd
 }
