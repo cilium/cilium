@@ -114,7 +114,7 @@ func (k *K8sClusterMesh) generateService() *corev1.Service {
 	} else {
 		switch k.flavor.Kind {
 		case k8s.KindGKE:
-			k.Log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)")
+			k.Log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=Internal)")
 			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 			svc.ObjectMeta.Annotations["cloud.google.com/load-balancer-type"] = "Internal"
 			// if all the clusters are in the same region the next annotation can be removed
