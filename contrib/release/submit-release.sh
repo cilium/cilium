@@ -21,8 +21,10 @@ if [ "$SUMMARY" = "" ]; then
     GENERATE_SUMMARY=true
 fi
 
+USER_REMOTE=$(get_user_remote ${3:-})
+
 if ! git branch -a | grep -q "$REMOTE/v$BRANCH$" || [ ! -e $SUMMARY ]; then
-    echo "usage: $0 [branch version] [release-summary]" 1>&2
+    echo "usage: $0 [branch version] [release-summary] [your remote]" 1>&2
     echo 1>&2
     echo "Ensure 'branch version' is available in '$REMOTE' and the summary file exists" 1>&2
     exit 1
@@ -56,5 +58,5 @@ echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
 echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git push origin "$PR_BRANCH"
+git push $USER_REMOTE "$PR_BRANCH"
 hub pull-request -b "v$BRANCH" -l kind/release,backport/$BRANCH -F $SUMMARY
