@@ -8,6 +8,7 @@ source $DIR/../backporting/common.sh
 
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
 ACTS_YAML=".github/cilium-actions.yml"
+REMOTE="$(get_remote)"
 
 usage() {
     logecho "usage: $0 <VERSION> <GH-PROJECT>"
@@ -55,11 +56,10 @@ main() {
     local ersion="$(echo $1 | sed 's/^v//')"
     local version="v$ersion"
     local branch="v$(echo $ersion | sed 's/[^0-9]*\([0-9]\+\.[0-9]\+\).*/\1/')"
-    local remote="origin"
     local new_proj="$2"
 
-    git fetch $remote
-    git checkout -b pr/prepare-$version $remote/$branch
+    git fetch $REMOTE
+    git checkout -b pr/prepare-$version $REMOTE/$branch
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
