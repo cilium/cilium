@@ -19,5 +19,5 @@ for arch in amd64 arm64 ; do
   tar -C "/out/linux/${arch}/bin" -xf "/tmp/hubble-${arch}.tgz" hubble
 done
 
-strip /out/linux/amd64/bin/hubble
+x86_64-linux-gnu-strip /out/linux/amd64/bin/hubble
 aarch64-linux-gnu-strip /out/linux/arm64/bin/hubble
