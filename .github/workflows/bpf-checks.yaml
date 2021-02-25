@@ -16,4 +16,4 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run checkpatch.pl
-        uses: docker://quay.io/cilium/cilium-checkpatch:714de6fca46fdf7d0ae004fe791d2af196dcf080
+        uses: docker://quay.io/cilium/cilium-checkpatch@sha256:7047dbb404b1866d841b232793e6b0d54019fb264cef4e6e40884220125c4af4
