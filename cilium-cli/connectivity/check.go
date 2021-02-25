@@ -1109,7 +1109,7 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
 	failed := k.results.Failed()
 	warnings := k.results.Warnings()
 	if failed == 0 {
-		k.Log("✅ %d/%d tests sucessful (%d warnings)", len(k.results), len(k.results), warnings)
+		k.Log("✅ %d/%d tests successful (%d warnings)", len(k.results), len(k.results), warnings)
 	} else {
 		k.Log("❌ %d/%d tests failed (%d warnings)", failed, len(k.results), warnings)
 
