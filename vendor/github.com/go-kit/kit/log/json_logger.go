@@ -31,9 +31,7 @@ func (l *jsonLogger) Log(keyvals ...interface{}) error {
 		}
 		merge(m, k, v)
 	}
-	enc := json.NewEncoder(l.Writer)
-	enc.SetEscapeHTML(false)
-	return enc.Encode(m)
+	return json.NewEncoder(l.Writer).Encode(m)
 }
 
 func merge(dst map[string]interface{}, k, v interface{}) {
