@@ -77,7 +77,9 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
-	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
+	go.etcd.io/etcd/api/v3 v3.5.0-alpha.0
+	go.etcd.io/etcd/client/v3 v3.5.0-alpha.0
+	go.etcd.io/etcd/pkg/v3 v3.5.0-alpha.0
 	go.uber.org/goleak v1.1.10
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
@@ -86,7 +88,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20210108195828-e2f9c7f1fc8e
 	google.golang.org/genproto v0.0.0-20210111234610-22ae2b108f89
-	google.golang.org/grpc v1.29.1
+	google.golang.org/grpc v1.36.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.62.0
