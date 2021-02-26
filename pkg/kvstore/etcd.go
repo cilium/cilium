@@ -39,11 +39,11 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
-	client "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/clientv3/concurrency"
-	clientyaml "go.etcd.io/etcd/clientv3/yaml"
-	v3rpcErrors "go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
-	"go.etcd.io/etcd/pkg/tlsutil"
+	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
+	client "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
+	clientyaml "go.etcd.io/etcd/client/v3/yaml"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
 )
