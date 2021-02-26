@@ -16,18 +16,6 @@ pipeline {
                 returnStdout: true,
                 script: 'if [ "${RunQuarantined}" = "" ]; then echo -n "false"; else echo -n "${RunQuarantined}"; fi'
             )}"""
-        RACE="""${sh(
-                returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
-            )}"""
-        LOCKDEBUG="""${sh(
-                returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
-            )}"""
-        BASE_IMAGE="""${sh(
-                returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:7f84e5f2c9027e75b271a460d83c086f29127d3a@sha256:a1d73d2840b4b075ade33bd8f968ca6db3d9bca9f3ed14f168d14526b3208cc0"; fi'
-            )}"""
     }
 
     options {
@@ -98,7 +86,7 @@ pipeline {
                     } else {
                         env.DOCKER_TAG = env.GIT_COMMIT
                     }
-                    if (env.RACE?.trim()) {
+                    if (env.run_with_race_detection?.trim()) {
                         env.DOCKER_TAG = env.DOCKER_TAG + "-race"
                     }
                 }
