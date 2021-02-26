@@ -176,7 +176,7 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
 	}
 	defer innerMap.Close()
 
-	innerKey := &MaglevInnerKey{Zero: 0}
+	innerKey := &MaglevInnerKey{Slot: 0}
 	innerVal := &MaglevInnerVal{BackendIDs: backendIDs}
 	if err := innerMap.Update(innerKey, innerVal); err != nil {
 		return err

@@ -53,7 +53,7 @@ func parseMaglevEntry(key *lbmap.MaglevOuterKey, value *lbmap.MaglevOuterVal, ta
 	}
 
 	innerKey := lbmap.MaglevInnerKey{
-		Zero: 0,
+		Slot: 0,
 	}
 	innerValue, err := innerMap.Lookup(&innerKey)
 	if err != nil {

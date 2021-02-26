@@ -28,7 +28,7 @@ type maglevInnerMap struct {
 
 // MaglevInnerKey is the key of a maglev inner map.
 type MaglevInnerKey struct {
-	Zero uint32
+	Slot uint32
 }
 
 // MaglevInnerVal is the value of a maglev inner map.
