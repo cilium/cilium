@@ -95,7 +95,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"bpf.monitorAggregation": "medium",
 				"bpf.monitorInterval":    "60s",
 				"bpf.monitorFlags":       "syn",
-				"debug.enabled":          "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			monitorRes, monitorCancel, targetIP := monitorConnectivityAcrossNodes(kubectl)
@@ -149,7 +148,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"bpf.monitorAggregation": "medium",
 				"bpf.monitorInterval":    "60s",
 				"bpf.monitorFlags":       "psh",
-				"debug.enabled":          "false",
 			}, DeployCiliumOptionsAndDNS)
 			monitorRes, monitorCancel, _ := monitorConnectivityAcrossNodes(kubectl)
 			defer monitorCancel()
