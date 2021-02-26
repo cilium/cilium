@@ -30,6 +30,10 @@ const (
 	// inner maps into them.
 	MaglevOuter4MapName = "cilium_lb4_maglev"
 	MaglevOuter6MapName = "cilium_lb6_maglev"
+
+	// MaglevInnerElems is the number of backends stored inside each slot
+	// (MaglevInnerKey) of the MaglevInnerVal.
+	MaglevInnerElems = 4
 )
 
 var (
@@ -162,7 +166,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 	return true, nil
 }
 
-func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
+func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16, tableSize uint64) error {
 	outerMap := maglevOuter4Map
 	innerMapName := MaglevInner4MapName
 	if ipv6 {
@@ -170,15 +174,13 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
 		innerMapName = MaglevInner6MapName
 	}
 
-	innerMap, err := newMaglevInnerMap(innerMapName, outerMap.tableSize)
+	innerMap, err := newMaglevInnerMap(innerMapName, uint32(tableSize))
 	if err != nil {
 		return err
 	}
 	defer innerMap.Close()
 
-	innerKey := &MaglevInnerKey{Slot: 0}
-	innerVal := &MaglevInnerVal{BackendIDs: backendIDs}
-	if err := innerMap.Update(innerKey, innerVal); err != nil {
+	if err := updateMaglevInnerMap(innerMap, backendIDs); err != nil {
 		return err
 	}
 
@@ -189,6 +191,30 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
 	}
 
 	return nil
+}
+
+func updateMaglevInnerMap(m *maglevInnerMap, backendIDs []uint16) error {
+	// We'll attempt to batch update if the kernel supports it. Batch ops are
+	// supported from kernel version v5.6
+	// (https://github.com/torvalds/linux/commit/aa2e93b8e58e18442edfb2427446732415bc215e).
+	split := splitBackends(backendIDs)
+	keys := make(maglevInnerKeys, len(split))
+	vals := make(maglevInnerVals, len(split))
+	for i := range split {
+		keys[i] = &MaglevInnerKey{Slot: uint32(i)}
+		vals[i] = &MaglevInnerVal{BackendIDs: split[i]}
+	}
+	_, err := m.BatchUpdate(keys, vals, nil)
+	if err != nil && errors.Is(err, ebpf.ErrNotSupported) {
+		// Fall back to updating the map one-by-one if batch ops are not
+		// supported.
+		for i := range split {
+			if err := m.Update(keys[i], vals[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return err
 }
 
 func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
@@ -203,4 +229,26 @@ func deleteMaglevTable(ipv6 bool, revNATID uint16) error {
 	}
 
 	return nil
+}
+
+// splitBackends splits the backends into chunks or slots so that they fit into
+// MaglevInnerVal.
+func splitBackends(b []uint16) [][MaglevInnerElems]uint16 {
+	if b == nil {
+		return nil
+	}
+	const size = MaglevInnerElems
+	var chunk [size]uint16
+	chunks := make([][size]uint16, 0, len(b)/size+1)
+	for len(b) >= size {
+		copy(chunk[:], b) // copies only min(len(chunk), len(b))
+		b = b[size:]
+		chunks = append(chunks, chunk)
+	}
+	if len(b) > 0 {
+		var last [size]uint16
+		copy(last[:], b)
+		chunks = append(chunks, last)
+	}
+	return chunks
 }

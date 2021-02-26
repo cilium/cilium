@@ -401,6 +401,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
 		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
+		cDefinesMap["LB_MAGLEV_INNER_ELEMS"] = fmt.Sprintf("%d", lbmap.MaglevInnerElems)
 		if option.Config.EnableIPv6 {
 			cDefinesMap["LB6_MAGLEV_MAP_INNER"] = lbmap.MaglevInner6MapName
 			cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName

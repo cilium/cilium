@@ -20,6 +20,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -113,4 +114,51 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, false)
+}
+
+func (s *MaglevSuite) TestSplitBackends(c *C) {
+	const size = MaglevInnerElems
+	tests := []struct {
+		name     string
+		backends []uint16
+		expected [][size]uint16
+	}{
+		{
+			name:     "empty",
+			backends: []uint16{},
+			expected: [][size]uint16{},
+		},
+		{
+			name:     "nil",
+			backends: nil,
+			expected: nil,
+		},
+		{
+			name:     "simple",
+			backends: []uint16{8, 8, 8, 8},
+			expected: [][size]uint16{
+				{8, 8, 8, 8},
+			},
+		},
+		{
+			name:     "simple2",
+			backends: []uint16{8, 8, 8, 8, 9},
+			expected: [][size]uint16{
+				{8, 8, 8, 8},
+				{9, 0, 0, 0},
+			},
+		},
+		{
+			name:     "simple3",
+			backends: []uint16{8, 8, 8, 8, 9, 10, 11},
+			expected: [][size]uint16{
+				{8, 8, 8, 8},
+				{9, 10, 11, 0},
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		c.Assert(splitBackends(tt.backends), checker.DeepEquals, tt.expected)
+	}
 }

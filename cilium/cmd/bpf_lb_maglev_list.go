@@ -52,15 +52,31 @@ func parseMaglevEntry(key *lbmap.MaglevOuterKey, value *lbmap.MaglevOuterVal, ta
 		Fatalf("Unable to get map fd by id %d: %s", value.FD, err)
 	}
 
-	innerKey := lbmap.MaglevInnerKey{
-		Slot: 0,
-	}
-	innerValue, err := innerMap.Lookup(&innerKey)
-	if err != nil {
-		Fatalf("Unable to lookup element in map by fd %d: %s", value.FD, err)
+	maxEntries := int(lbmap.TableSizeToMaxEntries(tableSize))
+	backends := make([]uint16, 0, maxEntries)
+
+	var stop bool
+	for i := 0; i < maxEntries; i++ {
+		// We don't know how many backends there actually are, only the maximum
+		// possible entries. Therefore, once we find a backend ID that's 0,
+		// then we know that we've reached the end and we can stop.
+		if stop {
+			break
+		}
+		innerKey := lbmap.MaglevInnerKey{Slot: uint32(i)}
+		innerValue, err := innerMap.Lookup(&innerKey)
+		if err != nil {
+			Fatalf("Unable to lookup element in map by fd %d: %s", value.FD, err)
+		}
+		for _, b := range innerValue.BackendIDs {
+			if b == 0 {
+				stop = true
+			}
+			backends = append(backends, b)
+		}
 	}
 
-	tables[fmt.Sprintf("%d", key.ToNetwork().RevNatID)] = []string{fmt.Sprintf("%v", innerValue.BackendIDs)}
+	tables[fmt.Sprintf("%d", key.ToNetwork().RevNatID)] = []string{fmt.Sprintf("%v", backends)}
 }
 
 func dumpMaglevTables(tables map[string][]string) {

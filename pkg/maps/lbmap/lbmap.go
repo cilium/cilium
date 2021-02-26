@@ -197,7 +197,7 @@ func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string
 		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
 	}
 
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer[:len(table)]); err != nil {
+	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer[:len(table)], m); err != nil {
 		return err
 	}
 

@@ -73,11 +73,12 @@ struct bpf_elf_map __section_maps LB6_HEALTH_MAP = {
 struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_INNER = {
 	.type		= BPF_MAP_TYPE_ARRAY,
 	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u16) * LB_MAGLEV_LUT_SIZE,
+	.size_value	= sizeof(__u16) * LB_MAGLEV_INNER_ELEMS,
 	.pinning	= PIN_NONE,
-	.max_elem	= 1,
+	.max_elem	= (LB_MAGLEV_LUT_SIZE / LB_MAGLEV_INNER_ELEMS) + 1,
 	.inner_idx	= NO_PREPOPULATE,
 	.id		= CILIUM_MAP_MAGLEV6,
+	.flags		= BPF_F_INNER_MAP,
 };
 
 struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_OUTER = {
@@ -155,11 +156,12 @@ struct bpf_elf_map __section_maps LB4_HEALTH_MAP = {
 struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_INNER = {
 	.type		= BPF_MAP_TYPE_ARRAY,
 	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u16) * LB_MAGLEV_LUT_SIZE,
+	.size_value	= sizeof(__u16) * LB_MAGLEV_INNER_ELEMS,
 	.pinning	= PIN_NONE,
-	.max_elem	= 1,
+	.max_elem	= (LB_MAGLEV_LUT_SIZE / LB_MAGLEV_INNER_ELEMS) + 1,
 	.inner_idx	= NO_PREPOPULATE,
 	.id		= CILIUM_MAP_MAGLEV4,
+	.flags		= BPF_F_INNER_MAP,
 };
 
 struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_OUTER = {
@@ -632,7 +634,8 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		      const struct ipv6_ct_tuple *tuple,
 		      const struct lb6_service *svc)
 {
-	__u32 zero = 0, index = svc->rev_nat_index, lut_size = LB_MAGLEV_LUT_SIZE;
+	__u32 index = svc->rev_nat_index, slot = 0, offset = 0,
+	      lut_size = LB_MAGLEV_LUT_SIZE;
 	__u16 *backend_ids;
 	void *maglev_lut;
 
@@ -640,7 +643,7 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(!maglev_lut))
 		return 0;
 
-	backend_ids = map_lookup_elem(maglev_lut, &zero);
+	backend_ids = map_lookup_elem(maglev_lut, &slot);
 	if (unlikely(!backend_ids))
 		return 0;
 
@@ -648,10 +651,16 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(key->backend_slot == 0))
 		lut_size = svc->backend_id;
 
-	index = hash_from_tuple_v6(tuple) % lut_size;
+	index = hash_from_tuple_v6(tuple) % lut_size; /* backend ID */
 	if (unlikely(index >= lut_size))
 		return 0;
-	return READ_ONCE(backend_ids[index]);
+
+	slot = index / LB_MAGLEV_INNER_ELEMS;
+	backend_ids = map_lookup_elem(maglev_lut, &slot);
+	if (unlikely(!backend_ids))
+		return 0;
+	offset = index % LB_MAGLEV_INNER_ELEMS; /* backend ID within slot */
+	return READ_ONCE(backend_ids[offset]);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
@@ -1166,7 +1175,8 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
 {
-	__u32 zero = 0, index = svc->rev_nat_index, lut_size = LB_MAGLEV_LUT_SIZE;
+	__u32 index = svc->rev_nat_index, slot = 0, offset = 0,
+	      lut_size = LB_MAGLEV_LUT_SIZE;
 	__u16 *backend_ids;
 	void *maglev_lut;
 
@@ -1174,7 +1184,7 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(!maglev_lut))
 		return 0;
 
-	backend_ids = map_lookup_elem(maglev_lut, &zero);
+	backend_ids = map_lookup_elem(maglev_lut, &slot);
 	if (unlikely(!backend_ids))
 		return 0;
 
@@ -1182,10 +1192,16 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(key->backend_slot == 0))
 		lut_size = svc->backend_id;
 
-	index = hash_from_tuple_v4(tuple) % lut_size;
+	index = hash_from_tuple_v4(tuple) % lut_size; /* backend ID */
 	if (unlikely(index >= lut_size))
 		return 0;
-	return READ_ONCE(backend_ids[index]);
+
+	slot = index / LB_MAGLEV_INNER_ELEMS;
+	backend_ids = map_lookup_elem(maglev_lut, &slot);
+	if (unlikely(!backend_ids))
+		return 0;
+	offset = index % LB_MAGLEV_INNER_ELEMS; /* backend ID within slot */
+	return READ_ONCE(backend_ids[offset]);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"

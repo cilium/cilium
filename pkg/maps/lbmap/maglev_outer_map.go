@@ -115,7 +115,7 @@ func MaglevOuterMapTableSize(mapName string) (bool, uint32) {
 	}
 	defer innerMap.Close()
 
-	return true, innerMap.ValueSize() / uint32(unsafe.Sizeof(uint16(0)))
+	return true, maxEntriesToTableSize[innerMap.MaxEntries()]
 }
 
 // Update updates the value associated with a given key for a maglev outer map.
