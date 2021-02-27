@@ -510,7 +510,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 							Name: "cilium-run",
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/run/cilium",
+									Path: k.daemonRunPathOnHost(),
 									Type: &hostPathDirectoryOrCreate,
 								},
 							},
@@ -540,7 +540,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 							Name: "etc-cni-netd",
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/etc/cni/net.d",
+									Path: k.cniConfPathOnHost(),
 									Type: &hostPathDirectoryOrCreate,
 								},
 							},
@@ -958,6 +958,8 @@ const (
 	DatapathAwsENI = "aws-eni"
 	DatapathGKE    = "gke"
 	DatapathAzure  = "azure"
+
+	Microk8sSnapPath = "/var/snap/microk8s/current"
 )
 
 type AzureParameters struct {
@@ -1012,9 +1014,29 @@ func (k *K8sInstaller) cniBinPathOnHost() string {
 	switch k.flavor.Kind {
 	case k8s.KindGKE:
 		return "/home/kubernetes/bin"
+	case k8s.KindMicrok8s:
+		return Microk8sSnapPath + "/opt/cni/bin"
 	}
 
 	return "/opt/cni/bin"
+}
+
+func (k *K8sInstaller) cniConfPathOnHost() string {
+	switch k.flavor.Kind {
+	case k8s.KindMicrok8s:
+		return Microk8sSnapPath + "/args/cni-network"
+	}
+
+	return "/etc/cni/net.d"
+}
+
+func (k *K8sInstaller) daemonRunPathOnHost() string {
+	switch k.flavor.Kind {
+	case k8s.KindMicrok8s:
+		return Microk8sSnapPath + "/var/run/cilium"
+	}
+
+	return "/var/run/cilium"
 }
 
 func (k *K8sInstaller) fqAgentImage() string {
