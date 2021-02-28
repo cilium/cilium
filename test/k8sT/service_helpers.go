@@ -56,20 +56,29 @@ func ciliumIPv6Backends(kubectl *helpers.Kubectl, label string, port string) (ba
 	return backends
 }
 
-func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
+
+func generateBackendWeights(len int, weight uint) []uint {
+	result := make([]uint, len)
+	for i := range result {
+		result[i] = 1
+	}
+	return result
+}
+
+func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, backendWeights []uint,svcType, trafficPolicy string) {
 	ciliumPods, err := kubectl.GetCiliumPods()
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 	for _, pod := range ciliumPods {
-		err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
+		err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, backendWeights, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 	}
 }
 
-func ciliumAddServiceOnNode(kubectl *helpers.Kubectl, node string, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
+func ciliumAddServiceOnNode(kubectl *helpers.Kubectl, node string, id int64, frontend string, backends []string, backendWeights []uint, svcType, trafficPolicy string) {
 	ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
 	ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Cannot get cilium pod on node %s", node))
 
-	err = kubectl.CiliumServiceAdd(ciliumPod, id, frontend, backends, svcType, trafficPolicy)
+	err = kubectl.CiliumServiceAdd(ciliumPod, id, frontend, backends, backendWeights, svcType, trafficPolicy)
 	ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Failed to add cilium service on node %s", node))
 }
 
