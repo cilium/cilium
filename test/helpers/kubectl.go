@@ -4009,7 +4009,7 @@ CILIUM_SERVICES:
 }
 
 // CiliumServiceAdd adds the given service on a 'pod' running Cilium
-func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, backends []string, svcType, trafficPolicy string) error {
+func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, backends []string, backendWeights []uint, svcType, trafficPolicy string) error {
 	var opts []string
 	switch strings.ToLower(svcType) {
 	case "nodeport":
@@ -4034,10 +4034,15 @@ func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, back
 
 	optsStr := strings.Join(opts, " ")
 	backendsStr := strings.Join(backends, ",")
+	backendWeightsStrArray := []string{}
+	for weight := range backendWeights {
+		backendWeightsStrArray = append(backendWeightsStrArray, strconv.Itoa(weight))
+	}
+	backendWeightsStr := strings.Join(backendWeightsStrArray, ",")
 	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium service update --id %d --frontend %q --backends %q %s",
-		id, frontend, backendsStr, optsStr)).GetErr("cilium service update")
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium service update --id %d --frontend %q --backends %q --backend-weights %q %s",
+		id, frontend, backendsStr, backendWeightsStr, optsStr)).GetErr("cilium service update")
 }
 
 // CiliumServiceDel deletes the service with 'id' on a 'pod' running Cilium
