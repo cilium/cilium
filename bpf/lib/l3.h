@@ -88,7 +88,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, seclabel);
 
-	return redirect_ep(ep->ifindex, from_host);
+	return redirect_ep(ctx, ep->ifindex, from_host);
 #else
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
@@ -130,7 +130,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, seclabel);
 
-	return redirect_ep(ep->ifindex, from_host);
+	return redirect_ep(ctx, ep->ifindex, from_host);
 #else
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
