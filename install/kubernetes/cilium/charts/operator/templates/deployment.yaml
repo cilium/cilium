@@ -149,6 +149,8 @@ spec:
 {{- end }}
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
+{{- else if (and .Values.useImageSHA (not (empty .Values.imageSHA256))) }}
+        image: "{{ .Values.imageSHA256 }}"
 {{- else }}
         image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}

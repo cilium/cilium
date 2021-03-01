@@ -19,7 +19,10 @@ CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
 all: update-versions $(QUICK_INSTALL)
 
 $(QUICK_INSTALL): $(shell find cilium/ -type f)
-	$(QUIET)helm template cilium --namespace=kube-system $(OPTS) > $(QUICK_INSTALL)
+	$(QUIET)helm template cilium --namespace=kube-system \
+      --set agent.useImageSHA=true \
+      --set operator.useImageSHA=true \
+      $(OPTS) > $(QUICK_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"

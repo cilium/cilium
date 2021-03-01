@@ -429,7 +429,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.7.14"
+        image: "quay.io/cilium/cilium:v1.7.14@sha256:0bd894e9dc0188482bc0316c2889a0aa9b2fce3a3c9e4dc6f55afb4a2afbf84b"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -684,7 +684,7 @@ spec:
               key: identity-allocation-mode
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/operator:v1.7.14"
+        image: "quay.io/cilium/operator:v1.7.14@sha256:0d9ddf24de27a263c6ce99526c3d611e40a10ee118175e83a8a76a8205ddf564"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
