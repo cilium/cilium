@@ -2957,6 +2957,10 @@ func init() {
             "iptables"
           ]
         },
+        "snat-exclusion-cidr": {
+          "description": "This field is obsolete, please use snat-exclusion-cidr-v4 or snat-exclusion-cidr-v6.",
+          "type": "string"
+        },
         "snat-exclusion-cidr-v4": {
           "description": "SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to\nan IPv4 address that belongs to this CIDR.",
           "type": "string"
@@ -7137,6 +7141,10 @@ func init() {
             "BPF",
             "iptables"
           ]
+        },
+        "snat-exclusion-cidr": {
+          "description": "This field is obsolete, please use snat-exclusion-cidr-v4 or snat-exclusion-cidr-v6.",
+          "type": "string"
         },
         "snat-exclusion-cidr-v4": {
           "description": "SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to\nan IPv4 address that belongs to this CIDR.",

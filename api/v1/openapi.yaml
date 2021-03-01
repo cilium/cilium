@@ -2548,6 +2548,10 @@ definitions:
       ip-masq-agent:
         description: Is BPF ip-masq-agent enabled
         type: boolean
+      snat-exclusion-cidr:
+        description: |-
+          This field is obsolete, please use snat-exclusion-cidr-v4 or snat-exclusion-cidr-v6.
+        type: string
       snat-exclusion-cidr-v4:
         description: |-
           SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to
