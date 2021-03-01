@@ -600,8 +600,11 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 		fmt.Fprint(fw, defineUint32("HOST_EP_ID", uint32(e.GetID())))
 
-		// L2 hdr len (for L2-less devices it will be replaced with "0")
-		fmt.Fprint(fw, defineUint32("ETH_HLEN", mac.EthHdrLen))
+		// Use templating for ETH_HLEN only if there is any L2-less device
+		if !mac.HaveMACAddr(option.Config.Devices) {
+			// L2 hdr len (for L2-less devices it will be replaced with "0")
+			fmt.Fprint(fw, defineUint32("ETH_HLEN", mac.EthHdrLen))
+		}
 	} else {
 		// We want to ensure that the template BPF program always has "LXC_IP"
 		// defined and present as a symbol in the resulting object file after
