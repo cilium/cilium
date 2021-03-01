@@ -21,6 +21,14 @@ type Logger interface {
 	Logf(classification Classification, format string, v ...interface{})
 }
 
+// LoggerFunc is a wrapper around a function to satisfy the Logger interface.
+type LoggerFunc func(classification Classification, format string, v ...interface{})
+
+// Logf delegates the logging request to the wrapped function.
+func (f LoggerFunc) Logf(classification Classification, format string, v ...interface{}) {
+	f(classification, format, v...)
+}
+
 // ContextLogger is an optional interface a Logger implementation may expose that provides
 // the ability to create context aware log entries.
 type ContextLogger interface {
