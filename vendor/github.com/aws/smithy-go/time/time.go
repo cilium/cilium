@@ -49,7 +49,7 @@ func ParseHTTPDate(value string) (time.Time, error) {
 // Example: 1515531081.123
 func FormatEpochSeconds(value time.Time) float64 {
 	ms := value.UnixNano() / int64(time.Millisecond)
-	return float64(ms)/1e3
+	return float64(ms) / 1e3
 }
 
 // ParseEpochSeconds returns value as a Unix time in seconds with with decimal precision

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/aws/smithy-go/middleware"
 )
@@ -149,4 +150,18 @@ func setOperationName(ctx context.Context, value string) context.Context {
 // to clear all stack values.
 func SetPartitionID(ctx context.Context, value string) context.Context {
 	return middleware.WithStackValue(ctx, partitionIDKey{}, value)
+}
+
+// EndpointSource key
+type endpointSourceKey struct{}
+
+// GetEndpointSource returns an endpoint source if set on context
+func GetEndpointSource(ctx context.Context) (v aws.EndpointSource) {
+	v, _ = middleware.GetStackValue(ctx, endpointSourceKey{}).(aws.EndpointSource)
+	return v
+}
+
+// SetEndpointSource sets endpoint source on context
+func SetEndpointSource(ctx context.Context, value aws.EndpointSource) context.Context {
+	return middleware.WithStackValue(ctx, endpointSourceKey{}, value)
 }
