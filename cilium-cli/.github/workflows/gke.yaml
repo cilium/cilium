@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - master
+  schedule:
+    - cron:  '20 */6 * * *'
+
 env:
   clusterName: cilium-cli-ci-${{ github.run_number }}
   zone: us-west2-a
