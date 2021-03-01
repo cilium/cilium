@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - master
+  schedule:
+    - cron:  '40 */6 * * *'
 
 env:
   clusterName1: cilium-cli-ci-multicluster-1-${{ github.run_number }}
