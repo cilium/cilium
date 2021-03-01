@@ -137,6 +137,9 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	}
 
 	if option.Config.EnableIPv4 {
+		// SnatExclusionCidr is the legacy field, continue to provide
+		// it for the time being
+		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
 		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
 	}
 

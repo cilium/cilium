@@ -37,6 +37,9 @@ type Masquerading struct {
 	// Enum: [BPF iptables]
 	Mode string `json:"mode,omitempty"`
 
+	// This field is obsolete, please use snat-exclusion-cidr-v4 or snat-exclusion-cidr-v6.
+	SnatExclusionCidr string `json:"snat-exclusion-cidr,omitempty"`
+
 	// SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to
 	// an IPv4 address that belongs to this CIDR.
 	SnatExclusionCidrV4 string `json:"snat-exclusion-cidr-v4,omitempty"`
