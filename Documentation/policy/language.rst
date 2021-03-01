@@ -85,8 +85,8 @@ the label ``role=backend``.
         .. literalinclude:: ../../examples/policies/l3/simple/l3.json
 
 
-Ingress Allow All
-~~~~~~~~~~~~~~~~~
+Ingress Allow All Endpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An empty `EndpointSelector` will select all endpoints, thus writing a rule that will allow
 all ingress traffic to an endpoint may be done as follows:
@@ -140,8 +140,8 @@ the label ``role=frontend``.
         .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.json
 
 
-Egress Allow All
-~~~~~~~~~~~~~~~~~
+Egress Allow All Endpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An empty `EndpointSelector` will select all egress endpoints from an endpoint
 based on the `CiliumNetworkPolicy` namespace (``default`` by default). The
