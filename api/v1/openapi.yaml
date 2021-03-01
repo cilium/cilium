@@ -131,6 +131,8 @@ paths:
         '409':
           description: Endpoint already exists
           x-go-name: Exists
+        '429':
+          description: Too many requests
         '500':
           description: Endpoint creation failed
           x-go-name: Failed
@@ -156,6 +158,8 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: Endpoint does not exist
+        '429':
+          description: Too many requests
         '500':
           description: Endpoint update failed
           x-go-name: Failed
@@ -194,6 +198,8 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: Endpoint not found
+        '429':
+          description: Too many requests
   "/endpoint":
     get:
       summary: Retrieves a list of endpoints that have metadata matching the provided parameters.
@@ -212,6 +218,8 @@ paths:
               "$ref": "#/definitions/Endpoint"
         '404':
           description: Endpoints with provided parameters not found
+        '429':
+          description: Too many requests
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -228,6 +236,8 @@ paths:
             "$ref": "#/definitions/EndpointConfigurationStatus"
         '404':
           description: Endpoint not found
+        '429':
+          description: Too many requests
     patch:
       summary: Modify mutable endpoint configuration
       description: |
@@ -250,6 +260,8 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+        '429':
+          description: Too many requests
         '500':
           description: Update failed. Details in message.
           x-go-name: Failed
@@ -269,6 +281,8 @@ paths:
             "$ref": "#/definitions/LabelConfiguration"
         '404':
           description: Endpoint not found
+        '429':
+          description: Too many requests
     patch:
       summary: Set label configuration of endpoint
       description: |
@@ -286,6 +300,8 @@ paths:
       responses:
         '200':
           description: Success
+        '429':
+          description: Too many requests
         '404':
           description: Endpoint not found
         '500':
@@ -328,6 +344,8 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+        '429':
+          description: Too many requests
   "/identity":
     get:
       summary: Retrieves a list of identities that have metadata matching the provided parameters.

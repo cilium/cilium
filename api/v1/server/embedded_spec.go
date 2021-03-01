@@ -158,6 +158,9 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       }
@@ -222,6 +225,9 @@ func init() {
             "description": "Endpoint already exists",
             "x-go-name": "Exists"
           },
+          "429": {
+            "description": "Too many requests"
+          },
           "500": {
             "description": "Endpoint creation failed",
             "schema": {
@@ -262,6 +268,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       },
@@ -294,6 +303,9 @@ func init() {
           "404": {
             "description": "Endpoint does not exist"
           },
+          "429": {
+            "description": "Too many requests"
+          },
           "500": {
             "description": "Endpoint update failed",
             "schema": {
@@ -325,6 +337,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       },
@@ -357,6 +372,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           },
           "500": {
             "description": "Update failed. Details in message.",
@@ -392,6 +410,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       }
@@ -416,6 +437,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       },
@@ -444,6 +468,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           },
           "500": {
             "description": "Error while updating labels",
@@ -3890,6 +3917,9 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       }
@@ -3967,6 +3997,9 @@ func init() {
             "description": "Endpoint already exists",
             "x-go-name": "Exists"
           },
+          "429": {
+            "description": "Too many requests"
+          },
           "500": {
             "description": "Endpoint creation failed",
             "schema": {
@@ -4011,6 +4044,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       },
@@ -4052,6 +4088,9 @@ func init() {
           "404": {
             "description": "Endpoint does not exist"
           },
+          "429": {
+            "description": "Too many requests"
+          },
           "500": {
             "description": "Endpoint update failed",
             "schema": {
@@ -4087,6 +4126,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       },
@@ -4123,6 +4165,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           },
           "500": {
             "description": "Update failed. Details in message.",
@@ -4162,6 +4207,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       }
@@ -4190,6 +4238,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           }
         }
       },
@@ -4222,6 +4273,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Too many requests"
           },
           "500": {
             "description": "Error while updating labels",
