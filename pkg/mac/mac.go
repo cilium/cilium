@@ -20,6 +20,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+
+	"github.com/vishvananda/netlink"
 )
 
 // Untagged ethernet (IEEE 802.3) frame header len
@@ -108,4 +110,18 @@ func GenerateRandMAC() (MAC, error) {
 	buf[0] = (buf[0] | 0x02) & 0xfe
 
 	return MAC(buf), nil
+}
+
+// HaveMACAddr return true if all given network interfaces have L2 addr.
+func HaveMACAddr(ifaces []string) bool {
+	for _, iface := range ifaces {
+		iface, err := netlink.LinkByName(iface)
+		if err != nil {
+			return false
+		}
+		if len(iface.Attrs().HardwareAddr) == 0 {
+			return false
+		}
+	}
+	return true
 }
