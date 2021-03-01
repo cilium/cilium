@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - master
+  schedule:
+    - cron:  '50 */6 * * *'
+
 env:
   clusterName: cilium-cli-ci-eks-tunnel-${{ github.run_number }}
   region: us-east-2

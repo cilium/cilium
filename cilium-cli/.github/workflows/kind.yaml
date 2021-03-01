@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - master
+  schedule:
+    - cron:  '30 */6 * * *'
+
 env:
   KIND_VERSION: v0.9.0
   KIND_CONFIG: .github/kind-config.yaml
