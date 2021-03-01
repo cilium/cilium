@@ -44,7 +44,7 @@ func (p *connectivityTestPodToWorld) Run(ctx context.Context, c TestContext) {
 			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.SYN()), Expect: true, Msg: "SYN"},
 			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
 			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.Or(filters.FIN(), filters.RST())), Expect: true, Msg: "FIN or RST"},
-			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.FIN()), Expect: true, Msg: "FIN-ACK"},
+			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.Or(filters.FIN(), filters.RST())), Expect: true, Msg: "FIN or RST"},
 		})
 
 		run.End()
