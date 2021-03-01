@@ -98,9 +98,9 @@ func (s *gcStats) finish() {
 	family := s.family.String()
 	switch s.family {
 	case gcFamilyIPv6:
-		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
+		metrics.ConntrackDumpResets.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
 	case gcFamilyIPv4:
-		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
+		metrics.ConntrackDumpResets.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
 	}
 	proto := s.proto.String()
 

@@ -76,7 +76,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 			},
 		},
 	}
-	cache.endpoints = map[ServiceID]*endpointSlices{
+	cache.endpoints = map[ServiceID]*EndpointSlices{
 		svcID1: {
 			epSlices: map[string]*Endpoints{
 				"": &endpoints,

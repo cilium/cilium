@@ -5,6 +5,9 @@ spec:
     metadata:
       labels:
         k8s-app: clustermesh-apiserver-generate-certs
+        {{- with .Values.clustermesh.apiserver.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}

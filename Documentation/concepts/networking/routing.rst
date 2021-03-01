@@ -130,7 +130,6 @@ The following configuration options must be set to run the datapath in native
 routing mode:
 
 * ``tunnel: disabled``: Enable native routing mode.
-* ``enable-endpoint-routes: true``: Enable per-endpoint routing on the node
 * ``native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   can be performed.
 

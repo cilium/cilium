@@ -49,7 +49,7 @@ pipeline {
             )}"""
         BASE_IMAGE="""${sh(
                 returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2021-02-15@sha256:93f95a691deecc4c18eb029b5e04a0ad869320db15d75ca6376b4ed7d12d2b31"; fi'
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:7f84e5f2c9027e75b271a460d83c086f29127d3a@sha256:a1d73d2840b4b075ade33bd8f968ca6db3d9bca9f3ed14f168d14526b3208cc0"; fi'
             )}"""
     }
 
@@ -80,6 +80,17 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
+        stage('Set programmatic env vars') {
+            steps {
+                script {
+                    if (env.ghprbActualCommit?.trim()) {
+                        env.DOCKER_TAG = env.ghprbActualCommit
+                    } else {
+                        env.DOCKER_TAG = env.GIT_COMMIT
+                    }
+                }
+            }
+        }
         stage('Preload vagrant boxes'){
             options {
                 timeout(time: 20, unit: 'MINUTES')
@@ -98,7 +109,7 @@ pipeline {
                 retry(3){
                     sh 'cd ${TESTDIR}; vagrant destroy k8s1-${K8S_VERSION} --force'
                     sh 'cd ${TESTDIR}; vagrant destroy k8s2-${K8S_VERSION} --force'
-                    sh 'cd ${TESTDIR}; timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
+                    sh 'cd ${TESTDIR}; CILIUM_REGISTRY=quay.io timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
                 }
             }
         }
@@ -109,7 +120,7 @@ pipeline {
             }
 
             steps {
-                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh"'
+                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh ${DOCKER_TAG}"'
             }
         }
 

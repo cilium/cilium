@@ -17,83 +17,15 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+
+      - uses: docker://quay.io/cilium/image-maker:ca3f9135c0c8cb88c979f829d93a167838776615@sha256:b64f9168f52dae5538cd8ca06922e522eb84e36d3f727583c352266e3ed15894
         name: Run make lint
         with:
           entrypoint: make
           args: -C images lint
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+
+      - uses: docker://quay.io/cilium/image-maker:ca3f9135c0c8cb88c979f829d93a167838776615@sha256:b64f9168f52dae5538cd8ca06922e522eb84e36d3f727583c352266e3ed15894
         name: Check if runtime and builder images are up-to-date
         with:
           entrypoint: make
           args: -C images check-runtime-image check-builder-image
-  build-and-push:
-    if: (github.repository == 'cilium/cilium' && github.event_name != 'pull_request')
-    name: Build and push all images
-    runs-on: ubuntu-18.04
-    needs: lint
-    steps:
-      - uses: actions/checkout@v1
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Register binfmt from multi-platform builds
-        with:
-          entrypoint: docker
-          args: run --privileged linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make lint
-        with:
-          entrypoint: make
-          args: -C images lint
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make runtime-image
-        env:
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-        with:
-          entrypoint: make
-          # this will only get rebuilt when there changes in images/runtime
-          args: -C images runtime-image PUSH=true
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make builder-image
-        env:
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-        with:
-          entrypoint: make
-          # this will only get rebuilt when there changes in images/builder
-          args: -C images builder-image PUSH=true
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make cilium-image
-        env:
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-        with:
-          entrypoint: make
-          args: -C images cilium-image PUSH=true
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make cilium-test-image
-        env:
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD  }}
-          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME  }}
-          REGISTRIES: "docker.io/cilium quay.io/cilium"
-        with:
-          entrypoint: make
-          args: -C images cilium-test-image PUSH=true
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make operator-image
-        env:
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-        with:
-          entrypoint: make
-          args: -C images operator-image PUSH=true
-      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
-        name: Run make hubble-relay-image
-        env:
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-        with:
-          entrypoint: make
-          args: -C images hubble-relay-image PUSH=true

@@ -92,11 +92,11 @@ require (
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.3
-	k8s.io/apiextensions-apiserver v0.20.3
-	k8s.io/apimachinery v0.20.3
-	k8s.io/client-go v0.20.3
-	k8s.io/code-generator v0.20.3
+	k8s.io/api v0.20.4
+	k8s.io/apiextensions-apiserver v0.20.4
+	k8s.io/apimachinery v0.20.4
+	k8s.io/client-go v0.20.4
+	k8s.io/code-generator v0.20.4
 	k8s.io/klog/v2 v2.5.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	// We specify the controller-tools version here to be the version of the
@@ -115,6 +115,9 @@ require (
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
+
+	// Using cilium/netlink until XFRM patches merged upstream
+	github.com/vishvananda/netlink => github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.

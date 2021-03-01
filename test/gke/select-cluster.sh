@@ -89,7 +89,3 @@ do
     kubectl label node "$node" cilium.io/ci-node=k8s"$index" --overwrite
     index=$((index+1))
 done
-
-echo "adding node registry as trusted"
-helm template registry-adder "${test_dir}/k8sT/manifests/registry-adder-gke" --set IP="$(${script_dir}/registry-ip.sh)" > "${script_dir}/registry-adder.yaml"
-kubectl apply -f "${script_dir}/registry-adder.yaml"

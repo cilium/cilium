@@ -12,7 +12,7 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
-all-images: lint update-golang-image runtime-image builder-image cilium-image operator-image hubble-relay-image
+all-images: lint update-alpine-image update-golang-image runtime-image builder-image cilium-image operator-image hubble-relay-image
 
 lint:
 	scripts/lint.sh
@@ -24,6 +24,9 @@ lint:
 
 update-golang-image:
 	scripts/update-golang-image.sh
+
+update-alpine-image:
+	scripts/update-alpine-image.sh
 
 runtime-image: .buildx_builder
 	TEST=true scripts/build-image.sh cilium-runtime-dev images/runtime linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)

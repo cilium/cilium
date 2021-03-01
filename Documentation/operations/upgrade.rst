@@ -359,7 +359,8 @@ The following metrics have been removed:
 * ``cilium_k8s_client_api_calls_counter`` is removed. Please use ``cilium_k8s_client_api_calls_total`` instead.
 * ``cilium_identity_count`` is removed. Please use ``cilium_identity`` instead.
 * ``cilium_policy_count`` is removed. Please use ``cilium_policy`` instead.
-* ``cilium_policy_import_errors`` removed. Please use ``cilium_policy_import_errors_total`` instead.
+* ``cilium_policy_import_errors`` is removed. Please use ``cilium_policy_import_errors_total`` instead.
+* ``cilium_datapath_errors_total`` is removed. Please use ``cilium_datapth_conntrack_dump_resets_total`` instead.
 * Label ``mapName`` in ``cilium_bpf_map_ops_total`` is removed. Please use label ``map_name`` instead.
 * Label ``eventType`` in ``cilium_nodes_all_events_received_total`` removed. Please use label ``event_type`` instead.
 * Label ``responseCode`` in ``*api_duration_seconds`` removed. Please use label ``response_code`` instead.
@@ -367,6 +368,12 @@ The following metrics have been removed:
 * Label ``subnetId`` in ``cilium_operator_ipam_release_ops`` is removed. Please use label ``subnet_id`` instead.
 * Label ``subnetId`` and ``availabilityZone`` in ``cilium_operator_ipam_available_ips_per_subnet`` are removed. Please
   use label ``subnet_id`` and ``availability_zone`` instead.
+
+New Metrics
+~~~~~~~~~~~
+
+  * ``cilium_datapath_conntrack_dump_resets_total`` Number of conntrack dump resets. Happens when a BPF entry gets removed
+    while dumping the map is in progress.
 
 New Options
 ~~~~~~~~~~~

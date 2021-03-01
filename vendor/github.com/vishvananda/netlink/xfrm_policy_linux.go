@@ -78,6 +78,7 @@ func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
 		userTmpl.XfrmId.Proto = uint8(tmpl.Proto)
 		userTmpl.XfrmId.Spi = nl.Swap32(uint32(tmpl.Spi))
 		userTmpl.Mode = uint8(tmpl.Mode)
+		userTmpl.Optional = uint8(tmpl.Optional)
 		userTmpl.Reqid = uint32(tmpl.Reqid)
 		userTmpl.Aalgos = ^uint32(0)
 		userTmpl.Ealgos = ^uint32(0)

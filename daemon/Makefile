@@ -4,24 +4,19 @@
 include ../Makefile.defs
 
 TARGET := cilium-agent
-LINKS := cilium-node-monitor
 
-all: $(TARGET) links
+all: $(TARGET)
 
-.PHONY: all $(TARGET) links
+.PHONY: all $(TARGET)
 
-$(TARGET): ../Dockerfile ../Makefile ../Makefile.defs Makefile
+$(TARGET): ../Makefile ../Makefile.defs Makefile
 	@$(ECHO_GO)
 	$(QUIET)$(GO_BUILD) -o $(TARGET)
-
-links:
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(link) || cp $(TARGET) $(link);)
 
 clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)rm -f $(TARGET)
 	$(QUIET)$(GO_CLEAN)
-	$(foreach link,$(LINKS), $(QUIET)rm -f $(link);)
 
 ifeq ("$(PKG_BUILD)","")
 
@@ -29,13 +24,19 @@ install:
 	groupadd -f cilium
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link) || cp $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
+
+install-binary: install
+
+install-bash-completion:
 
 else
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link) || cp $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
+
+install-binary: install
+
+install-bash-completion:
 
 endif

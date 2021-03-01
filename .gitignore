@@ -101,3 +101,6 @@ GIT_VERSION
 
 # Local developer config to be executed in the dev VM and CI VMs started locally
 .devvmrc
+
+# Generated dockerignore files
+images/*/Dockerfile.dockerignore

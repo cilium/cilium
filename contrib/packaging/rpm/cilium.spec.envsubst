@@ -142,7 +142,6 @@ exec %{buildroot}/%{_bindir}/cilium completion > \
 %{_bindir}/cilium
 %{_bindir}/cilium-agent
 %{_bindir}/cilium-docker
-%{_bindir}/cilium-node-monitor
 %{_bindir}/cilium-bugtool
 %{_bindir}/cilium-health
 %{_bindir}/cilium-envoy

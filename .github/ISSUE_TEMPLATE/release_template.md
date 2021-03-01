@@ -9,22 +9,15 @@ assignees: ''
 
 ## Pre-release
 
-- [ ] Add build targets for the new release on [Docker Hub]
-  - All versions:
-    - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds/edit)
-    - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds/edit)
-    - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds/edit)
-  - Cilium v1.8 or later:
-    - [operator-generic](https://hub.docker.com/repository/docker/cilium/operator-generic/builds/edit)
-    - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds/edit)
-    - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds/edit)
-    - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds/edit)
-  - Cilium v1.9 or later:
-    - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds/edit)
 - [ ] Check that there are no [release blockers] for the targeted release version
 - [ ] Ensure that outstanding [backport PRs] are merged
 - [ ] Consider building new [cilium-runtime images] and bumping the base image
-      versions on this branch
+      versions on this branch:
+  - Cilium v1.10 or later:
+     Modify the `FORCE_BUILD` environment value in the `images/runtime/Dockerfile` to force a rebuild.
+     [Instructions](https://docs.cilium.io/en/latest/contributing/development/images/#update-cilium-builder-and-cilium-runtime-images)
+  - Cilium v1.7 to v1.9:
+     [Re-trigger a build in quay.io](https://docs.cilium.io/en/v1.9/contributing/development/images/#update-cilium-builder-and-cilium-runtime-images)
 - [ ] Execute `release --current-version X.Y.Z --next-dev-version X.Y.W` to automatically
   move any unresolved issues/PRs from old release project into the new
   project. (`W` should be calculation of `Z+1`)
@@ -40,17 +33,15 @@ assignees: ''
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
-- [ ] Wait for docker builds to complete
-  - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
-  - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
-  - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds)
-  - [operator-generic](https://hub.docker.com/repository/docker/cilium/operator-generic/builds)
-  - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds)
-  - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds)
-  - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds)
-  - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds)
+- [ ] Ask a maintainer to approve the build in the following links:
+  - [Cilium v1.10](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22)
+  - [Cilium v1.9](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.9%22)
+  - [Cilium v1.8](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.8%22)
+  - [Cilium v1.7](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.7%22)
   - Check if all docker images are available before announcing the release
     `make -C install/kubernetes/ check-docker-images`
+- [ ] Get the image digests from the build process (click in the GH Run > "Display Digests"),
+      update the digests in the helm charts locally and make a commit / PR with the digests.
 - [ ] Create helm charts artifacts in [Cilium charts] repository using
       [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y` branch
       & push to repository

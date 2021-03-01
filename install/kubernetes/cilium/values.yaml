@@ -432,6 +432,11 @@ eni:
   ec2APIEndpoint: ""
   # -- Tags to apply to the newly created ENIs
   eniTags: {}
+  # -- If using IAM role for Service Accounts will not try to
+  # inject identity values from cilium-aws kubernetes secret.
+  # Adds annotation to service account if managed by Helm.
+  # See https://github.com/aws/amazon-eks-pod-identity-webhook
+  iamRole: ""
   # -- Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs
   subnetIDsFilter: ""
   # -- Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs
@@ -493,6 +498,8 @@ certgen:
     pullPolicy: Always
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
+  # -- Labels to be added to hubble-certgen pods
+  podLabels: {}
 
 hubble:
   # -- Enable Hubble (true by default).
@@ -613,8 +620,10 @@ hubble:
     nodeSelector: {}
 
     # -- Annotations to be added to hubble-relay pods
-    #
     podAnnotations: {}
+
+    # -- Labels to be added to hubble-relay pods
+    podLabels: {}
 
     # -- Node tolerations for pod assignment on nodes with taints
     # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -727,8 +736,10 @@ hubble:
     replicas: 1
 
     # -- Annotations to be added to hubble-ui pods
-    #
     podAnnotations: {}
+
+    # -- Labels to be added to hubble-ui pods
+    podLabels: {}
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1054,11 +1065,9 @@ etcd:
   nodeSelector: {}
 
   # -- Annotations to be added to cilium-etcd-operator pods
-  #
   podAnnotations: {}
 
   # -- Labels to be added to cilium-etcd-operator pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1197,11 +1206,9 @@ operator:
   nodeSelector: {}
 
   # -- Annotations to be added to cilium-operator pods
-  #
   podAnnotations: {}
 
   # -- Labels to be added to cilium-operator pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1294,11 +1301,9 @@ nodeinit:
   nodeSelector: {}
 
   # -- Annotations to be added to node-init pods
-  #
   podAnnotations: {}
 
   # -- Labels to be added to node-init pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1384,11 +1389,9 @@ preflight:
   nodeSelector: {}
 
   # -- Annotations to be added to preflight pods
-  #
   podAnnotations: {}
 
   # Labels to be added to preflight pods
-  #
   podLabels: {}
 
   # -- PodDisruptionBudget settings
@@ -1471,6 +1474,9 @@ clustermesh:
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
+
+    # -- Labels to be added to clustermesh-apiserver pods
+    podLabels: {}
 
     # -- Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
     #     resources:

@@ -14,7 +14,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="docker.io/cilium/cilium-builder-dev"
+image="quay.io/cilium/cilium-builder"
 
 image_tag="$(WITHOUT_SUFFIX=1 "${script_dir}/make-image-tag.sh" images/builder)"
 
@@ -22,7 +22,16 @@ image_tag="$(WITHOUT_SUFFIX=1 "${script_dir}/make-image-tag.sh" images/builder)"
 used_by=($(git grep -l CILIUM_BUILDER_IMAGE= images/*/Dockerfile))
 
 for i in "${used_by[@]}" ; do
-  sed "s|\(CILIUM_BUILDER_IMAGE=\)${image}:.*\$|\1${image}:${image_tag}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+  image_full="${image}:${image_tag}"
+  # Detect if the image_tag already exists, if it does then we can assume the
+  # image was created and a sha256 is available for it.
+  if grep "CILIUM_BUILDER_IMAGE=${image}:${image_tag}" "${i}" ; then
+    sha256=$("${script_dir}/get-image-digest.sh" "${image_full}")
+    if [ -n "${sha256}" ]; then
+      image_full="${image_full}@${sha256}"
+    fi
+  fi
+  sed "s|\(CILIUM_BUILDER_IMAGE=\)${image}:.*\$|\1${image_full}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
 
 do_check="${CHECK:-false}"

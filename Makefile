@@ -10,13 +10,6 @@ debug: all
 
 include Makefile.defs
 
-# Provides buildkit specific defaults BUILD_DIR and DOCKER_BUILD_DIR
-include Makefile.buildkit
-
-# Use the main repo as the build-context by default.
-DOCKER_BUILD_DIR ?= .
-BUILD_DIR ?= .
-
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
 
@@ -29,7 +22,7 @@ GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -find -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	sed 's/ /\n/g' | \
-	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
+	grep -v '/api/v1\|/vendor\|/contrib' | \
 	grep -v '/test'))
 TESTPKGS_EVAL += "test/helpers/logutils"
 TESTPKGS ?= $(TESTPKGS_EVAL)
@@ -59,7 +52,8 @@ SKIP_CUSTOMVET_CHECK ?= "false"
 JOB_BASE_NAME ?= cilium_test
 
 GO_VERSION := $(shell cat GO_VERSION)
-GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)/\1.\2/' GO_VERSION)
+GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?/\1.\2/' GO_VERSION)
+GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
 
 DOCKER_FLAGS ?=
 
@@ -254,7 +248,7 @@ tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files
 clean-container:
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
 
-clean: clean-container clean-build
+clean: clean-container
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 
@@ -275,12 +269,20 @@ install-container: install-bpf
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 
+install-container-binary: install-bpf
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-binary; done
+
+install-bash-completion:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-bash-completion; done
+
 # Workaround for not having git in the build environment
 # Touch the file only if needed
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
 
-include Makefile.docker
+-include Makefile.docker
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 # Generate manifests e.g. CRD, RBAC etc.
@@ -500,7 +502,7 @@ LOCAL_IMAGE=localhost:32000/cilium/cilium:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
+	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
 precheck: logging-subsys-field
@@ -582,22 +584,17 @@ minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
 licenses-all:
-	@go run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
+	@$(GO) run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
 
-update-golang: update-golang-dev-doctor update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+update-go-version: update-dev-doctor-go-version update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
-update-golang-dev-doctor:
+update-dev-doctor-go-version:
 	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
 	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
 
-update-golang-dockerfiles:
-	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
-	$(QUIET) for fl in $(shell find . \( -path ./vendor -prune -o -path ./images -prune \) -o -name "*Dockerfile*" -print) ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
-	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
-
 update-gh-actions-go-version:
-	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_VERSION)/g' $$fl ; done
-	@echo "Updated go version in GitHub Actions to $(GO_VERSION)"
+	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_IMAGE_VERSION)/g' $$fl ; done
+	@echo "Updated go version in GitHub Actions to $(GO_IMAGE_VERSION)"
 
 update-travis-go-version:
 	$(QUIET) sed -i 's/go: ".*/go: "$(GO_VERSION)"/g' .travis.yml
@@ -609,13 +606,13 @@ update-test-go-version:
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
 update-images-go-version:
-	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_VERSION)/g' images/scripts/update-golang-image.sh
+	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_IMAGE_VERSION)/g' images/scripts/update-golang-image.sh
 	$(QUIET) $(MAKE) -C images update-golang-image
-	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
+	@echo "Updated go version in image Dockerfiles to $(GO_IMAGE_VERSION)"
 
 dev-doctor:
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
 
-.PHONY: build-context-update clean-build clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
+.PHONY: clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean
 force :;

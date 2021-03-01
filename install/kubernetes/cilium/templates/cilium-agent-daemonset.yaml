@@ -75,6 +75,9 @@ spec:
 {{- if .Values.keepDeprecatedLabels }}
         kubernetes.io/cluster-service: "true"
 {{- end }}
+{{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- if .Values.affinity }}
       affinity:

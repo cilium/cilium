@@ -41,7 +41,8 @@ func (in *ClusterService) DeepCopyInto(out *ClusterService) {
 						(*out)[key] = nil
 					} else {
 						in, out := &val, &outVal
-						*out = (*in).DeepCopy()
+						*out = new(loadbalancer.L4Addr)
+						**out = **in
 					}
 					(*out)[key] = outVal
 				}
@@ -65,7 +66,8 @@ func (in *ClusterService) DeepCopyInto(out *ClusterService) {
 						(*out)[key] = nil
 					} else {
 						in, out := &val, &outVal
-						*out = (*in).DeepCopy()
+						*out = new(loadbalancer.L4Addr)
+						**out = **in
 					}
 					(*out)[key] = outVal
 				}

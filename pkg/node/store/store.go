@@ -91,9 +91,6 @@ type NodeManager interface {
 
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n nodeTypes.Node)
-
-	// Exists is called to verify if a node exists
-	Exists(id nodeTypes.Identity) bool
 }
 
 // NodeRegistrar is a wrapper around store.SharedStore.

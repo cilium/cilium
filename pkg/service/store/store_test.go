@@ -108,7 +108,7 @@ func (s *ServiceGenericSuite) TestPortConfigurationDeepEqual(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		if got := tt.a.DeepEquals(tt.b); got != tt.want {
+		if got := tt.a.DeepEqual(&tt.b); got != tt.want {
 			c.Errorf("PortConfiguration.DeepEqual() = %v, want %v", got, tt.want)
 		}
 	}

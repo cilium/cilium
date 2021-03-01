@@ -54,7 +54,7 @@ var agentChaosTests = func() {
 
 	It("Checking for file-descriptor leak", func() {
 		threshold := 5000
-		fds, err := vm.Exec("sudo lsof -p `pidof cilium-node-monitor` -p `pidof cilium-agent` -p `pidof cilium-docker` 2>/dev/null | wc -l").IntOutput()
+		fds, err := vm.Exec("sudo lsof -p `pidof cilium-agent` -p `pidof cilium-docker` 2>/dev/null | wc -l").IntOutput()
 		Expect(err).Should(BeNil())
 
 		Expect(fds).To(BeNumerically("<", threshold),
