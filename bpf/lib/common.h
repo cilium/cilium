@@ -810,7 +810,8 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
-static __always_inline int redirect_ep(int ifindex __maybe_unused,
+static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
+				       int ifindex __maybe_unused,
 				       bool needs_backlog __maybe_unused)
 {
 	/* If our datapath has proper redirect support, we make use
@@ -823,8 +824,17 @@ static __always_inline int redirect_ep(int ifindex __maybe_unused,
 	 * versa.
 	 */
 #ifdef ENABLE_HOST_REDIRECT
-	return needs_backlog || !is_defined(ENABLE_REDIRECT_FAST) ?
-	       redirect(ifindex, 0) : redirect_peer(ifindex, 0);
+	if (needs_backlog || !is_defined(ENABLE_REDIRECT_FAST)) {
+		return redirect(ifindex, 0);
+	} else {
+# ifdef ENCAP_IFINDEX
+		/* When coming from overlay, we need to set packet type
+		 * to HOST as otherwise we might get dropped in IP layer.
+		 */
+		ctx_change_type(ctx, PACKET_HOST);
+# endif /* ENCAP_IFINDEX */
+		return redirect_peer(ifindex, 0);
+	}
 #else
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_REDIRECT */

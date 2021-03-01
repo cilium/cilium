@@ -1031,7 +1031,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 #else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
-		return redirect_ep(ifindex, from_host);
+		return redirect_ep(ctx, ifindex, from_host);
 #endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
@@ -1303,7 +1303,7 @@ skip_policy_enforcement:
 #else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
-		return redirect_ep(ifindex, from_host);
+		return redirect_ep(ctx, ifindex, from_host);
 #endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
