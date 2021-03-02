@@ -101,7 +101,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 		// present in the k8sNodeStore.
 
 		switch option.Config.IPAM {
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 			nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(context.TODO(), meta_v1.ListOptions{})
 			if err != nil {
 				log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")

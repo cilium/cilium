@@ -3,16 +3,17 @@
 
 include ../Makefile.defs
 
-TARGETS := cilium-operator cilium-operator-generic cilium-operator-aws cilium-operator-azure
+TARGETS := cilium-operator cilium-operator-generic cilium-operator-aws cilium-operator-azure cilium-operator-alibabacloud
 
 .PHONY: all $(TARGETS) clean install
 
 all: $(TARGETS)
 
-cilium-operator: GO_TAGS_FLAGS+=ipam_provider_aws,ipam_provider_azure,ipam_provider_operator
+cilium-operator: GO_TAGS_FLAGS+=ipam_provider_aws,ipam_provider_azure,ipam_provider_operator,ipam_provider_alibabacloud
 cilium-operator-generic: GO_TAGS_FLAGS+=ipam_provider_operator
 cilium-operator-aws: GO_TAGS_FLAGS+=ipam_provider_aws
 cilium-operator-azure: GO_TAGS_FLAGS+=ipam_provider_azure
+cilium-operator-alibabacloud: GO_TAGS_FLAGS+=ipam_provider_alibabacloud
 
 $(TARGETS):
 	@$(ECHO_GO)

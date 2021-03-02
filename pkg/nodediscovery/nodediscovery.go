@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
+	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
 	"github.com/cilium/cilium/pkg/annotation"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
@@ -75,7 +77,8 @@ func enableLocalNodeRoute() bool {
 	return option.Config.EnableLocalNodeRoute &&
 		!option.Config.IsFlannelMasterDeviceSet() &&
 		option.Config.IPAM != ipamOption.IPAMENI &&
-		option.Config.IPAM != ipamOption.IPAMAzure
+		option.Config.IPAM != ipamOption.IPAMAzure &&
+		option.Config.IPAM != ipamOption.IPAMAlibabaCloud
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
@@ -554,6 +557,65 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 			}
 			if c.Azure.InterfaceName != "" {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
+			}
+		}
+
+	case ipamOption.IPAMAlibabaCloud:
+		nodeResource.Spec.AlibabaCloud = alibabaCloudTypes.Spec{}
+
+		instanceID, err := alibabaCloudMetadata.GetInstanceID(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve InstanceID of own ECS instance")
+		}
+
+		if instanceID == "" {
+			return errors.New("InstanceID of own ECS instance is empty")
+		}
+
+		instanceType, err := alibabaCloudMetadata.GetInstanceType(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve InstanceType of own ECS instance")
+		}
+		vpcID, err := alibabaCloudMetadata.GetVPCID(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve VPC ID of own ECS instance")
+		}
+		cidrBlock, err := alibabaCloudMetadata.GetCIDRBlock(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve CIDR block of own ECS instance")
+		}
+		zoneID, err := alibabaCloudMetadata.GetZoneID(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve Zone ID of own ECS instance")
+		}
+		nodeResource.Spec.InstanceID = instanceID
+		nodeResource.Spec.AlibabaCloud.InstanceType = instanceType
+		nodeResource.Spec.AlibabaCloud.VPCID = vpcID
+		nodeResource.Spec.AlibabaCloud.CIDRBlock = cidrBlock
+		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
+
+		if c := n.NetConf; c != nil {
+			if c.AlibabaCloud.VPCID != "" {
+				nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
+			}
+			if c.AlibabaCloud.CIDRBlock != "" {
+				nodeResource.Spec.AlibabaCloud.CIDRBlock = c.AlibabaCloud.CIDRBlock
+			}
+
+			if len(c.AlibabaCloud.VSwitches) > 0 {
+				nodeResource.Spec.AlibabaCloud.VSwitches = c.AlibabaCloud.VSwitches
+			}
+
+			if len(c.AlibabaCloud.VSwitchTags) > 0 {
+				nodeResource.Spec.AlibabaCloud.VSwitchTags = c.AlibabaCloud.VSwitchTags
+			}
+
+			if len(c.AlibabaCloud.SecurityGroups) > 0 {
+				nodeResource.Spec.AlibabaCloud.SecurityGroups = c.AlibabaCloud.SecurityGroups
+			}
+
+			if len(c.AlibabaCloud.SecurityGroupTags) > 0 {
+				nodeResource.Spec.AlibabaCloud.SecurityGroupTags = c.AlibabaCloud.SecurityGroupTags
 			}
 		}
 	}
