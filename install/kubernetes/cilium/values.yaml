@@ -85,6 +85,9 @@ image:
   repository: quay.io/cilium/cilium
   tag: latest
   pullPolicy: Always
+  # cilium-digest
+  digest: ""
+  useDigest: false
 
 # -- Pod affinity for cilium-agent.
 affinity:
@@ -607,6 +610,9 @@ hubble:
     image:
       repository: quay.io/cilium/hubble-relay
       tag: latest
+       # hubble-relay-digest
+      digest: ""
+      useDigest: false
       pullPolicy: Always
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1133,6 +1139,13 @@ operator:
   image:
     repository: quay.io/cilium/operator
     tag: latest
+    # operator-generic-digest
+    genericDigest: ""
+    # operator-azure-digest
+    azureDigest: ""
+    # operator-aws-digest
+    awsDigest: ""
+    useDigest: false
     pullPolicy: Always
     suffix: ""
 
@@ -1338,6 +1351,9 @@ preflight:
   image:
     repository: quay.io/cilium/cilium
     tag: latest
+    # cilium-digest
+    digest: ""
+    useDigest: false
     pullPolicy: Always
 
   priorityClassName: ""
@@ -1444,6 +1460,9 @@ clustermesh:
     image:
       repository: quay.io/cilium/clustermesh-apiserver
       tag: latest
+      # clustermesh-apiserver-digest
+      digest: ""
+      useDigest: false
       pullPolicy: Always
 
     etcd:
