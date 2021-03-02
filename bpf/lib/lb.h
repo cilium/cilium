@@ -30,12 +30,12 @@ struct bpf_elf_map __section_maps LB6_SERVICES_MAP_V2 = {
 };
 
 struct bpf_elf_map __section_maps LB6_BACKEND_MAP = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(__u16),
-	.size_value     = sizeof(struct lb6_backend),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags          = CONDITIONAL_PREALLOC,
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(struct lb6_backend),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 #ifdef ENABLE_SESSION_AFFINITY
@@ -112,12 +112,12 @@ struct bpf_elf_map __section_maps LB4_SERVICES_MAP_V2 = {
 };
 
 struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(__u16),
-	.size_value     = sizeof(struct lb4_backend),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags          = CONDITIONAL_PREALLOC,
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(struct lb4_backend),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
 };
 
 #ifdef ENABLE_SESSION_AFFINITY
