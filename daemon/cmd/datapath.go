@@ -400,13 +400,13 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(option.Config.EnableIPv4,
-		option.Config.EnableIPv6)
-	if option.Config.EnableIPv4 {
+		option.Config.EnableIPv6, option.Config.EnableNodePort)
+	if ipv4Nat != nil {
 		if _, err := ipv4Nat.Create(); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 {
+	if ipv6Nat != nil {
 		if _, err := ipv6Nat.Create(); err != nil {
 			return err
 		}

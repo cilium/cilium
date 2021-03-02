@@ -298,7 +298,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
-		option.Config.EnableIPv4, option.Config.EnableIPv6)
+		option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 	lbmap.Init(lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
