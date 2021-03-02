@@ -26,6 +26,9 @@ jobs:
           - name: operator-azure
             dockerfile: ./images/operator-azure/Dockerfile
 
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator-alibabacloud/Dockerfile
+
           - name: operator-generic
             dockerfile: ./images/operator-generic/Dockerfile
 

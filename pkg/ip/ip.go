@@ -283,6 +283,29 @@ func ipNetToRange(ipNet net.IPNet) netWithRange {
 	return netWithRange{First: &firstIP, Last: &lastIP, Network: &ipNet}
 }
 
+// GetIPAtIndex get the IP by index in the range of ipNet. The index is start with 0.
+func GetIPAtIndex(ipNet net.IPNet, index int64) net.IP {
+	netRange := ipNetToRange(ipNet)
+	val := big.NewInt(0)
+	var ip net.IP
+	if index >= 0 {
+		ip = *netRange.First
+	} else {
+		ip = *netRange.Last
+		index += 1
+	}
+	if ip.To4() != nil {
+		val.SetBytes(ip.To4())
+	} else {
+		val.SetBytes(ip)
+	}
+	val.Add(val, big.NewInt(index))
+	if ipNet.Contains(val.Bytes()) {
+		return val.Bytes()
+	}
+	return nil
+}
+
 func getPreviousIP(ip net.IP) net.IP {
 	// Cannot go lower than zero!
 	if ip.Equal(net.IP(defaultIPv4)) || ip.Equal(net.IP(defaultIPv6)) {

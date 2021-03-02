@@ -194,6 +194,7 @@ Zhou
 Zookeeper
 aarch
 admin
+alibabacloud
 allocator
 allocators
 amd
