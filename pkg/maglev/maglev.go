@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/murmur3"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 const (
