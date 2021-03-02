@@ -84,7 +84,7 @@ $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
 jenkins-precheck:
-	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
+	COMPOSE_INTERACTIVE_NO_CLI=1 docker-compose --verbose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
 
 clean-jenkins-precheck:
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER rm
