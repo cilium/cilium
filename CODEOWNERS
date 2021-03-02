@@ -30,6 +30,8 @@
 /CODEOWNERS @cilium/contributing
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/maintainers @cilium/ci-structure
+/.travis/ @cilium/ci-structure
+/.travis.yml @cilium/ci-structure
 /api/ @cilium/api
 /api/v1/flow/ @cilium/api @cilium/hubble
 /api/v1/observer/ @cilium/api @cilium/hubble
