@@ -298,7 +298,10 @@ func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
+func GlobalMaps(ipv4, ipv6, nodeport bool) (ipv4Map, ipv6Map *Map) {
+	if !nodeport {
+		return
+	}
 	entries := option.Config.NATMapEntriesGlobal
 	if entries == 0 {
 		entries = option.LimitTableMax
