@@ -205,10 +205,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 			if (ret < 0)
 				return ret;
 		}
-#if defined(ENCAP_IFINDEX) || (defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST))
+#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
 		/* See IPv4 case for NO_REDIRECT/ENABLE_REDIRECT_FAST comments */
 		skip_redirect = true;
-#endif /* ENCAP_IFINDEX || (NO_REDIRECT && !ENABLE_REDIRECT_FAST) */
+#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
@@ -256,8 +256,10 @@ skip_host_firewall:
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
 					   METRIC_INGRESS, from_host);
 	}
-
 #ifdef ENCAP_IFINDEX
+	else if (!from_host)
+		return CTX_ACT_OK;
+
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
@@ -455,7 +457,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (ret < 0)
 				return ret;
 		}
-#if defined(ENCAP_IFINDEX) || (defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST))
+#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
 		/* Without bpf_redirect_neigh() helper, we cannot redirect a
 		 * packet to a local endpoint in the direct routing mode, as
 		 * the redirect bypasses nf_conntrack table. This makes a
@@ -466,7 +468,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		 * do not run into this issue.
 		 */
 		skip_redirect = true;
-#endif /* ENCAP_IFINDEX || (NO_REDIRECT && !ENABLE_REDIRECT_FAST) */
+#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
@@ -522,8 +524,10 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
 					   METRIC_INGRESS, from_host);
 	}
-
 #ifdef ENCAP_IFINDEX
+	else if (!from_host)
+		return CTX_ACT_OK;
+
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
