@@ -47,6 +47,12 @@ import (
 var (
 	K8sSvcCache = k8s.NewServiceCache(nil)
 
+	// serviceInitOnce ensures we onlt initialize the service watcher once.
+	serviceInitOnce sync.Once
+	// serviceController is the global (to this package) slim_corev1.Service
+	// controller that monitors objects for changes.
+	serviceController cache.Controller
+
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
@@ -141,43 +147,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 
 	serviceSubscribers.Register(newServiceCacheSubscriber(swgSvcs, swgEps))
 
-	// Watch for v1.Service changes and push changes into ServiceCache
-	_, svcController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
-			"services", v1.NamespaceAll, serviceOptsModifier),
-		&slim_corev1.Service{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
-					serviceSubscribers.NotifyAdd(k8sSvc)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
-				if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
-					if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
-						if oldk8sSvc.DeepEqual(newk8sSvc) {
-							return
-						}
-						serviceSubscribers.NotifyUpdate(oldk8sSvc, newk8sSvc)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
-				k8sSvc := k8s.ObjToV1Services(obj)
-				if k8sSvc == nil {
-					return
-				}
-				serviceSubscribers.NotifyDelete(k8sSvc)
-			},
-		},
-		nil,
-	)
-
-	go svcController.Run(wait.NeverStop)
+	InitServiceWatcher(cfg, swgSvcs, swgEps, serviceOptsModifier)
 
 	var (
 		endpointController cache.Controller
@@ -199,11 +169,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 	}
 
 	go func() {
-		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
-		swgSvcs.Stop()
-		swgSvcs.Wait()
-		close(k8sSvcCacheSynced)
-
+		<-k8sSvcCacheSynced
 		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
 	}()
 
@@ -212,6 +178,61 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
 		k8sServiceHandler(cfg.LocalClusterName())
 	}()
+}
+
+// InitServiceWatcher creates and runs the v1.Service watcher which watches for
+// changes and push changes into ServiceCache.
+func InitServiceWatcher(
+	cfg ServiceSyncConfiguration,
+	swgSvcs, swgEps *lock.StoppableWaitGroup,
+	optsModifier func(options *v1meta.ListOptions),
+) {
+	serviceInitOnce.Do(func() {
+		// Watch for v1.Service changes and push changes into ServiceCache.
+		_, serviceController = informer.NewInformer(
+			cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
+				"services", v1.NamespaceAll, optsModifier),
+			&slim_corev1.Service{},
+			0,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
+						serviceSubscribers.NotifyAdd(k8sSvc)
+					}
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
+						if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
+							if oldk8sSvc.DeepEqual(newk8sSvc) {
+								return
+							}
+							serviceSubscribers.NotifyUpdate(oldk8sSvc, newk8sSvc)
+						}
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					k8sSvc := k8s.ObjToV1Services(obj)
+					if k8sSvc == nil {
+						return
+					}
+					serviceSubscribers.NotifyDelete(k8sSvc)
+				},
+			},
+			nil,
+		)
+
+		go serviceController.Run(wait.NeverStop)
+
+		go func() {
+			cache.WaitForCacheSync(wait.NeverStop, serviceController.HasSynced)
+			swgSvcs.Stop()
+			swgSvcs.Wait()
+			close(k8sSvcCacheSynced)
+		}()
+	})
 }
 
 func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
