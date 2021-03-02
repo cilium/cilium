@@ -12,4 +12,14 @@ if [ "$#" -ne 1 ] ; then
   exit 1
 fi
 
-docker buildx imagetools inspect "${1}" 2>/dev/null | grep Digest | awk '{ print $2 }' || true
+if [ "$(uname)" != "Linux" ]; then
+  function sha256sum() { openssl sha256; }
+fi
+
+inspect=$(docker buildx imagetools inspect "${1}" --raw 2>/dev/null | sha256sum | cut -d " " -f 1 )
+# shellcheck disable=SC2181
+if [ $? -eq 0 ]; then
+  echo "sha256:${inspect}"
+else
+  echo ""
+fi
