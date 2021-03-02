@@ -354,7 +354,7 @@ func (t *TestRun) settleFlows(ctx context.Context) error {
 
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Failure() is called.
-func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []FilterPair) {
+func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filter []FilterPair) {
 	hubbleClient := t.context.HubbleClient()
 	if hubbleClient == nil {
 		return
@@ -367,7 +367,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []Filter
 	flows, ok := t.flows[pod]
 	if !ok {
 		var err error
-		flows, err = getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod)
+		flows, err = getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod, podIP)
 		if err != nil {
 			t.context.Log("Unable to retrieve flows of pod %s: %s", pod, err)
 			t.Failure("Unable to retrieve flows of pod %q: %s", pod, err)
@@ -390,7 +390,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod string, filter []Filter
 			if p.Expect {
 				msgSuffix = "not found"
 			}
-			t.Failure(fmt.Sprintf("%s %s for pod %s", p.Msg, msgSuffix, pod))
+			t.Failure(fmt.Sprintf("%s %s %s for pod %s", p.Msg, p.Filter.String(), msgSuffix, pod))
 		} else {
 			msgSuffix := "not found"
 			if p.Expect {
@@ -553,7 +553,7 @@ type flowsSet struct {
 	flows []*observer.GetFlowsResponse
 }
 
-func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod string) (*flowsSet, error) {
+func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (*flowsSet, error) {
 	set := &flowsSet{}
 
 	if hubbleClient == nil {
@@ -565,8 +565,13 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 		return nil, fmt.Errorf("invalid since value %s: %s", since, err)
 	}
 
+	// The filter is liberal, it includes any flow that:
+	// - source or destination IP matches pod IP
+	// - source or destination pod name matches pod name
 	filter := []*flow.FlowFilter{
+		{SourceIp: []string{podIP}},
 		{SourcePod: []string{pod}},
+		{DestinationIp: []string{podIP}},
 		{DestinationPod: []string{pod}},
 	}
 
@@ -601,13 +606,13 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 	}
 }
 
-func (f *flowsSet) Contains(fn filters.FlowFilterFunc) bool {
+func (f *flowsSet) Contains(filter filters.FlowFilterImplementation) bool {
 	if f == nil {
 		return false
 	}
 
 	for _, res := range f.flows {
-		if fn(res.GetFlow()) {
+		if filter.Match(res.GetFlow()) {
 			return true
 		}
 	}
@@ -616,7 +621,7 @@ func (f *flowsSet) Contains(fn filters.FlowFilterFunc) bool {
 }
 
 type FilterPair struct {
-	Filter filters.FlowFilterFunc
+	Filter filters.FlowFilterImplementation
 	Msg    string
 	Expect bool
 }

@@ -37,7 +37,7 @@ func (p *connectivityTestPodToWorld) Run(ctx context.Context, c TestContext) {
 			run.Failure("curl connectivity check command failed: %s", err)
 		}
 
-		run.ValidateFlows(ctx, client.Name(), []FilterPair{
+		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []FilterPair{
 			{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
 			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Expect: true, Msg: "DNS request"},
 			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Expect: true, Msg: "DNS response"},

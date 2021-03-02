@@ -50,7 +50,7 @@ func (p *connectivityTestPodToHost) Run(ctx context.Context, c TestContext) {
 				run.Failure("ping command failed: %s", err)
 			}
 
-			run.ValidateFlows(ctx, client.Name(), []FilterPair{
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []FilterPair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Found drop"},
 				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, hostIP), filters.ICMP(8)), Expect: true, Msg: "ICMP request"},
 				{Filter: filters.And(filters.IP(hostIP, client.Pod.Status.PodIP), filters.ICMP(0)), Expect: true, Msg: "ICMP response"},
