@@ -62,7 +62,7 @@ require (
 	github.com/onsi/gomega v1.10.5
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
+	github.com/optiopay/kafka v0.0.0-20171218140449-a1e0071f1ce8
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
