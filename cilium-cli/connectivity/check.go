@@ -37,6 +37,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -72,13 +73,14 @@ func newService(name string, selector map[string]string, labels map[string]strin
 }
 
 type deploymentParameters struct {
-	Name     string
-	Kind     string
-	Image    string
-	Replicas int
-	Port     int
-	Command  []string
-	Affinity *corev1.Affinity
+	Name           string
+	Kind           string
+	Image          string
+	Replicas       int
+	Port           int
+	Command        []string
+	Affinity       *corev1.Affinity
+	ReadinessProbe *corev1.Probe
 }
 
 func newDeployment(p deploymentParameters) *appsv1.Deployment {
@@ -116,6 +118,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 							Image:           p.Image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Command:         p.Command,
+							ReadinessProbe:  p.ReadinessProbe,
 						},
 					},
 					Affinity: p.Affinity,
@@ -129,6 +132,23 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 				},
 			},
 		},
+	}
+}
+
+func newLocalReadinessProbe(port int, path string) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   path,
+				Port:   intstr.FromInt(port),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		TimeoutSeconds:      int32(2),
+		SuccessThreshold:    int32(1),
+		PeriodSeconds:       int32(1),
+		InitialDelaySeconds: int32(1),
+		FailureThreshold:    int32(3),
 	}
 }
 
@@ -859,6 +879,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 					},
 				},
 			},
+			ReadinessProbe: newLocalReadinessProbe(8080, "/"),
 		})
 
 		_, err = k.clients.src.CreateDeployment(ctx, k.params.TestNamespace, echoDeployment, metav1.CreateOptions{})
@@ -908,6 +929,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 						},
 					},
 				},
+				ReadinessProbe: newLocalReadinessProbe(8080, "/"),
 			})
 
 			_, err = k.clients.dst.CreateDeployment(ctx, k.params.TestNamespace, echoOtherNodeDeployment, metav1.CreateOptions{})
