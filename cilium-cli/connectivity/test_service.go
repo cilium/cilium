@@ -75,7 +75,7 @@ func testConnetivityToServiceDefinition(ctx context.Context, c TestContext, name
 			}...)
 		}
 
-		run.ValidateFlows(ctx, client.Name(), flowRequirements)
+		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, flowRequirements)
 
 		run.End()
 	}

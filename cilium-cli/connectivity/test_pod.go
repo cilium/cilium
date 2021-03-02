@@ -41,14 +41,14 @@ func (p *connectivityTestPodToPod) Run(ctx context.Context, c TestContext) {
 			tcpRequest := filters.TCP(0, 8080)                                         // request to port 8080
 			tcpResponse := filters.TCP(8080, 0)                                        // response from port 8080
 
-			run.ValidateFlows(ctx, client.Name(), []FilterPair{
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []FilterPair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
 				{Filter: filters.RST(), Expect: false, Msg: "RST"},
 				{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
 				{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Expect: true, Msg: "FIN-ACK"},
 			})
 
-			run.ValidateFlows(ctx, echo.Name(), []FilterPair{
+			run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, []FilterPair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
 				{Filter: filters.RST(), Expect: false, Msg: "RST"},
 				{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Expect: true, Msg: "SYN"},
