@@ -984,6 +984,12 @@ func init() {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(option.EnableCustomCallsName)
 
+	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
+	option.BindEnv(option.BGPAnnounceLBIP)
+
+	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
+	option.BindEnv(option.BGPConfigPath)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1436,6 +1442,25 @@ func initEnv(cmd *cobra.Command) {
 		// only be an IPv4 CIDR at the moment.
 		if !option.Config.EnableIPv4 {
 			log.Fatalf("%s requires IPv4 support.", option.InstallNoConntrackIptRules)
+		}
+	}
+
+	// This is necessary because the code inside pkg/k8s.NewService() for
+	// parsing services would not trigger unless NodePort is enabled. Without
+	// NodePort enabled, the external and LB IPs would not be parsed out.
+	if option.Config.BGPAnnounceLBIP {
+		option.Config.EnableNodePort = true
+		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
+
+		if option.Config.K8sEnableK8sEndpointSlice {
+			option.Config.K8sEnableK8sEndpointSlice = false
+			log.WithFields(logrus.Fields{
+				logfields.URL: "https://github.com/metallb/metallb/issues/811",
+			}).Warnf(
+				"Disabling EndpointSlice support (%q) due to incompatibility with BGP mode. "+
+					"Cilium will fallback to using the original Endpoint resource.",
+				option.K8sEnableEndpointSlice,
+			)
 		}
 	}
 }

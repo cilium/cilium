@@ -13,6 +13,8 @@ cilium-operator-aws [flags]
 ```
       --aws-instance-limit-mapping map            Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --aws-release-excess-ips                    Enable releasing excess free IP addresses from AWS ENI.
+      --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
+      --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")

@@ -309,5 +309,11 @@ func init() {
 	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 	option.BindEnv(option.K8sServiceProxyName)
 
+	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
+	option.BindEnv(option.BGPAnnounceLBIP)
+
+	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
+	option.BindEnv(option.BGPConfigPath)
+
 	viper.BindPFlags(flags)
 }

@@ -701,6 +701,12 @@ data:
   enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
 {{- end }}
 
+{{- if and .Values.bgp.enabled (not .Values.bgp.announce.loadbalancerIP) }}
+{{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
+{{- else if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
+  bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
 {{ toYaml .Values.extraConfig | indent 2 }}
 {{- end }}

@@ -945,6 +945,13 @@ const (
 	// EnableCustomCallsName is the name of the option to enable tail calls
 	// for user-defined custom eBPF programs.
 	EnableCustomCallsName = "enable-custom-calls"
+
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
+	BGPAnnounceLBIP = "bgp-announce-lb-ip"
+
+	// BGPConfigPath is the file path to the BGP configuration. It is
+	// compatible with MetalLB's configuration.
+	BGPConfigPath = "bgp-config-path"
 )
 
 // Default string arguments
@@ -1922,6 +1929,13 @@ type DaemonConfig struct {
 	// eBPF programs, typically used to collect custom per-endpoint
 	// metrics.
 	EnableCustomCalls bool
+
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
+	BGPAnnounceLBIP bool
+
+	// BGPConfigPath is the file path to the BGP configuration. It is
+	// compatible with MetalLB's configuration.
+	BGPConfigPath string
 }
 
 var (
@@ -2476,6 +2490,8 @@ func (c *DaemonConfig) Populate() {
 	c.EnableBPFBypassFIBLookup = viper.GetBool(EnableBPFBypassFIBLookup)
 	c.InstallNoConntrackIptRules = viper.GetBool(InstallNoConntrackIptRules)
 	c.EnableCustomCalls = viper.GetBool(EnableCustomCallsName)
+	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
+	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 
 	err = c.populateMasqueradingSettings()
 	if err != nil {

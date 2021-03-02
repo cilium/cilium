@@ -232,6 +232,11 @@ spec:
         resources:
           {{- toYaml .Values.operator.resources | trim | nindent 10 }}
 {{- end }}
+{{- if .Values.bgp.enabled }}
+        - mountPath: /var/lib/cilium/bgp
+          name: bgp-config-path
+          readOnly: true
+{{- end }}
       hostNetwork: true
 {{- if (and .Values.etcd.managed (not .Values.etcd.k8sService)) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
@@ -288,5 +293,10 @@ spec:
 {{- if .hostPathType }}
           type: {{ .hostPathType }}
 {{- end }}
+{{- end }}
+{{- if .Values.bgp.enabled }}
+      - configMap:
+          name: bgp-config
+        name: bgp-config-path
 {{- end }}
 {{- end }}
