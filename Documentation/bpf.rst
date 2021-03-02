@@ -189,7 +189,7 @@ programs run inside the kernel, the verifier's job is to make sure that these ar
 safe to run, not affecting the system's stability. This means that from an instruction
 set point of view, loops can be implemented, but the verifier will restrict that.
 However, there is also a concept of tail calls that allows for one BPF program to
-jump into another one. This, too, comes with an upper nesting limit of 32 calls,
+jump into another one. This, too, comes with an upper nesting limit of 33 calls,
 and is usually used to decouple parts of the program logic, for example, into stages.
 
 The instruction format is modeled as two operand instructions, which helps mapping
@@ -581,7 +581,7 @@ bytes per subprogram (note that if the verifier detects the bpf2bpf call, then
 the main function is treated as a sub-function as well). In total, with this
 restriction, the BPF program's call chain can consume at most 8KB of stack
 space. This limit comes from the 256 bytes per stack frame multiplied by the
-tail call count limit(32). Without this, the BPF programs will operate on
+tail call count limit (33). Without this, the BPF programs will operate on
 512-byte stack size, yielding the 16KB size in total for the maximum count of
 tail calls that would overflow the stack on some architectures.
 
@@ -1865,7 +1865,8 @@ describe some of the differences for the BPF model:
   Another possibility is to use tail calls by calling into the same program
   again and using a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map for having a local
   scratch space. While being dynamic, this form of looping however is limited
-  to a maximum of 32 iterations.
+  to a maximum of 34 iterations (the initial program, plus 33 iterations from
+  the tail calls).
 
   In the future, BPF may have some native, but limited form of implementing loops.
 
