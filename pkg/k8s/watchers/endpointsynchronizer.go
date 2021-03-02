@@ -16,7 +16,6 @@ package watchers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -35,7 +34,6 @@ import (
 	"github.com/blang/semver/v4"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -85,7 +83,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	}
 
 	var (
-		lastMdl  *cilium_v2.EndpointStatus
 		localCEP *cilium_v2.CiliumEndpoint // the local copy of the CEP object. Reused.
 		needInit = true                    // needInit indicates that we may need to create the CEP
 	)
@@ -122,13 +119,16 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
-				// Serialize the endpoint into a model. It is compared with the one
-				// from before, only updating on changes.
-				mdl := e.GetCiliumEndpointStatus(conf)
-				if !needInit && mdl.DeepEqual(lastMdl) {
-					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
+				identity, err := e.GetSecurityIdentity()
+				if err != nil {
+					return err
+				}
+				if identity == nil {
+					scopedLog.Debug("Skipping CiliumEndpoint create because identity is not available yet")
 					return nil
 				}
+
+				// TODO(weil0ng): check if changed
 
 				// Initialize the CEP by deleting the upstream instance and recreating
 				// it. Deleting first allows for upgrade scenarios where the format has
@@ -225,57 +225,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						return err
 					}
 				}
-
-				// For json patch we don't need to perform a GET for endpoints
-
-				// If it fails it means the test from the previous patch failed
-				// so we can safely replace this node in the CNP status.
-				replaceCEPStatus := []k8s.JSONPatch{
-					{
-						OP:    "replace",
-						Path:  "/status",
-						Value: mdl,
-					},
-				}
-				var createStatusPatch []byte
-				createStatusPatch, err = json.Marshal(replaceCEPStatus)
-				if err != nil {
-					return err
-				}
-				localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
-					ctx, podName,
-					types.JSONPatchType,
-					createStatusPatch,
-					meta_v1.PatchOptions{},
-					"status")
-
-				// Handle Update errors or return successfully
-				switch {
-				// Return no error when we see a conflict. We want to retry without a
-				// backoff and the Update* calls returned the current localCEP
-				case err != nil && k8serrors.IsConflict(err):
-					scopedLog.WithError(err).Warn("Cannot update CEP due to a revision conflict. The next controller execution will try again")
-					needInit = true
-					return nil
-
-				// Ensure we re-init when we see a generic error. This will recrate the
-				// CEP.
-				case err != nil:
-					// Suppress logging an error if ep backing the pod was terminated
-					// before CEP could be updated and shut down the controller.
-					if errors.Is(err, context.Canceled) {
-						return nil
-					}
-
-					scopedLog.WithError(err).Error("Cannot update CEP")
-					needInit = true
-					return err
-
-				// A successful update means no more updates unless mdl changes
-				default:
-					lastMdl = mdl
-					return nil
-				}
+				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
 				return deleteCEP(ctx, scopedLog, ciliumClient, e)
