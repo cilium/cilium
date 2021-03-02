@@ -247,6 +247,18 @@ type OperatorConfig struct {
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
 
+	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
+	// force acquire leadership in Cilium Operator HA deployment.
+	LeaderElectionLeaseDuration time.Duration
+
+	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
+	// will retry refreshing leadership in before giving up the lock.
+	LeaderElectionRenewDeadline time.Duration
+
+	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
+	// retries of the actions in operator HA deployment.
+	LeaderElectionRetryPeriod time.Duration
+
 	// IPAM options
 
 	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
@@ -333,18 +345,6 @@ type OperatorConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
-
-	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
-	// force acquire leadership in Cilium Operator HA deployment.
-	LeaderElectionLeaseDuration time.Duration
-
-	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
-	// will retry refreshing leadership in before giving up the lock.
-	LeaderElectionRenewDeadline time.Duration
-
-	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
-	// retries of the actions in operator HA deployment.
-	LeaderElectionRetryPeriod time.Duration
 }
 
 // Populate sets all options with the values from viper.
