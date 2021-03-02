@@ -152,10 +152,10 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
 // maps.
-func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
+func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6, nodeport bool) {
 	mapInfo = make(map[mapType]mapAttributes, mapTypeMax)
 
-	global4Map, global6Map := nat.GlobalMaps(v4, v6)
+	global4Map, global6Map := nat.GlobalMaps(v4, v6, nodeport)
 
 	// SNAT also only works if the CT map is global so all local maps will be nil
 	natMaps := map[mapType]*nat.Map{
@@ -203,7 +203,7 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 }
 
 func init() {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true)
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 }
 
 // CtEndpoint represents an endpoint for the functions required to manage

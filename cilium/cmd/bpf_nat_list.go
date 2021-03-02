@@ -33,7 +33,7 @@ var bpfNatListCmd = &cobra.Command{
 	Short:   "List all NAT mapping entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf nat list")
-		ipv4, ipv6 := nat.GlobalMaps(true, true)
+		ipv4, ipv6 := nat.GlobalMaps(true, true, true)
 		globalMaps := make([]interface{}, 2)
 		globalMaps[0] = ipv4
 		globalMaps[1] = ipv6
