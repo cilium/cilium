@@ -224,6 +224,20 @@ func (c *Client) ListServices(ctx context.Context, namespace string, options met
 	return c.Clientset.CoreV1().Services(namespace).List(ctx, options)
 }
 
+func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
+	result, err := c.execInPod(ctx, ExecParameters{
+		Namespace: namespace,
+		Pod:       pod,
+		Container: container,
+		Command:   command,
+	})
+	if err != nil {
+		return bytes.Buffer{}, bytes.Buffer{}, err
+	}
+
+	return result.Stdout, result.Stderr, nil
+}
+
 func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
 	result, err := c.execInPod(ctx, ExecParameters{
 		Namespace: namespace,
