@@ -951,9 +951,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					Context("Tests NodePort with Maglev Weight", func() {
 						var (
-							echoYAML string
-							podIPs map[string]string
-							nodePort  = 8088
+							echoYAML               string
+							podIPs                 map[string]string
+							nodePort               = 8088
 							zeroWeightBackendIndex = 0
 						)
 
@@ -980,7 +980,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							Expect(err).Should(BeNil())
 							httpBackends := generateBackends(podIPs, "80")
 							httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
-							zeroWeightBackendIndex = len(httpBackendWeights)-1
+							zeroWeightBackendIndex = len(httpBackendWeights) - 1
 							httpBackendWeights[zeroWeightBackendIndex] = 0
 							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
 						})
