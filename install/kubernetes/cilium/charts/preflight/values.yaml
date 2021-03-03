@@ -1,5 +1,9 @@
 image: cilium
 
+# cilium-digest
+digest: ""
+useDigest: false
+
 # Include the PreFlight DaemonSet
 enabled: false
 

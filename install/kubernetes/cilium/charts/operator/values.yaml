@@ -1,5 +1,15 @@
 image: operator
 
+# operator-legacy-digest
+legacyDigest: ""
+# operator-generic-digest
+genericDigest: ""
+# operator-azure-digest
+azureDigest: ""
+# operator-aws-digest
+awsDigest: ""
+useDigest: false
+
 # Service account annotations
 serviceAccount:
   annotations: {}

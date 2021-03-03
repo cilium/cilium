@@ -139,13 +139,13 @@ spec:
         image: "{{ .Values.image }}"
 {{- else }}
 {{- if .Values.global.eni }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}-aws:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}-aws:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.awsDigest }}{{ end }}"
 {{- else if .Values.global.azure.enabled }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}-azure:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}-azure:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.azureDigest }}{{ end }}"
 {{- else if .Values.global.ipam.operator }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}-generic:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}-generic:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.genericDigest }}{{ end }}"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.legacyDigest }}{{ end }}"
 {{- end }}
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
