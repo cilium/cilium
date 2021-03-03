@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium-cli/connectivity"
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 
 	"github.com/spf13/cobra"
@@ -37,7 +38,7 @@ func newCmdConnectivity() *cobra.Command {
 	return cmd
 }
 
-var params = connectivity.Parameters{
+var params = check.Parameters{
 	Writer: os.Stdout,
 }
 
@@ -47,11 +48,11 @@ func newCmdConnectivityCheck() *cobra.Command {
 		Short: "Validate connectivity in cluster",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			check, err := connectivity.NewK8sConnectivityCheck(k8sClient, params)
+			cc, err := check.NewK8sConnectivityCheck(k8sClient, params)
 			if err != nil {
 				return err
 			}
-			if err := check.Run(context.Background()); err != nil {
+			if err := connectivity.Run(context.Background(), cc); err != nil {
 				fatalf("Connectivity test failed:  %s", err)
 			}
 			return nil
@@ -70,7 +71,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run a particular set of tests")
-	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", connectivity.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
+	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 
 	return cmd
 }
