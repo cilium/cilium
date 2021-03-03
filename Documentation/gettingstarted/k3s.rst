@@ -27,7 +27,7 @@ for the default CNI plugin:
 
 .. parsed-literal::
 
-    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none --no-flannel' sh -
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none' sh -
 
 Install Agent Nodes (Optional)
 ==============================
@@ -42,7 +42,7 @@ replace the variables with values from your environment:
 
 .. parsed-literal::
 
-    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--disable-network-policy --no-flannel' K3S_URL='https://${MASTER_IP}:6443' K3S_TOKEN=${NODE_TOKEN} sh -
+    curl -sfL https://get.k3s.io | K3S_URL='https://${MASTER_IP}:6443' K3S_TOKEN=${NODE_TOKEN} sh -
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
