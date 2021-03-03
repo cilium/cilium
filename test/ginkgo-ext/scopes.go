@@ -120,6 +120,10 @@ func init() {
 	config.Flags(commandFlags, "ginkgo", true)
 	commandFlags.Parse(args)
 	ciliumTestConfig.CiliumTestConfig.ParseFlags()
+
+	if !config.DefaultReporterConfig.Succinct {
+		config.DefaultReporterConfig.Verbose = true
+	}
 }
 
 func (s *scope) isUnset() bool {
