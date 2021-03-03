@@ -3956,6 +3956,16 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 	return nil
 }
 
+// ciliumPodServiceCache
+type CiliumService struct {
+	Name          string
+	Service      []models.Service
+}
+
+func (kub *Kubectl) GetCiliumService(namespace string, name string) *CiliumService {
+	return nil
+}
+
 // servicePreFlightCheck makes sure that k8s service with given name and
 // namespace is properly plumbed in Cilium
 func (kub *Kubectl) servicePreFlightCheck(serviceName, serviceNamespace string) error {

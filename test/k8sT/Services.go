@@ -156,6 +156,22 @@ var _ = Describe("K8sServicesTest", func() {
 		return backends
 	}
 
+	generateBackendNames := func(podIPs map[string]string) []string {
+		names := []string{}
+		for name := range podIPs {
+			names = append(names, name)
+		}
+		return names
+	}
+
+	generateBackends := func(podIPs map[string]string, port string) ([]string) {
+		backends := []string{}
+		for _, ip := range podIPs {
+			backends = append(backends, net.JoinHostPort(ip, port))
+		}
+		return backends
+	}
+
 	generateBackendWeights := func(len int, weight uint) []uint {
 		result := make([]uint, len)
 		for i := range result {
@@ -1844,6 +1860,56 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 		}
 
+		testMaglevWeight := func(nodePort int32, podNames []string, index int) {
+			var (
+				count = 10
+			)
+
+			// Flush CT tables so that any entry with src port 6{0,1,2}000
+			// from previous tests with --node-port-algorithm=random
+			// won't interfere the backend selection.
+			for _, label := range []string{helpers.K8s1, helpers.K8s2} {
+				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+				ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
+				kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+			}
+
+			podSelectCounts := map[string]int{}
+			for _, pod := range podNames {
+				podSelectCounts[pod] = 0
+			}
+			for _, port := range []int{60000, 61000, 62000} {
+				dstPod := ""
+
+				// Send requests from the same IP and port to different nodes, and check
+				// that the same backend is selected
+
+				for _, host := range []string{k8s1IP} {
+					url := getTFTPLink(host, nodePort)
+					cmd := helpers.CurlFail("--local-port %d %s", port, url) + " | grep 'Hostpod name is in the hostnamename:' " //
+
+					By("Making %d HTTP requests from %s:%d to %q", count, outsideNodeName, port, url)
+
+					for i := 1; i <= count; i++ {
+						res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+						ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+							"Cannot connect to service %q (%d/%d)", url, i, count)
+						pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
+						if dstPod == "" {
+							dstPod = pod
+							podSelectCounts[pod] = 1
+						} else {
+							ExpectWithOffset(1, dstPod).To(Equal(pod))
+							podSelectCounts[pod] += 1
+						}
+					}
+				}
+			}
+
+			PodNotSelected := podNames[index]
+			ExpectWithOffset(1, podSelectCounts[PodNotSelected]).To(Equal(0))
+		}
+
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Checks ClusterIP Connectivity", func() {
 			services := []string{testDSServiceIPv4}
 			if helpers.DualStackSupported() {
@@ -2296,6 +2362,58 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
 							"Tests Maglev backend selection", func() {
 								testMaglev()
+							})
+					})
+
+					Context("Tests NodePort with Maglev Weight", func() {
+						var (
+							echoYAML string
+							podIPs map[string]string
+							nodePort  = 8088
+							zeroWeightBackendIndex = 0
+						)
+
+						BeforeAll(func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"loadBalancer.algorithm": "maglev",
+								// The echo svc has two backends. the closest supported
+								// prime number which is greater than 100 * |backends_count|
+								// is 251.
+								"maglev.tableSize": "251",
+								// Support for host firewall + Maglev is currently broken,
+								// see #14047 for details.
+								"hostFirewall": "false",
+							})
+
+							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
+							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+							Expect(err).Should(BeNil())
+
+							// create a new NodePort service with the same backends of echo service, but with different node port.
+							// set the last backend's weight to 0.
+							podIPs, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "name=echo")
+							Expect(err).Should(BeNil())
+							httpBackends := generateBackends(podIPs, "80")
+							httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
+							zeroWeightBackendIndex = len(httpBackendWeights)-1
+							httpBackendWeights[zeroWeightBackendIndex] = 0
+							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
+						})
+
+						AfterAll(func() {
+							kubectl.Delete(echoYAML)
+							ciliumDelService(10080)
+						})
+
+						It("Tests NodePort", func() {
+							testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
+
+						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+							"Tests Maglev backend selection with zero weight", func() {
+								backendNames := generateBackendNames(podIPs)
+								testMaglevWeight(int32(nodePort), backendNames, zeroWeightBackendIndex)
 							})
 					})
 
