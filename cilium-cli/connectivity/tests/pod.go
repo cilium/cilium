@@ -12,26 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package connectivity
+package tests
 
 import (
 	"context"
 
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
-type connectivityTestPodToPod struct{}
+type PodToPod struct{}
 
-func (p *connectivityTestPodToPod) Name() string {
+func (t *PodToPod) Name() string {
 	return "pod-to-pod"
 }
 
-func (p *connectivityTestPodToPod) Run(ctx context.Context, c TestContext) {
+func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		for _, echo := range c.EchoPods() {
-			run := NewTestRun(p.Name(), c, client, echo)
+			run := check.NewTestRun(t.Name(), c, client, echo)
 
-			_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, curlCommand(echo.Pod.Status.PodIP+":8080"))
+			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(echo.Pod.Status.PodIP+":8080"))
 			if err != nil {
 				run.Failure("curl connectivity check command failed: %s", err)
 			}
@@ -41,14 +42,14 @@ func (p *connectivityTestPodToPod) Run(ctx context.Context, c TestContext) {
 			tcpRequest := filters.TCP(0, 8080)                                         // request to port 8080
 			tcpResponse := filters.TCP(8080, 0)                                        // response from port 8080
 
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []FilterPair{
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []filters.Pair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
 				{Filter: filters.RST(), Expect: false, Msg: "RST"},
 				{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
 				{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Expect: true, Msg: "FIN-ACK"},
 			})
 
-			run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, []FilterPair{
+			run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, []filters.Pair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
 				{Filter: filters.RST(), Expect: false, Msg: "RST"},
 				{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Expect: true, Msg: "SYN"},

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package connectivity
+package check
 
 import (
 	"bytes"
@@ -42,16 +42,13 @@ import (
 )
 
 const (
-	clientDeploymentName        = "client"
+	ClientDeploymentName = "client"
+
 	echoSameNodeDeploymentName  = "echo-same-node"
 	echoOtherNodeDeploymentName = "echo-other-node"
 	kindEchoName                = "echo"
 	kindClientName              = "client"
 )
-
-func curlCommand(target string) []string {
-	return []string{"curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", target}
-}
 
 var serviceLabels = map[string]string{
 	"kind": kindEchoName,
@@ -176,7 +173,7 @@ type k8sConnectivityImplementation interface {
 type PodContext struct {
 	// K8sClient is the Kubernetes client of the cluster this pod is
 	// running in
-	k8sClient k8sConnectivityImplementation
+	K8sClient k8sConnectivityImplementation
 
 	// Pod is the Kubernetes Pod resource
 	Pod *corev1.Pod
@@ -356,7 +353,7 @@ func (t *TestRun) settleFlows(ctx context.Context) error {
 
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Failure() is called.
-func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filter []FilterPair) {
+func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filterPairs []filters.Pair) {
 	hubbleClient := t.context.HubbleClient()
 	if hubbleClient == nil {
 		return
@@ -396,7 +393,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filter [
 
 	var goodLog []string
 
-	for _, p := range filter {
+	for _, p := range filterPairs {
 		if flows.Contains(p.Filter) != p.Expect {
 			for _, g := range goodLog {
 				t.context.Log(g)
@@ -637,14 +634,8 @@ func (f *flowsSet) Contains(filter filters.FlowFilterImplementation) bool {
 	return false
 }
 
-type FilterPair struct {
-	Filter filters.FlowFilterImplementation
-	Msg    string
-	Expect bool
-}
-
-func (k *K8sConnectivityCheck) Validate(pod string, f *flowsSet, filter []FilterPair) (success bool) {
-	for _, p := range filter {
+func (k *K8sConnectivityCheck) Validate(pod string, f *flowsSet, filterPairs []filters.Pair) (success bool) {
+	for _, p := range filterPairs {
 		if f.Contains(p.Filter) != p.Expect {
 			k.Log("❌ %s in pod %s", p.Msg, pod)
 			success = false
@@ -751,7 +742,7 @@ func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8s
 	k.Log("🔥 [%s] Deleting connectivity check deployments...", client.ClusterName())
 	client.DeleteDeployment(ctx, k.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteDeployment(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
-	client.DeleteDeployment(ctx, k.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
+	client.DeleteDeployment(ctx, k.params.TestNamespace, ClientDeploymentName, metav1.DeleteOptions{})
 	client.DeleteService(ctx, k.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteService(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
@@ -769,7 +760,7 @@ func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8s
 }
 
 func (k *K8sConnectivityCheck) deploymentList() (srcList []string, dstList []string) {
-	srcList = []string{clientDeploymentName, echoSameNodeDeploymentName}
+	srcList = []string{ClientDeploymentName, echoSameNodeDeploymentName}
 
 	if k.params.MultiCluster != "" || !k.params.SingleNode {
 		dstList = append(dstList, echoOtherNodeDeploymentName)
@@ -897,7 +888,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
+									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{ClientDeploymentName}},
 								},
 							},
 							TopologyKey: "kubernetes.io/hostname",
@@ -914,10 +905,10 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		}
 
 		k.Log("✨ [%s] Deploying client service...", k.clients.src.ClusterName())
-		clientDeployment := newDeployment(deploymentParameters{Name: clientDeploymentName, Kind: kindClientName, Port: 8080, Image: "quay.io/cilium/alpine-curl:1.0", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
+		clientDeployment := newDeployment(deploymentParameters{Name: ClientDeploymentName, Kind: kindClientName, Port: 8080, Image: "quay.io/cilium/alpine-curl:1.0", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
 		_, err = k.clients.src.CreateDeployment(ctx, k.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", clientDeploymentName, err)
+			return fmt.Errorf("unable to create deployment %s: %s", ClientDeploymentName, err)
 		}
 	}
 
@@ -947,7 +938,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 							{
 								LabelSelector: &metav1.LabelSelector{
 									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{ClientDeploymentName}},
 									},
 								},
 								TopologyKey: "kubernetes.io/hostname",
@@ -1020,7 +1011,7 @@ func (k *K8sConnectivityCheck) waitForService(ctx context.Context, client k8sCon
 	}
 
 retry:
-	if _, _, err := client.ExecInPodWithStderr(ctx, clientPod.Pod.Namespace, clientPod.Pod.Name, clientDeploymentName, []string{"nslookup", service}); err != nil {
+	if _, _, err := client.ExecInPodWithStderr(ctx, clientPod.Pod.Namespace, clientPod.Pod.Name, ClientDeploymentName, []string{"nslookup", service}); err != nil {
 		select {
 		case <-time.After(time.Second):
 		case <-ctx.Done():
@@ -1055,7 +1046,7 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 		}
 
 		k.clientPods[pod.Name] = PodContext{
-			k8sClient: k.client,
+			K8sClient: k.client,
 			Pod:       pod.DeepCopy(),
 		}
 	}
@@ -1074,7 +1065,7 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 			}
 
 			k.echoPods[echoPod.Name] = PodContext{
-				k8sClient: client,
+				K8sClient: client,
 				Pod:       echoPod.DeepCopy(),
 			}
 		}
@@ -1148,16 +1139,7 @@ func (k *K8sConnectivityCheck) Report(r TestResult) {
 	k.results[r.Name] = r
 }
 
-var tests = []ConnectivityTest{
-	&connectivityTestPodToPod{},
-	&connectivityTestPodToService{},
-	&connectivityTestPodToNodePort{},
-	&connectivityTestPodToLocalNodePort{},
-	&connectivityTestPodToWorld{},
-	&connectivityTestPodToHost{},
-}
-
-func (k *K8sConnectivityCheck) Run(ctx context.Context) error {
+func (k *K8sConnectivityCheck) Run(ctx context.Context, tests ...ConnectivityTest) error {
 	c, err := k.initClients(ctx)
 	if err != nil {
 		return err
