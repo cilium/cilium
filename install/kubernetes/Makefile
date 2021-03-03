@@ -1,7 +1,7 @@
-# Copyright 2017-2019 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../../Makefile.defs
+include Makefile.digests ../../Makefile.defs
 
 MANAGED_ETCD_VERSION := "v2.0.7"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
@@ -28,11 +28,23 @@ EXPERIMENTAL_OPTIONS := \
 
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
+# FIXME change the useDigest to 'true' once images were released by GH actions
 $(QUICK_INSTALL): $(shell find cilium/ -type f)
-	$(QUIET)helm template cilium --namespace=kube-system $(OPTS) > $(QUICK_INSTALL)
+	$(QUIET)helm template cilium --namespace=kube-system \
+     --set agent.useDigest=false \
+     --set hubble-relay.useDigest=false \
+     --set operator.useDigest=false \
+     --set preflight.useDigest=false \
+     $(OPTS) > $(QUICK_INSTALL)
 
+# FIXME change the useDigest to 'true' once images were released by GH actions
 $(EXPERIMENTAL_INSTALL): $(shell find cilium/ -type f)
-	$(QUIET)helm template cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
+	$(QUIET)helm template cilium --namespace=kube-system \
+     --set agent.useDigest=false \
+     --set hubble-relay.useDigest=false \
+     --set operator.useDigest=false \
+     --set preflight.useDigest=false \
+     $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
@@ -51,6 +63,14 @@ update-versions:
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $$chart;			\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $$chart;		\
 		fi; done
+	$(QUIET)for chart in $(shell find -type f -name values.yaml); do								\
+		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $$chart; 					\
+		sed -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $$chart;			\
+		sed -i '/# operator-aws-digest.*/{!b;n;s/awsDigest.*/awsDigest: "'$(OPERATOR_AWS_DIGEST)'"/}' $$chart; 			\
+		sed -i '/# operator-azure-digest.*/{!b;n;s/azureDigest.*/azureDigest: "'$(OPERATOR_AZURE_DIGEST)'"/}' $$chart; 		\
+		sed -i '/# operator-generic-digest.*/{!b;n;s/genericDigest.*/genericDigest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $$chart;  \
+		sed -i '/# operator-legacy-digest.*/{!b;n;s/legacyDigest.*/legacyDigest: "'$(OPERATOR_DIGEST)'"/}' $$chart; 		\
+	done
 	@# Fix up the managed etcd version, as that has its own scheme
 	$(QUIET)sed -i 's/'$(VERSION)'/'$(MANAGED_ETCD_VERSION)'/' $(MANAGED_ETCD_PATH)
 

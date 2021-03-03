@@ -6,6 +6,9 @@ image:
   tag: v1.8.7
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent
+  # hubble-relay-digest
+  digest: ""
+  useDigest: false
 
 # Specifies the resources for the hubble-relay pods
 resources: {}
