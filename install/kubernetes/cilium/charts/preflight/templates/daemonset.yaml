@@ -39,7 +39,7 @@ spec:
 {{- if contains "/" .Values.image }}
         - image: "{{ .Values.image }}"
 {{- else }}
-        - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.digest }}{{ end }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.pullPolicy }}
           name: cilium-pre-flight-check
@@ -79,7 +79,7 @@ spec:
 {{- if contains "/" .Values.image }}
         - image: "{{ .Values.image }}"
 {{- else }}
-        - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.digest }}{{ end }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.pullPolicy }}
           name: cilium-pre-flight-fqdn-precache
