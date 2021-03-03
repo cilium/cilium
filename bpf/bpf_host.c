@@ -256,10 +256,14 @@ skip_host_firewall:
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
 					   METRIC_INGRESS, from_host);
 	}
-#ifdef ENCAP_IFINDEX
-	else if (!from_host)
+
+	/* Below remainder is only relevant when traffic is pushed via cilium_host.
+	 * For traffic coming from external, we're done here.
+	 */
+	if (!from_host)
 		return CTX_ACT_OK;
 
+#ifdef ENCAP_IFINDEX
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
@@ -296,10 +300,11 @@ skip_host_firewall:
 
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
-	if (from_host && (info == NULL || info->sec_label == WORLD_ID)) {
+	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
+
 #ifdef ENABLE_IPSEC
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
@@ -524,10 +529,14 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
 					   METRIC_INGRESS, from_host);
 	}
-#ifdef ENCAP_IFINDEX
-	else if (!from_host)
+
+	/* Below remainder is only relevant when traffic is pushed via cilium_host.
+	 * For traffic coming from external, we're done here.
+	 */
+	if (!from_host)
 		return CTX_ACT_OK;
 
+#ifdef ENCAP_IFINDEX
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
@@ -559,7 +568,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #else
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-	if (from_host && (info == NULL || info->sec_label == WORLD_ID)) {
+	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -571,6 +580,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		 */
 		return DROP_UNROUTABLE;
 	}
+
 #ifdef ENABLE_IPSEC
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
