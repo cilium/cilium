@@ -64,7 +64,7 @@ To run all of the runtime tests, execute the following command from the ``test``
 
 ::
 
-    ginkgo -v --focus="Runtime" -noColor
+    ginkgo --focus="Runtime" -noColor
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -72,7 +72,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 ::
 
-    $ ginkgo -v --focus="Runtime" -noColor -dryRun
+    $ ginkgo --focus="Runtime" -noColor -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -115,14 +115,14 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
 ::
 
-    ginkgo -v --focus="K8s" -noColor
+    ginkgo --focus="K8s" -noColor
 
 To run a specific test from the Kubernetes tests suite, run the following command
 from the ``test`` directory:
 
 ::
 
-    ginkgo -v --focus="K8s.*Check iptables masquerading with random-fully"
+    ginkgo --focus="K8s.*Check iptables masquerading with random-fully"
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "K8s" and
@@ -144,7 +144,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 ::
 
-    K8S_VERSION=<version> ginkgo -v --focus="K8s" -noColor
+    K8S_VERSION=<version> ginkgo --focus="K8s" -noColor
 
 .. note::
 
@@ -177,7 +177,7 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
 
 ::
 
-    ginkgo -v --focus="Nightly"  -noColor
+    ginkgo --focus="Nightly"  -noColor
 
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and contain
@@ -268,7 +268,7 @@ If you want to run one specified test, there are a few options:
 
 ::
 
-    ginkgo -v --focus "Runtime.*L7"
+    ginkgo --focus "Runtime.*L7"
 
 
 This will focus on tests that contain "Runtime", followed by any
@@ -483,7 +483,7 @@ An example invocation is
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo -v --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
 
 Running in GKE
 ^^^^^^^^^^^^^^
@@ -507,7 +507,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.18 but can be configured with
           versions between 1.13 and 1.18. Version should match the server
@@ -594,7 +594,7 @@ To run this you can use the following command:
 
 ::
 
-    ginkgo  -v -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
+    ginkgo -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 
 
 VMs for Testing
