@@ -30,6 +30,12 @@ type FlowFilterImplementation interface {
 	String() string
 }
 
+type Pair struct {
+	Filter FlowFilterImplementation
+	Msg    string
+	Expect bool
+}
+
 type andFilter struct {
 	filters []FlowFilterImplementation
 }
