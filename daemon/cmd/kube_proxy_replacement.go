@@ -243,6 +243,9 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableNodePort)
 		case option.Config.Tunnel != option.TunnelDisabled:
 			msg = fmt.Sprintf("BPF host routing is only available in native routing mode.")
+		// If we chain CNIs then all bets are off.
+		case option.Config.IsFlannelMasterDeviceSet():
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.FlannelMasterDevice)
 		// Needs host stack for packet handling.
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableEndpointRoutes)
