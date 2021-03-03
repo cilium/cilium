@@ -253,6 +253,10 @@ spec:
                     items:
                       description: AzureInterface represents an Azure Interface
                       properties:
+                        GatewayIP:
+                          description: GatewayIP is the interface's subnet's default
+                            route
+                          type: string
                         addresses:
                           description: Addresses is the list of all IPs associated
                             with the interface, including all secondary addresses
