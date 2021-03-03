@@ -33,24 +33,33 @@ assignees: ''
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
-- [ ] Ask a maintainer to approve the build in the following links:
+- [ ] Ask a maintainer to approve the build in the following links (keep the URL
+      of the GitHub run to be used later):
   - [Cilium v1.10](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22)
   - [Cilium v1.9](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.9%22)
   - [Cilium v1.8](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.8%22)
   - [Cilium v1.7](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.7%22)
   - Check if all docker images are available before announcing the release
     `make -C install/kubernetes/ check-docker-images`
-- [ ] Get the image digests from the build process (click in the GH Run > "Display Digests"),
-      update the digests in the helm charts locally and make a commit / PR with the digests.
-- [ ] Create helm charts artifacts in [Cilium charts] repository using
-      [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y` branch
-      & push to repository
+- [ ] Get the image digests from the build process and make a commit and PR with
+      these digests.
+  - [ ] Run `contrib/release/pull-docker-manifests.sh` to fetch the image
+        digests, use the URL of the GitHub run here.
+  - [ ] Create a commit and push as a new PR.
+  - [ ] Merge PR
+- [ ] Update helm charts
+  - [ ] Pull latest branch locally
+  - [ ] Create helm charts artifacts in [Cilium charts] repository using
+        [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y`
+        branch and push these changes into the helm repository. Make sure the
+        generated helm charts point to the commit that contains the image
+        digests.
 - [ ] Run sanity check of Helm install using connectivity-check script.
       Suggested approach: Follow the full [GKE getting started guide].
 - [ ] Check draft release from [releases] page
   - [ ] Update the text at the top with 2-3 highlights of the release
-  - [ ] Run `contrib/release/pull-docker-manifests.sh` to fetch the image SHAs
-        and copy the text into the end of the release
+  - [ ] Copy the text from `digest-vX.Y.Z.txt` (previously generated with
+        `contrib/release/pull-docker-manifests.sh`) to the end of the release.
   - [ ] Publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
 - [ ] Update Grafana dashboards (only for vX.Y.0)
