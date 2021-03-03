@@ -949,6 +949,58 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							})
 					})
 
+					Context("Tests NodePort with Maglev Weight", func() {
+						var (
+							echoYAML string
+							podIPs map[string]string
+							nodePort  = 8088
+							zeroWeightBackendIndex = 0
+						)
+
+						BeforeAll(func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"loadBalancer.algorithm": "maglev",
+								// The echo svc has two backends. the closest supported
+								// prime number which is greater than 100 * |backends_count|
+								// is 251.
+								"maglev.tableSize": "251",
+								// Support for host firewall + Maglev is currently broken,
+								// see #14047 for details.
+								"hostFirewall": "false",
+							})
+
+							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
+							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+							Expect(err).Should(BeNil())
+
+							// create a new NodePort service with the same backends of echo service, but with different node port.
+							// set the last backend's weight to 0.
+							podIPs, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "name=echo")
+							Expect(err).Should(BeNil())
+							httpBackends := generateBackends(podIPs, "80")
+							httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
+							zeroWeightBackendIndex = len(httpBackendWeights)-1
+							httpBackendWeights[zeroWeightBackendIndex] = 0
+							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
+						})
+
+						AfterAll(func() {
+							kubectl.Delete(echoYAML)
+							ciliumDelService(10080)
+						})
+
+						It("Tests NodePort", func() {
+							testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
+
+						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+							"Tests Maglev backend selection with zero weight", func() {
+								backendNames := generateBackendNames(podIPs)
+								testMaglevWeight(int32(nodePort), backendNames, zeroWeightBackendIndex)
+							})
+					})
+
 					SkipItIf(func() bool {
 						// Quarantine when running with the third node as it's
 						// flaky. See #12511.
