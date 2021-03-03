@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package connectivity
+package tests
 
 import (
 	"context"
 
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
-type connectivityTestPodToHost struct{}
+type PodToHost struct{}
 
-func (p *connectivityTestPodToHost) Name() string {
+func (t *PodToHost) Name() string {
 	return "pod-to-host"
 }
 
-func (p *connectivityTestPodToHost) Run(ctx context.Context, c TestContext) {
+func (t *PodToHost) Run(ctx context.Context, c check.TestContext) {
 	// Construct a map of all unique host IPs where pods are running on.
 	// This will include:
 	// - The local host
@@ -43,14 +44,14 @@ func (p *connectivityTestPodToHost) Run(ctx context.Context, c TestContext) {
 	for _, client := range c.ClientPods() {
 		for hostIP := range hostIPs {
 			cmd := []string{"ping", "-c", "3", hostIP}
-			run := NewTestRun(p.Name(), c, client, NetworkEndpointContext{Peer: hostIP})
+			run := check.NewTestRun(t.Name(), c, client, check.NetworkEndpointContext{Peer: hostIP})
 
-			_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, cmd)
+			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
 			if err != nil {
 				run.Failure("ping command failed: %s", err)
 			}
 
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []FilterPair{
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []filters.Pair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Found drop"},
 				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, hostIP), filters.ICMP(8)), Expect: true, Msg: "ICMP request"},
 				{Filter: filters.And(filters.IP(hostIP, client.Pod.Status.PodIP), filters.ICMP(0)), Expect: true, Msg: "ICMP response"},

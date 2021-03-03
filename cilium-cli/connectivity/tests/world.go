@@ -12,32 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package connectivity
+package tests
 
 import (
 	"context"
 
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
-type connectivityTestPodToWorld struct{}
+type PodToWorld struct{}
 
-func (p *connectivityTestPodToWorld) Name() string {
+func (t *PodToWorld) Name() string {
 	return "pod-to-world"
 }
 
-func (p *connectivityTestPodToWorld) Run(ctx context.Context, c TestContext) {
+func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	fqdn := "https://google.com"
 
 	for _, client := range c.ClientPods() {
-		run := NewTestRun(p.Name(), c, client, NetworkEndpointContext{Peer: fqdn})
+		run := check.NewTestRun(t.Name(), c, client, check.NetworkEndpointContext{Peer: fqdn})
 
-		_, err := client.k8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, clientDeploymentName, curlCommand(fqdn))
+		_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(fqdn))
 		if err != nil {
 			run.Failure("curl connectivity check command failed: %s", err)
 		}
 
-		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []FilterPair{
+		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []filters.Pair{
 			{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
 			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Expect: true, Msg: "DNS request"},
 			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Expect: true, Msg: "DNS response"},
