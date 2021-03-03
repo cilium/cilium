@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -52,8 +53,6 @@ var (
 	deploymentMaxSurge       = intstr.FromInt(1)
 	deploymentMaxUnavailable = intstr.FromInt(1)
 	secretDefaultMode        = int32(420)
-
-	retryInterval = 2 * time.Second
 )
 
 var clusterRole = &rbacv1.ClusterRole{
@@ -884,35 +883,41 @@ type Status struct {
 	Connectivity      *ConnectivityStatus
 }
 
-func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context) (*accessInformation, error) {
-retry:
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
+func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool) (*accessInformation, error) {
+	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+		if log {
+			k.Log("⌛ Waiting (%s) for access information: %s", wait, err)
+		}
+	}})
+	defer w.Cancel()
 
+retry:
 	ai, err := k.extractAccessInformation(ctx, k.client, []string{}, false)
 	if err != nil && k.params.Wait {
-		time.Sleep(retryInterval)
+		if err := w.Retry(err); err != nil {
+			return nil, err
+		}
 		goto retry
 	}
 
 	return ai, err
 }
 
-func (k *K8sClusterMesh) statusService(ctx context.Context) (*corev1.Service, error) {
-retry:
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
+func (k *K8sClusterMesh) statusService(ctx context.Context, log bool) (*corev1.Service, error) {
+	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+		if log {
+			k.Log("⌛ Waiting (%s) for ClusterMesh service to be available: %s", wait, err)
+		}
+	}})
+	defer w.Cancel()
 
+retry:
 	svc, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
 	if err != nil {
 		if k.params.Wait {
-			time.Sleep(retryInterval)
+			if err := w.Retry(err); err != nil {
+				return nil, err
+			}
 			goto retry
 		}
 
@@ -1001,38 +1006,53 @@ func (c *ConnectivityStatus) parseAgentStatus(name string, s *status.ClusterMesh
 	c.Connected.Avg += float64(ready)
 }
 
-func (k *K8sClusterMesh) statusConnectivity(ctx context.Context) (*ConnectivityStatus, error) {
+func (k *K8sClusterMesh) statusConnectivity(ctx context.Context, log bool) (*ConnectivityStatus, error) {
+	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+		if log {
+			k.Log("⌛ Waiting (%s) for clusters to be connected: %s", wait, err)
+		}
+	}})
+	defer w.Cancel()
+
+retry:
+	status, err := k.determineStatusConnectivity(ctx)
+	if k.params.Wait {
+		if err == nil {
+			if status.NotReady > 0 {
+				err = fmt.Errorf("%d clusters not ready", status.NotReady)
+			}
+			if len(status.Errors) > 0 {
+				err = fmt.Errorf("%d clusters have errors", len(status.Errors))
+			}
+		}
+
+		if err != nil {
+			if err := w.Retry(err); err != nil {
+				return nil, err
+			}
+			goto retry
+		}
+	}
+
+	return status, err
+}
+
+func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*ConnectivityStatus, error) {
 	status := &ConnectivityStatus{
 		GlobalServices: StatisticalStatus{Min: -1},
 		Connected:      StatisticalStatus{Min: -1},
 		Errors:         status.ErrorCountMapMap{},
 		Clusters:       map[string]*ClusterStats{},
 	}
-retry:
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
 
 	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 	if err != nil {
-		if k.params.Wait {
-			time.Sleep(retryInterval)
-			goto retry
-		}
-
 		return nil, fmt.Errorf("unable to list cilium pods: %w", err)
 	}
 
 	for _, pod := range pods.Items {
 		s, err := k.statusCollector.ClusterMeshConnectivity(ctx, pod.Name)
 		if err != nil {
-			if k.params.Wait {
-				time.Sleep(retryInterval)
-				goto retry
-			}
-
 			return nil, fmt.Errorf("unable to determine status of cilium pod %q: %w", pod.Name, err)
 		}
 
@@ -1041,13 +1061,6 @@ retry:
 
 	status.GlobalServices.Avg /= float64(len(pods.Items))
 	status.Connected.Avg /= float64(len(pods.Items))
-
-	if k.params.Wait {
-		if status.NotReady > 0 || len(status.Errors) > 0 {
-			time.Sleep(retryInterval)
-			goto retry
-		}
-	}
 
 	return status, nil
 }
@@ -1070,7 +1083,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
 	defer cancel()
 
-	s.AccessInformation, err = k.statusAccessInformation(ctx)
+	s.AccessInformation, err = k.statusAccessInformation(ctx, log)
 	if err != nil {
 		return nil, err
 	}
@@ -1082,7 +1095,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 		}
 	}
 
-	s.Service, err = k.statusService(ctx)
+	s.Service, err = k.statusService(ctx, log)
 	if err != nil {
 		return nil, err
 	}
@@ -1100,7 +1113,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 		}
 	}
 
-	s.Connectivity, err = k.statusConnectivity(ctx)
+	s.Connectivity, err = k.statusConnectivity(ctx, log)
 
 	if log && s.Connectivity != nil {
 		if s.Connectivity.NotReady > 0 {
