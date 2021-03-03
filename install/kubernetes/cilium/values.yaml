@@ -72,6 +72,9 @@ image:
   repository: quay.io/cilium/cilium
   tag: v1.9.4
   pullPolicy: IfNotPresent
+  # cilium-digest
+  digest: ""
+  useDigest: false
 
 # -- Pod affinity for cilium-agent.
 affinity:
@@ -549,6 +552,9 @@ hubble:
       repository: quay.io/cilium/hubble-relay
       tag: v1.9.4
       pullPolicy: IfNotPresent
+       # hubble-relay-digest
+      digest: ""
+      useDigest: false
 
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -1068,6 +1074,13 @@ operator:
     tag: v1.9.4
     pullPolicy: IfNotPresent
     suffix: ""
+    # operator-generic-digest
+    genericDigest: ""
+    # operator-azure-digest
+    azureDigest: ""
+    # operator-aws-digest
+    awsDigest: ""
+    useDigest: false
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
@@ -1269,6 +1282,9 @@ preflight:
     repository: quay.io/cilium/cilium
     tag: v1.9.4
     pullPolicy: IfNotPresent
+    # cilium-digest
+    digest: ""
+    useDigest: false
 
   priorityClassName: ""
 
@@ -1375,6 +1391,9 @@ clustermesh:
       repository: quay.io/cilium/clustermesh-apiserver
       tag: v1.9.4
       pullPolicy: IfNotPresent
+      # clustermesh-apiserver-digest
+      digest: ""
+      useDigest: false
 
     etcd:
       # -- Clustermesh API server etcd image.

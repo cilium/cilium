@@ -196,7 +196,7 @@ spec:
 {{- with .Values.extraEnv }}
 {{ toYaml . | trim | indent 8 }}
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
 {{- if .Values.cni.install }}
         lifecycle:
@@ -314,7 +314,7 @@ spec:
 {{- range $type := .Values.monitor.eventTypes }}
         - --type={{ $type }}
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
         - mountPath: /var/run/cilium
@@ -334,7 +334,7 @@ spec:
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
         command: ['sh', '-c', 'until stat {{ .Values.nodeinit.bootstrapFile }} > /dev/null 2>&1; do echo "Waiting on node-init to run..."; sleep 1; done']
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
         - mountPath: {{ .Values.nodeinit.bootstrapFile }}
@@ -372,7 +372,7 @@ spec:
 {{- if .Values.extraEnv }}
 {{ toYaml .Values.extraEnv | indent 8 }}
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: clean-cilium-state
         securityContext:

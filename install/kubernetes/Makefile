@@ -1,7 +1,7 @@
-# Copyright 2017-2019 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../../Makefile.defs
+include Makefile.digests ../../Makefile.defs
 
 HUBBLE_PROXY_VERSION := "v1.14.5"
 HUBBLE_UI_VERSION := "v0.7.3"
@@ -56,14 +56,35 @@ LOGO_PATH := Documentation/images/logo-solo.svg
 
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) $(QUICK_HUBBLE_INSTALL) docs
 
+# FIXME change the useDigest to 'true' once images were released by GH actions
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
+	$(QUIET)helm template cilium cilium --namespace=kube-system \
+     --set image.useDigest=false \
+     --set operator.image.useDigest=false \
+     --set preflight.image.useDigest=false \
+     --set hubble.relay.image.useDigest=false \
+     --set clustermesh.apiserver.image.useDigest=false \
+     $(QUICK_OPTIONS) > $(QUICK_INSTALL)
 
+# FIXME change the useDigest to 'true' once images were released by GH actions
 $(QUICK_HUBBLE_INSTALL) quick-hubble-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_HUBBLE_OPTIONS) > $(QUICK_HUBBLE_INSTALL)
+	$(QUIET)helm template cilium cilium --namespace=kube-system \
+     --set image.useDigest=false \
+     --set operator.image.useDigest=false \
+     --set preflight.image.useDigest=false \
+     --set hubble.relay.image.useDigest=false \
+     --set clustermesh.apiserver.image.useDigest=false \
+     $(QUICK_HUBBLE_OPTIONS) > $(QUICK_HUBBLE_INSTALL)
 
+# FIXME change the useDigest to 'true' once images were released by GH actions
 $(EXPERIMENTAL_INSTALL) experimental-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
+	$(QUIET)helm template cilium cilium --namespace=kube-system \
+     --set image.useDigest=false \
+     --set operator.image.useDigest=false \
+     --set preflight.image.useDigest=false \
+     --set hubble.relay.image.useDigest=false \
+     --set clustermesh.apiserver.image.useDigest=false \
+     $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
@@ -94,14 +115,21 @@ update-versions:
 		# etcd.image.tag												\
 		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
 		# clustermesh.apiserver.etcd.image.tag										\
-		sed -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)			\
+		sed -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)				\
 		# hubble.ui.proxy.image.tag											\
 		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
 		# nodeinit.image.tag												\
 		sed -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
 		# certgen.image.tag												\
 		sed -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
-		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);
+		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);  					\
+		# image digests;													\
+		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $(CILIUM_VALUES); 				\
+		sed -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $(CILIUM_VALUES);			\
+		sed -i '/# operator-aws-digest.*/{!b;n;s/aws-digest.*/aws-digest: "'$(OPERATOR_AWS_DIGEST)'"/}' $(CILIUM_VALUES); 		\
+		sed -i '/# operator-azure-digest.*/{!b;n;s/azure-digest.*/azure-digest: "'$(OPERATOR_AZURE_DIGEST)'"/}' $(CILIUM_VALUES); 	\
+		sed -i '/# operator-generic-digest.*/{!b;n;s/generic-digest.*/generic-digest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
+		sed -i '/# clustermesh-apiserver-digest.*/{!b;n;s/digest.*/digest: "'$(CLUSTERMESH_APISERVER_DIGEST)'"/}' $(CILIUM_VALUES)
 
 lint:
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
