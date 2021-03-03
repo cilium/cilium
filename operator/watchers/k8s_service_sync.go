@@ -52,6 +52,9 @@ var (
 	// serviceController is the global (to this package) slim_corev1.Service
 	// controller that monitors objects for changes.
 	serviceController cache.Controller
+	// serviceIndexer is the store containing all the slim_corev1.Service
+	// objects seen by the controller.
+	serviceIndexer cache.Store
 
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
@@ -197,7 +200,7 @@ func InitServiceWatcher(
 ) {
 	serviceInitOnce.Do(func() {
 		// Watch for v1.Service changes and push changes into ServiceCache.
-		_, serviceController = informer.NewInformer(
+		serviceIndexer, serviceController = informer.NewInformer(
 			cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
 				"services", v1.NamespaceAll, optsModifier),
 			&slim_corev1.Service{},

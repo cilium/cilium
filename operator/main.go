@@ -426,6 +426,11 @@ func onOperatorStartLeading(ctx context.Context) {
 		}
 	}
 
+	if operatorOption.Config.BGPAnnounceLBIP {
+		log.Info("Starting LB IP allocator")
+		operatorWatchers.StartLBIPAllocator(option.Config)
+	}
+
 	if kvstoreEnabled() {
 		if operatorOption.Config.SyncK8sServices {
 			operatorWatchers.StartSynchronizingServices(true, option.Config)
