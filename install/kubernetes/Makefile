@@ -1,4 +1,5 @@
-include ../../Makefile.defs
+# Copyright 2017-2021 Authors of Cilium
+include Makefile.digests ../../Makefile.defs
 include $(ROOT_DIR)/Makefile.quiet
 
 MANAGED_ETCD_VERSION := "v2.0.7"
@@ -19,7 +20,11 @@ CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
 all: update-versions $(QUICK_INSTALL)
 
 $(QUICK_INSTALL): $(shell find cilium/ -type f)
-	$(QUIET)helm template cilium --namespace=kube-system $(OPTS) > $(QUICK_INSTALL)
+	$(QUIET)helm template cilium --namespace=kube-system \
+     --set agent.useDigest=true \
+     --set operator.useDigest=true \
+     --set preflight.useDigest=true \
+     $(OPTS) > $(QUICK_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
@@ -37,6 +42,10 @@ update-versions:
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $(CILIUM_VALUES);		\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $(CILIUM_VALUES);	\
 		fi
+	$(QUIET)for chart in $(shell find -type f -name values.yaml); do				\
+		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $$chart; 	\
+		sed -i '/# operator-digest.*/{!b;n;s/digest.*/digest: "'$(OPERATOR_DIGEST)'"/}' $$chart;\
+	done
 	@# Fix up the managed etcd version, as that has its own scheme
 	$(QUIET)sed -i 's/'$(VERSION)'/'$(MANAGED_ETCD_VERSION)'/' $(MANAGED_ETCD_PATH)
 

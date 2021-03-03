@@ -1,5 +1,9 @@
 image: cilium
 
+# cilium-digest
+digest: "sha256:0bd894e9dc0188482bc0316c2889a0aa9b2fce3a3c9e4dc6f55afb4a2afbf84b"
+useDigest: false
+
 # Specifies the maximum number of Pods that can be unavailable during the
 # update process.
 maxUnavailable: 2

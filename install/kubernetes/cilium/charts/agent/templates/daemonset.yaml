@@ -128,7 +128,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.digest }}{{ end }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
 {{- if .Values.global.cni.install }}
@@ -216,7 +216,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.digest }}{{ end }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
         volumeMounts:
@@ -236,7 +236,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.digest }}{{ end }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
         volumeMounts:
@@ -267,7 +267,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}{{ if .Values.useDigest }}@{{ .Values.digest }}{{ end }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
         name: clean-cilium-state
