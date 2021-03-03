@@ -164,7 +164,7 @@ var _ = Describe("K8sServicesTest", func() {
 		return names
 	}
 
-	generateBackends := func(podIPs map[string]string, port string) ([]string) {
+	generateBackends := func(podIPs map[string]string, port string) []string {
 		backends := []string{}
 		for _, ip := range podIPs {
 			backends = append(backends, net.JoinHostPort(ip, port))
@@ -1885,7 +1885,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				// that the same backend is selected
 
 				for _, host := range []string{k8s1IP} {
-					url := getTFTPLink(host, nodePort)
+					url := getHTTPLink(host, nodePort)
 					cmd := helpers.CurlFail("--local-port %d %s", port, url) + " | grep 'Hostpod name is in the hostnamename:' " //
 
 					By("Making %d HTTP requests from %s:%d to %q", count, outsideNodeName, port, url)
@@ -2367,9 +2367,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					Context("Tests NodePort with Maglev Weight", func() {
 						var (
-							echoYAML string
-							podIPs map[string]string
-							nodePort  = 8088
+							echoYAML               string
+							podIPs                 map[string]string
+							nodePort               = 8088
 							zeroWeightBackendIndex = 0
 						)
 
@@ -2396,7 +2396,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							Expect(err).Should(BeNil())
 							httpBackends := generateBackends(podIPs, "80")
 							httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
-							zeroWeightBackendIndex = len(httpBackendWeights)-1
+							zeroWeightBackendIndex = len(httpBackendWeights) - 1
 							httpBackendWeights[zeroWeightBackendIndex] = 0
 							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
 						})
