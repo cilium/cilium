@@ -266,6 +266,10 @@ github.com/fsnotify/fsnotify
 ## explicit
 github.com/go-bindata/go-bindata/v3
 github.com/go-bindata/go-bindata/v3/go-bindata
+# github.com/go-kit/kit v0.10.0
+github.com/go-kit/kit/log
+# github.com/go-logfmt/logfmt v0.5.0
+github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr
 # github.com/go-ole/go-ole v1.2.4
@@ -351,7 +355,7 @@ github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
 # github.com/golang/snappy v0.0.1
 github.com/golang/snappy
-# github.com/google/go-cmp v0.5.4
+# github.com/google/go-cmp v0.5.5
 ## explicit
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
@@ -452,14 +456,24 @@ github.com/mattn/go-isatty
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mdlayher/arp v0.0.0-20191213142603-f72070a231fc
+github.com/mdlayher/arp
+# github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
+github.com/mdlayher/ethernet
 # github.com/mdlayher/genetlink v1.0.0
 github.com/mdlayher/genetlink
+# github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567
+github.com/mdlayher/ndp
 # github.com/mdlayher/netlink v1.1.0
 github.com/mdlayher/netlink
 github.com/mdlayher/netlink/nlenc
-# github.com/miekg/dns v1.0.14 => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
+# github.com/mdlayher/raw v0.0.0-20191009151244-50f2db8cc065
+github.com/mdlayher/raw
+# github.com/miekg/dns v1.1.26 => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 ## explicit
 github.com/miekg/dns
+# github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
+github.com/mikioh/ipaddr
 # github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.4.0
@@ -608,6 +622,8 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 ## explicit
 github.com/vishvananda/netns
+# gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
+gitlab.com/golang-commonmark/puny
 # go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 ## explicit
 go.etcd.io/etcd/auth/authpb
@@ -657,6 +673,16 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
+# go.universe.tf/metallb v0.9.6 => github.com/cilium/metallb v0.1.1-0.20210402175553-310946fff4b4
+## explicit
+go.universe.tf/metallb/pkg/allocator
+go.universe.tf/metallb/pkg/allocator/k8salloc
+go.universe.tf/metallb/pkg/bgp
+go.universe.tf/metallb/pkg/config
+go.universe.tf/metallb/pkg/controller
+go.universe.tf/metallb/pkg/k8s/types
+go.universe.tf/metallb/pkg/layer2
+go.universe.tf/metallb/pkg/speaker
 # golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 ## explicit
 golang.org/x/crypto/blowfish
@@ -677,7 +703,7 @@ golang.org/x/lint/golint
 # golang.org/x/mod v0.3.1-0.20200828183125-ce943fd02449
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
+# golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 ## explicit
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -706,7 +732,7 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20210225134936-a50acf3fe073
+# golang.org/x/sys v0.0.0-20210314195730-07df6a141424
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -1299,4 +1325,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 # github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
+# go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20210402175553-310946fff4b4
 # sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.3.1-0.20200911184030-7e668c1fb4c2
