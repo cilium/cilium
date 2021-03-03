@@ -167,6 +167,7 @@ type k8sConnectivityImplementation interface {
 	ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error)
 	GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error)
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
+	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
 	ClusterName() (name string)
 }
 
@@ -682,6 +683,10 @@ func (p Parameters) podReadyTimeout() time.Duration {
 	return 5 * time.Minute
 }
 
+func (p Parameters) serviceReadyTimeout() time.Duration {
+	return 5 * time.Minute
+}
+
 func (p Parameters) validate() error {
 	switch p.FlowValidation {
 	case FlowValidationModeDisabled, FlowValidationModeWarning, FlowValidationModeStrict:
@@ -980,6 +985,37 @@ func (k *K8sConnectivityCheck) waitForDeploymentsReady(ctx context.Context, clie
 	return nil
 }
 
+func (k *K8sConnectivityCheck) randomClientPod() *PodContext {
+	for _, p := range k.clientPods {
+		return &p
+	}
+	return nil
+}
+
+func (k *K8sConnectivityCheck) waitForService(ctx context.Context, client k8sConnectivityImplementation, service string) error {
+	k.Log("⌛ [%s] Waiting for service %s to become ready...", client.ClusterName(), service)
+
+	ctx, cancel := context.WithTimeout(ctx, k.params.serviceReadyTimeout())
+	defer cancel()
+
+	clientPod := k.randomClientPod()
+	if clientPod == nil {
+		return fmt.Errorf("no client pod available")
+	}
+
+retry:
+	if _, _, err := client.ExecInPodWithStderr(ctx, clientPod.Pod.Namespace, clientPod.Pod.Name, clientDeploymentName, []string{"nslookup", service}); err != nil {
+		select {
+		case <-time.After(time.Second):
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for service %s timed out, last error: %s", service, err)
+		}
+		goto retry
+	}
+
+	return nil
+}
+
 func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 	srcDeployments, dstDeployments := k.deploymentList()
 	if err := k.waitForDeploymentsReady(ctx, k.clients.src, srcDeployments); err != nil {
@@ -1032,7 +1068,7 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 	for _, client := range k.clients.clients() {
 		echoServices, err := client.ListServices(ctx, k.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
 		if err != nil {
-			return fmt.Errorf("unable to list echo servies: %s", err)
+			return fmt.Errorf("unable to list echo services: %s", err)
 		}
 
 		for _, echoService := range echoServices.Items {
@@ -1040,6 +1076,10 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 				Service: echoService.DeepCopy(),
 			}
 		}
+	}
+
+	for serviceName := range k.echoServices {
+		k.waitForService(ctx, k.client, serviceName)
 	}
 
 	return nil
