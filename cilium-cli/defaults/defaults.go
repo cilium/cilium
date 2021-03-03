@@ -14,6 +14,8 @@
 
 package defaults
 
+import "time"
+
 const (
 	AgentServiceAccountName = "cilium"
 	AgentClusterRoleName    = "cilium"
@@ -77,6 +79,9 @@ const (
 	Version       = "v1.9.4"
 
 	TunnelType = "vxlan"
+
+	WaitRetryInterval   = 2 * time.Second
+	WaitWarningInterval = 10 * time.Second
 )
 
 var OperatorLabels = map[string]string{
