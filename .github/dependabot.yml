@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    ignore:
+        # cannot be updated until the etcd library is updated
+      - dependency-name: "google.golang.org/grpc"
+        # using a cilium-specific fork
+      - dependency-name: "github.com/miekg/dns"
+        # newer versions break our CI
+      - dependency-name: "github.com/onsi/ginkgo"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    labels:
+    - kind/enhancement
+    - release-note/misc
