@@ -1614,6 +1614,9 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		}
 	}
 #endif
+	/* Handles SNAT on NAT_DIR_EGRESS and reverse SNAT for reply packets
+	 * from remote backends on NAT_DIR_INGRESS.
+	 */
 	ret = snat_v4_process(ctx, dir, &target, false);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
@@ -1634,6 +1637,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	bpf_mark_snat_done(ctx);
 
 	if (dir == NAT_DIR_INGRESS) {
+		/* Handle reverse DNAT for reply packets from remote backends. */
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
@@ -1757,6 +1761,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
+		/* The packet is not destined to a service but it can be a reply
+		 * packet from a remote backend, in which case we need to perform
+		 * the reverse NAT.
+		 */
 skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
