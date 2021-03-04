@@ -1221,6 +1221,10 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EncryptInterface = link
 	}
 
+	if option.Config.Tunnel != option.TunnelDisabled && option.Config.EnableAutoDirectRouting {
+		log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
+	}
+
 	initClockSourceOption()
 	initSockmapOption()
 
