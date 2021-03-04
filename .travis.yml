@@ -27,9 +27,6 @@ jobs:
         - LOCKDEBUG=1
       virt: vm
       group: edge
-  allow_failures:
-    - name: "amd64-race"
-    - name: "arm64-graviton2-race"
 
 if: branch = master OR type = pull_request
 
