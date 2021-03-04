@@ -1134,6 +1134,38 @@ out:
 }
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+#ifdef ENABLE_IPV6
+declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			 is_defined(DEBUG)), CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
+int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
+{
+	__u32 srcID = 0;
+	int ret;
+
+	ret = ipv6_host_policy_ingress(ctx, &srcID);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
+	return ret;
+}
+#endif /* ENABLE_IPV6 */
+
+#ifdef ENABLE_IPV4
+declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			 is_defined(DEBUG)), CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
+int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
+{
+	__u32 srcID = 0;
+	int ret;
+
+	ret = ipv4_host_policy_ingress(ctx, &srcID);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
+	return ret;
+}
+#endif /* ENABLE_IPV4 */
+
 static __always_inline int
 /* Handles packet from a local endpoint entering the host namespace. Applies
  * ingress host policies.
@@ -1141,7 +1173,6 @@ static __always_inline int
 to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
-	__u32 src_id = 0;
 	__u16 proto = 0;
 
 	if (!validate_ethertype(ctx, &proto)) {
@@ -1157,12 +1188,20 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_ingress(ctx, &src_id);
+		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+					      is_defined(ENABLE_IPV6)),
+					is_defined(DEBUG)),
+				   CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
+				   tail_ipv6_host_policy_ingress);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = ipv4_host_policy_ingress(ctx, &src_id);
+		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+					      is_defined(ENABLE_IPV6)),
+					is_defined(DEBUG)),
+				   CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
+				   tail_ipv4_host_policy_ingress);
 		break;
 # endif
 	default:
@@ -1172,7 +1211,7 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
 	return ret;
 }
