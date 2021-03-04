@@ -125,6 +125,9 @@ not_esp:
 					   METRIC_INGRESS, false);
 	}
 
+	/* A packet entering the node from the tunnel and not going to a local
+	 * endpoint has to be going to the local host.
+	 */
 to_host:
 #ifdef HOST_IFINDEX
 	if (1) {
@@ -234,6 +237,9 @@ not_esp:
 					   METRIC_INGRESS, false);
 	}
 
+	/* A packet entering the node from the tunnel and not going to a local
+	 * endpoint has to be going to the local host.
+	 */
 to_host:
 #ifdef HOST_IFINDEX
 	if (1) {
@@ -267,6 +273,9 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
+/* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
+ * entering the node via the tunnel.
+ */
 __section("from-overlay")
 int from_overlay(struct __ctx_buff *ctx)
 {
@@ -323,6 +332,9 @@ out:
 	return ret;
 }
 
+/* Attached to the egress of cilium_vxlan/cilium_geneve to execute on packets
+ * leaving the node via the tunnel.
+ */
 __section("to-overlay")
 int to_overlay(struct __ctx_buff *ctx)
 {

@@ -837,7 +837,9 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 
-/* Attachment/entry point is ingress for veth, egress for ipvlan. */
+/* Attachment/entry point is ingress for veth, egress for ipvlan.
+ * It corresponds to packets leaving the container.
+ */
 __section("from-container")
 int handle_xgress(struct __ctx_buff *ctx)
 {
@@ -1402,6 +1404,10 @@ out:
  * contents of ctx / CB_SRC_LABEL. Determine whether the traffic may be
  * passed into the endpoint or if it needs further inspection by a userspace
  * proxy.
+ *
+ * This program will be tail called to in ipv{4,6}_local_delivery from either
+ * bpf_host, bpf_overlay (if coming from the tunnel), or bpf_lxc (if coming
+ * from another local pod).
  */
 __section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID)
 int handle_policy(struct __ctx_buff *ctx)
@@ -1496,6 +1502,9 @@ drop_err:
 #endif
 BPF_LICENSE("GPL");
 
+/* Attached to the lxc device on the way to the container, only if endpoint
+ * routes are enabled.
+ */
 __section("to-container")
 int handle_to_container(struct __ctx_buff *ctx)
 {
