@@ -935,14 +935,14 @@ be used:
 
 ::
 
-    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/iproute2/iproute2.git
+    $ git clone https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
 Similarly, to clone into mentioned ``net-next`` branch of iproute2, run the
 following:
 
 ::
 
-    $ git clone -b net-next git://git.kernel.org/pub/scm/linux/kernel/git/iproute2/iproute2.git
+    $ git clone -b net-next https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
 After that, proceed with the build and installation:
 
