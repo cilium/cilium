@@ -16,10 +16,44 @@ updates:
     labels:
     - kind/enhancement
     - release-note/misc
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: "v1.9"
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: "v1.8"
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: "v1.7"
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
     labels:
