@@ -141,6 +141,21 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 	return securityGroups
 }
 
+// GetMatchingSubnets returns all subnets in the given VPC and availability zone.
+func (m *InstancesManager) GetMatchingSubnets(vpcID, availabilityZone string) []*ipamTypes.Subnet {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	subnets := make([]*ipamTypes.Subnet, 0, len(m.subnets))
+	for _, s := range m.subnets {
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
+			subnets = append(subnets, s)
+		}
+	}
+
+	return subnets
+}
+
 // Resync fetches the list of EC2 instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
 // started or time.Time{} if it did not complete.

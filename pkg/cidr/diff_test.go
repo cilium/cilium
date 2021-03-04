@@ -42,6 +42,11 @@ func (s *CidrTestSuite) TestDiffIPNetLists(c *check.C) {
 		{old: []*CIDR{net1, net2}, new: []*CIDR{net3, net4}, add: []*CIDR{net3, net4}, remove: []*CIDR{net1, net2}},
 		{old: []*CIDR{net1, net2}, new: []*CIDR{net2, net3}, add: []*CIDR{net3}, remove: []*CIDR{net1}},
 		{old: []*CIDR{net1, net2, net3, net4}, new: []*CIDR{net1, net2, net3, net4}, add: nil, remove: nil},
+		{old: []*CIDR{net1, net1}, new: []*CIDR{net1}, add: nil, remove: nil}, // test duplicates
+		{old: []*CIDR{net1}, new: []*CIDR{net1, net1}, add: nil, remove: nil},
+		{old: []*CIDR{net1, net1}, new: []*CIDR{net1, net1}, add: nil, remove: nil},
+		{old: []*CIDR{net1, net1, net2}, new: []*CIDR{net1, net1}, add: nil, remove: []*CIDR{net2}},
+		{old: []*CIDR{net1, net1}, new: []*CIDR{net1, net1, net2}, add: []*CIDR{net2}, remove: nil},
 	}
 
 	for i, t := range expectations {

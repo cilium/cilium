@@ -138,6 +138,11 @@ func (in *ENIStatus) DeepCopyInto(out *ENIStatus) {
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
+	if in.Subnets != nil {
+		in, out := &in.Subnets, &out.Subnets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

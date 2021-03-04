@@ -200,6 +200,12 @@ type ENIStatus struct {
 	//
 	// +optional
 	ENIs map[string]ENI `json:"enis,omitempty"`
+
+	// Subnets is the list of subnets in the VPC and the availability zone to
+	// which the node is attached to
+	//
+	// +optional
+	Subnets []string `json:"subnets,omitempty"`
 }
 
 // AwsSubnet stores information regarding an AWS subnet

@@ -20,10 +20,12 @@ import (
 	"net"
 	"testing"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -103,6 +105,53 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 			},
 			NodeIdentity: uint64(12345),
 		},
+		Status: ciliumv2.NodeStatus{
+			ENI: eniTypes.ENIStatus{
+				ENIs: map[string]eniTypes.ENI{
+					"eni-0c1acca10397a0187": {
+						ID:  "eni-0c1acca10397a0187",
+						IP:  "10.11.224.12",
+						MAC: "0a:c0:d6:f1:72:a3",
+						Subnet: eniTypes.AwsSubnet{
+							ID:   "subnet-0db942f58edd0f3d6",
+							CIDR: "10.11.224.0/23",
+						},
+						VPC: eniTypes.AwsVPC{
+							ID:          "vpc-09ce2017dbb2d409e",
+							PrimaryCIDR: "10.11.232.0/21",
+						},
+					},
+					"eni-0d4df16da096110ca": {
+						ID:          "eni-0d4df16da096110ca",
+						IP:          "100.112.17.145",
+						MAC:         "0a:c5:98:de:c6:5d",
+						Description: "Cilium-CNI (i-04eb084dde5735440)",
+						Number:      1,
+						Subnet: eniTypes.AwsSubnet{
+							ID:   "subnet-04889f3c14b255e1f",
+							CIDR: "100.112.0.0/19",
+						},
+						VPC: eniTypes.AwsVPC{
+							ID:          "vpc-09ce2017dbb2d409e",
+							PrimaryCIDR: "10.11.232.0/21",
+						},
+						Addresses: []string{
+							"100.112.17.145",
+							"100.112.21.2",
+							"100.112.10.244",
+						},
+						SecurityGroups: []string{
+							"sg-0a57526659c9a4f27",
+							"sg-09deda1f9bba50be4",
+							"sg-0c8be8f91a918b8ef",
+						},
+					},
+				},
+				Subnets: []string{
+					"10.20.0.0/16",
+				},
+			},
+		},
 	}
 
 	n := ParseCiliumNode(nodeResource)
@@ -114,6 +163,33 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
 			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+		},
+		IPv4NativeRoutingCIDRs: []*cidr.CIDR{
+			cidr.MustParseCIDR("10.20.0.0/16"),
+		},
+		Interfaces: []Interface{
+			{
+				Gateway: Address{
+					Type: addressing.NodeInternalIP,
+					IP:   net.IPv4(10, 11, 224, 1),
+				},
+				Index:             0,
+				MAC:               mustParseMAC(c, "0a:c0:d6:f1:72:a3"),
+				EndpointAddresses: []net.IP{},
+			},
+			{
+				Gateway: Address{
+					Type: addressing.NodeInternalIP,
+					IP:   net.IPv4(100, 112, 0, 1),
+				},
+				Index: 1,
+				MAC:   mustParseMAC(c, "0a:c5:98:de:c6:5d"),
+				EndpointAddresses: []net.IP{
+					net.IPv4(100, 112, 10, 244),
+					net.IPv4(100, 112, 17, 145),
+					net.IPv4(100, 112, 21, 2),
+				},
+			},
 		},
 		EncryptionKey: uint8(10),
 		IPv4AllocCIDR: cidr.MustParseCIDR("10.10.0.0/16"),
@@ -168,4 +244,10 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 			NodeIdentity: uint64(12345),
 		},
 	})
+}
+
+func mustParseMAC(c *C, s string) mac.MAC {
+	mac, err := mac.ParseMAC(s)
+	c.Assert(err, IsNil)
+	return mac
 }

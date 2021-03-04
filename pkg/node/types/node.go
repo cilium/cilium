@@ -15,22 +15,29 @@
 package types
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"net"
 	"path"
+	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var errNotAnIPv4Address = errors.New("not an IPv4 address")
 
 // Identity represents the node identity of a node.
 type Identity struct {
@@ -44,7 +51,7 @@ func (nn Identity) String() string {
 }
 
 // ParseCiliumNode parses a CiliumNode custom resource and returns a Node
-// instance. Invalid IP and CIDRs are silently ignored
+// instance. Invalid IPs, CIDRs, and MACs are silently ignored
 func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	node = Node{
 		Name:          n.Name,
@@ -80,6 +87,52 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 			node.IPAddresses = append(node.IPAddresses, Address{Type: address.Type, IP: ip})
 		}
 	}
+
+	cidrs := make([]*cidr.CIDR, 0, len(n.Status.ENI.Subnets))
+	for _, subnet := range n.Status.ENI.Subnets {
+		if cidr, err := cidr.ParseCIDR(subnet); err == nil {
+			cidrs = append(cidrs, cidr)
+		}
+	}
+	node.IPv4NativeRoutingCIDRs = cidrs
+
+	interfaces := make([]Interface, 0, len(n.Status.ENI.ENIs))
+	for _, eni := range n.Status.ENI.ENIs {
+		gateway, err := subnetGatewayAddress(eni.Subnet)
+		if err != nil {
+			continue
+		}
+
+		mac, err := mac.ParseMAC(eni.MAC)
+		if err != nil {
+			continue
+		}
+
+		endpointAddresses := make([]net.IP, 0, len(eni.Addresses))
+		for _, address := range eni.Addresses {
+			endpointAddress := net.ParseIP(address)
+			if endpointAddress == nil {
+				continue
+			}
+			endpointAddresses = append(endpointAddresses, endpointAddress)
+		}
+		sort.Slice(endpointAddresses, func(i, j int) bool {
+			return bytes.Compare(endpointAddresses[i], endpointAddresses[j]) < 0
+		})
+
+		iface := Interface{
+			Gateway:           gateway,
+			Index:             eni.Number,
+			MAC:               mac,
+			EndpointAddresses: endpointAddresses,
+		}
+		interfaces = append(interfaces, iface)
+	}
+	// Sort interfaces by index so the order remains stable.
+	sort.Slice(interfaces, func(i, j int) bool {
+		return interfaces[i].Index < interfaces[j].Index
+	})
+	node.Interfaces = interfaces
 
 	return
 }
@@ -151,6 +204,16 @@ func (n *RegisterNode) DeepKeyCopy() store.LocalKey {
 	return n.DeepCopy()
 }
 
+// Interface contains details about an interface.
+//
+// +k8s:deepcopy-gen=true
+type Interface struct {
+	Gateway           Address
+	Index             int
+	MAC               mac.MAC
+	EndpointAddresses []net.IP
+}
+
 // Node contains the nodes name, the list of addresses to this address
 //
 // +k8s:deepcopy-gen=true
@@ -162,6 +225,12 @@ type Node struct {
 	Cluster string
 
 	IPAddresses []Address
+
+	// IPv4NativeRoutingCIDRs are the CIDRs that are natively routed
+	IPv4NativeRoutingCIDRs []*cidr.CIDR
+
+	// Interfaces are the node's interfaces
+	Interfaces []Interface
 
 	// IPv4AllocCIDR if set, is the IPv4 address pool out of which the node
 	// allocates IPs for local endpoints from
@@ -447,4 +516,25 @@ func (n *Node) Unmarshal(data []byte) error {
 	*n = newNode
 
 	return nil
+}
+
+// subnetGatewayAddress returns the address of the subnet's gateway.
+func subnetGatewayAddress(subnet eniTypes.AwsSubnet) (Address, error) {
+	subnetIP, _, err := net.ParseCIDR(subnet.CIDR)
+	if err != nil {
+		return Address{}, nil
+	}
+
+	if subnetIP.To4() == nil {
+		return Address{}, errNotAnIPv4Address
+	}
+
+	// The gateway for a subnet and VPC is always x.x.x.1, see
+	// https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html.
+	subnetIP[len(subnetIP)-1]++
+
+	return Address{
+		Type: addressing.NodeInternalIP, // FIXME is this correct?
+		IP:   subnetIP,
+	}, nil
 }

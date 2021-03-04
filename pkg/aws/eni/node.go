@@ -103,6 +103,13 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 			return nil
 		})
 
+	ipamSubnets := n.manager.GetMatchingSubnets(k8sObj.Spec.ENI.VpcID, k8sObj.Spec.ENI.AvailabilityZone)
+	subnets := make([]string, 0, len(ipamSubnets))
+	for _, ipamSubnet := range ipamSubnets {
+		subnets = append(subnets, ipamSubnet.CIDR.String())
+	}
+	k8sObj.Status.ENI.Subnets = subnets
+
 	return
 }
 

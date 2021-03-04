@@ -272,5 +272,22 @@ func (in *ENIStatus) DeepEqual(other *ENIStatus) bool {
 		}
 	}
 
+	if ((in.Subnets != nil) && (other.Subnets != nil)) || ((in.Subnets == nil) != (other.Subnets == nil)) {
+		in, other := &in.Subnets, &other.Subnets
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }

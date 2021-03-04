@@ -366,6 +366,12 @@ spec:
                       type: object
                     description: ENIs is the list of ENIs on the node
                     type: object
+                  subnets:
+                    description: Subnets is the list of subnets in the VPC and the
+                      availability zone to which the node is attached to
+                    items:
+                      type: string
+                    type: array
                 type: object
               ipam:
                 description: IPAM is the IPAM status of the node.
