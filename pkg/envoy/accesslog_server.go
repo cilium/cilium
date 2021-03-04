@@ -15,11 +15,12 @@
 package envoy
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -72,8 +73,7 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer, endpointInfoReg
 			uc, err := accessLogListener.AcceptUnix()
 			if err != nil {
 				// These errors are expected when we are closing down
-				if strings.Contains(err.Error(), "closed network connection") ||
-					strings.Contains(err.Error(), "invalid argument") {
+				if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
 					break
 				}
 				log.WithError(err).Warn("Envoy: Failed to accept access log connection")
