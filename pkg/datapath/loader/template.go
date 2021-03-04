@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -241,10 +242,11 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 			}
 		}
 		result["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheDisabled)
-		result["HOST_EP_ID"] = uint32(ep.GetID())
 	} else {
 		result["LXC_ID"] = uint32(ep.GetID())
 	}
+
+	result["HOST_EP_ID"] = uint32(node.GetEndpointID())
 
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = identity

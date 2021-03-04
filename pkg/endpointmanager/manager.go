@@ -630,6 +630,8 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 		return err
 	}
 
+	node.SetEndpointID(ep.GetID())
+
 	epLabels := labels.Labels{}
 	epLabels.MergeLabels(labels.LabelHost)
 
