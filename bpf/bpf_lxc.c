@@ -266,30 +266,34 @@ ct_recreate6:
 
 	daddr = (union v6addr *)&ip6->daddr;
 
-	/* See handle_ipv4_from_lxc() re hairpin_flow */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+	/* See handle_ipv4_from_lxc() for details. */
+	if (is_defined(ENABLE_ROUTING) || is_defined(ENABLE_REDIRECT_FAST) ||
+	    hairpin_flow) {
 		struct endpoint_info *ep;
 
 		/* Lookup IPv6 address, this will return a match if:
-		 *  - The destination IP address belongs to a local endpoint managed by
-		 *    cilium
-		 *  - The destination IP address is an IP address associated with the
-		 *    host itself.
+		 *  - The destination IP address belongs to a local endpoint
+		 *    managed by Cilium.
+		 *  - The destination IP address is an IP address associated
+		 *    with the host itself.
 		 */
 		ep = lookup_ip6_endpoint(ip6);
 		if (ep) {
-#ifdef ENABLE_ROUTING
 			if (ep->flags & ENDPOINT_F_HOST) {
-#ifdef HOST_IFINDEX
-				goto to_host;
-#else
-				return DROP_HOST_UNREACHABLE;
-#endif
+				if (is_defined(ENABLE_ROUTING)) {
+					if (is_defined(HOST_IFINDEX))
+						goto to_host;
+					return DROP_HOST_UNREACHABLE;
+				} else {
+					goto pass_to_stack;
+				}
 			}
-#endif /* ENABLE_ROUTING */
-			policy_clear_mark(ctx);
-			return ipv6_local_delivery(ctx, l3_off, SECLABEL, ep,
-						   METRIC_EGRESS, false);
+			if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+				policy_clear_mark(ctx);
+				return ipv6_local_delivery(ctx, l3_off, SECLABEL,
+							   ep, METRIC_EGRESS,
+							   false);
+			}
 		}
 	}
 
@@ -334,8 +338,8 @@ ct_recreate6:
 
 	goto pass_to_stack;
 
-#ifdef ENABLE_ROUTING
 to_host:
+#ifdef ENABLE_ROUTING
 	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
 	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
 		if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
@@ -648,34 +652,43 @@ ct_recreate4:
 	orig_dip = ip4->daddr;
 
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
-	 * disabled. Otherwise, the packet will be dropped by the kernel if
-	 * it is going to be routed via an interface it came from after it has
-	 * been passed to the stack.
+	 * disabled (e.g. the case in per-endpoint routes). Otherwise, the packet
+	 * will be dropped by the kernel if it is going to be routed via an
+	 * interface it came from after it has been passed to the stack.
+	 *
+	 * For the case where ENABLE_ROUTING is disabled, but the fast redirect
+	 * enabled we do lookup the local endpoint here to check whether we must
+	 * pass the packet up the stack for the host itself. Other local endpoints
+	 * are handled through redirect_direct_v4() later.
 	 */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+	if (is_defined(ENABLE_ROUTING) || is_defined(ENABLE_REDIRECT_FAST) ||
+	    hairpin_flow) {
 		struct endpoint_info *ep;
 
 		/* Lookup IPv4 address, this will return a match if:
 		 *  - The destination IP address belongs to a local endpoint
-		 *    managed by cilium
-		 *  - The destination IP address is an IP address associated with the
-		 *    host itself
+		 *    managed by Cilium.
+		 *  - The destination IP address is an IP address associated with
+		 *    the host itself.
 		 *  - The destination IP address belongs to endpoint itself.
 		 */
 		ep = lookup_ip4_endpoint(ip4);
 		if (ep) {
-#ifdef ENABLE_ROUTING
 			if (ep->flags & ENDPOINT_F_HOST) {
-#ifdef HOST_IFINDEX
-				goto to_host;
-#else
-				return DROP_HOST_UNREACHABLE;
-#endif
+				if (is_defined(ENABLE_ROUTING)) {
+					if (is_defined(HOST_IFINDEX))
+						goto to_host;
+					return DROP_HOST_UNREACHABLE;
+				} else {
+					goto pass_to_stack;
+				}
 			}
-#endif /* ENABLE_ROUTING */
-			policy_clear_mark(ctx);
-			return ipv4_local_delivery(ctx, l3_off, SECLABEL, ip4,
-						   ep, METRIC_EGRESS, false);
+			if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+				policy_clear_mark(ctx);
+				return ipv4_local_delivery(ctx, l3_off, SECLABEL,
+							   ip4, ep, METRIC_EGRESS,
+							   false);
+			}
 		}
 	}
 
@@ -707,8 +720,8 @@ ct_recreate4:
 
 	goto pass_to_stack;
 
-#ifdef ENABLE_ROUTING
 to_host:
+#ifdef ENABLE_ROUTING
 	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
 	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
 		if (is_defined(HOST_REDIRECT_TO_INGRESS)) {

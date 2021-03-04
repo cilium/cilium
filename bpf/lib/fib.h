@@ -19,7 +19,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
 	int ret, oif = DIRECT_ROUTING_DEV_IFINDEX;
 	struct bpf_redir_neigh *nh = NULL;
-# ifndef ENABLE_SKIP_FIB
+#if !is_defined(ENABLE_SKIP_FIB) || !is_defined(ENABLE_ROUTING)
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET6,
@@ -48,20 +48,20 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	oif = fib_params.ifindex;
-# endif /* ENABLE_SKIP_FIB */
+#endif /* !ENABLE_SKIP_FIB || !ENABLE_ROUTING */
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 	if (no_neigh)
 		return redirect_neigh(oif, nh, nh ? sizeof(*nh) : 0, 0);
-# ifndef ENABLE_SKIP_FIB
+#if !is_defined(ENABLE_SKIP_FIB) || !is_defined(ENABLE_ROUTING)
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
 	return redirect(oif, 0);
-# endif /* ENABLE_SKIP_FIB */
+#endif /* !ENABLE_SKIP_FIB || !ENABLE_ROUTING */
 	return CTX_ACT_DROP;
 }
 #endif /* ENABLE_IPV6 */
@@ -81,7 +81,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
 	int ret, oif = DIRECT_ROUTING_DEV_IFINDEX;
 	struct bpf_redir_neigh *nh = NULL;
-# ifndef ENABLE_SKIP_FIB
+#if !is_defined(ENABLE_SKIP_FIB) || !is_defined(ENABLE_ROUTING)
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET,
@@ -108,20 +108,20 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	oif = fib_params.ifindex;
-# endif /* ENABLE_SKIP_FIB */
+#endif /* !ENABLE_SKIP_FIB || !ENABLE_ROUTING */
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 	if (no_neigh)
 		return redirect_neigh(oif, nh, nh ? sizeof(*nh) : 0, 0);
-# ifndef ENABLE_SKIP_FIB
+#if !is_defined(ENABLE_SKIP_FIB) || !is_defined(ENABLE_ROUTING)
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
 	return redirect(oif, 0);
-# endif /* ENABLE_SKIP_FIB */
+#endif /* !ENABLE_SKIP_FIB || !ENABLE_ROUTING */
 	return CTX_ACT_DROP;
 }
 #endif /* ENABLE_IPV4 */
