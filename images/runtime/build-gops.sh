@@ -8,7 +8,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-gops_version="v0.3.14"
+gops_version="v0.3.16"
 
 mkdir -p /go/src/github.com/google
 cd /go/src/github.com/google
