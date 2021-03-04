@@ -11,6 +11,11 @@
 
 #define EVENT_SOURCE HOST_EP_ID
 
+/* Host endpoint ID for the template bpf_host object file. Will be replaced
+ * at compile-time with the proper host endpoint ID.
+ */
+#define TEMPLATE_HOST_EP_ID 0xffff
+
 /* These are configuration options which have a default value in their
  * respective header files and must thus be defined beforehand:
  */
@@ -1127,5 +1132,121 @@ out:
 
 	return ret;
 }
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+static __always_inline int
+/* Handles packet from a local endpoint entering the host namespace. Applies
+ * ingress host policies.
+ */
+to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
+{
+	int ret = CTX_ACT_OK;
+	__u32 src_id = 0;
+	__u16 proto = 0;
+
+	if (!validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	switch (proto) {
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
+# endif
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = ipv6_host_policy_ingress(ctx, &src_id);
+		break;
+# endif
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = ipv4_host_policy_ingress(ctx, &src_id);
+		break;
+# endif
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
+	return ret;
+}
+
+/* Handles packets that left the host namespace and will enter a local
+ * endpoint's namespace. Applies egress host policies before handling
+ * control back to bpf_lxc.
+ */
+static __always_inline int
+from_host_to_lxc(struct __ctx_buff *ctx)
+{
+	int ret = CTX_ACT_OK;
+	__u16 proto = 0;
+
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_UNSUPPORTED_L2;
+
+	switch (proto) {
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
+# endif
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = ipv6_host_policy_egress(ctx, HOST_ID);
+		break;
+# endif
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		/* The last parameter, ipcache_srcid, is only required when
+		 * the src_id is not HOST_ID. For details, see
+		 * whitelist_snated_egress_connections.
+		 * We only arrive here from bpf_lxc if we know the
+		 * src_id is HOST_ID. Therefore, we don't need to pass a value
+		 * for the last parameter. That avoids an ipcache lookup.
+		 */
+		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0);
+		break;
+# endif
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+	return ret;
+}
+
+/* When per-endpoint routes are enabled, packets to and from local endpoints
+ * will tail call into this program to enforce egress and ingress host policies.
+ * Packets to the local endpoints will then tail call back to the original
+ * bpf_lxc program.
+ */
+__section_tail(CILIUM_MAP_POLICY, TEMPLATE_HOST_EP_ID)
+handle_lxc_traffic(struct __ctx_buff *ctx)
+{
+	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	__u32 lxc_id;
+	int ret;
+
+	if (from_host) {
+		ret = from_host_to_lxc(ctx);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, HOST_ID, ret, CTX_ACT_DROP,
+						      METRIC_EGRESS);
+
+		lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
+		ctx_store_meta(ctx, CB_SRC_LABEL, HOST_ID);
+		tail_call_dynamic(ctx, &POLICY_CALL_MAP, lxc_id);
+		return DROP_MISSED_TAIL_CALL;
+	}
+
+	return to_host_from_lxc(ctx);
+}
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 BPF_LICENSE("GPL");

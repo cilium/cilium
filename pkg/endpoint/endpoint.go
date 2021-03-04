@@ -488,6 +488,7 @@ func CreateHostEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator
 
 	ep := createEndpoint(owner, proxy, allocator, 0, ifName)
 	ep.isHost = true
+	ep.mac = mac
 	ep.nodeMAC = mac
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
