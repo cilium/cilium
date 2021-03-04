@@ -643,7 +643,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
 	}
 
-	if !datapathRegenCtxt.epInfoCache.IsHost() {
+	if !datapathRegenCtxt.epInfoCache.IsHost() ||
+		(option.Config.EnableHostFirewall && option.Config.EnableEndpointRoutes) {
 		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 		stats.mapSync.Start()
 		epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache, e.policyMap)

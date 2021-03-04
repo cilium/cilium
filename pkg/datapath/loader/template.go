@@ -179,9 +179,13 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		}
 	}
 
-	if !ep.IsHost() {
+	// The policy map is only used for the host endpoint is per-endpoint
+	// routes and the host firewall are enabled.
+	if !ep.IsHost() ||
+		(option.Config.EnableEndpointRoutes && option.Config.EnableHostFirewall) {
 		result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
 	}
+
 	return result
 }
 

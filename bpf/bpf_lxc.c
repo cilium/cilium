@@ -333,6 +333,17 @@ ct_recreate6:
 		}
 	}
 
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+	/* If the destination is the local host and per-endpoint routes are
+	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 */
+	if (*dstID == HOST_ID) {
+		ctx_store_meta(ctx, CB_FROM_HOST, 0);
+		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
 	{
@@ -735,6 +746,17 @@ ct_recreate4:
 						   ep, METRIC_EGRESS, false);
 		}
 	}
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+	/* If the destination is the local host and per-endpoint routes are
+	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 */
+	if (*dstID == HOST_ID) {
+		ctx_store_meta(ctx, CB_FROM_HOST, 0);
+		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
@@ -1646,6 +1668,19 @@ int handle_to_container(struct __ctx_buff *ctx)
 
 	send_trace_notify(ctx, trace, identity, 0, 0,
 			  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+	/* If the packet comes from the hostns and per-endpoint routes are enabled,
+	 * jump to bpf_host to enforce egress host policies before anything else.
+	 * We will jump back to bpf_lxc once host policies are enforced.
+	 */
+	if (identity == HOST_ID) {
+		ctx_store_meta(ctx, CB_FROM_HOST, 1);
+		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
+		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
