@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
+	"github.com/cilium/cilium-cli/internal/utils"
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
@@ -367,12 +368,27 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filter [
 
 	flows, ok := t.flows[pod]
 	if !ok {
+		w := utils.NewWaitObserver(ctx, utils.WaitParameters{
+			Timeout:       defaults.FlowWaitTimeout,
+			RetryInterval: defaults.FlowRetryInterval,
+			Log: func(err error, wait string) {
+				t.context.Log("⌛ Waiting (%s) for flows: %s", wait, err)
+			}})
+		defer w.Cancel()
+
 		var err error
+
+	retry:
 		flows, err = getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod, podIP)
-		if err != nil {
-			t.context.Log("Unable to retrieve flows of pod %s: %s", pod, err)
-			t.Failure("Unable to retrieve flows of pod %q: %s", pod, err)
-			return
+		if err != nil || flows == nil || len(flows.flows) == 0 {
+			if err == nil {
+				err = fmt.Errorf("no flows returned")
+			}
+			if err := w.Retry(err); err != nil {
+				t.Failure("Unable to retrieve flows of pod %q: %s", pod, err)
+				return
+			}
+			goto retry
 		}
 
 		t.flows[pod] = flows

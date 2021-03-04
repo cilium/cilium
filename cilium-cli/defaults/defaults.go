@@ -82,6 +82,9 @@ const (
 
 	WaitRetryInterval   = 2 * time.Second
 	WaitWarningInterval = 10 * time.Second
+
+	FlowWaitTimeout   = 5 * time.Second
+	FlowRetryInterval = 500 * time.Millisecond
 )
 
 var OperatorLabels = map[string]string{
