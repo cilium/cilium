@@ -1,0 +1,110 @@
+name: ConformanceKind1.19
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+
+env:
+  KIND_VERSION: v0.9.0
+  KIND_CONFIG: .github/kind-config.yaml
+
+jobs:
+  installation-and-connectivitiy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
+
+      - name: Install Cilium CLI
+        run: |
+          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.4/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.0.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+
+      - name: Install Cilium
+        run: |
+          cilium install --config monitor-aggregation=none \
+            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
+            --version=${{ steps.vars.outputs.tag }}
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+
+      - name: Status
+        run: |
+          cilium status --wait
+
+      - name: Relay Port Forward
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Connectivity Test
+        run: |
+          cilium connectivity test
+
+      - name: Uninstall cilium
+        run: |
+          cilium uninstall --wait
+
+      - name: Install Cilium with Encryption
+        run: |
+          cilium install --encryption
+
+      - name: Status
+        run: |
+          cilium status --wait
+
+      - name: Connectivity test
+        run: |
+          cilium connectivity test
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cilium status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+
+      - name: Upload Artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: cilium-ci-sysdump.zip
+          path: cilium-ci-sysdump.zip
+          retention-days: 5
