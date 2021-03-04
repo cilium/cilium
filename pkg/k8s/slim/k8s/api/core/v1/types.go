@@ -566,6 +566,14 @@ type ServiceSpec struct {
 	// +optional
 	SessionAffinity ServiceAffinity `json:"sessionAffinity,omitempty" protobuf:"bytes,7,opt,name=sessionAffinity,casttype=ServiceAffinity"`
 
+	// Only applies to Service Type: LoadBalancer
+	// LoadBalancer will get created with the IP specified in this field.
+	// This feature depends on whether the underlying cloud-provider supports specifying
+	// the loadBalancerIP when a load balancer is created.
+	// This field will be ignored if the cloud-provider does not support the feature.
+	// +optional
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty" protobuf:"bytes,8,opt,name=loadBalancerIP"`
+
 	// If specified and supported by the platform, this will restrict traffic through the cloud-provider
 	// load-balancer will be restricted to the specified client IPs. This field will be ignored if the
 	// cloud-provider does not support the feature."
