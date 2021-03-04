@@ -1990,22 +1990,18 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				deploymentManager.DeleteCilium()
 			})
 
-			SkipItIf(func() bool { return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x") }, "with the host firewall and externalTrafficPolicy=Local", func() {
-				options := map[string]string{
+			SkipItIf(func() bool {
+				return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x")
+			}, "with the host firewall and externalTrafficPolicy=Local", func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"hostFirewall": "true",
-				}
-				// We can't rely on gke.enabled because it enables
-				// per-endpoint routes which are incompatible with
-				// the host firewall.
-				if helpers.RunsOnGKE() {
-					options["gke.enabled"] = "false"
-					options["tunnel"] = "disabled"
-				}
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
+				})
 				testExternalTrafficPolicyLocal()
 			})
 
-			SkipItIf(func() bool { return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x") }, "with externalTrafficPolicy=Local", func() {
+			SkipItIf(func() bool {
+				return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x")
+			}, "with externalTrafficPolicy=Local", func() {
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
 				testExternalTrafficPolicyLocal()
 			})
@@ -2257,17 +2253,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
-							options := map[string]string{
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 								"hostFirewall": "true",
-							}
-							// We can't rely on gke.enabled because it enables
-							// per-endpoint routes which are incompatible with
-							// the host firewall.
-							if helpers.RunsOnGKE() {
-								options["gke.enabled"] = "false"
-								options["tunnel"] = "disabled"
-							}
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
+							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
@@ -2396,13 +2384,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								"tunnel":               "disabled",
 								"autoDirectNodeRoutes": "true",
 								"hostFirewall":         "true",
-							}
-							// We can't rely on gke.enabled because it enables
-							// per-endpoint routes which are incompatible with
-							// the host firewall.
-							if helpers.RunsOnGKE() {
-								options["gke.enabled"] = "false"
-								options["tunnel"] = "disabled"
 							}
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
