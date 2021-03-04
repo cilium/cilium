@@ -416,6 +416,10 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		index = n.findNextIndex(index + 1)
 	}
 
+	if err == nil {
+		eni.IPv4CIDRs, err = n.manager.api.GetVPCIPv4CIDRBlocks(ctx, eni.MAC)
+	}
+
 	if err != nil {
 		delErr := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 		if delErr != nil {

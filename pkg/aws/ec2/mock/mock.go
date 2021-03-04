@@ -436,3 +436,7 @@ func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, er
 	}
 	return securityGroups, nil
 }
+
+func (e *API) GetVPCIPv4CIDRBlocks(ctx context.Context, mac string) ([]string, error) {
+	return []string{"10.0.0.0/8"}, nil
+}

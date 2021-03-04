@@ -135,6 +135,23 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
+	if ((in.IPv4CIDRs != nil) && (other.IPv4CIDRs != nil)) || ((in.IPv4CIDRs == nil) != (other.IPv4CIDRs == nil)) {
+		in, other := &in.IPv4CIDRs, &other.IPv4CIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }
 

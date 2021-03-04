@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/aws/endpoints"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -234,6 +235,11 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 
 	for _, iface := range networkInterfaces {
 		id, eni, err := parseENI(&iface, vpcs, subnets)
+		if err != nil {
+			return nil, err
+		}
+
+		eni.IPv4CIDRs, err = metadata.GetVPCIPv4CIDRBlocks(ctx, eni.MAC)
 		if err != nil {
 			return nil, err
 		}
@@ -540,4 +546,10 @@ func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceType
 		result = append(result, output.InstanceTypes...)
 	}
 	return result, nil
+}
+
+// GetVPCIPv4CIDRBlocks returns the IPv4 CIDR blocks associated with the VPC
+// that the interface with the given MAC address is attached to.
+func (c *Client) GetVPCIPv4CIDRBlocks(ctx context.Context, mac string) ([]string, error) {
+	return metadata.GetVPCIPv4CIDRBlocks(ctx, mac)
 }

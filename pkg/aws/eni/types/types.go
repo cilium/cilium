@@ -176,6 +176,11 @@ type ENI struct {
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
+
+	// IPv4CIDRs is a list of all CIDRs associated with the ENI's VPC.
+	//
+	// +optional
+	IPv4CIDRs []string `json:"ipv4-cidrs,omitempty"`
 }
 
 // InterfaceID returns the identifier of the interface

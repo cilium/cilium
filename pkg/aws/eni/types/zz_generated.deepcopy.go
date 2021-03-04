@@ -70,6 +70,11 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.IPv4CIDRs != nil {
+		in, out := &in.IPv4CIDRs, &out.IPv4CIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

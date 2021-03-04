@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-21 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,49 +15,68 @@
 package metadata
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
-func getMetadata(name string) (string, error) {
-	resp, err := http.Get("http://169.254.169.254/latest/meta-data/" + name)
+func getMetadata(ctx context.Context, name string) (string, error) {
+	url := "http://169.254.169.254/latest/meta-data/" + name
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve instance-id from metadata server: %s", err)
 	}
 
 	defer resp.Body.Close()
-	instanceID, err := ioutil.ReadAll(resp.Body)
+	metadata, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("unable to read response body: %s", err)
 	}
 
-	return string(instanceID), nil
+	return string(metadata), nil
 }
 
 // GetInstanceMetadata returns the instance ID and type
 func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID string, err error) {
-	instanceID, err = getMetadata("instance-id")
+	ctx := context.TODO()
+
+	instanceID, err = getMetadata(ctx, "instance-id")
 	if err != nil {
 		return
 	}
 
-	instanceType, err = getMetadata("instance-type")
+	instanceType, err = getMetadata(ctx, "instance-type")
 	if err != nil {
 		return
 	}
 
-	eth0MAC, err := getMetadata("mac")
+	eth0MAC, err := getMetadata(ctx, "mac")
 	if err != nil {
 		return
 	}
 
 	vpcIDPath := fmt.Sprintf("network/interfaces/macs/%s/vpc-id", eth0MAC)
-	vpcID, err = getMetadata(vpcIDPath)
+	vpcID, err = getMetadata(ctx, vpcIDPath)
 	if err != nil {
 		return
 	}
 
-	availabilityZone, err = getMetadata("placement/availability-zone")
+	availabilityZone, err = getMetadata(ctx, "placement/availability-zone")
 	return
+}
+
+// GetVPCIPv4CIDRBlocks returns the CIDR blocks associated with mac's VPC.
+func GetVPCIPv4CIDRBlocks(ctx context.Context, mac string) ([]string, error) {
+	name := "network/interfaces/macs/" + string(mac) + "/vpc-ipv4-cidr-blocks"
+	metadata, err := getMetadata(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Fields(metadata), nil
 }
