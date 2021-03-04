@@ -50,6 +50,8 @@ jobs:
           git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
   quick-install:
+    # Only run quick-install on stable branches
+    if: ${{ github.ref != 'refs/heads/master' }}
     strategy:
       matrix:
         target:
