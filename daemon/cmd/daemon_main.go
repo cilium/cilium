@@ -1281,13 +1281,8 @@ func initEnv(cmd *cobra.Command) {
 	initClockSourceOption()
 	initSockmapOption()
 
-	if option.Config.EnableHostFirewall {
-		if option.Config.EnableIPSec {
-			log.Fatal("IPSec cannot be used with the host firewall.")
-		}
-		if option.Config.EnableEndpointRoutes {
-			log.Fatalf("%s cannot be used with the host firewall. Packets must be routed through the host device.", option.EnableEndpointRoutes)
-		}
+	if option.Config.EnableHostFirewall && option.Config.EnableIPSec {
+		log.Fatal("IPSec cannot be used with the host firewall.")
 	}
 
 	if option.Config.EnableBandwidthManager && option.Config.EnableIPSec {
