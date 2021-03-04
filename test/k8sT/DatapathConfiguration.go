@@ -648,6 +648,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testHostFirewall(kubectl)
 		})
 
+		SkipItIf(helpers.RunsOnGKE, "With VXLAN and endpoint routes", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"hostFirewall":           "true",
+				"endpointRoutes.enabled": "true",
+			}, DeployCiliumOptionsAndDNS)
+			testHostFirewall(kubectl)
+		})
+
 		// We need to skip this test when using kube-proxy because of #14859.
 		SkipItIf(helpers.RunsWithKubeProxy, "With native routing", func() {
 			options := map[string]string{
@@ -659,6 +667,20 @@ var _ = Describe("K8sDatapathConfig", func() {
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
 			} else {
+				options["autoDirectNodeRoutes"] = "true"
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			testHostFirewall(kubectl)
+		})
+
+		// We need to skip this test when using kube-proxy because of #14859.
+		SkipItIf(helpers.RunsWithKubeProxy, "With native routing and endpoint routes", func() {
+			options := map[string]string{
+				"hostFirewall":           "true",
+				"tunnel":                 "disabled",
+				"endpointRoutes.enabled": "true",
+			}
+			if !helpers.RunsOnGKE() {
 				options["autoDirectNodeRoutes"] = "true"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
