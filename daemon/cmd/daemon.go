@@ -531,7 +531,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" ||
+		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity ||
 			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
 
 		var msg string
@@ -539,6 +539,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		case !option.Config.EnableNodePort:
 			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
 				option.EnableNodePort)
+		case !option.Config.EnableRemoteNodeIdentity:
+			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
+				option.EnableRemoteNodeIdentity)
 		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
 		case option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices():
 			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
@@ -551,6 +554,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		// this  statement, so it's OK to fallback to iptables-based MASQ.
 		option.Config.EnableBPFMasquerade = false
 		log.Warn(msg + " Falling back to iptables-based masquerading.")
+		// Too bad, if we need to revert to iptables-based MASQ, we also cannot
+		// use BPF host routing since we need the upper stack.
+		if !option.Config.EnableHostLegacyRouting {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
+				option.EnableHostLegacyRouting)
+		}
 	}
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
