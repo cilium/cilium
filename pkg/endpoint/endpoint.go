@@ -870,6 +870,28 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, bEp []byte) (*
 	return &ep, nil
 }
 
+// NewDatapathConfiguration return the default endpoint datapath configuration
+// based on whether per-endpoint routes are enabled.
+func NewDatapathConfiguration() models.EndpointDatapathConfiguration {
+	config := models.EndpointDatapathConfiguration{}
+	if option.Config.EnableEndpointRoutes {
+		// Indicate to insert a per endpoint route instead of routing
+		// via cilium_host interface
+		config.InstallEndpointRoute = true
+
+		// Since routing occurs via endpoint interface directly, BPF
+		// program is needed on that device at egress as BPF program on
+		// cilium_host interface is bypassed
+		config.RequireEgressProg = true
+
+		// Delegate routing to the Linux stack rather than tail-calling
+		// between BPF programs.
+		disabled := false
+		config.RequireRouting = &disabled
+	}
+	return config
+}
+
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	e.unconditionalLock()
 	defer e.unlock()
