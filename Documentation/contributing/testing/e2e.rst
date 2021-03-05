@@ -64,7 +64,7 @@ To run all of the runtime tests, execute the following command from the ``test``
 
 ::
 
-    ginkgo --focus="Runtime" -noColor
+    ginkgo --focus="Runtime"
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -72,7 +72,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 ::
 
-    $ ginkgo --focus="Runtime" -noColor -dryRun
+    $ ginkgo --focus="Runtime" -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -115,7 +115,7 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
 ::
 
-    ginkgo --focus="K8s" -noColor
+    ginkgo --focus="K8s"
 
 To run a specific test from the Kubernetes tests suite, run the following command
 from the ``test`` directory:
@@ -144,7 +144,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 ::
 
-    K8S_VERSION=<version> ginkgo --focus="K8s" -noColor
+    K8S_VERSION=<version> ginkgo --focus="K8s"
 
 .. note::
 
@@ -177,7 +177,7 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
 
 ::
 
-    ginkgo --focus="Nightly"  -noColor
+    ginkgo --focus="Nightly"
 
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and contain
@@ -483,7 +483,7 @@ An example invocation is
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
 
 Running in GKE
 ^^^^^^^^^^^^^^
@@ -507,7 +507,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.18 but can be configured with
           versions between 1.13 and 1.18. Version should match the server
