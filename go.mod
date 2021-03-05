@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
-	github.com/cilium/arping v1.0.1-0.20210125181454-ec36642003a5
+	github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
@@ -71,7 +71,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/stretchr/testify v1.4.0
-	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
+	github.com/vishvananda/netlink v1.1.1-0.20210304225204-ec93726159ae
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
