@@ -484,9 +484,7 @@ func CreateHostEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator
 	ep := createEndpoint(owner, proxy, allocator, 0, ifName)
 	ep.isHost = true
 	ep.nodeMAC = mac
-	ep.DatapathConfiguration = models.EndpointDatapathConfiguration{
-		RequireEgressProg: true,
-	}
+	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.setState(StateWaitingForIdentity, "Endpoint creation")
 
