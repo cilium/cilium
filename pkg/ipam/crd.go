@@ -508,7 +508,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
 			if iface.ID == ipInfo.Resource {
 				result.PrimaryMAC = iface.MAC
-				result.GatewayIP = iface.GatewayIP
+				result.GatewayIP = iface.Gateway
 				return
 			}
 		}

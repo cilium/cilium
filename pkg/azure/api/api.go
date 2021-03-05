@@ -263,6 +263,7 @@ func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap, usePr
 					if subnet, ok := subnets[addr.Subnet]; ok {
 						if gateway := deriveGatewayIP(subnet.CIDR.IP); gateway != "" {
 							i.GatewayIP = gateway
+							i.Gateway = gateway
 						}
 					}
 				}

@@ -112,8 +112,15 @@ type AzureInterface struct {
 
 	// GatewayIP is the interface's subnet's default route
 	//
+	// OBSOLETE: This field is obsolete, please use Gateway field instead.
+	//
 	// +optional
 	GatewayIP string `json:"GatewayIP"`
+
+	// Gateway is the interface's subnet's default route
+	//
+	// +optional
+	Gateway string `json:"gateway"`
 
 	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
