@@ -322,7 +322,7 @@ func (m *DeploymentManager) DeployCilium(options map[string]string, deploy Ciliu
 
 	ginkgoext.By("Making sure all endpoints are in ready state")
 	if err = m.kubectl.CiliumEndpointWaitReady(); err != nil {
-		ginkgoext.Failf("Failure while waiting for all cilium endpoints to reach ready state: %s", err)
+		Fail(fmt.Sprintf("Failure while waiting for all cilium endpoints to reach ready state: %s", err))
 	}
 
 	m.ciliumDeployed = true
