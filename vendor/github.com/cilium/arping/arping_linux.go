@@ -1,9 +1,10 @@
 package arping
 
 import (
-	"net"
 	"syscall"
 	"time"
+
+	"github.com/vishvananda/netlink"
 )
 
 type requester struct {
@@ -11,8 +12,8 @@ type requester struct {
 	toSockaddr syscall.SockaddrLinklayer
 }
 
-func initialize(iface net.Interface) (*requester, error) {
-	toSockaddr := syscall.SockaddrLinklayer{Ifindex: iface.Index}
+func initialize(iface netlink.Link) (*requester, error) {
+	toSockaddr := syscall.SockaddrLinklayer{Ifindex: iface.Attrs().Index}
 
 	// 1544 = htons(ETH_P_ARP)
 	const proto = 1544

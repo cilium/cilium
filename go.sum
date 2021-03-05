@@ -107,8 +107,8 @@ github.com/christarazi/structured-merge-diff/v4 v4.0.2-0.20200917183246-1cc60193
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
-github.com/cilium/arping v1.0.1-0.20210125181454-ec36642003a5 h1:wD2AlWiJXuPLEk9sKxTMLSSYEpNOB7JEsAwNxmESs1E=
-github.com/cilium/arping v1.0.1-0.20210125181454-ec36642003a5/go.mod h1:hnjbWhP2F454GKo6vEscP3emePUtB+5ODiGAICLgMzQ=
+github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2 h1:eYq09c1qsvgVDLgZ3gFoq+OnZt5EWBJmqCO2BcgBFdg=
+github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2/go.mod h1:BbglXLG6/USt+UydHFLglGzC3Sxs2VsrlDxI+N3mc7s=
 github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595 h1:/tw/KYkvzaruvZtfP0vU3Oog83kvjh5sUYFtkVnjFUE=
 github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595/go.mod h1:5Op2bSbK+COBz8mwH62rrRgqhA9wOcORkWZ03+GL0Ow=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e h1:VZolEtS7AlGDu3IH368iqkvfQQSGPgOnPjNaUx4dS7M=
