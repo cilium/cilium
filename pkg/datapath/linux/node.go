@@ -710,12 +710,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
 	if nextHopIsNew || refresh {
-		iface, err := net.InterfaceByName(ifaceName)
-		if err != nil {
-			scopedLog.WithError(err).Error("Failed to retrieve iface by name")
-			return
-		}
-
 		linkAttr, err := netlink.LinkByName(ifaceName)
 		if err != nil {
 			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
@@ -723,7 +717,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		}
 		link := linkAttr.Attrs().Index
 
-		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface, srcIPv4)
+		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, linkAttr, srcIPv4)
 		if err != nil {
 			scopedLog.WithError(err).Error("arping failed")
 			return
