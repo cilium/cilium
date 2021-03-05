@@ -403,10 +403,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
-	if option.Config.PolicyAuditMode {
-		cDefinesMap["POLICY_AUDIT_MODE"] = "1"
-	}
-
 	if option.Config.AllowICMPFragNeeded {
 		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
 	}
