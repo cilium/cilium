@@ -847,6 +847,9 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, bEp []byte) (*
 	// If host label is present, it's the host endpoint.
 	ep.isHost = ep.HasLabels(labels.LabelHost)
 
+	// Overwrite datapath configuration with the current agent configuration.
+	ep.DatapathConfiguration = NewDatapathConfiguration()
+
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
 	// error/panic if CurrentStatus or Log are not initialized correctly.
