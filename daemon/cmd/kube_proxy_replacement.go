@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -434,6 +435,8 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		case (option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade) &&
 			!option.Config.EnableBPFMasquerade:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		case !mac.HaveMACAddr(option.Config.Devices):
+			msg = fmt.Sprintf("BPF host routing is currently not supported with devices without L2 addr.")
 		default:
 			probesManager := probes.NewProbeManager()
 			foundNeigh := false
