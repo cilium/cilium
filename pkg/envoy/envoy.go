@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -279,6 +280,8 @@ func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 	return nil
 }
 
+var deprecated_re = regexp.MustCompile("[Vv]2.*deprecated")
+
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
 func newEnvoyLogPiper() io.WriteCloser {
 	reader, writer := io.Pipe()
@@ -291,6 +294,9 @@ func newEnvoyLogPiper() io.WriteCloser {
 		})
 		level := "debug"
 
+		// Keep track of dropping multi-line messages
+		dropMsg := false
+
 		for scanner.Scan() {
 			line := scanner.Text()
 			var msg string
@@ -299,6 +305,7 @@ func newEnvoyLogPiper() io.WriteCloser {
 			// Parse the line as a log message written by Envoy, assuming it
 			// uses the configured format: "%t|%l|%n|%v".
 			if len(parts) == 4 {
+				dropMsg = false
 				threadID := parts[0]
 				level = parts[1]
 				loggerName := parts[2]
@@ -310,6 +317,10 @@ func newEnvoyLogPiper() io.WriteCloser {
 					logfields.ThreadID:  threadID,
 				})
 			} else {
+				// Keep dropping lines of a multi-line message if the first line was dropped
+				if dropMsg {
+					continue
+				}
 				// If this line can't be parsed, it continues a multi-line log
 				// message. In this case, log it at the same level and with the
 				// same fields as the previous line.
@@ -325,6 +336,11 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case "off", "critical", "error":
 				scopedLog.Error(msg)
 			case "warning":
+				// Silently drop deprecation warnings if flowdebug is not enabled
+				if !flowdebug.Enabled() && deprecated_re.MatchString(msg) {
+					dropMsg = true
+					continue
+				}
 				scopedLog.Warn(msg)
 			case "info":
 				scopedLog.Info(msg)
