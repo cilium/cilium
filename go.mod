@@ -71,7 +71,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/stretchr/testify v1.6.1
-	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
+	github.com/vishvananda/netlink v1.1.1-0.20210304225204-ec93726159ae
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
@@ -107,7 +107,7 @@ replace (
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 
 	// Using cilium/netlink until XFRM patches merged upstream
-	github.com/vishvananda/netlink => github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934
+	github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20210305225027-66e1713b4f2e
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8 // To avoid https://github.com/go-yaml/yaml/pull/571.
 	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595
 

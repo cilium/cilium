@@ -34,6 +34,21 @@ const (
 	TUNTAP_MULTI_QUEUE_DEFAULTS TuntapFlag = TUNTAP_MULTI_QUEUE | TUNTAP_NO_PI
 )
 
+var StringToTuntapModeMap = map[string]TuntapMode{
+	"tun": TUNTAP_MODE_TUN,
+	"tap": TUNTAP_MODE_TAP,
+}
+
+func (ttm TuntapMode) String() string {
+	switch ttm {
+	case TUNTAP_MODE_TUN:
+		return "tun"
+	case TUNTAP_MODE_TAP:
+		return "tap"
+	}
+	return "unknown"
+}
+
 const (
 	VF_LINK_STATE_AUTO    uint32 = 0
 	VF_LINK_STATE_ENABLE  uint32 = 1
@@ -1046,8 +1061,8 @@ func addBondAttrs(bond *Bond, linkInfo *nl.RtAttr) {
 	if bond.LpInterval >= 0 {
 		data.AddRtAttr(nl.IFLA_BOND_LP_INTERVAL, nl.Uint32Attr(uint32(bond.LpInterval)))
 	}
-	if bond.PackersPerSlave >= 0 {
-		data.AddRtAttr(nl.IFLA_BOND_PACKETS_PER_SLAVE, nl.Uint32Attr(uint32(bond.PackersPerSlave)))
+	if bond.PacketsPerSlave >= 0 {
+		data.AddRtAttr(nl.IFLA_BOND_PACKETS_PER_SLAVE, nl.Uint32Attr(uint32(bond.PacketsPerSlave)))
 	}
 	if bond.LacpRate >= 0 {
 		data.AddRtAttr(nl.IFLA_BOND_AD_LACP_RATE, nl.Uint8Attr(uint8(bond.LacpRate)))
@@ -2309,7 +2324,7 @@ func parseBondData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_BOND_LP_INTERVAL:
 			bond.LpInterval = int(native.Uint32(data[i].Value[0:4]))
 		case nl.IFLA_BOND_PACKETS_PER_SLAVE:
-			bond.PackersPerSlave = int(native.Uint32(data[i].Value[0:4]))
+			bond.PacketsPerSlave = int(native.Uint32(data[i].Value[0:4]))
 		case nl.IFLA_BOND_AD_LACP_RATE:
 			bond.LacpRate = BondLacpRate(data[i].Value[0])
 		case nl.IFLA_BOND_AD_SELECT:
