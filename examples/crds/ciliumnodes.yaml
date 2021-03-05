@@ -254,8 +254,9 @@ spec:
                       description: AzureInterface represents an Azure Interface
                       properties:
                         GatewayIP:
-                          description: GatewayIP is the interface's subnet's default
-                            route
+                          description: "GatewayIP is the interface's subnet's default
+                            route \n OBSOLETE: This field is obsolete, please use
+                            Gateway field instead."
                           type: string
                         addresses:
                           description: Addresses is the list of all IPs associated
@@ -277,6 +278,10 @@ spec:
                                 type: string
                             type: object
                           type: array
+                        gateway:
+                          description: Gateway is the interface's subnet's default
+                            route
+                          type: string
                         id:
                           description: ID is the identifier
                           type: string
