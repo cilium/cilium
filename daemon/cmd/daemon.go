@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
@@ -155,10 +154,6 @@ type Daemon struct {
 	identityAllocator *cache.CachingIdentityAllocator
 
 	k8sWatcher *watchers.K8sWatcher
-
-	// healthEndpointRouting is the information required to set up the health
-	// endpoint's routing in ENI or Azure IPAM mode
-	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	hubbleObserver *observer.LocalObserverServer
 

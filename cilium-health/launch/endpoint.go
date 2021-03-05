@@ -34,7 +34,6 @@ import (
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -241,8 +240,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	mtuConfig mtu.Configuration,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
-	allocator cache.IdentityAllocator,
-	routingConfig routingConfigurer) (*Client, error) {
+	allocator cache.IdentityAllocator) (*Client, error) {
 
 	var (
 		cmd  = launcher.Launcher{}
@@ -345,18 +343,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMENI {
-		// ENI mode does not support IPv6.
-		if err := routingConfig.Configure(
-			healthIP,
-			mtuConfig.GetDeviceMTU(),
-			option.Config.EgressMultiHomeIPRuleCompat,
-		); err != nil {
-
-			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
-		}
-	}
-
 	if err := epMgr.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}
@@ -375,8 +361,4 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
-}
-
-type routingConfigurer interface {
-	Configure(ip net.IP, mtu int, compat bool) error
 }

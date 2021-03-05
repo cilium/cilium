@@ -234,15 +234,6 @@ func (d *Daemon) allocateHealthIPs() error {
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
 			d.nodeDiscovery.LocalNode.IPv4HealthIP = result.IP
-
-			// In ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
-			// in order to set up rules and routes on the local node to direct
-			// endpoint traffic out of the ENIs.
-			if option.Config.IPAM == ipamOption.IPAMENI {
-				if err := d.parseHealthEndpointInfo(result); err != nil {
-					log.WithError(err).Warn("Unable to allocate health information for ENI")
-				}
-			}
 		}
 
 		if option.Config.EnableIPv6 {
@@ -377,16 +368,4 @@ func (d *Daemon) startIPAM() {
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.k8sWatcher)
 	bootstrapStats.ipam.End(true)
-}
-
-func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
-	var err error
-	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(
-		result.GatewayIP,
-		result.CIDRs,
-		result.PrimaryMAC,
-		result.InterfaceNumber,
-		option.Config.EnableIPv4Masquerade,
-	)
-	return err
 }

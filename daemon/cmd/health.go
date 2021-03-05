@@ -88,8 +88,7 @@ func (d *Daemon) initHealth() {
 						d.mtuConfig,
 						d.endpointManager,
 						d.l7Proxy,
-						d.identityAllocator,
-						d.healthEndpointRouting)
+						d.identityAllocator)
 					if launchErr != nil {
 						if err != nil {
 							return fmt.Errorf("failed to restart endpoint (check failed: %q): %s", err, launchErr)
