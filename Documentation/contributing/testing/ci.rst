@@ -249,12 +249,12 @@ example patch that shows how this can be achieved.
                  steps {
                      parallel(
                          "Runtime":{
-    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated" -v -noColor'
-    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo" -v -noColor'
+    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated"'
+    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo"'
                          },
                          "K8s-1.9":{
-    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" -v -noColor ${FAILFAST}'
-    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" -v -noColor ${FAILFAST}'
+    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" ${FAILFAST}'
+    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" ${FAILFAST}'
                          },
                          failFast: true
                      )
