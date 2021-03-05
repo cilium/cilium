@@ -44,7 +44,7 @@ func (e *EtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *EtcdSuite) TearDownTest(c *C) {
-	Client().Close()
+	Client().Close(context.TODO())
 }
 
 type MaintenanceMocker struct {
@@ -363,7 +363,7 @@ func (e *EtcdLockedSuite) SetUpSuite(c *C) {
 func (e *EtcdLockedSuite) TearDownSuite(c *C) {
 	err := e.etcdClient.Close()
 	c.Assert(err, IsNil)
-	Client().Close()
+	Client().Close(context.TODO())
 }
 
 func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
@@ -1970,7 +1970,7 @@ func (e *EtcdRateLimiterSuite) TestRateLimiter(c *C) {
 			err = kvlocker.Unlock(context.TODO())
 			c.Assert(err, IsNil)
 		}
-		Client().Close()
+		Client().Close(context.TODO())
 
 		// Clean created KV Pairs if populateKVPairs is disabled and cleanKVPairs is enabled.
 		if !op.populateKVPairs && op.cleanKVPairs {
@@ -2005,7 +2005,7 @@ func (e *EtcdRateLimiterSuite) TestRateLimiter(c *C) {
 			err = kvlocker.Unlock(context.TODO())
 			c.Assert(err, IsNil)
 		}
-		Client().Close()
+		Client().Close(context.TODO())
 
 		if op.needCondKey {
 			_, err = e.etcdClient.Delete(context.Background(), condKey)

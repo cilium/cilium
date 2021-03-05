@@ -1646,9 +1646,9 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 }
 
 // Close closes the etcd session
-func (e *etcdClient) Close() {
+func (e *etcdClient) Close(ctx context.Context) {
 	close(e.stopStatusChecker)
-	sessionErr := e.waitForInitialSession(context.Background())
+	sessionErr := e.waitForInitialSession(ctx)
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
 	}

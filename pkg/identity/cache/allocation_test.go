@@ -101,7 +101,7 @@ func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *IdentityAllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 type IdentityAllocatorConsulSuite struct {
@@ -115,7 +115,7 @@ func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *IdentityAllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 type dummyOwner struct {

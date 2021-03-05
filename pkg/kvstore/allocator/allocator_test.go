@@ -58,7 +58,7 @@ func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
 
 func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 type AllocatorConsulSuite struct {
@@ -74,7 +74,7 @@ func (e *AllocatorConsulSuite) SetUpTest(c *C) {
 
 func (e *AllocatorConsulSuite) TearDownTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 //FIXME: this should be named better, it implements pkg/allocator.Backend

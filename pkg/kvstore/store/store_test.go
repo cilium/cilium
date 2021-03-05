@@ -54,7 +54,7 @@ func (e *StoreEtcdSuite) SetUpTest(c *C) {
 
 func (e *StoreEtcdSuite) TearDownTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 type StoreConsulSuite struct {
@@ -69,7 +69,7 @@ func (e *StoreConsulSuite) SetUpTest(c *C) {
 
 func (e *StoreConsulSuite) TearDownTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 	time.Sleep(sharedKeyDeleteDelay + 5*time.Second)
 }
 
