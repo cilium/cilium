@@ -135,7 +135,7 @@ contributors across the globe, there is almost always someone available to help.
 | etcd.clusterSize | int | `3` | Size of the managed etcd cluster. |
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |
 | etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints (not needed when using managed=true). |
-| etcd.extraArgs | object | `{}` | Additional cilium-etcd-operator container arguments |
+| etcd.extraArgs | list | `[]` | Additional cilium-etcd-operator container arguments |
 | etcd.extraConfigmapMounts | list | `[]` | Additional cilium-etcd-operator ConfigMap mounts |
 | etcd.extraHostPathMounts | list | `[]` | Additional cilium-etcd-operator hostPath mounts |
 | etcd.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod |
@@ -155,7 +155,7 @@ contributors across the globe, there is almost always someone available to help.
 | externalIPs.enabled | bool | `false` | Enable ExternalIPs service support. |
 | externalWorkloads | object | `{"enabled":false}` | Configure external workloads support |
 | externalWorkloads.enabled | bool | `false` | Enable support for external workloads, such as VMs (false by default). |
-| extraArgs | object | `{}` | Additional agent container arguments |
+| extraArgs | list | `[]` | Additional agent container arguments |
 | extraConfig | object | `{}` | extraConfig allows you to specify additional configuration parameters to be included in the cilium-config configmap. |
 | extraConfigmapMounts | list | `[]` | Additional agent ConfigMap mounts |
 | extraEnv | object | `{}` | Additional agent container environment variables |
@@ -256,7 +256,6 @@ contributors across the globe, there is almost always someone available to help.
 | nodePort.enabled | bool | `false` | Enable the Cilium NodePort service implementation. |
 | nodeinit.bootstrapFile | string | `"/tmp/cilium-bootstrap-time"` | bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet |
 | nodeinit.enabled | bool | `false` | Enable the node initialization DaemonSet |
-| nodeinit.extraArgs | object | `{}` |  |
 | nodeinit.extraConfigmapMounts | list | `[]` |  |
 | nodeinit.extraEnv | object | `{}` |  |
 | nodeinit.extraHostPathMounts | list | `[]` |  |
@@ -274,7 +273,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"io.cilium/app","operator":"In","values":["operator"]}]},"topologyKey":"kubernetes.io/hostname"}]}}` | cilium-operator affinity |
 | operator.enabled | bool | `true` | Enable the cilium-operator component (required). |
 | operator.endpointGCInterval | string | `"5m0s"` |  |
-| operator.extraArgs | object | `{}` | Additional cilium-etcd-operator container arguments |
+| operator.extraArgs | list | `[]` | Additional cilium-operator container arguments |
 | operator.extraConfigmapMounts | list | `[]` |  |
 | operator.extraEnv | object | `{}` |  |
 | operator.extraHostPathMounts | list | `[]` | Additional cilium-operator hostPath mounts |
@@ -302,7 +301,6 @@ contributors across the globe, there is almost always someone available to help.
 | policyEnforcementMode | string | `"default"` |  |
 | pprof.enabled | bool | `false` | Enable Go pprof debugging |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.extraArgs | object | `{}` |  |
 | preflight.extraConfigmapMounts | list | `[]` |  |
 | preflight.extraEnv | object | `{}` |  |
 | preflight.extraHostPathMounts | list | `[]` |  |

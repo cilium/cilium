@@ -81,6 +81,9 @@ spec:
       - args:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
+{{- with .Values.operator.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
         command:
 {{- if .Values.eni.enabled }}
         - cilium-operator-aws

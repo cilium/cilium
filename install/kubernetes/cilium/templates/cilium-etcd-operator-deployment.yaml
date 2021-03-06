@@ -60,6 +60,9 @@ spec:
 {{- end }}
       containers:
       - args:
+{{- with .Values.etcd.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
         #- --etcd-node-selector=disktype=ssd,cputype=high
         command:
         - /usr/bin/cilium-etcd-operator
