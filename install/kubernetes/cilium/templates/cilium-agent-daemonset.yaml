@@ -102,12 +102,8 @@ spec:
 {{- else }}
       - args:
         - --config-dir=/tmp/cilium/config-map
-{{- range $key, $value := .Values.extraArgs }}
-{{- if $value }}
-        - --{{ $key }}={{ $value }}
-{{- else }}
-        - --{{ $key }}
-{{- end }}
+{{- with .Values.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
 {{- end }}
         command:
         - cilium-agent

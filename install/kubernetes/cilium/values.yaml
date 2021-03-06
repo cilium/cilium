@@ -118,7 +118,7 @@ affinity:
 priorityClassName: ""
 
 # -- Additional agent container arguments
-extraArgs: {}
+extraArgs: []
 
 # -- Additional agent container environment variables
 extraEnv: {}
@@ -1032,7 +1032,7 @@ etcd:
 
   # -- Additional cilium-etcd-operator container arguments
   #
-  extraArgs: {}
+  extraArgs: []
 
   # -- Additional InitContainers to initialize the pod
   #
@@ -1178,9 +1178,9 @@ operator:
         topologyKey: kubernetes.io/hostname
 
 
-  # -- Additional cilium-etcd-operator container arguments
+  # -- Additional cilium-operator container arguments
   #
-  extraArgs: {}
+  extraArgs: []
 
   extraEnv: {}
 
@@ -1279,8 +1279,6 @@ nodeinit:
   updateStrategy:
     type: RollingUpdate
 
-  extraArgs: {}
-
   extraEnv: {}
 
   extraInitContainers: []
@@ -1361,8 +1359,6 @@ preflight:
   # -- preflight update strategy
   updateStrategy:
     type: RollingUpdate
-
-  extraArgs: {}
 
   extraEnv: {}
 
