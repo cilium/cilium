@@ -47,7 +47,9 @@ import (
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_mysql_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mysql_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -229,8 +231,10 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 									Cluster: clusterName,
 								},
-								Timeout:        &duration.Duration{Seconds: requestTimeout},
-								MaxGrpcTimeout: &duration.Duration{Seconds: maxGRPCTimeout},
+								Timeout: &duration.Duration{Seconds: requestTimeout},
+								MaxStreamDuration: &envoy_config_route.RouteAction_MaxStreamDuration{
+									GrpcTimeoutHeaderMax: &duration.Duration{Seconds: maxGRPCTimeout},
+								},
 								RetryPolicy: &envoy_config_route.RetryPolicy{
 									RetryOn:       "5xx",
 									NumRetries:    &wrappers.UInt32Value{Value: numRetries},
@@ -870,43 +874,61 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
 
+	useDownstreamProtocol := map[string]*any.Any{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
+				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
+			},
+		}),
+	}
+
+	http2ProtocolOptions := map[string]*any.Any{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
+				},
+			},
+		}),
+	}
+
 	bs := &envoy_config_bootstrap.Bootstrap{
 		Node: &envoy_config_core.Node{Id: nodeId, Cluster: cluster},
 		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{
 			Clusters: []*envoy_config_cluster.Cluster{
 				{
-					Name:                 egressClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					Name:                          egressClusterName,
+					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
+					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					TypedExtensionProtocolOptions: useDownstreamProtocol,
 				},
 				{
-					Name:                 egressTLSClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
-					TransportSocket:      &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					Name:                          egressTLSClusterName,
+					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
+					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
-					Name:                 ingressClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					Name:                          ingressClusterName,
+					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
+					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					TypedExtensionProtocolOptions: useDownstreamProtocol,
 				},
 				{
-					Name:                 ingressTLSClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
-					TransportSocket:      &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					Name:                          ingressTLSClusterName,
+					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
+					ConnectTimeout:                &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                 "xds-grpc-cilium",
@@ -928,7 +950,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 							}},
 						}},
 					},
-					Http2ProtocolOptions: &envoy_config_core.Http2ProtocolOptions{},
+					TypedExtensionProtocolOptions: http2ProtocolOptions,
 				},
 				{
 					Name:                 adminClusterName,
@@ -979,6 +1001,20 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 			Address: &envoy_config_core.Address{
 				Address: &envoy_config_core.Address_Pipe{
 					Pipe: &envoy_config_core.Pipe{Path: adminPath},
+				},
+			},
+		},
+		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
+			Layers: []*envoy_config_bootstrap.RuntimeLayer{
+				{
+					Name: "static_layer_0",
+					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
+						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
+							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
+							}}}},
+						}},
+					},
 				},
 			},
 		},
