@@ -342,16 +342,27 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				}
 				return err
 			}
+		} else {
+			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
+			if err != nil {
+				log.WithField("device", ep.InterfaceName()).Error(err)
+			}
 		}
 	}
 
-	if ep.RequireEndpointRoute() {
-		if ip := ep.IPv4Address(); ip.IsSet() {
+	if ip := ep.IPv4Address(); ip.IsSet() {
+		if ep.RequireEndpointRoute() {
 			upsertEndpointRoute(ep, *ip.IPNet(32))
+		} else {
+			removeEndpointRoute(ep, *ip.IPNet(32))
 		}
+	}
 
-		if ip := ep.IPv6Address(); ip.IsSet() {
+	if ip := ep.IPv6Address(); ip.IsSet() {
+		if ep.RequireEndpointRoute() {
 			upsertEndpointRoute(ep, *ip.IPNet(128))
+		} else {
+			removeEndpointRoute(ep, *ip.IPNet(128))
 		}
 	}
 
