@@ -348,7 +348,7 @@ all
     world and whitelists all communication.
 
 .. versionadded:: future
-   Allowing users to `define custom identities <https://github.com/cilium/cilium/issues/3553>`_
+   Allowing users to `define custom entities <https://github.com/cilium/cilium/issues/3553>`_
    is on the roadmap but has not been implemented yet.
 
 Access to/from local host
