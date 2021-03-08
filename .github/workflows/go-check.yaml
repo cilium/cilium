@@ -33,7 +33,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2.5.0
+        uses: golangci/golangci-lint-action@v2.5.1
         with:
           version: v1.37.1
           skip-go-installation: true
