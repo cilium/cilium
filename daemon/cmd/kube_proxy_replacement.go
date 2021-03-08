@@ -415,7 +415,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	}
 
 	// After this point, BPF NodePort should not be disabled
-
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
@@ -424,8 +423,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		// If we chain CNIs then all bets are off.
 		case option.Config.IsFlannelMasterDeviceSet():
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.FlannelMasterDevice)
-		case option.Config.Tunnel != option.TunnelDisabled:
-			msg = fmt.Sprintf("BPF host routing is only available in native routing mode.")
 		// Needs host stack for packet handling.
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableEndpointRoutes)
