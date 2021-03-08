@@ -40,16 +40,16 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@154c24e1f33dbb5865a021c99f1318cfebf27b32 # v1.1.1
+        uses: docker/setup-buildx-action@154c24e1f33dbb5865a021c99f1318cfebf27b32
 
       - name: Login to DockerHub
-        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a # v1.8.0
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a
         with:
           username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
 
       - name: Login to quay.io
-        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a # v1.8.0
+        uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
@@ -61,10 +61,10 @@ jobs:
           echo ::set-output name=tag::${GITHUB_REF##*/}
 
       - name: Checkout Source Code
-        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f # v2.3.4
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a # v2.2.2
+        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a
         id: docker_build_release
         with:
           context: .
@@ -93,7 +93,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571 # v2
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -115,7 +115,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@4a7a711286f30c025902c28b541c10e147a9b843 # v2.0.8
+        uses: actions/download-artifact@4a7a711286f30c025902c28b541c10e147a9b843
         with:
           path: image-digest/
 
@@ -137,7 +137,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571 # v2
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
         with:
           name: image-digest-output.txt-${{ steps.tag.outputs.tag }}
           path: image-digest-output.txt
@@ -145,7 +145,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571 # v2
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
         with:
           name: Makefile.digests-${{ steps.tag.outputs.tag }}
           path: Makefile.digests
