@@ -17,7 +17,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775
 	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
-	github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab
+	github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
@@ -35,7 +35,7 @@ require (
 	github.com/go-openapi/swag v0.19.9
 	github.com/go-openapi/validate v0.19.12
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1
 	github.com/google/gofuzz v1.1.0
 	github.com/google/gopacket v1.1.17
@@ -61,7 +61,7 @@ require (
 	github.com/pborman/uuid v1.2.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.7.1
-	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
 	github.com/russross/blackfriday v1.5.2
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
@@ -81,7 +81,7 @@ require (
 	golang.org/x/sys v0.0.0-20201231184435-2d18734c6014
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f

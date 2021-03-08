@@ -33,9 +33,6 @@ var (
 	_ = ptypes.DynamicAny{}
 )
 
-// define the regex for a UUID once up-front
-var _nphds_uuidPattern = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-
 // Validate checks the field values on NetworkPolicyHosts with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -46,8 +43,19 @@ func (m *NetworkPolicyHosts) Validate() error {
 
 	// no validation rules for Policy
 
+	_NetworkPolicyHosts_HostAddresses_Unique := make(map[string]struct{}, len(m.GetHostAddresses()))
+
 	for idx, item := range m.GetHostAddresses() {
 		_, _ = idx, item
+
+		if _, exists := _NetworkPolicyHosts_HostAddresses_Unique[item]; exists {
+			return NetworkPolicyHostsValidationError{
+				field:  fmt.Sprintf("HostAddresses[%v]", idx),
+				reason: "repeated value must contain unique items",
+			}
+		} else {
+			_NetworkPolicyHosts_HostAddresses_Unique[item] = struct{}{}
+		}
 
 		if len(item) < 1 {
 			return NetworkPolicyHostsValidationError{
