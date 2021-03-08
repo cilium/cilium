@@ -17,7 +17,7 @@
 package seven
 
 import (
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -63,7 +63,7 @@ var (
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func TestDecodeL7HTTPRecord(t *testing.T) {

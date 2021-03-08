@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -373,7 +372,7 @@ func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
 
 	io.Copy(writer, stdoutPipe)
 	if err := cmd.Wait(); err != nil {
-		stderr, err := ioutil.ReadAll(stderrPipe)
+		stderr, err := io.ReadAll(stderrPipe)
 		if err != nil {
 			return fmt.Errorf(
 				"reading from bpftool feature probe stderr pipe failed: %w", err)

@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -72,7 +71,7 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 }
 
 func memoryMap(pid int) string {
-	m, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/maps", pid))
+	m, err := os.ReadFile(fmt.Sprintf("/proc/%d/maps", pid))
 	if err != nil {
 		return ""
 	}

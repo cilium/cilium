@@ -16,7 +16,7 @@ package proxy
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -49,7 +49,7 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 
 	for _, file := range procNetFiles {
-		b, err := ioutil.ReadFile(file)
+		b, err := os.ReadFile(file)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
 			continue

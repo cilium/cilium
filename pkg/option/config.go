@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -2416,18 +2415,18 @@ func (c *DaemonConfig) Validate() error {
 // filename to the contents of that file.
 func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 	m := map[string]interface{}{}
-	fi, err := ioutil.ReadDir(dirName)
+	files, err := os.ReadDir(dirName)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("unable to read configuration directory: %s", err)
 	}
-	for _, f := range fi {
-		if f.Mode().IsDir() {
+	for _, f := range files {
+		if f.IsDir() {
 			continue
 		}
 		fName := filepath.Join(dirName, f.Name())
 
 		// the file can still be a symlink to a directory
-		if f.Mode()&os.ModeSymlink == 0 {
+		if f.Type()&os.ModeSymlink == 0 {
 			absFileName, err := filepath.EvalSymlinks(fName)
 			if err != nil {
 				log.WithError(err).Warnf("Unable to read configuration file %q", absFileName)
@@ -2436,16 +2435,16 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 			fName = absFileName
 		}
 
-		f, err = os.Stat(fName)
+		fi, err := os.Stat(fName)
 		if err != nil {
 			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
 			continue
 		}
-		if f.Mode().IsDir() {
+		if fi.Mode().IsDir() {
 			continue
 		}
 
-		b, err := ioutil.ReadFile(fName)
+		b, err := os.ReadFile(fName)
 		if err != nil {
 			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
 			continue

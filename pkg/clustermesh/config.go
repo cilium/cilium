@@ -15,7 +15,7 @@
 package clustermesh
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -57,7 +57,7 @@ func createConfigDirectoryWatcher(path string, lifecycle clusterLifecycle) (*con
 }
 
 func isEtcdConfigFile(path string) bool {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
@@ -86,7 +86,7 @@ func (cdw *configDirectoryWatcher) handleAddedFile(name, absolutePath string) {
 func (cdw *configDirectoryWatcher) watch() error {
 	log.WithField(fieldConfig, cdw.path).Debug("Starting config directory watcher")
 
-	files, err := ioutil.ReadDir(cdw.path)
+	files, err := os.ReadDir(cdw.path)
 	if err != nil {
 		return err
 	}

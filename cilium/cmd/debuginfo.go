@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -434,7 +433,7 @@ func printTicks(w io.Writer) {
 
 func writeHTML(data []byte, path string) {
 	output := blackfriday.Run(data)
-	if err := ioutil.WriteFile(path, output, 0644); err != nil {
+	if err := os.WriteFile(path, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
 		return
 	}

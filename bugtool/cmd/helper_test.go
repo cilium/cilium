@@ -19,7 +19,6 @@ package cmd
 import (
 	"archive/tar"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,9 +61,9 @@ func (l *logWrapper) Write(p []byte) (n int, err error) {
 
 func (b *BugtoolSuite) SetUpSuite(c *C) {
 	var err error
-	baseDir, err = ioutil.TempDir("", "cilium_test_bugtool_base")
+	baseDir, err = os.MkdirTemp("", "cilium_test_bugtool_base")
 	c.Assert(err, IsNil)
-	tmpDir, err = ioutil.TempDir("", "cilium_test_bugtool_tmp")
+	tmpDir, err = os.MkdirTemp("", "cilium_test_bugtool_tmp")
 	c.Assert(err, IsNil)
 }
 
@@ -99,7 +98,7 @@ func (b *BugtoolSuite) TestWalkPath(c *C) {
 	c.Assert(err, IsNil)
 
 	// With real file
-	realFile, err := ioutil.TempFile(baseDir, "test")
+	realFile, err := os.CreateTemp(baseDir, "test")
 	c.Assert(err, IsNil)
 	info, err = os.Stat(realFile.Name())
 	c.Assert(err, IsNil)
@@ -116,7 +115,7 @@ func (b *BugtoolSuite) TestWalkPath(c *C) {
 	c.Assert(err, IsNil)
 
 	// With directory
-	nestedDir, err := ioutil.TempDir(baseDir, "nested")
+	nestedDir, err := os.MkdirTemp(baseDir, "nested")
 	c.Assert(err, IsNil)
 	info, err = os.Stat(nestedDir)
 	c.Assert(err, IsNil)

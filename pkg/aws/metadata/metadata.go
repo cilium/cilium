@@ -16,7 +16,7 @@ package metadata
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -27,7 +27,7 @@ func getMetadata(name string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	instanceID, err := ioutil.ReadAll(resp.Body)
+	instanceID, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("unable to read response body: %s", err)
 	}

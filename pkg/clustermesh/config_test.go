@@ -17,7 +17,6 @@
 package clustermesh
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -30,7 +29,7 @@ import (
 )
 
 func createFile(c *C, name string) {
-	err := ioutil.WriteFile(name, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
+	err := os.WriteFile(name, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
 	c.Assert(err, IsNil)
 }
 
@@ -65,7 +64,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		skipKvstoreConnection = false
 	}()
 
-	dir, err := ioutil.TempDir("", "multicluster")
+	dir, err := os.MkdirTemp("", "multicluster")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(dir)
 
@@ -161,17 +160,17 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 }
 
 func (s *ClusterMeshTestSuite) TestIsEtcdConfigFile(c *C) {
-	dir, err := ioutil.TempDir("", "etcdconfig")
+	dir, err := os.MkdirTemp("", "etcdconfig")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(dir)
 
 	validPath := path.Join(dir, "valid")
-	err = ioutil.WriteFile(validPath, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
+	err = os.WriteFile(validPath, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
 	c.Assert(err, IsNil)
 	c.Assert(isEtcdConfigFile(validPath), Equals, true)
 
 	invalidPath := path.Join(dir, "valid")
-	err = ioutil.WriteFile(invalidPath, []byte("sf324kj234lkjsdvl\nwl34kj23l4k\nendpoints"), 0644)
+	err = os.WriteFile(invalidPath, []byte("sf324kj234lkjsdvl\nwl34kj23l4k\nendpoints"), 0644)
 	c.Assert(err, IsNil)
 	c.Assert(isEtcdConfigFile(invalidPath), Equals, false)
 }

@@ -20,7 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -100,7 +100,7 @@ func (c *consulModule) setConfigDummy() {
 	c.config = consulAPI.DefaultConfig()
 	c.config.Address = consulDummyAddress
 	yc := consulAPI.TLSConfig{}
-	b, err := ioutil.ReadFile(consulDummyConfigFile)
+	b, err := os.ReadFile(consulDummyConfigFile)
 	if err != nil {
 		log.WithError(err).Warnf("unable to read consul tls configuration file %s", consulDummyConfigFile)
 	}
@@ -150,7 +150,7 @@ func (c *consulModule) connectConsulClient(ctx context.Context, opts *ExtraOptio
 		addr := consulAddr.value
 		c.config = consulAPI.DefaultConfig()
 		if configPathOptSet && configPathOpt.value != "" {
-			b, err := ioutil.ReadFile(configPathOpt.value)
+			b, err := os.ReadFile(configPathOpt.value)
 			if err != nil {
 				return nil, fmt.Errorf("unable to read consul tls configuration file %s: %s", configPathOpt.value, err)
 			}

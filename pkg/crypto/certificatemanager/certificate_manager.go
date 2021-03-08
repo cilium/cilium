@@ -17,7 +17,7 @@ package certificatemanager
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -67,14 +67,14 @@ func (m *Manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string)
 	// Give priority to local secrets.
 	// K8s API request is only done if the local secret directory can't be read!
 	certPath := filepath.Join(m.rootPath, nsName)
-	files, ioErr := ioutil.ReadDir(certPath)
+	files, ioErr := os.ReadDir(certPath)
 	if ioErr == nil {
 		secrets := make(map[string][]byte, len(files))
 		for _, file := range files {
 			var bytes []byte
 
 			path := filepath.Join(certPath, file.Name())
-			bytes, ioErr = ioutil.ReadFile(path)
+			bytes, ioErr = os.ReadFile(path)
 			if ioErr == nil {
 				secrets[file.Name()] = bytes
 			}

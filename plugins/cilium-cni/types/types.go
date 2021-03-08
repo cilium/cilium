@@ -17,8 +17,8 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
@@ -68,7 +68,7 @@ func parsePrevResult(n *NetConf) (*NetConf, error) {
 // ReadNetConf reads a CNI configuration file and returns the corresponding
 // NetConf structure
 func ReadNetConf(path string) (*NetConf, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to read CNI configuration '%s': %s", path, err)
 	}

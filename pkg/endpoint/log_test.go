@@ -18,7 +18,6 @@ package endpoint
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -64,7 +63,7 @@ func (s *EndpointSuite) TestPolicyLog(c *C) {
 	c.Assert(policyLogger, IsNil)
 
 	// Verify file exists and contains the logged message
-	buf, err := ioutil.ReadFile(filepath.Join(option.Config.StateDir, "endpoint-policy.log"))
+	buf, err := os.ReadFile(filepath.Join(option.Config.StateDir, "endpoint-policy.log"))
 	c.Assert(err, IsNil)
 	c.Assert(bytes.Contains(buf, []byte("testing policy logging")), Equals, true)
 	c.Assert(bytes.Contains(buf, []byte("testing policyDebug")), Equals, true)

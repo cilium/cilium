@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -669,7 +668,7 @@ func (t *TestSpec) NetworkPolicyApply(base string) error {
 		return nil
 	}
 
-	err = ioutil.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
+	err = os.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}
@@ -696,7 +695,7 @@ func (t *TestSpec) InvalidNetworkPolicyApply(base string) (*cnpv2.CiliumNetworkP
 		return nil, fmt.Errorf("Network policy cannot be created prefix=%s: %s", t.Prefix, err)
 	}
 
-	err = ioutil.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
+	err = os.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}

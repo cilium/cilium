@@ -798,7 +798,7 @@ func parseBase64ToEndpoint(b []byte, ep *Endpoint) error {
 }
 
 // FilterEPDir returns a list of directories' names that possible belong to an endpoint.
-func FilterEPDir(dirFiles []os.FileInfo) []string {
+func FilterEPDir(dirFiles []os.DirEntry) []string {
 	eptsID := []string{}
 	for _, file := range dirFiles {
 		if file.IsDir() {

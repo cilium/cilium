@@ -17,7 +17,7 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -49,7 +49,7 @@ func init() {
 
 func dumpSha(sha string) {
 	headerPath := filepath.Join(templatesDir, sha, common.CHeaderFileName)
-	text, err := ioutil.ReadFile(headerPath)
+	text, err := os.ReadFile(headerPath)
 	if err != nil {
 		Fatalf("Failed to describe SHA: %s", err)
 	}

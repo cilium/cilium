@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"sync"
@@ -131,7 +130,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 
 	log.Info("Reading old endpoints...")
 
-	dirFiles, err := ioutil.ReadDir(dir)
+	dirFiles, err := os.ReadDir(dir)
 	if err != nil {
 		return state, err
 	}

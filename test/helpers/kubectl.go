@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -3362,7 +3361,7 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 					kub.Logger().WithError(err).Error("Cannot create report directory")
 					return
 				}
-				err = ioutil.WriteFile(
+				err = os.WriteFile(
 					fmt.Sprintf("%s/%s", testPath, file),
 					[]byte(logs), LogPerm)
 
@@ -4097,7 +4096,7 @@ func (kub *Kubectl) reportMapContext(ctx context.Context, path string, reportCmd
 		}
 
 		for name, res := range results {
-			err := ioutil.WriteFile(
+			err := os.WriteFile(
 				fmt.Sprintf("%s/%s-%s", path, name, logfile),
 				res.CombineOutput().Bytes(),
 				LogPerm)
@@ -4121,7 +4120,7 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 				log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)
 			}
 
-			err := ioutil.WriteFile(
+			err := os.WriteFile(
 				fmt.Sprintf("%s/%s", path, logfile),
 				res.CombineOutput().Bytes(),
 				LogPerm)

@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -39,7 +39,7 @@ var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func encodeDebugEvent(msg *monitor.DebugMsg) []byte {

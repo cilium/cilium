@@ -19,7 +19,6 @@ package loader
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,7 +110,7 @@ func runTests(m *testing.M) (int, error) {
 	SetTestIncludes([]string{"-I/usr/include/x86_64-linux-gnu/"})
 	defer SetTestIncludes(nil)
 
-	tmpDir, err := ioutil.TempDir("/tmp/", "cilium_")
+	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
 	if err != nil {
 		return 1, fmt.Errorf("Failed to create temporary directory: %s", err)
 	}
@@ -324,7 +323,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	tmpDir, err := ioutil.TempDir("", "cilium_test")
+	tmpDir, err := os.MkdirTemp("", "cilium_test")
 	if err != nil {
 		b.Fatal(err)
 	}
