@@ -29,6 +29,10 @@ jobs:
     name: build datapath
     runs-on: ubuntu-latest
     steps:
+      - name: Install Go
+        uses: actions/setup-go@v2.1.3
+        with:
+          go-version: 1.16.0
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@v2.1.4
