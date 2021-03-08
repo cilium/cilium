@@ -251,10 +251,12 @@ external workload. Then download the ``install-external-workload.sh`` script:
     curl -LO \ |SCM_WEB|\/contrib/k8s/install-external-workload.sh
     chmod +x install-external-workload.sh
 
-Before you continue you need to stop the system service updating ``/etc/resolv.conf``:
+Before you continue you need to pre-pull the cilium image and stop the system
+service that would update ``/etc/resolv.conf``:
 
-.. code:: bash
+.. parsed-literal::
 
+    docker pull cilium/cilium:|IMAGE_TAG|
     sudo cp /etc/resolv.conf /etc/resolv.conf.orig
     sudo systemctl disable systemd-resolved.service
     sudo service systemd-resolved stop
@@ -274,7 +276,7 @@ Then, assuming they are in the same directory:
 
     .. parsed-literal::
 
-      CLUSTER_ADDR=<load-balancer-ip> CILIUM_IMAGE=cilium/cilium:|IMAGE_TAG| ./install-external-workload.sh
+      CLUSTER_ADDR=<load-balancer-ip>:2379 CILIUM_IMAGE=cilium/cilium:|IMAGE_TAG| ./install-external-workload.sh
 
     ``<load-balancer-ip>`` is the load balancer IP you extracted from the k8s cluster above.
 
