@@ -418,20 +418,19 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
-		case !option.Config.EnableNodePort:
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableNodePort)
 		// If we chain CNIs then all bets are off.
 		case option.Config.IsFlannelMasterDeviceSet():
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.FlannelMasterDevice)
 		// Needs host stack for packet handling.
-		case option.Config.EnableEndpointRoutes:
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableEndpointRoutes)
 		case option.Config.EnableIPSec:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case (option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade) &&
 			!option.Config.EnableBPFMasquerade:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// All cases below still need to be implemented ...
+		case option.Config.EnableEndpointRoutes:
+			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
 		case !mac.HaveMACAddr(option.Config.Devices):
 			msg = fmt.Sprintf("BPF host routing is currently not supported with devices without L2 addr.")
 		default:
