@@ -30,15 +30,13 @@ jobs:
         uses: actions/setup-go@v2.1.3
         with:
           go-version: 1.16.0
-      - uses: actions/checkout@v2
-      - run: go version
-      - name: golangci-lint
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v2.5.0
         with:
           version: v1.37.1
           skip-go-installation: true
-      - run: go version
-      - run: which golangci-lint
 
   precheck:
     runs-on: ubuntu-latest
