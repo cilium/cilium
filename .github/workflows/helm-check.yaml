@@ -66,7 +66,7 @@ jobs:
 
       # This test is just to make sure the helm chart can be installed. It will not replace existing integration tests
       - name: Run chart-testing (install)
-        uses: helm/chart-testing-action@v1.0.0-rc.2
+        uses: helm/chart-testing-action@v2.0.1
         with:
           command: install
           config: install/kubernetes/chart-testing.yaml
