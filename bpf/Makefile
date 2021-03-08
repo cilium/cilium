@@ -267,7 +267,7 @@ tests/bpf_ct_tests.o: tests/bpf_ct_tests.ll
 
 .PHONY: go_prog_test
 go_prog_test: $(BPF_TEST)
-	sudo go test -tags privileged_tests ./tests/prog_test
+	$(GO) test -tags privileged_tests -exec sudo ./tests/prog_test
 
 subdirs: $(SUBDIRS)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
