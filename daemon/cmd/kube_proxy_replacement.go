@@ -58,7 +58,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
 		option.Config.EnableSessionAffinity = false
-		option.Config.EnableHostLegacyRouting = true
 
 		return
 	}
@@ -521,6 +520,7 @@ func disableNodePort() {
 	option.Config.EnableHostPort = false
 	option.Config.EnableExternalIPs = false
 	option.Config.EnableSVCSourceRangeCheck = false
+	option.Config.EnableHostLegacyRouting = true
 }
 
 // detectDevices tries to detect device names which are going to be used for
