@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -69,7 +68,7 @@ type DaemonSuite struct {
 }
 
 func setupTestDirectories() {
-	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
+	tempRunDir, err := os.MkdirTemp("", "cilium-test-run")
 	if err != nil {
 		panic("TempDir() failed.")
 	}
@@ -134,7 +133,6 @@ func (ds *DaemonSuite) TearDownSuite(c *C) {
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
-
 	setupTestDirectories()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()

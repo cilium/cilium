@@ -17,7 +17,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -156,7 +155,7 @@ func save(c *BugtoolConfiguration, path string) error {
 	if err != nil {
 		return fmt.Errorf("Cannot marshal config %s", err)
 	}
-	err = ioutil.WriteFile(path, data, 0644)
+	err = os.WriteFile(path, data, 0644)
 	if err != nil {
 		return fmt.Errorf("Cannot write config %s", err)
 	}
@@ -166,7 +165,7 @@ func save(c *BugtoolConfiguration, path string) error {
 func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var content []byte
 	var err error
-	content, err = ioutil.ReadFile(path)
+	content, err = os.ReadFile(path)
 
 	if err != nil {
 		return nil, err

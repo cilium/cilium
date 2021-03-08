@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -178,7 +177,7 @@ func runTool() {
 		sendArchiveToStdout = true
 		dumpPath = defaultDumpPath
 	}
-	dbgDir, err := ioutil.TempDir(dumpPath, prefix)
+	dbgDir, err := os.MkdirTemp(dumpPath, prefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
 		os.Exit(1)

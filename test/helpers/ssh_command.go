@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -98,7 +97,7 @@ func (cfg *SSHConfig) String() string {
 
 // GetSSHAgent returns the ssh.AuthMethod corresponding to SSHConfig cfg.
 func (cfg *SSHConfig) GetSSHAgent() ssh.AuthMethod {
-	key, err := ioutil.ReadFile(cfg.identityFile)
+	key, err := os.ReadFile(cfg.identityFile)
 	if err != nil {
 		log.Fatalf("unable to retrieve ssh-key on target '%s': %s", cfg.target, err)
 	}

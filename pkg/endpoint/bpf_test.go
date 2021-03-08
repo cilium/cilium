@@ -19,7 +19,7 @@ package endpoint
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
@@ -49,7 +49,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	}
 
 	var buf bytes.Buffer
-	file, err := ioutil.TempFile("", "cilium_ep_bench_")
+	file, err := os.CreateTemp("", "cilium_ep_bench_")
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,7 +16,7 @@ func main() {
 			switch strings.TrimPrefix(strings.ToLower(ext), ".") {
 			case "", "code", "docs", "libyaml", "md", "txt":
 				fmt.Println("Name:", path)
-				lb, err := ioutil.ReadFile(path)
+				lb, err := os.ReadFile(path)
 				if err != nil {
 					log.Fatal(err)
 				}

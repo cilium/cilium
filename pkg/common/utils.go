@@ -17,7 +17,6 @@ package common
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -118,7 +117,7 @@ func GetNumPossibleCPUs(log *logrus.Entry) int {
 }
 
 func getNumPossibleCPUsFromReader(log *logrus.Entry, r io.Reader) int {
-	out, err := ioutil.ReadAll(r)
+	out, err := io.ReadAll(r)
 	if err != nil {
 		log.WithError(err).Errorf("unable to read %q to get CPU count", PossibleCPUSysfsPath)
 		return 0

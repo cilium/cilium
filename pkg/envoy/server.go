@@ -17,7 +17,6 @@ package envoy
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -1025,7 +1024,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 	if err != nil {
 		log.WithError(err).Fatal("Envoy: Error marshaling Envoy bootstrap")
 	}
-	err = ioutil.WriteFile(filePath, data, 0644)
+	err = os.WriteFile(filePath, data, 0644)
 	if err != nil {
 		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
 	}

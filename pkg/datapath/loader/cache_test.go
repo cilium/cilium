@@ -19,7 +19,6 @@ package loader
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -30,7 +29,7 @@ import (
 )
 
 func (s *LoaderTestSuite) TestobjectCache(c *C) {
-	tmpDir, err := ioutil.TempDir("", "cilium_test")
+	tmpDir, err := os.MkdirTemp("", "cilium_test")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(tmpDir)
 
@@ -83,7 +82,7 @@ func receiveResult(c *C, results chan buildResult) (*buildResult, error) {
 }
 
 func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
-	tmpDir, err := ioutil.TempDir("", "cilium_test")
+	tmpDir, err := os.MkdirTemp("", "cilium_test")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(tmpDir)
 

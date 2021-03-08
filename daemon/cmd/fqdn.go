@@ -18,8 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -797,7 +797,7 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint
 // readPreCache returns a fqdn.DNSCache object created from the json data at
 // preCachePath
 func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
-	data, err := ioutil.ReadFile(preCachePath)
+	data, err := os.ReadFile(preCachePath)
 	if err != nil {
 		return nil, err
 	}

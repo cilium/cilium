@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strconv"
@@ -1786,7 +1785,7 @@ func newConfig(fpath string) (*client.Config, error) {
 	}
 
 	yc := &yamlConfig{}
-	b, err := ioutil.ReadFile(fpath)
+	b, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -1811,7 +1810,7 @@ func newConfig(fpath string) (*client.Config, error) {
 // reload on-disk certificate and key when needed
 func getClientCertificateReloader(fpath string) (func(*tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
 	yc := &yamlKeyPairConfig{}
-	b, err := ioutil.ReadFile(fpath)
+	b, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, err
 	}

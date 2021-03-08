@@ -18,7 +18,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -119,9 +119,9 @@ func loadPolicyFile(path string) (api.Rules, error) {
 	logrus.WithField(logfields.Path, path).Debug("Loading file")
 
 	if path == "-" {
-		content, err = ioutil.ReadAll(bufio.NewReader(os.Stdin))
+		content, err = io.ReadAll(bufio.NewReader(os.Stdin))
 	} else {
-		content, err = ioutil.ReadFile(path)
+		content, err = os.ReadFile(path)
 	}
 
 	if err != nil {
@@ -152,7 +152,7 @@ func loadPolicy(name string) (api.Rules, error) {
 		return nil, fmt.Errorf("Error: %s is not a file or a directory", name)
 	}
 
-	files, err := ioutil.ReadDir(name)
+	files, err := os.ReadDir(name)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func loadPolicy(name string) (api.Rules, error) {
 	return result, nil
 }
 
-func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
+func processAllFilesFirst(name string, files []os.DirEntry) (api.Rules, error) {
 	result := api.Rules{}
 
 	for _, f := range files {
@@ -194,7 +194,7 @@ func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
 	return result, nil
 }
 
-func recursiveSearch(name string, files []os.FileInfo) (api.Rules, error) {
+func recursiveSearch(name string, files []os.DirEntry) (api.Rules, error) {
 	result := api.Rules{}
 	for _, f := range files {
 		if f.IsDir() {

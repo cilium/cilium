@@ -17,7 +17,6 @@ package sockops
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -128,7 +127,7 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 	var mapArgList []string
 	bpffs := filepath.Join(bpf.GetMapRoot(), bpfFsFile)
 
-	maps, err := ioutil.ReadDir(filepath.Join(bpf.GetMapRoot(), "/tc/globals/"))
+	maps, err := os.ReadDir(filepath.Join(bpf.GetMapRoot(), "/tc/globals/"))
 	if err != nil {
 		return err
 	}

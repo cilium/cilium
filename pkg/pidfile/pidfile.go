@@ -16,7 +16,6 @@ package pidfile
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -43,7 +42,7 @@ func Remove(path string) error {
 
 func write(path string, pid int) error {
 	pidBytes := []byte(strconv.Itoa(pid) + "\n")
-	if err := ioutil.WriteFile(path, pidBytes, 0660); err != nil {
+	if err := os.WriteFile(path, pidBytes, 0660); err != nil {
 		return err
 	}
 
@@ -110,7 +109,7 @@ func Kill(pidfilePath string) (int, error) {
 		return 0, nil
 	}
 
-	pidfile, err := ioutil.ReadFile(pidfilePath)
+	pidfile, err := os.ReadFile(pidfilePath)
 	if err != nil {
 		return 0, err
 	}

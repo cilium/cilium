@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -391,7 +390,7 @@ func removeDirs() error {
 
 func removeAllMaps() error {
 	mapDir := bpf.MapPrefixPath()
-	maps, err := ioutil.ReadDir(mapDir)
+	maps, err := os.ReadDir(mapDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -80,7 +79,7 @@ func compareFiles(path1, path2 string) error {
 }
 
 func (s *ELFTestSuite) TestWrite(c *C) {
-	tmpDir, err := ioutil.TempDir("", "cilium_")
+	tmpDir, err := os.MkdirTemp("", "cilium_")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(tmpDir)
 
@@ -203,7 +202,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 
 // BenchmarkWriteELF benchmarks writing a very simple elf demo program.
 func BenchmarkWriteELF(b *testing.B) {
-	tmpDir, err := ioutil.TempDir("", "cilium_")
+	tmpDir, err := os.MkdirTemp("", "cilium_")
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -17,7 +17,6 @@ package sysctl
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,7 +82,7 @@ func Write(name string, val string) error {
 // Read reads the given sysctl parameter.
 func Read(name string) (string, error) {
 	fPath := fullPath(name)
-	val, err := ioutil.ReadFile(fPath)
+	val, err := os.ReadFile(fPath)
 	if err != nil {
 		return "", fmt.Errorf("Failed to read %s: %s", fPath, val)
 	}

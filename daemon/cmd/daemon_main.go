@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -1597,12 +1596,12 @@ func runDaemon() {
 		Info("Daemon initialization completed")
 
 	if option.Config.WriteCNIConfigurationWhenReady != "" {
-		input, err := ioutil.ReadFile(option.Config.ReadCNIConfiguration)
+		input, err := os.ReadFile(option.Config.ReadCNIConfiguration)
 		if err != nil {
 			log.WithError(err).Fatal("Unable to read CNI configuration file")
 		}
 
-		if err = ioutil.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644); err != nil {
+		if err = os.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644); err != nil {
 			log.WithError(err).Fatalf("Unable to write CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
 		} else {
 			log.Infof("Wrote CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)

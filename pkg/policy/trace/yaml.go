@@ -17,7 +17,7 @@ package trace
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -47,7 +47,7 @@ func GetLabelsFromYaml(file string) ([][]string, error) {
 	}
 	defer reader.Close()
 
-	byteArr, err := ioutil.ReadAll(reader)
+	byteArr, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -46,7 +45,7 @@ var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func noopParser(t *testing.T) *parser.Parser {

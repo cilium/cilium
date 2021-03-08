@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -289,8 +288,7 @@ func CreateLogFile(filename string, data []byte) error {
 	}
 
 	finalPath := filepath.Join(path, filename)
-	err = ioutil.WriteFile(finalPath, data, LogPerm)
-	return err
+	return os.WriteFile(finalPath, data, LogPerm)
 }
 
 // WriteToReportFile writes data to filename. It appends to existing files.
@@ -332,7 +330,7 @@ func reportMapContext(ctx context.Context, path string, reportCmds map[string]st
 
 	for cmd, logfile := range reportCmds {
 		res := node.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
-		err := ioutil.WriteFile(
+		err := os.WriteFile(
 			fmt.Sprintf("%s/%s", path, logfile),
 			res.CombineOutput().Bytes(),
 			LogPerm)

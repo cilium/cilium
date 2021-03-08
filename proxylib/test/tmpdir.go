@@ -15,7 +15,7 @@
 package test
 
 import (
-	"io/ioutil"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -24,7 +24,7 @@ var Tmpdir string
 
 func init() {
 	var err error
-	Tmpdir, err = ioutil.TempDir("", "cilium_envoy_go_test")
+	Tmpdir, err = os.MkdirTemp("", "cilium_envoy_go_test")
 	if err != nil {
 		log.Fatal("Failed to create a temporaty directory for testing")
 	}

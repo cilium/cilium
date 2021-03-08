@@ -17,7 +17,6 @@
 package fswatcher
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,9 +33,7 @@ func Test(t *testing.T) {
 }
 
 func (s *FsWatcherTestSuite) TestWatcher(c *C) {
-	tmp, err := ioutil.TempDir("", "")
-	c.Assert(err, IsNil)
-	defer os.RemoveAll(tmp)
+	tmp := c.MkDir()
 
 	regularFile := filepath.Join(tmp, "file")
 	regularSymlink := filepath.Join(tmp, "symlink")
@@ -46,8 +43,7 @@ func (s *FsWatcherTestSuite) TestWatcher(c *C) {
 	indirectSymlink := filepath.Join(tmp, "foo", "symlink", "nested")
 	targetFile := filepath.Join(tmp, "target")
 
-	var w *Watcher
-	w, err = New([]string{
+	w, err := New([]string{
 		regularFile,
 		regularSymlink,
 		nestedFile,
@@ -87,12 +83,12 @@ func (s *FsWatcherTestSuite) TestWatcher(c *C) {
 
 	// create $tmp/file
 	var data = []byte("data")
-	err = ioutil.WriteFile(regularFile, data, 0777)
+	err = os.WriteFile(regularFile, data, 0777)
 	c.Assert(err, IsNil)
 	c.Assert(<-eventName, Equals, regularFile)
 
 	// symlink $tmp/symlink -> $tmp/target
-	err = ioutil.WriteFile(targetFile, data, 0777)
+	err = os.WriteFile(targetFile, data, 0777)
 	c.Assert(err, IsNil)
 	err = os.Symlink(targetFile, regularSymlink)
 	c.Assert(err, IsNil)
@@ -101,7 +97,7 @@ func (s *FsWatcherTestSuite) TestWatcher(c *C) {
 	// create $tmp/foo/bar/nested
 	err = os.MkdirAll(filepath.Dir(nestedFile), 0777)
 	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(nestedFile, data, 0777)
+	err = os.WriteFile(nestedFile, data, 0777)
 	c.Assert(err, IsNil)
 	c.Assert(<-eventName, Equals, nestedFile)
 

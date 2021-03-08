@@ -16,7 +16,6 @@ package endpoint
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -60,11 +59,11 @@ func (e *Endpoint) backupDirectoryPath() string {
 
 // moveNewFilesTo copies all files, that do not exist in newDir, from oldDir.
 func moveNewFilesTo(oldDir, newDir string) error {
-	oldFiles, err := ioutil.ReadDir(oldDir)
+	oldFiles, err := os.ReadDir(oldDir)
 	if err != nil {
 		return err
 	}
-	newFiles, err := ioutil.ReadDir(newDir)
+	newFiles, err := os.ReadDir(newDir)
 	if err != nil {
 		return err
 	}

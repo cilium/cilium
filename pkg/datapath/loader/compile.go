@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"sync"
@@ -227,7 +226,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	/* Ignoring the output here because pkg/command/exec will log it. */
 	_, err = linkCmd.CombinedOutput(log, true)
 	if err == nil {
-		compileOut, _ = ioutil.ReadAll(compilerStderr)
+		compileOut, _ = io.ReadAll(compilerStderr)
 		err = compileCmd.Wait()
 	} else {
 		cancelCompile()

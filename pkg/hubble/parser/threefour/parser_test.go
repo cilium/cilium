@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"testing"
 
@@ -51,7 +51,7 @@ var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func TestL34Decode(t *testing.T) {

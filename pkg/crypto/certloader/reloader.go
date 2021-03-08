@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -186,7 +186,7 @@ func (r *FileReloader) readKeypair() (*tls.Certificate, error) {
 func (r *FileReloader) readCertificateAuthority() (*x509.CertPool, error) {
 	caCertPool := x509.NewCertPool()
 	for _, path := range r.caFiles {
-		pem, err := ioutil.ReadFile(path)
+		pem, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load cert %q: %s", path, err)
 		}

@@ -17,7 +17,7 @@
 package parser
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
 
@@ -40,7 +40,7 @@ var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func Test_InvalidPayloads(t *testing.T) {

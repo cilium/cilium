@@ -18,7 +18,6 @@ package option
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -166,7 +165,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 				dirName = c.MkDir()
 
 				fullPath := filepath.Join(dirName, "test")
-				err := ioutil.WriteFile(fullPath, []byte(`"1"
+				err := os.WriteFile(fullPath, []byte(`"1"
 `), os.FileMode(0644))
 				c.Assert(err, IsNil)
 				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
