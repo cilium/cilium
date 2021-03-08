@@ -1,6 +1,6 @@
 module github.com/cilium/cilium
 
-go 1.15
+go 1.16
 
 // direct dependencies
 require (
