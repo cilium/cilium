@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -136,7 +137,7 @@ type NatGCStats struct {
 	// to correctly count EgressAlive, so skip it
 }
 
-func newNatGCStats(m NatMap, family gcFamily) NatGCStats {
+func newNatGCStats(m *nat.Map, family gcFamily) NatGCStats {
 	return NatGCStats{
 		DumpStats: m.DumpStats(),
 		Family:    family,
