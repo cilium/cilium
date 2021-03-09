@@ -396,22 +396,6 @@ case "${MODE}" in
 
 		CILIUM_EPHEMERAL_MIN=$(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}')
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
-
-		if [ "$NODE_PORT" = "true" ]; then
-			MAC_BY_IFINDEX_MACRO="#define NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX) ({ \\
-	union macaddr __mac = {.addr = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}; \\
-	switch (IFINDEX) { \\\\\n"
-			MAC_BY_IFINDEX_MACRO_END="	} \\
-	__mac; })"
-			for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
-				IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
-				MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}' || echo "00:00:00:00:00:00")
-				MAC=$(mac2array $MAC)
-				MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}	case ${IDX}: {union macaddr __tmp = {.addr = ${MAC}}; __mac=__tmp;} break; \\\\\n"
-			done
-			MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}${MAC_BY_IFINDEX_MACRO_END}"
-			echo -e "${MAC_BY_IFINDEX_MACRO}" >> $RUNDIR/globals/node_config.h
-		fi
 esac
 
 # Address management
