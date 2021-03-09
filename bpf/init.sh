@@ -462,9 +462,14 @@ if [ "$MODE" = "ipip" ]; then
 	if [ "$IP6_HOST" != "<nil>" ]; then
 		ENCAP_DEV="cilium_ipip6"
 		ip link show $ENCAP_DEV || {
-			# See comment on cilium_ipip4 for this workaround.
-			ip link add name ip6tnl0 type ip6tnl external || true
-			ip link set ip6tnl0 name $ENCAP_DEV
+			# For cilium_ipip6 device, we unfortunately cannot use the
+			# same workaround as cilium_ipip4. While the latter allows
+			# to set an existing tunl0 into collect_md mode, the default
+			# ip6tnl0 if present cannot. It's quite annoying, but if v6
+			# was built into the kernel, we might just need to live with
+			# it. Default device creation can still be worked around
+			# via boot param if the sysctl from agent won't do it.
+			ip link add name $ENCAP_DEV type ip6tnl external || true
 			ip link set sit0 name cilium_sit || true
 		}
 		setup_dev $ENCAP_DEV || encap_fail
