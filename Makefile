@@ -47,7 +47,7 @@ LOGLEVEL ?= "error"
 SKIP_VET ?= "false"
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
-SKIP_CUSTOMVET_CHECK ?= "false"
+SKIP_CUSTOMVET_CHECK ?= "true"
 
 JOB_BASE_NAME ?= cilium_test
 
