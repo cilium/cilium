@@ -316,6 +316,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		mode = ipvlanMode
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
+		sysSettings = append(sysSettings,
+			sysctl.Setting{Name: "net.core.fb_tunnels_only_for_init_net",
+				Val: "2", IgnoreErr: true})
 	default:
 		mode = directMode
 	}
