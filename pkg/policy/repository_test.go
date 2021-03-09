@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1862,7 +1862,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: []labels.LabelArray{nil, nil, nil},
+		DerivedFromRules: []labels.LabelArray{nil},
 	}
 
 	if equal, err := checker.Equal(l4IngressPolicy, expected.Ingress); !equal {

@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -612,7 +612,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel, ruleLabel}, false, false)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, false)
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -632,7 +632,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 							cachedSelectorWorld: nil,
 							cachedSelectorTest:  nil,
 						},
-						DerivedFromRules: labels.LabelArrayList{ruleLabel, ruleLabel},
+						DerivedFromRules: labels.LabelArrayList{ruleLabel},
 					},
 				},
 				Egress: L4PolicyMap{},

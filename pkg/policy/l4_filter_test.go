@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -299,7 +299,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	c.Assert(res, checker.Equals, expected)
@@ -416,7 +416,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	buffer := new(bytes.Buffer)
@@ -501,7 +501,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -806,7 +806,7 @@ func (ds *PolicyTestSuite) TestMergeTLSPolicies(c *C) {
 			},
 		},
 		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	c.Assert(res, checker.Equals, expected)
@@ -865,7 +865,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 			wildcardCachedSelector: nil,
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -929,7 +929,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 			cachedSelectorA:        nil,
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -1010,7 +1010,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -1085,7 +1085,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -1177,7 +1177,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -1261,7 +1261,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -1464,7 +1464,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -1536,7 +1536,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 			cachedSelectorC: nil,
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
