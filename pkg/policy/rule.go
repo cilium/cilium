@@ -262,22 +262,11 @@ func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoint
 		return 0, err
 	}
 
-	key := p.Port + "/" + string(proto)
-	existingFilter, ok := resMap[key]
-	if !ok {
-		resMap[key] = filterToMerge
-		return 1, nil
-	}
-
-	selectorCache := policyCtx.GetSelectorCache()
-	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
-		filterToMerge.detach(selectorCache)
+	err = addL4Filter(policyCtx, ctx, resMap, p, proto, filterToMerge, ruleLabels)
+	if err != nil {
 		return 0, err
 	}
-	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-	resMap[key] = existingFilter
-
-	return 1, nil
+	return 1, err
 }
 
 func traceL3(ctx *SearchContext, peerEndpoints api.EndpointSelectorSlice, direction string, isDeny bool) {
@@ -747,21 +736,11 @@ func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints
 		return 0, err
 	}
 
-	key := p.Port + "/" + string(proto)
-	existingFilter, ok := resMap[key]
-	if !ok {
-		resMap[key] = filterToMerge
-		return 1, nil
-	}
-
-	selectorCache := policyCtx.GetSelectorCache()
-	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
-		filterToMerge.detach(selectorCache)
+	err = addL4Filter(policyCtx, ctx, resMap, p, proto, filterToMerge, ruleLabels)
+	if err != nil {
 		return 0, err
 	}
-	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-	resMap[key] = existingFilter
-	return 1, nil
+	return 1, err
 }
 
 func (r *rule) resolveEgressPolicy(
