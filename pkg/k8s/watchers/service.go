@@ -89,6 +89,9 @@ func (k *K8sWatcher) addK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stoppab
 			k.redirectPolicyManager.OnAddService(svcID)
 		}
 	}
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnUpdateService(svc)
+	}
 	return nil
 }
 
@@ -103,6 +106,9 @@ func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
 			k.redirectPolicyManager.OnDeleteService(svcID)
 		}
+	}
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnDeleteService(svc)
 	}
 	return nil
 }

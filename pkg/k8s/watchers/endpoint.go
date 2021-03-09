@@ -93,6 +93,9 @@ func (k *K8sWatcher) addK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.Stopp
 
 func (k *K8sWatcher) updateK8sEndpointV1(oldEP, newEP *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.UpdateEndpoints(newEP, swg)
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnUpdateEndpoints(newEP)
+	}
 	return nil
 }
 
