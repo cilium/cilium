@@ -644,7 +644,7 @@ func lookupDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) 
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
+	ip4Alloc2 := cidr.MustParseCIDR("5.5.5.0/26")
 
 	externalNode1IP4v1 := net.ParseIP("4.4.4.4")
 	externalNode1IP4v2 := net.ParseIP("4.4.4.5")
@@ -700,6 +700,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		},
 		IPv4AllocCIDR: ip4Alloc1,
 	}
+
 	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	c.Assert(err, check.IsNil)
 

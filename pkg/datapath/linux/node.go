@@ -112,7 +112,7 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 	case newCIDR == nil && oldCIDR != nil:
 		fallthrough
 	// Node allocation CIDR has changed
-	case oldCIDR != nil && newCIDR != nil && !oldCIDR.IP.Equal(newCIDR.IP):
+	case oldCIDR != nil && newCIDR != nil && !oldCIDR.Equal(newCIDR):
 		deleteTunnelMapping(oldCIDR, false)
 	}
 }
@@ -140,7 +140,7 @@ func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net
 	}
 
 	// CIDR changed
-	return !oldCIDR.IP.Equal(newCIDR.IP)
+	return !oldCIDR.Equal(newCIDR)
 }
 
 func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
@@ -264,7 +264,7 @@ func (n *linuxNodeHandler) updateDirectRoute(oldCIDR, newCIDR *cidr.CIDR, oldIP,
 	case !oldIP.Equal(newIP):
 		fallthrough
 	// Node allocation CIDR has changed
-	case oldCIDR != nil && newCIDR != nil && !oldCIDR.IP.Equal(newCIDR.IP):
+	case oldCIDR != nil && newCIDR != nil && !oldCIDR.Equal(newCIDR):
 		n.deleteDirectRoute(oldCIDR, oldIP)
 	}
 
