@@ -289,9 +289,16 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		log.WithError(err).Fatal("Unable to configure API rate limiting")
 	}
 
+	// Do the partial kube-proxy replacement initialization before creating BPF
+	// maps. Otherwise, some maps might not be created (e.g. session affinity).
+	// finishKubeProxyReplacementInit(), which is called later after the device
+	// detection, might disable BPF NodePort and friends. But this is fine, as
+	// the feature does not influence the decision which BPF maps should be
+	// created.
+	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
+
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
-		option.Config.EnableIPv4, option.Config.EnableIPv6,
-	)
+		option.Config.EnableIPv4, option.Config.EnableIPv6)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 	lbmap.Init(lbmap.InitParams{
 		IPv4: option.Config.EnableIPv4,
@@ -403,14 +410,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			ep.Stop()
 		}
 	})
-
-	// Do the partial kube-proxy replacement initialization before creating BPF
-	// maps. Otherwise, some maps might not be created (e.g. session affinity).
-	// finishKubeProxyReplacementInit(), which is called later after the device
-	// detection, might disable BPF NodePort and friends. But this is fine, as
-	// the feature does not influence the decision which BPF maps should be
-	// created.
-	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()
