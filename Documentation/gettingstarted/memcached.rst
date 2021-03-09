@@ -140,9 +140,9 @@ In your main terminal window, have X-wing starfighter set their coordinates usin
 
 .. parsed-literal::
 
-    $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$SETXC\\" | nc memcached-server 11211"
+    $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$SETXC\\" | nc memcached-server 11211"
     STORED
-    $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
+    $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
     VALUE xwing-coord 0 16
     8893.34,234.3290
     END
@@ -228,7 +228,7 @@ If we then try to perform the attacks from the *X-wing* pod from the main termin
 
 .. parsed-literal::
 
-    $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$GETAC\\" | nc memcached-server 11211"
+    $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$GETAC\\" | nc memcached-server 11211"
     CLIENT_ERROR access denied
 
 From the A-Wing terminal window, we can confirm that if *A-wing* goes outside of the bounds of its allowed calls. You may need to run the ``client.get`` command twice for the python call:
@@ -271,14 +271,14 @@ In the main terminal window, execute:
 
 .. parsed-literal::
 
-  $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
+  $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
   VALUE xwing-coord 0 16
   8893.34,234.3290
   END
   $ SETXC="set xwing-coord 0 1200 16\\r\\n9854.34,926.9187\\r\\nquit\\r\\n"
-  $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$SETXC\\" | nc memcached-server 11211"
+  $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$SETXC\\" | nc memcached-server 11211"
   STORED
-  $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
+  $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
   VALUE xwing-coord 0 16
   9854.34,926.9187
   END
@@ -299,12 +299,14 @@ In the Alliance-Tracker terminal window, execute:
 .. parsed-literal::
 
   >>> client.get("awing-coord")
+  '9852.542,892.1318'
   >>> client.get("xwing-coord")
+  '9854.34,926.9187'
   >>> exit()
   # exit
 
 
-Step 7: Clean Up
+Step 6: Clean Up
 ================
 
 You have now installed Cilium, deployed a demo app, and tested
