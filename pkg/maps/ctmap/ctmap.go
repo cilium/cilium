@@ -106,16 +106,6 @@ const (
 
 var globalDeleteLock [mapTypeMax]lock.Mutex
 
-type NatMap interface {
-	Open() error
-	Close() error
-	DeleteMapping(key tuple.TupleKey) error
-	DumpWithCallback(bpf.DumpCallback) error
-	DumpReliablyWithCallback(bpf.DumpCallback, *bpf.DumpStats) error
-	Delete(bpf.MapKey) error
-	DumpStats() *bpf.DumpStats
-}
-
 type mapAttributes struct {
 	mapKey     bpf.MapKey
 	keySize    int
@@ -124,7 +114,7 @@ type mapAttributes struct {
 	maxEntries int
 	parser     bpf.DumpParser
 	bpfDefine  string
-	natMap     NatMap
+	natMap     *nat.Map
 }
 
 // CtMap interface represents a CT map, and can be reused to implement mock
@@ -145,7 +135,7 @@ type CtMapRecord struct {
 	Value CtEntry
 }
 
-func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat NatMap) {
+func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat *nat.Map) {
 	mapInfo[m] = mapAttributes{
 		bpfDefine: define,
 		mapKey:    mapKey,
@@ -168,7 +158,7 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 	global4Map, global6Map := nat.GlobalMaps(v4, v6)
 
 	// SNAT also only works if the CT map is global so all local maps will be nil
-	natMaps := map[mapType]NatMap{
+	natMaps := map[mapType]*nat.Map{
 		mapTypeIPv4TCPLocal:  nil,
 		mapTypeIPv6TCPLocal:  nil,
 		mapTypeIPv4TCPGlobal: global4Map,
@@ -347,7 +337,7 @@ func newMap(mapName string, m mapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key CtKey, natMap NatMap) error {
+func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
 		natMap.DeleteMapping(key.GetTupleKey())
@@ -427,7 +417,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key CtKey, natMap NatMap) error {
+func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
 		natMap.DeleteMapping(key.GetTupleKey())
