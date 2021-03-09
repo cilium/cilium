@@ -656,14 +656,13 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	copy(nextHopIPv4, newNodeIP)
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.LogSubsys: "node-neigh",
-		logfields.Interface: ifaceName,
-		logfields.IPAddr:    newNodeIP,
+		logfields.LogSubsys: "node-neigh-debug",
+		logfields.Interface: n.neighDiscoveryLink.Attrs().Name,
 	})
 
 	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4, ifaceName)
 	if err != nil {
-		scopedLog.WithError(err).Error("Failed to determine source and nexthop IP addr")
+		scopedLog.WithError(err).Info("Unable to determine source and nexthop IP addr")
 		return
 	}
 
@@ -690,7 +689,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 						logfields.IPAddr:       neigh.IP,
 						logfields.HardwareAddr: neigh.HardwareAddr,
 						logfields.LinkIndex:    neigh.LinkIndex,
-					}).WithError(err).Warn("Failed to remove neighbor entry")
+					}).WithError(err).Info("Unable to remove neighbor entry")
 				}
 				delete(n.neighByNextHop, nextHopStr)
 				if option.Config.NodePortHairpin {
@@ -718,7 +717,8 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, linkAttr, srcIPv4)
 		if err != nil {
-			scopedLog.WithError(err).Error("arping failed")
+			scopedLog.WithError(err).Info("arping failed")
+			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
 			return
 		}
 
@@ -753,7 +753,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		default:
 		}
 		if err := netlink.NeighSet(&neigh); err != nil {
-			scopedLog.WithError(err).Error("Failed to insert neighbor")
+			scopedLog.WithError(err).Info("Unable to insert neighbor")
 			return
 		}
 		n.neighByNextHop[nextHopStr] = &neigh
@@ -784,11 +784,11 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 		if found {
 			if err := netlink.NeighDel(neigh); err != nil {
 				log.WithFields(logrus.Fields{
-					logfields.LogSubsys:    "node-neigh",
+					logfields.LogSubsys:    "node-neigh-debug",
 					logfields.IPAddr:       neigh.IP,
 					logfields.HardwareAddr: neigh.HardwareAddr,
 					logfields.LinkIndex:    neigh.LinkIndex,
-				}).WithError(err).Warn("Failed to remove neighbor entry")
+				}).WithError(err).Info("Unable to remove neighbor entry")
 				return
 			}
 
