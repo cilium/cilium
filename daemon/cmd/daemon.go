@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -172,6 +173,8 @@ type Daemon struct {
 	endpointCreations *endpointCreationManager
 
 	redirectPolicyManager *redirectpolicy.Manager
+
+	bgpSpeaker *speaker.Speaker
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -380,6 +383,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.endpointManager.InitMetrics()
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+	if option.Config.BGPAnnounceLBIP {
+		d.bgpSpeaker = speaker.New()
+	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
@@ -389,11 +395,15 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.svc,
 		d.datapath,
 		d.redirectPolicyManager,
+		d.bgpSpeaker,
 		option.Config,
 	)
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
+	if option.Config.BGPAnnounceLBIP {
+		d.bgpSpeaker.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	}
 
 	bootstrapStats.daemonInit.End(true)
 

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -35,6 +36,13 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 		&slim_corev1.Node{},
 		0,
 		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				if node := k8s.ObjToV1Node(obj); node != nil {
+					if option.Config.BGPAnnounceLBIP {
+						k.bgpSpeakerManager.OnUpdateNode(node) // Need to seed the BGP speaker
+					}
+				}
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
@@ -75,5 +83,10 @@ func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) e
 	if err != nil {
 		return err
 	}
+
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnUpdateNode(newK8sNode)
+	}
+
 	return nil
 }

@@ -147,6 +147,15 @@ type redirectPolicyManager interface {
 	OnAddPod(pod *slim_corev1.Pod)
 }
 
+type bgpSpeakerManager interface {
+	OnUpdateService(svc *slim_corev1.Service)
+	OnDeleteService(svc *slim_corev1.Service)
+
+	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
+
+	OnUpdateNode(node *slim_corev1.Node)
+}
+
 type K8sWatcher struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -169,6 +178,7 @@ type K8sWatcher struct {
 	policyRepository      policyRepository
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
+	bgpSpeakerManager     bgpSpeakerManager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -197,6 +207,7 @@ func NewK8sWatcher(
 	svcManager svcManager,
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
+	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
 ) *K8sWatcher {
 	return &K8sWatcher{
@@ -210,6 +221,7 @@ func NewK8sWatcher(
 		podStoreSet:           make(chan struct{}),
 		datapath:              datapath,
 		redirectPolicyManager: redirectPolicyManager,
+		bgpSpeakerManager:     bgpSpeakerManager,
 		cfg:                   cfg,
 	}
 }
