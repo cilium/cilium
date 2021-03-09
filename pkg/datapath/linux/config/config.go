@@ -16,6 +16,7 @@ package config
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 	"net"
 	"reflect"
 	"sort"
+	"text/template"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -347,7 +349,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 
-		macro, err := isL3DevMacro()
+		macro, err := macByIfIndexMacro()
+		if err != nil {
+			return err
+		}
+		cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macro
+		macro, err = isL3DevMacro()
 		if err != nil {
 			return err
 		}
@@ -534,6 +541,33 @@ func isL3DevMacro() (string, error) {
 	}
 
 	return macro, nil
+}
+
+func macByIfIndexMacro() (string, error) {
+	macByIfIndex := make(map[int]string)
+	var out bytes.Buffer
+
+	for _, iface := range option.Config.Devices {
+		link, err := netlink.LinkByName(iface)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
+		}
+		macByIfIndex[link.Attrs().Index] = mac.CArrayString(link.Attrs().HardwareAddr)
+	}
+
+	tmpl := template.Must(template.New("macByIfIndex").Parse(
+		`({ \
+union macaddr __mac = {.addr = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}; \
+switch (IFINDEX) { \
+{{range $idx,$mac := .}} case {{$idx}}: {union macaddr __tmp = {.addr = {{$mac}}}; __mac=__tmp;} break; \
+{{end}}} \
+__mac; })`))
+
+	if err := tmpl.Execute(&out, macByIfIndex); err != nil {
+		return "", fmt.Errorf("failed to execute template: %q", err)
+	}
+
+	return out.String(), nil
 }
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
