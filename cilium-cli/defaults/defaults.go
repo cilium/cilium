@@ -57,21 +57,24 @@ const (
 	RelayClientSecretCertName = "tls.crt"
 	RelayClientSecretKeyName  = "tls.key"
 
-	ClusterMeshDeploymentName       = "clustermesh-apiserver"
-	ClusterMeshServiceAccountName   = "clustermesh-apiserver"
-	ClusterMeshClusterRoleName      = "clustermesh-apiserver"
-	ClusterMeshApiserverImage       = "quay.io/cilium/clustermesh-apiserver:" + Version
-	ClusterMeshServiceName          = "clustermesh-apiserver"
-	ClusterMeshSecretName           = "cilium-clustermesh" // Secret which contains the clustermesh configuration
-	ClusterMeshServerSecretName     = "clustermesh-apiserver-server-certs"
-	ClusterMeshServerSecretCertName = "tls.crt"
-	ClusterMeshServerSecretKeyName  = "tls.key"
-	ClusterMeshAdminSecretName      = "clustermesh-apiserver-admin-certs"
-	ClusterMeshAdminSecretCertName  = "tls.crt"
-	ClusterMeshAdminSecretKeyName   = "tls.key"
-	ClusterMeshClientSecretName     = "clustermesh-apiserver-client-certs"
-	ClusterMeshClientSecretCertName = "tls.crt"
-	ClusterMeshClientSecretKeyName  = "tls.key"
+	ClusterMeshDeploymentName                 = "clustermesh-apiserver"
+	ClusterMeshServiceAccountName             = "clustermesh-apiserver"
+	ClusterMeshClusterRoleName                = "clustermesh-apiserver"
+	ClusterMeshApiserverImage                 = "quay.io/cilium/clustermesh-apiserver:" + Version
+	ClusterMeshServiceName                    = "clustermesh-apiserver"
+	ClusterMeshSecretName                     = "cilium-clustermesh" // Secret which contains the clustermesh configuration
+	ClusterMeshServerSecretName               = "clustermesh-apiserver-server-certs"
+	ClusterMeshServerSecretCertName           = "tls.crt"
+	ClusterMeshServerSecretKeyName            = "tls.key"
+	ClusterMeshAdminSecretName                = "clustermesh-apiserver-admin-certs"
+	ClusterMeshAdminSecretCertName            = "tls.crt"
+	ClusterMeshAdminSecretKeyName             = "tls.key"
+	ClusterMeshClientSecretName               = "clustermesh-apiserver-client-certs"
+	ClusterMeshClientSecretCertName           = "tls.crt"
+	ClusterMeshClientSecretKeyName            = "tls.key"
+	ClusterMeshExternalWorkloadSecretName     = "clustermesh-apiserver-external-workload-certs"
+	ClusterMeshExternalWorkloadSecretCertName = "tls.crt"
+	ClusterMeshExternalWorkloadSecretKeyName  = "tls.key"
 
 	ConnectivityCheckNamespace = "cilium-test"
 
