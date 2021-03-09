@@ -22,7 +22,7 @@ import (
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/versioncheck"
-	"github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
@@ -177,10 +177,6 @@ const (
 	CiliumBugtool          = "cilium-bugtool"
 	CiliumDockerDaemonName = "cilium-docker"
 	AgentDaemon            = "cilium-agent"
-
-	GeneratedHTMLManifest   = "html.yaml"
-	GeneratedServerManifest = "server.yaml"
-	GeneratedClientManifest = "client.yaml"
 
 	KubectlCreate = ResourceLifeCycleAction("create")
 	KubectlDelete = ResourceLifeCycleAction("delete")

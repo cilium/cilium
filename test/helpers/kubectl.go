@@ -2642,16 +2642,6 @@ func (kub *Kubectl) CiliumEndpointsList(ctx context.Context, pod string) *CmdRes
 	return kub.CiliumExecContext(ctx, pod, "cilium endpoint list -o json")
 }
 
-// CiliumEndpointsStatus returns a mapping  of a pod name to it is corresponding
-// endpoint's status
-func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
-	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.status.state}{"\n"}{end}`
-	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
-	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf(
-		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
-}
-
 // CiliumEndpointIPv6 returns the IPv6 address of each endpoint which matches
 // the given endpoint selector.
 func (kub *Kubectl) CiliumEndpointIPv6(pod string, endpoint string) map[string]string {
