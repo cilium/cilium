@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	c.Assert(l4IngressDenyPolicy, checker.DeepEquals, expected)
@@ -214,7 +214,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -280,7 +280,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -349,7 +349,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedDenyAllL7(c *
 			cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -427,7 +427,7 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 			wildcardCachedSelector: nil,
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -495,7 +495,7 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 			wildcardCachedSelector: nil,
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -577,7 +577,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -654,7 +654,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}

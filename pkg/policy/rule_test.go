@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Egress["3000/TCP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
@@ -304,7 +304,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, L7RulesPerSelector: mergedES, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -363,7 +363,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, L7RulesPerSelector: mergedES, Ingress: false,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -449,7 +449,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -520,7 +520,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", L7RulesPerSelector: l7map, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -612,7 +612,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", L7RulesPerSelector: l7map, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -694,7 +694,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 			},
 		},
 		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state := traceState{}
@@ -774,7 +774,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 			},
 		},
 		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -857,7 +857,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", L7RulesPerSelector: l7map, Ingress: false,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
 	state = traceState{}
@@ -1959,7 +1959,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
 	buffer := new(bytes.Buffer)
@@ -1994,7 +1994,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
 	filterL7, ok := l4IngressPolicy["7000/TCP"]
@@ -2279,7 +2279,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	})
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
@@ -2342,7 +2342,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 			},
 		},
 		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil, nil},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	})
 
 	l4IngressPolicy.Detach(repo.GetSelectorCache())

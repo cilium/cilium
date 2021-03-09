@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -786,7 +786,16 @@ func addL4Filter(policyCtx PolicyContext,
 		filterToMerge.detach(selectorCache)
 		return err
 	}
-	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+	var exists bool
+	for _, existingRuleLabels := range existingFilter.DerivedFromRules {
+		if existingRuleLabels.DeepEqual(&ruleLabels) {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+	}
 	resMap[key] = existingFilter
 	return nil
 }
