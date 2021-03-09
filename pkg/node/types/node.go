@@ -98,6 +98,10 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 
 	interfaces := make([]Interface, 0, len(n.Status.ENI.ENIs))
 	for _, eni := range n.Status.ENI.ENIs {
+		if eni.Number < *n.Spec.ENI.FirstInterfaceIndex {
+			continue
+		}
+
 		gateway, err := subnetGatewayAddress(eni.Subnet)
 		if err != nil {
 			continue

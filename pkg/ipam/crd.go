@@ -23,6 +23,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/vishvananda/netlink"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -219,6 +224,295 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 	return
 }
 
+func updateENIRulesAndRoutes(oldNode, newNode *nodeTypes.Node) error {
+	var oldInterfaces []nodeTypes.Interface
+	if oldNode != nil {
+		oldInterfaces = oldNode.Interfaces
+	}
+
+	log.WithField("old", oldNode).WithField("new", newNode).Info("!!! updateENIRulesAndRoutes")
+
+	addedInterfaces, removedInterfaces := diffInterfaces(oldInterfaces, newNode.Interfaces)
+
+	// Configure new interfaces.
+	macToIfIndex := map[string]int{} // FIXME move this to nodeRulesAndRoutes?
+	for _, addedInterface := range newNode.Interfaces {
+		// mtu := n.nodeConfig.MtuConfig.GetDeviceMTU()
+		mtu := 1500 // FIXME pass in real MTU
+		ifIdx, err := linuxrouting.RetrieveIfIndexFromMAC(addedInterface.MAC, mtu)
+		if err != nil {
+			log.WithError(err).Errorf("Unable to configure interface index %d mac %s", addedInterface.Index, addedInterface.MAC)
+		} else {
+			macToIfIndex[addedInterface.MAC.String()] = ifIdx
+		}
+	}
+
+	// Ignore removed interfaces for now.
+	_ = removedInterfaces
+	_ = addedInterfaces
+
+	oldRules, oldRoutes := nodeRulesAndRoutes(oldNode, macToIfIndex)
+	newRules, newRoutes := nodeRulesAndRoutes(newNode, macToIfIndex)
+	addedRules, removedRules := diffRules(oldRules, newRules)
+	addedRoutes, removedRoutes := diffRoutes(oldRoutes, newRoutes)
+
+	log.WithFields(logrus.Fields{
+		"addedRules":    addedRules,
+		"removedRules":  removedRules,
+		"addedRoutes":   addedRoutes,
+		"removedRoutes": removedRoutes,
+	}).Info("!!!! EXTRACTED DIFF")
+
+	// Add and remove rules and routes. This has to succeed so we retry
+	// multiple times.
+	maxRetries := 3
+	rulesToAdd, rulesToRemove := addedRules, removedRules
+	routesToAdd, routesToRemove := addedRoutes, removedRoutes
+	var failedAddRules, failedRemoveRules []*route.Rule
+	var failedAddRoutes, failedRemoveRoutes []*netlink.Route
+	for retry := 0; retry < maxRetries; retry++ {
+		for _, rule := range rulesToAdd {
+			if err := route.ReplaceRule(*rule); err != nil {
+				log.WithError(err).Errorf("add rule %s failed", rule)
+				failedAddRules = append(failedAddRules, rule)
+			}
+		}
+
+		for _, rule := range rulesToRemove {
+			if err := route.DeleteRule(*rule); err != nil {
+				log.WithError(err).Errorf("delete rule %s failed", rule)
+				failedRemoveRules = append(failedRemoveRules, rule)
+			}
+		}
+
+		for _, route := range routesToAdd {
+			if err := netlink.RouteReplace(route); err != nil {
+				log.WithError(err).Errorf("add L2 nexthop route %s failed", route)
+				failedAddRoutes = append(failedAddRoutes, route)
+			}
+		}
+
+		for _, route := range routesToRemove {
+			if err := netlink.RouteDel(route); err != nil {
+				log.WithError(err).Errorf("remove L2 nexthop route %s failed", route)
+				failedRemoveRoutes = append(failedRemoveRoutes, route)
+			}
+		}
+
+		// If there were no failues, then we are done.
+		if len(failedAddRules)+len(failedRemoveRules)+len(failedAddRoutes)+len(failedRemoveRoutes) == 0 {
+			break
+		}
+
+		// Otherwise, retry with the failures and clear the list of failures.
+		rulesToAdd, failedAddRules = failedAddRules, nil
+		rulesToRemove, failedRemoveRules = failedRemoveRules, nil
+		routesToAdd, failedAddRoutes = failedAddRoutes, nil
+		routesToRemove, failedRemoveRoutes = failedRemoveRoutes, nil
+	}
+
+	// If there were still failures after retrying, then return an error.
+	if failures := len(failedAddRules) + len(failedRemoveRules) + len(failedAddRoutes) + len(failedRemoveRoutes); failures > 0 {
+		return fmt.Errorf("adding and removing %d rules and routes failed after %d retries", failures, maxRetries)
+	}
+
+	return nil
+}
+
+// nodeRulesAndRoutes returns the rules and routes required to configure node.
+// It is based on pkg/datapath/linux/routing.Configure.
+func nodeRulesAndRoutes(node *nodeTypes.Node, macToIfIndex map[string]int) (rules []*route.Rule, routes []*netlink.Route) {
+	if node == nil {
+		return nil, nil
+	}
+
+	nodeIPv4Nets, nodeIPv6Nets := ip.CoalesceCIDRs(nodeIPNets(node))
+	_ = nodeIPv6Nets // Ignore IPv6 nets for now.
+
+	for _, iface := range node.Interfaces {
+		ifIndex, ok := macToIfIndex[iface.MAC.String()]
+		if !ok {
+			log.WithField("iface", iface).Warning("failed to retrieve interface index")
+			continue
+		}
+
+		var egressPriority, tableID int
+		if option.Config.EgressMultiHomeIPRuleCompat {
+			egressPriority = linux_defaults.RulePriorityEgress
+			tableID = ifIndex
+		} else {
+			egressPriority = linux_defaults.RulePriorityEgressv2
+			// RoutingInfo.Configure is also using the ENI index here
+			tableID = linuxrouting.ComputeTableIDFromIfaceNumber(iface.Index)
+		}
+
+		for _, endpointAddress := range iface.EndpointAddresses {
+			ipWithMask := net.IPNet{
+				IP:   endpointAddress,
+				Mask: net.CIDRMask(32, 32),
+			}
+
+			// On ingress, route all traffic to the endpoint IP via the main
+			// routing table. Egress rules are created in a per-ENI routing
+			// table.
+			ingressRule := &route.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				To:       &ipWithMask,
+				Table:    route.MainTable,
+			}
+			rules = append(rules, ingressRule)
+
+			if option.Config.EnableIPv4Masquerade {
+				// Lookup a VPC specific table for all traffic from an endpoint
+				// to the CIDR configured for the VPC on which the endpoint has
+				// the IP on.
+				egressRules := make([]*route.Rule, 0, len(nodeIPv4Nets))
+				for _, ipNet := range nodeIPv4Nets {
+					egressRule := &route.Rule{
+						Priority: egressPriority,
+						From:     &ipWithMask,
+						To:       ipNet,
+						Table:    tableID,
+					}
+					egressRules = append(egressRules, egressRule)
+				}
+				rules = append(rules, egressRules...)
+			} else {
+				// Lookup a VPC specific table for all traffic from an endpoint.
+				egressRule := &route.Rule{
+					Priority: egressPriority,
+					From:     &ipWithMask,
+					Table:    tableID,
+				}
+				rules = append(rules, egressRule)
+			}
+		}
+
+		// Nexthop route to the VPC or subnet gateway.
+		//
+		// Note: This is a /32 route to avoid any L2. The endpoint does no L2
+		// either.
+		nexthopRoute := &netlink.Route{
+			LinkIndex: ifIndex,
+			Dst: &net.IPNet{
+				IP:   iface.Gateway.IP,
+				Mask: net.CIDRMask(32, 32),
+			},
+			Scope: netlink.SCOPE_LINK,
+			Table: tableID,
+		}
+		routes = append(routes, nexthopRoute)
+
+		// Default route to the VPC or subnet gateway.
+		defaultRoute := &netlink.Route{
+			Dst: &net.IPNet{
+				IP:   net.IPv4zero,
+				Mask: net.CIDRMask(0, 32),
+			},
+			Table: tableID,
+			Gw:    iface.Gateway.IP,
+		}
+		routes = append(routes, defaultRoute)
+	}
+
+	return
+}
+
+// nodeIPNets returns all natively routed CIDRs for node.
+func nodeIPNets(node *nodeTypes.Node) []*net.IPNet {
+	var ipNets []*net.IPNet
+	if ipv4NativeRoutingCIDR := option.Config.IPv4NativeRoutingCIDR(); ipv4NativeRoutingCIDR != nil && ipv4NativeRoutingCIDR.IPNet != nil {
+		ipNets = append(ipNets, ipv4NativeRoutingCIDR.IPNet)
+	}
+	for _, ipv4NativeRoutingCIDR := range node.IPv4NativeRoutingCIDRs {
+		ipNets = append(ipNets, ipv4NativeRoutingCIDR.IPNet)
+	}
+	return ipNets
+}
+
+func diffInterfaces(old, new []nodeTypes.Interface) (added, removed []*nodeTypes.Interface) {
+	newInterfaceSet := interfaceSet(new)
+	for _, oldInterface := range old {
+		if _, ok := newInterfaceSet[oldInterface.Index]; !ok {
+			removed = append(removed, &oldInterface)
+		}
+	}
+
+	oldInterfaceSet := interfaceSet(old)
+	for _, newInterface := range new {
+		if _, ok := oldInterfaceSet[newInterface.Index]; !ok {
+			added = append(added, &newInterface)
+		}
+	}
+
+	return
+}
+
+func interfaceSet(interfaces []nodeTypes.Interface) map[int]struct{} {
+	interfaceSet := make(map[int]struct{})
+	for _, iface := range interfaces {
+		interfaceSet[iface.Index] = struct{}{}
+	}
+	return interfaceSet
+}
+
+// diffRules returns a list of added and removed rules between old and new.
+//
+// TODO this could be a lot more efficient, it makes a lot of calls to
+// route.Rule.String() which could be a lot faster. As the order of rules is
+// deterministic, we could also consider using a proper diff algorithm.
+func diffRules(old, new []*route.Rule) (added, removed []*route.Rule) {
+	newRuleSet := ruleSet(new)
+	for _, oldRule := range old {
+		if _, ok := newRuleSet[oldRule.String()]; !ok {
+			removed = append(removed, oldRule)
+		}
+	}
+
+	oldRuleSet := ruleSet(old)
+	for _, newRule := range new {
+		if _, ok := oldRuleSet[newRule.String()]; !ok {
+			added = append(added, newRule)
+		}
+	}
+
+	return
+}
+
+func ruleSet(rules []*route.Rule) map[string]struct{} {
+	ruleSet := make(map[string]struct{})
+	for _, rule := range rules {
+		ruleSet[rule.String()] = struct{}{}
+	}
+	return ruleSet
+}
+
+func diffRoutes(old, new []*netlink.Route) (added, removed []*netlink.Route) {
+	newRouteSet := routeSet(new)
+	for _, oldRoute := range old {
+		if _, ok := newRouteSet[oldRoute.String()]; !ok {
+			removed = append(removed, oldRoute)
+		}
+	}
+
+	oldRouteSet := routeSet(old)
+	for _, newRoute := range new {
+		if _, ok := oldRouteSet[newRoute.String()]; !ok {
+			added = append(added, newRoute)
+		}
+	}
+
+	return
+}
+
+func routeSet(routes []*netlink.Route) map[string]struct{} {
+	routeSet := make(map[string]struct{})
+	for _, route := range routes {
+		routeSet[route.String()] = struct{}{}
+	}
+	return routeSet
+}
+
 // hasMinimumIPsInPool returns true if the required number of IPs is available
 // in the allocation pool. It also returns the number of IPs required and
 // available.
@@ -294,6 +588,23 @@ func (n *nodeStore) deleteLocalNodeResource() {
 func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
+
+	if n.conf.IPAMMode() == ipamOption.IPAMENI {
+		// FIXME: no need to convert to nodeTypes.Node
+		var newNode, oldNode *nodeTypes.Node
+		if n.ownNode != nil {
+			n := nodeTypes.ParseCiliumNode(n.ownNode)
+			oldNode = &n
+		}
+		if node != nil {
+			n := nodeTypes.ParseCiliumNode(node)
+			newNode = &n
+		}
+
+		if err := updateENIRulesAndRoutes(oldNode, newNode); err != nil {
+			log.WithError(err).Errorf("Failed to update routes and rules for ENIs")
+		}
+	}
 
 	n.ownNode = node
 	n.allocationPoolSize[IPv4] = 0
