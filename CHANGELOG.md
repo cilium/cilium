@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.8.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* datapath: Do not log when kernel config not found (Backport PR #15038, Upstream PR #14902, @brb)
+* Envoy is updated to release 1.17.1 (Backport PR #15221, Upstream PR #14754, @jrajahalme)
+* k8s: update k8s libraries to 1.18.16 (#15028, @aanm)
+
+**Bugfixes:**
+* Avoid an empty instanceID on EC2 (Backport PR #15038, Upstream PR #15012, @kkourt)
+* cilium: encryption fix, ipv4-pod-subnets without encryptnode fails (Backport PR #15117, Upstream PR #14999, @jrfastab)
+* cilium: encryption, fixes for ENI & Azure mode with shared podIPs and networkIPs (Backport PR #15193, Upstream PR #15048, @jrfastab)
+* Fix failing `bpf-map-sync-cilium_snat_v{4,6}_external` controllers when BPF NodePort is disabled (Backport PR #15297, Upstream PR #15175, @pchaigno)
+* Fix ICMP Echo ID placement in CT maps (#15273, @brb)
+* Fix memory leak on stable policy identity churn. (Backport PR #15046, Upstream PR #15042, @jrajahalme)
+* Fix possible deadlock when querying network interfaces for arping (#15225, @brb)
+* Fix potential panic on clustermesh environments (Backport PR #15180, Upstream PR #15107, @aanm)
+* ipsec: Use 64bits for XFRM output sequence number (Backport PR #15117, Upstream PR #15039, @pchaigno)
+
+**Misc Changes:**
+* .github: publish into official repo for next release (#15032, @aanm)
+* add GH action to push hot fix images into -dev repositories (#15063, @aanm)
+* Add support for image digests in helm charts (#15187, @aanm)
+* Adds a Getting Started Guide for Rancher 2.x using Existing Nodes (Backport PR #15297, Upstream PR #15179, @seanmwinn)
+* backporting: Add support for forked cilium repositories (Backport PR #15038, Upstream PR #15008, @gandro)
+* backporting: Update instructions for backporting workflow (Backport PR #15180, Upstream PR #15118, @aditighag)
+* build(deps): bump actions/setup-go from v1 to v2.1.3 (#15210, @dependabot[bot])
+* build(deps): bump helm/chart-testing-action from v1.0.0-rc.2 to v2.0.1 (#15236, @dependabot[bot])
+* Improve release scripts (Backport PR #15258, Upstream PR #15121, @joestringer)
+
+**Other Changes:**
+* [v1.8] helm: Remove duplicate `tolerations` value in hubble-relay (#15165, @gandro)
+* test: Fix docker compose in precheck (Backport PR #15156, Upstream PR #15171, @nebril)
+
 ## v1.8.7
 
 Summary of Changes

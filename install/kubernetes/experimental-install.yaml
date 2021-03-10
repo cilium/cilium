@@ -577,7 +577,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.8.7"
+        image: "quay.io/cilium/cilium:v1.8.8"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -645,7 +645,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.8.7"
+        image: "quay.io/cilium/cilium:v1.8.8"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -747,7 +747,7 @@ spec:
       serviceAccountName: hubble-relay
       containers:
         - name: hubble-relay
-          image: "quay.io/cilium/hubble-relay:v1.8.7"
+          image: "quay.io/cilium/hubble-relay:v1.8.8"
           imagePullPolicy: IfNotPresent
           command:
             - "hubble-relay"
@@ -900,7 +900,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: "quay.io/cilium/operator-generic:v1.8.7"
+        image: "quay.io/cilium/operator-generic:v1.8.8"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
