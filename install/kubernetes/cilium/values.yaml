@@ -36,7 +36,7 @@ global:
   registry: quay.io/cilium
 
   # tag is the container image tag to use
-  tag: v1.7.14
+  tag: v1.7.15
 
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent

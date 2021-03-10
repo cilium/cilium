@@ -1,7 +1,7 @@
 apiVersion: v1
 name: config
-version: 1.7.14
-appVersion: 1.7.14
+version: 1.7.15
+appVersion: 1.7.15
 tillerVersion: ">=2.7.2"
 description: Helm chart for Cilium configuration
 keywords:
