@@ -26,25 +26,26 @@ EXPERIMENTAL_OPTIONS := \
     --set global.hubble.relay.enabled=true \
     --set global.hubble.ui.enabled=true
 
+USE_DIGESTS ?= true
+ifeq ($(USE_DIGESTS),false)
+DIGEST_OPTS :=
+else
+# FIXME change the useDigest to 'true' once images were released by GH actions
+DIGEST_OPTS := --set agent.useDigest=false	\
+	--set hubble-relay.useDigest=false	\
+	--set operator.useDigest=false		\
+	--set preflight.useDigest=false
+endif
+
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
-# FIXME change the useDigest to 'true' once images were released by GH actions
 $(QUICK_INSTALL): $(shell find cilium/ -type f)
 	$(QUIET)helm template cilium --namespace=kube-system \
-     --set agent.useDigest=false \
-     --set hubble-relay.useDigest=false \
-     --set operator.useDigest=false \
-     --set preflight.useDigest=false \
-     $(OPTS) > $(QUICK_INSTALL)
+	$(DIGEST_OPTS) $(OPTS) > $(QUICK_INSTALL)
 
-# FIXME change the useDigest to 'true' once images were released by GH actions
 $(EXPERIMENTAL_INSTALL): $(shell find cilium/ -type f)
 	$(QUIET)helm template cilium --namespace=kube-system \
-     --set agent.useDigest=false \
-     --set hubble-relay.useDigest=false \
-     --set operator.useDigest=false \
-     --set preflight.useDigest=false \
-     $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
+	$(DIGEST_OPTS) $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
