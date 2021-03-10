@@ -12,7 +12,7 @@ repo="cilium/cilium"
 usage() {
     logecho "usage: $0 <GH-USERNAME> <VERSION> <RUN-URL>"
     logecho "GH-USERNAME  GitHub username"
-    logecho "VERSION      Target version"
+    logecho "VERSION      Target version (X.Y.Z)"
     logecho "RUN-URL      GitHub URL with the RUN for the release images"
     logecho "             example: https://github.com/cilium/cilium/actions/runs/600920964"
     logecho "GITHUB_TOKEN environment variable set with the scope public:repo"
@@ -63,9 +63,10 @@ get_digest_output() {
 
 main() {
     handle_args "$@"
-    local username version run_url_id
+    local username ersion version run_url_id
     username="${1}"
-    version="${2}"
+    ersion="$(echo ${2} | sed 's/^v//')"
+    version="v${ersion}"
     run_url_id="$(basename "${3}")"
 
     makefile_digest=$(get_digest_output "${username}" "${run_url_id}" "${version}" Makefile.digests)
