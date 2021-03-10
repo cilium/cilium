@@ -20,6 +20,12 @@ load-balancing, and encryption.
    When running Cilium in chaining configuration on top of AWS VPC CNI, the L7 policies may not work. 
    This limitation is currently tracked at `#12454 <https://github.com/cilium/cilium/issues/12454>`_.
 
+.. important::
+
+   Due to a bug in certain version of the AWS CNI, please ensure that you are
+   running the AWS CNI `1.7.9 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.7.9>`_
+   or newer to guarantee compatibility with Cilium.
+
 .. image:: aws-cni-architecture.png
 
 
