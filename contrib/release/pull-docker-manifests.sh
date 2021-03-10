@@ -4,17 +4,18 @@
 
 DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source "${DIR}/lib/common.sh"
+source "${DIR}/../backporting/common.sh"
 
 CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
 
 repo="cilium/cilium"
 
 usage() {
-    logecho "usage: $0 <GH-USERNAME> <VERSION> <RUN-URL>"
-    logecho "GH-USERNAME  GitHub username"
-    logecho "VERSION      Target version (X.Y.Z)"
+    logecho "usage: $0 <RUN-URL> [VERSION] [GH-USERNAME]"
     logecho "RUN-URL      GitHub URL with the RUN for the release images"
     logecho "             example: https://github.com/cilium/cilium/actions/runs/600920964"
+    logecho "VERSION      Target version (X.Y.Z) (default: read from VERSION file)"
+    logecho "GH-USERNAME  GitHub username for authentication (default: autodetect)"
     logecho "GITHUB_TOKEN environment variable set with the scope public:repo"
     logecho
     logecho "--help     Print this help message"
@@ -64,10 +65,10 @@ get_digest_output() {
 main() {
     handle_args "$@"
     local username ersion version run_url_id
-    username="${1}"
-    ersion="$(echo ${2} | sed 's/^v//')"
+    run_url_id="$(basename "${1}")"
+    ersion="$(echo ${2:-$(cat VERSION)} | sed 's/^v//')"
     version="v${ersion}"
-    run_url_id="$(basename "${3}")"
+    username=$(get_user_remote ${3:-})
 
     if [ ! -e "${PWD}/install/kubernetes/Makefile.digests" ]; then
         >&2 echo "Cannot find install/kubernetes/Makefile.digests"
