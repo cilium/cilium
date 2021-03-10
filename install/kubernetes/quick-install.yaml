@@ -429,7 +429,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.7.15"
+        image: "quay.io/cilium/cilium:v1.7.15@sha256:9b8f331bd1a5d429b445c08ba839a6f2c285f961d598d6a07e2a17b6dc8c7ccb"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -492,7 +492,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.7.15"
+        image: "quay.io/cilium/cilium:v1.7.15@sha256:9b8f331bd1a5d429b445c08ba839a6f2c285f961d598d6a07e2a17b6dc8c7ccb"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -684,7 +684,7 @@ spec:
               key: identity-allocation-mode
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/operator:v1.7.15"
+        image: "quay.io/cilium/operator:v1.7.15@sha256:ad89582fcd9af88a7f7194c69caedc4a70fb4612de9d5e09a3a310471dd28019"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
