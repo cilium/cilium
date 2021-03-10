@@ -90,8 +90,8 @@ var (
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080, 2),
 	}
 	backends3 = []lb.Backend{
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
-		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080, 1),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080, 2),
 	}
 )
 

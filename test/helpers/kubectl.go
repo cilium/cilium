@@ -3958,8 +3958,8 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 
 // ciliumPodServiceCache
 type CiliumService struct {
-	Name          string
-	Service      []models.Service
+	Name    string
+	Service []models.Service
 }
 
 func (kub *Kubectl) GetCiliumService(namespace string, name string) *CiliumService {
