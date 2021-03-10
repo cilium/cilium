@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Envoy is updated to release 1.17.1 (Backport PR #15222, Upstream PR #14754, @jrajahalme)
+
+**Bugfixes:**
+* Fix ICMP Echo ID placement in CT maps (#15271, @brb)
+
+**Misc Changes:**
+* Add support for image digests in helm charts (#15188, @aanm)
+* backporting: Update instructions for backporting workflow (Backport PR #15183, Upstream PR #15118, @aditighag)
+* Improve release scripts (Backport PR #15257, Upstream PR #15121, @joestringer)
+
 ## v1.7.14
 
 Summary of Changes
