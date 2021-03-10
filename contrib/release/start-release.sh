@@ -52,7 +52,6 @@ handle_args() {
 main() {
     handle_args "$@"
 
-    local old_version="$(cat VERSION)"
     local ersion="$(echo $1 | sed 's/^v//')"
     local version="v$ersion"
     local branch="v$(echo $ersion | sed 's/[^0-9]*\([0-9]\+\.[0-9]\+\).*/\1/')"
@@ -60,6 +59,7 @@ main() {
 
     git fetch $REMOTE
     git checkout -b pr/prepare-$version $REMOTE/$branch
+    local old_version="$(cat VERSION)"
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
