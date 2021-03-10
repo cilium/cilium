@@ -92,7 +92,7 @@ var clusterRole = &rbacv1.ClusterRole{
 	},
 }
 
-func (k *K8sClusterMesh) generateService() *corev1.Service {
+func (k *K8sClusterMesh) generateService() (*corev1.Service, error) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        defaults.ClusterMeshServiceName,
@@ -109,6 +109,9 @@ func (k *K8sClusterMesh) generateService() *corev1.Service {
 	}
 
 	if k.params.ServiceType != "" {
+		if k.params.ServiceType == "NodePort" {
+			k.Log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
+		}
 		svc.Spec.Type = corev1.ServiceType(k.params.ServiceType)
 	} else {
 		switch k.flavor.Kind {
@@ -127,11 +130,11 @@ func (k *K8sClusterMesh) generateService() *corev1.Service {
 			svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 			svc.ObjectMeta.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] = "0.0.0.0/0"
 		default:
-			svc.Spec.Type = corev1.ServiceTypeClusterIP
+			return nil, fmt.Errorf("cannot auto-detect service type, please specify using '--service-type' option")
 		}
 	}
 
-	return svc
+	return svc, nil
 }
 
 var initContainerArgs = []string{`rm -rf /var/run/etcd/*;
@@ -527,7 +530,12 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	_, err := k.client.GetDeployment(ctx, k.params.Namespace, "clustermesh-apiserver", metav1.GetOptions{})
+	svc, err := k.generateService()
+	if err != nil {
+		return err
+	}
+
+	_, err = k.client.GetDeployment(ctx, k.params.Namespace, "clustermesh-apiserver", metav1.GetOptions{})
 	if err == nil {
 		k.Log("✅ ClusterMesh is already enabled")
 		return nil
@@ -554,7 +562,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := k.client.CreateService(ctx, k.params.Namespace, k.generateService(), metav1.CreateOptions{}); err != nil {
+	if _, err := k.client.CreateService(ctx, k.params.Namespace, svc, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
@@ -714,6 +722,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 				break
 			}
 		}
+		k.Log("⚠️  Service type NodePort detected! Service may fail when nodes are removed from the cluster!")
 
 	case svc.Spec.Type == corev1.ServiceTypeLoadBalancer:
 		if len(svc.Spec.Ports) == 0 {
