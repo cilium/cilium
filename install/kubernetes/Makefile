@@ -41,6 +41,18 @@ EXPERIMENTAL_OPTIONS := \
     --set bandwidthManager=true \
     --set operator.replicas=1
 
+USE_DIGESTS ?= true
+ifeq ($(USE_DIGESTS),false)
+DIGEST_OPTS :=
+else
+# FIXME change the useDigest to 'true' once images were released by GH actions
+DIGEST_OPTS := --set image.useDigest=false \
+	--set operator.image.useDigest=false \
+	--set preflight.image.useDigest=false \
+	--set hubble.relay.image.useDigest=false \
+	--set clustermesh.apiserver.image.useDigest=false
+endif
+
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--workdir /src/install/kubernetes \
 	--volume $(CURDIR)/../..:/src \
@@ -56,35 +68,17 @@ LOGO_PATH := Documentation/images/logo-solo.svg
 
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) $(QUICK_HUBBLE_INSTALL) docs
 
-# FIXME change the useDigest to 'true' once images were released by GH actions
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system \
-     --set image.useDigest=false \
-     --set operator.image.useDigest=false \
-     --set preflight.image.useDigest=false \
-     --set hubble.relay.image.useDigest=false \
-     --set clustermesh.apiserver.image.useDigest=false \
-     $(QUICK_OPTIONS) > $(QUICK_INSTALL)
+	$(DIGEST_OPTS) $(QUICK_OPTIONS) > $(QUICK_INSTALL)
 
-# FIXME change the useDigest to 'true' once images were released by GH actions
 $(QUICK_HUBBLE_INSTALL) quick-hubble-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system \
-     --set image.useDigest=false \
-     --set operator.image.useDigest=false \
-     --set preflight.image.useDigest=false \
-     --set hubble.relay.image.useDigest=false \
-     --set clustermesh.apiserver.image.useDigest=false \
-     $(QUICK_HUBBLE_OPTIONS) > $(QUICK_HUBBLE_INSTALL)
+	$(DIGEST_OPTS) $(QUICK_HUBBLE_OPTIONS) > $(QUICK_HUBBLE_INSTALL)
 
-# FIXME change the useDigest to 'true' once images were released by GH actions
 $(EXPERIMENTAL_INSTALL) experimental-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system \
-     --set image.useDigest=false \
-     --set operator.image.useDigest=false \
-     --set preflight.image.useDigest=false \
-     --set hubble.relay.image.useDigest=false \
-     --set clustermesh.apiserver.image.useDigest=false \
-     $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
+	$(DIGEST_OPTS) $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
