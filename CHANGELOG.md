@@ -1,5 +1,94 @@
 # Changelog
 
+## v1.9.5
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Move Azure IPAM out of beta (Backport PR #15104, Upstream PR #14993, @tgraf)
+
+**Minor Changes:**
+* daemon: do not allow --auto-direct-node-routes when tunneling is enabled (Backport PR #15243, Upstream PR #15196, @jibi)
+* datapath: Do not log when kernel config not found (Backport PR #15006, Upstream PR #14902, @brb)
+* Envoy is updated to release 1.15.3. (Backport PR #15254, Upstream PR #14462, @jrajahalme)
+* Envoy is updated to release 1.17.1 (Backport PR #15220, Upstream PR #14754, @jrajahalme)
+* helm: Fix and add missing podLabels (Backport PR #15104, Upstream PR #14943, @Subreptivus)
+* Install Cilium in kube-system on GKE (Backport PR #15006, Upstream PR #14899, @pchaigno)
+* k8s: update k8s libraries to 1.19.8 (#15029, @aanm)
+* Make Go runtime to return unused memory to OS more often (Backport PR #14961, Upstream PR #14634, @aanm)
+* Make pod-to-pod encryption functional in the IPAM ENI mode. (Backport PR #14961, Upstream PR #14924, @aditighag)
+* Revert kernel-check CLI (Backport PR #15006, Upstream PR #14966, @joestringer)
+* Support kube-proxy-replacement when running on Kind (Backport PR #15104, Upstream PR #14951, @brb)
+
+**Bugfixes:**
+* [1.9] doc: Fix masquerade option in AKS/Azure guides (#15245, @tgraf)
+* Avoid an empty instanceID on EC2 (Backport PR #15047, Upstream PR #15012, @kkourt)
+* bpf: Fix bpf masquerade issue when host connecting to remote pod (Backport PR #15243, Upstream PR #15206, @borkmann)
+* cilium: encryption fix, ipv4-pod-subnets without encryptnode fails (Backport PR #15164, Upstream PR #14999, @jrfastab)
+* cilium: encryption, fixes for ENI & Azure mode with shared podIPs and networkIPs (Backport PR #15164, Upstream PR #15048, @jrfastab)
+* Fix a bug that affects connectivity to NodePort service via ExternalIP of the local k8s node. (Backport PR #14961, Upstream PR #14793, @AnishShah)
+* Fix bug where PolicyAuditMode could not be changed at runtime if it was enabled at startup (Backport PR #15243, Upstream PR #15218, @ArthurChiao)
+* Fix connectivity to externalTrafficPolicy=Local services when using the host firewall with kube-proxy (Backport PR #14961, Upstream PR #14756, @pchaigno)
+* Fix ENI compatibility regression between 1.7 <-> 1.8 (Backport PR #15006, Upstream PR #14991, @tgraf)
+* Fix failing `bpf-map-sync-cilium_snat_v{4,6}_external` controllers when BPF NodePort is disabled (Backport PR #15298, Upstream PR #15175, @pchaigno)
+* Fix ICMP Echo ID placement in CT maps (#15274, @brb)
+* Fix ipsec+vxlan bug where egressing packets would bypass masquerading on their way to remote nodes (Backport PR #14961, Upstream PR #14611, @jrfastab)
+* Fix memory leak on stable policy identity churn. (Backport PR #15047, Upstream PR #15042, @jrajahalme)
+* Fix possible deadlock when querying network interfaces for arping (#15227, @brb)
+* Fix potential panic on clustermesh environments (Backport PR #15164, Upstream PR #15107, @aanm)
+* Fix remote pod connectivity through VIP in tunneling mode with kube-proxy and per-endpoint routes. Fix IPv6 connectivity to BPF HostPort when kube-proxy is installed (Backport PR #14961, Upstream PR #14675, @pchaigno)
+* ipsec: Use 64bits for XFRM output sequence number (Backport PR #15164, Upstream PR #15039, @pchaigno)
+* iptables: Fix incorrect SNAT bypass with endpoint routes and tunneling (Backport PR #14961, Upstream PR #14913, @pchaigno)
+* labelsfilter: add reserved labels to default identity label list (Backport PR #14930, Upstream PR #14114, @ArthurChiao)
+* service: Skip upsert of service for disabled IP family (Backport PR #15243, Upstream PR #15026, @pchaigno)
+
+**CI Changes:**
+* bpf: Enable monitor aggregation in complexity tests (Backport PR #15006, Upstream PR #14995, @pchaigno)
+* checkpatch: update image (skip backports, add a check, suppress one report type) (Backport PR #15164, Upstream PR #15096, @qmonnet)
+* ci(smoketest): Pin promtool version in GHA (Backport PR #14961, Upstream PR #14954, @sayboras)
+* ci: disable endpointslice in 1.17 cluster (Backport PR #15164, Upstream PR #15058, @nebril)
+* ci: use quay.io images in upstream tests (Backport PR #15164, Upstream PR #15081, @nebril)
+* lbmap: Initialize maps before test suite runs (Backport PR #14870, Upstream PR #14842, @christarazi)
+* test: Avoid unnecessary restarts of unmanaged pods (Backport PR #15006, Upstream PR #14938, @pchaigno)
+* test: Delete all unmanaged pods with a single kubectl delete (Backport PR #15006, Upstream PR #14942, @pchaigno)
+* test: K8sVerifier Fix test-verifier's scheduling (Backport PR #14870, Upstream PR #14803, @pchaigno)
+* test: Use Endpoint instead of EndpointSlice in 1.17 (Backport PR #15006, Upstream PR #15010, @nebril)
+
+**Misc Changes:**
+* .github: add stable tag for v1.9 releases (#15084, @aanm)
+* .github: publish into official repo for next release (#15033, @aanm)
+* [v1.9] .github: add GitHub actions to build images (#14936, @aanm)
+* Add configurable suffix for operator image repo in helm (Backport PR #15164, Upstream PR #14952, @nebril)
+* add GH action to push hot fix images into -dev repositories (#15062, @aanm)
+* Add support for image digests in helm charts (#15186, @aanm)
+* Adds a Getting Started Guide for Rancher 2.x using Existing Nodes (Backport PR #15298, Upstream PR #15179, @seanmwinn)
+* backporting: Add support for forked cilium repositories (Backport PR #15006, Upstream PR #15008, @gandro)
+* backporting: Update instructions for backporting workflow (Backport PR #15164, Upstream PR #15118, @aditighag)
+* build(deps): bump actions/setup-go from v1 to v2.1.3 (#15235, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from v1 to v1.1.1 (#15211, @dependabot[bot])
+* contrib/k8s: use provided image when installing external workload (Backport PR #15047, Upstream PR #15020, @tklauser)
+* docs: Add FQDN limitation to IPVLAN docs (Backport PR #14930, Upstream PR #14893, @joestringer)
+* docs: Add L7 not working warning to AWS CNI Chaining page (Backport PR #15243, Upstream PR #15163, @stimmerman)
+* docs: Added instruction to also delete kube-proxy configmap (Backport PR #14961, Upstream PR #14847, @yoshz)
+* docs: Clarify external workload docs (Backport PR #15254, Upstream PR #15253, @jrajahalme)
+* docs: Clarify titles for allow-all-endpoints examples (Backport PR #15243, Upstream PR #15145, @pchaigno)
+* docs: Document hostport requirements in eni (Backport PR #14961, Upstream PR #14920, @joestringer)
+* docs: Fix max. number of tail calls (Backport PR #15243, Upstream PR #15162, @pchaigno)
+* envoy: Do not use deprecated fields (Backport PR #15254, Upstream PR #15232, @jrajahalme)
+* envoy: Silently discard expected warnings if flowdebug is not enabled (Backport PR #15288, Upstream PR #15284, @jrajahalme)
+* Fix BPF map handling on upgrade when disabling the preallocation of BPF maps (Backport PR #15099, Upstream PR #14853, @christarazi)
+* images: Set GOPS_CONFIG_DIR in scratch images (Backport PR #14961, Upstream PR #14886, @gandro)
+* Improve release scripts (Backport PR #15259, Upstream PR #15121, @joestringer)
+* iptables: Skip CILIUM_TRANSIENT_FORWARD for IPv6 (Backport PR #15006, Upstream PR #14994, @pchaigno)
+* labelsfilter: Update documentation and add unit tests (Backport PR #14961, Upstream PR #14338, @pchaigno)
+* Minor backporting script tweaks (Backport PR #15053, Upstream PR #14027, @twpayne)
+* tools/licensegen: consider COPYING files (Backport PR #15243, Upstream PR #15239, @tklauser)
+* v1.9: Update Go to 1.15.8 (#14984, @tklauser)
+
+**Other Changes:**
+* test: Fix docker compose in precheck (#15171, @nebril)
+
 ## v1.9.4
 
 Summary of Changes
@@ -273,7 +362,7 @@ Note: The summary of changes represents the diff between v1.8.5 and v1.9.0
 * cmd: Allow to filter metrics with regexp (#12590, @mrostecki)
 * Create healthz HTTP endpoint for kube-proxy replacement (#11733, @soumynathan)
 * datapath: Decouple IPV4_MASQUERADE from IPV4_NODEPORT (Backport PR #13751, Upstream PR #13606, @brb)
- cilium can correctly differentiate protocols between services. (#12628, @nathanjsweet)and port), so that 
+* Differentiate load-balancer keys in the datapath by protocol (in addition to address and port), so that cilium can correctly differentiate protocols between services. (#12628, @nathanjsweet)
 * docker: update Hubble CLI to v0.7.0 (Backport PR #13688, Upstream PR #13643, @Rolinh)
 * Enable host firewall without remote-node identity (#12878, @pchaigno)
 * Enable support for user managed identities in the `cilium-operator` (#12592, @ungureanuvladvictor)
@@ -299,7 +388,7 @@ Note: The summary of changes represents the diff between v1.8.5 and v1.9.0
 * hubble: Add support for PERF_RECORD_LOST (#12475, @gandro)
 * install/kubernetes: Allow update of "remote" secret (Backport PR #13812, Upstream PR #13784, @jrajahalme)
 * k8s: Only wait for the needed CRDs (Backport PR #13903, Upstream PR #13820, @jrajahalme)
- which adds egress policy enforcement support for Kafka L7 policies. (#12548, @jrajahalme)
+* Kafka proxy is now implemented in Cilium Go extensions for Envoy, which adds egress policy enforcement support for Kafka L7 policies. (#12548, @jrajahalme)
 * lbmap: Sort backends before creating maglev lookup table (#13461, @brb)
 * maglev: Add native implementation of murmur3 (#13501, @brb)
 * maglev: Perf related follow up items (#13431, @brb)

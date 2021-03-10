@@ -70,7 +70,7 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: v1.9.4
+  tag: v1.9.5
   pullPolicy: IfNotPresent
   # cilium-digest
   digest: ""
@@ -550,7 +550,7 @@ hubble:
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
-      tag: v1.9.4
+      tag: v1.9.5
       pullPolicy: IfNotPresent
        # hubble-relay-digest
       digest: ""
@@ -1071,7 +1071,7 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: v1.9.4
+    tag: v1.9.5
     pullPolicy: IfNotPresent
     suffix: ""
     # operator-generic-digest
@@ -1280,7 +1280,7 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.9.4
+    tag: v1.9.5
     pullPolicy: IfNotPresent
     # cilium-digest
     digest: ""
@@ -1389,7 +1389,7 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: v1.9.4
+      tag: v1.9.5
       pullPolicy: IfNotPresent
       # clustermesh-apiserver-digest
       digest: ""
