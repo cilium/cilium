@@ -16,6 +16,7 @@ import (
 	"net"
 	"os"
 	gosignal "os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
@@ -113,7 +114,7 @@ func Listen(opts Options) error {
 		return err
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	portfile = fmt.Sprintf("%s/%d", gopsdir, os.Getpid())
+	portfile = filepath.Join(gopsdir, strconv.Itoa(os.Getpid()))
 	err = ioutil.WriteFile(portfile, []byte(strconv.Itoa(port)), os.ModePerm)
 	if err != nil {
 		return err
