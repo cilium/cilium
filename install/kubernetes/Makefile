@@ -30,11 +30,10 @@ USE_DIGESTS ?= true
 ifeq ($(USE_DIGESTS),false)
 DIGEST_OPTS :=
 else
-# FIXME change the useDigest to 'true' once images were released by GH actions
-DIGEST_OPTS := --set agent.useDigest=false	\
-	--set hubble-relay.useDigest=false	\
-	--set operator.useDigest=false		\
-	--set preflight.useDigest=false
+DIGEST_OPTS := --set agent.useDigest=true	\
+	--set hubble-relay.useDigest=true	\
+	--set operator.useDigest=true		\
+	--set preflight.useDigest=true
 endif
 
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
