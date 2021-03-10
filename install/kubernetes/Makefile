@@ -123,9 +123,9 @@ update-versions:
 		# image digests;													\
 		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $(CILIUM_VALUES); 				\
 		sed -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $(CILIUM_VALUES);			\
-		sed -i '/# operator-aws-digest.*/{!b;n;s/aws-digest.*/aws-digest: "'$(OPERATOR_AWS_DIGEST)'"/}' $(CILIUM_VALUES); 		\
-		sed -i '/# operator-azure-digest.*/{!b;n;s/azure-digest.*/azure-digest: "'$(OPERATOR_AZURE_DIGEST)'"/}' $(CILIUM_VALUES); 	\
-		sed -i '/# operator-generic-digest.*/{!b;n;s/generic-digest.*/generic-digest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
+		sed -i '/# operator-aws-digest.*/{!b;n;s/awsDigest.*/awsDigest: "'$(OPERATOR_AWS_DIGEST)'"/}' $(CILIUM_VALUES);                 \
+		sed -i '/# operator-azure-digest.*/{!b;n;s/azureDigest.*/azureDigest: "'$(OPERATOR_AZURE_DIGEST)'"/}' $(CILIUM_VALUES);         \
+		sed -i '/# operator-generic-digest.*/{!b;n;s/genericDigest.*/genericDigest: "'$(OPERATOR_GENERIC_DIGEST)'"/}' $(CILIUM_VALUES); \
 		sed -i '/# clustermesh-apiserver-digest.*/{!b;n;s/digest.*/digest: "'$(CLUSTERMESH_APISERVER_DIGEST)'"/}' $(CILIUM_VALUES)
 
 lint:
