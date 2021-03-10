@@ -189,6 +189,7 @@ func parseENI(iface *ec2.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, sub
 		if vpcs != nil {
 			if vpc, ok := vpcs[eni.VPC.ID]; ok {
 				eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
+				eni.VPC.CIDRs = vpc.CIDRs
 			}
 		}
 	}
@@ -266,6 +267,12 @@ func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 
 		if v.CidrBlock != nil {
 			vpc.PrimaryCIDR = *v.CidrBlock
+		}
+
+		for _, c := range v.CidrBlockAssociationSet {
+			if cidr := aws.StringValue(c.CidrBlock); cidr != vpc.PrimaryCIDR {
+				vpc.CIDRs = append(vpc.CIDRs, cidr)
+			}
 		}
 
 		vpcs[vpc.ID] = vpc
