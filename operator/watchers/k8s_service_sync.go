@@ -19,13 +19,12 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -38,6 +37,7 @@ import (
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -49,6 +49,8 @@ var (
 	k8sSvcCacheSynced = make(chan struct{})
 	kvs               *store.SharedStore
 	sharedOnly        bool
+
+	serviceSubscribers = subscriber.NewService()
 )
 
 func k8sServiceHandler(clusterName string) {
@@ -132,8 +134,9 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 	}()
 
 	swgSvcs := lock.NewStoppableWaitGroup()
-
 	swgEps := lock.NewStoppableWaitGroup()
+
+	serviceSubscribers.Register(newServiceCacheSubscriber(swgSvcs, swgEps))
 
 	// Watch for v1.Service changes and push changes into ServiceCache
 	_, svcController := informer.NewInformer(
@@ -145,8 +148,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
-					log.WithField(logfields.ServiceName, k8sSvc.Name).Debugf("Received service addition %+v", k8sSvc)
-					K8sSvcCache.UpdateService(k8sSvc, swgSvcs)
+					serviceSubscribers.NotifyAdd(k8sSvc)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -156,9 +158,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 						if oldk8sSvc.DeepEqual(newk8sSvc) {
 							return
 						}
-
-						log.WithField(logfields.ServiceName, newk8sSvc.Name).Debugf("Received service update %+v", newk8sSvc)
-						K8sSvcCache.UpdateService(newk8sSvc, swgSvcs)
+						serviceSubscribers.NotifyUpdate(oldk8sSvc, newk8sSvc)
 					}
 				}
 			},
@@ -168,8 +168,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 				if k8sSvc == nil {
 					return
 				}
-				log.WithField(logfields.ServiceName, k8sSvc.Name).Debugf("Received service deletion %+v", k8sSvc)
-				K8sSvcCache.DeleteService(k8sSvc, swgSvcs)
+				serviceSubscribers.NotifyDelete(k8sSvc)
 			},
 		},
 		nil,
