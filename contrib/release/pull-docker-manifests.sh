@@ -73,6 +73,7 @@ main() {
     >&2 echo "Adding image SHAs to install/kubernetes/Makefile.digests"
     >&2 echo ""
     cp "${makefile_digest}" "${DIR}/../../install/kubernetes/Makefile.digests"
+    make -C install/kubernetes/
 
     >&2 echo "Generating manifest text for release notes"
     >&2 echo ""
