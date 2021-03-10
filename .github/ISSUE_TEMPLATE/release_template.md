@@ -46,7 +46,7 @@ assignees: ''
   - [ ] Create a commit and push as a new PR.
   - [ ] Merge PR
 - [ ] Update helm charts
-  - [ ] Pull latest branch locally
+  - [ ] Pull latest branch locally into the cilium repository.
   - [ ] Create helm charts artifacts in [Cilium charts] repository using
         [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y`
         branch and push these changes into the helm repository. Make sure the
