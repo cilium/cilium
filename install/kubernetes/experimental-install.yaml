@@ -797,7 +797,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.5"
+        image: "quay.io/cilium/cilium:v1.9.5@sha256:6c829237d4e00080b48e08d453bd87e816a16d7867236446bd9df407ecda0a38"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -868,7 +868,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/cilium:v1.9.5"
+        image: "quay.io/cilium/cilium:v1.9.5@sha256:6c829237d4e00080b48e08d453bd87e816a16d7867236446bd9df407ecda0a38"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -1016,7 +1016,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: "quay.io/cilium/operator-generic:v1.9.5"
+        image: "quay.io/cilium/operator-generic:v1.9.5@sha256:6b7223ffbc94825590579492e9246533a72a97827a1a7ed959abcfcd1cd918a9"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
@@ -1081,7 +1081,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: "quay.io/cilium/hubble-relay:v1.9.5"
+          image: "quay.io/cilium/hubble-relay:v1.9.5@sha256:e4b06b224a66de2abeab4dcbd6a65ebf192ac8f77116deedfa654ff7ab1ae588"
           imagePullPolicy: IfNotPresent
           command:
             - hubble-relay
