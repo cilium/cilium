@@ -206,6 +206,9 @@ type VirtualNetwork struct {
 
 	// PrimaryCIDR is the primary IPv4 CIDR
 	PrimaryCIDR string
+
+	// CIDRs is the list of secondary IPv4 CIDR ranges associated with the VPC
+	CIDRs []string
 }
 
 // VirtualNetworkMap indexes virtual networks by their ID
