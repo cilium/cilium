@@ -7,7 +7,7 @@ image:
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent
   # hubble-relay-digest
-  digest: ""
+  digest: "sha256:3865c0d6aee0956efaab39584242a7319860d4f72d4bee846c3a00ec243f159a"
   useDigest: false
 
 # Specifies the resources for the hubble-relay pods
