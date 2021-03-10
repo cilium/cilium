@@ -63,7 +63,7 @@ main() {
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
-    logrun make -C install/kubernetes all
+    logrun make -C install/kubernetes all USE_DIGESTS=false
     logrun make update-authors
     old_proj=$(grep "projects" $ACTS_YAML | sed "$PROJECTS_REGEX")
     sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML

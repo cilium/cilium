@@ -17,14 +17,20 @@ CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_TAG_REGEX := '\(tag:\) \(v'$(VERSION_REGEX)'\|latest\)'
 CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
 
+USE_DIGESTS ?= true
+ifeq ($(USE_DIGESTS),false)
+DIGEST_OPTS :=
+else
+DIGEST_OPTS := --set agent.useDigest=true	\
+	--set operator.useDigest=true		\
+	--set preflight.useDigest=true
+endif
+
 all: update-versions $(QUICK_INSTALL)
 
 $(QUICK_INSTALL): $(shell find cilium/ -type f)
 	$(QUIET)helm template cilium --namespace=kube-system \
-     --set agent.useDigest=true \
-     --set operator.useDigest=true \
-     --set preflight.useDigest=true \
-     $(OPTS) > $(QUICK_INSTALL)
+	$(DIGEST_OPTS) $(OPTS) > $(QUICK_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
