@@ -101,6 +101,10 @@ func InitBandwidthManager() {
 		{"net.ipv4.tcp_congestion_control", "bbr"},
 		{"net.ipv4.tcp_max_syn_backlog", "4096"},
 	}
+	if !option.Config.EnableHostLegacyRouting {
+		baseSettings = append(baseSettings,
+			setting{"net.core.netdev_tstamp_retain", "1"})
+	}
 	for _, s := range baseSettings {
 		log.WithFields(logrus.Fields{
 			logfields.SysParamName:  s.name,

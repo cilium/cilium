@@ -114,13 +114,14 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 	if (no_neigh)
-		return redirect_neigh(oif, nh, nh ? sizeof(*nh) : 0, 0);
+		return redirect_neigh(oif, nh, nh ? sizeof(*nh) : 0,
+				      BPF_F_TSTAMP_RETAIN);
 # ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
-	return redirect(oif, 0);
+	return redirect(oif, BPF_F_TSTAMP_RETAIN);
 # endif /* ENABLE_SKIP_FIB */
 	return CTX_ACT_DROP;
 }
