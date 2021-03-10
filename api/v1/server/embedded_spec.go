@@ -1448,6 +1448,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol (TCP, UDP, etc)",
+          "type": "string"
         }
       }
     },
@@ -5353,6 +5357,10 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol (TCP, UDP, etc)",
+          "type": "string"
         }
       }
     },

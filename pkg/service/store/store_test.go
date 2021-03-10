@@ -61,45 +61,45 @@ func (s *ServiceGenericSuite) TestPortConfigurationDeepEqual(c *check.C) {
 
 		{
 			a: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			b: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			want: true,
 		},
 		{
 			a: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			b: PortConfiguration{
-				"foz": {Protocol: loadbalancer.NONE, Port: 1},
+				"foz": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			want: false,
 		},
 		{
 			a: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			b: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 2},
+				"foo": {Protocol: loadbalancer.TCP, Port: 2},
 			},
 			want: false,
 		},
 		{
 			a: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			b: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
-				"baz": {Protocol: loadbalancer.NONE, Port: 2},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
+				"baz": {Protocol: loadbalancer.TCP, Port: 2},
 			},
 			want: false,
 		},
 		{
 			a: PortConfiguration{},
 			b: PortConfiguration{
-				"foo": {Protocol: loadbalancer.NONE, Port: 1},
+				"foo": {Protocol: loadbalancer.TCP, Port: 1},
 			},
 			want: false,
 		},

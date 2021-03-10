@@ -488,13 +488,9 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				continue
 			}
 
-			proto, err := loadbalancer.NewL4Type(string(p.Protocol))
-			if err != nil {
-				continue
-			}
-
 			var bes4 []loadbalancer.Backend
 			var bes6 []loadbalancer.Backend
+			proto := loadbalancer.NewL4Type(string(p.Protocol))
 
 			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{

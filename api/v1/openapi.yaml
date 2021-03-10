@@ -2307,6 +2307,9 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+      protocol:
+        description: Layer 4 protocol (TCP, UDP, etc)
+        type: string
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string

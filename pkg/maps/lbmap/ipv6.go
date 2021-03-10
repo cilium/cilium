@@ -152,12 +152,12 @@ func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 }
 
 func (k *Service6Key) String() string {
-	kHost := k.ToHost().(*Service6Key)
-	if kHost.Scope == loadbalancer.ScopeInternal {
-		return fmt.Sprintf("[%s]:%d/i", kHost.Address, kHost.Port)
-	} else {
-		return fmt.Sprintf("[%s]:%d", kHost.Address, kHost.Port)
-	}
+	return serviceKey(
+		k.Address.String(),
+		k.Port,
+		k.GetProtocol(),
+		k.Scope == loadbalancer.ScopeInternal,
+	)
 }
 
 func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -171,6 +171,7 @@ func (k *Service6Key) SetScope(scope uint8)      { k.Scope = scope }
 func (k *Service6Key) GetScope() uint8           { return k.Scope }
 func (k *Service6Key) GetAddress() net.IP        { return k.Address.IP() }
 func (k *Service6Key) GetPort() uint16           { return k.Port }
+func (k *Service6Key) GetProtocol() uint8        { return k.Proto }
 func (k *Service6Key) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
 
 func (k *Service6Key) RevNatValue() RevNatValue {
@@ -302,6 +303,7 @@ func (v *Backend6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6Value) GetPort() uint16    { return b.Port }
+func (b *Backend6Value) GetProtocol() uint8 { return uint8(b.Proto) }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v

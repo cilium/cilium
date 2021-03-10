@@ -37,6 +37,7 @@ var (
 	localRedirect      bool
 	idU                uint64
 	frontend           string
+	protocol           string
 	backends           []string
 )
 
@@ -60,11 +61,36 @@ func init() {
 	serviceUpdateCmd.Flags().StringVarP(&k8sTrafficPolicy, "k8s-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
+	serviceUpdateCmd.Flags().StringVarP(&protocol, "protocol", "", "tcp", "Protocol for service (e.g. TCP, UDP)")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 }
 
-func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
-	frontend, err := net.ResolveTCPAddr("tcp", address)
+func parseAddress(l4Protocol, address string) (ip net.IP, port int, proto string, err error) {
+	switch proto = strings.ToLower(l4Protocol); proto {
+	case "tcp":
+		var tcpAddr *net.TCPAddr
+		tcpAddr, err = net.ResolveTCPAddr(proto, address)
+		if err != nil {
+			return
+		}
+		ip = tcpAddr.IP
+		port = tcpAddr.Port
+	case "udp":
+		var udpAddr *net.UDPAddr
+		udpAddr, err = net.ResolveUDPAddr(proto, address)
+		if err != nil {
+			return
+		}
+		ip = udpAddr.IP
+		port = udpAddr.Port
+	default:
+		err = fmt.Errorf("unrecognized protocol %q", l4Protocol)
+	}
+	return
+}
+
+func parseFrontendAddress(l4Protocol, address string) (*models.FrontendAddress, net.IP) {
+	ip, port, proto, err := parseAddress(l4Protocol, address)
 	if err != nil {
 		Fatalf("Unable to parse frontend address: %s\n", err)
 	}
@@ -74,13 +100,12 @@ func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
 		scope = models.FrontendAddressScopeInternal
 	}
 
-	// FIXME support more than TCP
 	return &models.FrontendAddress{
-		IP:       frontend.IP.String(),
-		Port:     uint16(frontend.Port),
-		Protocol: models.FrontendAddressProtocolTCP,
+		IP:       ip.String(),
+		Port:     uint16(port),
+		Protocol: proto,
 		Scope:    scope,
-	}, frontend.IP
+	}, ip
 }
 
 func boolToInt(set bool) int {
@@ -92,7 +117,7 @@ func boolToInt(set bool) int {
 
 func updateService(cmd *cobra.Command, args []string) {
 	id := int64(idU)
-	fa, faIP := parseFrontendAddress(frontend)
+	fa, faIP := parseFrontendAddress(protocol, frontend)
 
 	var spec *models.ServiceSpec
 	svc, err := client.GetServiceID(id)
@@ -150,20 +175,19 @@ func updateService(cmd *cobra.Command, args []string) {
 
 	spec.BackendAddresses = nil
 	for _, backend := range backends {
-		beAddr, err := net.ResolveTCPAddr("tcp", backend)
+		ip, port, proto, err := parseAddress(protocol, backend)
 		if err != nil {
-			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
+			Fatalf("Cannot parse backend address %q: %s", backend, err)
 		}
-
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
+		be := loadbalancer.NewBackend(0, loadbalancer.L4Type(strings.ToUpper(proto)), ip, uint16(port))
 
 		if be.IsIPv6() && faIP.To4() != nil {
 			Fatalf("Address mismatch between frontend and backend %s", backend)
 		}
 
-		if fa.Port == 0 && beAddr.Port != 0 {
-			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)
+		if fa.Port == 0 && port != 0 {
+			Fatalf("L4 backend found (%s:%d) with L3 frontend", ip, port)
 		}
 
 		ba := be.GetBackendModel()

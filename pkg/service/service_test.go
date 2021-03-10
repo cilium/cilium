@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -80,7 +81,9 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 var (
 	frontend1 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
 	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
-	frontend3 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
+	frontend3 = *lb.NewL3n4AddrID(lb.UDP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
+	frontend4 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
+
 	backends1 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
@@ -90,6 +93,10 @@ var (
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080),
 	}
 	backends3 = []lb.Backend{
+		*lb.NewBackend(0, lb.UDP, net.ParseIP("10.0.0.2"), 8080),
+		*lb.NewBackend(0, lb.UDP, net.ParseIP("10.0.0.3"), 8080),
+	}
+	backends4 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
 	}
@@ -196,10 +203,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
 	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 2)
 
-	// Should add IPv6 service only if IPv6 is enabled
-	c.Assert(err, IsNil)
-	cidr1, err = cidr.ParseCIDR("fd00::/8")
-	c.Assert(err, IsNil)
+	// Should add a similar service ot the others, different only by protocol;
+	// the other service(s) should not be corrupted/affected.
 	p3 := &lb.SVC{
 		Frontend:                  frontend3,
 		Backends:                  backends3,
@@ -208,23 +213,67 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 300,
 		Name:                      "svc3",
+		Namespace:                 "ns2",
+		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
+	}
+	created, id3, err := m.svc.UpsertService(p3)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id3, Equals, lb.ID(3))
+	c.Assert(m.lbmap.ServiceByID[uint16(id3)].Frontend.Protocol, Equals, loadbalancer.UDP)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id3)].Backends), Equals, 2)
+	c.Assert(m.lbmap.ServiceByID[uint16(id3)].Backends[0].Protocol, Equals, loadbalancer.UDP)
+	c.Assert(m.lbmap.ServiceByID[uint16(id3)].Backends, Not(DeepEquals), m.lbmap.ServiceByID[uint16(id2)].Backends)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 4)
+	c.Assert(m.svc.svcByID[id3].svcName, Equals, "svc3")
+	c.Assert(m.svc.svcByID[id3].svcNamespace, Equals, "ns2")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id3)]), Equals, 2)
+	c.Assert(len(m.lbmap.SourceRanges[uint16(id3)]), Equals, 2)
+	// check that the similar service has not been overwritten
+	c.Assert(m.lbmap.ServiceByID[uint16(id2)].Frontend.Protocol, Equals, loadbalancer.TCP)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id2)].Backends), Equals, 2)
+	c.Assert(m.lbmap.ServiceByID[uint16(id2)].Backends[0].Protocol, Equals, loadbalancer.TCP)
+	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
+	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
+	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 2)
+	// delete newest added service
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id3))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	c.Assert(len(m.lbmap.ServiceByID), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id3)]), Equals, 0)
+
+	// Should add IPv6 service only if IPv6 is enabled
+	c.Assert(err, IsNil)
+	cidr1, err = cidr.ParseCIDR("fd00::/8")
+	c.Assert(err, IsNil)
+	p4 := &lb.SVC{
+		Frontend:                  frontend4,
+		Backends:                  backends4,
+		Type:                      lb.SVCTypeLoadBalancer,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 300,
+		Name:                      "svc4",
 		Namespace:                 "ns3",
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1},
 	}
-	created, id3, err := m.svc.UpsertService(p3)
+	created, id4, err := m.svc.UpsertService(p4)
 	if option.Config.EnableIPv6 {
 		c.Assert(err, IsNil)
 		c.Assert(created, Equals, true)
-		c.Assert(id3, Equals, lb.ID(3))
-		c.Assert(len(m.lbmap.ServiceByID[uint16(id3)].Backends), Equals, 2)
+		c.Assert(id4, Equals, lb.ID(4))
+		c.Assert(len(m.lbmap.ServiceByID[uint16(id4)].Backends), Equals, 2)
 		c.Assert(len(m.lbmap.BackendByID), Equals, 4)
-		c.Assert(m.svc.svcByID[id3].svcName, Equals, "svc3")
-		c.Assert(m.svc.svcByID[id3].svcNamespace, Equals, "ns3")
-		c.Assert(len(m.lbmap.AffinityMatch[uint16(id3)]), Equals, 2)
-		c.Assert(len(m.lbmap.SourceRanges[uint16(id3)]), Equals, 1)
+		c.Assert(m.svc.svcByID[id4].svcName, Equals, "svc4")
+		c.Assert(m.svc.svcByID[id4].svcNamespace, Equals, "ns3")
+		c.Assert(len(m.lbmap.AffinityMatch[uint16(id4)]), Equals, 2)
+		c.Assert(len(m.lbmap.SourceRanges[uint16(id4)]), Equals, 1)
 
 		// Should remove the IPv6 service
-		found, err := m.svc.DeleteServiceByID(lb.ServiceID(id3))
+		found, err := m.svc.DeleteServiceByID(lb.ServiceID(id4))
 		c.Assert(err, IsNil)
 		c.Assert(found, Equals, true)
 	} else {
@@ -236,7 +285,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 
 	// Should remove the service and the backend, but keep another service and
 	// its backends. Also, should remove the affinity match.
-	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id1))
 	c.Assert(err, IsNil)
 	c.Assert(found, Equals, true)
 	c.Assert(len(m.lbmap.ServiceByID), Equals, 1)
