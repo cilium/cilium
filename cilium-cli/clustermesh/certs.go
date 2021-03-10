@@ -76,7 +76,7 @@ func (k *K8sClusterMesh) createClusterMeshAdminCertificate(ctx context.Context) 
 			"localhost",
 			"127.0.0.1",
 		},
-		CN: "ClusterMesh Admin",
+		CN: "root",
 	}
 
 	signConf := &config.Signing{
@@ -112,7 +112,7 @@ func (k *K8sClusterMesh) createClusterMeshClientCertificate(ctx context.Context)
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
 		KeyRequest: csr.NewKeyRequest(),
 		Hosts:      []string{""},
-		CN:         "ClusterMesh Client",
+		CN:         "remote",
 	}
 
 	signConf := &config.Signing{
