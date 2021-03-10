@@ -83,8 +83,6 @@ main() {
 
     >&2 echo "Generating manifest text for release notes"
     >&2 echo ""
-    echo "Docker Manifests" > "${DIR}/../../digest-${version}.txt"
-    echo "----------------" >> "${DIR}/../../digest-${version}.txt"
     image_digest_output=$(get_digest_output "${username}" "${run_url_id}" "${version}" image-digest-output.txt)
     cat "${image_digest_output}" >> "${PWD}/digest-${version}.txt"
     >&2 echo "Image digests available at ${PWD}/digest-${version}.txt"
