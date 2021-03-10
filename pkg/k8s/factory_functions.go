@@ -279,6 +279,25 @@ func convertToK8sServicePorts(ports []v1.ServicePort) []slim_corev1.ServicePort 
 	return slimPorts
 }
 
+func ConvertToK8sV1ServicePorts(slimPorts []slim_corev1.ServicePort) []v1.ServicePort {
+	if slimPorts == nil {
+		return nil
+	}
+
+	ports := make([]v1.ServicePort, 0, len(slimPorts))
+	for _, port := range slimPorts {
+		ports = append(ports,
+			v1.ServicePort{
+				Name:     port.Name,
+				Protocol: v1.Protocol(port.Protocol),
+				Port:     port.Port,
+				NodePort: port.NodePort,
+			},
+		)
+	}
+	return ports
+}
+
 func convertToK8sServiceAffinityConfig(saCfg *v1.SessionAffinityConfig) *slim_corev1.SessionAffinityConfig {
 	if saCfg == nil {
 		return nil
@@ -290,6 +309,22 @@ func convertToK8sServiceAffinityConfig(saCfg *v1.SessionAffinityConfig) *slim_co
 
 	return &slim_corev1.SessionAffinityConfig{
 		ClientIP: &slim_corev1.ClientIPConfig{
+			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
+		},
+	}
+}
+
+func ConvertToK8sV1ServiceAffinityConfig(saCfg *slim_corev1.SessionAffinityConfig) *v1.SessionAffinityConfig {
+	if saCfg == nil {
+		return nil
+	}
+
+	if saCfg.ClientIP == nil {
+		return &v1.SessionAffinityConfig{}
+	}
+
+	return &v1.SessionAffinityConfig{
+		ClientIP: &v1.ClientIPConfig{
 			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
 		},
 	}
@@ -309,6 +344,22 @@ func convertToK8sLoadBalancerIngress(lbIngs []v1.LoadBalancerIngress) []slim_cor
 		)
 	}
 	return slimLBIngs
+}
+
+func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngress) []v1.LoadBalancerIngress {
+	if slimLBIngs == nil {
+		return nil
+	}
+
+	lbIngs := make([]v1.LoadBalancerIngress, 0, len(slimLBIngs))
+	for _, lbIng := range slimLBIngs {
+		lbIngs = append(lbIngs,
+			v1.LoadBalancerIngress{
+				IP: lbIng.IP,
+			},
+		)
+	}
+	return lbIngs
 }
 
 // ConvertToK8sService converts a *v1.Service into a
