@@ -221,6 +221,8 @@ Vagrant.configure("2") do |config|
                           "CILIUM_REGISTRY" => "#{$CILIUM_REGISTRY}"
                 }
             end
+            server.vm.provision :shell,
+                :inline => "sudo chmod -R 777 /home/vagrant/go/src"
         end
     end
 end
