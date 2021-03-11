@@ -263,6 +263,7 @@ cd
 certValidityDuration
 cgroup
 chainingMode
+changelog
 ci
 cidrs
 classful
@@ -693,6 +694,7 @@ queryable
 queueing
 rbac
 rc
+rcW
 readinessProbe
 readthedocs
 rebase
