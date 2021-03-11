@@ -28,6 +28,7 @@ EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
 CHART_FILE := "$(CILIUM_CHARTS)/Chart.yaml"
+USE_DIGESTS ?= $(shell if grep -q '""' Makefile.digests; then echo "false"; else echo "true"; fi)
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
 LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
@@ -89,7 +90,7 @@ update-versions:
 		branch="$$cilium_version";											\
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		pull_policy="IfNotPresent";											\
-		use_digest="true";													\
+		use_digest="$(USE_DIGESTS)";													\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
 			cilium_version="latest";										\
 			branch="master";											\
