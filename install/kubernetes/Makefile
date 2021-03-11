@@ -41,7 +41,7 @@ EXPERIMENTAL_OPTIONS := \
     --set bandwidthManager=true \
     --set operator.replicas=1
 
-USE_DIGESTS ?= true
+USE_DIGESTS ?= $(shell if grep -q '""' Makefile.digests; then echo "false"; else echo "true"; fi)
 ifeq ($(USE_DIGESTS),false)
 DIGEST_OPTS :=
 else
@@ -89,7 +89,7 @@ update-versions:
 		branch="$$cilium_version";											\
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		pull_policy="IfNotPresent";											\
-		use_digest="true";													\
+		use_digest="false";											\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
 			cilium_version="latest";										\
 			branch="master";											\
