@@ -45,12 +45,11 @@ USE_DIGESTS ?= true
 ifeq ($(USE_DIGESTS),false)
 DIGEST_OPTS :=
 else
-# FIXME change the useDigest to 'true' once images were released by GH actions
-DIGEST_OPTS := --set image.useDigest=false \
-	--set operator.image.useDigest=false \
-	--set preflight.image.useDigest=false \
-	--set hubble.relay.image.useDigest=false \
-	--set clustermesh.apiserver.image.useDigest=false
+DIGEST_OPTS := --set image.useDigest=true \
+	--set operator.image.useDigest=true \
+	--set preflight.image.useDigest=true \
+	--set hubble.relay.image.useDigest=true \
+	--set clustermesh.apiserver.image.useDigest=true
 endif
 
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
