@@ -70,6 +70,7 @@ The documentation is divided into the following sections:
    :maxdepth: 3
    :caption: For Developers
 
+   contributing/governance/index
    contributing/development/index
    contributing/release/index
    contributing/testing/index
