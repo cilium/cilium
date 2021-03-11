@@ -1,7 +1,7 @@
 # Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG GOLANG_IMAGE=docker.io/library/golang:1.16.0-alpine3.13@sha256:f3f90f4d30866c1bdae90012b506bd5e557ce27ccd2510ed30a011c44c1affc8
+ARG GOLANG_IMAGE=docker.io/library/golang:1.16.1-alpine3.13@sha256:dd4b588f013c60ea770b96b7e1ea27d33ebd8cea5f3dea79865e3426204e58d9
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930
 
 FROM ${GOLANG_IMAGE} as builder
