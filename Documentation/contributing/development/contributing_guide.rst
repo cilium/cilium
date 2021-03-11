@@ -532,7 +532,3 @@ then you just add a line saying:
 
 Use your real name (sorry, no pseudonyms or anonymous contributions.)
 
-.. toctree::
-
-   ../../commit-access
-
