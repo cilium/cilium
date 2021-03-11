@@ -662,7 +662,18 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		}
 
 	case svc.Spec.Type == corev1.ServiceTypeClusterIP:
-		return nil, fmt.Errorf("not able to derive service IPs for type ClusterIP, please specify IPs manually")
+		if len(svc.Spec.Ports) == 0 {
+			return nil, fmt.Errorf("port of service could not be derived, service has no ports")
+		}
+		if svc.Spec.Ports[0].Port == 0 {
+			return nil, fmt.Errorf("port is not set in service")
+		}
+		ai.ServicePort = int(svc.Spec.Ports[0].Port)
+
+		if svc.Spec.ClusterIP == "" {
+			return nil, fmt.Errorf("IP of service could not be derived, service has no ClusterIP")
+		}
+		ai.ServiceIPs = append(ai.ServiceIPs, svc.Spec.ClusterIP)
 
 	case svc.Spec.Type == corev1.ServiceTypeNodePort:
 		if len(svc.Spec.Ports) == 0 {
