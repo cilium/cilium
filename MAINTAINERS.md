@@ -1,5 +1,16 @@
 # Maintainers
 
+See [Governance](Documentation/contributing/governance/commit_access.rst) for
+governance, commit, and vote guidelines as well as maintainer responsibilities.
+Everybody listed in this file is a committer as per governance definition.
+
+All committers and maintainers have identical voting rights. Maintainers have
+additional administrative and janitorial responsibilities.
+
+Regardless of maintainer or committer status, any code contribution is subject
+to code review requirements as per [CODEOWNERS](CODEOWNERS) and PRs get merged
+by the "janitor role" which is rotated between all committers.
+
 ## Cilium Maintainers
 
  * [André Martins] (Isovalent)
@@ -10,7 +21,7 @@
  * [Glib Smaga] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
 
-## Cilium & Hubble Core Team
+## Cilium & Hubble Committers
 
  * [Aditi Ghag] (Isovalent)
  * [Beatriz Martinez] (Isovalent)
