@@ -10,6 +10,8 @@
          https://github.com/openvswitch/ovs/blob/master/Documentation/internals/committer-grant-revocation.rst
          https://github.com/openvswitch/ovs/blob/master/Documentation/internals/committer-responsibilities.rst
 
+..       Additional ideas have been borrowed from https://github.com/envoyproxy/envoy/blob/main/GOVERNANCE.md
+
 ..       Licensed under the Apache License, Version 2.0 (the "License"); you may
          not use this file except in compliance with the License. You may obtain
          a copy of the License at
@@ -298,6 +300,34 @@ The process for changing the policy is:
    for them to be provided (e.g. a couple of business days) the votes
    are evaluated. For the request to modify the policy to pass it must
    receive yes votes from two thirds of the existing committers.
+
+
+Voting
+======
+
+In general, we prefer that technical issues and maintainer membership are
+amicably worked out between the persons involved. If a dispute cannot be
+decided independently, the committers and maintainers can be called in to
+decide an issue. If the maintainers themselves cannot decide an issue, the
+issue will be resolved by voting. The voting process is a simple majority in
+which each committer and each maintainer receives one vote.
+
+Votes are done in the Slack channel #committers using Slack polls. A failure to
+vote is an implicit abstention.
+
+Company Block Vote Limit
+------------------------
+
+In the spirit of ensuring a diverse community, the number of votes a single
+company can receive is limited to 6 votes. The company affiliation of
+maintainers and committers is documented in the MAINTAINERS.md file.
+
+Votes are counted within the company association and then broken down
+proportionally. Example: 7 committers from a company vote, 6 votes yes,
+1 vote no.
+
+ * 6 / (7/6) = 5.14 = 5 votes yes
+ * 1 / (7/6) = 0.85 = 1 vote no
 
 Templates
 =========
