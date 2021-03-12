@@ -15,13 +15,16 @@
 package clustermesh
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -31,6 +34,7 @@ import (
 	"github.com/cilium/cilium-cli/status"
 
 	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -420,6 +424,10 @@ type k8sClusterMeshImplementation interface {
 	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ClusterName() string
+	ListCiliumExternalWorkloads(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error)
+	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
+	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
+	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
 }
 
 type K8sClusterMesh struct {
@@ -444,6 +452,10 @@ type Parameters struct {
 	ApiserverImage       string
 	CreateCA             bool
 	Writer               io.Writer
+	Labels               map[string]string
+	IPv4AllocCIDR        string
+	IPv6AllocCIDR        string
+	All                  bool
 }
 
 func (p Parameters) waitTimeout() time.Duration {
@@ -1201,4 +1213,349 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	}
 
 	return s, nil
+}
+
+func (k *K8sClusterMesh) CreateExternalWorkload(ctx context.Context, names []string) error {
+	count := 0
+	for _, name := range names {
+		cew := &ciliumv2.CiliumExternalWorkload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Labels:      k.params.Labels,
+				Annotations: map[string]string{},
+			},
+			Spec: ciliumv2.CiliumExternalWorkloadSpec{
+				IPv4AllocCIDR: k.params.IPv4AllocCIDR,
+				IPv6AllocCIDR: k.params.IPv6AllocCIDR,
+			},
+		}
+
+		_, err := k.client.CreateCiliumExternalWorkload(ctx, cew, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		count++
+	}
+	k.Log("✅ Added %d external workload resources.", count)
+	return nil
+}
+
+func (k *K8sClusterMesh) DeleteExternalWorkload(ctx context.Context, names []string) error {
+	var errs []string
+	count := 0
+
+	if len(names) == 0 && k.params.All {
+		cewList, err := k.client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, cew := range cewList.Items {
+			names = append(names, cew.Name)
+		}
+	}
+	for _, name := range names {
+		err := k.client.DeleteCiliumExternalWorkload(ctx, name, metav1.DeleteOptions{})
+		if err != nil {
+			errs = append(errs, err.Error())
+		} else {
+			count++
+		}
+	}
+	if count > 0 {
+		k.Log("✅ Removed %d external workload resources.", count)
+	}
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, ", "))
+	}
+	return nil
+}
+
+var installScriptFmt = `#!/bin/bash
+CILIUM_IMAGE=${1:-%[1]s}
+CLUSTER_ADDR=${2:-%[2]s}
+
+set -e
+shopt -s extglob
+
+if [ "$1" = "uninstall" ] ; then
+    if [ -n "$(sudo docker ps -a -q -f name=cilium)" ]; then
+        echo "Shutting down running Cilium agent"
+        sudo docker rm -f cilium || true
+    fi
+    if [ -f /usr/bin/cilium ] ; then
+        echo "Removing /usr/bin/cilium"
+        sudo rm /usr/bin/cilium
+    fi
+    pushd /etc
+    if [ -f resolv.conf.orig ] ; then
+        echo "Restoring /etc/resolv.conf"
+        sudo mv -f resolv.conf.orig resolv.conf
+    elif [ -f resolv.conf.link ] && [ -f $(cat resolv.conf.link) ] ; then
+        echo "Restoring systemd resolved config..."
+        if [ -f /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf ] ; then
+	    sudo rm /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf
+        fi
+        sudo systemctl daemon-reload
+        sudo systemctl reenable systemd-resolved.service
+        sudo service systemd-resolved restart
+        sudo ln -fs $(cat resolv.conf.link) resolv.conf
+        sudo rm resolv.conf.link
+    fi
+    popd
+    exit 0
+fi
+
+if [ -z "$CLUSTER_ADDR" ] ; then
+    echo "CLUSTER_ADDR must be defined to the IP:PORT at which the clustermesh-apiserver is reachable."
+    exit 1
+fi
+
+port='@(6553[0-5]|655[0-2][0-9]|65[0-4][0-9][0-9]|6[0-4][0-9][0-9][0-9]|[1-5][0-9][0-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9]|[1-9])'
+byte='@(25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1-9][0-9]|[0-9])'
+ipv4="$byte\.$byte\.$byte\.$byte"
+
+# Default port is for a HostPort service
+case "$CLUSTER_ADDR" in
+    \[+([0-9a-fA-F:])\]:$port)
+	CLUSTER_PORT=${CLUSTER_ADDR##\[*\]:}
+	CLUSTER_IP=${CLUSTER_ADDR#\[}
+	CLUSTER_IP=${CLUSTER_IP%%\]:*}
+	;;
+    [^[]$ipv4:$port)
+	CLUSTER_PORT=${CLUSTER_ADDR##*:}
+	CLUSTER_IP=${CLUSTER_ADDR%%:*}
+	;;
+    *:*)
+	echo "Malformed CLUSTER_ADDR: $CLUSTER_ADDR"
+	exit 1
+	;;
+    *)
+	CLUSTER_PORT=2379
+	CLUSTER_IP=$CLUSTER_ADDR
+	;;
+esac
+
+sudo mkdir -p /var/lib/cilium/etcd
+sudo tee /var/lib/cilium/etcd/ca.crt <<EOF >/dev/null
+%[3]sEOF
+sudo tee /var/lib/cilium/etcd/tls.crt <<EOF >/dev/null
+%[4]sEOF
+sudo tee /var/lib/cilium/etcd/tls.key <<EOF >/dev/null
+%[5]sEOF
+sudo tee /var/lib/cilium/etcd/config.yaml <<EOF >/dev/null
+---
+trusted-ca-file: /var/lib/cilium/etcd/ca.crt
+cert-file: /var/lib/cilium/etcd/tls.crt
+key-file: /var/lib/cilium/etcd/tls.key
+endpoints:
+- https://clustermesh-apiserver.cilium.io:$CLUSTER_PORT
+EOF
+
+CILIUM_OPTS=" --join-cluster --enable-host-reachable-services --enable-endpoint-health-checking=false"
+CILIUM_OPTS+=" --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/config.yaml"
+if [ -n "$HOST_IP" ] ; then
+    CILIUM_OPTS+=" --ipv4-node $HOST_IP"
+fi
+if [ -n "$DEBUG" ] ; then
+    CILIUM_OPTS+=" --debug --restore=false"
+fi
+
+DOCKER_OPTS=" -d --log-driver syslog --restart always"
+DOCKER_OPTS+=" --privileged --network host --cap-add NET_ADMIN --cap-add SYS_MODULE"
+DOCKER_OPTS+=" --volume /var/lib/cilium/etcd:/var/lib/cilium/etcd"
+DOCKER_OPTS+=" --volume /var/run/cilium:/var/run/cilium"
+DOCKER_OPTS+=" --volume /boot:/boot"
+DOCKER_OPTS+=" --volume /lib/modules:/lib/modules"
+DOCKER_OPTS+=" --volume /sys/fs/bpf:/sys/fs/bpf"
+DOCKER_OPTS+=" --volume /run/xtables.lock:/run/xtables.lock"
+DOCKER_OPTS+=" --add-host clustermesh-apiserver.cilium.io:$CLUSTER_IP"
+
+if [ -n "$(sudo docker ps -a -q -f name=cilium)" ]; then
+    echo "Shutting down running Cilium agent"
+    sudo docker rm -f cilium || true
+fi
+
+echo "Launching Cilium agent $CILIUM_IMAGE..."
+sudo docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
+
+# Copy Cilium CLI
+sudo docker cp cilium:/usr/bin/cilium /usr/bin/cilium
+
+# Wait for cilium agent to become available
+cilium_started=false
+for ((i = 0 ; i < 24; i++)); do
+    if cilium status --brief > /dev/null 2>&1; then
+        cilium_started=true
+        break
+    fi
+    sleep 5s
+    echo "Waiting for Cilium daemon to come up..."
+done
+
+if [ "$cilium_started" = true ] ; then
+    echo 'Cilium successfully started!'
+else
+    >&2 echo 'Timeout waiting for Cilium to start.'
+    exit 1
+fi
+
+# Wait for kube-dns service to become available
+kubedns=""
+for ((i = 0 ; i < 24; i++)); do
+    kubedns=$(cilium service list get -o jsonpath='{[?(@.spec.frontend-address.port==53)].spec.frontend-address.ip}')
+    if [ -n "$kubedns" ] ; then
+        break
+    fi
+    sleep 5s
+    echo "Waiting for kube-dns service to come available..."
+done
+
+if [ -n "$kubedns" ] ; then
+    if grep "nameserver $kubedns" /etc/resolv.conf ; then
+	echo "kube-dns IP $kubedns already in /etc/resolv.conf"
+    else
+	linkval=$(readlink /etc/resolv.conf) && echo "$linkval" | sudo tee /etc/resolv.conf.link || true
+	if [[ "$linkval" == *"/systemd/"* ]] ; then
+	    echo "updating systemd resolved with kube-dns IP $kubedns"
+	    sudo mkdir -p /usr/lib/systemd/resolved.conf.d
+	    sudo tee /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf <<EOF >/dev/null
+# This file is installed by Cilium to use kube dns server from a non-k8s node.
+[Resolve]
+DNS=$kubedns
+EOF
+	    sudo systemctl daemon-reload
+	    sudo systemctl reenable systemd-resolved.service
+	    sudo service systemd-resolved restart
+	    sudo ln -fs /run/systemd/resolve/resolv.conf /etc/resolv.conf
+	else
+	    echo "Adding kube-dns IP $kubedns to /etc/resolv.conf"
+	    sudo cp /etc/resolv.conf /etc/resolv.conf.orig
+	    resolvconf="nameserver $kubedns\n$(cat /etc/resolv.conf)\n"
+	    printf "$resolvconf" | sudo tee /etc/resolv.conf
+	fi
+    fi
+else
+    >&2 echo "kube-dns not found."
+    exit 1
+fi
+`
+
+func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context, writer io.Writer) error {
+	daemonSet, err := k.client.GetDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if daemonSet == nil {
+		return fmt.Errorf("DaemomSet %s is not available", defaults.AgentDaemonSetName)
+	}
+	k.Log("✅ Using image from Cilium DaemonSet: %s", daemonSet.Spec.Template.Spec.Containers[0].Image)
+
+	ai, err := k.statusAccessInformation(ctx, false)
+	if err != nil {
+		return err
+	}
+	clusterAddr := fmt.Sprintf("%s:%d", ai.ServiceIPs[0], ai.ServicePort)
+	k.Log("✅ Using clustermesh-apiserver service address: %s", clusterAddr)
+
+	fmt.Fprintf(writer, installScriptFmt,
+		daemonSet.Spec.Template.Spec.Containers[0].Image, clusterAddr,
+		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey))
+	return nil
+}
+
+func formatCEW(cew ciliumv2.CiliumExternalWorkload) string {
+	var items []string
+	ip := cew.Status.IP
+	if ip == "" {
+		ip = "N/A"
+	}
+	items = append(items, fmt.Sprintf("IP: %s", ip))
+	var labels []string
+	for key, value := range cew.Labels {
+		labels = append(labels, fmt.Sprintf("%s=%s", key, value))
+	}
+	items = append(items, fmt.Sprintf("Labels: %s", strings.Join(labels, ",")))
+	return strings.Join(items, ", ")
+}
+
+func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []string) error {
+	log := true
+
+	collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
+		Namespace: k.params.Namespace,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create client to collect status: %w", err)
+	}
+
+	k.statusCollector = collector
+
+	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
+	defer cancel()
+
+	ai, err := k.statusAccessInformation(ctx, log)
+	if err != nil {
+		return err
+	}
+
+	if log {
+		k.Log("✅ Cluster access information is available:")
+		for _, ip := range ai.ServiceIPs {
+			k.Log("	 - %s:%d", ip, ai.ServicePort)
+		}
+	}
+
+	svc, err := k.statusService(ctx, log)
+	if err != nil {
+		return err
+	}
+
+	if log {
+		k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, svc.Spec.Type)
+	}
+
+	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		if len(ai.ServiceIPs) == 0 {
+			if log {
+				k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
+			}
+			return fmt.Errorf("no IP available to reach cluster")
+		}
+	}
+	var cews []ciliumv2.CiliumExternalWorkload
+
+	if len(names) == 0 {
+		cewList, err := k.client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		cews = cewList.Items
+		if log {
+			if len(cews) == 0 {
+				k.Log("⚠️  No external workloads found.")
+				return nil
+			}
+		}
+	} else {
+		for _, name := range names {
+			cew, err := k.client.GetCiliumExternalWorkload(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			cews = append(cews, *cew)
+		}
+	}
+
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', 0)
+
+	header := "External Workloads"
+	for _, cew := range cews {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", header, cew.Name, formatCEW(cew))
+		header = ""
+	}
+
+	w.Flush()
+	fmt.Println(buf.String())
+	return err
 }
