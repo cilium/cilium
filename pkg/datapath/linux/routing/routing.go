@@ -273,6 +273,7 @@ func RetrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
 	}
 
 	for _, link := range links {
+		fmt.Printf("%q == %q: %t", link.Attrs().HardwareAddr.String(), mac.String(), link.Attrs().HardwareAddr.String() == mac.String())
 		if link.Attrs().HardwareAddr.String() == mac.String() {
 			index = link.Attrs().Index
 
