@@ -463,57 +463,31 @@ func (k *K8sClusterMesh) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
-func (k *K8sClusterMesh) Validate(ctx context.Context) error {
+func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
 	f, err := k.client.AutodetectFlavor(ctx)
 	if err != nil {
 		return err
 	}
 	k.flavor = f
 
-	var failures int
-	k.Log("✨ Validating cluster configuration...")
-
 	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
 	}
 
-	if cm.Data == nil {
-		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
-	}
-
-	clusterID, ok := cm.Data[configNameClusterID]
-	if !ok {
-		k.Log("❌ Cluster ID (%q) is not set", configNameClusterID)
-		failures++
-	}
-
+	clusterID := cm.Data[configNameClusterID]
 	if clusterID == "" || clusterID == "0" {
-		k.Log("❌ Cluster ID (%q) must be set to a value > 0", configNameClusterID)
-		failures++
+		clusterID = "0"
 	}
 	k.clusterID = clusterID
 
-	clusterName, ok := cm.Data[configNameClusterName]
-	if !ok {
-		k.Log("❌ Cluster name (%q) is not set", configNameClusterName)
-		failures++
-	}
-
+	clusterName := cm.Data[configNameClusterName]
 	if clusterName == "" || clusterName == "default" {
-		k.Log("❌ Cluster name (%q) must be set to a value other than \"default\"", configNameClusterName)
-		failures++
+		clusterName = "default"
 	}
 	k.clusterName = clusterName
 
-	if failures > 0 {
-		return fmt.Errorf("%d validation errors", failures)
-	}
-
-	k.Log("✅ Valid cluster identification found: name=%q id=%q", clusterName, clusterID)
-
 	return nil
-
 }
 
 func (k *K8sClusterMesh) Disable(ctx context.Context) error {
@@ -549,7 +523,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	if err := k.Validate(ctx); err != nil {
+	if err := k.GetClusterConfig(ctx); err != nil {
 		return err
 	}
 
@@ -590,6 +564,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 type accessInformation struct {
 	ServiceIPs  []string
 	ServicePort int
+	ClusterID   string
 	ClusterName string
 	CA          []byte
 	ClientCert  []byte
@@ -616,6 +591,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("%s is not set in ConfigMap %q", configNameClusterName, defaults.ConfigMapName)
 	}
 
+	clusterID := cm.Data[configNameClusterID]
 	clusterName := cm.Data[configNameClusterName]
 
 	if verbose {
@@ -655,7 +631,8 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	}
 
 	ai := &accessInformation{
-		ClusterName: cm.Data[configNameClusterName],
+		ClusterID:   clusterID,
+		ClusterName: clusterName,
 		CA:          caCert,
 		ClientKey:   clientKey,
 		ClientCert:  clientCert,
@@ -808,10 +785,26 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return err
 	}
 
+	if aiRemote.ClusterName == "" || aiRemote.ClusterName == "default" || aiRemote.ClusterID == "" || aiRemote.ClusterID == "0" {
+		return fmt.Errorf("remote cluster has non-unique name (%s) and/or ID (%s)", aiRemote.ClusterName, aiRemote.ClusterID)
+	}
+
 	aiLocal, err := k.extractAccessInformation(ctx, k.client, k.params.SourceEndpoints, true)
 	if err != nil {
 		k.Log("❌ Unable to retrieve access information of local cluster %q: %s", k.client.ClusterName(), err)
 		return err
+	}
+
+	if aiLocal.ClusterName == "" || aiLocal.ClusterName == "default" || aiLocal.ClusterID == "" || aiLocal.ClusterID == "0" {
+		return fmt.Errorf("local cluster has non-unique name (%s) and/or ID (%s)", aiLocal.ClusterName, aiLocal.ClusterID)
+	}
+
+	if aiRemote.ClusterName == aiLocal.ClusterName {
+		return fmt.Errorf("remote and local cluster have the same, non-unique name: %s", aiLocal.ClusterName)
+	}
+
+	if aiRemote.ClusterID == aiLocal.ClusterID {
+		return fmt.Errorf("remote and local cluster have the same, non-unique ID: %s", aiLocal.ClusterID)
 	}
 
 	k.Log("✨ Connecting cluster %s -> %s...", k.client.ClusterName(), remoteCluster.ClusterName())
