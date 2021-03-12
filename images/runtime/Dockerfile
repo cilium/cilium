@@ -17,7 +17,8 @@ FROM ${CILIUM_IPROUTE2_IMAGE} as iproute2-dist
 
 FROM --platform=linux/amd64 ${GOLANG_IMAGE} as gops-cni-builder
 
-RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu
+# XXX: install hello package to test rebuild of cilium-runtime image
+RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu hello
 
 # build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:6ed96e618f68cd941b62b546fc8d161db0144d84@sha256:5245610a830b14972d5b287fc0318ac6ab0d420e4afc9b5db9032a04fd706d32
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:5282534c64418b8b6edad778df9ac79752ec702f@sha256:e0c98622ba6ae8b9b89e9e6f069d691d4e3d0a44ebdfb417715c08355e0ca140
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:1db0fa1f37898173d0480f3e12b546d4a58c5172@sha256:5bfd3d7120df101f3de3e75f1f873d5d7b2e91b255a24a52200832a386b249b1
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:eb76f0d4d585946bb0267b4c4478cceed17bbd87@sha256:c9a598cdc4843e62ab4e430f36343ca06d5292506261f17e466e0f1cbb48ddbb
 ARG GOLANG_IMAGE=docker.io/library/golang:1.16.1@sha256:dd4b588f013c60ea770b96b7e1ea27d33ebd8cea5f3dea79865e3426204e58d9
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:0147a23fdada32bd51b4f313c645bcb5fbe188d6@sha256:24fd3ad32471d0e45844c856c38f1b2d4ac8bd0a2d4edf64cffaaa3fd0b21202
@@ -28,6 +28,8 @@ RUN \
     CROSSPKG="" && [ "$TARGETARCH" != "amd64" ] || CROSSPKG="gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross binutils-aarch64-linux-gnu" && \
     apt-get install -y --no-install-recommends \
       $CROSSPKG \
+      # XXX: install hello package to test rebuild of cilium-runtime image
+      hello \
       # Dependencies to unzip protoc
       unzip \
       # Base Cilium-build dependencies
