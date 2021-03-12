@@ -368,7 +368,10 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
-generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
+generate-dnsproxy-api: api/v1/dnsproxy/dnsproxy.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1/dnsproxy
+
+generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
