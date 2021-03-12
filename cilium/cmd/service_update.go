@@ -151,11 +151,7 @@ func updateService(cmd *cobra.Command, args []string) {
 	}
 
 	if len(backendWeights) == 0 {
-		fmt.Printf("Set backend weights list default value to 1...\n")
-
-		for i := 0; i < len(backends); i++ {
-			backendWeights = append(backendWeights, 1)
-		}
+		Fatalf("Cannot update service %d: empty backend weight", id)
 	}
 
 	spec.BackendAddresses = nil
