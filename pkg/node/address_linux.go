@@ -17,11 +17,9 @@
 package node
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 
 	"golang.org/x/sys/unix"
 
@@ -30,6 +28,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+// ifa_f_secondary is a netlink flag that marks an address as secondary.
+// TODO(gottwald): switch to netlink const once it's exported.
+const ifa_f_secondary = 0x01
 
 func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {
 	var link netlink.Link
@@ -66,6 +68,10 @@ retryScope:
 
 	for _, a := range addr {
 		if a.Scope <= linkScopeMax {
+			if (a.Flags & ifa_f_secondary) != 0 {
+				// skip secondary IPs
+				continue
+			}
 			if ip.IsExcluded(ipsToExclude, a.IP) {
 				continue
 			}
@@ -94,12 +100,6 @@ retryScope:
 			return preferredIP, nil
 		}
 
-		// Just make sure that we always return the same one and not a
-		// random one. More info in the issue GH-7637.
-		sort.Slice(ipsPublic, func(i, j int) bool {
-			return bytes.Compare(ipsPublic[i], ipsPublic[j]) < 0
-		})
-
 		return ipsPublic[0], nil
 	}
 
@@ -107,11 +107,6 @@ retryScope:
 		if hasPreferred && !ip.IsPublicAddr(preferredIP) {
 			return preferredIP, nil
 		}
-
-		// Same stable order, see above ipsPublic.
-		sort.Slice(ipsPrivate, func(i, j int) bool {
-			return bytes.Compare(ipsPrivate[i], ipsPrivate[j]) < 0
-		})
 
 		return ipsPrivate[0], nil
 	}
