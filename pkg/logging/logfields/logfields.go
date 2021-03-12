@@ -104,6 +104,9 @@ const (
 	// DNSRequestID is the DNS request id used by dns-proxy
 	DNSRequestID = "DNSRequestID"
 
+	// MACAddr is a MAC address
+	MACAddr = "macAddr"
+
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 
@@ -338,11 +341,17 @@ const (
 	// It is often paired with logfields.Repr to render the object.
 	Response = "resp"
 
+	// Resource is a resource
+	Resource = "resource"
+
 	// Route is a L2 or L3 Linux route
 	Route = "route"
 
 	// RetryUUID is an UUID identical for all retries of a set
 	RetryUUID = "retryUUID"
+
+	// Rule is an ip rule
+	Rule = "rule"
 
 	// Envoy xDS-protocol-specific
 
@@ -525,4 +534,10 @@ const (
 
 	// WgIPv6 is the Wireguard IPv4 tunnel addr
 	WgIPv6 = "wgIPv6"
+
+	// AttachedENIs are the ENIs which have been attached to the node
+	AttachedENIs = "attachedENIs"
+
+	// ExpectedENIs are the ENIs which are expected to be available
+	ExpectedENIs = "expectedENIs"
 )
