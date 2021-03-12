@@ -1,8 +1,7 @@
 # upgradeCompatibility helps users upgrading to ensure that the configMap for
-#
 # Cilium will not change critical values to ensure continued operation
 # This is flag is not required for new installations.
-# ex: 1.7, 1.8, 1.9
+# For example: 1.7, 1.8, 1.9
 # upgradeCompatibility: '1.8'
 
 debug:
