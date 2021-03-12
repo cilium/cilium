@@ -365,6 +365,9 @@ generate-operator-api: api/v1/operator/openapi.yaml
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
+generate-dnsproxy-api: api/v1/dnsproxy/dnsproxy.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1/dnsproxy
+
 generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
