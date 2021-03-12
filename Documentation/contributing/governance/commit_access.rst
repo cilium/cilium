@@ -42,6 +42,8 @@ sensitive to the nuance of specific situations. In the end the decision
 to grant or revoke committer privileges is a judgment call made by the
 existing set of committers.
 
+For the list of current committers, see `Maintainers <https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md>`_.
+
 Expectations for Developers with commit access
 ----------------------------------------------
 
