@@ -358,6 +358,11 @@ containerRuntime:
 
 # crdWaitTimeout: ""
 
+# -- Tail call hooks for custom eBPF programs.
+customCalls:
+  # -- Enable tail call hooks for custom eBPF programs.
+  enabled: false
+
 # -- Configure which datapath mode should be used for configuring container
 # connectivity. Valid options are "veth" or "ipvlan".
 datapathMode: veth
