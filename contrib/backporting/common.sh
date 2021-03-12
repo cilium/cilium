@@ -32,7 +32,7 @@ get_remote () {
 # $1 - override
 get_user_remote() {
   USER_REMOTE=${1:-}
-  if [ "$RESULT" = "" ]; then
+  if [ "$USER_REMOTE" = "" ]; then
       gh_username=$(hub api user --flat | awk '/.login/ {print $2}')
       if [ "$gh_username" = "" ]; then
           echo "Error: could not get user info from hub" 1>&2
