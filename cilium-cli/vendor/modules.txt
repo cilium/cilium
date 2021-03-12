@@ -29,7 +29,7 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
-# github.com/cilium/cilium v1.9.4
+# github.com/cilium/cilium v1.9.5
 ## explicit
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/daemon
@@ -251,7 +251,7 @@ github.com/pmezard/go-difflib/difflib
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
-# github.com/prometheus/client_model v0.2.0
+# github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.10.0
 github.com/prometheus/common/expfmt
@@ -269,7 +269,7 @@ github.com/shirou/gopsutil/mem
 # github.com/sirupsen/logrus v1.6.0
 github.com/sirupsen/logrus
 github.com/sirupsen/logrus/hooks/syslog
-# github.com/spf13/afero v1.2.2
+# github.com/spf13/afero v1.3.4
 github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.3.1
@@ -321,7 +321,7 @@ golang.org/x/crypto/ocsp
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f
+# golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 ## explicit
 golang.org/x/lint
 golang.org/x/lint/golint
@@ -400,7 +400,7 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+# google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.34.0
 ## explicit
@@ -487,7 +487,7 @@ gopkg.in/check.v1
 gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.51.0
 gopkg.in/ini.v1
-# gopkg.in/yaml.v2 v2.4.0
+# gopkg.in/yaml.v2 v2.4.0 => gopkg.in/yaml.v2 v2.2.8
 ## explicit
 gopkg.in/yaml.v2
 # honnef.co/go/tools v0.1.2
@@ -523,7 +523,7 @@ honnef.co/go/tools/simple
 honnef.co/go/tools/staticcheck
 honnef.co/go/tools/stylecheck
 honnef.co/go/tools/unused
-# k8s.io/api v0.19.6
+# k8s.io/api v0.19.8
 ## explicit
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -566,7 +566,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apimachinery v0.19.6
+# k8s.io/apimachinery v0.19.8
 ## explicit
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
@@ -607,7 +607,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v0.19.6
+# k8s.io/client-go v0.19.8 => github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595
 ## explicit
 k8s.io/client-go/discovery
 k8s.io/client-go/kubernetes
@@ -694,5 +694,8 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 # github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
+# github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20210305225027-66e1713b4f2e
+# gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8
+# k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595
 # sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.3.1-0.20200911184030-7e668c1fb4c2
 # sigs.k8s.io/structured-merge-diff/v4 => github.com/christarazi/structured-merge-diff/v4 v4.0.2-0.20200917183246-1cc601931628
