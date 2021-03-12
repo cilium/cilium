@@ -685,6 +685,11 @@ data:
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
 {{- end }}
 
+{{- if and .Values.customCalls .Values.customCalls.enabled }}
+  # Enable tail call hooks for custom eBPF programs.
+  enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
 {{ toYaml .Values.extraConfig | indent 2 }}
 {{- end }}
