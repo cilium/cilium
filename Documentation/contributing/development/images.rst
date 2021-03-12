@@ -237,11 +237,6 @@ Update cilium-builder and cilium-runtime images
 
        $ git commit --amend -s images/
 
-#. Run ``git grep -E 'quay.io/cilium/cilium-(runtime|builder)'`` and replace
-   all other places where the images are used. (This step will be removed once
-   it is part of the make targets ``update-runtime-image`` and
-   ``update-builder-image``).
-
 #. Update the versions of the images that are pulled into the CI VMs.
 
 * Open a PR against the :ref:`packer_ci` with an update to said image versions. Once your PR is merged, a new version of the VM will be ready for consumption in the CI.
