@@ -2395,7 +2395,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							podIPs, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "name=echo")
 							Expect(err).Should(BeNil())
 							httpBackends := generateBackends(podIPs, "80")
-							httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
+							httpBackendWeights := generateBackendWeights(len(httpBackends), 125)
 							zeroWeightBackendIndex = len(httpBackendWeights) - 1
 							httpBackendWeights[zeroWeightBackendIndex] = 0
 							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
