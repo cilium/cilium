@@ -52,7 +52,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		return errors.New("IP not compatible")
 	}
 
-	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
+	ifindex, err := RetrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
 	if err != nil {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %s", err)
 	}
@@ -78,7 +78,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		tableID = ifindex
 	} else {
 		egressPriority = linux_defaults.RulePriorityEgressv2
-		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
+		tableID = ComputeTableIDFromIfaceNumber(info.InterfaceNumber)
 	}
 
 	if info.Masquerade {
@@ -213,7 +213,7 @@ func SetupRules(from, to *net.IPNet, mac string, ifaceNum int) error {
 		tableId = ifindex
 	} else {
 		prio = linux_defaults.RulePriorityEgressv2
-		tableId = computeTableIDFromIfaceNumber(ifaceNum)
+		tableId = ComputeTableIDFromIfaceNumber(ifaceNum)
 	}
 	return route.ReplaceRule(route.Rule{
 		Priority: prio,
@@ -259,11 +259,11 @@ func deleteRule(r route.Rule) error {
 	return errors.New("no rule found to delete")
 }
 
-// retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
+// RetrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
 // given MAC address. This is useful for creating rules and routes in order to
 // specify the table. When the ifindex is found, the device is brought up and
 // its MTU is set.
-func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
+func RetrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
 	var links []netlink.Link
 
 	links, err = netlink.LinkList()
@@ -294,9 +294,9 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
 	return
 }
 
-// computeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
+// ComputeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
 // ENI interface number.
-func computeTableIDFromIfaceNumber(num int) int {
+func ComputeTableIDFromIfaceNumber(num int) int {
 	return linux_defaults.RouteTableInterfacesOffset + num
 }
 
