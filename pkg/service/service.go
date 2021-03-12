@@ -741,9 +741,6 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	backends := make(map[string]*maglev.BackendPoint, len(svc.backends))
 	for _, b := range svc.backends {
 		backends[b.String()] = &maglev.BackendPoint{ID: uint16(b.ID), Weight: b.Weight}
-		if backends[b.String()].Weight == 0 {
-			backends[b.String()].Weight = 1
-		}
 	}
 
 	p := &lbmap.UpsertServiceParams{
@@ -876,9 +873,6 @@ func (s *Service) restoreServicesLocked() error {
 			backends := make(map[string]*maglev.BackendPoint, len(newSVC.backends))
 			for _, b := range newSVC.backends {
 				backends[b.String()] = &maglev.BackendPoint{ID: uint16(b.ID), Weight: b.Weight}
-				if backends[b.String()].Weight == 0 {
-					backends[b.String()].Weight = 1
-				}
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
 				return err
