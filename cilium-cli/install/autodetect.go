@@ -130,6 +130,11 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 
 	if k.params.DatapathMode == "" {
 		switch f.Kind {
+		case k8s.KindKind:
+			k.params.DatapathMode = DatapathTunnel
+			k.Log("ℹ️  kube-proxy-replacement disabled")
+			k.params.KubeProxyReplacement = "disabled"
+
 		case k8s.KindMinikube:
 			k.params.DatapathMode = DatapathTunnel
 		case k8s.KindEKS:
