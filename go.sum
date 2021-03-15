@@ -121,8 +121,8 @@ github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2 h1:RHNYGjc9Rkdr75ZgFOb
 github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
-github.com/cilium/netlink v1.0.1-0.20210305225027-66e1713b4f2e h1:qBdK+HupNgmfj/P5caacBQ5S6opj1C9Wo6SlHaI2I+I=
-github.com/cilium/netlink v1.0.1-0.20210305225027-66e1713b4f2e/go.mod h1:twkDnbuQxJYemMlGd4JFIcuhgX83tXhKS2B/PRMpOho=
+github.com/cilium/netlink v1.0.1-0.20210223023818-d826f2a4c934 h1:facUillFWlSkMJiaLPRtgharophG/rOlWpsUCcwhVi4=
+github.com/cilium/netlink v1.0.1-0.20210223023818-d826f2a4c934/go.mod h1:twkDnbuQxJYemMlGd4JFIcuhgX83tXhKS2B/PRMpOho=
 github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09 h1:tumqMHANCuRoQX93Ph94xdhEpUlP/KhPEDznJIokH/4=
 github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

@@ -907,7 +907,7 @@ func deserializeRoute(m []byte) (Route, error) {
 	}
 	route := Route{
 		Scope:    Scope(msg.Scope),
-		Protocol: RouteProtocol(int(msg.Protocol)),
+		Protocol: int(msg.Protocol),
 		Table:    int(msg.Table),
 		Type:     int(msg.Type),
 		Tos:      int(msg.Tos),
