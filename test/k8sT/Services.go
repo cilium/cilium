@@ -17,11 +17,15 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -2321,11 +2325,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				})
 
 				Context("Tests with direct routing", func() {
+
+					var directRoutingOpts = map[string]string{
+						"tunnel":               "disabled",
+						"autoDirectNodeRoutes": "true",
+					}
+
 					BeforeAll(func() {
-						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-							"tunnel":               "disabled",
-							"autoDirectNodeRoutes": "true",
-						})
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, directRoutingOpts)
 					})
 
 					It("Tests NodePort", func() {
@@ -2468,32 +2475,113 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						const svcName = "test-lb-with-ip"
 
 						var (
-							dummylb string
-							lbSVC   string
+							frr      string // BGP router
+							routerIP string
+
+							bgpConfigMap string
+
+							lbSVC string
 						)
 
+						applyFRRTemplate := func() string {
+							tmpl := helpers.ManifestGet(kubectl.BasePath(), "frr.yaml.tmpl")
+							content, err := os.ReadFile(tmpl)
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+							ExpectWithOffset(1, content).ToNot(BeEmpty())
+
+							render, err := ioutil.TempFile(os.TempDir(), "frr-")
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+							defer render.Close()
+
+							t := template.Must(template.New("").Parse(string(content)))
+							err = t.Execute(render, struct {
+								OutsideNodeName string
+								Nodes           []string
+							}{
+								OutsideNodeName: outsideNodeName,
+								Nodes:           []string{k8s1IP, k8s2IP},
+							})
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+							path, err := filepath.Abs(render.Name())
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+							return path
+						}
+
+						applyBGPCMTemplate := func(ip string) string {
+							tmpl := helpers.ManifestGet(kubectl.BasePath(), "bgp-configmap.yaml.tmpl")
+							content, err := os.ReadFile(tmpl)
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+							ExpectWithOffset(1, content).ToNot(BeEmpty())
+
+							render, err := ioutil.TempFile(os.TempDir(), "bgp-cm-")
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+							defer render.Close()
+
+							t := template.Must(template.New("").Parse(string(content)))
+							err = t.Execute(render, struct {
+								RouterIP string
+							}{
+								RouterIP: ip,
+							})
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+							path, err := filepath.Abs(render.Name())
+							ExpectWithOffset(1, err).ToNot(HaveOccurred())
+							return path
+						}
+
 						BeforeAll(func() {
-							DeployCiliumAndDNS(kubectl, ciliumFilename)
-							dummylb = helpers.ManifestGet(kubectl.BasePath(), "dummylb.yaml")
-							kubectl.ApplyDefault(dummylb).ExpectSuccess("Unable to apply %s", dummylb)
+							frr = applyFRRTemplate()
+							kubectl.ApplyDefault(frr).ExpectSuccess("Unable to apply rendered tempplate %s", frr)
+
+							Eventually(func() string {
+								frrPod, err := kubectl.GetPodsIPs(helpers.KubeSystemNamespace, "app=frr")
+								if _, ok := frrPod["frr"]; err != nil || !ok {
+									return ""
+								}
+								routerIP = frrPod["frr"]
+								return routerIP
+							}, 30*time.Second, 1*time.Second).Should(Not(BeEmpty()), "BGP router is not ready")
+
+							bgpConfigMap = applyBGPCMTemplate(routerIP)
+							kubectl.ApplyDefault(bgpConfigMap).ExpectSuccess("Unable to apply BGP ConfigMap %s", bgpConfigMap)
+
+							RedeployCiliumWithMerge(kubectl, ciliumFilename, directRoutingOpts,
+								map[string]string{
+									"bgp.enabled":                 "true",
+									"bgp.announce.loadbalancerIP": "true",
+								})
+
 							lbSVC = helpers.ManifestGet(kubectl.BasePath(), "test_lb_with_ip.yaml")
 							kubectl.ApplyDefault(lbSVC).ExpectSuccess("Unable to apply %s", lbSVC)
 						})
 
 						AfterAll(func() {
-							kubectl.Delete(dummylb)
+							kubectl.Delete(frr)
+							kubectl.Delete(bgpConfigMap)
 							kubectl.Delete(lbSVC)
+							// Delete temp files
+							os.Remove(frr)
+							os.Remove(bgpConfigMap)
 						})
 
 						It("Connectivity to endpoint via LB", func() {
-							// Wait until dummyLB has assigned the LB IP addr
+							By("Waiting until the Operator has assigned the LB IP")
 							lbIP, err := kubectl.GetLoadBalancerIP(
 								helpers.DefaultNamespace, svcName, 30*time.Second)
-							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
-							// Add route to the LB IP addr via k8s1 node
-							kubectl.AddIPRoute(outsideNodeName, lbIP, k8s1IP, false).
-								ExpectSuccess("Cannot add ip route")
-							defer func() { kubectl.DelIPRoute(outsideNodeName, lbIP, k8s1IP) }()
+							Expect(err).Should(BeNil(), "Cannot retrieve LB IP for test-lb")
+
+							By("Waiting until the Agents have announced the LB IP via BGP")
+							Eventually(func() string {
+								return kubectl.ExecInHostNetNS(
+									context.TODO(),
+									outsideNodeName,
+									"ip route",
+								).GetStdOut().String()
+							}, 30*time.Second, 1*time.Second).Should(ContainSubstring(lbIP),
+								"BGP router does not have route for LB IP")
+
 							// Check connectivity from outside
 							url := "http://" + lbIP
 							testCurlFromOutside(url, 10, false)
