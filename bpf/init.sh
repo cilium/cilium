@@ -27,19 +27,17 @@ HOST_DEV2=$9
 XDP_DEV=${10}
 XDP_MODE=${11}
 MTU=${12}
-IPSEC=${13}
-ENCRYPT_DEV=${14}
-HOSTLB=${15}
-HOSTLB_UDP=${16}
-HOSTLB_PEER=${17}
-CGROUP_ROOT=${18}
-BPFFS_ROOT=${19}
-NODE_PORT=${20}
-NODE_PORT_BIND=${21}
-MCPU=${22}
-NR_CPUS=${23}
-ENDPOINT_ROUTES=${24}
-PROXY_RULE=${25}
+HOSTLB=${13}
+HOSTLB_UDP=${14}
+HOSTLB_PEER=${15}
+CGROUP_ROOT=${16}
+BPFFS_ROOT=${17}
+NODE_PORT=${18}
+NODE_PORT_BIND=${19}
+MCPU=${20}
+NR_CPUS=${21}
+ENDPOINT_ROUTES=${22}
+PROXY_RULE=${23}
 
 ID_HOST=1
 ID_WORLD=2
@@ -608,12 +606,6 @@ else
 	bpf_clear_cgroups $CGROUP_ROOT getpeername6
 fi
 
-if [ "$IPSEC" == "true" ]; then
-	if [ "$ENCRYPT_DEV" != "<nil>" ]; then
-		CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
-	fi
-fi
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi

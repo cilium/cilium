@@ -47,6 +47,7 @@ const (
 
 	symbolFromEndpoint = "from-container"
 	symbolToEndpoint   = "to-container"
+	symbolFromNetwork  = "from-network"
 
 	symbolFromHostNetdevEp = "from-netdev"
 	symbolToHostNetdevEp   = "to-netdev"
@@ -366,6 +367,18 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		}
 	}
 
+	return nil
+}
+
+func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
+	if err := compileNetwork(ctx); err != nil {
+		log.WithError(err).Fatal("failed to compile encryption programs")
+	}
+	for _, iface := range option.Config.EncryptInterface {
+		if err := l.replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress); err != nil {
+			log.WithField(logfields.Interface, iface).Fatal("Load encryption network failed")
+		}
+	}
 	return nil
 }
 

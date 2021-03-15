@@ -463,8 +463,22 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	}
 }
 
+// getDefaultEncryptionInterface() is needed to find the interface used when
+// populating neighbor table and doing arpRequest. For most configurations
+// there is only a single interface so choosing [0] works by choosing the only
+// interface. However EKS, uses multiple interfaces, but fortunately for us
+// in EKS any interface would work so pick the [0] index here as well.
+func getDefaultEncryptionInterface() string {
+	iface := ""
+	if len(option.Config.EncryptInterface) > 0 {
+		iface = option.Config.EncryptInterface[0]
+	}
+	return iface
+}
+
 func getLinkLocalIp(family int) (*net.IPNet, error) {
-	link, err := netlink.LinkByName(option.Config.EncryptInterface)
+	iface := getDefaultEncryptionInterface()
+	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		return nil, err
 	}
@@ -1105,7 +1119,7 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	var device string
 
 	if option.Config.Tunnel == option.TunnelDisabled {
-		device = n.datapathConfig.EncryptInterface
+		device = n.datapathConfig.EncryptInterfaces[0]
 	} else {
 		device = linux_defaults.TunnelDeviceName
 	}
@@ -1320,8 +1334,14 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			}
 			ifaceName = option.Config.DirectRoutingDevice
 			n.enableNeighDiscovery = mac != nil // No need to arping for L2-less devices
-		case n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled:
-			ifaceName = option.Config.EncryptInterface
+		case n.nodeConfig.EnableIPSec &&
+			option.Config.Tunnel == option.TunnelDisabled &&
+			len(option.Config.EncryptInterface) != 0:
+			// When FIB lookup is not supported we need to pick an
+			// interface so pick first interface in the list. On
+			// kernels with FIB lookup helpers we do a lookup from
+			// the datapath side and ignore this value.
+			ifaceName = option.Config.EncryptInterface[0]
 			n.enableNeighDiscovery = true
 		}
 
