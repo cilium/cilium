@@ -82,6 +82,8 @@ spec:
         - cilium-operator-aws
 {{- else if .Values.azure.enabled }}
         - cilium-operator-azure
+{{- else if .Values.alibabacloud.enabled}}
+        - cilium-operator-alibabacloud
 {{- else }}
         - cilium-operator-generic
 {{- end }}
@@ -122,6 +124,20 @@ spec:
               name: cilium-aws
               optional: true
 {{- end }}
+{{- if .Values.alibabacloud.enabled }}
+        - name: ALIBABA_CLOUD_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: ALIBABA_CLOUD_ACCESS_KEY_ID
+              name: cilium-alibabacloud
+              optional: true
+        - name: ALIBABA_CLOUD_ACCESS_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: ALIBABA_CLOUD_ACCESS_KEY_SECRET
+              name: cilium-alibabacloud
+              optional: true
+{{- end }}
 {{- if .Values.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.k8sServiceHost | quote }}
@@ -158,6 +174,8 @@ spec:
         image: "{{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.awsDigest }}{{ end }}"
 {{- else if .Values.azure.enabled }}
         image: "{{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.azureDigest }}{{ end }}"
+{{- else if .Values.alibabacloud.enabled }}
+        image: "{{ .Values.operator.image.repository }}-alibabacloud{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.alibabacloudDigest }}{{ end }}"
 {{- else }}
         image: "{{ .Values.operator.image.repository }}-generic{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.genericDigest }}{{ end }}"
 {{- end }}

@@ -56,6 +56,7 @@ Advanced Networking
    :glob:
 
    aws-eni
+   alibabacloud-eni
    kube-router
    bird
    flannel-integration

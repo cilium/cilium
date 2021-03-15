@@ -358,6 +358,11 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if .Values.alibabacloud.enabled }}
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
+{{- end }}
+
 {{- if .Values.flannel.enabled }}
   # Interface to be used when running Cilium on top of a CNI plugin.
   # For flannel, use "cni0"
