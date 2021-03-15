@@ -219,3 +219,22 @@ with kube-dns on port 53/UDP in the ``kube-system`` namespace.
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
+
+.. _health_endpoint:
+
+Example: Add health endpoint
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example adds the health entity to all Cilium managed endpoints in order to check
+cluster connectivity health.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/health.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/health.yaml
