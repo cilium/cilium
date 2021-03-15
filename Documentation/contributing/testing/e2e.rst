@@ -505,7 +505,15 @@ cluster.
           causing Ginkgo tests to fail. If so, you'll see them in ``kubectl get ns``,
           and can get rid of them by running ``cilium/test/gke/clean-cluster.sh``.
 
+.. note:: The tests require the ``NATIVE_CIDR`` environment variable to be set to
+          the value of the cluster IPv4 CIDR returned by the ``gcloud container
+          clusters describe`` command.
+
 ::
+
+  export CLUSTER_NAME=cluster1
+  export CLUSTER_ZONE=us-west2-a
+  export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
 
   CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
 

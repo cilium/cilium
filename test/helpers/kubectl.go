@@ -155,7 +155,7 @@ var (
 		"cni.binPath":                 "/home/kubernetes/bin",
 		"gke.enabled":                 "true",
 		"loadBalancer.mode":           "snat",
-		"nativeRoutingCIDR":           "10.0.0.0/8",
+		"nativeRoutingCIDR":           GKENativeRoutingCIDR(),
 		"hostFirewall":                "false",
 		"ipam.mode":                   "kubernetes",
 		"devices":                     "", // Override "eth0 eth0\neth0"

@@ -509,6 +509,10 @@ func RunsOn419Kernel() bool {
 	return os.Getenv("KERNEL") == "419"
 }
 
+func GKENativeRoutingCIDR() string {
+	return os.Getenv("NATIVE_CIDR")
+}
+
 // DoesNotRunOn419Kernel is the complement function of RunsOn419Kernel.
 func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
