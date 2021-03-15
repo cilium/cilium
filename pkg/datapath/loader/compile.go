@@ -57,6 +57,10 @@ const (
 	hostEndpointObj          = hostEndpointPrefix + ".o"
 	hostEndpointObjDebug     = hostEndpointPrefix + ".dbg.o"
 	hostEndpointAsm          = hostEndpointPrefix + "." + string(outputAssembly)
+
+	networkPrefix = "bpf_network"
+	networkProg   = networkPrefix + "." + string(outputSource)
+	networkObj    = networkPrefix + ".o"
 )
 
 var (
@@ -144,6 +148,11 @@ var (
 	hostEpProg = &progInfo{
 		Source:     hostEndpointProg,
 		Output:     hostEndpointObj,
+		OutputType: outputObject,
+	}
+	networkTcProg = &progInfo{
+		Source:     networkProg,
+		Output:     networkObj,
 		OutputType: outputObject,
 	}
 )
@@ -403,4 +412,39 @@ func compileTemplate(ctx context.Context, out string, isHost bool) error {
 		State:   out,
 	}
 	return compileDatapath(ctx, &dirs, isHost, option.Config.BPFCompilationDebug, log)
+}
+
+// compileNetwork compiles a BPF program attached to network
+func compileNetwork(ctx context.Context) error {
+	debug := option.Config.BPFCompilationDebug
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
+	}
+	scopedLog := log.WithField(logfields.Debug, true)
+
+	versionCmd := exec.CommandContext(ctx, compiler, "--version")
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	versionCmd = exec.CommandContext(ctx, linker, "--version")
+	linkerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	scopedLog.WithFields(logrus.Fields{
+		compiler: string(compilerVersion),
+		linker:   string(linkerVersion),
+	}).Debug("Compiling network programs")
+
+	// Write out assembly and preprocessing files for debugging purposes
+	if err := compile(ctx, networkTcProg, &dirs, debug); err != nil {
+		scopedLog.WithField(logfields.Params, logfields.Repr(networkTcProg)).
+			WithError(err).Warn("Failed to compile")
+		return err
+	}
+	return nil
 }
