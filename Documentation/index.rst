@@ -76,8 +76,7 @@ The documentation is divided into the following sections:
    contributing/testing/index
    bpf
    api
-   hubble
-   cilium_operator
+   internals/index
 
 .. toctree::
    :maxdepth: 2

@@ -1,3 +1,11 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    https://docs.cilium.io
+
+.. _hubble_internals:
+
 ****************
 Hubble internals
 ****************
@@ -61,7 +69,7 @@ ring buffer is capable of storing a configurable amount of events in memory.
 Events are continuously consumed, overriding older ones once the ring buffer is
 full.
 
-.. image:: ./images/hubble_getflows.png
+.. image:: ./../images/hubble_getflows.png
 
 For efficiency, the internal buffer length is a bit mask of ones + 1. The most
 significant bit of this bit mask is the same position of the most significant
