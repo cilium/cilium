@@ -97,8 +97,10 @@ ifeq ("$(KERNEL)","netnext")
 # We need to define ENABLE_HOST_SERVICES_FULL to work around complexity issue #14234.
 # We define ENABLE_CUSTOM_CALLS only for net-next (vs. net-next and 4.19) to work
 # around program size issue #15539.
+# We define ETH_HLEN only for net-next, as bpf_skb_change_head is non-available
+# on 4.{9,19}.
 MAX_BASE_OPTIONS += -DENABLE_TPROXY=1 -DENABLE_REDIRECT_FAST=1 -DENABLE_BANDWIDTH_MANAGER=1 \
-	-DENABLE_HOST_SERVICES_FULL=1 -DENABLE_CUSTOM_CALLS=1
+	-DENABLE_HOST_SERVICES_FULL=1 -DENABLE_CUSTOM_CALLS=1 -DETH_HLEN=0
 endif
 endif
 
