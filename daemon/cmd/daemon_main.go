@@ -1287,12 +1287,12 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
+	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && len(option.Config.EncryptInterface) == 0 {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
 			log.WithError(err).Fatal("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.")
 		}
-		option.Config.EncryptInterface = link
+		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
 
 	if option.Config.Tunnel != option.TunnelDisabled && option.Config.EnableAutoDirectRouting {
@@ -1459,8 +1459,8 @@ func (d *Daemon) initKVStore() {
 
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice:       option.Config.HostDevice,
-		EncryptInterface: option.Config.EncryptInterface,
+		HostDevice:        option.Config.HostDevice,
+		EncryptInterfaces: option.Config.EncryptInterface,
 	}
 
 	log.Info("Initializing daemon")
