@@ -37,7 +37,7 @@ import (
 
 var errNotAnIPv4Address = errors.New("not an IPv4 address")
 
-func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode) error {
+func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration) error {
 	log.WithField("old", oldNode).WithField("new", newNode).Info("!!! updateENIRulesAndRoutes") // FIXME remove debug code
 
 	addedResources, removedResources := diffResources(oldNode, newNode)
@@ -55,8 +55,7 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode) error {
 			}).Error("Failed to parse MAC address")
 			continue
 		}
-		// mtu := n.nodeConfig.MtuConfig.GetDeviceMTU()
-		mtu := 1500 // FIXME pass in real MTU
+		mtu := mtuConfig.GetDeviceMTU()
 		netlinkInterfaceIndex, err := linuxrouting.RetrieveIfIndexFromMAC(mac, mtu)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
