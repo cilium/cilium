@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _cilium_operator_internals:
+
 Cilium Operator
 ===============
 
@@ -41,9 +43,9 @@ CRD Registration
 The default behavior of the Cilium Operator is to register the CRDs used by
 Cilium. The following custom resources are registered by the Cilium Operator:
 
--  CiliumNetworkPolicy
--  CiliumClusterwideNetworkPolicy
--  CiliumEndpoint
+-  :ref:`CiliumNetworkPolicy`
+-  :ref:`CiliumClusterwideNetworkPolicy`
+-  :ref:`CiliumEndpoint <CiliumEndpoint>`
 -  CiliumNode
 -  CiliumExternalWorkload
 -  CiliumIdentity
