@@ -56,8 +56,6 @@ const (
 	initArgXDPDevice
 	initArgXDPMode
 	initArgMTU
-	initArgIPSec
-	initArgEncryptInterface
 	initArgHostReachableServices
 	initArgHostReachableServicesUDP
 	initArgHostReachableServicesPeer
@@ -255,12 +253,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
-	if option.Config.EnableIPSec {
-		args[initArgIPSec] = "true"
-	} else {
-		args[initArgIPSec] = "false"
-	}
-
 	if option.Config.EnableHostReachableServices {
 		args[initArgHostReachableServices] = "true"
 		if option.Config.EnableHostServicesUDP {
@@ -277,12 +269,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgHostReachableServices] = "false"
 		args[initArgHostReachableServicesUDP] = "false"
 		args[initArgHostReachableServicesPeer] = "false"
-	}
-
-	if option.Config.EncryptInterface != "" {
-		args[initArgEncryptInterface] = option.Config.EncryptInterface
-	} else {
-		args[initArgEncryptInterface] = "<nil>"
 	}
 
 	if len(option.Config.Devices) != 0 {
@@ -363,18 +349,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initBPFCPU], clockSource[option.Config.ClockSource])
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
-		// For the ENI ipam mode on EKS, this will be the interface that
-		// the router (cilium_host) IP is associated to.
-		if option.Config.EncryptInterface == "" {
-			if info := node.GetRouterInfo(); info != nil {
-				mac := info.GetMac()
-				iface, err := linuxrouting.RetrieveIfaceNameFromMAC(mac.String())
-				if err != nil {
-					log.WithError(err).WithField("mac", mac).Fatal("Failed to set encrypt interface in the ENI ipam mode")
-				}
-				args[initArgEncryptInterface] = iface
-			}
-		}
 		var err error
 		if sysSettings, err = addENIRules(sysSettings, o.Datapath().LocalNodeAddressing()); err != nil {
 			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
@@ -420,6 +394,27 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if !option.Config.IsFlannelMasterDeviceSet() {
 		r.ReserveLocalRoutes()
+	}
+
+	// Compile and load network programs, currently used for encryption.
+	if option.Config.EnableIPSec {
+		interfaces := option.Config.EncryptInterface
+
+		// For the ENI ipam mode on EKS, this will be the interface that
+		// the router (cilium_host) IP is associated to.
+		if len(interfaces) == 0 && option.Config.IPAM == ipamOption.IPAMENI {
+			if info := node.GetRouterInfo(); info != nil {
+				mac := info.GetMac()
+				iface, err := linuxrouting.RetrieveIfaceNameFromMAC(mac.String())
+				if err != nil {
+					log.WithError(err).WithField("mac", mac).Fatal("Failed to set encrypt interface in the ENI ipam mode")
+				}
+				interfaces = append(interfaces, iface)
+			}
+		}
+		if err := l.replaceNetworkDatapath(ctx, interfaces); err != nil {
+			log.WithError(err).Fatal("failed to load encryption program")
+		}
 	}
 
 	if err := o.Datapath().Node().NodeConfigurationChanged(*o.LocalConfig()); err != nil {

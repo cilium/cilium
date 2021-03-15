@@ -1301,7 +1301,7 @@ type DaemonConfig struct {
 	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
 	HostV4Addr          net.IP     // Host v4 address of the snooping device
 	HostV6Addr          net.IP     // Host v6 address of the snooping device
-	EncryptInterface    string     // Set with name of network facing interface to encrypt
+	EncryptInterface    []string   // Set of network facing interface to encrypt over
 	EncryptNode         bool       // Set to true for encrypting node IP traffic
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
@@ -2380,7 +2380,7 @@ func (c *DaemonConfig) Populate() {
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
 	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
-	c.EncryptInterface = viper.GetString(EncryptInterface)
+	c.EncryptInterface = viper.GetStringSlice(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
