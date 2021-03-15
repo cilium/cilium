@@ -540,6 +540,8 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		case (option.Config.EnableIPv4Masquerade || option.Config.EnableIPv6Masquerade) &&
 			!option.Config.EnableBPFMasquerade:
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		case option.Config.NetfilterCompatibleMode:
+			msg = fmt.Sprintf("BPF host routing is not supported with %s.", option.NetfilterCompatibleMode)
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
