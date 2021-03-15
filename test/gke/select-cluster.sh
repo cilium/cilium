@@ -75,6 +75,7 @@ echo "${cluster_uri}" > "${script_dir}/cluster-uri"
 gcloud container clusters describe --project "${project}" --region "${region}" --format='value(name)' "${cluster_uri}" > "${script_dir}/cluster-name"
 gcloud container clusters describe --project "${project}" --region "${region}" --format='value(currentMasterVersion)' "${cluster_uri}" \
   | sed -E 's/([0-9]+\.[0-9]+)\..*/\1/' | tr -d '\n' > "${script_dir}/cluster-version"
+gcloud container clusters describe --project "${project}" --region "${region}" --format='value(clusterIpv4Cidr)' "${cluster_uri}" > "${script_dir}/cluster-cidr"
 
 echo "cleaning cluster before tests"
 "${script_dir}"/clean-cluster.sh
