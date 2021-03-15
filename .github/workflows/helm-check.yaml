@@ -55,7 +55,7 @@ jobs:
           sed -i 's;  numReplicas: 2;  numReplicas: 1;g' install/kubernetes/cilium/values.yaml
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.0.0-rc.1
+        uses: helm/kind-action@v1.1.0
         with:
           version: v0.8.1
 
