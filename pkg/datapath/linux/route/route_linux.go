@@ -52,7 +52,7 @@ func (r *Route) getNetlinkRoute() netlink.Route {
 		Dst:      &r.Prefix,
 		Src:      r.Local,
 		MTU:      r.MTU,
-		Protocol: netlink.RouteProtocol(r.Proto),
+		Protocol: r.Proto,
 		Table:    r.Table,
 		Type:     r.Type,
 	}
