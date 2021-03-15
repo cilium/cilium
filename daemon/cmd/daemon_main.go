@@ -971,6 +971,10 @@ func init() {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(option.EnableCustomCallsName)
 
+	flags.Bool(option.NetfilterCompatibleMode, false, "If set to true, guarantees that traffic will pass through netfilter and that iptable rules will be enforced. This mode may reduce network throughput. If set to false (default), there are no guarantees: some traffic may skip netfilter.")
+	flags.MarkHidden(option.NetfilterCompatibleMode)
+	option.BindEnv(option.NetfilterCompatibleMode)
+
 	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
 	option.BindEnv(option.BGPAnnounceLBIP)
 
@@ -1452,6 +1456,15 @@ func initEnv(cmd *cobra.Command) {
 					"Cilium will fallback to using the original Endpoint resource.",
 				option.K8sEnableEndpointSlice,
 			)
+		}
+	}
+
+	// NetfilterCompatibleMode should be enabled only on higher versions (5.4 or later)
+	// of kernel. If kernel doesn't support higher code memory size, then disable NetfilterCompatibleMode.
+	if option.Config.NetfilterCompatibleMode {
+		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+			option.Config.NetfilterCompatibleMode = false
+			log.Warnf("NetfilterCompatibleMode is enabled only on 5.4 and higher versions of kernel.")
 		}
 	}
 }
