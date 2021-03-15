@@ -27,8 +27,8 @@ import (
 type DatapathConfiguration struct {
 	// HostDevice is the name of the device to be used to access the host.
 	HostDevice string
-	// EncryptInterface is the name of the device to be used for direct ruoting encryption
-	EncryptInterface string
+	// EncryptInterfaces is the list of devices used for direct ruoting encryption
+	EncryptInterfaces []string
 }
 
 type linuxDatapath struct {
@@ -52,9 +52,9 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing)
 
-	if cfg.EncryptInterface != "" {
-		if err := connector.DisableRpFilter(cfg.EncryptInterface); err != nil {
-			log.WithField(logfields.Interface, cfg.EncryptInterface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
+	for _, iface := range cfg.EncryptInterfaces {
+		if err := connector.DisableRpFilter(iface); err != nil {
+			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 	}
 

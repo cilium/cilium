@@ -24,20 +24,18 @@ NATIVE_DEVS=$6
 XDP_DEV=$7
 XDP_MODE=$8
 MTU=$9
-IPSEC=${10}
-ENCRYPT_DEV=${11}
-HOSTLB=${12}
-HOSTLB_UDP=${13}
-HOSTLB_PEER=${14}
-CGROUP_ROOT=${15}
-BPFFS_ROOT=${16}
-NODE_PORT=${17}
-NODE_PORT_BIND=${18}
-MCPU=${19}
-NODE_PORT_IPV4_ADDRS=${20}
-NODE_PORT_IPV6_ADDRS=${21}
-NR_CPUS=${22}
-ENDPOINT_ROUTES=${23}
+HOSTLB=${10}
+HOSTLB_UDP=${11}
+HOSTLB_PEER=${12}
+CGROUP_ROOT=${13}
+BPFFS_ROOT=${14}
+NODE_PORT=${15}
+NODE_PORT_BIND=${16}
+MCPU=${17}
+NODE_PORT_IPV4_ADDRS=${18}
+NODE_PORT_IPV6_ADDRS=${19}
+NR_CPUS=${20}
+ENDPOINT_ROUTES=${21}
 
 ID_HOST=1
 ID_WORLD=2
@@ -645,12 +643,6 @@ else
 	bpf_clear_cgroups $CGROUP_ROOT getpeername6
 fi
 
-if [ "$IPSEC" == "true" ]; then
-	if [ "$ENCRYPT_DEV" != "<nil>" ]; then
-		CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
-	fi
-fi
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
