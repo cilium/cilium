@@ -83,18 +83,20 @@ type nodeStore struct {
 	restoreFinished  chan struct{}
 	restoreCloseOnce sync.Once
 
-	conf Configuration
+	conf      Configuration
+	mtuConfig MtuConfiguration
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister) *nodeStore {
+func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
 		allocators:         []*crdAllocator{},
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
+		mtuConfig:          mtuConfig,
 	}
 	store.restoreFinished = make(chan struct{})
 	ciliumClient := k8s.CiliumClient()
@@ -442,9 +444,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
+func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg, mtuConfig)
 	})
 
 	allocator := &crdAllocator{
