@@ -919,7 +919,8 @@ redo_local:
 }
 
 /* See comment in tail_rev_nodeport_lb4(). */
-static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex)
+static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex,
+					    const bool rev_dnat_at_netdev)
 {
 	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -948,6 +949,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
+
+	/* See ipv4 equivalent for details */
+	if (rev_dnat_at_netdev && !ct_state.node_port)
+		return CTX_ACT_OK;
 
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
@@ -1052,7 +1057,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-	ret = rev_nodeport_lb6(ctx, &ifindex);
+	ret = rev_nodeport_lb6(ctx, &ifindex, false);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
@@ -1918,7 +1923,8 @@ redo_local:
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
-static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex)
+static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex,
+					    const bool rev_dnat_at_netdev)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1943,6 +1949,14 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
+
+	/* When we do the rev-DNAT for a NodePort reply from a local service endpoint
+	 * on the bpf_host's "to-netdev" instead of bpf_lxc, then this function is
+	 * executed on all packets. Return early if we detect that a packet is not
+	 * the reply to avoid unnecessary waste of resources.
+	 */
+	if (rev_dnat_at_netdev && !ct_state.node_port)
+		return CTX_ACT_OK;
 
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
@@ -2048,7 +2062,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-	ret = rev_nodeport_lb4(ctx, &ifindex);
+	ret = rev_nodeport_lb4(ctx, &ifindex, false);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
@@ -2200,5 +2214,36 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 	return ret;
 }
 
+/* Wrapper function to call rev_nodeport_lb4/6.
+ * This function calls rev_nodeport_lb4/6, to perform conntrack lookup
+ * and reverse DNAT only if it is NodePort traffic.
+ * arguments
+ * ctx    : Pointer to packet context buffer.
+ * return : Returns the output of rev_nodeport_lb4/6 for valid packets.
+ */
+static __always_inline int rev_nodeport_lb(struct __ctx_buff *ctx)
+{
+	int ret = CTX_ACT_OK;
+	int ifindex = 0;
+	__u16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return CTX_ACT_OK;
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = rev_nodeport_lb4(ctx, &ifindex, true);
+	break;
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = rev_nodeport_lb6(ctx, &ifindex, true);
+	break;
+#endif /* ENABLE_IPV6 */
+	default:
+	break;
+	}
+	return ret;
+}
 #endif /* ENABLE_NODEPORT */
 #endif /* __NODEPORT_H_ */

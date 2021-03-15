@@ -1086,6 +1086,19 @@ out:
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
 	 defined(ENABLE_MASQUERADE) || \
 	 defined(ENABLE_EGRESS_GATEWAY))
+
+#ifdef NETFILTER_COMPAT_MODE
+
+	/* For a packet which is a reply from a local endpoint to NodePort request,
+	 * do rev-DNAT.To determine if it is Nodeport traffic, do conntrack lookup for
+	 * all reply packets.
+	 */
+	ret = rev_nodeport_lb(ctx);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret,
+						CTX_ACT_DROP,
+						METRIC_EGRESS);
+#endif /* NETFILTER_COMPAT_MODE */
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
