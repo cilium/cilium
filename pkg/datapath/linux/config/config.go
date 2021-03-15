@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -394,6 +395,17 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macByIfIndexMacro
 		cDefinesMap["IS_L3_DEV(ifindex)"] = isL3DevMacro
 	}
+
+	// Enabling NetfilterCompatibleMode increases BPF instruction count size, and may
+	// cause issues in kernels that have lower instruction complexity limit. Hence enabling,
+	// this feature only in kernels support higher instruction complexity limit.
+	// NetfilterCompatibleMode feature can be enabled on all kernels, once we have support
+	// for adding new tail calls in host device[bpf_host].
+	if option.Config.NetfilterCompatibleMode && probes.NewProbeManager().GetMisc().HaveLargeInsnLimit &&
+		(option.Config.InstallIptRules || iptables.KernelHasNetfilter()) {
+		cDefinesMap["NETFILTER_COMPAT_MODE"] = "1"
+	}
+
 	const (
 		selectionRandom = iota + 1
 		selectionMaglev

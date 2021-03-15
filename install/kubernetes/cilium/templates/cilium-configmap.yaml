@@ -743,6 +743,10 @@ data:
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
 
+{{- if hasKey .Values "netfilterCompatMode" }}
+  netfilter-compatible-mode: {{ .Values.netfilterCompatMode | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}
