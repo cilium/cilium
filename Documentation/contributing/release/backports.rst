@@ -26,6 +26,7 @@ minor version of Cilium, for example in a ``v1.2.z`` release prior to the
 release of version ``v1.3.0``:
 
 - All bugfixes
+- Debug tool improvements
 
 Backport Criteria for X.Y-1.Z and X.Y-2.Z
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,6 +37,7 @@ the release of version ``v1.3.0``:
 
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium
+- Debug tool improvements
 
 
 Backporting Guide for the Backporter
