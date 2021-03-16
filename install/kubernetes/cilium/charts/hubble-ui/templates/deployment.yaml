@@ -33,7 +33,11 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: hubble-ui
+{{- if contains "/" .Values.image.repository }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- else }}
+          image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: NODE_ENV

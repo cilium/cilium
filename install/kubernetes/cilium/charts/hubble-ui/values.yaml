@@ -1,7 +1,7 @@
 # Configuration for hubble ui
 image:
   # repository of the docker image
-  repository: quay.io/cilium/hubble-ui
+  repository: hubble-ui
   # tag is the container image tag to use.
   # Ref: https://github.com/cilium/hubble-ui/releases
   # Ref: https://quay.io/repository/cilium/hubble-ui?tab=tags
