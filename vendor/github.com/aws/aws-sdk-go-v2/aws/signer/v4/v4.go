@@ -130,9 +130,6 @@ type httpSigner struct {
 	KeyDerivator keyDerivator
 	IsPreSign    bool
 
-	// PayloadHash is the hex encoded SHA-256 hash of the request payload
-	// If len(PayloadHash) == 0 the signer will attempt to send the request
-	// as an unsigned payload. Note: Unsigned payloads only work for a subset of services.
 	PayloadHash string
 
 	DisableHeaderHoisting  bool
@@ -250,6 +247,19 @@ func buildAuthorizationHeader(credentialStr, signedHeadersStr, signingSignature 
 // you to specify that a request is signed for the future, and cannot be
 // used until then.
 //
+// The payloadHash is the hex encoded SHA-256 hash of the request payload, and
+// must be provided. Even if the request has no payload (aka body). If the
+// request has no payload you should use the hex encoded SHA-256 of an empty
+// string as the payloadHash value.
+//
+//   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+//
+// Some services such as Amazon S3 accept alternative values for the payload
+// hash, such as "UNSIGNED-PAYLOAD" for requests where the body will not be
+// included in the request signature.
+//
+// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+//
 // Sign differs from Presign in that it will sign the request using HTTP
 // header values. This type of signing is intended for http.Request values that
 // will not be shared, or are shared in a way the header values on the request
@@ -295,6 +305,19 @@ func (s Signer) SignHTTP(ctx context.Context, credentials aws.Credentials, r *ht
 // these headers and their values must be included on the HTTP request when it
 // is made. This is helpful to know what header values need to be shared with
 // the party the presigned request will be distributed to.
+//
+// The payloadHash is the hex encoded SHA-256 hash of the request payload, and
+// must be provided. Even if the request has no payload (aka body). If the
+// request has no payload you should use the hex encoded SHA-256 of an empty
+// string as the payloadHash value.
+//
+//   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+//
+// Some services such as Amazon S3 accept alternative values for the payload
+// hash, such as "UNSIGNED-PAYLOAD" for requests where the body will not be
+// included in the request signature.
+//
+// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 //
 // PresignHTTP differs from SignHTTP in that it will sign the request using
 // query string instead of header values. This allows you to share the
