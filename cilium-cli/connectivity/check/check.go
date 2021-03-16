@@ -151,6 +151,7 @@ func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 }
 
 type k8sConnectivityImplementation interface {
+	GetService(ctx context.Context, namespace, service string, opts metav1.GetOptions) (*corev1.Service, error)
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -816,8 +817,6 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 }
 
 func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
-	var srcDeploymentNeeded, dstDeploymentNeeded bool
-
 	if k.params.ForceDeploy {
 		if err := k.deleteDeployments(ctx, k.clients.src); err != nil {
 			return err
@@ -826,12 +825,6 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 
 	_, err := k.clients.src.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
 	if err != nil {
-		srcDeploymentNeeded = true
-		// In a single cluster environment, the source client is also
-		// responsibel for destination deployments
-		if k.params.MultiCluster == "" {
-			dstDeploymentNeeded = true
-		}
 		k.Log("✨ [%s] Creating namespace for connectivity check...", k.clients.src.ClusterName())
 		_, err = k.clients.src.CreateNamespace(ctx, k.params.TestNamespace, metav1.CreateOptions{})
 		if err != nil {
@@ -848,7 +841,6 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 
 		_, err = k.clients.dst.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
 		if err != nil {
-			dstDeploymentNeeded = true
 			k.Log("✨ [%s] Creating namespace for connectivity check...", k.clients.dst.ClusterName())
 			_, err = k.clients.dst.CreateNamespace(ctx, k.params.TestNamespace, metav1.CreateOptions{})
 			if err != nil {
@@ -857,15 +849,19 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		}
 	}
 
-	if srcDeploymentNeeded {
+	_, err = k.clients.src.GetService(ctx, k.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
+	if err != nil {
 		k.Log("✨ [%s] Deploying echo-same-node service...", k.clients.src.ClusterName())
 		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080)
 		_, err = k.clients.src.CreateService(ctx, k.params.TestNamespace, svc, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
+	}
 
-		if k.params.MultiCluster != "" {
+	if k.params.MultiCluster != "" {
+		_, err = k.clients.src.GetService(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
 			k.Log("✨ [%s] Deploying echo-other-node service...", k.clients.src.ClusterName())
 			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
 			svc.ObjectMeta.Annotations = map[string]string{}
@@ -876,7 +872,11 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 				return err
 			}
 		}
+	}
 
+	_, err = k.clients.src.GetDeployment(ctx, k.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		k.Log("✨ [%s] Deploying same-node deployment...", k.clients.src.ClusterName())
 		echoDeployment := newDeployment(deploymentParameters{
 			Name:  echoSameNodeDeploymentName,
 			Kind:  kindEchoName,
@@ -903,8 +903,11 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("unable to create deployment %s: %s", echoSameNodeDeploymentName, err)
 		}
+	}
 
-		k.Log("✨ [%s] Deploying client service...", k.clients.src.ClusterName())
+	_, err = k.clients.src.GetDeployment(ctx, k.params.TestNamespace, ClientDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		k.Log("✨ [%s] Deploying client deployment...", k.clients.src.ClusterName())
 		clientDeployment := newDeployment(deploymentParameters{
 			Name:    ClientDeploymentName,
 			Kind:    kindClientName,
@@ -918,8 +921,9 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		}
 	}
 
-	if dstDeploymentNeeded {
-		if !k.params.SingleNode || k.params.MultiCluster != "" {
+	if !k.params.SingleNode || k.params.MultiCluster != "" {
+		_, err = k.clients.dst.GetService(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
 			k.Log("✨ [%s] Deploying echo-other-node service...", k.clients.dst.ClusterName())
 			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
 
@@ -932,7 +936,11 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+		}
 
+		_, err = k.clients.dst.GetDeployment(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			k.Log("✨ [%s] Deploying other-node deployment...", k.clients.dst.ClusterName())
 			echoOtherNodeDeployment := newDeployment(deploymentParameters{
 				Name:  echoOtherNodeDeploymentName,
 				Kind:  kindEchoName,
