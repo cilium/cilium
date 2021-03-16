@@ -17,7 +17,6 @@
 # @cilium/kubernetes         K8s integration, K8s CNI plugin
 # @cilium/kvstore            Key/Value store: Consul, etcd
 # @cilium/loadbalancer       Load balancer
-# @cilium/monitor            Cilium node monitor tool
 # @cilium/operator           Cilium operator
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
@@ -183,11 +182,10 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/maps/ @cilium/bpf
 /pkg/mcastmanager @cilium/bpf
 /pkg/metrics @cilium/metrics
-/pkg/monitor @cilium/monitor
-/pkg/monitor/api @cilium/api
-/pkg/monitor/datapath_debug.go @cilium/bpf
-/pkg/monitor/format @cilium/cli
-/pkg/monitor/payload @cilium/api
+/pkg/monitor @cilium/bpf
+/pkg/monitor/api @cilium/api @cilium/bpf
+/pkg/monitor/format @cilium/cli @cilium/bpf
+/pkg/monitor/payload @cilium/api @cilium/bpf
 /pkg/mountinfo @cilium/bpf
 /pkg/mtu @cilium/bpf
 /pkg/multicast @cilium/bpf
