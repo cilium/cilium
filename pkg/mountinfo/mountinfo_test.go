@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !privileged_tests
+// +build linux,!privileged_tests
 
 package mountinfo
 
@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"golang.org/x/sys/unix"
 
+	"golang.org/x/sys/unix"
 	. "gopkg.in/check.v1"
 )
 
