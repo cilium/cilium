@@ -905,7 +905,13 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		}
 
 		k.Log("✨ [%s] Deploying client service...", k.clients.src.ClusterName())
-		clientDeployment := newDeployment(deploymentParameters{Name: ClientDeploymentName, Kind: kindClientName, Port: 8080, Image: "quay.io/cilium/alpine-curl:1.0", Command: []string{"/bin/ash", "-c", "sleep 10000000"}})
+		clientDeployment := newDeployment(deploymentParameters{
+			Name:    ClientDeploymentName,
+			Kind:    kindClientName,
+			Port:    8080,
+			Image:   "quay.io/cilium/alpine-curl:1.1",
+			Command: []string{"/bin/ash", "-c", "sleep 10000000"},
+		})
 		_, err = k.clients.src.CreateDeployment(ctx, k.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create deployment %s: %s", ClientDeploymentName, err)
