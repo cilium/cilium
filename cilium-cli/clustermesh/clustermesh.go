@@ -1070,7 +1070,7 @@ retry:
 }
 
 func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*ConnectivityStatus, error) {
-	status := &ConnectivityStatus{
+	stats := &ConnectivityStatus{
 		GlobalServices: StatisticalStatus{Min: -1},
 		Connected:      StatisticalStatus{Min: -1},
 		Errors:         status.ErrorCountMapMap{},
@@ -1085,16 +1085,21 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 	for _, pod := range pods.Items {
 		s, err := k.statusCollector.ClusterMeshConnectivity(ctx, pod.Name)
 		if err != nil {
+			if err == status.ErrClusterMeshStatusNotAvailable {
+				continue
+			}
 			return nil, fmt.Errorf("unable to determine status of cilium pod %q: %w", pod.Name, err)
 		}
 
-		status.parseAgentStatus(pod.Name, s)
+		stats.parseAgentStatus(pod.Name, s)
 	}
 
-	status.GlobalServices.Avg /= float64(len(pods.Items))
-	status.Connected.Avg /= float64(len(pods.Items))
+	if len(pods.Items) > 0 {
+		stats.GlobalServices.Avg /= float64(len(pods.Items))
+		stats.Connected.Avg /= float64(len(pods.Items))
+	}
 
-	return status, nil
+	return stats, nil
 }
 
 func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) {
@@ -1148,7 +1153,10 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	s.Connectivity, err = k.statusConnectivity(ctx, log)
 
 	if log && s.Connectivity != nil {
-		if s.Connectivity.NotReady > 0 {
+		if len(s.Connectivity.Clusters) == 0 {
+			k.Log("⚠️  Cluster not configured for clustermesh, use '--cluster-id' and '--cluster-name' with 'cilium install'. External workloads may still be configured.")
+			return s, nil
+		} else if s.Connectivity.NotReady > 0 {
 			k.Log("⚠️  %d/%d nodes are not connected to all clusters [min:%d / avg:%.1f / max:%d]",
 				s.Connectivity.NotReady,
 				s.Connectivity.Total,

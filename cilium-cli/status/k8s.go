@@ -16,6 +16,7 @@ package status
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -103,6 +104,8 @@ retry:
 	return s, err
 }
 
+var ErrClusterMeshStatusNotAvailable = errors.New("ClusterMesh status is not available")
+
 func (k *K8sStatusCollector) clusterMeshConnectivity(ctx context.Context, ciliumPod string) (*ClusterMeshAgentConnectivityStatus, error) {
 	c := &ClusterMeshAgentConnectivityStatus{
 		Clusters: map[string]*models.RemoteCluster{},
@@ -114,7 +117,7 @@ func (k *K8sStatusCollector) clusterMeshConnectivity(ctx context.Context, cilium
 	}
 
 	if status.ClusterMesh == nil {
-		return nil, fmt.Errorf("ClusterMesh status is not available")
+		return nil, ErrClusterMeshStatusNotAvailable
 	}
 
 	c.GlobalServices = status.ClusterMesh.NumGlobalServices
