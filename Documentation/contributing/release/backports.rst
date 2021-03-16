@@ -39,6 +39,14 @@ the release of version ``v1.3.0``:
 - Major bugfixes relevant to the correct operation of Cilium
 - Debug tool improvements
 
+Proposing PRs for backporting
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+PRs are proposed for backporting by adding a ``needs-backport/X.Y`` label to
+them. Normally this is done by the author when the PR is created or one of the
+maintainers when the PR is reviewed. When proposing PRs that have already been
+merged, also add a comment to the PR to ensure that the backporters are
+notified.
 
 Backporting Guide for the Backporter
 ------------------------------------
