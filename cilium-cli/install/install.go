@@ -1247,7 +1247,6 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["tunnel"] = "disabled"
 		m.Data["enable-endpoint-routes"] = "true"
 		m.Data["enable-local-node-route"] = "false"
-		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
 
 	case DatapathAzure:
 		m.Data["tunnel"] = "disabled"
@@ -1256,6 +1255,11 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data["enable-local-node-route"] = "false"
 		m.Data["masquerade"] = "false"
 		m.Data["enable-bpf-masquerade"] = "false"
+	}
+
+	switch k.flavor.Kind {
+	case k8s.KindGKE:
+		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
 	}
 
 	if k.params.Encryption {
