@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
+	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -172,6 +173,49 @@ func addENIRules(sysSettings []setting, nodeAddressing datapath.NodeAddressing) 
 	}
 
 	return retSettings, nil
+}
+
+// reinitializeIPSec is used to recompile and load encryption network programs.
+func (l *Loader) reinitializeIPSec(ctx context.Context) error {
+	if !option.Config.EnableIPSec {
+		return nil
+	}
+
+	interfaces := option.Config.EncryptInterface
+	if option.Config.IPAM == ipamOption.IPAMENI {
+		// IPAMENI mode supports multiple network facing interfaces that
+		// will all need Encrypt logic applied in order to decrypt any
+		// received encrypted packets. This logic will attach to all
+		// !veth devices. Only use if user has not configured interfaces.
+		if len(interfaces) == 0 {
+			if links, err := netlink.LinkList(); err == nil {
+				for _, link := range links {
+					isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
+					if err == nil && !isVirtual {
+						interfaces = append(interfaces, link.Attrs().Name)
+					}
+				}
+			}
+		}
+
+		// For the ENI ipam mode on EKS, this will be the interface that
+		// the router (cilium_host) IP is associated to.
+		if len(option.Config.IPv4PodSubnets) == 0 {
+			if info := node.GetRouterInfo(); info != nil {
+				for _, c := range info.GetIPv4CIDRs() {
+					option.Config.IPv4PodSubnets = append(option.Config.IPv4PodSubnets, &c)
+				}
+			}
+		}
+	}
+
+	// No interfaces is valid in tunnel disabled case
+	if len(interfaces) != 0 {
+		if err := l.replaceNetworkDatapath(ctx, interfaces); err != nil {
+			return fmt.Errorf("failed to load encryption program: %w", err)
+		}
+	}
+	return nil
 }
 
 // Reinitialize (re-)configures the base datapath configuration including global
@@ -396,35 +440,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		r.ReserveLocalRoutes()
 	}
 
-	// Compile and load network programs, currently used for encryption.
-	if option.Config.EnableIPSec {
-		interfaces := option.Config.EncryptInterface
-
-		// For the ENI ipam mode on EKS, this will be the interface that
-		// the router (cilium_host) IP is associated to.
-		if option.Config.IPAM == ipamOption.IPAMENI {
-			if len(interfaces) == 0 {
-				if info := node.GetRouterInfo(); info != nil {
-					mac := info.GetMac()
-					iface, err := linuxrouting.RetrieveIfaceNameFromMAC(mac.String())
-					if err != nil {
-						log.WithError(err).WithField("mac", mac).Fatal("Failed to set encrypt interface in the ENI ipam mode")
-					}
-					interfaces = append(interfaces, iface)
-				}
-			}
-			if len(option.Config.IPv4PodSubnets) == 0 {
-				if info := node.GetRouterInfo(); info != nil {
-					for _, c := range info.GetIPv4CIDRs() {
-						option.Config.IPv4PodSubnets = append(option.Config.IPv4PodSubnets, &c)
-					}
-				}
-				log.Info("Encryption IPv4PodSubnets in-use")
-			}
-		}
-		if err := l.replaceNetworkDatapath(ctx, interfaces); err != nil {
-			log.WithError(err).Fatal("failed to load encryption program")
-		}
+	if err := l.reinitializeIPSec(ctx); err != nil {
+		return err
 	}
 
 	if err := o.Datapath().Node().NodeConfigurationChanged(*o.LocalConfig()); err != nil {
