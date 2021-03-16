@@ -202,5 +202,5 @@ Change the kubectl context to ``kind-cluster1`` cluster:
 Setting up Cluster Mesh
 ------------------------
 
-We can complete setup by following the Cluster Mesh guide with :ref:`gs_clustermesh_expose_etcd`.
+We can complete setup by following the Cluster Mesh guide with :ref:`gs_clustermesh`.
 For Kind, we'll want to deploy the ``NodePort`` service into the ``kube-system`` namespace.
