@@ -292,22 +292,6 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3 impact               | L7 impact                 |
 +=======================+=======================+=========================+===========================+
-| ``1.0.x``             | ``1.1.y``             | N/A                     | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.1.x``             | ``1.2.y``             | Temporary disruption[2] | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.2.x``             | ``1.3.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.2.5``           | ``1.5.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.5.x``             | ``1.6.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.6.6``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.6.7``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.7.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.7.0``             | ``1.7.1``             | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``>=1.7.1``           | ``1.7.y``             | Minimal to None         | Clients must reconnect[1] |
@@ -323,10 +307,6 @@ Annotations:
    because an L7 policy is in place) will be disrupted during upgrade.
    Endpoints communicating via the proxy must reconnect to re-establish
    connections.
-
-#. **Temporary disruption**: All traffic may be temporarily disrupted during
-   upgrade. Connections should successfully re-establish without requiring
-   clients to reconnect.
 
 .. _current_release_required_changes:
 
