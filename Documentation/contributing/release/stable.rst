@@ -59,9 +59,6 @@ Reference steps for the template
        instance, indentation mismatches) as well as duplicate contributor
        names, and correct them accordingly.
 
-#. Update the ``cilium_version`` and ``cilium_tag`` variables in
-   ``examples/getting-started/Vagrantfile``
-
 #. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
    the ``pkg/k8s/client`` by following these instructions:
 
