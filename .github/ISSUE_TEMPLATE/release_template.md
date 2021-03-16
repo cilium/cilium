@@ -24,8 +24,6 @@ assignees: ''
 - [ ] Push a PR including the changes necessary for the new release:
   - [ ] Pull latest changes from the branch being released
   - [ ] Run `contrib/release/start-release.sh`
-  - [ ] (If applicable) Update the `cilium_version` and `cilium_tag` in
-        `examples/getting-started/Vagrantfile`
   - [ ] Run `Documentation/check-crd-compat-table.sh vX.Y` and if needed, follow the
         instructions.
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`

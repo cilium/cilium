@@ -66,8 +66,6 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
-examples/getting-started/.env
-
 # generated test files
 test/k8sT/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
