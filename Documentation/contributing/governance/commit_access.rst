@@ -44,7 +44,9 @@ sensitive to the nuance of specific situations. In the end the decision
 to grant or revoke committer privileges is a judgment call made by the
 existing set of committers.
 
-For the list of current committers, see `Maintainers <https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md>`_.
+For the list of current committers, see MAINTAINERS.md_.
+
+.. _MAINTAINERS.md: https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md
 
 Expectations for Developers with commit access
 ----------------------------------------------
@@ -176,7 +178,10 @@ The process to grant commit access to a candidate is simple:
    web site.
 
 -  If the candidate agrees access is granted by setting up commit access
-   to the repos.
+   to the repos. The new committer is invited to the #committers Slack channel,
+   *after* the nomination poll and related discussions have been deleted. The
+   name of the new committer is also added to the list in the MAINTAINERS.md_
+   file.
 
 Revoking Commit Access
 ----------------------
@@ -320,7 +325,7 @@ Company Block Vote Limit
 
 In the spirit of ensuring a diverse community, the number of votes a single
 company can receive is limited to 6 votes. The company affiliation of
-maintainers and committers is documented in the MAINTAINERS.md file.
+maintainers and committers is documented in the MAINTAINERS.md_ file.
 
 Votes are counted within the company association and then broken down
 proportionally. Example: 7 committers from a company vote, 6 votes yes,
