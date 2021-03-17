@@ -171,21 +171,6 @@ tooling to provide:
   and application and security visibility based on flow logs.
 
 .. _Hubble: https://github.com/cilium/hubble/
-
-Integrations
-------------
-
-* Network plugin integrations: CNI_, libnetwork_
-* Container runtime events: containerd_
-* Kubernetes: NetworkPolicy_, Labels_, Ingress_, Service_
-
-.. _CNI: https://github.com/containernetworking/cni
-.. _libnetwork: https://github.com/docker/libnetwork
-.. _containerd: https://github.com/containerd/containerd
-.. _service: https://kubernetes.io/docs/concepts/services-networking/service/
-.. _Ingress: https://kubernetes.io/docs/concepts/services-networking/ingress/
-.. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
-.. _Labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 .. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
 
 .. end-functionality-overview
