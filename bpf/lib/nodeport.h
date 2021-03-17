@@ -19,6 +19,7 @@
 #include "encap.h"
 #include "trace.h"
 #include "ghash.h"
+#include "pcap.h"
 #include "host_firewall.h"
 
 #define CB_SRC_IDENTITY	0
@@ -599,6 +600,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	}
 
 out_send:
+	cilium_capture_out(ctx);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
@@ -764,6 +766,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
+
+	cilium_capture_in(ctx);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1579,6 +1583,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	}
 
 out_send:
+	cilium_capture_out(ctx);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
@@ -1746,6 +1751,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
+
+	cilium_capture_in(ctx);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
