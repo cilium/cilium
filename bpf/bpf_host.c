@@ -52,7 +52,6 @@
 #include "lib/lb.h"
 #include "lib/nodeport.h"
 #include "lib/eps.h"
-#include "lib/egress_gw.h"
 #include "lib/host_firewall.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
@@ -1030,23 +1029,13 @@ out:
 	}
 #endif
 
-#if defined(ENABLE_EGRESS_GATEWAY)
-	/* If the packet is revnat'ed, skip the egress gateway. */
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
-		ret = egress_nat_fwd(ctx);
-		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, 0, ret,
-						      CTX_ACT_DROP,
-						      METRIC_EGRESS);
-	}
-#endif
-
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
-	 defined(ENABLE_MASQUERADE))
+	 defined(ENABLE_MASQUERADE) || \
+	 defined(ENABLE_EGRESS_GATEWAY))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
-		ret = nodeport_nat_fwd(ctx);
+		ret = handle_nat_fwd(ctx);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
