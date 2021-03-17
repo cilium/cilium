@@ -46,11 +46,11 @@ func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 			Middle: []filters.FlowRequirement{
 				{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Msg: "DNS response"},
 				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.SYN()), Msg: "SYN"},
-				{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.SYNACK()), Msg: "SYN-ACK"},
+				{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.SYNACK()), Msg: "SYN-ACK", SkipOnAggregation: true},
 			},
 			// For the connection termination, we will either see:
 			// a) FIN + FIN b) FIN + RST c) RST
-			Last: filters.FlowRequirement{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST"},
+			Last: filters.FlowRequirement{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST", SkipOnAggregation: true},
 			Except: []filters.FlowRequirement{
 				{Filter: filters.Drop(), Msg: "Drop"},
 			},

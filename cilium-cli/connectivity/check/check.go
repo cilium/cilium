@@ -151,6 +151,7 @@ func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 }
 
 type k8sConnectivityImplementation interface {
+	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
 	GetService(ctx context.Context, namespace, service string, opts metav1.GetOptions) (*corev1.Service, error)
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -254,6 +255,10 @@ type TestContext interface {
 
 	// AllFlows returns true if all flows should be shown
 	AllFlows() bool
+
+	// FlowAggregation returns true if flow aggregation is enabled in any
+	// of the clusters
+	FlowAggregation() bool
 
 	// PostTestSleepDuration is the duration to sleep after each test
 	PostTestSleepDuration() time.Duration
@@ -439,18 +444,23 @@ func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, po
 	}
 
 	for _, f := range req.Middle {
+		if f.SkipOnAggregation && t.context.FlowAggregation() {
+			continue
+		}
 		match(true, f)
 	}
 
-	if index, match, lastFlow := match(true, req.Last); !match {
-		r.NeedMoreFlows = true
-	} else {
-		r.LastMatch = index
+	if !(req.Last.SkipOnAggregation && t.context.FlowAggregation()) {
+		if index, match, lastFlow := match(true, req.Last); !match {
+			r.NeedMoreFlows = true
+		} else {
+			r.LastMatch = index
 
-		if lastFlow != nil {
-			flowTimestamp, err := ptypes.Timestamp(lastFlow.Time)
-			if err == nil {
-				r.LastMatchTimestamp = flowTimestamp
+			if lastFlow != nil {
+				flowTimestamp, err := ptypes.Timestamp(lastFlow.Time)
+				if err == nil {
+					r.LastMatchTimestamp = flowTimestamp
+				}
 			}
 		}
 	}
@@ -623,6 +633,7 @@ type K8sConnectivityCheck struct {
 	echoServices       map[string]ServiceContext
 	results            TestResults
 	lastFlowTimestamps map[string]time.Time
+	flowAggregation    bool
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) (*K8sConnectivityCheck, error) {
@@ -890,10 +901,27 @@ func (d *deploymentClients) clients() []k8sConnectivityImplementation {
 	return []k8sConnectivityImplementation{d.src}
 }
 
+func (k *K8sConnectivityCheck) logAggregationMode(ctx context.Context, client k8sConnectivityImplementation) (string, error) {
+	cm, err := client.GetConfigMap(ctx, k.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	if cm.Data == nil {
+		return "", fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
+	}
+
+	return cm.Data[defaults.ConfigMapKeyMonitorAggregation], nil
+}
+
 func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClients, error) {
 	c := &deploymentClients{
 		src: k.client,
 		dst: k.client,
+	}
+
+	if a, _ := k.logAggregationMode(ctx, c.src); a != defaults.ConfigMapValueMonitorAggregatonNone {
+		k.flowAggregation = true
 	}
 
 	// In single-cluster environment, automatically detect a single-node
@@ -942,6 +970,14 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 
 		c.dst = dst
 		c.dstInOtherCluster = true
+
+		if a, _ := k.logAggregationMode(ctx, c.dst); a != defaults.ConfigMapValueMonitorAggregatonNone {
+			k.flowAggregation = true
+		}
+	}
+
+	if k.flowAggregation {
+		k.Log("ℹ️  Monitor aggregation detected, will skip some flow validation steps")
 	}
 
 	return c, nil
@@ -1266,6 +1302,10 @@ func (k *K8sConnectivityCheck) PrintFlows() bool {
 
 func (k *K8sConnectivityCheck) AllFlows() bool {
 	return k.params.AllFlows
+}
+
+func (k *K8sConnectivityCheck) FlowAggregation() bool {
+	return k.flowAggregation
 }
 
 func (k *K8sConnectivityCheck) EchoPods() map[string]PodContext {
