@@ -95,12 +95,55 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
 # define capture_enabled (__ctx_is == __ctx_xdp)
 #endif /* capture_enabled */
 
+struct capture_cache {
+	bool  rule_seen;
+	__u16 rule_id;
+};
+
+struct bpf_elf_map __section_maps cilium_capture_cache = {
+	.type		= BPF_MAP_TYPE_PERCPU_ARRAY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(struct capture_cache),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1,
+};
+
 static __always_inline bool
-cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused, __u16 *rule_id)
+cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
+			 __u16 *rule_id __maybe_unused)
 {
 	if (capture_enabled) {
-		*rule_id = 0;
-		return true;
+		struct capture_cache *c;
+		__u32 zero = 0;
+
+		c = map_lookup_elem(&cilium_capture_cache, &zero);
+		if (always_succeeds(c)) {
+			/* TBD */
+			c->rule_seen = true;
+			c->rule_id = 0;
+			return true;
+		}
+	}
+	return false;
+}
+
+static __always_inline bool
+cilium_capture_cached(struct __ctx_buff *ctx __maybe_unused,
+		      __u16 *rule_id __maybe_unused)
+{
+	if (capture_enabled) {
+		struct capture_cache *c;
+		__u32 zero = 0;
+
+		/* Avoid full classification a 2nd time due to i) overhead but
+		 * also since ii) we might have pushed an encap header in front
+		 * where we don't want to dissect everything again.
+		 */
+		c = map_lookup_elem(&cilium_capture_cache, &zero);
+		if (always_succeeds(c) && c->rule_seen) {
+			*rule_id = c->rule_id;
+			return true;
+		}
 	}
 	return false;
 }
@@ -122,7 +165,11 @@ cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 #ifdef ENABLE_CAPTURE
 	__u16 rule_id;
 
-	if (cilium_capture_candidate(ctx, &rule_id))
+	/* cilium_capture_out() is always paired with cilium_capture_in(), so
+	 * we can rely on previous cached result on whether to push the pkt
+	 * to the RB or not.
+	 */
+	if (cilium_capture_cached(ctx, &rule_id))
 		__cilium_capture_out(ctx, rule_id);
 #endif /* ENABLE_CAPTURE */
 }
