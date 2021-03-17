@@ -385,13 +385,19 @@ func DeleteIPsecEndpoint(remote *net.IPNet) {
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
 	if policy.Mark == nil {
+		// Check if its our fwd rule, we don't have a mark
+		// on this rule so use priority.
+		if policy.Dir == netlink.XFRM_DIR_FWD &&
+			policy.Priority == linux_defaults.IPsecFwdPriority {
+			return true
+		}
 		return false
 	}
-	if policy.Mark.Mask != linux_defaults.RouteMarkMask {
-		return false
+
+	if (policy.Mark.Value & linux_defaults.RouteMarkDecrypt) != 0 {
+		return true
 	}
-	if policy.Mark.Value == linux_defaults.RouteMarkDecrypt ||
-		policy.Mark.Value == linux_defaults.RouteMarkEncrypt {
+	if (policy.Mark.Value & linux_defaults.RouteMarkEncrypt) != 0 {
 		return true
 	}
 	return false
@@ -401,11 +407,10 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 	if state.Mark == nil {
 		return false
 	}
-	if state.Mark.Mask != linux_defaults.RouteMarkMask {
-		return false
+	if (state.Mark.Value & linux_defaults.RouteMarkDecrypt) != 0 {
+		return true
 	}
-	if state.Mark.Value == linux_defaults.RouteMarkDecrypt ||
-		state.Mark.Value == linux_defaults.RouteMarkEncrypt {
+	if (state.Mark.Value & linux_defaults.RouteMarkEncrypt) != 0 {
 		return true
 	}
 	return false
