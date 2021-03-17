@@ -181,12 +181,12 @@ Tell your cluster about external workloads
 
 To allow an external workload to join your cluster, the cluster must
 be informed about each such workload. This is done by adding a
-``CiliumExternalWorkload`` (CEW) resource for each external workload. CEW
-resource specifies the name, namespace, and labels for the workload. For
-now you must also allocate a small IP CIDR that must be unique to the
-workload. For example, for a VM named ``runtime`` that is to join the
-``default`` namespace, you could create a file ``runtime.yaml`` with
-the following contents:
+``CiliumExternalWorkload`` (CEW) resource for each external
+workload. CEW resource specifies the name and labels (including
+namespace) for the workload. For now you must also allocate a small IP
+CIDR that must be unique to the workload. For example, for a VM named
+``runtime`` that is to join the ``default`` namespace, you could
+create a file ``runtime.yaml`` with the following contents:
 
 .. parsed-literal::
 
@@ -194,9 +194,8 @@ the following contents:
     kind: CiliumExternalWorkload
     metadata:
       name: runtime
-      namespace: default
       labels:
-        app: runtime
+        io.kubernetes.pod.namespace: default
     spec:
       ipv4-alloc-cidr: 10.192.1.0/30
 
