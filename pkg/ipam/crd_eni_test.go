@@ -20,6 +20,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/vishvananda/netlink"
@@ -129,12 +130,12 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 	}
 
 	for _, tc := range []struct {
-		options              ciliumNodeENIRulesAndRoutesOptions
+		options              linuxrouting.ENIRulesAndRoutesOptions
 		expectedRuleStrings  []string
 		expectedRouteStrings []string
 	}{
 		{
-			options: ciliumNodeENIRulesAndRoutesOptions{
+			options: linuxrouting.ENIRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: false,
 				EnableIPv4Masquerade:        false,
 			},
@@ -152,22 +153,22 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 			},
 		},
 		{
-			options: ciliumNodeENIRulesAndRoutesOptions{
+			options: linuxrouting.ENIRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: false,
 				EnableIPv4Masquerade:        true,
 			},
 			expectedRuleStrings: []string{
 				"20: from all to 100.112.10.244/32 lookup main",
-				"111: from 100.112.10.244/32 to 10.11.232.0/21 lookup 11",
 				"111: from 100.112.10.244/32 to 10.11.224.0/21 lookup 11",
+				"111: from 100.112.10.244/32 to 10.11.232.0/21 lookup 11",
 				"111: from 100.112.10.244/32 to 100.112.0.0/17 lookup 11",
 				"20: from all to 100.112.17.145/32 lookup main",
-				"111: from 100.112.17.145/32 to 10.11.232.0/21 lookup 11",
 				"111: from 100.112.17.145/32 to 10.11.224.0/21 lookup 11",
+				"111: from 100.112.17.145/32 to 10.11.232.0/21 lookup 11",
 				"111: from 100.112.17.145/32 to 100.112.0.0/17 lookup 11",
 				"20: from all to 100.112.21.2/32 lookup main",
-				"111: from 100.112.21.2/32 to 10.11.232.0/21 lookup 11",
 				"111: from 100.112.21.2/32 to 10.11.224.0/21 lookup 11",
+				"111: from 100.112.21.2/32 to 10.11.232.0/21 lookup 11",
 				"111: from 100.112.21.2/32 to 100.112.0.0/17 lookup 11",
 			},
 			expectedRouteStrings: []string{
@@ -176,7 +177,7 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 			},
 		},
 		{
-			options: ciliumNodeENIRulesAndRoutesOptions{
+			options: linuxrouting.ENIRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: true,
 				EnableIPv4Masquerade:        false,
 			},
@@ -194,22 +195,22 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 			},
 		},
 		{
-			options: ciliumNodeENIRulesAndRoutesOptions{
+			options: linuxrouting.ENIRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: true,
 				EnableIPv4Masquerade:        true,
 			},
 			expectedRuleStrings: []string{
 				"20: from all to 100.112.10.244/32 lookup main",
-				"110: from 100.112.10.244/32 to 10.11.232.0/21 lookup 3",
 				"110: from 100.112.10.244/32 to 10.11.224.0/21 lookup 3",
+				"110: from 100.112.10.244/32 to 10.11.232.0/21 lookup 3",
 				"110: from 100.112.10.244/32 to 100.112.0.0/17 lookup 3",
 				"20: from all to 100.112.17.145/32 lookup main",
-				"110: from 100.112.17.145/32 to 10.11.232.0/21 lookup 3",
 				"110: from 100.112.17.145/32 to 10.11.224.0/21 lookup 3",
+				"110: from 100.112.17.145/32 to 10.11.232.0/21 lookup 3",
 				"110: from 100.112.17.145/32 to 100.112.0.0/17 lookup 3",
 				"20: from all to 100.112.21.2/32 lookup main",
-				"110: from 100.112.21.2/32 to 10.11.232.0/21 lookup 3",
 				"110: from 100.112.21.2/32 to 10.11.224.0/21 lookup 3",
+				"110: from 100.112.21.2/32 to 10.11.232.0/21 lookup 3",
 				"110: from 100.112.21.2/32 to 100.112.0.0/17 lookup 3",
 			},
 			expectedRouteStrings: []string{

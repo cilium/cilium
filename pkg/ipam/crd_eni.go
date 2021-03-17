@@ -23,7 +23,6 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -71,7 +70,7 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 	// Ignore removed interfaces for now.
 	_ = removedResources
 
-	options := ciliumNodeENIRulesAndRoutesOptions{
+	options := linuxrouting.ENIRulesAndRoutesOptions{
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
 		EnableIPv4Masquerade:        option.Config.EnableIPv4Masquerade,
 	}
@@ -216,13 +215,8 @@ func routeSet(routes []*netlink.Route) map[string]struct{} {
 	return routeSet
 }
 
-type ciliumNodeENIRulesAndRoutesOptions struct {
-	EgressMultiHomeIPRuleCompat bool
-	EnableIPv4Masquerade        bool
-}
-
 // ciliumNodeENIRulesAndRoutes returns the rules and routes required to configure
-func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfaceIndex map[string]int, options ciliumNodeENIRulesAndRoutesOptions) (rules []*route.Rule, routes []*netlink.Route) {
+func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfaceIndex map[string]int, options linuxrouting.ENIRulesAndRoutesOptions) (rules []*route.Rule, routes []*netlink.Route) {
 	// Extract the used IPs by ENI from node.Status.IPAM.Used.
 	ipsByResource := make(map[string][]net.IP)
 	firstInterfaceIndex := *node.Spec.ENI.FirstInterfaceIndex
@@ -256,13 +250,6 @@ func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfac
 		return node.Status.ENI.ENIs[resourcesByNumber[i]].Number < node.Status.ENI.ENIs[resourcesByNumber[j]].Number
 	})
 
-	var egressPriority int
-	if options.EgressMultiHomeIPRuleCompat {
-		egressPriority = linux_defaults.RulePriorityEgress
-	} else {
-		egressPriority = linux_defaults.RulePriorityEgressv2
-	}
-
 	for _, resource := range resourcesByNumber {
 		eni := node.Status.ENI.ENIs[resource]
 
@@ -284,7 +271,7 @@ func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfac
 			continue
 		}
 
-		cidrs := make([]*cidr.CIDR, 0, len(eni.VPC.CIDRs))
+		ipNets := make([]net.IPNet, 0, len(eni.VPC.CIDRs))
 		for _, cidrStr := range eni.VPC.CIDRs {
 			cidr, err := cidr.ParseCIDR(cidrStr)
 			if err != nil {
@@ -294,84 +281,22 @@ func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfac
 				}).Warning("Failed to parse CIDR")
 				continue
 			}
-			cidrs = append(cidrs, cidr)
+			ipNets = append(ipNets, *cidr.IPNet)
 		}
+		sort.Slice(ipNets, func(i, j int) bool {
+			return bytes.Compare(ipNets[i].IP, ipNets[j].IP) < 0
+		})
 
-		var tableID int
-		if options.EgressMultiHomeIPRuleCompat {
-			tableID = netlinkInterfaceIndex
-		} else {
-			tableID = linuxrouting.ComputeTableIDFromIfaceNumber(eni.Number)
-		}
-
-		// Generate rules for each IPs.
-		for _, ip := range ipsByResource[resource] {
-			ipWithMask := net.IPNet{
-				IP:   ip,
-				Mask: net.CIDRMask(32, 32),
-			}
-
-			// On ingress, route all traffic to the endpoint IP via the main
-			// routing table. Egress rules are created in a per-ENI routing
-			// table.
-			ingressRule := &route.Rule{
-				Priority: linux_defaults.RulePriorityIngress,
-				To:       &ipWithMask,
-				Table:    route.MainTable,
-			}
-			rules = append(rules, ingressRule)
-
-			if options.EnableIPv4Masquerade {
-				// Lookup a VPC specific table for all traffic from an endpoint
-				// to the CIDR configured for the VPC on which the endpoint has
-				// the IP on.
-				egressRules := make([]*route.Rule, 0, len(cidrs))
-				for _, cidr := range cidrs {
-					egressRule := &route.Rule{
-						Priority: egressPriority,
-						From:     &ipWithMask,
-						To:       cidr.IPNet,
-						Table:    tableID,
-					}
-					egressRules = append(egressRules, egressRule)
-				}
-				rules = append(rules, egressRules...)
-			} else {
-				// Lookup a VPC specific table for all traffic from an endpoint.
-				egressRule := &route.Rule{
-					Priority: egressPriority,
-					From:     &ipWithMask,
-					Table:    tableID,
-				}
-				rules = append(rules, egressRule)
-			}
-		}
-
-		// Generate routes.
-
-		// Nexthop route to the VPC or subnet gateway. Note: This is a /32 route
-		// to avoid any L2. The endpoint does no L2 either.
-		nexthopRoute := &netlink.Route{
-			LinkIndex: netlinkInterfaceIndex,
-			Dst: &net.IPNet{
-				IP:   gateway,
-				Mask: net.CIDRMask(32, 32),
-			},
-			Scope: netlink.SCOPE_LINK,
-			Table: tableID,
-		}
-		routes = append(routes, nexthopRoute)
-
-		// Default route to the VPC or subnet gateway.
-		defaultRoute := &netlink.Route{
-			Dst: &net.IPNet{
-				IP:   net.IPv4zero,
-				Mask: net.CIDRMask(0, 32),
-			},
-			Table: tableID,
-			Gw:    gateway,
-		}
-		routes = append(routes, defaultRoute)
+		resourceRules, resourceRoutes := linuxrouting.ENIRulesAndRoutes(
+			ipsByResource[resource],
+			ipNets,
+			netlinkInterfaceIndex,
+			eni.Number,
+			gateway,
+			options,
+		)
+		rules = append(rules, resourceRules...)
+		routes = append(routes, resourceRoutes...)
 	}
 
 	return
