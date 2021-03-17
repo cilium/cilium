@@ -260,6 +260,13 @@ type TestContext interface {
 
 	// Report is called to report the outcome of a test
 	Report(r TestResult)
+
+	// StoreLastTimestamp stores the last flow timestamp of a test run to
+	// allow later tests to skip flows up to this point
+	StoreLastTimestamp(pod string, t time.Time)
+
+	// LoadLastTimestamp loads the last flow timestamp of a previous test for a particular pod
+	LoadLastTimestamp(pod string) time.Time
 }
 
 // TestRun is the state of an individual test run
@@ -372,12 +379,13 @@ func (t *TestRun) printFlows(pod string, f *flowsSet, r FlowRequirementResults) 
 type MatchMap map[int]bool
 
 type FlowRequirementResults struct {
-	FirstMatch    int
-	LastMatch     int
-	Matched       MatchMap
-	Log           []string
-	Failures      int
-	NeedMoreFlows bool
+	FirstMatch         int
+	LastMatch          int
+	Matched            MatchMap
+	Log                []string
+	Failures           int
+	NeedMoreFlows      bool
+	LastMatchTimestamp time.Time
 }
 
 func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod string, req filters.FlowSetRequirement) (r FlowRequirementResults) {
@@ -385,8 +393,8 @@ func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, po
 
 	r.Matched = MatchMap{}
 
-	match := func(expect bool, f filters.FlowRequirement) (int, bool) {
-		index, match := flows.Contains(f.Filter)
+	match := func(expect bool, f filters.FlowRequirement) (int, bool, *flow.Flow) {
+		index, match, flow := flows.Contains(f.Filter)
 
 		if match {
 			r.Matched[index] = expect
@@ -406,25 +414,25 @@ func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, po
 
 			r.Log = append(r.Log, fmt.Sprintf("❌ %s %s %s for pod %s", f.Msg, f.Filter.String(), msgSuffix, pod))
 			r.Failures++
-			return 0, false
-		}
-
-		msgSuffix := "found"
-		if !expect {
-			msgSuffix = "not found"
-		}
-
-		entry := "✅ " + fmt.Sprintf("%s %s for pod %s", f.Msg, msgSuffix, pod)
-		// Either show all flows or collect them so we can attach on failure
-		if t.context.AllFlows() {
-			r.Log = append(r.Log, entry)
 		} else {
-			goodLog = append(goodLog, entry)
+			msgSuffix := "found"
+			if !expect {
+				msgSuffix = "not found"
+			}
+
+			entry := "✅ " + fmt.Sprintf("%s %s for pod %s", f.Msg, msgSuffix, pod)
+			// Either show all flows or collect them so we can attach on failure
+			if t.context.AllFlows() {
+				r.Log = append(r.Log, entry)
+			} else {
+				goodLog = append(goodLog, entry)
+			}
 		}
-		return index, true
+
+		return index, expect, flow
 	}
 
-	if index, match := match(true, req.First); !match {
+	if index, match, _ := match(true, req.First); !match {
 		r.NeedMoreFlows = true
 	} else {
 		r.FirstMatch = index
@@ -434,10 +442,17 @@ func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, po
 		match(true, f)
 	}
 
-	if index, match := match(true, req.Last); !match {
+	if index, match, lastFlow := match(true, req.Last); !match {
 		r.NeedMoreFlows = true
 	} else {
 		r.LastMatch = index
+
+		if lastFlow != nil {
+			flowTimestamp, err := ptypes.Timestamp(lastFlow.Time)
+			if err == nil {
+				r.LastMatchTimestamp = flowTimestamp
+			}
+		}
 	}
 
 	for _, f := range req.Except {
@@ -464,7 +479,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req filt
 	defer w.Cancel()
 
 retry:
-	flows, err := getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod, podIP)
+	flows, err := t.getFlows(ctx, hubbleClient, t.started.Add(100*time.Millisecond), pod, podIP)
 	if err != nil || flows == nil || len(flows.flows) == 0 {
 		if err == nil {
 			err = fmt.Errorf("no flows returned")
@@ -487,6 +502,10 @@ retry:
 
 	t.flows[pod] = flows
 	t.flowResults[pod] = r
+
+	if !r.LastMatchTimestamp.IsZero() {
+		t.context.StoreLastTimestamp(pod, r.LastMatchTimestamp)
+	}
 
 	if r.Failures == 0 {
 		t.context.Log("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d, nlog: %d)", pod, r.FirstMatch, r.LastMatch, len(r.Matched), len(r.Log))
@@ -594,15 +613,16 @@ func (t TestResults) Failed() (failed int) {
 }
 
 type K8sConnectivityCheck struct {
-	client          k8sConnectivityImplementation
-	ciliumNamespace string
-	hubbleClient    observer.ObserverClient
-	params          Parameters
-	clients         *deploymentClients
-	echoPods        map[string]PodContext
-	clientPods      map[string]PodContext
-	echoServices    map[string]ServiceContext
-	results         TestResults
+	client             k8sConnectivityImplementation
+	ciliumNamespace    string
+	hubbleClient       observer.ObserverClient
+	params             Parameters
+	clients            *deploymentClients
+	echoPods           map[string]PodContext
+	clientPods         map[string]PodContext
+	echoServices       map[string]ServiceContext
+	results            TestResults
+	lastFlowTimestamps map[string]time.Time
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) (*K8sConnectivityCheck, error) {
@@ -611,9 +631,10 @@ func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters)
 	}
 
 	k := &K8sConnectivityCheck{
-		client:          client,
-		ciliumNamespace: "kube-system",
-		params:          p,
+		client:             client,
+		ciliumNamespace:    "kube-system",
+		params:             p,
+		lastFlowTimestamps: map[string]time.Time{},
 	}
 
 	return k, nil
@@ -654,7 +675,7 @@ type flowsSet struct {
 	flows []*observer.GetFlowsResponse
 }
 
-func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (*flowsSet, error) {
+func (t *TestRun) getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (*flowsSet, error) {
 	set := &flowsSet{}
 
 	if hubbleClient == nil {
@@ -664,6 +685,15 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 	sinceTimestamp, err := ptypes.TimestampProto(since)
 	if err != nil {
 		return nil, fmt.Errorf("invalid since value %s: %s", since, err)
+	}
+
+	lastFlowTimestamp := t.context.LoadLastTimestamp(pod)
+	if !lastFlowTimestamp.IsZero() && lastFlowTimestamp.After(since) {
+		t.context.Log("Using last flow timestamp: %s", lastFlowTimestamp)
+		sinceTimestamp, err = ptypes.TimestampProto(lastFlowTimestamp)
+		if err != nil {
+			return nil, fmt.Errorf("invalid since value %s: %s", since, err)
+		}
 	}
 
 	// The filter is liberal, it includes any flow that:
@@ -707,18 +737,19 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 	}
 }
 
-func (f *flowsSet) Contains(filter filters.FlowFilterImplementation) (int, bool) {
+func (f *flowsSet) Contains(filter filters.FlowFilterImplementation) (int, bool, *flow.Flow) {
 	if f == nil {
-		return 0, false
+		return 0, false, nil
 	}
 
 	for i, res := range f.flows {
-		if filter.Match(res.GetFlow()) {
-			return i, true
+		flow := res.GetFlow()
+		if filter.Match(flow) {
+			return i, true, flow
 		}
 	}
 
-	return 0, false
+	return 0, false, nil
 }
 
 func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
@@ -1208,6 +1239,14 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 
 func (k *K8sConnectivityCheck) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
+}
+
+func (k *K8sConnectivityCheck) StoreLastTimestamp(pod string, t time.Time) {
+	k.lastFlowTimestamps[pod] = t
+}
+
+func (k *K8sConnectivityCheck) LoadLastTimestamp(pod string) time.Time {
+	return k.lastFlowTimestamps[pod]
 }
 
 func (k *K8sConnectivityCheck) Header(format string, a ...interface{}) {
