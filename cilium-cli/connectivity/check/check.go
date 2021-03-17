@@ -252,6 +252,9 @@ type TestContext interface {
 	// PrintFlows returns true if flow logs should be printed
 	PrintFlows() bool
 
+	// AllFlows returns true if all flows should be shown
+	AllFlows() bool
+
 	// FlowSettleSleepDuration is the duration to wait before collecting flows
 	FlowSettleSleepDuration() time.Duration
 
@@ -282,6 +285,8 @@ type TestRun struct {
 	// flows is a map of all flow logs, indexed by pod name
 	flows map[string]*flowsSet
 
+	flowResults map[string]FlowRequirementResults
+
 	// started is the timestamp the test started
 	started time.Time
 
@@ -307,6 +312,7 @@ func NewTestRun(name string, c TestContext, src, dst TestPeer) *TestRun {
 		dst:         dst,
 		started:     time.Now(),
 		flows:       map[string]*flowsSet{},
+		flowResults: map[string]FlowRequirementResults{},
 	}
 }
 
@@ -316,25 +322,56 @@ func (t *TestRun) Failure(format string, a ...interface{}) {
 	t.failures++
 }
 
+// Success can be called to log a successful event
+func (t *TestRun) Success(format string, a ...interface{}) {
+	t.context.Log("✅ "+format, a...)
+}
+
 // Warning must be called when a warning is detected performing the test
 func (t *TestRun) Warning(format string, a ...interface{}) {
 	t.context.Log("⚠️  "+format, a...)
 	t.warnings++
 }
 
-func (t *TestRun) printFlows(pod string, f *flowsSet) {
+func (t *TestRun) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
 	if f == nil {
 		t.context.Log("📄 No flows recorded for pod %s", pod)
 		return
 	}
 
 	t.context.Log("📄 Flow logs of pod %s:", pod)
-	printer := hubprinter.New(hubprinter.Compact())
+	printer := hubprinter.New(hubprinter.Compact(), hubprinter.WithIPTranslation())
 	defer printer.Close()
-	for _, flow := range f.flows {
-		if err := printer.WriteProtoFlow(flow); err != nil {
-			t.context.Log("Unable to print flow: %s", err)
+	for index, flow := range f.flows {
+		if !t.context.AllFlows() && r.FirstMatch > 0 && r.FirstMatch > index {
+			continue
 		}
+
+		if !t.context.AllFlows() && r.LastMatch > 0 && r.LastMatch < index {
+			continue
+		}
+
+		f := flow.GetFlow()
+
+		src, dst := printer.GetHostNames(f)
+
+		ts := "N/A"
+		flowTimestamp, err := ptypes.Timestamp(f.GetTime())
+		if err == nil {
+			ts = flowTimestamp.Format(time.StampMilli)
+		}
+
+		flowPrefix := "❓"
+		if expect, ok := r.Matched[index]; ok {
+			if expect {
+				flowPrefix = "✅"
+			} else {
+				flowPrefix = "❌"
+			}
+		}
+
+		//lint:ignore SA1019 Summary is deprecated but there is no real alternative yet
+		t.context.Log("%s%s: %s -> %s %s %s (%s)", flowPrefix, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
 	}
 }
 
@@ -353,9 +390,87 @@ func (t *TestRun) settleFlows(ctx context.Context) error {
 	return nil
 }
 
+type MatchMap map[int]bool
+
+type FlowRequirementResults struct {
+	FirstMatch    int
+	LastMatch     int
+	Matched       MatchMap
+	Log           []string
+	Failures      int
+	NeedMoreFlows bool
+}
+
+func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod string, req filters.FlowSetRequirement) (r FlowRequirementResults) {
+	var goodLog []string
+
+	r.Matched = MatchMap{}
+
+	match := func(expect bool, f filters.FlowRequirement) (int, bool) {
+		index, match := flows.Contains(f.Filter)
+
+		if match {
+			r.Matched[index] = expect
+		}
+
+		if match != expect {
+			// Unless we show all flows, good flows are only shown on failure
+			if !t.context.AllFlows() {
+				r.Log = append(r.Log, goodLog...)
+				goodLog = []string{}
+			}
+
+			msgSuffix := "not found"
+			if !expect {
+				msgSuffix = "found"
+			}
+
+			r.Log = append(r.Log, fmt.Sprintf("❌ %s %s %s for pod %s", f.Msg, f.Filter.String(), msgSuffix, pod))
+			r.Failures++
+			return 0, false
+		}
+
+		msgSuffix := "found"
+		if !expect {
+			msgSuffix = "not found"
+		}
+
+		entry := "✅ " + fmt.Sprintf("%s %s for pod %s", f.Msg, msgSuffix, pod)
+		// Either show all flows or collect them so we can attach on failure
+		if t.context.AllFlows() {
+			r.Log = append(r.Log, entry)
+		} else {
+			goodLog = append(goodLog, entry)
+		}
+		return index, true
+	}
+
+	if index, match := match(true, req.First); !match {
+		r.NeedMoreFlows = true
+	} else {
+		r.FirstMatch = index
+	}
+
+	for _, f := range req.Middle {
+		match(true, f)
+	}
+
+	if index, match := match(true, req.Last); !match {
+		r.NeedMoreFlows = true
+	} else {
+		r.LastMatch = index
+	}
+
+	for _, f := range req.Except {
+		match(false, f)
+	}
+
+	return
+}
+
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Failure() is called.
-func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filterPairs []filters.Pair) {
+func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req filters.FlowSetRequirement) {
 	hubbleClient := t.context.HubbleClient()
 	if hubbleClient == nil {
 		return
@@ -365,56 +480,53 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filterPa
 		return
 	}
 
-	flows, ok := t.flows[pod]
-	if !ok {
-		w := utils.NewWaitObserver(ctx, utils.WaitParameters{
-			Timeout:       defaults.FlowWaitTimeout,
-			RetryInterval: defaults.FlowRetryInterval,
-			Log: func(err error, wait string) {
-				t.context.Log("⌛ Waiting (%s) for flows: %s", wait, err)
-			}})
-		defer w.Cancel()
+	w := utils.NewWaitObserver(ctx, utils.WaitParameters{
+		Timeout:       defaults.FlowWaitTimeout,
+		RetryInterval: defaults.FlowRetryInterval,
+		Log: func(err error, wait string) {
+			t.context.Log("⌛ Waiting (%s) for flows: %s", wait, err)
+		}})
+	defer w.Cancel()
 
-		var err error
+	var err error
 
-	retry:
-		flows, err = getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod, podIP)
-		if err != nil || flows == nil || len(flows.flows) == 0 {
-			if err == nil {
-				err = fmt.Errorf("no flows returned")
-			}
-			if err := w.Retry(err); err != nil {
-				t.Failure("Unable to retrieve flows of pod %q: %s", pod, err)
-				return
-			}
-			goto retry
+retry:
+	flows, err := getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod, podIP)
+	if err != nil || flows == nil || len(flows.flows) == 0 {
+		if err == nil {
+			err = fmt.Errorf("no flows returned")
 		}
-
-		t.flows[pod] = flows
+		if err := w.Retry(err); err != nil {
+			t.Failure("Unable to retrieve flows of pod %q: %s", pod, err)
+			return
+		}
+		goto retry
 	}
 
-	var goodLog []string
-
-	for _, p := range filterPairs {
-		if flows.Contains(p.Filter) != p.Expect {
-			for _, g := range goodLog {
-				t.context.Log(g)
-			}
-			goodLog = []string{}
-
-			msgSuffix := "found"
-			if p.Expect {
-				msgSuffix = "not found"
-			}
-			t.Failure(fmt.Sprintf("%s %s %s for pod %s", p.Msg, p.Filter.String(), msgSuffix, pod))
-		} else {
-			msgSuffix := "not found"
-			if p.Expect {
-				msgSuffix = "found"
-			}
-			msg := fmt.Sprintf("%s %s for pod %s", p.Msg, msgSuffix, pod)
-			goodLog = append(goodLog, "✅ "+msg)
+	r := t.matchFlowRequirements(ctx, flows, pod, req)
+	if r.NeedMoreFlows {
+		// Retry until timeout. On timeout, print the flows and
+		// consider it a failure
+		if err := w.Retry(err); err != nil {
+			goto retry
 		}
+	}
+
+	t.flows[pod] = flows
+	t.flowResults[pod] = r
+
+	if r.Failures == 0 {
+		t.context.Log("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d, nlog: %d)", pod, r.FirstMatch, r.LastMatch, len(r.Matched), len(r.Log))
+	} else {
+		t.context.Log("❌ Flow validation failed for pod %s: %d failures (first: %d, last: %d, matched: %d, nlog: %d)", pod, r.Failures, r.FirstMatch, r.LastMatch, len(r.Matched), len(r.Log))
+	}
+
+	for _, p := range r.Log {
+		t.context.Log(p)
+	}
+
+	if r.Failures > 0 {
+		t.failures++
 	}
 }
 
@@ -424,7 +536,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, filterPa
 func (t *TestRun) End() {
 	if t.context.PrintFlows() || t.failures > 0 || t.warnings > 0 {
 		for name, flows := range t.flows {
-			t.printFlows(name, flows)
+			t.printFlows(name, flows, t.flowResults[name])
 		}
 	}
 
@@ -622,28 +734,18 @@ func getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since t
 	}
 }
 
-func (f *flowsSet) Contains(filter filters.FlowFilterImplementation) bool {
+func (f *flowsSet) Contains(filter filters.FlowFilterImplementation) (int, bool) {
 	if f == nil {
-		return false
+		return 0, false
 	}
 
-	for _, res := range f.flows {
+	for i, res := range f.flows {
 		if filter.Match(res.GetFlow()) {
-			return true
+			return i, true
 		}
 	}
 
-	return false
-}
-
-func (k *K8sConnectivityCheck) Validate(pod string, f *flowsSet, filterPairs []filters.Pair) (success bool) {
-	for _, p := range filterPairs {
-		if f.Contains(p.Filter) != p.Expect {
-			k.Log("❌ %s in pod %s", p.Msg, pod)
-			success = false
-		}
-	}
-	return
+	return 0, false
 }
 
 func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
@@ -653,7 +755,7 @@ func (k *K8sConnectivityCheck) Print(pod string, f *flowsSet) {
 	}
 
 	k.Log("📄 Flow logs of pod %s:", pod)
-	printer := hubprinter.New(hubprinter.Compact())
+	printer := hubprinter.New(hubprinter.Compact(), hubprinter.WithIPTranslation())
 	defer printer.Close()
 	for _, flow := range f.flows {
 		if err := printer.WriteProtoFlow(flow); err != nil {
@@ -681,6 +783,7 @@ type Parameters struct {
 	PostTestSleepDuration   time.Duration
 	FlowSettleSleepDuration time.Duration
 	FlowValidation          string
+	AllFlows                bool
 	Writer                  io.Writer
 }
 
@@ -1148,6 +1251,10 @@ func (k *K8sConnectivityCheck) HubbleClient() observer.ObserverClient {
 
 func (k *K8sConnectivityCheck) PrintFlows() bool {
 	return k.params.PrintFlows
+}
+
+func (k *K8sConnectivityCheck) AllFlows() bool {
+	return k.params.AllFlows
 }
 
 func (k *K8sConnectivityCheck) EchoPods() map[string]PodContext {

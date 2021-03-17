@@ -33,20 +33,27 @@ func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		run := check.NewTestRun(t.Name(), c, client, check.NetworkEndpointContext{Peer: fqdn})
 
-		_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(fqdn))
+		cmd := curlCommand(fqdn)
+		_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
 		if err != nil {
 			run.Failure("curl connectivity check command failed: %s", err)
+		} else {
+			run.Success("curl command %q succeeded", cmd)
 		}
 
-		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []filters.Pair{
-			{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
-			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Expect: true, Msg: "DNS request"},
-			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Expect: true, Msg: "DNS response"},
-			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.SYN()), Expect: true, Msg: "SYN"},
-			{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
+		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, filters.FlowSetRequirement{
+			First: filters.FlowRequirement{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Msg: "DNS request"},
+			Middle: []filters.FlowRequirement{
+				{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Msg: "DNS response"},
+				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.SYN()), Msg: "SYN"},
+				{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.TCP(443, 0), filters.SYNACK()), Msg: "SYN-ACK"},
+			},
 			// For the connection termination, we will either see:
 			// a) FIN + FIN b) FIN + RST c) RST
-			{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.Or(filters.FIN(), filters.RST())), Expect: true, Msg: "FIN or RST"},
+			Last: filters.FlowRequirement{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.TCP(0, 443), filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST"},
+			Except: []filters.FlowRequirement{
+				{Filter: filters.Drop(), Msg: "Drop"},
+			},
 		})
 
 		run.End()

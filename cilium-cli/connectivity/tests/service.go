@@ -111,9 +111,12 @@ func testConnetivityToServiceDefinition(ctx context.Context, c check.TestContext
 			Peer:       destination,
 		})
 
-		_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(destination))
+		cmd := curlCommand(destination)
+		_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
 		if err != nil {
 			run.Failure("curl connectivity check command failed: %s", err)
+		} else {
+			run.Success("curl command %q succeeded", cmd)
 		}
 
 		clientToEcho := filters.IP(client.Pod.Status.PodIP, "")
@@ -126,20 +129,26 @@ func testConnetivityToServiceDefinition(ctx context.Context, c check.TestContext
 		tcpRequest := filters.Or(filters.TCP(0, definition.port), filters.TCP(0, 8080))  // request to 8080 or NodePort
 		tcpResponse := filters.Or(filters.TCP(definition.port, 0), filters.TCP(8080, 0)) // response from port 8080 or NodePort
 
-		flowRequirements := []filters.Pair{
-			{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
-			{Filter: filters.RST(), Expect: false, Msg: "RST"},
-			{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Expect: true, Msg: "SYN"},
-			{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
-			{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Expect: true, Msg: "FIN"},
-			{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Expect: true, Msg: "FIN-ACK"},
+		flowRequirements := filters.FlowSetRequirement{
+			First: filters.FlowRequirement{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Msg: "SYN"},
+			Middle: []filters.FlowRequirement{
+				{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Msg: "SYN"},
+				{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+				{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Msg: "FIN"},
+				{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Msg: "FIN-ACK"},
+			},
+			Last: filters.FlowRequirement{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Msg: "FIN-ACK"},
+			Except: []filters.FlowRequirement{
+				{Filter: filters.RST(), Msg: "RST"},
+				{Filter: filters.Drop(), Msg: "Drop"},
+			},
 		}
 
 		if definition.dns {
-			flowRequirements = append(flowRequirements, []filters.Pair{
-				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Expect: true, Msg: "DNS request"},
-				{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Expect: true, Msg: "DNS response"},
-			}...)
+			flowRequirements.First = filters.FlowRequirement{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, ""), filters.UDP(0, 53)), Msg: "DNS request"}
+
+			flowRequirements.Middle = append(flowRequirements.Middle,
+				filters.FlowRequirement{Filter: filters.And(filters.IP("", client.Pod.Status.PodIP), filters.UDP(53, 0)), Msg: "DNS response"})
 		}
 
 		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, flowRequirements)
