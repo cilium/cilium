@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium-cli/connectivity/check"
@@ -61,7 +60,6 @@ func newCmdConnectivityCheck() *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.SingleNode, "single-node", false, "Limit to tests able to run on a single node")
 	cmd.Flags().BoolVar(&params.PrintFlows, "print-flows", false, "Print flow logs for each test")
-	cmd.Flags().DurationVar(&params.FlowSettleSleepDuration, "pre-flow-collect-sleep", 2*time.Second, "Wait time before collecting flows after testing connectivity")
 	cmd.Flags().DurationVar(&params.PostTestSleepDuration, "post-test-sleep", 0, "Wait time after each test before next test starts")
 	cmd.Flags().BoolVar(&params.ForceDeploy, "force-deploy", false, "Force re-deploying test artifacts")
 	cmd.Flags().BoolVar(&params.Hubble, "hubble", true, "Automatically use Hubble for flow validation & troubleshooting")
