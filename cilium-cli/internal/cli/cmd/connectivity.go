@@ -72,6 +72,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run a particular set of tests")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
+	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
 
 	return cmd
 }
