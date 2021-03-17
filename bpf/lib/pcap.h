@@ -68,15 +68,39 @@ static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void
-cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
+static __always_inline void __cilium_capture_in(struct __ctx_buff *ctx,
+						__u16 rule_id)
 {
-#ifdef ENABLE_CAPTURE
 	/* For later pcap file generation, we export boot time to the RB
 	 * such that user space can later reconstruct a real time of day
 	 * timestamp in-place.
 	 */
-	cilium_capture(ctx, CAPTURE_INGRESS, 0, bpf_ktime_cache_set(boot_ns));
+	cilium_capture(ctx, CAPTURE_INGRESS, rule_id,
+		       bpf_ktime_cache_set(boot_ns));
+}
+
+static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
+						 __u16 rule_id)
+{
+	cilium_capture(ctx, CAPTURE_EGRESS, rule_id,
+		       bpf_ktime_cache_get());
+}
+
+static __always_inline bool
+cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused, __u16 *rule_id)
+{
+	*rule_id = 0;
+	return true;
+}
+
+static __always_inline void
+cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
+{
+#ifdef ENABLE_CAPTURE
+	__u16 rule_id;
+
+	if (cilium_capture_candidate(ctx, &rule_id))
+		__cilium_capture_in(ctx, rule_id);
 #endif /* ENABLE_CAPTURE */
 }
 
@@ -84,7 +108,10 @@ static __always_inline void
 cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_CAPTURE
-	cilium_capture(ctx, CAPTURE_EGRESS, 0, bpf_ktime_cache_get());
+	__u16 rule_id;
+
+	if (cilium_capture_candidate(ctx, &rule_id))
+		__cilium_capture_out(ctx, rule_id);
 #endif /* ENABLE_CAPTURE */
 }
 
