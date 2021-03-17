@@ -365,7 +365,7 @@ int to_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
-	ret = nodeport_nat_fwd(ctx);
+	ret = handle_nat_fwd(ctx);
 #endif
 out:
 	if (IS_ERR(ret))

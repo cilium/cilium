@@ -13,6 +13,7 @@
 #include "lb.h"
 #include "common.h"
 #include "overloadable.h"
+#include "eps.h"
 #include "conntrack.h"
 #include "csum.h"
 #include "encap.h"
@@ -1090,6 +1091,25 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
 
+#if defined(ENABLE_EGRESS_GATEWAY)
+	/* Check if SNAT needs to be applied to the packet. Apply SNAT if there
+	 * is an egress rule in ebpf map, and the packet is not coming out from
+	 * overlay interface. If the packet is coming from an overlay interface
+	 * it means it is forwarded to another node, instead of leaving the
+	 * cluster.
+	 */
+	if (1) {
+		struct egress_info *info;
+
+		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
+		if (info && ctx->ifindex != ENCAP_IFINDEX) {
+			*addr = info->egress_ip;
+			*from_endpoint = true;
+			return true;
+		}
+	}
+#endif
+
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in NodePort and BPF-masq.
@@ -2023,10 +2043,11 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
-declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-			       is_defined(ENABLE_IPV6)),
-			 __and(is_defined(ENABLE_HOST_FIREWALL),
-			       is_defined(IS_BPF_HOST))),
+declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
+				is_defined(ENABLE_IPV6)),
+			  __and(is_defined(ENABLE_HOST_FIREWALL),
+				is_defined(IS_BPF_HOST)),
+			  is_defined(ENABLE_EGRESS_GATEWAY)),
 		    CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
@@ -2126,7 +2147,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx)
+static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 	__u16 proto;
@@ -2136,10 +2157,11 @@ static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-					      is_defined(ENABLE_IPV6)),
-					__and(is_defined(ENABLE_HOST_FIREWALL),
-					      is_defined(IS_BPF_HOST))),
+		invoke_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
+					       is_defined(ENABLE_IPV6)),
+					 __and(is_defined(ENABLE_HOST_FIREWALL),
+					       is_defined(IS_BPF_HOST)),
+					 is_defined(ENABLE_EGRESS_GATEWAY)),
 				   CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT,
 				   tail_handle_nat_fwd_ipv4);
 		break;
