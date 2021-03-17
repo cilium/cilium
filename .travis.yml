@@ -44,3 +44,6 @@ before_script:
   - export PATH=/usr/local/clang/bin:$PATH
 
 script: ./.travis/build.sh
+
+notifications:
+  email: false
