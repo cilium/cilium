@@ -30,10 +30,16 @@ type FlowFilterImplementation interface {
 	String() string
 }
 
-type Pair struct {
+type FlowRequirement struct {
 	Filter FlowFilterImplementation
 	Msg    string
-	Expect bool
+}
+
+type FlowSetRequirement struct {
+	First  FlowRequirement
+	Middle []FlowRequirement
+	Last   FlowRequirement
+	Except []FlowRequirement
 }
 
 type andFilter struct {
