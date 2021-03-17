@@ -255,9 +255,6 @@ type TestContext interface {
 	// AllFlows returns true if all flows should be shown
 	AllFlows() bool
 
-	// FlowSettleSleepDuration is the duration to wait before collecting flows
-	FlowSettleSleepDuration() time.Duration
-
 	// PostTestSleepDuration is the duration to sleep after each test
 	PostTestSleepDuration() time.Duration
 
@@ -295,9 +292,6 @@ type TestRun struct {
 
 	// warnings is the number of warnings encountered in this test run
 	warnings int
-
-	// flowsSettled is true once flows have been given time to settle so they can be collected
-	flowsSettled bool
 }
 
 // NewTestRun creates a new test run
@@ -373,21 +367,6 @@ func (t *TestRun) printFlows(pod string, f *flowsSet, r FlowRequirementResults) 
 		//lint:ignore SA1019 Summary is deprecated but there is no real alternative yet
 		t.context.Log("%s%s: %s -> %s %s %s (%s)", flowPrefix, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
 	}
-}
-
-func (t *TestRun) settleFlows(ctx context.Context) error {
-	if t.flowsSettled {
-		return nil
-	}
-
-	select {
-	case <-time.After(t.context.FlowSettleSleepDuration()):
-	case <-ctx.Done():
-		return fmt.Errorf("flow settling interrupted: %w", ctx.Err())
-	}
-
-	t.flowsSettled = true
-	return nil
 }
 
 type MatchMap map[int]bool
@@ -476,10 +455,6 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req filt
 		return
 	}
 
-	if err := t.settleFlows(ctx); err != nil {
-		return
-	}
-
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{
 		Timeout:       defaults.FlowWaitTimeout,
 		RetryInterval: defaults.FlowRetryInterval,
@@ -487,8 +462,6 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req filt
 			t.context.Log("⌛ Waiting (%s) for flows: %s", wait, err)
 		}})
 	defer w.Cancel()
-
-	var err error
 
 retry:
 	flows, err := getFlows(ctx, hubbleClient, t.started.Add(-2*time.Second), pod, podIP)
@@ -771,20 +744,19 @@ const (
 )
 
 type Parameters struct {
-	CiliumNamespace         string
-	TestNamespace           string
-	SingleNode              bool
-	PrintFlows              bool
-	ForceDeploy             bool
-	Hubble                  bool
-	HubbleServer            string
-	MultiCluster            string
-	Tests                   []string
-	PostTestSleepDuration   time.Duration
-	FlowSettleSleepDuration time.Duration
-	FlowValidation          string
-	AllFlows                bool
-	Writer                  io.Writer
+	CiliumNamespace       string
+	TestNamespace         string
+	SingleNode            bool
+	PrintFlows            bool
+	ForceDeploy           bool
+	Hubble                bool
+	HubbleServer          string
+	MultiCluster          string
+	Tests                 []string
+	PostTestSleepDuration time.Duration
+	FlowValidation        string
+	AllFlows              bool
+	Writer                io.Writer
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
@@ -1267,10 +1239,6 @@ func (k *K8sConnectivityCheck) ClientPods() map[string]PodContext {
 
 func (k *K8sConnectivityCheck) EchoServices() map[string]ServiceContext {
 	return k.echoServices
-}
-
-func (k *K8sConnectivityCheck) FlowSettleSleepDuration() time.Duration {
-	return k.params.FlowSettleSleepDuration
 }
 
 func (k *K8sConnectivityCheck) PostTestSleepDuration() time.Duration {
