@@ -31,8 +31,9 @@ type FlowFilterImplementation interface {
 }
 
 type FlowRequirement struct {
-	Filter FlowFilterImplementation
-	Msg    string
+	Filter            FlowFilterImplementation
+	Msg               string
+	SkipOnAggregation bool
 }
 
 type FlowSetRequirement struct {
