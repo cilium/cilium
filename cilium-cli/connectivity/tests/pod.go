@@ -32,12 +32,13 @@ func (t *PodToPod) Name() string {
 func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		for _, echo := range c.EchoPods() {
-			destination := net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080))
 			run := check.NewTestRun(t.Name(), c, client, echo)
-
-			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(destination))
+			cmd := curlCommand(net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080)))
+			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
 			if err != nil {
 				run.Failure("curl connectivity check command failed: %s", err)
+			} else {
+				run.Success("curl command %q succeeded", cmd)
 			}
 
 			echoToClient := filters.IP(echo.Pod.Status.PodIP, client.Pod.Status.PodIP) // echo -> client response
@@ -45,18 +46,22 @@ func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
 			tcpRequest := filters.TCP(0, 8080)                                         // request to port 8080
 			tcpResponse := filters.TCP(8080, 0)                                        // response from port 8080
 
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []filters.Pair{
-				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
-				{Filter: filters.RST(), Expect: false, Msg: "RST"},
-				{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Expect: true, Msg: "SYN-ACK"},
-				{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Expect: true, Msg: "FIN-ACK"},
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+				Last:  filters.FlowRequirement{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Msg: "FIN-ACK"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.RST(), Msg: "RST"},
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
 			})
 
-			run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, []filters.Pair{
-				{Filter: filters.Drop(), Expect: false, Msg: "Drop"},
-				{Filter: filters.RST(), Expect: false, Msg: "RST"},
-				{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Expect: true, Msg: "SYN"},
-				{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Expect: true, Msg: "FIN"},
+			run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Msg: "SYN"},
+				Last:  filters.FlowRequirement{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Msg: "FIN"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.RST(), Msg: "RST"},
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
 			})
 
 			run.End()
