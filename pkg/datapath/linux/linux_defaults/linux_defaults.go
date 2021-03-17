@@ -88,6 +88,9 @@ const (
 	// IPsecMarkMaskIn is the mask required for IPsec to lookup encrypt/decrypt bits
 	IPsecMarkMaskIn = 0x0F00
 
+	// IPsecFwdPriority is the priority of the fwd rules placed by IPsec
+	IPsecFwdPriority = 0x0B9F
+
 	// IPsecKeyDeleteDelay is the time to wait before removing old keys when
 	// the IPsec key is changing.
 	IPsecKeyDeleteDelay = 5 * time.Minute
