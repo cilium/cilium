@@ -86,11 +86,23 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
 		       bpf_ktime_cache_get());
 }
 
+/* The capture_enabled integer ({0,1}) is enabled/disabled via BPF based ELF
+ * templating. Meaning, when disabled, the verifier's dead code elimination
+ * will ensure that there is no overhead when the facility is not used. The
+ * below is a fallback definition for when the templating var is not defined.
+ */
+#ifndef capture_enabled
+# define capture_enabled (__ctx_is == __ctx_xdp)
+#endif /* capture_enabled */
+
 static __always_inline bool
 cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused, __u16 *rule_id)
 {
-	*rule_id = 0;
-	return true;
+	if (capture_enabled) {
+		*rule_id = 0;
+		return true;
+	}
+	return false;
 }
 
 static __always_inline void
