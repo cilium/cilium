@@ -27,6 +27,13 @@
 # define BPF_HAVE_JIFFIES 1
 #endif
 
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_ktime_get_boot_ns) && \
+    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_ktime_get_boot_ns) && \
+    HAVE_PROG_TYPE_HELPER(sched_cls,        bpf_ktime_get_boot_ns) && \
+    HAVE_PROG_TYPE_HELPER(xdp,              bpf_ktime_get_boot_ns)
+# define BPF_HAVE_BOOT_TIME 1
+#endif
+
 #if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_csum_level)
 # define BPF_HAVE_CSUM_LEVEL 1
 #endif

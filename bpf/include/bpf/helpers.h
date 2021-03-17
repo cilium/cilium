@@ -38,6 +38,7 @@ static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 
 /* Time access */
 static __u64 BPF_FUNC(ktime_get_ns);
+static __u64 BPF_FUNC(ktime_get_boot_ns);
 static __u64 BPF_FUNC(jiffies64);
 #define jiffies	jiffies64()
 
