@@ -96,6 +96,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		allocators:         []*crdAllocator{},
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
+		mtuConfig:          mtuConfig,
 	}
 	store.restoreFinished = make(chan struct{})
 	ciliumClient := k8s.CiliumClient()
