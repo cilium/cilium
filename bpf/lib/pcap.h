@@ -8,6 +8,7 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "lb.h"
 
 struct pcap_timeval {
 	__u32 tv_sec;
@@ -133,7 +134,129 @@ struct bpf_elf_map __section_maps cilium_capture4_rules = {
 	.max_elem	= 1024,
 	.flags		= BPF_F_NO_PREALLOC,
 };
+
+static __always_inline void
+cilium_capture4_masked_key(const struct capture4_wcard *orig,
+			   const struct capture4_wcard *mask,
+			   struct capture4_wcard *out)
+{
+	out->daddr = orig->daddr & mask->daddr;
+	out->saddr = orig->saddr & mask->saddr;
+	out->dport = orig->dport & mask->dport;
+	out->sport = orig->sport & mask->sport;
+	out->nexthdr = orig->nexthdr & mask->nexthdr;
+	out->dmask = mask->dmask;
+	out->smask = mask->smask;
+}
+
+/* The agent is generating and emitting the PREFIX_MASKS4 and regenerating
+ * if a mask was added or removed. The cilium_capture4_rules can have n
+ * entries with m different PREFIX_MASKS4 where n >> m. Lookup performance
+ * depends mainly on m. Below is a fallback / example definition mainly for
+ * compile testing given agent typically emits this instead. Ordering of
+ * masks from agent side can f.e. be based on # of 1s from high to low.
+ */
+#ifndef PREFIX_MASKS4
+# define PREFIX_MASKS4					\
+	{						\
+		/* rule_id 1:				\
+		 *  srcIP/32, dstIP/32, dport, nexthdr	\
+		 */					\
+		.daddr   = 0xffffffff,			\
+		.dmask   = 32,				\
+		.saddr   = 0xffffffff,			\
+		.smask   = 32,				\
+		.dport   = 0xffff,			\
+		.sport   = 0,				\
+		.nexthdr = 0xff,			\
+	}, {						\
+		/* rule_id 2 (1st mask):		\
+		 *  srcIP/32 or dstIP/32		\
+		 */					\
+		.daddr   = 0xffffffff,			\
+		.dmask   = 32,				\
+		.saddr   = 0,				\
+		.smask   = 0,				\
+		.dport   = 0,				\
+		.sport   = 0,				\
+		.nexthdr = 0,				\
+	}, {						\
+		/* rule_id 2 (2nd mask):		\
+		 *  srcIP/32 or dstIP/32		\
+		 */					\
+		.daddr   = 0,				\
+		.dmask   = 0,				\
+		.saddr   = 0xffffffff,			\
+		.smask   = 32,				\
+		.dport   = 0,				\
+		.sport   = 0,				\
+		.nexthdr = 0,				\
+	},
+#endif /* PREFIX_MASKS4 */
+
+static __always_inline bool
+cilium_capture4_classify_wcard(struct __ctx_buff *ctx, __u16 *rule_id)
+{
+	struct capture4_wcard prefix_masks[] = { PREFIX_MASKS4 };
+	struct capture4_wcard okey, lkey;
+	struct capture_rule *match;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int i, ret;
+	const int size = sizeof(prefix_masks) /
+			 sizeof(prefix_masks[0]);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return false;
+
+	okey.daddr = ip4->daddr;
+	okey.dmask = 32;
+	okey.saddr = ip4->saddr;
+	okey.smask = 32;
+	okey.nexthdr = ip4->protocol;
+
+	ret = extract_l4_port(ctx, okey.nexthdr, ETH_HLEN + ipv4_hdrlen(ip4),
+			      0, &okey.dport, ip4);
+	if (IS_ERR(ret))
+		return NULL;
+
+	okey.flags = 0;
+	lkey.flags = 0;
+
+_Pragma("unroll")
+	for (i = 0; i < size; i++) {
+		cilium_capture4_masked_key(&okey, &prefix_masks[i], &lkey);
+		match = map_lookup_elem(&cilium_capture4_rules, &lkey);
+		if (match) {
+			*rule_id = match->rule_id;
+			return true;
+		}
+	}
+
+	return false;
+}
 #endif /* ENABLE_IPV4 */
+
+static __always_inline bool
+cilium_capture_classify_wcard(struct __ctx_buff *ctx,
+			      __u16 *rule_id __maybe_unused)
+{
+	bool ret = false;
+	__u16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return ret;
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = cilium_capture4_classify_wcard(ctx, rule_id);
+		break;
+#endif /* ENABLE_IPV4 */
+	default:
+		break;
+	}
+	return ret;
+}
 
 static __always_inline bool
 cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
@@ -145,10 +268,11 @@ cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 
 		c = map_lookup_elem(&cilium_capture_cache, &zero);
 		if (always_succeeds(c)) {
-			/* TBD */
-			c->rule_seen = true;
-			c->rule_id = 0;
-			return true;
+			c->rule_seen = cilium_capture_classify_wcard(ctx, rule_id);
+			if (c->rule_seen) {
+				c->rule_id = *rule_id;
+				return true;
+			}
 		}
 	}
 	return false;
