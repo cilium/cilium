@@ -78,7 +78,7 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 
 	fakeNodeAddressing := fake.NewNodeAddressing()
 
-	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing)
+	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.(*linuxNodeHandler).createNodeRouteSpec(c1, false)

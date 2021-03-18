@@ -105,6 +105,7 @@ cilium-agent [flags]
       --enable-svc-source-range-check                        Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                       Enable tracing while determining policy (debugging)
       --enable-well-known-identities                         Enable well-known identities for known Kubernetes components (default true)
+      --enable-wireguard                                     Enable wireguard
       --enable-xt-socket-fallback                            Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                             Transparent encryption interface
       --encrypt-node                                         Enables encrypting traffic from non-Cilium pods and host networking
@@ -220,6 +221,8 @@ cilium-agent [flags]
       --trace-payloadlen int                                 Length of payload to capture when tracing (default 128)
   -t, --tunnel string                                        Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --version                                              Print version information
+      --wireguard-subnet-v4 string                           Wireguard tunnel IPv4 subnet (default "172.16.43.0/24")
+      --wireguard-subnet-v6 string                           Wireguard tunnel IPv6 subnet (default "fdc9:281f:04d7:9ee9::1/64")
       --write-cni-conf-when-ready string                     Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 

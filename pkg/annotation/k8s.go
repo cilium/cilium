@@ -70,4 +70,9 @@ const (
 	// that we should bypass kernel conntrack for a given pod. This applies for
 	// both TCP and UDP connection. Current use case is NodeLocalDNS.
 	NoTrack = Prefix + ".no-track-port"
+
+	// WireguardPubKey is the annotation name used to store the Wireguard
+	// public key in the CiliumNode CRD that we need to use to encrypt traffic
+	// to that node.
+	WireguardPubKey = Prefix + ".network.wg-pub-key"
 )

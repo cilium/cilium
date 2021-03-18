@@ -502,7 +502,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			return nil, restoredEndpoints, err
 		}
 
-		if option.Config.IPAM == ipamOption.IPAMClusterPool {
+		if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.EnableWireguard {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()
@@ -522,6 +522,12 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 
 		bootstrapStats.k8sInit.End(true)
+	}
+
+	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
+		if err := wgAgent.Init(); err != nil {
+			log.WithError(err).Fatal("Failed to initialize wireguard agent")
+		}
 	}
 
 	// Perform an early probe on the underlying kernel on whether BandwidthManager

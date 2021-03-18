@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -61,11 +62,12 @@ type linuxNodeHandler struct {
 	neighNextHopByNode   map[nodeTypes.Identity]string // val = string(net.IP)
 	neighNextHopRefCount counter.StringCounter
 	neighByNextHop       map[string]*netlink.Neigh // key = string(net.IP)
+	wgAgent              datapath.WireguardAgent
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) datapath.NodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, wgAgent datapath.WireguardAgent) datapath.NodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:       nodeAddressing,
 		datapathConfig:       datapathConfig,
@@ -73,6 +75,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		neighNextHopByNode:   map[nodeTypes.Identity]string{},
 		neighNextHopRefCount: counter.StringCounter{},
 		neighByNextHop:       map[string]*netlink.Neigh{},
+		wgAgent:              wgAgent,
 	}
 }
 
@@ -898,7 +901,26 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		if n.subnetEncryption() {
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
 		}
+
 		return nil
+	}
+
+	if option.Config.EnableWireguard {
+		var podCIDRv4, podCIDRv6 *net.IPNet
+		wgIPv4 := newNode.GetIPByType(addressing.NodeWireguardIP, false)
+		wgIPv6 := newNode.GetIPByType(addressing.NodeWireguardIP, true)
+		if newNode.IPv4AllocCIDR != nil {
+			podCIDRv4 = newNode.IPv4AllocCIDR.IPNet
+		}
+		if newNode.IPv6AllocCIDR != nil {
+			podCIDRv6 = newNode.IPv6AllocCIDR.IPNet
+		}
+		if err := n.wgAgent.UpdatePeer(newNode.Name, newNode.WireguardPubKey,
+			wgIPv4, newIP4, podCIDRv4, wgIPv6, newIP6, podCIDRv6); err != nil {
+			log.WithError(err).
+				WithField(logfields.NodeName, newNode.Name).
+				Warning("Failed to update wireguard configuration for peer")
+		}
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting {
@@ -984,6 +1006,12 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 
 	if n.nodeConfig.EnableIPSec {
 		n.deleteIPsec(oldNode)
+	}
+
+	if option.Config.EnableWireguard {
+		if err := n.wgAgent.DeletePeer(oldNode.Name); err != nil {
+			return err
+		}
 	}
 
 	return nil

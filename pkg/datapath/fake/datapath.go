@@ -100,6 +100,10 @@ func (f *fakeDatapath) Loader() datapath.Loader {
 	return f.loader
 }
 
+func (f *fakeDatapath) WireguardAgent() datapath.WireguardAgent {
+	return nil
+}
+
 // Loader is an interface to abstract out loading of datapath programs.
 type fakeLoader struct {
 }
