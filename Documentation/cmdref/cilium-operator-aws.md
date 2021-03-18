@@ -32,6 +32,7 @@ cilium-operator-aws [flags]
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
+      --enable-wireguard                          Enable wireguard
       --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
       --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator-aws
@@ -70,6 +71,8 @@ cilium-operator-aws [flags]
       --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
       --update-ec2-adapter-limit-via-api          Use the EC2 API to update the instance type to adapter limits
       --version                                   Print version information
+      --wireguard-subnet-v4 string                Wireguard tunnel IPv4 subnet (default "172.16.43.0/24")
+      --wireguard-subnet-v6 string                Wireguard tunnel IPv6 subnet (default "fdc9:281f:04d7:9ee9::1/64")
 ```
 
 ### SEE ALSO
