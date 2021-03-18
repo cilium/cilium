@@ -109,7 +109,7 @@ const (
 )
 
 // compile time interface check
-var _ notifications.RegenNotificationInfo = &Endpoint{}
+var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
