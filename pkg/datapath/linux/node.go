@@ -843,6 +843,12 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				n.replaceNodeIPSecOutRoute(new4Net)
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsecLocal, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "IPv4", ipsecLocal, ipsecRemote, spi)
+
+				/* Insert wildcard policy rules for traffic skipping back through host */
+				ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
+				if err = ipsec.IpSecReplacePolicyFwd(ipsecIPv4Wildcard, ipsecRemote, ipsecLocal, ipsecRemote); err != nil {
+					log.WithError(err).Warning("egress unable to replace policy fwd:")
+				}
 			}
 		}
 	}
