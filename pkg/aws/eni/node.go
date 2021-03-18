@@ -208,7 +208,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			continue
 		}
 
-		availableOnENI := math.IntMax(limits.IPv4-len(e.Addresses), 0)
+		// Addresses contains the primary IP address, which is not available
+		// for allocation. Therefore we compute len(e.Addresses)-1
+		availableOnENI := math.IntMax(limits.IPv4-len(e.Addresses)-1, 0)
 		if availableOnENI <= 0 {
 			continue
 		} else {
@@ -489,7 +491,10 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			}
 
 			for _, ip := range e.Addresses {
-				available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
+				// exclude primary IPs
+				if ip != e.IP {
+					available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
+				}
 			}
 			return nil
 		})
