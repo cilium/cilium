@@ -35,16 +35,17 @@ import (
 )
 
 type mockEndpoint struct {
-	ID        uint64
+	ID        uint16
 	Labels    []string
 	PodName   string
 	Namespace string
 }
 
-func (e *mockEndpoint) GetID() uint64           { return e.ID }
+func (e *mockEndpoint) GetID() uint64           { return uint64(e.ID) }
 func (e *mockEndpoint) GetOpLabels() []string   { return e.Labels }
 func (e *mockEndpoint) GetK8sPodName() string   { return e.PodName }
 func (e *mockEndpoint) GetK8sNamespace() string { return e.Namespace }
+func (e *mockEndpoint) GetID16() uint16         { return e.ID }
 
 func TestDecodeAgentEvent(t *testing.T) {
 	unknownNotification := struct {
