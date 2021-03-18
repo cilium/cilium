@@ -177,6 +177,7 @@ func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink
 	// policy because Cilium BPF programs do that.
 	if dir == netlink.XFRM_DIR_FWD {
 		optional = 1
+		policy.Priority = linux_defaults.IPsecFwdPriority
 	}
 	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
@@ -186,7 +187,7 @@ func ipSecReplacePolicyIn(src, dst, tmplSrc, tmplDst *net.IPNet) error {
 	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_IN)
 }
 
-func ipSecReplacePolicyFwd(src, dst, tmplSrc, tmplDst *net.IPNet) error {
+func IpSecReplacePolicyFwd(src, dst, tmplSrc, tmplDst *net.IPNet) error {
 	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_FWD)
 }
 
@@ -342,7 +343,7 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir, outputMark
 					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
 			}
-			if err = ipSecReplacePolicyFwd(remote, fwd, remote, local); err != nil {
+			if err = IpSecReplacePolicyFwd(remote, fwd, remote, local); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %s", err)
 				}
