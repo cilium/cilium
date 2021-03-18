@@ -163,7 +163,7 @@ func SetupSignalListener() {
 		var err error
 
 		path := oldBPF.MapPath(signalmap.MapName)
-		signalMap, err := ebpf.LoadPinnedMap(path)
+		signalMap, err := ebpf.LoadPinnedMap(path, nil)
 		if err != nil {
 			log.WithError(err).Warningf("Failed to open signals map")
 			return

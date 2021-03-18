@@ -135,7 +135,7 @@ github.com/cilium/customvet/analysis/timeafter
 ## explicit
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/ebpf v0.3.0
+# github.com/cilium/ebpf v0.5.0
 ## explicit
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
