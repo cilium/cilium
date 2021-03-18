@@ -74,11 +74,6 @@ func readRecordFromRing(ring *perfEventRing) (Record, error) {
 }
 
 func readRecord(rd io.Reader, cpu int) (Record, error) {
-	const (
-		perfRecordLost   = 2
-		perfRecordSample = 9
-	)
-
 	var header perfEventHeader
 	err := binary.Read(rd, internal.NativeEndian, &header)
 	if err == io.EOF {
@@ -90,11 +85,11 @@ func readRecord(rd io.Reader, cpu int) (Record, error) {
 	}
 
 	switch header.Type {
-	case perfRecordLost:
+	case unix.PERF_RECORD_LOST:
 		lost, err := readLostRecords(rd)
 		return Record{CPU: cpu, LostSamples: lost}, err
 
-	case perfRecordSample:
+	case unix.PERF_RECORD_SAMPLE:
 		sample, err := readRawSample(rd)
 		return Record{CPU: cpu, RawSample: sample}, err
 
@@ -437,7 +432,7 @@ func (uev *unknownEventError) Error() string {
 	return fmt.Sprintf("unknown event type: %d", uev.eventType)
 }
 
-// IsUnknownEvent returns true if the error occured
+// IsUnknownEvent returns true if the error occurred
 // because an unknown event was submitted to the perf event ring.
 func IsUnknownEvent(err error) bool {
 	var uee *unknownEventError

@@ -78,8 +78,9 @@ func perfBufferSize(perCPUBuffer int) int {
 
 func (ring *perfEventRing) Close() {
 	runtime.SetFinalizer(ring, nil)
-	unix.Close(ring.fd)
-	unix.Munmap(ring.mmap)
+
+	_ = unix.Close(ring.fd)
+	_ = unix.Munmap(ring.mmap)
 
 	ring.fd = -1
 	ring.mmap = nil

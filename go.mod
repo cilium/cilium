@@ -20,7 +20,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
-	github.com/cilium/ebpf v0.3.0
+	github.com/cilium/ebpf v0.5.0
 	github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6
 	github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09
 	github.com/cncf/udpa/go v0.0.0-20201211205326-cc1b757b3edd // indirect
