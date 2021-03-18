@@ -411,4 +411,10 @@ const (
 
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic.
 	InstallNoConntrackIptRules = false
+
+	// WireguardSubnetV4 is a default wireguard tunnel subnet
+	WireguardSubnetV4 = "172.16.43.0/24"
+
+	// WireguardSubnetV6 is a default wireguard tunnel subnet
+	WireguardSubnetV6 = "fdc9:281f:04d7:9ee9::1/64"
 )
