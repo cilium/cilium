@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 var errNotAnIPv4Address = errors.New("not an IPv4 address")
@@ -64,6 +65,15 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 			}).Error("Failed to configure interface")
 		} else {
 			macToNetlinkInterfaceIndex[eni.MAC] = netlinkInterfaceIndex
+		}
+
+		err = setPrimaryENIIPAddress(netlinkInterfaceIndex, eni.IP, eni.Subnet.CIDR)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Resource:  addedResource,
+				logfields.Interface: eni.Number,
+				logfields.MACAddr:   eni.MAC,
+			}).Error("Failed to set primary IP address of ENI interface")
 		}
 	}
 
@@ -137,6 +147,35 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 	// If there were still failures after retrying, then return an error.
 	if failures := len(failedAddRules) + len(failedRemoveRules) + len(failedAddRoutes) + len(failedRemoveRoutes); failures > 0 {
 		return fmt.Errorf("adding and removing %d rules and routes failed after %d retries", failures, maxRetries)
+	}
+
+	return nil
+}
+
+func setPrimaryENIIPAddress(netlinkInterfaceIndex int, eniIP, eniSubnetCIDR string) error {
+	ip := net.ParseIP(eniIP)
+	if ip == nil {
+		return fmt.Errorf("failed to eni primary ip %q", ip)
+	}
+
+	_, ipnet, err := net.ParseCIDR(eniSubnetCIDR)
+	if err != nil {
+		return fmt.Errorf("failed to parse eni subnet cidr %q: %w", eniSubnetCIDR, err)
+	}
+
+	link, err := netlink.LinkByIndex(netlinkInterfaceIndex)
+	if err != nil {
+		return fmt.Errorf("failed to obtain eni netlink link: %w", err)
+	}
+
+	err = netlink.AddrAdd(link, &netlink.Addr{
+		IPNet: &net.IPNet{
+			IP:   ip,
+			Mask: ipnet.Mask,
+		},
+	})
+	if err != nil && !errors.Is(err, unix.EEXIST) {
+		return fmt.Errorf("failed to set eni primary ip address: %w", err)
 	}
 
 	return nil
