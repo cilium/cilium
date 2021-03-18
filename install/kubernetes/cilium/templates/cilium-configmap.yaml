@@ -417,6 +417,12 @@ data:
   enable-ip-masq-agent: "true"
 {{- end }}
 
+{{- if hasKey .Values "wireguard" }}
+{{- if .Values.wireguard.enabled }}
+  enable-wireguard: {{ .Values.wireguard.enabled | quote }}
+{{- end }}
+{{- end }}
+
 {{- if .Values.encryption.enabled }}
   enable-ipsec: {{ .Values.encryption.enabled | quote }}
   ipsec-key-file: {{ .Values.encryption.mountPath }}/{{ .Values.encryption.keyFile }}
