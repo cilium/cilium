@@ -23,6 +23,10 @@ const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
 	RouteTableIPSec = 200
 
+	// RouteTableWireguard is the default table ID to use for Wireguard routing
+	// rules
+	RouteTableWireguard = 201
+
 	// RouteTableInterfacesOffset is the offset for the per-ENI routing tables.
 	// Each ENI interface will have its own table starting with this offset. It
 	// is 10 because it is highly unlikely to collide with the main routing
@@ -51,6 +55,9 @@ const (
 
 	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
 	RouteProtocolIPSec = 50
+
+	// RulePriorityWireguard is the priority of the rule used for routing packets to Wireguard device for encryption
+	RulePriorityWireguard = 1
 
 	// RulePriorityIngress is the priority of the rule used for ingress routing
 	// of endpoints. This priority is after encryption and proxy rules, and
