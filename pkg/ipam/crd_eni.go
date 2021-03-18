@@ -182,6 +182,13 @@ func setPrimaryENIIPAddress(netlinkInterfaceIndex int, eniIP, eniSubnetCIDR stri
 }
 
 func diffResources(old, new *ciliumv2.CiliumNode) (added, removed []string) {
+	if old == nil {
+		for newResource := range new.Status.ENI.ENIs {
+			added = append(added, newResource)
+		}
+		return
+	}
+
 	for newResource := range new.Status.ENI.ENIs {
 		if _, ok := old.Status.ENI.ENIs[newResource]; !ok {
 			added = append(added, newResource)
@@ -256,6 +263,10 @@ func routeSet(routes []*netlink.Route) map[string]struct{} {
 
 // ciliumNodeENIRulesAndRoutes returns the rules and routes required to configure
 func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfaceIndex map[string]int, options linuxrouting.ENIRulesAndRoutesOptions) (rules []*route.Rule, routes []*netlink.Route) {
+	if node == nil {
+		return nil, nil
+	}
+
 	// Extract the used IPs by ENI from node.Status.IPAM.Used.
 	ipsByResource := make(map[string][]net.IP)
 	firstInterfaceIndex := *node.Spec.ENI.FirstInterfaceIndex
