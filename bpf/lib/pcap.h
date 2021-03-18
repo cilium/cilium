@@ -108,6 +108,33 @@ struct bpf_elf_map __section_maps cilium_capture_cache = {
 	.max_elem	= 1,
 };
 
+struct capture_rule {
+	__u16 rule_id;
+};
+
+#ifdef ENABLE_IPV4
+/* 5-tuple wildcard key / mask. */
+struct capture4_wcard {
+	__be32 daddr;   /* masking: prefix */
+	__be32 saddr;   /* masking: prefix */
+	__be16 dport;   /* masking: 0 or 0xffff */
+	__be16 sport;   /* masking: 0 or 0xffff */
+	__u8   nexthdr; /* masking: 0 or 0xff */
+	__u8   dmask;   /* prefix len: daddr */
+	__u8   smask;   /* prefix len: saddr */
+	__u8   flags;   /* reserved: 0 */
+};
+
+struct bpf_elf_map __section_maps cilium_capture4_rules = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct capture4_wcard),
+	.size_value	= sizeof(struct capture_rule),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1024,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif /* ENABLE_IPV4 */
+
 static __always_inline bool
 cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 			 __u16 *rule_id __maybe_unused)
