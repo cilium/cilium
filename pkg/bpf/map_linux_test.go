@@ -300,6 +300,9 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(value, checker.DeepEquals, value2)
 
+	// delete non-existing key
+	err = existingMap.Delete("404")
+	c.Assert(err, IsNil)
 	err = existingMap.Delete(key1)
 	c.Assert(err, IsNil)
 	// key    val

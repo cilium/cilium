@@ -981,7 +981,12 @@ func (m *Map) Delete(key MapKey) error {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	}
 	if errno != 0 {
-		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
+		if errno == 2 {
+			// ignore errno 2 "no such file or directory"
+			m.scopedLogger().WithField("element", key).WithField("map", m.name).Warn("element not found")
+		} else {
+			err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
+		}
 	}
 	return err
 }
