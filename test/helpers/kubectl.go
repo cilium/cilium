@@ -3476,6 +3476,23 @@ func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) *CmdR
 	return kub.ExecInFirstPod(ctx, LogGathererNamespace, selector, cmd)
 }
 
+// ExecInHostNetNSInBackground runs given command in a pod running in a host network namespace
+// but in background.
+func (kub *Kubectl) ExecInHostNetNSInBackground(ctx context.Context, node, cmd string) (*CmdRes, func(), error) {
+	selector := fmt.Sprintf("%s --field-selector spec.nodeName=%s",
+		logGathererSelector(true), node)
+	names, err := kub.GetPodNamesContext(ctx, LogGathererNamespace, selector)
+	if err != nil {
+		return nil, nil, err
+	}
+	pod := names[0]
+
+	bgCmd := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, LogGathererNamespace, pod, cmd)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return kub.ExecInBackground(ctx, bgCmd, ExecOptions{SkipLog: true}), cancel, nil
+}
+
 // ExecInHostNetNSByLabel runs given command in a pod running in a host network namespace.
 // The pod's node is identified by the given label.
 func (kub *Kubectl) ExecInHostNetNSByLabel(ctx context.Context, label, cmd string) (string, error) {

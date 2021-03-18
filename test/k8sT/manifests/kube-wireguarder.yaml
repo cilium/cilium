@@ -49,7 +49,7 @@ metadata:
   name: kube-wireguarder-config
   namespace: kube-system
 data:
-  setup-direct-routes: "true"
+  setup-direct-routes: "false"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
