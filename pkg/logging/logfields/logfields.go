@@ -504,4 +504,25 @@ const (
 
 	// Mode describes an operations mode
 	Mode = "mode"
+
+	// PubKey is the public key
+	PubKey = "pubKey"
+
+	// NodeIPv4 is the node IPv4 addr
+	NodeIPv4 = "nodeIPv4"
+
+	// NodeIPv6 is the node IPv4 addr
+	NodeIPv6 = "nodeIPv6"
+
+	// PodCIDRv4 is the pod IPv4 allocation CIDR
+	PodCIDRv4 = "podCIDRv4"
+
+	// PodCIDRv6 is the pod IPv4 allocation CIDR
+	PodCIDRv6 = "podCIDRv6"
+
+	// WgIPv4 is the Wireguard IPv4 tunnel addr
+	WgIPv4 = "wgIPv4"
+
+	// WgIPv6 is the Wireguard IPv4 tunnel addr
+	WgIPv6 = "wgIPv6"
 )
