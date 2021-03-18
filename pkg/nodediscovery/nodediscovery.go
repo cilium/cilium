@@ -21,6 +21,7 @@ import (
 	"time"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
@@ -177,6 +178,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
+	n.LocalNode.WireguardPubKey = node.GetWireguardPubKey()
 	n.LocalNode.Labels = node.GetLabels()
 	n.LocalNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
 
@@ -219,6 +221,19 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeExternalIP,
 			IP:   node.GetK8sExternalIPv6(),
+		})
+	}
+
+	if ip := node.GetWireguardIPv4(); ip != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeWireguardIP,
+			IP:   ip,
+		})
+	}
+	if ip := node.GetWireguardIPv6(); ip != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeWireguardIP,
+			IP:   ip,
 		})
 	}
 
@@ -348,7 +363,18 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		k8sNodeAddresses []nodeTypes.Address
 	)
 
-	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
+	addrs := []ciliumv2.NodeAddress{}
+	if option.Config.EnableWireguard {
+		// Avoid resetting allocated wireguard IPs in the CiliumNode object once
+		// cilium-agent has been restarted and the CiliumNode object is created
+		// from scratch.
+		for _, addr := range nodeResource.Spec.Addresses {
+			if addr.Type == addressing.NodeWireguardIP {
+				addrs = append(addrs, addr)
+			}
+		}
+	}
+	nodeResource.Spec.Addresses = addrs
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
@@ -429,6 +455,13 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	nodeResource.Spec.HealthAddressing.IPv6 = ""
 	if ip := n.LocalNode.IPv6HealthIP; ip != nil {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
+	}
+
+	if pk := n.LocalNode.WireguardPubKey; pk != "" {
+		if nodeResource.ObjectMeta.Annotations == nil {
+			nodeResource.ObjectMeta.Annotations = make(map[string]string)
+		}
+		nodeResource.ObjectMeta.Annotations[annotation.WireguardPubKey] = pk
 	}
 
 	switch option.Config.IPAM {

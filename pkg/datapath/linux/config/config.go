@@ -215,6 +215,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IPSEC"] = "1"
 	}
 
+	if option.Config.EnableWireguard {
+		cDefinesMap["ENABLE_WIREGUARD"] = "1"
+	}
+
 	if option.Config.InstallIptRules || iptables.KernelHasNetfilter() {
 		cDefinesMap["NO_REDIRECT"] = "1"
 	}
