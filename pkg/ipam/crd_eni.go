@@ -44,8 +44,13 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 
 	// Configure new interfaces.
 	macToNetlinkInterfaceIndex := make(map[string]int)
+	firstInterfaceIndex := *newNode.Spec.ENI.FirstInterfaceIndex
 	for _, addedResource := range addedResources {
 		eni := newNode.Status.ENI.ENIs[addedResource]
+		if eni.Number < firstInterfaceIndex {
+			continue
+		}
+
 		mac, err := mac.ParseMAC(eni.MAC)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
