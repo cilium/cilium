@@ -85,6 +85,7 @@ require (
 	golang.org/x/sys v0.0.0-20210217105451-b926d437f341
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.0.0-20210108195828-e2f9c7f1fc8e
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
 	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
