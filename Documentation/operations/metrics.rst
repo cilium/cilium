@@ -215,6 +215,8 @@ Name                                       Labels                               
 ========================================== ================================================== ========================================================
 ``unreachable_nodes``                                                                         Number of nodes that cannot be reached
 ``unreachable_health_endpoints``                                                              Number of health endpoints that cannot be reached
+``ip_addresses``                                                                              Number of allocated IP addresses
+``controllers_failing``                                                                       Number of failing controllers
 ========================================== ================================================== ========================================================
 
 Datapath
