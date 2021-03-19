@@ -1280,29 +1280,35 @@ CLUSTER_ADDR=${2:-%[2]s}
 set -e
 shopt -s extglob
 
+# Run without sudo if not available (e.g., running as root)
+SUDO=
+if [ ! "$(whoami)" = "root" ] ; then
+    SUDO=sudo
+fi
+
 if [ "$1" = "uninstall" ] ; then
-    if [ -n "$(sudo docker ps -a -q -f name=cilium)" ]; then
+    if [ -n "$(${SUDO} docker ps -a -q -f name=cilium)" ]; then
         echo "Shutting down running Cilium agent"
-        sudo docker rm -f cilium || true
+        ${SUDO} docker rm -f cilium || true
     fi
     if [ -f /usr/bin/cilium ] ; then
         echo "Removing /usr/bin/cilium"
-        sudo rm /usr/bin/cilium
+        ${SUDO} rm /usr/bin/cilium
     fi
     pushd /etc
     if [ -f resolv.conf.orig ] ; then
         echo "Restoring /etc/resolv.conf"
-        sudo mv -f resolv.conf.orig resolv.conf
+        ${SUDO} mv -f resolv.conf.orig resolv.conf
     elif [ -f resolv.conf.link ] && [ -f $(cat resolv.conf.link) ] ; then
         echo "Restoring systemd resolved config..."
         if [ -f /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf ] ; then
-	    sudo rm /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf
+	    ${SUDO} rm /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf
         fi
-        sudo systemctl daemon-reload
-        sudo systemctl reenable systemd-resolved.service
-        sudo service systemd-resolved restart
-        sudo ln -fs $(cat resolv.conf.link) resolv.conf
-        sudo rm resolv.conf.link
+        ${SUDO} systemctl daemon-reload
+        ${SUDO} systemctl reenable systemd-resolved.service
+        ${SUDO} service systemd-resolved restart
+        ${SUDO} ln -fs $(cat resolv.conf.link) resolv.conf
+        ${SUDO} rm resolv.conf.link
     fi
     popd
     exit 0
@@ -1338,14 +1344,14 @@ case "$CLUSTER_ADDR" in
 	;;
 esac
 
-sudo mkdir -p /var/lib/cilium/etcd
-sudo tee /var/lib/cilium/etcd/ca.crt <<EOF >/dev/null
+${SUDO} mkdir -p /var/lib/cilium/etcd
+${SUDO} tee /var/lib/cilium/etcd/ca.crt <<EOF >/dev/null
 %[3]sEOF
-sudo tee /var/lib/cilium/etcd/tls.crt <<EOF >/dev/null
+${SUDO} tee /var/lib/cilium/etcd/tls.crt <<EOF >/dev/null
 %[4]sEOF
-sudo tee /var/lib/cilium/etcd/tls.key <<EOF >/dev/null
+${SUDO} tee /var/lib/cilium/etcd/tls.key <<EOF >/dev/null
 %[5]sEOF
-sudo tee /var/lib/cilium/etcd/config.yaml <<EOF >/dev/null
+${SUDO} tee /var/lib/cilium/etcd/config.yaml <<EOF >/dev/null
 ---
 trusted-ca-file: /var/lib/cilium/etcd/ca.crt
 cert-file: /var/lib/cilium/etcd/tls.crt
@@ -1363,7 +1369,7 @@ if [ -n "$DEBUG" ] ; then
     CILIUM_OPTS+=" --debug --restore=false"
 fi
 
-DOCKER_OPTS=" -d --log-driver syslog --restart always"
+DOCKER_OPTS=" -d --log-driver local --restart always"
 DOCKER_OPTS+=" --privileged --network host --cap-add NET_ADMIN --cap-add SYS_MODULE"
 DOCKER_OPTS+=" --volume /var/lib/cilium/etcd:/var/lib/cilium/etcd"
 DOCKER_OPTS+=" --volume /var/run/cilium:/var/run/cilium"
@@ -1373,16 +1379,16 @@ DOCKER_OPTS+=" --volume /sys/fs/bpf:/sys/fs/bpf"
 DOCKER_OPTS+=" --volume /run/xtables.lock:/run/xtables.lock"
 DOCKER_OPTS+=" --add-host clustermesh-apiserver.cilium.io:$CLUSTER_IP"
 
-if [ -n "$(sudo docker ps -a -q -f name=cilium)" ]; then
+if [ -n "$(${SUDO} docker ps -a -q -f name=cilium)" ]; then
     echo "Shutting down running Cilium agent"
-    sudo docker rm -f cilium || true
+    ${SUDO} docker rm -f cilium || true
 fi
 
 echo "Launching Cilium agent $CILIUM_IMAGE..."
-sudo docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
+${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
 
 # Copy Cilium CLI
-sudo docker cp cilium:/usr/bin/cilium /usr/bin/cilium
+${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/cilium
 
 # Wait for cilium agent to become available
 cilium_started=false
@@ -1417,24 +1423,24 @@ if [ -n "$kubedns" ] ; then
     if grep "nameserver $kubedns" /etc/resolv.conf ; then
 	echo "kube-dns IP $kubedns already in /etc/resolv.conf"
     else
-	linkval=$(readlink /etc/resolv.conf) && echo "$linkval" | sudo tee /etc/resolv.conf.link || true
+	linkval=$(readlink /etc/resolv.conf) && echo "$linkval" | ${SUDO} tee /etc/resolv.conf.link || true
 	if [[ "$linkval" == *"/systemd/"* ]] ; then
 	    echo "updating systemd resolved with kube-dns IP $kubedns"
-	    sudo mkdir -p /usr/lib/systemd/resolved.conf.d
-	    sudo tee /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf <<EOF >/dev/null
+	    ${SUDO} mkdir -p /usr/lib/systemd/resolved.conf.d
+	    ${SUDO} tee /usr/lib/systemd/resolved.conf.d/cilium-kube-dns.conf <<EOF >/dev/null
 # This file is installed by Cilium to use kube dns server from a non-k8s node.
 [Resolve]
 DNS=$kubedns
 EOF
-	    sudo systemctl daemon-reload
-	    sudo systemctl reenable systemd-resolved.service
-	    sudo service systemd-resolved restart
-	    sudo ln -fs /run/systemd/resolve/resolv.conf /etc/resolv.conf
+	    ${SUDO} systemctl daemon-reload
+	    ${SUDO} systemctl reenable systemd-resolved.service
+	    ${SUDO} service systemd-resolved restart
+	    ${SUDO} ln -fs /run/systemd/resolve/resolv.conf /etc/resolv.conf
 	else
 	    echo "Adding kube-dns IP $kubedns to /etc/resolv.conf"
-	    sudo cp /etc/resolv.conf /etc/resolv.conf.orig
+	    ${SUDO} cp /etc/resolv.conf /etc/resolv.conf.orig
 	    resolvconf="nameserver $kubedns\n$(cat /etc/resolv.conf)\n"
-	    printf "$resolvconf" | sudo tee /etc/resolv.conf
+	    printf "$resolvconf" | ${SUDO} tee /etc/resolv.conf
 	fi
     fi
 else
