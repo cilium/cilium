@@ -789,14 +789,14 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
-		const bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
+		const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
 		if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
-				skip_xlate);
+				skip_l3_xlate);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1745,14 +1745,15 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
-		const bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
+		const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
 		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
-				ip4->saddr, ipv4_has_l4_header(ip4), skip_xlate);
+				ip4->saddr, ipv4_has_l4_header(ip4),
+				skip_l3_xlate);
 		if (IS_ERR(ret))
 			return ret;
 	}
