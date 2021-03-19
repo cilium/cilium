@@ -792,7 +792,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
-				     struct ct_state *state, const bool skip_xlate)
+				     struct ct_state *state,
+				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	union v6addr *addr;
@@ -901,7 +902,7 @@ update_state:
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return skip_xlate ? CTX_ACT_OK :
+	return skip_l3_xlate ? CTX_ACT_OK :
 	       lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, backend);
 drop_no_service:
@@ -1337,7 +1338,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
 				     struct ct_state *state, __be32 saddr,
-				     bool has_l4_header, const bool skip_xlate)
+				     bool has_l4_header,
+				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 new_saddr = 0, new_daddr;
@@ -1475,7 +1477,7 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
-	return skip_xlate ? CTX_ACT_OK :
+	return skip_l3_xlate ? CTX_ACT_OK :
 	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 backend, has_l4_header);
