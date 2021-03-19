@@ -5,7 +5,7 @@ chardet==3.0.4
 docutils==0.14
 idna==2.7
 imagesize==1.1.0
-Jinja2==2.10.1
+Jinja2==2.11.3
 jsonschema==2.6.0
 MarkupSafe==1.1.1
 pyenchant==2.0.0
