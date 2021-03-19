@@ -281,20 +281,6 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 		return false, lb.ID(0), err
 	}
 
-	// In case we do DSR + IPIP, then it's required that the backends use
-	// the same destination port as the frontend service.
-	if option.Config.NodePortMode == option.NodePortModeDSR &&
-		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP &&
-		params.Type != lb.SVCTypeClusterIP {
-		for _, b := range params.Backends {
-			if b.Port != params.Frontend.L3n4Addr.Port {
-				err := fmt.Errorf("Unable to upsert service due to frontend/backend port mismatch under DSR with IPIP: %d vs %d",
-					params.Frontend.L3n4Addr.Port, b.Port)
-				return false, lb.ID(0), err
-			}
-		}
-	}
-
 	// If needed, create svcInfo and allocate service ID
 	svc, new, prevSessionAffinity, prevLoadBalancerSourceRanges, err :=
 		s.createSVCInfoIfNotExist(params)
