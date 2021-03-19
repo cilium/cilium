@@ -1574,30 +1574,51 @@ var _ = Describe("K8sPolicyTest", func() {
 				HostConnectivityAllow       = true
 				RemoteNodeConnectivityDeny  = false
 				RemoteNodeConnectivityAllow = true
+				PodConnectivityDeny         = false
+				PodConnectivityAllow        = true
+				WorldConnectivityDeny       = false
+				WorldConnectivityAllow      = true
 			)
 
 			var (
 				cnpFromEntitiesHost       string
 				cnpFromEntitiesRemoteNode string
 				cnpFromEntitiesWorld      string
-				// TODO: Add fromEntities tests (GH-10979)
-				//cnpFromEntitiesCluster    string
-				//cnpFromEntitiesWorld      string
-				//cnpFromEntitiesAll        string
+				cnpFromEntitiesCluster    string
+				cnpFromEntitiesAll        string
 
 				k8s1Name             string
+				k8s1IP               string
+				k8s1PodName          string
 				k8s1PodIP, k8s2PodIP string
+
+				outsideNodeName string
 			)
 
 			BeforeAll(func() {
 				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
 				cnpFromEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-world.yaml")
-				var err error
-				k8s1Name, err = kubectl.GetNodeNameByLabel(helpers.K8s1)
-				Expect(err).To(BeNil(), "cannot get k8s1 node name")
-				_, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
+				cnpFromEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-cluster.yaml")
+				cnpFromEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-all.yaml")
+
+				k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
+				k8s1PodName, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
 				_, k8s2PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 0)
+
+				if helpers.ExistNodeWithoutCilium() {
+					outsideNodeName, _ = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+				}
+
+				// Masquerade function should be disabled
+				// because the request will fail if the reply packet's source address is rewritten
+				// when sending a request directly to the Pod from outside the cluster.
+				By("Reconfiguring Cilium to disable ipv4 masquerade")
+				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+					map[string]string{
+						"enableIPv4Masquerade": "false",
+					})
+
 			})
 
 			AfterAll(func() {
@@ -1605,7 +1626,14 @@ var _ = Describe("K8sPolicyTest", func() {
 				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
 			})
 
-			validateNodeConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess bool) {
+			testCurlFromOutside := func(url string, outsideNodeName string, expectSuccess bool) {
+				By("Making HTTP requests from outside cluster to %q", url)
+				res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
+				ExpectWithOffset(1, res).To(getMatcher(expectSuccess),
+					"HTTP ingress connectivity to %q from %s host", url, outsideNodeName)
+			}
+
+			validateConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool) {
 				By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
 				res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 					helpers.CurlFail(k8s1PodIP))
@@ -1617,6 +1645,28 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.CurlFail(k8s2PodIP))
 				ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
 					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
+
+				By("Checking ingress connectivity from k8s1 pod to k8s2 pod")
+				res = kubectl.ExecPodCmd(testNamespace, k8s1PodName, helpers.CurlFail(k8s2PodIP))
+				ExpectWithOffset(1, res).To(getMatcher(expectPodSuccess),
+					"HTTP ingress connectivity to pod %q from pod %q", k8s2PodIP, k8s1PodIP)
+
+				By("Checking ingress connectivity from world to k8s1 pod")
+				if helpers.ExistNodeWithoutCilium() {
+					By("Adding a static route to %s on the %s node (outside)", k8s1PodIP, outsideNodeName)
+					res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
+					Expect(res).To(getMatcher(true))
+
+					testCurlFromOutside(k8s1PodIP, outsideNodeName, expectWorldSuccess)
+				}
+			}
+
+			installDefaultDenyIngressPolicy := func() {
+				By("Installing default-deny ingress policy")
+				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
+
+				By("Checking that remote-node is disallowed by default")
+				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny, PodConnectivityDeny, WorldConnectivityDeny)
 			}
 
 			Context("with remote-node identity disabled", func() {
@@ -1624,7 +1674,8 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to disable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"remoteNodeIdentity": "false",
+							"remoteNodeIdentity":   "false",
+							"enableIPv4Masquerade": "false",
 						})
 				})
 
@@ -1641,13 +1692,17 @@ var _ = Describe("K8sPolicyTest", func() {
 						By("Installing fromEntities host and world policy")
 						importPolicy(kubectl, testNamespace, cnpFromEntitiesWorld, "from-entities-world")
 						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
+
+						By("Checking policy correctness")
+						validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityAllow)
 					} else {
 						By("Installing fromEntities host policy")
 						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
+
+						By("Checking policy correctness")
+						validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
 					}
 
-					By("Checking policy correctness")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
 				})
 			})
 
@@ -1656,23 +1711,40 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to enable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"remoteNodeIdentity": "true",
+							"remoteNodeIdentity":   "true",
+							"enableIPv4Masquerade": "false",
 						})
 				})
 
 				It("Validates fromEntities remote-node policy", func() {
-					By("Installing default-deny ingress policy")
-					importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
-
-					By("Checking that remote-node is disallowed by default")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny)
+					installDefaultDenyIngressPolicy()
 
 					By("Installing fromEntities remote-node policy")
 					importPolicy(kubectl, testNamespace, cnpFromEntitiesRemoteNode, "from-entities-remote-node")
 
 					By("Checking policy correctness")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
+					validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
 				})
+			})
+
+			It("Validates fromEntities cluster policy", func() {
+				installDefaultDenyIngressPolicy()
+
+				By("Installing fromEntities cluster policy")
+				importPolicy(kubectl, testNamespace, cnpFromEntitiesCluster, "from-entities-cluster")
+
+				By("Checking policy correctness")
+				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityAllow, WorldConnectivityDeny)
+			})
+
+			It("Validates fromEntities all policy", func() {
+				installDefaultDenyIngressPolicy()
+
+				By("Installing fromEntities all policy")
+				importPolicy(kubectl, testNamespace, cnpFromEntitiesAll, "from-entities-all")
+
+				By("Checking policy correctness")
+				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityAllow, WorldConnectivityAllow)
 			})
 		})
 
