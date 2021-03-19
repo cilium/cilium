@@ -663,28 +663,35 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 #endif /* LB_SELECTION */
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     union v6addr *new_dst, __u8 nexthdr __maybe_unused,
+				     union v6addr *new_dst, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     const struct lb6_key *key,
-				     const struct lb6_backend *backend __maybe_unused)
+				     const struct lb6_backend *backend,
+				     const bool skip_l3_xlate)
 {
+	if (skip_l3_xlate)
+		goto l4_xlate;
+
 	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
-
 	if (csum_off) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
+				       16, 0);
 
-		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum,
+				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
 
-	if (backend->port && key->dport != backend->port &&
+l4_xlate:
+	if (likely(backend->port) && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__be16 tmp = backend->port;
 		int ret;
 
 		/* Port offsets for UDP and TCP are the same */
-		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
+		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
+				     tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -902,9 +909,8 @@ update_state:
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return skip_l3_xlate ? CTX_ACT_OK :
-	       lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
-			 csum_off, key, backend);
+	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
+			 csum_off, key, backend, skip_l3_xlate);
 drop_no_service:
 	tuple->flags = flags;
 	return DROP_NO_SERVICE;
@@ -1187,10 +1193,14 @@ static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
 	  int l4_off, struct csum_offset *csum_off, struct lb4_key *key,
-	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header)
+	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header,
+	  const bool skip_l3_xlate)
 {
 	__be32 sum;
 	int ret;
+
+	if (skip_l3_xlate)
+		goto l4_xlate;
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
 			      new_daddr, 4, 0);
@@ -1219,7 +1229,8 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 			return DROP_CSUM_L4;
 	}
 
-	if (backend->port && key->dport != backend->port &&
+l4_xlate:
+	if (likely(backend->port) && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP) &&
 	    has_l4_header) {
 		__be16 tmp = backend->port;
@@ -1230,6 +1241,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 		if (IS_ERR(ret))
 			return ret;
 	}
+
 	return CTX_ACT_OK;
 }
 
@@ -1477,10 +1489,9 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
-	return skip_l3_xlate ? CTX_ACT_OK :
-	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
+	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 backend, has_l4_header);
+			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
 		tuple->flags = flags;
 		return DROP_NO_SERVICE;
