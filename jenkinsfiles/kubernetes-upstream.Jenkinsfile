@@ -85,7 +85,7 @@ pipeline {
             }
 
             steps {
-                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh ${DOCKER_TAG}"'
+                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; sudo ./test/kubernetes-test.sh ${DOCKER_TAG}"'
             }
         }
 
