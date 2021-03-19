@@ -1006,13 +1006,22 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 {
 	int ret = SYS_REJECT;
 #ifdef ENABLE_HEALTH_CHECK
-	__sock_cookie key = get_socket_cookie(ctx);
-	struct lb6_health *val;
+	union v6addr addr6;
 
-	val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
-	if (val) {
-		ctx_set_port(ctx, val->peer.port);
-		ret = SYS_PROCEED;
+	ctx_get_v6_address(ctx, &addr6);
+	if (is_v4_in_v6(&addr6)) {
+		return __sock4_health_fwd(ctx);
+	} else {
+#ifdef ENABLE_IPV6
+		__sock_cookie key = get_socket_cookie(ctx);
+		struct lb6_health *val;
+
+		val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+		if (val) {
+			ctx_set_port(ctx, val->peer.port);
+			ret = SYS_PROCEED;
+		}
+#endif /* ENABLE_IPV6 */
 	}
 #endif /* ENABLE_HEALTH_CHECK */
 	return ret;
