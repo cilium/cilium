@@ -130,12 +130,12 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 	}
 
 	for _, tc := range []struct {
-		options              linuxrouting.ENIRulesAndRoutesOptions
+		options              linuxrouting.ComputeRulesAndRoutesOptions
 		expectedRuleStrings  []string
 		expectedRouteStrings []string
 	}{
 		{
-			options: linuxrouting.ENIRulesAndRoutesOptions{
+			options: linuxrouting.ComputeRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: false,
 				EnableIPv4Masquerade:        false,
 			},
@@ -153,7 +153,7 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 			},
 		},
 		{
-			options: linuxrouting.ENIRulesAndRoutesOptions{
+			options: linuxrouting.ComputeRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: false,
 				EnableIPv4Masquerade:        true,
 			},
@@ -177,7 +177,7 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 			},
 		},
 		{
-			options: linuxrouting.ENIRulesAndRoutesOptions{
+			options: linuxrouting.ComputeRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: true,
 				EnableIPv4Masquerade:        false,
 			},
@@ -195,7 +195,7 @@ func (s *IPAMSuite) TestCiliumNodeENIRulesAndRoutes(c *check.C) {
 			},
 		},
 		{
-			options: linuxrouting.ENIRulesAndRoutesOptions{
+			options: linuxrouting.ComputeRulesAndRoutesOptions{
 				EgressMultiHomeIPRuleCompat: true,
 				EnableIPv4Masquerade:        true,
 			},

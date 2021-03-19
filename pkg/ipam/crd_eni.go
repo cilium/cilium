@@ -85,7 +85,7 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 	// Ignore removed interfaces for now.
 	_ = removedResources
 
-	options := linuxrouting.ENIRulesAndRoutesOptions{
+	options := linuxrouting.ComputeRulesAndRoutesOptions{
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
 		EnableIPv4Masquerade:        option.Config.EnableIPv4Masquerade,
 	}
@@ -267,7 +267,7 @@ func routeSet(routes []*netlink.Route) map[string]struct{} {
 }
 
 // ciliumNodeENIRulesAndRoutes returns the rules and routes required to configure
-func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfaceIndex map[string]int, options linuxrouting.ENIRulesAndRoutesOptions) (rules []*route.Rule, routes []*netlink.Route) {
+func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfaceIndex map[string]int, options linuxrouting.ComputeRulesAndRoutesOptions) (rules []*route.Rule, routes []*netlink.Route) {
 	if node == nil {
 		return nil, nil
 	}
@@ -342,7 +342,7 @@ func ciliumNodeENIRulesAndRoutes(node *ciliumv2.CiliumNode, macToNetlinkInterfac
 			return bytes.Compare(ipNets[i].IP, ipNets[j].IP) < 0
 		})
 
-		resourceRules, resourceRoutes := linuxrouting.ENIRulesAndRoutes(
+		resourceRules, resourceRoutes := linuxrouting.ComputeRulesAndRoutes(
 			ipsByResource[resource],
 			ipNets,
 			netlinkInterfaceIndex,

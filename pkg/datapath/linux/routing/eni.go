@@ -23,21 +23,21 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// ENIRulesAndRoutesOptions are options for ENIRulesAndRoutes.
-type ENIRulesAndRoutesOptions struct {
+// ComputeRulesAndRoutesOptions are options for ENIRulesAndRoutes.
+type ComputeRulesAndRoutesOptions struct {
 	EgressMultiHomeIPRuleCompat bool
 	EnableIPv4Masquerade        bool
 }
 
-// ENIRulesAndRoutes returns the rules and routes required to configure an ENI
+// ComputeRulesAndRoutes returns the rules and routes required to configure an
 // interface.
-func ENIRulesAndRoutes(
+func ComputeRulesAndRoutes(
 	ips []net.IP,
 	ipNets []net.IPNet,
 	netlinkInterfaceIndex int,
 	eniNumber int,
 	gateway net.IP,
-	options ENIRulesAndRoutesOptions,
+	options ComputeRulesAndRoutesOptions,
 ) (rules []*route.Rule, routes []*netlink.Route) {
 	var egressPriority int
 	if options.EgressMultiHomeIPRuleCompat {

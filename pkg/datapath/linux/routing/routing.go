@@ -57,13 +57,13 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %s", err)
 	}
 
-	rules, routes := ENIRulesAndRoutes(
+	rules, routes := ComputeRulesAndRoutes(
 		[]net.IP{ip},
 		info.IPv4CIDRs,
 		ifindex,
 		info.InterfaceNumber,
 		info.IPv4Gateway,
-		ENIRulesAndRoutesOptions{
+		ComputeRulesAndRoutesOptions{
 			EgressMultiHomeIPRuleCompat: compat,
 			EnableIPv4Masquerade:        info.Masquerade,
 		},
