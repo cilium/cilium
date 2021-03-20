@@ -118,7 +118,10 @@ func ipSecReplaceStateIn(remoteIP, localIP net.IP) (uint8, error) {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
-	state.OutputMark = linux_defaults.RouteMarkDecrypt
+	state.OutputMark = &netlink.XfrmMark{
+		Value: linux_defaults.RouteMarkDecrypt,
+		Mask:  linux_defaults.RouteMarkMask,
+	}
 
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
@@ -137,7 +140,10 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
-	state.OutputMark = linux_defaults.RouteMarkEncrypt
+	state.OutputMark = &netlink.XfrmMark{
+		Value: linux_defaults.RouteMarkEncrypt,
+		Mask:  linux_defaults.RouteMarkMask,
+	}
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
