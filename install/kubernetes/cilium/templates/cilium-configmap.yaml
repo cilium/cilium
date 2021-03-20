@@ -680,6 +680,10 @@ data:
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
 {{- end }}
 
+{{- if hasKey .Values "blacklistConflictingRoutes" }}
+  blacklist-conflicting-routes: {{ .Values.blacklistConflictingRoutes | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
 {{ toYaml .Values.extraConfig | indent 2 }}
 {{- end }}

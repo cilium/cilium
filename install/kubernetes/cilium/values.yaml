@@ -1576,3 +1576,6 @@ clustermesh:
 externalWorkloads:
   # -- Enable support for external workloads, such as VMs (false by default).
   enabled: false
+
+# -- Configure if conflicting routes are blacklisted (true by default).
+blacklistConflictingRoutes: true
