@@ -16,9 +16,10 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"net"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"google.golang.org/grpc"
 
@@ -26,8 +27,7 @@ import (
 )
 
 var (
-	serverAddr         = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
-	serverHostOverride = flag.String("server_host_override", "x.test.youtube.com", "The server name used to verify the hostname returned by the TLS handshake")
+	serverAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
 )
 
 func main() {
@@ -38,14 +38,17 @@ func main() {
 
 	go startSending(ctx, msgs)
 
-	for {
-		addr := net.ParseIP("127.0.0.1")
-		fqdn := "localhost"
-
+	_, err := StartDNSProxy("", 10001, false, 0, func(addr net.IP, fqdn string) {
 		msgs <- pb.FQDNMapping{IP: []byte(addr), FQDN: fqdn}
+	})
 
-		time.Sleep(1 * time.Second)
+	if err != nil {
+		log.Fatalf("Failed to start dns proxy: %v", err)
 	}
+
+	exitSignal := make(chan os.Signal)
+	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
+	<-exitSignal
 }
 
 func startSending(ctx context.Context, msgs chan pb.FQDNMapping) {
