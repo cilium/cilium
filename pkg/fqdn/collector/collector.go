@@ -11,13 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package main
+package collector
 
 import (
-	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net"
 
 	"google.golang.org/grpc"
@@ -25,15 +23,11 @@ import (
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
 )
 
-var (
-	port = flag.Int("port", 10000, "The server port")
-)
-
-type fqdnCollectorServer struct {
+type FQDNCollectorServer struct {
 	pb.UnimplementedFQNDCollectorServer
 }
 
-func (s *fqdnCollectorServer) ProvideMappings(stream pb.FQNDCollector_ProvideMappingsServer) error {
+func (s *FQDNCollectorServer) ProvideMappings(stream pb.FQNDCollector_ProvideMappingsServer) error {
 	for {
 		mapping, err := stream.Recv()
 		if err == io.EOF {
@@ -46,18 +40,17 @@ func (s *fqdnCollectorServer) ProvideMappings(stream pb.FQNDCollector_ProvideMap
 		}
 
 		addr := net.IP(mapping.IP)
-		fmt.Printf("%s -> %s\n", mapping.FQDN, addr.String())
+		log.Debug(fmt.Sprintf("%s -> %s\n", mapping.FQDN, addr.String()))
 	}
 }
 
-func newServer() *fqdnCollectorServer {
-	s := &fqdnCollectorServer{}
+func newServer() *FQDNCollectorServer {
+	s := &FQDNCollectorServer{}
 	return s
 }
 
-func main() {
-	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
+func RunServer(port int) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

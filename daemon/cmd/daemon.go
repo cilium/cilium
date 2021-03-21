@@ -485,6 +485,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	bootstrapStats.restore.End(true)
 
+	bootstrapStats.fqdnCollector.Start()
+	d.bootstrapFqdnCollector()
+	bootstrapStats.fqdn.End(true)
+
 	bootstrapStats.fqdn.Start()
 	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
