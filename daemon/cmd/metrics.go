@@ -76,6 +76,7 @@ type bootstrapStatistics struct {
 	workloadsInit   spanstat.SpanStat
 	proxyStart      spanstat.SpanStat
 	fqdn            spanstat.SpanStat
+	fqdnCollector   spanstat.SpanStat
 	enableConntrack spanstat.SpanStat
 	kvstore         spanstat.SpanStat
 }
