@@ -423,20 +423,20 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 	p.TCPServer = &dns.Server{Listener: TCPListener, Addr: p.BindAddr, Net: "tcp", Handler: p}
 	log.WithField("address", p.BindAddr).Debug("DNS Proxy bound to address")
 
-	for _, s := range []*dns.Server{p.UDPServer, p.TCPServer} {
-		go func(server *dns.Server) {
-			// try 5 times during a single ProxyBindTimeout period. We fatal here
-			// because we have no other way to indicate failure this late.
-			start := time.Now()
-			for time.Since(start) < ProxyBindTimeout {
-				if err := server.ActivateAndServe(); err != nil {
-					log.WithError(err).Errorf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
-				}
-				time.Sleep(ProxyBindRetryInterval)
-			}
-			log.Fatalf("Failed to start %s DNS Proxy on %s", server.Net, server.Addr)
-		}(s)
-	}
+	//for _, s := range []*dns.Server{p.UDPServer, p.TCPServer} {
+	//go func(server *dns.Server) {
+	//	// try 5 times during a single ProxyBindTimeout period. We fatal here
+	//	// because we have no other way to indicate failure this late.
+	//	start := time.Now()
+	//	for time.Since(start) < ProxyBindTimeout {
+	//		if err := server.ActivateAndServe(); err != nil {
+	//			log.WithError(err).Errorf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
+	//		}
+	//		time.Sleep(ProxyBindRetryInterval)
+	//	}
+	//	log.Fatalf("Failed to start %s DNS Proxy on %s", server.Net, server.Addr)
+	//}(s)
+	//}
 
 	// Bind the DNS forwarding clients on UDP and TCP
 	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
