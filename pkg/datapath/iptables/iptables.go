@@ -715,20 +715,20 @@ func noTrackRules(prog string, cmd string, IP string, port *lb.L4Addr, ingress b
 	protocol := strings.ToLower(port.Protocol)
 	p := strconv.FormatUint(uint64(port.Port), 10)
 	if ingress {
-		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "PREROUTING", "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, ciliumPreRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
 			return err
 		}
-		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, "INPUT", "-p", protocol, "-d", IP, "--dport", p, "-j", "ACCEPT"}, false); err != nil {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, ciliumInputChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "ACCEPT"}, false); err != nil {
 			return err
 		}
-		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "OUTPUT", "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
 			return err
 		}
 	} else {
-		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "OUTPUT", "-p", protocol, "-s", IP, "--sport", p, "-j", "NOTRACK"}, false); err != nil {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, ciliumOutputRawChain, "-p", protocol, "-s", IP, "--sport", p, "-j", "NOTRACK"}, false); err != nil {
 			return err
 		}
-		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, "OUTPUT", "-p", protocol, "-s", IP, "--sport", p, "-j", "ACCEPT"}, false); err != nil {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, ciliumOutputChain, "-p", protocol, "-s", IP, "--sport", p, "-j", "ACCEPT"}, false); err != nil {
 			return err
 		}
 	}
