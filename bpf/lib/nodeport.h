@@ -884,6 +884,9 @@ redo_local:
 	}
 
 	if (!backend_local) {
+#ifdef ENABLE_WIREGUARD
+		set_encrypt_mark(ctx);
+#endif /* ENABLE_WIREGUARD */
 		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr6(&tuple)) {
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
@@ -1875,6 +1878,12 @@ redo_local:
 	}
 
 	if (!backend_local) {
+#ifdef ENABLE_WIREGUARD
+		/* The request which is to be forwarded needs to go over the
+		 * Wireguard tunnel.
+		 */
+		set_encrypt_mark(ctx);
+#endif /* ENABLE_WIREGUARD */
 		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr4(&tuple)) {
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
