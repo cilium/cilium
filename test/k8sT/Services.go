@@ -1990,7 +1990,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				deploymentManager.DeleteCilium()
 			})
 
-			It("with the host firewall and externalTrafficPolicy=Local", func() {
+			SkipItIf(func() bool { return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x") }, "with the host firewall and externalTrafficPolicy=Local", func() {
 				options := map[string]string{
 					"hostFirewall": "true",
 				}
@@ -2005,7 +2005,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				testExternalTrafficPolicyLocal()
 			})
 
-			It("with externalTrafficPolicy=Local", func() {
+			SkipItIf(func() bool { return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x") }, "with externalTrafficPolicy=Local", func() {
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
 				testExternalTrafficPolicyLocal()
 			})
