@@ -46,9 +46,12 @@ struct capture_msg {
 static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 					   const __u8 subtype,
 					   const __u16 rule_id,
-					   const __u64 tstamp)
+					   const __u64 tstamp,
+					   __u64 __cap_len)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = (!__cap_len || ctx_len < __cap_len) ?
+			ctx_len : __cap_len;
 	/* rule_id is the demuxer for the target pcap file when there are
 	 * multiple capturing rules present.
 	 */
@@ -60,31 +63,31 @@ static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 			.to	= {
 				.tv_boot = tstamp,
 			},
-			.caplen	= ctx_len,
+			.caplen	= cap_len,
 			.len	= ctx_len,
 		},
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, (ctx_len << 32) | BPF_F_CURRENT_CPU,
+	ctx_event_output(ctx, &EVENTS_MAP, (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
 
 static __always_inline void __cilium_capture_in(struct __ctx_buff *ctx,
-						__u16 rule_id)
+						__u16 rule_id, __u32 cap_len)
 {
 	/* For later pcap file generation, we export boot time to the RB
 	 * such that user space can later reconstruct a real time of day
 	 * timestamp in-place.
 	 */
 	cilium_capture(ctx, CAPTURE_INGRESS, rule_id,
-		       bpf_ktime_cache_set(boot_ns));
+		       bpf_ktime_cache_set(boot_ns), cap_len);
 }
 
 static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
-						 __u16 rule_id)
+						 __u16 rule_id, __u32 cap_len)
 {
 	cilium_capture(ctx, CAPTURE_EGRESS, rule_id,
-		       bpf_ktime_cache_get());
+		       bpf_ktime_cache_get(), cap_len);
 }
 
 /* The capture_enabled integer ({0,1}) is enabled/disabled via BPF based ELF
@@ -99,6 +102,7 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
 struct capture_cache {
 	bool  rule_seen;
 	__u16 rule_id;
+	__u16 cap_len;
 };
 
 struct bpf_elf_map __section_maps cilium_capture_cache = {
@@ -111,6 +115,8 @@ struct bpf_elf_map __section_maps cilium_capture_cache = {
 
 struct capture_rule {
 	__u16 rule_id;
+	__u16 reserved;
+	__u32 cap_len;
 };
 
 #ifdef ENABLE_IPV4
@@ -194,8 +200,8 @@ cilium_capture4_masked_key(const struct capture4_wcard *orig,
 	},
 #endif /* PREFIX_MASKS4 */
 
-static __always_inline bool
-cilium_capture4_classify_wcard(struct __ctx_buff *ctx, __u16 *rule_id)
+static __always_inline struct capture_rule *
+cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 {
 	struct capture4_wcard prefix_masks[] = { PREFIX_MASKS4 };
 	struct capture4_wcard okey, lkey;
@@ -207,7 +213,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx, __u16 *rule_id)
 			 sizeof(prefix_masks[0]);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return false;
+		return NULL;
 
 	okey.daddr = ip4->daddr;
 	okey.dmask = 32;
@@ -227,21 +233,18 @@ _Pragma("unroll")
 	for (i = 0; i < size; i++) {
 		cilium_capture4_masked_key(&okey, &prefix_masks[i], &lkey);
 		match = map_lookup_elem(&cilium_capture4_rules, &lkey);
-		if (match) {
-			*rule_id = match->rule_id;
-			return true;
-		}
+		if (match)
+			return match;
 	}
 
-	return false;
+	return NULL;
 }
 #endif /* ENABLE_IPV4 */
 
-static __always_inline bool
-cilium_capture_classify_wcard(struct __ctx_buff *ctx,
-			      __u16 *rule_id __maybe_unused)
+static __always_inline struct capture_rule *
+cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 {
-	bool ret = false;
+	struct capture_rule *ret = NULL;
 	__u16 proto;
 
 	if (!validate_ethertype(ctx, &proto))
@@ -249,7 +252,7 @@ cilium_capture_classify_wcard(struct __ctx_buff *ctx,
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = cilium_capture4_classify_wcard(ctx, rule_id);
+		ret = cilium_capture4_classify_wcard(ctx);
 		break;
 #endif /* ENABLE_IPV4 */
 	default:
@@ -260,17 +263,21 @@ cilium_capture_classify_wcard(struct __ctx_buff *ctx,
 
 static __always_inline bool
 cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
-			 __u16 *rule_id __maybe_unused)
+			 __u16 *rule_id __maybe_unused,
+			 __u32 *cap_len __maybe_unused)
 {
 	if (capture_enabled) {
 		struct capture_cache *c;
+		struct capture_rule *r;
 		__u32 zero = 0;
 
 		c = map_lookup_elem(&cilium_capture_cache, &zero);
 		if (always_succeeds(c)) {
-			c->rule_seen = cilium_capture_classify_wcard(ctx, rule_id);
-			if (c->rule_seen) {
-				c->rule_id = *rule_id;
+			r = cilium_capture_classify_wcard(ctx);
+			c->rule_seen = r;
+			if (r) {
+				c->cap_len = *cap_len = r->cap_len;
+				c->rule_id = *rule_id = r->rule_id;
 				return true;
 			}
 		}
@@ -280,7 +287,8 @@ cilium_capture_candidate(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline bool
 cilium_capture_cached(struct __ctx_buff *ctx __maybe_unused,
-		      __u16 *rule_id __maybe_unused)
+		      __u16 *rule_id __maybe_unused,
+		      __u32 *cap_len __maybe_unused)
 {
 	if (capture_enabled) {
 		struct capture_cache *c;
@@ -292,6 +300,7 @@ cilium_capture_cached(struct __ctx_buff *ctx __maybe_unused,
 		 */
 		c = map_lookup_elem(&cilium_capture_cache, &zero);
 		if (always_succeeds(c) && c->rule_seen) {
+			*cap_len = c->cap_len;
 			*rule_id = c->rule_id;
 			return true;
 		}
@@ -303,10 +312,11 @@ static __always_inline void
 cilium_capture_in(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_CAPTURE
+	__u32 cap_len;
 	__u16 rule_id;
 
-	if (cilium_capture_candidate(ctx, &rule_id))
-		__cilium_capture_in(ctx, rule_id);
+	if (cilium_capture_candidate(ctx, &rule_id, &cap_len))
+		__cilium_capture_in(ctx, rule_id, cap_len);
 #endif /* ENABLE_CAPTURE */
 }
 
@@ -314,14 +324,15 @@ static __always_inline void
 cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_CAPTURE
+	__u32 cap_len;
 	__u16 rule_id;
 
 	/* cilium_capture_out() is always paired with cilium_capture_in(), so
 	 * we can rely on previous cached result on whether to push the pkt
 	 * to the RB or not.
 	 */
-	if (cilium_capture_cached(ctx, &rule_id))
-		__cilium_capture_out(ctx, rule_id);
+	if (cilium_capture_cached(ctx, &rule_id, &cap_len))
+		__cilium_capture_out(ctx, rule_id, cap_len);
 #endif /* ENABLE_CAPTURE */
 }
 
