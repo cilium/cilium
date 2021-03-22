@@ -1,0 +1,15 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumEgressNATPolicy
+metadata:
+  name: egress-sample
+spec:
+  egress:
+  - podSelector:
+      matchLabels:
+        zgroup: testDSClient
+    namespaceSelector:
+      matchLabels:
+        ns: cilium-test
+  destinationCIDRs:
+  - INPUT_OUTSIDE_NODE_IP/32
+  egressSourceIP: INPUT_EGRESS_IP

@@ -80,6 +80,8 @@ const (
 	CiliumSelector      = "k8s-app=cilium"
 
 	NativeRoutingCIDR = "10.0.0.0/8"
+
+	NamespaceSelector = "ns=cilium-test"
 )
 
 var (
@@ -1298,7 +1300,10 @@ func (kub *Kubectl) PprofReport() {
 func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 	ginkgoext.By("Creating namespace %s", name)
 	kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
-	return kub.ExecShort(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
+	if res := kub.ExecShort(fmt.Sprintf("%s create namespace %s", KubectlCmd, name)); res.err != nil {
+		return res
+	}
+	return kub.ExecShort(fmt.Sprintf("%s label namespace %s %s", KubectlCmd, name, NamespaceSelector))
 }
 
 // NamespaceDelete deletes a given Kubernetes namespace
@@ -4376,6 +4381,7 @@ func GenerateNamespaceForTest(seed string) string {
 	replaced := strings.Replace(lowered, " ", "", -1)
 	replaced = strings.Replace(replaced, "_", "", -1)
 	replaced = strings.Replace(replaced, "/", "", -1)
+	replaced = strings.Replace(replaced, "-", "", -1)
 
 	timestamped := time.Now().Format("200601021504") + seed + replaced
 

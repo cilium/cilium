@@ -91,6 +91,7 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
+  - ciliumegressnatpolicies
   verbs:
   - '*'
 - apiGroups:
