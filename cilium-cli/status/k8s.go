@@ -164,7 +164,7 @@ func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status
 	}
 
 	if daemonSet == nil {
-		return fmt.Errorf("DaemomSet %s is not available", name)
+		return fmt.Errorf("DaemonSet %s is not available", name)
 	}
 
 	stateCount := PodStateCount{Type: "DaemonSet"}
