@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v50.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.17
 	github.com/Azure/go-autorest/autorest/adal v0.9.13
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.6
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.7
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
