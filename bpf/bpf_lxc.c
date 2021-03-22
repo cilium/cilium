@@ -102,6 +102,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	bool __maybe_unused dst_remote_ep = false;
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -192,6 +193,12 @@ skip_service_lookup:
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
+#ifdef ENABLE_WIREGUARD
+			if (info->tunnel_endpoint != 0 &&
+			    info->sec_label != HOST_ID &&
+			    info->sec_label != REMOTE_NODE_ID)
+				dst_remote_ep = true;
+#endif /* ENABLE_WIREGUARD */
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -422,8 +429,12 @@ pass_to_stack:
 		set_encrypt_dip(ctx, tunnel_endpoint);
 #endif
 	} else
-#endif
-#endif
+#elif defined(ENABLE_WIREGUARD)
+	if (dst_remote_ep)
+		set_encrypt_mark(ctx);
+	else
+#endif /* ENABLE_IPSEC */
+#endif /* ENCAP_IFINDEX */
 	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
@@ -519,6 +530,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool has_l4_header = false;
+	bool __maybe_unused dst_remote_ep = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -600,6 +612,18 @@ skip_service_lookup:
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
+#ifdef ENABLE_WIREGUARD
+			/* If we detect that the dst is a remote endpoint, we
+			 * need to mark the packet. The ip rule which matches
+			 * on the MARK_MAGIC_ENCRYPT mark will steer the packet
+			 * to the Wireguard tunnel. The marking happens lower
+			 * in the code in the same place where we handle IPSec.
+			 */
+			if (info->tunnel_endpoint != 0 &&
+			    info->sec_label != HOST_ID &&
+			    info->sec_label != REMOTE_NODE_ID)
+				dst_remote_ep = true;
+#endif /* ENABLE_WIREGUARD */
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -843,8 +867,12 @@ pass_to_stack:
 		set_encrypt_dip(ctx, tunnel_endpoint);
 #endif
 	} else
-#endif
-#endif
+#elif defined(ENABLE_WIREGUARD)
+	if (dst_remote_ep)
+		set_encrypt_mark(ctx);
+	else /* Wireguard and identity mark are mutually exclusive */
+#endif /* ENABLE_IPSEC */
+#endif /* ENCAP_IFINDEX */
 	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
