@@ -936,3 +936,15 @@ func (d *Daemon) GetNodeSuffix() string {
 
 	return ip.String()
 }
+
+// GetCustomCallsMapPath returns the BPF custom calls map for the given endpoint
+func (d *Daemon) GetCustomCallsMapPath(id uint16) string {
+	// Blocked on #13191.
+	// return d.datapath.Loader().CustomCallsMapPath(id)
+	return ""
+}
+
+// GetCtx returns the Daemon's context to track events when the context is cancelled.
+func (d *Daemon) GetCtx() context.Context {
+	return d.ctx
+}

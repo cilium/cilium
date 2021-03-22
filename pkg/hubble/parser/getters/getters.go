@@ -15,15 +15,16 @@
 package getters
 
 import (
+	"context"
 	"net"
-
-	"k8s.io/client-go/tools/cache"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/policy"
+
+	"k8s.io/client-go/tools/cache"
 )
 
 // DNSGetter ...
@@ -75,4 +76,14 @@ type StoreGetter interface {
 	// update objects into k8s as well as the objects returned by these stores
 	// should only be used for reading.
 	GetK8sStore(name string) cache.Store
+}
+
+// LoaderGetter ...
+type LoaderGetter interface {
+	GetCustomCallsMapPath(id uint16) string
+}
+
+// ContextGetter ...
+type ContextGetter interface {
+	GetCtx() context.Context
 }
