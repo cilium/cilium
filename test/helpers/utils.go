@@ -495,11 +495,7 @@ func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) 
 // kernel (depending on the image, it's the latest kernel either from net-next.git
 // or bpf-next.git tree).
 func RunsOnNetNextKernel() bool {
-	netNext := os.Getenv("NETNEXT")
-	if netNext == "true" || netNext == "1" {
-		return true
-	}
-	netNext = os.Getenv("KERNEL")
+	netNext := os.Getenv("KERNEL")
 	return netNext == "netnext"
 }
 

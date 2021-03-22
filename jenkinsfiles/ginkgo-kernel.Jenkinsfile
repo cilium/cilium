@@ -127,12 +127,8 @@ pipeline {
                         // because jenkins doesn't initialize these values sequentially within one block
 
                         // We set KUBEPROXY="0" if we are running net-next or 4.19; otherwise, KUBEPROXY=""
-                        // If we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, and NO_CILIUM_ON_NODE="k8s3";
-                        // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
-                        NETNEXT="""${sh(
-                            returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "1"; else echo -n "0"; fi'
-                            )}"""
+                        // If we are running in net-next, we need to set K8S_NODES=3 and NO_CILIUM_ON_NODE="k8s3";
+                        // otherwise we set K8S_NODES=2 and NO_CILIUM_ON_NODE="".
                         K8S_NODES="""${sh(
                             returnStdout: true,
                             script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "3"; else echo -n "2"; fi'
@@ -203,12 +199,8 @@ pipeline {
                 // because jenkins doesn't initialize these values sequentially within one block
 
                 // We set KUBEPROXY="0" if we are running net-next or 4.19; otherwise, KUBEPROXY=""
-                // If we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, and NO_CILIUM_ON_NODE="k8s3";
-                // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
-                NETNEXT="""${sh(
-                    returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "1"; else echo -n "0"; fi'
-                    )}"""
+                // If we are running in net-next, we need to set K8S_NODES=3 and NO_CILIUM_ON_NODE="k8s3";
+                // otherwise we set K8S_NODES=2, and NO_CILIUM_ON_NODE="".
                 K8S_NODES="""${sh(
                     returnStdout: true,
                     script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "3"; else echo -n "2"; fi'

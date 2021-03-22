@@ -9,7 +9,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
-        NETNEXT=setIfLabel("ci/net-next", "1", "0")
+        KERNEL=setIfLabel("ci/net-next", "netnext", "")
         GINKGO_TIMEOUT="360m"
     }
 
@@ -130,7 +130,7 @@ pipeline {
                         TESTED_SUITE="k8s-1.13"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="1"
+                        KERNEL="netnext"
                         K8S_VERSION="1.13"
                         K8S_NODES="3"
                         NO_CILIUM_ON_NODE="k8s3"
@@ -244,7 +244,7 @@ pipeline {
                         TESTED_SUITE="k8s-1.13"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="1"
+                        KERNEL="netnext"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.13"
                         K8S_NODES="3"
