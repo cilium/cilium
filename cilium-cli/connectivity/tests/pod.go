@@ -16,6 +16,8 @@ package tests
 
 import (
 	"context"
+	"net"
+	"strconv"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/filters"
@@ -30,9 +32,10 @@ func (t *PodToPod) Name() string {
 func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		for _, echo := range c.EchoPods() {
+			destination := net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080))
 			run := check.NewTestRun(t.Name(), c, client, echo)
 
-			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(echo.Pod.Status.PodIP+":8080"))
+			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, curlCommand(destination))
 			if err != nil {
 				run.Failure("curl connectivity check command failed: %s", err)
 			}
