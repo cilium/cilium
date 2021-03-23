@@ -1197,17 +1197,7 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 			"enable-well-known-identities":        "false",
 			"enable-remote-node-identity":         "true",
 			"operator-api-serve-addr":             "127.0.0.1:9234",
-			// Enable Hubble gRPC service.
-			"enable-hubble": "true",
-			// UNIX domain socket for Hubble server to listen to.
-			"hubble-socket-path": defaults.HubbleSocketPath,
-			// An additional address for Hubble server to listen to (e.g. ":4244").
-			"hubble-listen-address":      ":4244",
-			"hubble-disable-tls":         "false",
-			"hubble-tls-cert-file":       "/var/lib/cilium/tls/hubble/server.crt",
-			"hubble-tls-key-file":        "/var/lib/cilium/tls/hubble/server.key",
-			"hubble-tls-client-ca-files": "/var/lib/cilium/tls/hubble/client-ca.crt",
-			"disable-cnp-status-updates": "true",
+			"disable-cnp-status-updates":          "true",
 		},
 	}
 
