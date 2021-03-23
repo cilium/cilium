@@ -382,17 +382,13 @@ func k8sDataDirName() string {
 //      sources:
 //      - secret:
 //          items:
-//          - key: hubble/tls.crt
-//            path: server.crt
-//          - key: hubble/tls.key
-//            path: server.key
-//          name: hubble-server-certs
-//          optional: true
-//      - configMap:
-//          items:
 //          - key: ca.crt
 //            path: client-ca.crt
-//          name: hubble-ca-cert
+//          - key: tls.crt
+//            path: server.crt
+//          - key: tls.key
+//            path: server.key
+//          name: hubble-server-certs
 //          optional: true
 func k8sDirectories(t *testing.T) (dir string, hubble tlsConfigFiles) {
 	dir = t.TempDir()

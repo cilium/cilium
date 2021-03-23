@@ -564,16 +564,12 @@ spec:
           - secret:
               name: hubble-server-certs
               items:
+                - key: ca.crt
+                  path: client-ca.crt
                 - key: tls.crt
                   path: server.crt
                 - key: tls.key
                   path: server.key
-              optional: true
-          - configMap:
-              name: hubble-ca-cert
-              items:
-                - key: ca.crt
-                  path: client-ca.crt
               optional: true
 {{- end }}
 {{- end }}
