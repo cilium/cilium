@@ -1408,7 +1408,9 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
-		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
+		if option.Config.IPAM != ipamOption.IPAMNone {
+			log.Fatalf("%s and/or %s can only be specified with %s=%s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.IPAM, ipamOption.IPAMNone)
+		}
 		if option.Config.Tunnel != option.TunnelDisabled {
 			log.Fatalf("Cannot specify %s or %s in tunnel mode.", option.LocalRouterIPv4, option.LocalRouterIPv6)
 		}
@@ -1417,6 +1419,12 @@ func initEnv(cmd *cobra.Command) {
 		}
 		if option.Config.EnableIPSec {
 			log.Fatalf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName)
+		}
+	}
+
+	if option.Config.IPAM == ipamOption.IPAMNone {
+		if option.Config.LocalRouterIPv4 == "" && option.Config.LocalRouterIPv6 == "" {
+			log.Fatalf("%s and/or %s must be specified when %s=%s", option.LocalRouterIPv4, option.LocalRouterIPv6, option.IPAM, ipamOption.IPAMNone)
 		}
 	}
 

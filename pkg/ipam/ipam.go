@@ -130,6 +130,8 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, k8sEventReg, mtuConfig)
 		}
+	case ipamOption.IPAMNone:
+		log.Info("Disabling Cilium's IP allocation")
 	default:
 		log.Fatalf("Unknown IPAM backend %s", c.IPAMMode())
 	}

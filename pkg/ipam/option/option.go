@@ -36,4 +36,7 @@ const (
 
 	// IPAMAlibabaCloud is the value to select the AlibabaCloud ENI IPAM plugin for option.IPAM
 	IPAMAlibabaCloud = "alibabacloud"
+
+	// IPAMNone is the value to stop Cilium from handling IPAM
+	IPAMNone = "none"
 )
