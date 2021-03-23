@@ -193,6 +193,7 @@ cilium-agent [flags]
       --policy-audit-mode                                    Enable policy audit (non-drop) mode
       --policy-queue-size int                                size of queues for policy-related events (default 100)
       --pprof                                                Enable serving the pprof debugging API
+      --pprof-port int                                       Port that the pprof listens on (default 6060)
       --preallocate-bpf-maps                                 Enable BPF map pre-allocation (default true)
       --prefilter-device string                              Device facing external network for XDP prefiltering (default "undefined")
       --prefilter-mode string                                Prefilter mode via XDP ("native", "generic") (default "native")

@@ -394,6 +394,9 @@ const (
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
+	// PProfPort is the port that the pprof listens on
+	PProfPort = "pprof-port"
+
 	// PrefilterDevice is the device facing external network for XDP prefiltering
 	PrefilterDevice = "prefilter-device"
 
@@ -1036,6 +1039,7 @@ var HelpFlagSections = []FlagsSection{
 			EnableHealthChecking,
 			TracePayloadlen,
 			PProf,
+			PProfPort,
 		},
 	},
 	{
@@ -1677,6 +1681,7 @@ type DaemonConfig struct {
 	TracePayloadlen        int
 	Version                string
 	PProf                  bool
+	PProfPort              int
 	PrometheusServeAddr    string
 	ToFQDNsMinTTL          int
 
@@ -2649,6 +2654,7 @@ func (c *DaemonConfig) Populate() {
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
 	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
 	c.PProf = viper.GetBool(PProf)
+	c.PProfPort = viper.GetInt(PProfPort)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = viper.GetString(PrometheusServeAddr)
