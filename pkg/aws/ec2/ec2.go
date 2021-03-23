@@ -195,7 +195,7 @@ func parseENI(iface *ec2.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, sub
 	}
 
 	for _, ip := range iface.PrivateIpAddresses {
-		if ip.PrivateIpAddress != nil {
+		if ip.PrivateIpAddress != nil && (ip.Primary == nil || !*ip.Primary) {
 			eni.Addresses = append(eni.Addresses, *ip.PrivateIpAddress)
 		}
 	}
