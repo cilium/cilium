@@ -348,6 +348,10 @@ const (
 	// InstallIptRules sets whether Cilium should install any iptables in general
 	InstallIptRules = "install-iptables-rules"
 
+	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules
+	// to skip netfilter connection tracking on all pod-to-pod traffic.
+	InstallNoConntrackIptRules = "install-no-conntrack-iptables-rules"
+
 	IPTablesLockTimeout = "iptables-lock-timeout"
 
 	// IPTablesRandomFully sets iptables flag random-fully on masquerading rules
@@ -2117,6 +2121,9 @@ type DaemonConfig struct {
 
 	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
 	EnableBPFBypassFIBLookup bool
+
+	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic.
+	InstallNoConntrackIptRules bool
 }
 
 var (
@@ -2664,6 +2671,7 @@ func (c *DaemonConfig) Populate() {
 	c.LoadBalancerRSSv4CIDR = viper.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = viper.GetString(LoadBalancerRSSv6CIDR)
 	c.EnableBPFBypassFIBLookup = viper.GetBool(EnableBPFBypassFIBLookup)
+	c.InstallNoConntrackIptRules = viper.GetBool(InstallNoConntrackIptRules)
 
 	err = c.populateMasqueradingSettings()
 	if err != nil {
@@ -3207,6 +3215,22 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	} else {
 		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
+}
+
+// KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_
+// running in full KPR mode.
+//
+// The extra logic to check that all the individual features are enabled is
+// required to deal with the case when KubeProxyReplacement mode is set to
+// "probe" (as Cilium may or may not be running full KPR mode).
+func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
+	return c.EnableHostPort &&
+		c.EnableNodePort &&
+		c.EnableExternalIPs &&
+		c.EnableHostReachableServices &&
+		c.EnableHostServicesTCP &&
+		c.EnableHostServicesUDP &&
+		c.EnableSessionAffinity
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {

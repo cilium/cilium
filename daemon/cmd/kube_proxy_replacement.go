@@ -334,6 +334,17 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 	}
 
+	if option.Config.InstallNoConntrackIptRules {
+		// InstallNoConntrackIptRules can only be enabled when Cilium is
+		// running in full KPR mode as otherwise conntrack would be
+		// required for NAT operations
+		if !option.Config.KubeProxyReplacementFullyEnabled() {
+			option.Config.InstallNoConntrackIptRules = false
+			log.Warnf("%s requires the agent to run with %s=%s. Disabling it.",
+				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
+		}
+	}
+
 	return
 }
 
