@@ -34,6 +34,14 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "linux-routing")
 )
 
+type ErrInterfaceWithMACNotFound struct {
+	MAC mac.MAC
+}
+
+func (e *ErrInterfaceWithMACNotFound) Error() string {
+	return fmt.Sprintf("interface with MAC %s not found", e.MAC)
+}
+
 // Configure sets up the rules and routes needed when running in ENI or
 // Azure IPAM mode.
 // These rules and routes direct egress traffic out of the interface and
@@ -243,7 +251,9 @@ func RetrieveIfIndexFromMAC(mac mac.MAC, mtu int) (index int, err error) {
 		}
 	}
 
-	err = fmt.Errorf("interface with MAC %s not found", mac)
+	err = &ErrInterfaceWithMACNotFound{
+		MAC: mac,
+	}
 	return
 }
 

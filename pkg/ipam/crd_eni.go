@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"time"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -45,6 +46,7 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 	// Configure new interfaces.
 	macToNetlinkInterfaceIndex := make(map[string]int)
 	firstInterfaceIndex := *newNode.Spec.ENI.FirstInterfaceIndex
+RESOURCE:
 	for _, addedResource := range addedResources {
 		eni := newNode.Status.ENI.ENIs[addedResource]
 		if eni.Number < firstInterfaceIndex {
@@ -61,16 +63,64 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 			continue
 		}
 		mtu := mtuConfig.GetDeviceMTU()
-		netlinkInterfaceIndex, err := linuxrouting.RetrieveIfIndexFromMAC(mac, mtu)
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
+
+		// Try to configure the added interface. We need both the interface to
+		// be present in the CRD and attached to the VM. At this point, we know
+		// that the interface is present in the CRD, but we need to wait for it
+		// to be attached.
+		//
+		// TODO find a less horrible way of doing this.
+		maxTries := 20
+		retryInterval := 250 * time.Millisecond
+		netlinkInterfaceIndex := -1
+	RETRY:
+		for try := 0; try < maxTries; try++ {
+			netlinkInterfaceIndex, err = linuxrouting.RetrieveIfIndexFromMAC(mac, mtu)
+			switch {
+			case err == nil:
+				// If the interface was succeesfully configured then we are done.
+				break RETRY
+			case errors.Is(err, &linuxrouting.ErrInterfaceWithMACNotFound{}):
+				// If the interface is not found, then assume that it hasn't
+				// been attached yet. Log, wait, then try again.
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.Resource:  addedResource,
+					logfields.Interface: eni.Number,
+					logfields.MACAddr:   eni.MAC,
+					"try":               try,
+				}).Info("Waiting for interface to be attached")
+				time.Sleep(retryInterval)
+			default:
+				// If some error occurred, then give up on the interface.
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.Resource:  addedResource,
+					logfields.Interface: eni.Number,
+					logfields.MACAddr:   eni.MAC,
+				}).Error("Failed to configure interface")
+				continue RESOURCE
+			}
+		}
+		if netlinkInterfaceIndex == -1 {
+			// If we failed to configure the interface after multiple retries,
+			// then give up on the interface.
+			log.WithFields(logrus.Fields{
 				logfields.Resource:  addedResource,
 				logfields.Interface: eni.Number,
 				logfields.MACAddr:   eni.MAC,
-			}).Error("Failed to configure interface")
-		} else {
-			macToNetlinkInterfaceIndex[eni.MAC] = netlinkInterfaceIndex
+				logfields.Duration:  time.Duration(maxTries) * retryInterval,
+				"tries":             maxTries,
+				"retryInterval":     retryInterval,
+			}).Error("Timed out waiting for interface to be attached")
+			continue RESOURCE
 		}
+		macToNetlinkInterfaceIndex[eni.MAC] = netlinkInterfaceIndex
+		log.WithFields(logrus.Fields{
+			logfields.Resource:      addedResource,
+			logfields.Interface:     eni.Number,
+			logfields.MACAddr:       eni.MAC,
+			logfields.MTU:           mtu,
+			"netlinkInterfaceIndex": netlinkInterfaceIndex,
+		}).Info("Configured interface")
 
 		err = setPrimaryENIIPAddress(netlinkInterfaceIndex, eni.IP, eni.Subnet.CIDR)
 		if err != nil {
