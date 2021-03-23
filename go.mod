@@ -14,7 +14,7 @@ require (
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
-	github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5
+	github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2
 	github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/containernetworking/cni v0.7.1
@@ -69,8 +69,8 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
-	github.com/vishvananda/netlink v1.1.1-0.20210218042753-9de6d08565b3
-	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f
+	github.com/vishvananda/netlink v1.1.1-0.20210304225204-ec93726159ae
+	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
@@ -155,7 +155,7 @@ replace (
 	github.com/chai2010/gettext-go => github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5
 	github.com/checkpoint-restore/go-criu => github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b
 	github.com/cheekybits/genny => github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9
-	github.com/cilium/arping => github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5
+	github.com/cilium/arping => github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2
 	github.com/cilium/ebpf => github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/proxy => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/circonus-labs/circonus-gometrics => github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
@@ -463,6 +463,7 @@ replace (
 	github.com/valyala/quicktemplate => github.com/valyala/quicktemplate v1.1.1
 	github.com/valyala/tcplisten => github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a
 	github.com/vektah/gqlparser => github.com/vektah/gqlparser v1.1.2
+	github.com/vishvananda/netlink => github.com/vishvananda/netlink v1.1.1-0.20210218042753-9de6d08565b3
 	github.com/vishvananda/netns => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
 	github.com/vmware/govmomi => github.com/vmware/govmomi v0.20.3
 	github.com/xiang90/probing => github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2
