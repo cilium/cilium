@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/google/go-cmp/cmp"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -42,7 +43,10 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 					if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
 						oldNodeLabels := oldNode.GetLabels()
 						newNodeLabels := newNode.GetLabels()
-						if comparator.MapStringEquals(oldNodeLabels, newNodeLabels) {
+						oldNodeAddresses := oldNode.Status.Addresses
+						newNodeAddresses := newNode.Status.Addresses
+						if comparator.MapStringEquals(oldNodeLabels, newNodeLabels) &&
+							cmp.Equal(oldNodeAddresses, newNodeAddresses) {
 							equal = true
 						} else {
 							err := k.updateK8sNodeV1(oldNode, newNode)
@@ -75,5 +79,8 @@ func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) e
 	if err != nil {
 		return err
 	}
+
+	// Node change should be reflected in ciliumnode object as well # GH-15436
+	k.nodeDiscovery.UpdateCiliumNodeResource()
 	return nil
 }

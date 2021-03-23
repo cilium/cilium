@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"net"
 	"net/url"
 	"strconv"
@@ -41,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -116,12 +116,6 @@ type endpointManager interface {
 	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
 }
 
-type nodeDiscoverManager interface {
-	NodeDeleted(n nodeTypes.Node)
-	NodeUpdated(n nodeTypes.Node)
-	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
-}
-
 type policyManager interface {
 	TriggerPolicyUpdates(force bool, reason string)
 	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
@@ -164,7 +158,7 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager   nodeDiscoverManager
+	nodeDiscovery         *nodediscovery.NodeDiscovery
 	policyManager         policyManager
 	policyRepository      policyRepository
 	svcManager            svcManager
@@ -191,7 +185,7 @@ type K8sWatcher struct {
 
 func NewK8sWatcher(
 	endpointManager endpointManager,
-	nodeDiscoverManager nodeDiscoverManager,
+	nodeDiscovery *nodediscovery.NodeDiscovery,
 	policyManager policyManager,
 	policyRepository policyRepository,
 	svcManager svcManager,
@@ -202,7 +196,7 @@ func NewK8sWatcher(
 	return &K8sWatcher{
 		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
 		endpointManager:       endpointManager,
-		nodeDiscoverManager:   nodeDiscoverManager,
+		nodeDiscovery:         nodeDiscovery,
 		policyManager:         policyManager,
 		policyRepository:      policyRepository,
 		svcManager:            svcManager,

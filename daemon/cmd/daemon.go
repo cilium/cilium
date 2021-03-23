@@ -382,7 +382,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
-		d.nodeDiscovery.Manager,
+		d.nodeDiscovery,
 		&d,
 		d.policy,
 		d.svc,
