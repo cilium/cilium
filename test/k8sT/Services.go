@@ -2000,7 +2000,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				if helpers.RunsOnGKE() {
 					options["gke.enabled"] = "false"
 					options["tunnel"] = "disabled"
-					options["installNoConntrackIptablesRules"] = "false"
 				}
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 				testExternalTrafficPolicyLocal()
@@ -2267,7 +2266,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							if helpers.RunsOnGKE() {
 								options["gke.enabled"] = "false"
 								options["tunnel"] = "disabled"
-								options["installNoConntrackIptablesRules"] = "false"
 							}
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
