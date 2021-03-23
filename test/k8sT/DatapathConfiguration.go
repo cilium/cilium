@@ -673,6 +673,39 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testHostFirewall(kubectl)
 		})
 	})
+
+	Context("Iptables", func() {
+		SkipItIf(func() bool {
+			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.RunsWithKubeProxy()
+		}, "Skip conntrack for pod-to-pod traffic", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"tunnel":                          "disabled",
+				"autoDirectNodeRoutes":            "true",
+				"installNoConntrackIptablesRules": "true",
+			}, DeployCiliumOptionsAndDNS)
+
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
+
+			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "sh -c 'apt update && apt install -y conntrack && conntrack -F'")
+			Expect(res.WasSuccessful()).Should(BeTrue(), "Cannot flush conntrack table")
+
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+
+			cmd := fmt.Sprintf("iptables -t raw -C CILIUM_PRE_raw -s %s -d %s -m comment --comment 'cilium: NOTRACK for pod-to-pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR, helpers.NativeRoutingCIDR)
+			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing -j NOTRACK iptables rule")
+
+			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_OUTPUT_raw -s %s -d %s -m comment --comment 'cilium: NOTRACK for pod-to-pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR, helpers.NativeRoutingCIDR)
+			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing -j NOTRACK iptables rule")
+
+			cmd = fmt.Sprintf("conntrack -L -s %s -d %s | wc -l", helpers.NativeRoutingCIDR, helpers.NativeRoutingCIDR)
+			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			Expect(res.WasSuccessful()).Should(BeTrue(), "Cannot list conntrack entries")
+			Expect(strings.TrimSpace(res.Stdout())).To(Equal("0"), "Unexpected conntrack entries")
+		})
+	})
 })
 
 func testHostFirewall(kubectl *helpers.Kubectl) {

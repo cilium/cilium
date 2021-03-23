@@ -928,6 +928,9 @@ func init() {
 	flags.Bool(option.EnableBPFBypassFIBLookup, defaults.EnableBPFBypassFIBLookup, "Enable FIB lookup bypass optimization for nodeport reverse NAT handling")
 	option.BindEnv(option.EnableBPFBypassFIBLookup)
 
+	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode.")
+	option.BindEnv(option.InstallNoConntrackIptRules)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)
@@ -1369,6 +1372,22 @@ func initEnv(cmd *cobra.Command) {
 				"Connectivity is not affected.",
 			option.EgressMultiHomeIPRuleCompat,
 		)
+	}
+
+	if option.Config.InstallNoConntrackIptRules {
+		// InstallNoConntrackIptRules can only be enabled in direct
+		// routing mode as in tunneling mode the encapsulated traffic is
+		// already skipping netfilter conntrack.
+		if option.Config.Tunnel != option.TunnelDisabled {
+			log.Fatalf("%s requires the agent to run in direct routing mode.", option.InstallNoConntrackIptRules)
+		}
+
+		// Moreover InstallNoConntrackIptRules requires IPv4 support as
+		// the native routing CIDR, used to select all pod-to-pod
+		// traffic, can only be an IPv4 CIDR at the moment.
+		if !option.Config.EnableIPv4 {
+			log.Fatalf("%s requires IPv4 support.", option.InstallNoConntrackIptRules)
+		}
 	}
 }
 

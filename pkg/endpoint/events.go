@@ -170,21 +170,21 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 		log.Debug("Updating NOTRACK rules")
 		if e.IPv4.IsSet() {
 			if port > 0 {
-				err = iptables.InstallNoTrackRules(e.IPv4.String(), port, false)
+				err = iptables.InstallEndpointNoTrackRules(e.IPv4.String(), port, false)
 				log.Warnf("Error installing iptable NOTRACK rules %s", err)
 			}
 			if e.noTrackPort > 0 {
-				err = iptables.RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false)
+				err = iptables.RemoveEndpointNoTrackRules(e.IPv4.String(), e.noTrackPort, false)
 				log.Warnf("Error removing iptable NOTRACK rules %s", err)
 			}
 		}
 		if e.IPv6.IsSet() {
 			if port > 0 {
-				iptables.InstallNoTrackRules(e.IPv6.String(), port, true)
+				iptables.InstallEndpointNoTrackRules(e.IPv6.String(), port, true)
 				log.Warnf("Error installing iptable NOTRACK rules %s", err)
 			}
 			if e.noTrackPort > 0 {
-				err = iptables.RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true)
+				err = iptables.RemoveEndpointNoTrackRules(e.IPv6.String(), e.noTrackPort, true)
 				log.Warnf("Error removing iptable NOTRACK rules %s", err)
 			}
 		}

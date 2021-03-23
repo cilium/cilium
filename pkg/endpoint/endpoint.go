@@ -2179,12 +2179,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}).Debug("Deleting endpoint NOTRACK rules")
 
 		if e.IPv4.IsSet() {
-			if err := iptables.RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
+			if err := iptables.RemoveEndpointNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv4 rules: %s", err))
 			}
 		}
 		if e.IPv6.IsSet() {
-			if err := iptables.RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
+			if err := iptables.RemoveEndpointNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv6 rules: %s", err))
 			}
 		}
