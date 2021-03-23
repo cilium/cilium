@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2018-2020 Authors of Cilium
+# Copyright 2018-2021 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ function cleanup {
 }
 
 function get_section {
-	grep "__section(" $DIR/$1 | sed 's/__sec[^\"]*\"\([0-9A-Za-z_-]*\).*/\1/'
+	sed -n 's/.*__section("\([0-9A-Za-z_-]*\).*/\1/p' $DIR/$1
 }
 
 function load_prog {
