@@ -137,6 +137,7 @@ cilium-agent [flags]
       --identity-allocation-mode string                      Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration                Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                               Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
+      --install-no-conntrack-iptables-rules                  Install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode.
       --ip-allocation-timeout duration                       Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ip-masq-agent-config-path string                     ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --ipam string                                          Backend to use for IPAM (default "cluster-pool")
