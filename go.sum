@@ -71,8 +71,8 @@ github.com/cespare/xxhash/v2 v2.1.0/go.mod h1:dgIUBU3pDso/gPgZ1osOZ0iQf77oPR28Tj
 github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5/go.mod h1:/iP1qXHoty45bqomnu2LM+VVyAEdWN+vtSHGlQgyxbw=
 github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b/go.mod h1:TrMrLQfeENAPYPRsJuq3jsqdlRh3lvi6trTZJG8+tho=
 github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9/go.mod h1:+tQajlRqAUrPI7DOSpB0XAqZYtQakVtB7wXkRAgjxjQ=
-github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5 h1:4f4AuCR25RFRemzNgw1FK0ZBSr9KgJVn5MiVA9K7HpI=
-github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5/go.mod h1:hnjbWhP2F454GKo6vEscP3emePUtB+5ODiGAICLgMzQ=
+github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2 h1:eYq09c1qsvgVDLgZ3gFoq+OnZt5EWBJmqCO2BcgBFdg=
+github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2/go.mod h1:BbglXLG6/USt+UydHFLglGzC3Sxs2VsrlDxI+N3mc7s=
 github.com/cilium/client-go v0.0.0-20210218151500-7f2c83ec4e67 h1:RA7KZ60V2LoRItGXtboUIeIfc66LcWd6tYIupUTPjYQ=
 github.com/cilium/client-go v0.0.0-20210218151500-7f2c83ec4e67/go.mod h1:IpXd6i0FlhG3fJ+UuEWMfTUaDw6TlmMkpjmJrmbY6tY=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3 h1:wenYMyWJ08dgEUUj0Ija8qdK/V9vL3ThAD5sjOYlFlg=
@@ -508,8 +508,6 @@ github.com/valyala/fasthttp v1.2.0/go.mod h1:4vX61m6KN+xDduDNwXrhIAVZaZaZiQ1luJk
 github.com/valyala/quicktemplate v1.1.1/go.mod h1:EH+4AkTd43SvgIbQHYu59/cJyxDoOVRUAfrukLPuGJ4=
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/vektah/gqlparser v1.1.2/go.mod h1:1ycwN7Ij5njmMkPPAOaRFY4rET2Enx7IkVv3vaXspKw=
-github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf/go.mod h1:+SR5DhBJrl6ZM7CoCKvpw5BKroDKQ+PJqOg65H/2ktk=
-github.com/vishvananda/netlink v1.0.0/go.mod h1:+SR5DhBJrl6ZM7CoCKvpw5BKroDKQ+PJqOg65H/2ktk=
 github.com/vishvananda/netlink v1.1.1-0.20210218042753-9de6d08565b3 h1:rsaegOdIrAm2976NGLNJTCNoTw+hPqd1RjCajeRlNB0=
 github.com/vishvananda/netlink v1.1.1-0.20210218042753-9de6d08565b3/go.mod h1:twkDnbuQxJYemMlGd4JFIcuhgX83tXhKS2B/PRMpOho=
 github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f h1:nBX3nTcmxEtHSERBJaIo1Qa26VwRaopnZmfDQUXsF4I=

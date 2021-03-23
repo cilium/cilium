@@ -588,26 +588,21 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) 
 	var hwAddr net.HardwareAddr
 	link := 0
 
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		neighborLog("insertNeightbor InterfaceByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
-		return
-	}
-
-	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
-	if err != nil {
-		neighborLog("insertNeightbor IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
-		return
-	}
-
 	linkAttr, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		neighborLog("insertNeightbor LinkByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		return
 	}
+
+	srcIP, err := findIPInNetworkFromIface(ciliumIPv4, linkAttr)
+	if err != nil {
+		neighborLog("insertNeightbor IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
+		return
+	}
+
 	link = linkAttr.Attrs().Index
 
-	if hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface); err == nil {
+	if hwAddr, _, err := arping.PingOverIface(ciliumIPv4, linkAttr, srcIP); err == nil {
 		neigh := netlink.Neigh{
 			LinkIndex:    link,
 			IP:           ciliumIPv4,
@@ -1179,4 +1174,19 @@ func NodeDeviceNameWithDefaultRoute() (string, error) {
 		return "", err
 	}
 	return link.Attrs().Name, nil
+}
+
+func findIPInNetworkFromIface(dstIP net.IP, link netlink.Link) (net.IP, error) {
+	addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range addrs {
+		if a.IPNet.Contains(dstIP) {
+			return a.IPNet.IP, nil
+		}
+	}
+	return nil, fmt.Errorf("iface: '%s' can't reach ip: '%s'", link.Attrs().Name, dstIP)
 }

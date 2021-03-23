@@ -67,55 +67,33 @@ import (
 	"net"
 	"os"
 	"time"
+
+	"github.com/vishvananda/netlink"
 )
 
 var (
 	// ErrTimeout error
 	ErrTimeout = errors.New("timeout")
-	ErrSize = errors.New("truncated")
+	ErrSize    = errors.New("truncated")
 
 	verboseLog = log.New(ioutil.Discard, "", 0)
 	timeout    = 1 * time.Second
+	retries    = 3
 )
 
-// Ping sends an arp ping to 'dstIP'
-func Ping(dstIP net.IP) (net.HardwareAddr, time.Duration, error) {
-	if err := validateIP(dstIP); err != nil {
-		return nil, 0, err
-	}
-
-	iface, err := findUsableInterfaceForNetwork(dstIP)
-	if err != nil {
-		return nil, 0, err
-	}
-	return PingOverIface(dstIP, *iface)
+type PingResult struct {
+	mac      net.HardwareAddr
+	duration time.Duration
+	err      error
 }
 
-// PingOverIfaceByName sends an arp ping over interface name 'ifaceName' to 'dstIP'
-func PingOverIfaceByName(dstIP net.IP, ifaceName string) (net.HardwareAddr, time.Duration, error) {
+// PingOverIface sends an arp ping over interface 'iface' to 'dstIP' from 'srcIP'
+func PingOverIface(dstIP net.IP, iface netlink.Link, srcIP net.IP) (hwAddr net.HardwareAddr, duration time.Duration, err error) {
 	if err := validateIP(dstIP); err != nil {
 		return nil, 0, err
 	}
 
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		return nil, 0, err
-	}
-	return PingOverIface(dstIP, *iface)
-}
-
-// PingOverIface sends an arp ping over interface 'iface' to 'dstIP'
-func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Duration, error) {
-	if err := validateIP(dstIP); err != nil {
-		return nil, 0, err
-	}
-
-	srcMac := iface.HardwareAddr
-	srcIP, err := FindIPInNetworkFromIface(dstIP, iface)
-	if err != nil {
-		return nil, 0, err
-	}
-
+	srcMac := iface.Attrs().HardwareAddr
 	broadcastMac := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	request := newArpRequest(srcMac, srcIP, broadcastMac, dstIP)
 
@@ -125,11 +103,17 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 	}
 	defer req.deinitialize()
 
-	type PingResult struct {
-		mac      net.HardwareAddr
-		duration time.Duration
-		err      error
+	for i := 0; i < retries; i++ {
+		hwAddr, duration, err = ping(req, request, dstIP, iface, srcIP)
+		if !errors.Is(err, ErrTimeout) {
+			return
+		}
 	}
+
+	return
+}
+
+func ping(req *requester, request arpDatagram, dstIP net.IP, iface netlink.Link, srcIP net.IP) (net.HardwareAddr, time.Duration, error) {
 	pingResultChan := make(chan PingResult)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -137,7 +121,7 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 
 	go func() {
 		// send arp request
-		verboseLog.Printf("arping '%s' over interface: '%s' with address: '%s'\n", dstIP, iface.Name, srcIP)
+		verboseLog.Printf("arping '%s' over interface: '%d' with address: '%s'\n", dstIP, iface.Attrs().Index, srcIP)
 		sendTime, err := req.send(request)
 		if err != nil {
 			select {
@@ -180,52 +164,6 @@ func PingOverIface(dstIP net.IP, iface net.Interface) (net.HardwareAddr, time.Du
 	case <-ctx.Done():
 		return nil, 0, ErrTimeout
 	}
-}
-
-// GratuitousArp sends an gratuitous arp from 'srcIP'
-func GratuitousArp(srcIP net.IP) error {
-	if err := validateIP(srcIP); err != nil {
-		return err
-	}
-
-	iface, err := findUsableInterfaceForNetwork(srcIP)
-	if err != nil {
-		return err
-	}
-	return GratuitousArpOverIface(srcIP, *iface)
-}
-
-// GratuitousArpOverIfaceByName sends an gratuitous arp over interface name 'ifaceName' from 'srcIP'
-func GratuitousArpOverIfaceByName(srcIP net.IP, ifaceName string) error {
-	if err := validateIP(srcIP); err != nil {
-		return err
-	}
-
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		return err
-	}
-	return GratuitousArpOverIface(srcIP, *iface)
-}
-
-// GratuitousArpOverIface sends an gratuitous arp over interface 'iface' from 'srcIP'
-func GratuitousArpOverIface(srcIP net.IP, iface net.Interface) error {
-	if err := validateIP(srcIP); err != nil {
-		return err
-	}
-
-	srcMac := iface.HardwareAddr
-	broadcastMac := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-	request := newArpRequest(srcMac, srcIP, broadcastMac, srcIP)
-
-	req, err := initialize(iface)
-	if err != nil {
-		return err
-	}
-	defer req.deinitialize()
-	verboseLog.Printf("gratuitous arp over interface: '%s' with address: '%s'\n", iface.Name, srcIP)
-	_, err = req.send(request)
-	return err
 }
 
 // EnableVerboseLog enables verbose logging on stdout
