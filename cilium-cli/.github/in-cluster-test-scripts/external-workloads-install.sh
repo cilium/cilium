@@ -8,6 +8,7 @@ cilium install \
   --cluster-name "${CLUSTER_NAME}" \
   --config monitor-aggregation=none \
   --config tunnel=vxlan \
+  --kube-proxy-replacement=strict \
   --native-routing-cidr="${CLUSTER_CIDR}"
 
 # Wait for Cilium status to be ready
