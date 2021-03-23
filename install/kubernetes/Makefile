@@ -131,7 +131,7 @@ lint:
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
 
 clean:
-	$(RM) $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
+	$(RM) $(QUICK_INSTALL) $(QUICK_HUBBLE_INSTALL) $(EXPERIMENTAL_INSTALL)
 
 docs:
 	$(QUIET)$(HELM_DOCS)
