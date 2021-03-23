@@ -216,6 +216,10 @@ func (c *Client) DeletePod(ctx context.Context, namespace, name string, opts met
 	return c.Clientset.CoreV1().Pods(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return c.Clientset.CoreV1().Pods(namespace).DeleteCollection(ctx, opts, listOpts)
+}
+
 func (c *Client) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
 	return c.Clientset.CoreV1().Pods(namespace).List(ctx, options)
 }

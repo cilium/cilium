@@ -87,15 +87,19 @@ const (
 	FlowRetryInterval = 500 * time.Millisecond
 )
 
-var OperatorLabels = map[string]string{
-	"io.cilium/app": "operator",
-	"name":          "cilium-operator",
-}
+var (
+	OperatorLabels = map[string]string{
+		"io.cilium/app": "operator",
+		"name":          "cilium-operator",
+	}
 
-var RelayDeploymentLabels = map[string]string{
-	"k8s-app": "hubble-relay",
-}
+	RelayDeploymentLabels = map[string]string{
+		"k8s-app": "hubble-relay",
+	}
 
-var ClusterMeshDeploymentLabels = map[string]string{
-	"k8s-app": "clustermesh-apiserver",
-}
+	ClusterMeshDeploymentLabels = map[string]string{
+		"k8s-app": "clustermesh-apiserver",
+	}
+
+	CiliumPodSelector = "k8s-app=cilium"
+)
