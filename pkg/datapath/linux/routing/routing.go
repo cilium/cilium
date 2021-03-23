@@ -34,6 +34,105 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "linux-routing")
 )
 
+// ComputeRulesAndRoutesOptions are options for ComputeRulesAndRoutes.
+type ComputeRulesAndRoutesOptions struct {
+	EgressMultiHomeIPRuleCompat bool
+	EnableIPv4Masquerade        bool
+}
+
+// ComputeRulesAndRoutes returns the rules and routes required to configure an
+// interface.
+func ComputeRulesAndRoutes(
+	ips []net.IP,
+	ipNets []net.IPNet,
+	netlinkInterfaceIndex int,
+	eniNumber int,
+	gateway net.IP,
+	options ComputeRulesAndRoutesOptions,
+) (rules []*route.Rule, routes []*netlink.Route) {
+	var egressPriority int
+	if options.EgressMultiHomeIPRuleCompat {
+		egressPriority = linux_defaults.RulePriorityEgress
+	} else {
+		egressPriority = linux_defaults.RulePriorityEgressv2
+	}
+
+	var tableID int
+	if options.EgressMultiHomeIPRuleCompat {
+		tableID = netlinkInterfaceIndex
+	} else {
+		tableID = computeTableIDFromIfaceNumber(eniNumber)
+	}
+
+	for _, ip := range ips {
+		ipWithMask := net.IPNet{
+			IP:   ip,
+			Mask: net.CIDRMask(32, 32),
+		}
+
+		// On ingress, route all traffic to the endpoint IP via the main
+		// routing table. Egress rules are created in a per-ENI routing
+		// table.
+		ingressRule := &route.Rule{
+			Priority: linux_defaults.RulePriorityIngress,
+			To:       &ipWithMask,
+			Table:    route.MainTable,
+		}
+		rules = append(rules, ingressRule)
+
+		if options.EnableIPv4Masquerade {
+			// Lookup a VPC specific table for all traffic from an endpoint
+			// to the CIDR configured for the VPC on which the endpoint has
+			// the IP on.
+			egressRules := make([]*route.Rule, 0, len(ipNets))
+			for i := range ipNets {
+				egressRule := &route.Rule{
+					Priority: egressPriority,
+					From:     &ipWithMask,
+					To:       &ipNets[i],
+					Table:    tableID,
+				}
+				egressRules = append(egressRules, egressRule)
+			}
+			rules = append(rules, egressRules...)
+		} else {
+			// Lookup a VPC specific table for all traffic from an endpoint.
+			egressRule := &route.Rule{
+				Priority: egressPriority,
+				From:     &ipWithMask,
+				Table:    tableID,
+			}
+			rules = append(rules, egressRule)
+		}
+	}
+
+	// Nexthop route to the VPC or subnet gateway. Note: This is a /32 route
+	// to avoid any L2. The endpoint does no L2 either.
+	nexthopRoute := &netlink.Route{
+		LinkIndex: netlinkInterfaceIndex,
+		Dst: &net.IPNet{
+			IP:   gateway,
+			Mask: net.CIDRMask(32, 32),
+		},
+		Scope: netlink.SCOPE_LINK,
+		Table: tableID,
+	}
+	routes = append(routes, nexthopRoute)
+
+	// Default route to the VPC or subnet gateway.
+	defaultRoute := &netlink.Route{
+		Dst: &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 32),
+		},
+		Table: tableID,
+		Gw:    gateway,
+	}
+	routes = append(routes, defaultRoute)
+
+	return
+}
+
 // Configure sets up the rules and routes needed when running in ENI or
 // Azure IPAM mode.
 // These rules and routes direct egress traffic out of the interface and
@@ -57,74 +156,27 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %s", err)
 	}
 
-	ipWithMask := net.IPNet{
-		IP:   ip,
-		Mask: net.CIDRMask(32, 32),
-	}
+	rules, routes := ComputeRulesAndRoutes(
+		[]net.IP{ip},
+		info.IPv4CIDRs,
+		ifindex,
+		info.InterfaceNumber,
+		info.IPv4Gateway,
+		ComputeRulesAndRoutesOptions{
+			EgressMultiHomeIPRuleCompat: compat,
+			EnableIPv4Masquerade:        info.Masquerade,
+		},
+	)
 
-	// On ingress, route all traffic to the endpoint IP via the main routing
-	// table. Egress rules are created in a per-ENI routing table.
-	if err := route.ReplaceRule(route.Rule{
-		Priority: linux_defaults.RulePriorityIngress,
-		To:       &ipWithMask,
-		Table:    route.MainTable,
-	}); err != nil {
-		return fmt.Errorf("unable to install ip rule: %s", err)
-	}
-
-	var egressPriority, tableID int
-	if compat {
-		egressPriority = linux_defaults.RulePriorityEgress
-		tableID = ifindex
-	} else {
-		egressPriority = linux_defaults.RulePriorityEgressv2
-		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
-	}
-
-	if info.Masquerade {
-		// Lookup a VPC specific table for all traffic from an endpoint to the
-		// CIDR configured for the VPC on which the endpoint has the IP on.
-		for _, cidr := range info.IPv4CIDRs {
-			if err := route.ReplaceRule(route.Rule{
-				Priority: egressPriority,
-				From:     &ipWithMask,
-				To:       &cidr,
-				Table:    tableID,
-			}); err != nil {
-				return fmt.Errorf("unable to install ip rule: %s", err)
-			}
-		}
-	} else {
-		// Lookup a VPC specific table for all traffic from an endpoint.
-		if err := route.ReplaceRule(route.Rule{
-			Priority: egressPriority,
-			From:     &ipWithMask,
-			Table:    tableID,
-		}); err != nil {
+	for _, rule := range rules {
+		if err := route.ReplaceRule(*rule); err != nil {
 			return fmt.Errorf("unable to install ip rule: %s", err)
 		}
 	}
-
-	// Nexthop route to the VPC or subnet gateway
-	//
-	// Note: This is a /32 route to avoid any L2. The endpoint does no L2
-	// either.
-	if err := netlink.RouteReplace(&netlink.Route{
-		LinkIndex: ifindex,
-		Dst:       &net.IPNet{IP: info.IPv4Gateway, Mask: net.CIDRMask(32, 32)},
-		Scope:     netlink.SCOPE_LINK,
-		Table:     tableID,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %s", err)
-	}
-
-	// Default route to the VPC or subnet gateway
-	if err := netlink.RouteReplace(&netlink.Route{
-		Dst:   &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
-		Table: tableID,
-		Gw:    info.IPv4Gateway,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %s", err)
+	for _, route := range routes {
+		if err := netlink.RouteReplace(route); err != nil {
+			return fmt.Errorf("unable to add L2 nexthop route: %s", err)
+		}
 	}
 
 	return nil
