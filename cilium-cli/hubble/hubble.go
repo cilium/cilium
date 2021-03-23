@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -51,12 +52,13 @@ type k8sHubbleImplementation interface {
 	CreateConfigMap(ctx context.Context, namespace string, config *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error)
 	DeleteConfigMap(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
+	PatchConfigMap(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.ConfigMap, error)
 	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
-	//	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
+	DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 }
 
 type K8sHubble struct {
@@ -129,8 +131,70 @@ func (k *K8sHubble) Validate(ctx context.Context) error {
 
 }
 
+var hubbleCfg = map[string]string{
+	// Enable Hubble gRPC service.
+	"enable-hubble": "true",
+	// UNIX domain socket for Hubble server to listen to.
+	"hubble-socket-path": defaults.HubbleSocketPath,
+	// An additional address for Hubble server to listen to (e.g. ":4244").
+	"hubble-listen-address":      ":4244",
+	"hubble-disable-tls":         "false",
+	"hubble-tls-cert-file":       "/var/lib/cilium/tls/hubble/server.crt",
+	"hubble-tls-key-file":        "/var/lib/cilium/tls/hubble/server.key",
+	"hubble-tls-client-ca-files": "/var/lib/cilium/tls/hubble/client-ca.crt",
+}
+
+func (k *K8sHubble) disableHubble(ctx context.Context) error {
+	var changes []string
+	for k := range hubbleCfg {
+		changes = append(changes, `{"op": "remove", "path": "/data/`+k+`"}`)
+	}
+	patch := []byte(`[` + strings.Join(changes, ",") + `]`)
+
+	k.Log("✨ Patching ConfigMap %s to disable Hubble...", defaults.ConfigMapName)
+	_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.JSONPatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
+	}
+
+	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
+		k.Log("⚠️  Unable to restart Clium pods: %s", err)
+	} else {
+		k.Log("♻️  Restarted Cilium pods")
+	}
+
+	return nil
+}
+
 func (k *K8sHubble) Disable(ctx context.Context) error {
-	return k.disableRelay(ctx)
+	if err := k.disableRelay(ctx); err != nil {
+		return err
+	}
+
+	return k.disableHubble(ctx)
+}
+
+func (k *K8sHubble) enableHubble(ctx context.Context) error {
+	var changes []string
+	for k, v := range hubbleCfg {
+		changes = append(changes, `"`+k+`":"`+v+`"`)
+	}
+
+	patch := []byte(`{"data":{` + strings.Join(changes, ",") + `}}`)
+
+	k.Log("✨ Patching ConfigMap %s to enable Hubble...", defaults.ConfigMapName)
+	_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
+	}
+
+	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
+		k.Log("⚠️  Unable to restart Clium pods: %s", err)
+	} else {
+		k.Log("♻️  Restarted Cilium pods")
+	}
+
+	return nil
 }
 
 func (k *K8sHubble) Enable(ctx context.Context) error {
@@ -151,6 +215,10 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 	} else {
 		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
+	}
+
+	if err := k.enableHubble(ctx); err != nil {
+		return err
 	}
 
 	if k.params.Relay {
