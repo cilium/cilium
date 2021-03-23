@@ -22,6 +22,9 @@ NODE_NAME=$(kubectl -n $NAMESPACE get pod -l k8s-app=clustermesh-apiserver -o js
 NODE_IP=$(kubectl -n $NAMESPACE get node $NODE_NAME -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
 NODE_PORT=$(kubectl -n $NAMESPACE get svc clustermesh-apiserver -o jsonpath='{.spec.ports[0].nodePort}')
 CLUSTER_NAME=$(kubectl -n $NAMESPACE get cm cilium-config -o jsonpath='{.data.cluster-name}')
+# TODO: once v1.10 is the minimum version supported, we can replace the
+# following line to use ca.crt from the clustermesh-apiserver-remote-cert
+# secret directly.
 CA_CRT=$(kubectl -n $NAMESPACE get secret clustermesh-apiserver-ca-cert -o jsonpath="{.data['ca\.crt']}")
 TLS_CRT=$(kubectl -n $NAMESPACE get secret clustermesh-apiserver-remote-cert -o jsonpath="{.data['tls\.crt']}")
 TLS_KEY=$(kubectl -n $NAMESPACE get secret clustermesh-apiserver-remote-cert -o jsonpath="{.data['tls\.key']}")
