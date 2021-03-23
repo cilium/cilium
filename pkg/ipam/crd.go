@@ -304,6 +304,12 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	if n.conf.IPAMMode() == ipamOption.IPAMENI {
+		if err := configureENIDevices(n.ownNode, node, n.mtuConfig); err != nil {
+			log.WithError(err).Errorf("Failed to update routes and rules for ENIs")
+		}
+	}
+
 	n.ownNode = node
 	n.allocationPoolSize[IPv4] = 0
 	n.allocationPoolSize[IPv6] = 0
