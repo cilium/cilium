@@ -21,9 +21,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -147,8 +150,9 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 // assume full control over. The search for the ingress rule is more likely to
 // succeed (albeit very rarely that egress deletion fails) because we are able
 // to perform a narrower search on the rule because we know it references the
-// main routing table. Deletion of both rules only proceeds if one rule matches
-// the IP & priority. If more than one rule match, then deletion is skipped.
+// main routing table. Due to multiple routing CIDRs, there might be more than
+// one egress rule. Deletion of any rule only proceeds if the rule matches
+// the IP & priority. If more than one rule matches, then deletion is skipped.
 func Delete(ip net.IP, compat bool) error {
 	if ip.To4() == nil {
 		log.WithFields(logrus.Fields{
@@ -183,15 +187,37 @@ func Delete(ip net.IP, compat bool) error {
 	}
 
 	// Egress rules
-	egress := route.Rule{
-		Priority: priority,
-		From:     &ipWithMask,
+	if info := node.GetRouterInfo(); info != nil && option.Config.IPAM == ipamOption.IPAMENI {
+		ipv4CIDRs := info.GetIPv4CIDRs()
+		cidrs := make([]*net.IPNet, 0, len(ipv4CIDRs))
+		for i := range ipv4CIDRs {
+			cidrs = append(cidrs, &ipv4CIDRs[i])
+		}
+		// Coalesce CIDRs into minimum set needed for route rules
+		// This code here mirrors interfaceAdd() in cilium-cni/interface.go
+		// and must be kept in sync when modified
+		routingCIDRs, _ := iputil.CoalesceCIDRs(cidrs)
+		for _, cidr := range routingCIDRs {
+			egress := route.Rule{
+				Priority: priority,
+				From:     &ipWithMask,
+				To:       cidr,
+			}
+			if err := deleteRule(egress); err != nil {
+				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
+			}
+			scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
+		}
+	} else {
+		egress := route.Rule{
+			Priority: priority,
+			From:     &ipWithMask,
+		}
+		if err := deleteRule(egress); err != nil {
+			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
+		}
+		scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
 	}
-	if err := deleteRule(egress); err != nil {
-		return fmt.Errorf("unable to delete egress rule with ip %s: %v", ipWithMask.String(), err)
-	}
-
-	scopedLog.WithField("rule", egress).Debug("Deleted egress rule")
 
 	return nil
 }
