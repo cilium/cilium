@@ -6,11 +6,10 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
 
 #include "lib/common.h"
-#include "lib/ipv6.h"
-#include "lib/l3.h"
-#include "lib/eth.h"
 
 #ifdef ENABLE_IPSEC
 static __always_inline int
