@@ -214,6 +214,7 @@ cilium-agent [flags]
       --tofqdns-dns-reject-response-code string              DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-dns-compression                       Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-endpoint-max-ip-per-hostname int             Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
+      --tofqdns-idle-connection-grace-period duration        Time during which idle but previously active connections with expired DNS lookups are still considered alive (default 0s)
       --tofqdns-max-deferred-connection-deletes int          Maximum number of IPs to retain for expired DNS lookups with still-active connections (default 10000)
       --tofqdns-min-ttl int                                  The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 )
       --tofqdns-pre-cache string                             DNS cache data at this path is preloaded on agent startup
