@@ -160,6 +160,14 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.WatcherClient(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
+			// endpointController has been kicked off already inside
+			// endpointSlicesInit() because we need to actually sync with K8s
+			// in order to truly determine if EndpointSlices are enabled and
+			// supported. Contrary to the default case, the endpointController
+			// is kicked off after the call to initialize it. Therefore, we
+			// break out here for two reasons, (1) to avoid falling through and
+			// (2) we don't need to kick off endpointController (calling
+			// Run()).
 			break
 		}
 		fallthrough
