@@ -555,7 +555,7 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
 	if err != nil {
-		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		log.WithError(err).Debugf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 	}
 	if regen {
 		// Regenerate logs status according to the build success/failure
