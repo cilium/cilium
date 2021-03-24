@@ -739,20 +739,26 @@ func NewDNSZombieMappings(max int) *DNSZombieMappings {
 
 // Upsert enqueues the ip -> qname as a possible deletion
 // updatedExisting is true when an earlier enqueue existed and was updated
+// If an existing entry is updated, the later expiryTime is applied to the existing entry.
 func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, ipStr string, qname ...string) (updatedExisting bool) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
 	zombie, updatedExisting := zombies.deletes[ipStr]
 	if !updatedExisting {
-		zombie = &DNSZombieMapping{}
+		zombie = &DNSZombieMapping{
+			Names:           KeepUniqueNames(qname),
+			IP:              net.ParseIP(ipStr),
+			DeletePendingAt: expiryTime,
+		}
 		zombies.deletes[ipStr] = zombie
+	} else {
+		zombie.Names = KeepUniqueNames(append(zombie.Names, qname...))
+		// Keep the latest expiry time
+		if expiryTime.After(zombie.DeletePendingAt) {
+			zombie.DeletePendingAt = expiryTime
+		}
 	}
-
-	zombie.Names = KeepUniqueNames(append(zombie.Names, qname...))
-	zombie.IP = net.ParseIP(ipStr)
-	zombie.DeletePendingAt = expiryTime
-
 	return updatedExisting
 }
 
