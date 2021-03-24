@@ -28,7 +28,6 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 
 	"github.com/vishvananda/netlink"
@@ -87,67 +86,67 @@ func updateENIRulesAndRoutes(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig Mt
 	// Ignore removed interfaces for now.
 	_ = removedResources
 
-	options := linuxrouting.ComputeRulesAndRoutesOptions{
-		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
-		EnableIPv4Masquerade:        option.Config.EnableIPv4Masquerade,
-	}
-	oldRules, oldRoutes := ciliumNodeENIRulesAndRoutes(oldNode, eniLinkByMac, options)
-	newRules, newRoutes := ciliumNodeENIRulesAndRoutes(newNode, eniLinkByMac, options)
-	addedRules, removedRules := diffRules(oldRules, newRules)
-	addedRoutes, removedRoutes := diffRoutes(oldRoutes, newRoutes)
-
-	// Add and remove rules and routes. This has to succeed so we retry
-	// multiple times.
-	maxTries := 3
-	rulesToAdd, rulesToRemove := addedRules, removedRules
-	routesToAdd, routesToRemove := addedRoutes, removedRoutes
-	var failedAddRules, failedRemoveRules []*route.Rule
-	var failedAddRoutes, failedRemoveRoutes []*netlink.Route
-	for try := 0; try < maxTries; try++ {
-		for _, rule := range rulesToAdd {
-			if err := route.ReplaceRule(*rule); err != nil {
-				log.WithError(err).WithField(logfields.Rule, rule).Errorf("Failed to add routing rule in ENI IPAM mode")
-				failedAddRules = append(failedAddRules, rule)
-			}
-		}
-
-		for _, rule := range rulesToRemove {
-			if err := route.DeleteRule(*rule); err != nil {
-				log.WithError(err).WithField(logfields.Rule, rule).Errorf("Failed to delete routing rule in ENI IPAM mode")
-				failedRemoveRules = append(failedRemoveRules, rule)
-			}
-		}
-
-		for _, route := range routesToAdd {
-			if err := netlink.RouteReplace(route); err != nil {
-				log.WithError(err).WithField(logfields.Route, route).Errorf("Failed to add L2 nexthop route in ENI IPAM mode")
-				failedAddRoutes = append(failedAddRoutes, route)
-			}
-		}
-
-		for _, route := range routesToRemove {
-			if err := netlink.RouteDel(route); err != nil {
-				log.WithError(err).WithField(logfields.Route, route).Errorf("Failed to remove L2 nexthop route in ENI IPAM mode")
-				failedRemoveRoutes = append(failedRemoveRoutes, route)
-			}
-		}
-
-		// If there were no failues, then we are done.
-		if len(failedAddRules)+len(failedRemoveRules)+len(failedAddRoutes)+len(failedRemoveRoutes) == 0 {
-			break
-		}
-
-		// Otherwise, retry with the failures and clear the list of failures.
-		rulesToAdd, failedAddRules = failedAddRules, nil
-		rulesToRemove, failedRemoveRules = failedRemoveRules, nil
-		routesToAdd, failedAddRoutes = failedAddRoutes, nil
-		routesToRemove, failedRemoveRoutes = failedRemoveRoutes, nil
-	}
-
-	// If there were still failures after retrying, then return an error.
-	if failures := len(failedAddRules) + len(failedRemoveRules) + len(failedAddRoutes) + len(failedRemoveRoutes); failures > 0 {
-		return fmt.Errorf("adding and removing %d rules and routes failed after %d tries", failures, maxTries)
-	}
+	//options := linuxrouting.ComputeRulesAndRoutesOptions{
+	//	EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
+	//	EnableIPv4Masquerade:        option.Config.EnableIPv4Masquerade,
+	//}
+	//oldRules, oldRoutes := ciliumNodeENIRulesAndRoutes(oldNode, eniLinkByMac, options)
+	//newRules, newRoutes := ciliumNodeENIRulesAndRoutes(newNode, eniLinkByMac, options)
+	//addedRules, removedRules := diffRules(oldRules, newRules)
+	//addedRoutes, removedRoutes := diffRoutes(oldRoutes, newRoutes)
+	//
+	//// Add and remove rules and routes. This has to succeed so we retry
+	//// multiple times.
+	//maxTries := 3
+	//rulesToAdd, rulesToRemove := addedRules, removedRules
+	//routesToAdd, routesToRemove := addedRoutes, removedRoutes
+	//var failedAddRules, failedRemoveRules []*route.Rule
+	//var failedAddRoutes, failedRemoveRoutes []*netlink.Route
+	//for try := 0; try < maxTries; try++ {
+	//	for _, rule := range rulesToAdd {
+	//		if err := route.ReplaceRule(*rule); err != nil {
+	//			log.WithError(err).WithField(logfields.Rule, rule).Errorf("Failed to add routing rule in ENI IPAM mode")
+	//			failedAddRules = append(failedAddRules, rule)
+	//		}
+	//	}
+	//
+	//	for _, rule := range rulesToRemove {
+	//		if err := route.DeleteRule(*rule); err != nil {
+	//			log.WithError(err).WithField(logfields.Rule, rule).Errorf("Failed to delete routing rule in ENI IPAM mode")
+	//			failedRemoveRules = append(failedRemoveRules, rule)
+	//		}
+	//	}
+	//
+	//	for _, route := range routesToAdd {
+	//		if err := netlink.RouteReplace(route); err != nil {
+	//			log.WithError(err).WithField(logfields.Route, route).Errorf("Failed to add L2 nexthop route in ENI IPAM mode")
+	//			failedAddRoutes = append(failedAddRoutes, route)
+	//		}
+	//	}
+	//
+	//	for _, route := range routesToRemove {
+	//		if err := netlink.RouteDel(route); err != nil {
+	//			log.WithError(err).WithField(logfields.Route, route).Errorf("Failed to remove L2 nexthop route in ENI IPAM mode")
+	//			failedRemoveRoutes = append(failedRemoveRoutes, route)
+	//		}
+	//	}
+	//
+	//	// If there were no failues, then we are done.
+	//	if len(failedAddRules)+len(failedRemoveRules)+len(failedAddRoutes)+len(failedRemoveRoutes) == 0 {
+	//		break
+	//	}
+	//
+	//	// Otherwise, retry with the failures and clear the list of failures.
+	//	rulesToAdd, failedAddRules = failedAddRules, nil
+	//	rulesToRemove, failedRemoveRules = failedRemoveRules, nil
+	//	routesToAdd, failedAddRoutes = failedAddRoutes, nil
+	//	routesToRemove, failedRemoveRoutes = failedRemoveRoutes, nil
+	//}
+	//
+	//// If there were still failures after retrying, then return an error.
+	//if failures := len(failedAddRules) + len(failedRemoveRules) + len(failedAddRoutes) + len(failedRemoveRoutes); failures > 0 {
+	//	return fmt.Errorf("adding and removing %d rules and routes failed after %d tries", failures, maxTries)
+	//}
 
 	return nil
 }
