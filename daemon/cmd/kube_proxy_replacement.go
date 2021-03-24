@@ -228,32 +228,29 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		probe.HaveIPv6Support()
 
 		option.Config.EnableHostServicesPeer = true
-		if option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME) != nil ||
-			option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME) != nil {
-			option.Config.EnableHostServicesPeer = false
-		}
-
-		if option.Config.EnableHostServicesTCP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
-			msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
-			if strict {
-				log.Fatal(msg)
-			} else {
-				option.Config.EnableHostServicesTCP = false
-				log.Warn(msg + " Disabling the feature.")
+		if option.Config.EnableIPv4 {
+			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME); err != nil {
+				log.WithError(err).Warn("Disabling HostServicesPeer feature.")
+				option.Config.EnableHostServicesPeer = false
 			}
 		}
-		if option.Config.EnableHostServicesUDP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
-			if strict {
-				log.Fatal(msg)
-			} else {
-				option.Config.EnableHostServicesUDP = false
-				log.Warn(msg + " Disabling the feature.")
+		if option.Config.EnableIPv6 {
+			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME); err != nil {
+				log.WithError(err).Warn("Disabling HostServicesPeer feature.")
+				option.Config.EnableHostServicesPeer = false
 			}
+		}
+		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv4 {
+			probeCgroupSupportTCP(strict, true)
+		}
+		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv6 {
+			probeCgroupSupportTCP(strict, false)
+		}
+		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv4 {
+			probeCgroupSupportUDP(strict, true)
+		}
+		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv6 {
+			probeCgroupSupportUDP(strict, false)
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
 			option.Config.EnableHostReachableServices = false
@@ -345,6 +342,46 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	return
+}
+
+func probeCgroupSupportTCP(strict, ipv4 bool) {
+	var err error
+
+	if ipv4 {
+		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT)
+	} else {
+		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT)
+	}
+	if err != nil {
+		scopedLog := log.WithError(err)
+		msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
+		if strict {
+			scopedLog.Fatal(msg)
+		} else {
+			option.Config.EnableHostServicesTCP = false
+			scopedLog.Warn(msg + " Disabling the feature.")
+		}
+	}
+}
+
+func probeCgroupSupportUDP(strict, ipv4 bool) {
+	var err error
+
+	if ipv4 {
+		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG)
+	} else {
+		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG)
+	}
+	if err != nil {
+		scopedLog := log.WithError(err)
+		msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+		if strict {
+			scopedLog.Fatal(msg)
+		} else {
+			option.Config.EnableHostServicesUDP = false
+			scopedLog.Warn(msg + " Disabling the feature.")
+		}
+	}
 }
 
 // handleNativeDevices tries to detect bpf_host devices (if needed).
