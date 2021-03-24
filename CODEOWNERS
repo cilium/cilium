@@ -17,6 +17,7 @@
 # @cilium/kubernetes         K8s integration, K8s CNI plugin
 # @cilium/kvstore            Key/Value store: Consul, etcd
 # @cilium/loadbalancer       Load balancer
+# @cilium/loader             All related to LLVM, bpftool, Cilium loader, templating, etc.
 # @cilium/operator           Cilium operator
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
@@ -38,9 +39,11 @@
 /api/v1/peer/ @cilium/api @cilium/hubble
 /bpf/ @cilium/bpf
 Makefile* @cilium/build
-/bpf/Makefile* @cilium/build @cilium/bpf
-/bpf/custom/Makefile* @cilium/build @cilium/bpf
-/bpf/sockops/Makefile* @cilium/build @cilium/bpf
+/bpf/Makefile* @cilium/build @cilium/loader
+/bpf/cilium-map-migrate.c @cilium/loader
+/bpf/init.sh @cilium/loader
+/bpf/custom/Makefile* @cilium/build @cilium/loader
+/bpf/sockops/Makefile* @cilium/build @cilium/loader
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli
 /cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
@@ -149,7 +152,12 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/components/ @cilium/agent
 /pkg/controller @cilium/agent
 /pkg/counter @cilium/bpf
-/pkg/datapath @cilium/bpf
+/pkg/datapath/ @cilium/bpf
+/pkg/datapath/linux/config/ @cilium/loader
+/pkg/datapath/linux/probes/ @cilium/loader
+/pkg/datapath/linux/requirements.go @cilium/loader
+/pkg/datapath/loader.go @cilium/loader
+/pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/agent
 /pkg/ebpf @cilium/bpf
@@ -216,10 +224,12 @@ Jenkinsfile.nightly @cilium/ci-structure
 /test/runtime/lb.go @cilium/loadbalancer @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/bpf
+/test/bpf/check-complexity.sh @cilium/loader
+/test/bpf/verifier-test.sh @cilium/loader
 /test/k8sT/Bandwidth.go @cilium/bpf @cilium/ci-structure
 /test/k8sT/Chaos.go @cilium/bpf @cilium/ci-structure
 /test/k8sT/DatapathConfiguration.go @cilium/bpf @cilium/ci-structure
-/test/k8sT/Verifier.go @cilium/bpf @cilium/ci-structure
+/test/k8sT/Verifier.go @cilium/loader @cilium/ci-structure
 /test/runtime/benchmark.go @cilium/bpf @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/bpf @cilium/ci-structure
 # Policy tests
