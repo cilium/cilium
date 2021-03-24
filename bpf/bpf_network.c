@@ -3,6 +3,7 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
+#include <linux/ip.h>
 
 #include <node_config.h>
 #include <netdev_config.h>
@@ -11,10 +12,7 @@
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
-#include "lib/eth.h"
-#include "lib/dbg.h"
 #include "lib/trace.h"
-#include "lib/l3.h"
 #include "lib/drop.h"
 
 #ifdef ENABLE_IPV6
