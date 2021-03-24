@@ -676,7 +676,8 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	// Cause 1.1.1.1 to die by not marking it alive before the second GC
 	//zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
 	now = now.Add(time.Second)
-	zombies.MarkAlive(now, net.ParseIP("2.2.2.2"))
+	// Mark 2.2.2.2 alive with 1 second grace period
+	zombies.MarkAlive(now.Add(time.Second), net.ParseIP("2.2.2.2"))
 	zombies.SetCTGCTime(now)
 
 	// alive should contain 2.2.2.2 -> somethingelse.com
@@ -706,13 +707,24 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
 	})
 
+	// Cause all zombies but 2.2.2.2 to die
+	now = now.Add(time.Second)
+	zombies.SetCTGCTime(now)
+	alive, dead = zombies.GC()
+	c.Assert(alive, HasLen, 1)
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
+	})
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"onemorething.com"},
+	})
+
 	// Cause all zombies to die
 	now = now.Add(time.Second)
 	zombies.SetCTGCTime(now)
 	alive, dead = zombies.GC()
 	c.Assert(alive, HasLen, 0)
 	assertZombiesContain(c, dead, map[string][]string{
-		"1.1.1.1": {"onemorething.com"},
 		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
 	})
 }
