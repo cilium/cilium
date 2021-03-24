@@ -318,6 +318,9 @@ Port Range / Protocol    Description
 4240/tcp                 cluster health checks (``cilium-health``)
 4244/tcp                 Hubble server
 4245/tcp                 Hubble Relay
+6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
+6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)
+6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
 6942/tcp                 operator Prometheus metrics
 9090/tcp                 cilium-agent Prometheus metrics
 9876/tcp                 cilium-agent health status API
