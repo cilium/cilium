@@ -131,19 +131,19 @@ pipeline {
                         // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
                         NETNEXT="""${sh(
                             returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
+                            script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "1"; else echo -n "0"; fi'
                             )}"""
                         K8S_NODES="""${sh(
                             returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "3"; else echo -n "2"; fi'
+                            script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "3"; else echo -n "2"; fi'
                             )}"""
                         NO_CILIUM_ON_NODE="""${sh(
                             returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
+                            script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "k8s3"; else echo -n ""; fi'
                             )}"""
                         KUBEPROXY="""${sh(
                             returnStdout: true,
-                            script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
+                            script: 'if [ "${KERNEL}" = "netnext" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
                             )}"""
                     }
                     steps {
@@ -207,19 +207,19 @@ pipeline {
                 // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
                 NETNEXT="""${sh(
                     returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
+                    script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "1"; else echo -n "0"; fi'
                     )}"""
                 K8S_NODES="""${sh(
                     returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "3"; else echo -n "2"; fi'
+                    script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "3"; else echo -n "2"; fi'
                     )}"""
                 NO_CILIUM_ON_NODE="""${sh(
                     returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
+                    script: 'if [ "${KERNEL}" = "netnext" ]; then echo -n "k8s3"; else echo -n ""; fi'
                     )}"""
                 KUBEPROXY="""${sh(
                     returnStdout: true,
-                    script: 'if [ "${KERNEL}" = "net-next" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
+                    script: 'if [ "${KERNEL}" = "netnext" ] || [ "${KERNEL}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
                     )}"""
                 CILIUM_IMAGE = "quay.io/cilium/cilium-ci"
                 CILIUM_TAG = "${DOCKER_TAG}"

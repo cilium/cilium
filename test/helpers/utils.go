@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -500,7 +500,7 @@ func RunsOnNetNextKernel() bool {
 		return true
 	}
 	netNext = os.Getenv("KERNEL")
-	return netNext == "net-next"
+	return netNext == "netnext"
 }
 
 // DoesNotRunOnNetNextKernel is the complement function of RunsOnNetNextKernel.
