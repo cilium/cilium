@@ -739,7 +739,7 @@ func NewDNSZombieMappings(max int) *DNSZombieMappings {
 
 // Upsert enqueues the ip -> qname as a possible deletion
 // updatedExisting is true when an earlier enqueue existed and was updated
-func (zombies *DNSZombieMappings) Upsert(now time.Time, ipStr string, qname ...string) (updatedExisting bool) {
+func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, ipStr string, qname ...string) (updatedExisting bool) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
@@ -751,17 +751,17 @@ func (zombies *DNSZombieMappings) Upsert(now time.Time, ipStr string, qname ...s
 
 	zombie.Names = KeepUniqueNames(append(zombie.Names, qname...))
 	zombie.IP = net.ParseIP(ipStr)
-	zombie.DeletePendingAt = now
+	zombie.DeletePendingAt = expiryTime
 
 	return updatedExisting
 }
 
-// isAlive returns true when a CT GC has completed without marking this zombie
-// alive. This occurs when:
-//  DeletePendingAt <= lastCTGCUpdate (i.e. CT GC has not happened yet), or
-//  AliveAt is not 0 and AliveAt >= lastCTGCUpdate (i.e it is marked by the CT GC run)
+// isConnectionAlive returns true if 'zombie' is considered alive.
+// Zombie is considered dead if both of these conditions apply:
+// 1. CT GC has run after the DNS Expiry time and grace period (lastCTGCUpdate > DeletePendingAt + GracePeriod), and
+// 2. The CG GC run did not mark the Zombie alive (lastCTGCUpdate > AliveAt)
+// otherwise the Zombie is alive.
 func (zombies *DNSZombieMappings) isConnectionAlive(zombie *DNSZombieMapping) bool {
-	// These are opposite because there is no BeforeEquals with time.Time :/
 	return !(zombies.lastCTGCUpdate.After(zombie.DeletePendingAt) && zombies.lastCTGCUpdate.After(zombie.AliveAt))
 }
 
@@ -869,12 +869,12 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip net.IP) {
 // collector and the CT GC. This would occur when a DNS zombie that has not
 // been visited by the CT GC run is seen by a concurrent DNS garbage collector
 // run, and then deleted.
-// When now is later than an alive timestamp, set with MarkAlive, the zombie is
+// When 'ctGCStart' is later than an alive timestamp, set with MarkAlive, the zombie is
 // no longer alive. Thus, this call acts as a gating function for what data is
 // returned by GC.
-func (zombies *DNSZombieMappings) SetCTGCTime(now time.Time) {
+func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart time.Time) {
 	zombies.Lock()
-	zombies.lastCTGCUpdate = now
+	zombies.lastCTGCUpdate = ctGCStart
 	zombies.Unlock()
 }
 
