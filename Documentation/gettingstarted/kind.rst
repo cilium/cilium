@@ -171,9 +171,6 @@ Make sure context is set to ``kind-cluster2`` cluster.
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
-      --set etcd.enabled=true \\
-      --set etcd.managed=true \\
-      --set identityAllocationMode=kvstore \\
       --set cluster.name=cluster2 \\
       --set cluster.id=2
 
@@ -193,9 +190,6 @@ Change the kubectl context to ``kind-cluster1`` cluster:
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
-      --set etcd.enabled=true \\
-      --set etcd.managed=true \\
-      --set identityAllocationMode=kvstore \\
       --set cluster.name=cluster1 \\
       --set cluster.id=1
 

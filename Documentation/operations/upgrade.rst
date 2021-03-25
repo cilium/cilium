@@ -387,6 +387,9 @@ Removed Options
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
+* ``etcd.managed``: The managed etcd mode is being deprecated. The option and
+  all relevant code will be removed in 1.11. If you are using managed etcd, you
+  will need to run & deploy the etcd-operator yourself.
 * ``bpf-compile-debug``: This option does not have any effect since 1.10
   and is planned to be removed in 1.11.
 * ``k8s-force-json-patch``: This option does not have any effect for

@@ -16,8 +16,7 @@ definitions (CRDs). This is the simplest installation method as it only depends
 on Kubernetes and does not require additional external dependencies. It is a
 good option for environments up to about 250 nodes. For bigger environments or
 for environments which want to leverage the clustermesh functionality, a
-kvstore set up is required which can be set up using an
-:ref:`k8s_install_etcd` or using the :ref:`k8s_install_etcd_operator`.
+kvstore set up is required which can be set up using an :ref:`k8s_install_etcd`.
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.

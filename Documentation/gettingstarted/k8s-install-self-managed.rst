@@ -17,6 +17,5 @@ for details on when etcd is required.
    :glob:
 
    k8s-install-default
-   k8s-install-etcd-operator
    k8s-install-external-etcd
    k8s-install-openshift-okd

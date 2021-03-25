@@ -133,7 +133,6 @@ contributors across the globe, there is almost always someone available to help.
 | eni.subnetTagsFilter | string | `""` | Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs |
 | eni.updateEC2AdapterLimitViaAPI | bool | `false` | Update ENI Adapter limits from the EC2 API |
 | etcd.clusterDomain | string | `"cluster.local"` | Cluster domain for cilium-etcd-operator. |
-| etcd.clusterSize | int | `3` | Size of the managed etcd cluster. |
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |
 | etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints (not needed when using managed=true). |
 | etcd.extraArgs | list | `[]` | Additional cilium-etcd-operator container arguments |
@@ -142,7 +141,6 @@ contributors across the globe, there is almost always someone available to help.
 | etcd.extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod |
 | etcd.image | object | `{"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7"}` | cilium-etcd-operator image. |
 | etcd.k8sService | bool | `false` | If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running. |
-| etcd.managed | bool | `false` | Enable managed etcd mode based on the cilium-etcd-operator. |
 | etcd.nodeSelector | object | `{}` | Node labels for cilium-etcd-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | etcd.podAnnotations | object | `{}` | Annotations to be added to cilium-etcd-operator pods |
 | etcd.podDisruptionBudget | object | `{"enabled":true,"maxUnavailable":2}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |

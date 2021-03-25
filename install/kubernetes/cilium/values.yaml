@@ -1120,14 +1120,8 @@ etcd:
   # running.
   k8sService: false
 
-  # -- Enable managed etcd mode based on the cilium-etcd-operator.
-  managed: false
-
   # -- Cluster domain for cilium-etcd-operator.
   clusterDomain: cluster.local
-
-  # -- Size of the managed etcd cluster.
-  clusterSize: 3
 
   # -- List of etcd endpoints (not needed when using managed=true).
   endpoints:

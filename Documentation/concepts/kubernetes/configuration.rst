@@ -70,8 +70,7 @@ enabled.
       namespace: kube-system
     data:
       # The kvstore configuration is used to enable use of a kvstore for state
-      # storage. This can either be provided with an external kvstore or with the
-      # help of cilium-etcd-operator which operates an etcd cluster automatically.
+      # storage.
       kvstore: etcd
       kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
 
