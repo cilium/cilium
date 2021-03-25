@@ -1084,7 +1084,7 @@ func (k *K8sInstaller) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
-func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
+func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 	m := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaults.ConfigMapName,
@@ -1182,8 +1182,9 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 			"masquerade":            "true",
 			"enable-bpf-masquerade": "true",
 
-			"enable-xt-socket-fallback": "true",
-			"install-iptables-rules":    "true",
+			"enable-xt-socket-fallback":           "true",
+			"install-iptables-rules":              "true",
+			"install-no-conntrack-iptables-rules": "false",
 
 			"auto-direct-node-routes":             "false",
 			"enable-bandwidth-manager":            "true",
@@ -1266,7 +1267,30 @@ func (k *K8sInstaller) generateConfigMap() *corev1.ConfigMap {
 		m.Data[key] = value
 	}
 
-	return m
+	if m.Data["install-no-conntrack-iptables-rules"] == "true" {
+		switch k.params.DatapathMode {
+		case DatapathAwsENI:
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled on AWS EKS")
+		case DatapathGKE:
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled on Google GKE")
+		case DatapathAzure:
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled on Azure AKS")
+		}
+
+		if m.Data["tunnel"] != "disabled" {
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires tunneling to be disabled")
+		}
+
+		if m.Data["kube-proxy-replacement"] != "strict" {
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires kube-proxy replacement to be enabled")
+		}
+
+		if m.Data["cni-chaining-mode"] != "" {
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled with CNI chaining")
+		}
+	}
+
+	return m, nil
 }
 
 func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
@@ -1453,7 +1477,12 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 
 	k.Log("🚀 Creating ConfigMap...")
-	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateConfigMap(), metav1.CreateOptions{}); err != nil {
+	configMap, err := k.generateConfigMap()
+	if err != nil {
+		return fmt.Errorf("cannot generate ConfigMap: %w", err)
+	}
+
+	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, configMap, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
