@@ -166,20 +166,20 @@ var _ = Describe("K8sCustomCalls", func() {
 
 			cmd := fmt.Sprintf("kubectl -n kube-system cp %s %s:%s", localObjFile, ciliumPod, remoteObjFile)
 			res := kubectl.Exec(cmd)
-			res.ExpectSuccess(fmt.Sprintf("Failed to copy custom program from %s to %s:%s: %s",
-				localObjFile, ciliumPod, remoteObjFile, res.Stderr()))
+			res.ExpectSuccess(fmt.Sprintf("Failed to copy custom program from %s to %s:%s",
+				localObjFile, ciliumPod, remoteObjFile))
 
 			By("Loading custom byte-counter program")
 
 			cmd = fmt.Sprintf("bpftool prog load %s %s type classifier pinmaps %s", remoteObjFile, progPinPath, mapsPinDir)
 			res = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, cmd)
-			res.ExpectSuccess(fmt.Sprintf("Failed to load custom program ('%s'): %s", cmd, res.Stderr()))
+			res.ExpectSuccess("Failed to load custom program")
 		}
 
 		getIdentityKey := func(label string, ciliumPod string) string {
 			cmd := fmt.Sprintf("cilium endpoint list -o json | jq '.[].status.identity|select(.labels[]|contains(\"%s\")).id'", label)
 			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, cmd)
-			res.ExpectSuccess(fmt.Sprintf("Failed to retrieve pod identity ('%s'): %s", cmd, res.Stderr()))
+			res.ExpectSuccess("Failed to retrieve pod identity")
 			identity, err := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to convert pod identity to an integer (%s)", err))
 			return fmt.Sprintf("%d %d %d %d",
@@ -211,7 +211,7 @@ var _ = Describe("K8sCustomCalls", func() {
 			cmd := fmt.Sprintf("bpftool map update pinned %scilium_calls_custom_%05d key %d 0 0 0 value pinned %s",
 				bpffsDir, endpointId, direction, progPinPath)
 			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, cmd)
-			res.ExpectSuccess(fmt.Sprintf("Failed to update call map with reference to custom program ('%s'): %s", cmd, res.Stderr()))
+			res.ExpectSuccess("Failed to update call map with reference to custom program")
 
 			By("Sending traffic between the pods")
 
@@ -223,7 +223,7 @@ var _ = Describe("K8sCustomCalls", func() {
 
 			cmd = fmt.Sprintf("bpftool -j map lookup pinned %s key %s | jq -r '.value[]'", mapPinPath, serverIdentity)
 			res = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, cmd)
-			res.ExpectSuccess(fmt.Sprintf("Failed to lookup byte-counter value ('%s'): %s", cmd, res.Stderr()))
+			res.ExpectSuccess("Failed to lookup byte-counter value")
 
 			// Output from bpftool is on the form
 			// "0x11\n0x22\n0x33\n...0x88\n", convert it.
