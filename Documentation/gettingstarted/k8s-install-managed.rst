@@ -9,9 +9,7 @@ Managed Kubernetes
 ******************
 
 The following guides cover the installation steps for managed Kubernetes
-environments as offered by cloud providers. If a particular offering is not
-covered, the guide :ref:`k8s_install_etcd_operator` has a good chance of
-working out of the box as well.
+environments as offered by cloud providers.
 
 .. toctree::
    :maxdepth: 1

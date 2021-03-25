@@ -13,9 +13,7 @@ Installation with external etcd
 
 This guide walks you through the steps required to set up Cilium on Kubernetes
 using an external etcd. Use of an external etcd provides better performance and
-is suitable for larger environments. If you are looking for a simple
-installation method to get started, refer to the section
-:ref:`k8s_install_etcd_operator`.
+is suitable for larger environments.
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on :ref:`slack`.

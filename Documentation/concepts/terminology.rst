@@ -256,9 +256,6 @@ dependencies.
 ======================== =================== ==================== ================= =========== ============================================================================
 Deployment               Namespace           ServiceAccount       Cluster Name      Numeric ID  Labels
 ======================== =================== ==================== ================= =========== ============================================================================
-cilium-etcd-operator     <cilium-namespace>  cilium-etcd-operator <cilium-cluster>  107         ``name=cilium-etcd-operator``, ``io.cilium/app=etcd-operator``
-etcd-operator            <cilium-namespace>  cilium-etcd-sa       <cilium-cluster>  100         ``io.cilium/app=etcd-operator``
-cilium-etcd              <cilium-namespace>  default              <cilium-cluster>  101         ``app=etcd``, ``etcd_cluster=cilium-etcd``, ``io.cilium/app=etcd-operator``
 kube-dns                 kube-system         kube-dns             <cilium-cluster>  102         ``k8s-app=kube-dns``
 kube-dns (EKS)           kube-system         kube-dns             <cilium-cluster>  103         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``
 core-dns                 kube-system         coredns              <cilium-cluster>  104         ``k8s-app=kube-dns``

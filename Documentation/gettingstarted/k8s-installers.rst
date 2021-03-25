@@ -10,8 +10,8 @@ Installer Integrations
 
 The following list includes the Kubernetes installer integrations we are aware
 of. If your preferred installer is not in the list, you can always fall back to
-the standard :ref:`k8s_install_etcd_operator` guide which works independently
-any installer.
+the standard :ref:`k8s_quick_install` guide which works independently any
+installer.
 
 .. toctree::
    :maxdepth: 1
