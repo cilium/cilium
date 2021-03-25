@@ -139,6 +139,10 @@ var _ = Describe("K8sCustomCalls", func() {
 			cmd = fmt.Sprintf("make -C %s V=0", bpfCustomDir)
 			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, compilerPodName, cmd)
 			res.ExpectSuccess("Failed to build custom byte-counter program")
+
+			cmd = fmt.Sprintf("make -C %s V=0", "cilium")
+			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, compilerPodName, cmd)
+			res.ExpectSuccess("Failed to build cilium CLI")
 		})
 
 		AfterAll(func() {
@@ -237,6 +241,26 @@ var _ = Describe("K8sCustomCalls", func() {
 				fmt.Sprintf("Byte count (%d) differs from expected value (%d)", count, expectedCount))
 		}
 
+		getMissedCustomCallsCount := func(ciliumPod string,
+			direction string) int {
+
+			cmd := fmt.Sprintf("cilium bpf metrics list -o jsonpath='{$[?(@.reason==11)].values.%s.packets}'", direction)
+			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, cmd)
+			res.ExpectSuccess("Failed to lookup metrics for missed tail calls to custom programs")
+
+			// If the metrics is missing from the output, consider
+			// it is a zero value
+			output := strings.TrimSpace(res.Stdout())
+			if output == "" {
+				return 0
+			}
+
+			count, err := strconv.Atoi(output)
+			ExpectWithOffset(2, err).ToNot(HaveOccurred(),
+				fmt.Sprintf("Failed to convert metrics value: %s", err))
+			return count
+		}
+
 		cleanupByteCounter := func(endpointId int64, ciliumPod string,
 			serverIdentity string, direction customCallDirection) {
 
@@ -282,6 +306,11 @@ var _ = Describe("K8sCustomCalls", func() {
 			expectedCountIngress, expectedCountEgress uint,
 			runEgress bool) {
 
+			var metrics = map[string]int{
+				"ingress": 0,
+				"egress":  0,
+			}
+
 			// Deploy Cilium, enable tail calls to custom programs
 			deploymentManager.DeployCilium(ciliumOptions, DeployCiliumOptionsAndDNS)
 
@@ -306,6 +335,12 @@ var _ = Describe("K8sCustomCalls", func() {
 			// the byte-counter hash map.
 			identityKey := getIdentityKey("k8s:id=app1", ciliumPodK8s1)
 
+			// Collect initial value for metrics on skipped tail
+			// calls to custom programs
+			for direction := range metrics {
+				metrics[direction] = getMissedCustomCallsCount(ciliumPodK8s2, direction)
+			}
+
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil())
 
@@ -326,6 +361,20 @@ var _ = Describe("K8sCustomCalls", func() {
 				podApp1.Status.PodIP, identityKey, EgressIPv4,
 				expectedCountEgress)
 			cleanupByteCounter(endpointId, ciliumPodK8s2, identityKey, EgressIPv4)
+
+			By("Making sure metrics for skipped calls to custom programs are incremented")
+
+			// We expect the value to have raised for both
+			// directions, even if we have a program attached. This
+			// is because the metrics is common to all tail calls
+			// to custom programs, for all endpoints (the only
+			// distinction is ingress/egress), and other endpoints
+			// in our network do not have custom programs attached.
+			for direction, current := range metrics {
+				metrics[direction] = getMissedCustomCallsCount(ciliumPodK8s2, direction) - current
+				ExpectWithOffset(1, metrics[direction]).To(BeNumerically(">", 0),
+					fmt.Sprintf("Value not incremented (delta: %d) for %s metrics for skipped calls", metrics[direction], direction))
+			}
 		}
 
 		It("Loads byte-counter and gets consistent values", func() {
