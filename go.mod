@@ -75,7 +75,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/vishvananda/netlink v1.1.1-0.20201231054507-6ffafa9fc19b
+	github.com/vishvananda/netlink v1.1.1-0.20210324230033-66fce01bfa0e
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.1.10
@@ -115,9 +115,6 @@ require (
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-
-	// Using cilium/netlink until XFRM patches merged upstream
-	github.com/vishvananda/netlink => github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.

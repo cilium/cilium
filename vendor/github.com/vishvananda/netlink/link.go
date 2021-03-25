@@ -555,6 +555,27 @@ const (
 	BOND_ARP_VALIDATE_ALL
 )
 
+var bondArpValidateToString = map[BondArpValidate]string{
+	BOND_ARP_VALIDATE_NONE:   "none",
+	BOND_ARP_VALIDATE_ACTIVE: "active",
+	BOND_ARP_VALIDATE_BACKUP: "backup",
+	BOND_ARP_VALIDATE_ALL:    "none",
+}
+var StringToBondArpValidateMap = map[string]BondArpValidate{
+	"none":   BOND_ARP_VALIDATE_NONE,
+	"active": BOND_ARP_VALIDATE_ACTIVE,
+	"backup": BOND_ARP_VALIDATE_BACKUP,
+	"all":    BOND_ARP_VALIDATE_ALL,
+}
+
+func (b BondArpValidate) String() string {
+	s, ok := bondArpValidateToString[b]
+	if !ok {
+		return fmt.Sprintf("BondArpValidate(%d)", b)
+	}
+	return s
+}
+
 // BondPrimaryReselect type
 type BondPrimaryReselect int
 
@@ -565,6 +586,25 @@ const (
 	BOND_PRIMARY_RESELECT_FAILURE
 )
 
+var bondPrimaryReselectToString = map[BondPrimaryReselect]string{
+	BOND_PRIMARY_RESELECT_ALWAYS:  "always",
+	BOND_PRIMARY_RESELECT_BETTER:  "better",
+	BOND_PRIMARY_RESELECT_FAILURE: "failure",
+}
+var StringToBondPrimaryReselectMap = map[string]BondPrimaryReselect{
+	"always":  BOND_PRIMARY_RESELECT_ALWAYS,
+	"better":  BOND_PRIMARY_RESELECT_BETTER,
+	"failure": BOND_PRIMARY_RESELECT_FAILURE,
+}
+
+func (b BondPrimaryReselect) String() string {
+	s, ok := bondPrimaryReselectToString[b]
+	if !ok {
+		return fmt.Sprintf("BondPrimaryReselect(%d)", b)
+	}
+	return s
+}
+
 // BondArpAllTargets type
 type BondArpAllTargets int
 
@@ -573,6 +613,23 @@ const (
 	BOND_ARP_ALL_TARGETS_ANY BondArpAllTargets = iota
 	BOND_ARP_ALL_TARGETS_ALL
 )
+
+var bondArpAllTargetsToString = map[BondArpAllTargets]string{
+	BOND_ARP_ALL_TARGETS_ANY: "any",
+	BOND_ARP_ALL_TARGETS_ALL: "all",
+}
+var StringToBondArpAllTargetsMap = map[string]BondArpAllTargets{
+	"any": BOND_ARP_ALL_TARGETS_ANY,
+	"all": BOND_ARP_ALL_TARGETS_ALL,
+}
+
+func (b BondArpAllTargets) String() string {
+	s, ok := bondArpAllTargetsToString[b]
+	if !ok {
+		return fmt.Sprintf("BondArpAllTargets(%d)", b)
+	}
+	return s
+}
 
 // BondFailOverMac type
 type BondFailOverMac int
@@ -583,6 +640,25 @@ const (
 	BOND_FAIL_OVER_MAC_ACTIVE
 	BOND_FAIL_OVER_MAC_FOLLOW
 )
+
+var bondFailOverMacToString = map[BondFailOverMac]string{
+	BOND_FAIL_OVER_MAC_NONE:   "none",
+	BOND_FAIL_OVER_MAC_ACTIVE: "active",
+	BOND_FAIL_OVER_MAC_FOLLOW: "follow",
+}
+var StringToBondFailOverMacMap = map[string]BondFailOverMac{
+	"none":   BOND_FAIL_OVER_MAC_NONE,
+	"active": BOND_FAIL_OVER_MAC_ACTIVE,
+	"follow": BOND_FAIL_OVER_MAC_FOLLOW,
+}
+
+func (b BondFailOverMac) String() string {
+	s, ok := bondFailOverMacToString[b]
+	if !ok {
+		return fmt.Sprintf("BondFailOverMac(%d)", b)
+	}
+	return s
+}
 
 // BondXmitHashPolicy type
 type BondXmitHashPolicy int
@@ -675,6 +751,25 @@ const (
 	BOND_AD_SELECT_COUNT
 )
 
+var bondAdSelectToString = map[BondAdSelect]string{
+	BOND_AD_SELECT_STABLE:    "stable",
+	BOND_AD_SELECT_BANDWIDTH: "bandwidth",
+	BOND_AD_SELECT_COUNT:     "count",
+}
+var StringToBondAdSelectMap = map[string]BondAdSelect{
+	"stable":    BOND_AD_SELECT_STABLE,
+	"bandwidth": BOND_AD_SELECT_BANDWIDTH,
+	"count":     BOND_AD_SELECT_COUNT,
+}
+
+func (b BondAdSelect) String() string {
+	s, ok := bondAdSelectToString[b]
+	if !ok {
+		return fmt.Sprintf("BondAdSelect(%d)", b)
+	}
+	return s
+}
+
 // BondAdInfo represents ad info for bond
 type BondAdInfo struct {
 	AggregatorId int
@@ -706,7 +801,7 @@ type Bond struct {
 	AllSlavesActive int
 	MinLinks        int
 	LpInterval      int
-	PackersPerSlave int
+	PacketsPerSlave int
 	LacpRate        BondLacpRate
 	AdSelect        BondAdSelect
 	// looking at iproute tool AdInfo can only be retrived. It can't be set.
@@ -739,7 +834,7 @@ func NewLinkBond(atr LinkAttrs) *Bond {
 		AllSlavesActive: -1,
 		MinLinks:        -1,
 		LpInterval:      -1,
-		PackersPerSlave: -1,
+		PacketsPerSlave: -1,
 		LacpRate:        -1,
 		AdSelect:        -1,
 		AdActorSysPrio:  -1,
