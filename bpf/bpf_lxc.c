@@ -498,9 +498,12 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 					CTX_ACT_DROP, METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
-	if (!encode_custom_prog_meta(ctx, ret, dstID))
+	if (!encode_custom_prog_meta(ctx, ret, dstID)) {
 		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV6_EGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
 #endif
 
 	return ret;
@@ -906,9 +909,12 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 					CTX_ACT_DROP, METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
-	if (!encode_custom_prog_meta(ctx, ret, dstID))
+	if (!encode_custom_prog_meta(ctx, ret, dstID)) {
 		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV4_EGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
 #endif
 
 	return ret;
@@ -1185,9 +1191,12 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	 * incoming packet (before redirecting, and on the way back from the
 	 * proxy).
 	 */
-	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label))
+	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
 		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
 #endif
 
 	return ret;
@@ -1260,9 +1269,13 @@ out:
 	 * incoming packet (before redirecting, and on the way back from the
 	 * proxy).
 	 */
-	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_identity))
+	if (!proxy_redirect &&
+	    !encode_custom_prog_meta(ctx, ret, src_identity)) {
 		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
 #endif
 
 	return ret;
@@ -1487,9 +1500,12 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	 * incoming packet (before redirecting, and on the way back from the
 	 * proxy).
 	 */
-	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label))
+	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
 		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
 #endif
 
 	return ret;
@@ -1561,9 +1577,13 @@ out:
 	 * incoming packet (before redirecting, and on the way back from the
 	 * proxy).
 	 */
-	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_identity))
+	if (!proxy_redirect &&
+	    !encode_custom_prog_meta(ctx, ret, src_identity)) {
 		tail_call_static(ctx, &CUSTOM_CALLS_MAP,
 				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_MISSED_CUSTOM_CALL);
+	}
 #endif
 
 	return ret;
