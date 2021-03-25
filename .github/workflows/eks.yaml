@@ -1,0 +1,179 @@
+name: ConformanceEKS
+
+on:
+  issue_comment:
+    types:
+      - created
+  push:
+    branches:
+      - master
+  ### FOR TESTING PURPOSES
+  # pull_request:
+  #  types:
+  #    - "labeled"
+  ###
+
+env:
+  clusterName: cilium-cli-ci-${{ github.run_id }}
+  region: us-east-2
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  installation-and-connectivity:
+    if: ${{ (github.event.issue.pull_request && startsWith(github.event.comment.body, 'ci-eks')) || github.event_name == 'push' || github.event.label.name == 'ci-run/eks' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            PR_SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            PR_NUMBER=$(echo "$PR_API_JSON" | jq -r ".number")
+            echo ::set-output name=is_pr::true
+            echo ::set-output name=sha::${PR_SHA}
+            echo ::set-output name=owner::${PR_NUMBER}
+          else
+            echo ::set-output name=is_pr::
+            echo ::set-output name=sha::${{ github.sha }}
+            echo ::set-output name=owner::${{ github.sha }}
+          fi
+
+      - name: Set PR status check to pending
+        if: ${{ steps.vars.outputs.is_pr }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+      - name: Install Cilium CLI
+        run: |
+          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.4/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@cefc5912bc61e2b5a3b049c839fc283c7712d4e0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
+          aws-region: ${{ env.region }}
+
+      - name: Create EKS cluster without nodegroup
+        run: |
+          eksctl create cluster \
+            --name ${{ env.clusterName }} \
+            --tags "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
+            --without-nodegroup
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-aws-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+
+      - name: Install Cilium
+        run: |
+          cilium install \
+            --cluster-name ${{ env.clusterName }} \
+            --wait=false \
+            --config monitor-aggregation=none \
+            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --operator-image=quay.io/${{ github.repository_owner }}/operator-aws-ci \
+            --version ${{ steps.vars.outputs.sha }}
+
+      - name: Add managed spot nodegroup
+        run: |
+          eksctl create nodegroup \
+            --cluster ${{ env.clusterName }} \
+            --managed \
+            --spot \
+            --nodes 2 \
+            --node-private-networking
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Port forward Relay
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test --test '!pod-to-local-nodeport'
+
+      - name: Post-test information gathering
+        if: ${{ always() }}
+        run: |
+          cilium status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
+
+      - name: Clean up EKS
+        if: ${{ always() }}
+        run: |
+          eksctl delete cluster --name ${{ env.clusterName }}
+
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
+
+      - name: Set PR status check to success
+        if: ${{ steps.vars.outputs.is_pr && success() }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+      - name: Set PR status check to failure
+        if: ${{ steps.vars.outputs.is_pr && failure() }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+      - name: Set PR status check to cancelled
+        if: ${{ steps.vars.outputs.is_pr && cancelled() }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test cancelled
+          state: pending
+          target_url: ${{ env.check_url }}
