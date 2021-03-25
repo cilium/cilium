@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -22,6 +23,23 @@ const (
 	SCOPE_HOST     Scope = unix.RT_SCOPE_HOST
 	SCOPE_NOWHERE  Scope = unix.RT_SCOPE_NOWHERE
 )
+
+func (s Scope) String() string {
+	switch s {
+	case SCOPE_UNIVERSE:
+		return "universe"
+	case SCOPE_SITE:
+		return "site"
+	case SCOPE_LINK:
+		return "link"
+	case SCOPE_HOST:
+		return "host"
+	case SCOPE_NOWHERE:
+		return "nowhere"
+	default:
+		return "unknown"
+	}
+}
 
 const (
 	RT_FILTER_PROTOCOL uint64 = 1 << (1 + iota)
@@ -518,6 +536,20 @@ func (h *Handle) RouteAdd(route *Route) error {
 	return h.routeHandle(route, req, nl.NewRtMsg())
 }
 
+// RouteAppend will append a route to the system.
+// Equivalent to: `ip route append $route`
+func RouteAppend(route *Route) error {
+	return pkgHandle.RouteAppend(route)
+}
+
+// RouteAppend will append a route to the system.
+// Equivalent to: `ip route append $route`
+func (h *Handle) RouteAppend(route *Route) error {
+	flags := unix.NLM_F_CREATE | unix.NLM_F_APPEND | unix.NLM_F_ACK
+	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	return h.routeHandle(route, req, nl.NewRtMsg())
+}
+
 // RouteReplace will add a route to the system.
 // Equivalent to: `ip route replace $route`
 func RouteReplace(route *Route) error {
@@ -907,7 +939,7 @@ func deserializeRoute(m []byte) (Route, error) {
 	}
 	route := Route{
 		Scope:    Scope(msg.Scope),
-		Protocol: int(msg.Protocol),
+		Protocol: RouteProtocol(int(msg.Protocol)),
 		Table:    int(msg.Table),
 		Type:     int(msg.Type),
 		Tos:      int(msg.Tos),
@@ -1292,4 +1324,55 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 	}()
 
 	return nil
+}
+
+func (p RouteProtocol) String() string {
+	switch int(p) {
+	case unix.RTPROT_BABEL:
+		return "babel"
+	case unix.RTPROT_BGP:
+		return "bgp"
+	case unix.RTPROT_BIRD:
+		return "bird"
+	case unix.RTPROT_BOOT:
+		return "boot"
+	case unix.RTPROT_DHCP:
+		return "dhcp"
+	case unix.RTPROT_DNROUTED:
+		return "dnrouted"
+	case unix.RTPROT_EIGRP:
+		return "eigrp"
+	case unix.RTPROT_GATED:
+		return "gated"
+	case unix.RTPROT_ISIS:
+		return "isis"
+	//case unix.RTPROT_KEEPALIVED:
+	//	return "keepalived"
+	case unix.RTPROT_KERNEL:
+		return "kernel"
+	case unix.RTPROT_MROUTED:
+		return "mrouted"
+	case unix.RTPROT_MRT:
+		return "mrt"
+	case unix.RTPROT_NTK:
+		return "ntk"
+	case unix.RTPROT_OSPF:
+		return "ospf"
+	case unix.RTPROT_RA:
+		return "ra"
+	case unix.RTPROT_REDIRECT:
+		return "redirect"
+	case unix.RTPROT_RIP:
+		return "rip"
+	case unix.RTPROT_STATIC:
+		return "static"
+	case unix.RTPROT_UNSPEC:
+		return "unspec"
+	case unix.RTPROT_XORP:
+		return "xorp"
+	case unix.RTPROT_ZEBRA:
+		return "zebra"
+	default:
+		return strconv.Itoa(int(p))
+	}
 }
