@@ -136,6 +136,37 @@ func ICMP(typ uint32) FlowFilterImplementation {
 	return &icmpFilter{typ: typ}
 }
 
+type icmpv6Filter struct {
+	typ uint32
+}
+
+func (i *icmpv6Filter) Match(flow *flowpb.Flow) bool {
+	l4 := flow.GetL4()
+	if l4 == nil {
+		return false
+	}
+
+	icmpv6 := l4.GetICMPv6()
+	if icmpv6 == nil {
+		return false
+	}
+
+	if icmpv6.Type != i.typ {
+		return false
+	}
+
+	return true
+}
+
+func (i *icmpv6Filter) String() string {
+	return fmt.Sprintf("icmpv6(%d)", i.typ)
+}
+
+// ICMPv6 matches on ICMPv6 messages of the specified type
+func ICMPv6(typ uint32) FlowFilterImplementation {
+	return &icmpv6Filter{typ: typ}
+}
+
 type udpFilter struct {
 	srcPort int
 	dstPort int
