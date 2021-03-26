@@ -73,7 +73,7 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 	 */
 	if ((ret & 0xff) != ret)
 		return -1;
-	custom_meta |= (ret & 0xff) << 24;
+	custom_meta |= (__u32)(ret & 0xff) << 24;
 	custom_meta |= (identity & 0xffffff);
 	ctx_store_meta(ctx, CB_CUSTOM_CALLS, custom_meta);
 	return 0;
