@@ -605,6 +605,13 @@ func (ai *accessInformation) etcdConfiguration() string {
 	return cfg
 }
 
+func (ai *accessInformation) validate() bool {
+	return ai.ClusterName != "" &&
+		ai.ClusterName != "default" &&
+		ai.ClusterID != "" &&
+		ai.ClusterID != "0"
+}
+
 func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, endpoints []string, verbose bool) (*accessInformation, error) {
 	cm, err := client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -839,7 +846,7 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return err
 	}
 
-	if aiRemote.ClusterName == "" || aiRemote.ClusterName == "default" || aiRemote.ClusterID == "" || aiRemote.ClusterID == "0" {
+	if !aiRemote.validate() {
 		return fmt.Errorf("remote cluster has non-unique name (%s) and/or ID (%s)", aiRemote.ClusterName, aiRemote.ClusterID)
 	}
 
@@ -849,7 +856,7 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 		return err
 	}
 
-	if aiLocal.ClusterName == "" || aiLocal.ClusterName == "default" || aiLocal.ClusterID == "" || aiLocal.ClusterID == "0" {
+	if !aiLocal.validate() {
 		return fmt.Errorf("local cluster has non-unique name (%s) and/or ID (%s)", aiLocal.ClusterName, aiLocal.ClusterID)
 	}
 
