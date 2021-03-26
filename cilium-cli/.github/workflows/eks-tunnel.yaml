@@ -76,6 +76,7 @@ jobs:
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
           ./eksctl delete cluster --name ${{ env.clusterName }}
+        shell: bash {0}
 
       - name: Upload Artifacts
         if: ${{ always() }}
