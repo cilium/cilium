@@ -19,13 +19,13 @@ set -eo pipefail
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
 MAPTOOL=$(dirname $0)/../../tools/maptool/maptool
-ALL_TC_PROGS="bpf_lxc bpf_host bpf_network bpf_overlay custom/bpf_custom"
+ALL_TC_PROGS="bpf_lxc bpf_host bpf_network bpf_overlay"
 TC_PROGS=${TC_PROGS:-$ALL_TC_PROGS}
 ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 CG_PROGS=${CG_PROGS:-$ALL_CG_PROGS}
 ALL_XDP_PROGS="bpf_xdp"
 XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
-IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests"
+IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests custom/bpf_custom"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 VERBOSE=false
 RUN_ALL_TESTS=false

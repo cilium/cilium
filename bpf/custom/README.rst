@@ -61,7 +61,7 @@ The following steps indicate how to use this example program.
 
 2. Load and pin the byte-counter program. Bpftool can do it::
 
-       # bpftool prog load bpf/custom/bpf_custom.o \
+       # bpftool prog load bpf/custom/bytecount.o \
            /sys/fs/bpf/tc/globals/bytecounter \
            type classifier \
            pinmaps /sys/fs/bpf/tc/globals/bytecounter_maps
@@ -112,13 +112,20 @@ First, write a custom program, and make sure it does not interfere with the
 logics of the datapath. It is recommended to define a custom function and to
 include it in the “landing point” program from bpf_custom.c.
 
-Then, compile your program. If reusing bpf_custom.c, this is easy to do. Just
-pass the name of the file containing the ``custom_prog`` function when calling
-make::
+Then, compile your program. If reusing bpf_custom.c, this is easy to do. The
+Makefile should use bpf_custom.c as a basis for compiling each .h header file
+found in the directory::
 
-       $ BPF_CUSTOM_PROG_FILE=custom_function.h make -C bpf/custom
+    $ make -C bpf/custom
+
+If you want to build a single program, just pass the name of the file
+containing the ``custom_prog`` function when calling make::
+
+    $ BPF_CUSTOM_PROG_FILE=custom_function.h make -C bpf/custom
 
 The environment variable ``BPF_CUSTOM_PROG_NAME`` is similarly available to set
 the name of the ELF section where the resulting program will be located. This
 is often used to set either the program name, or, depending on the loading
-method, to indicate the type of the program to the loader.
+method, to indicate the type of the program to the loader. It will default to
+the base name (without the extension) of the .h file used to compile the
+program.
