@@ -315,6 +315,16 @@ Annotations:
 1.10 Upgrade Notes
 ------------------
 
+.. important::
+
+   Please review the following changes before upgrading to 1.10 as some of the
+   changes may require an action in your cluster before upgrading.
+
+* The encryption key ID has been limited to 2 bits (stored in the skb mark) in
+  order to guarantee compatibility with kube-proxy in all environments. If you
+  are using an encryption key ID in the range 4-15 then you *must* rotate the
+  key ID to a value of 1-3 before upgrading. Values outside of the range 1-3
+  will be rejected in 1.10.
 * Cilium has bumped the minimal Kubernetes version supported to v1.13.0.
 * When using the ENI-based IPAM in conjunction with the ``--eni-tags``, failures
   to create tags are treated as errors which will result in ENIs not being
