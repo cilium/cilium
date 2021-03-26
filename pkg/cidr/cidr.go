@@ -17,6 +17,7 @@ package cidr
 import (
 	"bytes"
 	"fmt"
+	"github.com/vishvananda/netlink"
 	"net"
 )
 
@@ -149,4 +150,53 @@ func MustParseCIDR(str string) *CIDR {
 		panic(fmt.Sprintf("Unable to parse CIDR '%s': %s", str, err))
 	}
 	return c
+}
+
+// Version returns the IP version for an IP, or 0 if the IP is not valid.
+func IPVersion(i *net.IP) int {
+	if i.To4() != nil {
+		return 4
+	} else if len(*i) == net.IPv6len {
+		return 6
+	}
+	return 0
+}
+
+// matchCIDRs matchs an IP address against a list of cidrs.
+// If the list is empty, it always matches.
+func matchCIDRs(ip net.IP, cidrs []*net.IPNet) bool {
+	if len(cidrs) == 0 {
+		return true
+	}
+	for _, cidr := range cidrs {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func DetectCIDRByCIDR(cidr *CIDR, version int) (netlink.Link, net.IP, *net.IPNet, error) {
+	netIfaces, err := netlink.LinkList()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("Can't detect the CIDR: Failed to enumerate interfaces: %w", err)
+	}
+
+	cidrs := []*net.IPNet{cidr.IPNet}
+	// Loop through interfaces filtering on the CIDR
+	for idx := len(netIfaces) - 1; idx >= 0; idx-- {
+		iface := netIfaces[idx]
+		addrs, err := netlink.AddrList(iface, netlink.FAMILY_ALL)
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ip := addr.IP
+			ipNet := addr.IPNet
+			if IPVersion(&ip) == version && ip.IsGlobalUnicast() && matchCIDRs(ip, cidrs) {
+				return iface, ip, ipNet, nil
+			}
+		}
+	}
+	return nil, nil, nil, fmt.Errorf("no valid IPv%d addresses found on the host interfaces", version)
 }

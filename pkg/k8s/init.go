@@ -143,6 +143,14 @@ func useNodeCIDR(n *nodeTypes.Node) {
 	}
 }
 
+// setNodeTunnelEndpointIPv4 sets the tunnel endpoint IPv4 addr defined
+// in the given node
+func setNodeTunnelEndpointIPv4(n *nodeTypes.Node) {
+	if tAddr := n.GetNodeTunnelEndpointIPv4(); tAddr != nil {
+		node.SetTunnelEndpointIPv4(tAddr)
+	}
+}
+
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init(conf k8sconfig.Configuration) error {
@@ -233,6 +241,8 @@ func WaitForNodeInformation() error {
 		}).Info("Received own node information from API server")
 
 		useNodeCIDR(n)
+		// Set node tunnel endpoint IPv4 address
+		setNodeTunnelEndpointIPv4(n)
 
 		// Note: Node IPs are derived regardless of
 		// option.Config.EnableIPv4 and

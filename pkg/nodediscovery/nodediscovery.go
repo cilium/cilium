@@ -210,6 +210,14 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
+	// Add the tunnel endpoint address here
+	if node.GetTunnelEndpointIPv4() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeTunnelEndpointIP,
+			IP:   node.GetTunnelEndpointIPv4(),
+		})
+	}
+
 	if node.GetIPv6Router() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,

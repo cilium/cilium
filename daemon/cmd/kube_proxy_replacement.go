@@ -697,7 +697,16 @@ func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, err
 }
 
 func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
-	nodeIP := node.GetK8sNodeIP()
+	// nodeIP here is the tunnel endpoint IP when option.Config.Tunnel == option.TunnelDisabled
+	// and the tunnel endpoint address is manually set
+	// Here we should set the device to where the tunnel endpoint IP address locates since
+	// the actual data path device for bpf_host uses this device when the tunnel endpoint is manually
+	// selected, which is different from the default value of just the k8s nodeIP.
+	nodeIP := node.GetTunnelEndpointIPv4()
+	if nodeIP == nil || option.Config.Tunnel == option.TunnelDisabled {
+		nodeIP = node.GetK8sNodeIP()
+	}
+
 	if nodeIP == nil {
 		return "", fmt.Errorf("K8s Node IP is not set")
 	}

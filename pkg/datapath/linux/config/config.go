@@ -94,6 +94,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4Router().String())
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4Addrs())
+	if tunnelIP := node.GetTunnelEndpointIPv4(); tunnelIP != nil {
+		fmt.Fprintf(fw, " cilium.v4.tunnelendpoint.str %s\n", tunnelIP.String())
+	}
+
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
 		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
@@ -442,6 +446,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
 		}
+	}
+
+	// Manually defined a tunnel endpoint IPv4 CIDR
+	if tunnelEndpointIPv4CIDR := option.Config.GetTunnelEndpointIPv4CIDR(); tunnelEndpointIPv4CIDR != nil {
+		cDefinesMap["TUNNEL_ENDPOINT_IPV4_CIDR"] = tunnelEndpointIPv4CIDR.String()
 	}
 
 	if option.Config.EnableBandwidthManager {

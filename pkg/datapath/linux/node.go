@@ -894,8 +894,10 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	var (
 		oldIP4Cidr, oldIP6Cidr *cidr.CIDR
 		oldIP4, oldIP6         net.IP
+		oldTunnelEndpointIP4   net.IP
 		newIP4                 = newNode.GetNodeIP(false)
 		newIP6                 = newNode.GetNodeIP(true)
+		newTunnelEndpointIP4   = newNode.GetNodeTunnelEndpointIPv4()
 		oldKey, newKey         uint8
 		isLocalNode            = false
 	)
@@ -905,6 +907,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldIP6Cidr = oldNode.IPv6AllocCIDR
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
+		oldTunnelEndpointIP4 = oldNode.GetNodeTunnelEndpointIPv4()
 		oldKey = oldNode.EncryptionKey
 	}
 
@@ -956,9 +959,26 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
+		// If the tunnel endpoint IPv4 is manually set in config, use this addr instead of the nodeIP
+		var oldTunnelIP4, newTunnelIP4 net.IP
+		if oldTunnelEndpointIP4 != nil && newTunnelEndpointIP4 != nil {
+			// Use the pre-configured tunnel endpoint IPv4 address instead of the node IP as the tunnel endpoint address
+			oldTunnelIP4 = oldTunnelEndpointIP4
+			newTunnelIP4 = newTunnelEndpointIP4
+		} else if newTunnelEndpointIP4 != nil {
+			oldTunnelIP4 = oldIP4
+			newTunnelIP4 = newTunnelEndpointIP4
+		} else if oldTunnelEndpointIP4 != nil {
+			oldTunnelIP4 = oldTunnelEndpointIP4
+			newTunnelIP4 = newIP4
+		} else {
+			oldTunnelIP4 = oldIP4
+			newTunnelIP4 = newIP4
+		}
+
+		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldTunnelIP4, newTunnelIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
+		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldTunnelIP4, newTunnelIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR}, isLocalNode)

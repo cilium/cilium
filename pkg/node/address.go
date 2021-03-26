@@ -59,6 +59,8 @@ var (
 	ipsecKeyIdentity uint8
 
 	wireguardPubKey string
+	// IPv4 tunnel endpoint Address, which is the interface IP matching the pre-set turnnel endpoint CIDR
+	ipv4TunnelEndpointAddress net.IP
 )
 
 type RouterInfo interface {
@@ -147,10 +149,19 @@ func InitDefaultPrefix(device string) {
 func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
 	var inheritedIP net.IP
 	var err error
+	var preferredIP net.IP
+
+	// If tunnel endpoint IPv4 is set, it's preferred; otherwise the k8sNodeIP is used
+	if option.Config.Tunnel != option.TunnelDisabled {
+		preferredIP = GetTunnelEndpointIPv4()
+	}
+	if preferredIP == nil {
+		preferredIP = GetK8sNodeIP()
+	}
 
 	if option.Config.EnableIPv4 {
 		if inheritIPAddrFromDevice != "" {
-			inheritedIP, err = firstGlobalV4Addr(inheritIPAddrFromDevice, GetK8sNodeIP(), !preferPublicIP)
+			inheritedIP, err = firstGlobalV4Addr(inheritIPAddrFromDevice, preferredIP, !preferPublicIP)
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", inheritIPAddrFromDevice)
 			}
@@ -160,7 +171,7 @@ func InitNodePortAddrs(devices []string, inheritIPAddrFromDevice string) error {
 			if inheritIPAddrFromDevice != "" {
 				ipv4NodePortAddrs[device] = inheritedIP
 			} else {
-				ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), !preferPublicIP)
+				ip, err := firstGlobalV4Addr(device, preferredIP, !preferPublicIP)
 				if err != nil {
 					return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
 				}
@@ -280,6 +291,17 @@ func GetK8sExternalIPv4() net.IP {
 // only in the ENI IPAM mode.
 func GetRouterInfo() RouterInfo {
 	return routerInfo
+}
+
+// GetTunnelEndpointIPv4 return the tunnel endpoint IPv4 address
+func GetTunnelEndpointIPv4() net.IP {
+	return ipv4TunnelEndpointAddress
+}
+
+// SetTunnelEndpointIPv4 sets the tunnel endpoint IPv4 address.
+// It must be reachable on the network.
+func SetTunnelEndpointIPv4(ip net.IP) {
+	ipv4TunnelEndpointAddress = ip
 }
 
 // SetRouterEniInfo sets additional information for the router. It is applicable

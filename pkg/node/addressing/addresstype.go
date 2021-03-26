@@ -26,4 +26,5 @@ const (
 	NodeExternalDNS      AddressType = "ExternalDNS"
 	NodeInternalDNS      AddressType = "InternalDNS"
 	NodeCiliumInternalIP AddressType = "CiliumInternalIP"
+	NodeTunnelEndpointIP AddressType = "TunnelEndpointIP"
 )

@@ -781,6 +781,9 @@ const (
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "native-routing-cidr"
 
+	// TunnelEndpointIPv4CIDR describes a CIDR which the tunnel endpoint IP lies on
+	TunnelEndpointIPv4CIDR = "tunnel-endpoint-ipv4-cidr"
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
@@ -1760,6 +1763,9 @@ type DaemonConfig struct {
 	// ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	ipv4NativeRoutingCIDR *cidr.CIDR
 
+	// TunnelEndpointIPv4CIDR describes CIDRs which the tunnel endpoint IP lies on
+	ipv4TunnelEndpointCIDR *cidr.CIDR
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
@@ -2019,6 +2025,14 @@ func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Unlock()
 }
 
+// TunnelEndpointIPv4CIDR returns the tunnel endpoint CIDR if configured
+func (c *DaemonConfig) GetTunnelEndpointIPv4CIDR() (cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.RLock()
+	cidr = c.ipv4TunnelEndpointCIDR
+	c.ConfigPatchMutex.RUnlock()
+	return
+}
+
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
@@ -2225,6 +2239,11 @@ func (c *DaemonConfig) Validate() error {
 	}
 
 	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	// check the tunnel endpoint IPv4 cidr is right
+	if err := c.checkIPv4TunnelEndpointCIDR(); err != nil {
 		return err
 	}
 
@@ -2521,6 +2540,11 @@ func (c *DaemonConfig) Populate() {
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
+	}
+
+	// Get the configured tunnel endpoint IPv4 cidr
+	if tunnelIPv4CIDR := viper.GetString(TunnelEndpointIPv4CIDR); tunnelIPv4CIDR != "" {
+		c.ipv4TunnelEndpointCIDR = cidr.MustParseCIDR(tunnelIPv4CIDR)
 	}
 
 	if err := c.calculateBPFMapSizes(); err != nil {
@@ -2914,6 +2938,19 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
 			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
+	}
+
+	return nil
+}
+
+// check the tunnel endpoint IPv4 cidr can match an actual interface IP
+func (c *DaemonConfig) checkIPv4TunnelEndpointCIDR() error {
+	tunnelEndpointIPv4CIDR := c.GetTunnelEndpointIPv4CIDR()
+	log.WithField(logfields.CIDR, tunnelEndpointIPv4CIDR).Info("Check Tunnel Endpoint IPv4 CIDR")
+	if tunnelEndpointIPv4CIDR != nil && c.Tunnel != TunnelDisabled && c.EnableIPv4 {
+		if _, _, _, err := cidr.DetectCIDRByCIDR(tunnelEndpointIPv4CIDR, 4); err != nil {
+			return fmt.Errorf("Can't detect the cidr for an actual interface IP: %s", tunnelEndpointIPv4CIDR.String())
+		}
 	}
 
 	return nil

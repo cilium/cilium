@@ -235,6 +235,7 @@ cilium-agent [flags]
       --tofqdns-proxy-response-max-delay duration            The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
       --trace-payloadlen int                                 Length of payload to capture when tracing (default 128)
   -t, --tunnel string                                        Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
+      --tunnel-endpoint-ipv4-cidr string                     Allows to explicitly specify the CIDR for the tunnel endpoint IP which the user desires.
       --version                                              Print version information
       --write-cni-conf-when-ready string                     Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
