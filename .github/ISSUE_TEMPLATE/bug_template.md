@@ -31,7 +31,7 @@ security@cilium.io - first, before disclosing them in any public forums.
 
 - Cilium version (run `cilium version`)
 - Kernel version (run `uname -a`)
-- Orchestration system version in use (e.g. `kubectl version`, Mesos, ...)
+- Orchestration system version in use (e.g. `kubectl version`, ...)
 - Link to relevant artifacts (policies, deployments scripts, ...)
 - Generate and upload a system zip:
 ```
