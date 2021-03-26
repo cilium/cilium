@@ -1335,8 +1335,14 @@ func initEnv(cmd *cobra.Command) {
 	initClockSourceOption()
 	initSockmapOption()
 
-	if option.Config.EnableHostFirewall && option.Config.EnableIPSec {
-		log.Fatal("IPSec cannot be used with the host firewall.")
+	if option.Config.EnableHostFirewall {
+		if option.Config.EnableIPSec {
+			log.Fatal("IPSec cannot be used with the host firewall.")
+		}
+		if option.Config.EnableEndpointRoutes && !option.Config.EnableRemoteNodeIdentity {
+			log.Fatalf("The host firewall requires remote-node identities (%s) when running with %s",
+				option.EnableRemoteNodeIdentity, option.EnableEndpointRoutes)
+		}
 	}
 
 	if option.Config.EnableBandwidthManager && option.Config.EnableIPSec {
