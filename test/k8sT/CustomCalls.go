@@ -114,7 +114,7 @@ var _ = Describe("K8sCustomCalls", func() {
 			// Initialize all paths. This cannot be done at
 			// variable declaration because kubectl is not set when
 			// the Context is initialized.
-			objFileName = "bpf_custom.o"
+			objFileName = "bytecount.o"
 			localObjFile = filepath.Join(kubectl.BasePath(), "../bpf/custom", objFileName)
 			remoteObjFile = filepath.Join("/run/cilium/state", objFileName)
 
