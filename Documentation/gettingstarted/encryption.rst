@@ -191,7 +191,7 @@ To replace cilium-ipsec-keys secret with a new keys,
 
 .. code-block:: shell-session
 
-    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^keys:/ {print $2}' | base64 -d | awk '{print $1}')
+    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^\s*keys:/ {print $2}' | base64 -d | awk '{print $1}')
     if [[ $KEYID -gt 2 ]]; then KEYID=1; fi
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
