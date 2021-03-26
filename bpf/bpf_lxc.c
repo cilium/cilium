@@ -1721,7 +1721,11 @@ int handle_to_container(struct __ctx_buff *ctx)
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,
 	 * jump to bpf_host to enforce egress host policies before anything else.
-	 * We will jump back to bpf_lxc once host policies are enforced.
+	 *
+	 * We will jump back to bpf_lxc once host policies are enforced. Whenever
+	 * we call inherit_identity_from_host, the packet mark is cleared. Thus,
+	 * when we jump back, the packet mark will have been cleared and the
+	 * identity won't match HOST_ID anymore.
 	 */
 	if (identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
