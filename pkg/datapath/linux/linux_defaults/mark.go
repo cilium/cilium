@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ package linux_defaults
 // following way:
 //
 //  1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
-// +-------------------------------+-------+-------+---------------+
-// |L L L L L L L L L L L L L L L L|R R R R|M M M M|U U U U U U U U|
-// +-------------------------------+-------+-------+---------------+
+// +-------------------------------+---+---+-------+---------------+
+// |L L L L L L L L L L L L L L L L|R R|E E|M M M M|U U U U U U U U|
+// +-------------------------------+---+---+-------+---------------+
 //  identity                        k8s     mark    identity
 //
 // Identity (24 bits):
@@ -30,14 +30,16 @@ package linux_defaults
 // +-----------------------------------------------+
 //  1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
 //
-// Kubernetes Mark (4 bits):
-// R R R R
-// 0 1 0 0  Masquerade
-// 1 0 0 0  Drop
+// Kubernetes Mark (2 bits):
+// 0 1  Masquerade
+// 1 0  Drop
 //
 // Cilium Mark (4 bits):
 // M M M M
 // (see MARK_MAGIC_* in bpf/lib/common.h)
+//
+// Encryption ID (2 bits):
+// E E  Key ID
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
 	// bits from a mark.
@@ -71,6 +73,9 @@ const (
 	// MagicMarkIdentity determines that the traffic carries a security
 	// identity in the skb->mark
 	MagicMarkIdentity int = 0x0F00
+
+	// MagicMarkPortmap is used by portmap (https://github.com/fwmark/registry/#bitwise-mark-registry)
+	MagicMarkPortmap int = 0x2000
 
 	// MagicMarkK8sMasq determines that the traffic should be masqueraded
 	// by kube-proxy in kubernetes environments.

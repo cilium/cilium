@@ -456,6 +456,29 @@ enum {
 
 /* Magic ctx->mark identifies packets origination and encryption status.
  *
+ *  1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2
+ * +-------------------------------+---+---+-------+---------------+
+ * |L L L L L L L L L L L L L L L L|R R|E E|M M M M|U U U U U U U U|
+ * +-------------------------------+---+---+-------+---------------+
+ *  identity                        k8s     mark    identity
+ *
+ * Identity (24 bits):
+ * +-----------------------------------------------+
+ * |U U U U U U U U|L L L L L L L L L L L L L L L L|
+ * +-----------------------------------------------+
+ *  1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4
+ *
+ * Kubernetes Mark (2 bits):
+ * 0 1  Masquerade
+ * 1 0  Drop
+ *
+ * Cilium Mark (4 bits):
+ * M M M M
+ * (see MARK_MAGIC_* below)
+ *
+ * Encryption ID (2 bits):
+ * E E  Key ID
+ *
  * The upper 16 bits plus lower 8 bits (e.g. mask 0XFFFF00FF) contain the
  * packets security identity. The lower/upper halves are swapped to recover
  * the identity.
@@ -465,7 +488,14 @@ enum {
  *    an ingress or egress proxy, a local process and its current encryption
  *    status.
  *
- * The 4 bits at 0xF000 provide
+ * The 2 bits at 0x3000 provide
+ *  - the key index to use for encryption when multiple keys are in-flight.
+ *    In the IPsec case this becomes the SPI on the wire.
+ *
+ * The 1 bit at 0x2000 is used by portmap CNI in chaining mode. It is not used
+ * by the eBPF implementation of portmap.
+ *
+ * The 2 bits at 0xC000 are reserved for Kubernetes (kube-proxy)
  *  - the key index to use for encryption when multiple keys are in-flight.
  *    In the IPsec case this becomes the SPI on the wire.
  */
@@ -478,8 +508,8 @@ enum {
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 
-#define MARK_MAGIC_KEY_ID		0xF000
-#define MARK_MAGIC_KEY_MASK		0xFF00
+#define MARK_MAGIC_KEY_ID		0x3000
+#define MARK_MAGIC_KEY_MASK		0x3F00
 
 /* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
  * overlap with MARK_MAGIC_KEY_ID.
@@ -524,8 +554,8 @@ enum {
 #define DSR_IPV6_OPT_LEN	0x14	/* to store ipv6 addr + port */
 #define DSR_IPV6_EXT_LEN	0x2	/* = (sizeof(dsr_opt_v6) - 8) / 8 */
 
-/* We cap key index at 4 bits because mark value is used to map ctx to key */
-#define MAX_KEY_INDEX 15
+/* We cap key index at 2 bits because mark value is used to map ctx to key */
+#define MAX_KEY_INDEX 3
 
 /* encrypt_key is the index into the encrypt map */
 struct encrypt_key {
