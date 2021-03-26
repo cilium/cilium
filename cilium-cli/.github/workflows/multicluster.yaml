@@ -118,6 +118,7 @@ jobs:
           python cilium-sysdump.zip --output cilium-sysdump-out
           gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }}
           gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }}
+        shell: bash {0}
 
       - name: Upload Artifacts
         if: ${{ always() }}
