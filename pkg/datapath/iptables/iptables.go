@@ -125,9 +125,9 @@ func getFeedRule(name, args string) []string {
 	return append(argsList, ruleTail...)
 }
 
-// skipPodToPodConntrack returns true if it's possible to install iptables
-// `-j NOTRACK` rules to skip tracking pod-to-pod traffic.
-func skipPodToPodConntrack(ipv6 bool) bool {
+// skipPodTrafficConntrack returns true if it's possible to install iptables
+// `-j NOTRACK` rules to skip tracking pod traffic.
+func skipPodTrafficConntrack(ipv6 bool) bool {
 	return !ipv6 && option.Config.InstallNoConntrackIptRules
 }
 
@@ -743,8 +743,8 @@ func endpointNoTrackRules(prog string, cmd string, IP string, port *lb.L4Addr, i
 
 func InstallEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	// Do not install per endpoint NOTRACK rules if we are already skipping
-	// conntrack for all pod-to-pod traffic.
-	if skipPodToPodConntrack(ipv6) {
+	// conntrack for all pod traffic.
+	if skipPodTrafficConntrack(ipv6) {
 		return nil
 	}
 
@@ -778,8 +778,8 @@ func InstallEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
 
 func RemoveEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	// Do not attempt removing per endpoint NOTRACK rules if we are already
-	// skipping conntrack for all pod-to-pod traffic.
-	if skipPodToPodConntrack(ipv6) {
+	// skipping conntrack for all pod traffic.
+	if skipPodTrafficConntrack(ipv6) {
 		return nil
 	}
 
@@ -1244,11 +1244,11 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		}
 	}
 
-	if skipPodToPodConntrack(false) {
+	if skipPodTrafficConntrack(false) {
 		podsCIDR := option.Config.IPv4NativeRoutingCIDR().String()
 
-		if err := m.addNoTrackPodToPodRules("iptables", podsCIDR); err != nil {
-			return fmt.Errorf("Cannot install rules to skip pod-to-pod CT: %w", err)
+		if err := m.addNoTrackPodTrafficRules("iptables", podsCIDR); err != nil {
+			return fmt.Errorf("Cannot install rules to skip pod traffic CT: %w", err)
 		}
 	}
 
@@ -1351,28 +1351,29 @@ func (m *IptablesManager) addCiliumNoTrackXfrmRules() error {
 	return nil
 }
 
-func (m *IptablesManager) addNoTrackPodToPodRules(prog, podsCIDR string) error {
-	if err := runProg(prog, append(
-		m.waitArgs,
-		"-t", "raw",
-		"-I", ciliumPreRawChain,
-		"-s", podsCIDR,
-		"-d", podsCIDR,
-		"-m", "comment", "--comment", "cilium: NOTRACK for pod-to-pod traffic",
-		"-j", "NOTRACK"),
-		false); err != nil {
-		return err
-	}
-	if err := runProg(prog, append(
-		m.waitArgs,
-		"-t", "raw",
-		"-I", ciliumOutputRawChain,
-		"-s", podsCIDR,
-		"-d", podsCIDR,
-		"-m", "comment", "--comment", "cilium: NOTRACK for pod-to-pod traffic",
-		"-j", "NOTRACK"),
-		false); err != nil {
-		return err
+func (m *IptablesManager) addNoTrackPodTrafficRules(prog, podsCIDR string) error {
+	for _, chain := range []string{ciliumPreRawChain, ciliumOutputRawChain} {
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "raw",
+			"-I", chain,
+			"-s", podsCIDR,
+			"-m", "comment", "--comment", "cilium: NOTRACK for pod traffic",
+			"-j", "NOTRACK"),
+			false); err != nil {
+			return err
+		}
+
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "raw",
+			"-I", chain,
+			"-d", podsCIDR,
+			"-m", "comment", "--comment", "cilium: NOTRACK for pod traffic",
+			"-j", "NOTRACK"),
+			false); err != nil {
+			return err
+		}
 	}
 
 	return nil

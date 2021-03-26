@@ -943,7 +943,7 @@ func init() {
 	flags.Bool(option.EnableBPFBypassFIBLookup, defaults.EnableBPFBypassFIBLookup, "Enable FIB lookup bypass optimization for nodeport reverse NAT handling")
 	option.BindEnv(option.EnableBPFBypassFIBLookup)
 
-	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode.")
+	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.")
 	option.BindEnv(option.InstallNoConntrackIptRules)
 
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
@@ -1396,8 +1396,8 @@ func initEnv(cmd *cobra.Command) {
 		}
 
 		// Moreover InstallNoConntrackIptRules requires IPv4 support as
-		// the native routing CIDR, used to select all pod-to-pod
-		// traffic, can only be an IPv4 CIDR at the moment.
+		// the native routing CIDR, used to select all pod traffic, can
+		// only be an IPv4 CIDR at the moment.
 		if !option.Config.EnableIPv4 {
 			log.Fatalf("%s requires IPv4 support.", option.InstallNoConntrackIptRules)
 		}

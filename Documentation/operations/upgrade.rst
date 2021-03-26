@@ -378,8 +378,10 @@ New Options
   plugin on all nodes.
 * ``install-no-conntrack-iptables-rules``: This option, by default set to false,
   installs some extra Iptables rules to skip netfilter connection tracking on all
-  pod-to-pod traffic. Disabling connection tracking is only possible when Cilium
-  is running in direct routing mode and is using the kube-proxy replacement.
+  pod traffic. Disabling connection tracking is only possible when Cilium is
+  running in direct routing mode and is using the kube-proxy replacement.
+  Moreover, this option cannot be enabled when Cilium is running in a managed
+  Kubernetes environment or in a chained CNI setup.
 
 Removed Options
 ~~~~~~~~~~~~~~~

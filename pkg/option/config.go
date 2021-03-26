@@ -349,7 +349,7 @@ const (
 	InstallIptRules = "install-iptables-rules"
 
 	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules
-	// to skip netfilter connection tracking on all pod-to-pod traffic.
+	// to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = "install-no-conntrack-iptables-rules"
 
 	IPTablesLockTimeout = "iptables-lock-timeout"
@@ -2153,7 +2153,7 @@ type DaemonConfig struct {
 	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
 	EnableBPFBypassFIBLookup bool
 
-	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic.
+	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules bool
 
 	// EnableCustomCalls enables tail call hooks for user-defined custom

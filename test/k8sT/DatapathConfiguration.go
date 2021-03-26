@@ -691,7 +691,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("Iptables", func() {
 		SkipItIf(func() bool {
 			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.RunsWithKubeProxy()
-		}, "Skip conntrack for pod-to-pod traffic", func() {
+		}, "Skip conntrack for pod traffic", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                          "disabled",
 				"autoDirectNodeRoutes":            "true",
@@ -706,11 +706,19 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
-			cmd := fmt.Sprintf("iptables -t raw -C CILIUM_PRE_raw -s %s -d %s -m comment --comment 'cilium: NOTRACK for pod-to-pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR, helpers.NativeRoutingCIDR)
+			cmd := fmt.Sprintf("iptables -t raw -C CILIUM_PRE_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR)
 			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing -j NOTRACK iptables rule")
 
-			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_OUTPUT_raw -s %s -d %s -m comment --comment 'cilium: NOTRACK for pod-to-pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR, helpers.NativeRoutingCIDR)
+			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_PRE_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR)
+			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing -j NOTRACK iptables rule")
+
+			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_OUTPUT_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR)
+			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing -j NOTRACK iptables rule")
+
+			cmd = fmt.Sprintf("iptables -t raw -C CILIUM_OUTPUT_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j NOTRACK", helpers.NativeRoutingCIDR)
 			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing -j NOTRACK iptables rule")
 
