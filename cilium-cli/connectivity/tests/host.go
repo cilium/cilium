@@ -53,8 +53,8 @@ func (t *PodToHost) Run(ctx context.Context, c check.TestContext) {
 
 			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, []filters.Pair{
 				{Filter: filters.Drop(), Expect: false, Msg: "Found drop"},
-				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, hostIP), filters.ICMP(8)), Expect: true, Msg: "ICMP request"},
-				{Filter: filters.And(filters.IP(hostIP, client.Pod.Status.PodIP), filters.ICMP(0)), Expect: true, Msg: "ICMP response"},
+				{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, hostIP), filters.Or(filters.ICMP(8), filters.ICMPv6(128))), Expect: true, Msg: "ICMP request"},
+				{Filter: filters.And(filters.IP(hostIP, client.Pod.Status.PodIP), filters.Or(filters.ICMP(0), filters.ICMPv6(129))), Expect: true, Msg: "ICMP response"},
 			})
 
 			run.End()
