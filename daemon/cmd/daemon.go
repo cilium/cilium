@@ -40,6 +40,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -406,9 +407,21 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	// Stop all endpoints (its goroutines) on exit.
 	cleaner.cleanupFuncs.Add(func() {
-		for _, ep := range d.endpointManager.GetEndpoints() {
-			ep.Stop()
+		log.Info("Waiting for all endpoints' go routines to be stopped.")
+		var wg sync.WaitGroup
+
+		eps := d.endpointManager.GetEndpoints()
+		wg.Add(len(eps))
+
+		for _, ep := range eps {
+			go func(ep *endpoint.Endpoint) {
+				ep.Stop()
+				wg.Done()
+			}(ep)
 		}
+
+		wg.Wait()
+		log.Info("All endpoints' goroutines stopped.")
 	})
 
 	// Open or create BPF maps.
