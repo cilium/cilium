@@ -1,37 +1,58 @@
 name: ConformanceGKE
 
 on:
-  pull_request_target:
+  issue_comment:
     types:
-      - "labeled"
-  #pull_request: #uncomment for testing
-  #  types:
-  #    - "labeled"
+      - created
   push:
     branches:
       - master
+  ### FOR TESTING PURPOSES
+  # pull_request:
+  #  types:
+  #    - "labeled"
+  ###
 
 env:
-  clusterName: cilium-cli-ci-${{ github.run_number }}
+  clusterName: cilium-cli-ci-${{ github.run_id }}
   zone: us-west2-a
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
-  installation-and-connectivitiy:
+  installation-and-connectivity:
+    if: ${{ (github.event.issue.pull_request && startsWith(github.event.comment.body, 'ci-gke')) || github.event_name == 'push' || github.event.label.name == 'ci-run/gke' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ github.event.label.name == 'ci-run/gke' || github.event_name == 'push' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Set image tag
+      - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
-            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            PR_SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            PR_NUMBER=$(echo "$PR_API_JSON" | jq -r ".number")
+            echo ::set-output name=is_pr::true
+            echo ::set-output name=sha::${PR_SHA}
+            echo ::set-output name=owner::${PR_NUMBER}
           else
-            echo ::set-output name=tag::${{ github.sha }}
+            echo ::set-output name=is_pr::
+            echo ::set-output name=sha::${{ github.sha }}
+            echo ::set-output name=owner::${{ github.sha }}
           fi
+
+      - name: Set PR status check to pending
+        if: ${{ steps.vars.outputs.is_pr }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
 
       - name: Install Cilium CLI
         run: |
@@ -39,28 +60,28 @@ jobs:
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz
 
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@master
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@daadedc81d5f9d3c06d2c92f49202a3cc2b919ba
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_PR_SA_KEY }}
           export_default_credentials: true
 
-      - name: gcloud info
+      - name: Display gcloud CLI info
         run: |
           gcloud info
 
       - name: Create GKE cluster
         run: |
           gcloud container clusters create ${{ env.clusterName }} \
+            --labels "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.zone }} \
             --preemptible \
-            --labels "usage=pr,owner=${{ github.event.pull_request.number }}" \
             --image-type COS \
             --num-nodes 2 \
-            --machine-type n1-standard-4 \
-            --zone ${{ env.zone }}
+            --machine-type n1-standard-4
 
-      - name: Get Credentials
+      - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ env.zone }}
 
@@ -68,53 +89,88 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
-          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-generic-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
 
-      - name: Install cilium
+      - name: Install Cilium
         run: |
           cilium install \
             --cluster-name=${{ env.clusterName }} \
+            --wait=false \
             --restart-unmanaged-pods=false \
             --config monitor-aggregation=none \
             --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
-            --version ${{ steps.vars.outputs.tag }}
+            --version ${{ steps.vars.outputs.sha }}
 
       - name: Enable Relay
         run: |
           cilium hubble enable
 
-      - name: Status
+      - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait
 
-      - name: Relay Port Forward
+      - name: Port forward Relay
         run: |
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
           sleep 5s
 
-      - name: Connectivity Test
+      - name: Run connectivity test
         run: |
           cilium connectivity test
 
-      - name: Uninstall cilium
-        run: |
-          cilium uninstall --wait
-
-      - name: Cleanup
+      - name: Post-test information gathering
         if: ${{ always() }}
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-          gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }}
+        shell: bash {0}
 
-      - name: Upload Artifacts
+      - name: Clean up GKE
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        run: |
+          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet
+
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
           retention-days: 5
+
+      - name: Set PR status check to success
+        if: ${{ steps.vars.outputs.is_pr && success() }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+      - name: Set PR status check to failure
+        if: ${{ steps.vars.outputs.is_pr && failure() }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+      - name: Set PR status check to cancelled
+        if: ${{ steps.vars.outputs.is_pr && cancelled() }}
+        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test cancelled
+          state: pending
+          target_url: ${{ env.check_url }}
