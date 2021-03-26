@@ -1,0 +1,48 @@
+name: test1
+
+on:
+  pull_request: #uncomment for testing
+    types:
+      - "labeled"
+
+
+jobs:
+  pre_job:
+    if: ${{ github.event.label.name == 'ci-run/gke' }}
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - name: Skip Duplicate Actions
+        id: skip_check
+        uses: fkirc/skip-duplicate-actions@v3.4.0
+        with:
+          concurrent_skipping: always
+
+  ci-testing:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set custom GitHub PR check as pending
+        id: custom_pr_check
+        uses: LouisBrunner/checks-action@v1.1.1
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: gke real check
+          status: in_progress
+
+      - name: Foo
+        run: |
+          sleep 60
+      - name: Set custom GitHub PR check as completed
+        uses: LouisBrunner/checks-action@v1.1.1
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          check_id: ${{ steps.custom_pr_check.outputs.check_id }}
+          status: completed
+          conclusion: success
