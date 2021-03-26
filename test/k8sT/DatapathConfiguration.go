@@ -641,18 +641,28 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		SkipItIf(helpers.RunsOnGKE, "With VXLAN", func() {
-			deploymentManager.DeployCilium(map[string]string{
+		It("With VXLAN", func() {
+			options := map[string]string{
 				"hostFirewall": "true",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			if helpers.RunsOnGKE() {
+				options["gke.enabled"] = "false"
+				options["tunnel"] = "vxlan"
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
 
-		SkipItIf(helpers.RunsOnGKE, "With VXLAN and endpoint routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
+		It("With VXLAN and endpoint routes", func() {
+			options := map[string]string{
 				"hostFirewall":           "true",
 				"endpointRoutes.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			if helpers.RunsOnGKE() {
+				options["gke.enabled"] = "false"
+				options["tunnel"] = "vxlan"
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
 		})
 
