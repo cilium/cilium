@@ -106,10 +106,7 @@ require (
 	// the fork, even though this specific version doesn't exist in upstream
 	// controller-tools.
 	sigs.k8s.io/controller-tools v0.3.1-0.20200716001835-4a903ddb7005
-	// Must be bound to at least this commit until a new release is made with
-	// https://github.com/kubernetes-sigs/structured-merge-diff/pull/173
-	// included.
-	sigs.k8s.io/structured-merge-diff/v4 v4.0.3-0.20201124161302-9f9c77085dec // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
