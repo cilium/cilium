@@ -17,13 +17,6 @@ as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
 Kubernetes secrets to distribute keys. Alternatively, keys may be manually
 distributed, but that is not shown here.
 
-.. important::
-
-    Transparent encryption is currently incompatible with use of the portmap
-    plugin in chaining mode. If you are planning to use host ports in
-    combination with transparent encryption, then use the eBPF hostport
-    implementation instead of portmap.
-
 .. note::
 
     ``Secret`` resources need to be deployed in the same namespace as Cilium!
@@ -54,7 +47,7 @@ following:
 .. parsed-literal::
 
     $ kubectl create -n kube-system secret generic cilium-ipsec-keys \\
-        --from-literal=keys="1 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128"
+        --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128"
 
 The secret can be seen with ``kubectl -n kube-system get secret`` and will be
 listed as "cilium-ipsec-keys".
@@ -192,7 +185,7 @@ To replace cilium-ipsec-keys secret with a new keys,
 .. code-block:: shell-session
 
     KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^\s*keys:/ {print $2}' | base64 -d | awk '{print $1}')
-    if [[ $KEYID -gt 2 ]]; then KEYID=1; fi
+    if [[ $KEYID -gt 15 ]]; then KEYID=0; fi
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
@@ -203,8 +196,8 @@ has not yet been updated. In this way encryption will work as new keys are
 rolled out.
 
 The KEYID environment variable in the above example stores the current key ID
-used by Cilium. The key variable is a uint8 with value between 1-3 and should
-be monotonically increasing every re-key with a rollover from 3 to 1. The
+used by Cilium. The key variable is a uint8 with value between 0-16 and should
+be monotonically increasing every re-key with a rollover from 16 to 0. The
 Cilium agent will default to KEYID of zero if its not specified in the secret.
 
 Troubleshooting
