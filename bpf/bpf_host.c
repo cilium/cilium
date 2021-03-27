@@ -1089,9 +1089,6 @@ int to_host(struct __ctx_buff *ctx)
 		traced = true;
 	}
 
-	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, srcID, 0, 0,
-				  CILIUM_IFINDEX, ret, 0);
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
@@ -1129,6 +1126,9 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
+	if (!traced)
+		send_trace_notify(ctx, TRACE_TO_STACK, srcID, 0, 0,
+				  CILIUM_IFINDEX, ret, 0);
 
 	return ret;
 }
