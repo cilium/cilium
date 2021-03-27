@@ -15,12 +15,22 @@ spec:
   - fromCIDR:
     - 192.168.33.0/24
 
-  # SSH access to the VMs
+  # Allow restricted access with well-known ports before remote nodes aren't identified as remote-node.
   - fromEntities:
     - world
     toPorts:
     - ports:
       - port: "22"
+        protocol: TCP
+      - port: "4240"
+        protocol: TCP
+      - port: "8472"
+        protocol: UDP
+      - port: "2379"
+        protocol: TCP
+      - port: "2380"
+        protocol: TCP
+      - port: "6443"
         protocol: TCP
 
   - fromEntities:
