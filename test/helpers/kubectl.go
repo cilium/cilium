@@ -4097,11 +4097,6 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
 				continue
 			}
-			// TODO(brb) check NodePort and LoadBalancer services
-			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort ||
-				k8sSvc.Spec.Type == v1.ServiceTypeLoadBalancer {
-				continue
-			}
 			if _, ok := k8sServicesFound[key]; !ok {
 				notFoundServices = append(notFoundServices, key)
 			}
@@ -4265,18 +4260,6 @@ func serviceKey(s v1.Service) string {
 // validateCiliumSvc checks if given Cilium service has corresponding k8s services and endpoints in given slices
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
 	var k8sService *v1.Service
-
-	// TODO(brb) validate NodePort, LoadBalancer and HostPort services
-	if cSvc.Status.Realized.Flags != nil {
-		switch cSvc.Status.Realized.Flags.Type {
-		case models.ServiceSpecFlagsTypeNodePort,
-			models.ServiceSpecFlagsTypeHostPort,
-			models.ServiceSpecFlagsTypeExternalIPs:
-			return nil
-		case "LoadBalancer":
-			return nil
-		}
-	}
 
 	for _, k8sSvc := range k8sSvcs {
 		if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
