@@ -1,0 +1,105 @@
+name: External Workloads
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+  schedule:
+    - cron:  '55 */6 * * *'
+
+env:
+  zone: us-west2-a
+  clusterName: cilium-cli-ci-${{ github.run_number }}
+  vmName: cilium-cli-ci-vm-${{ github.run_number }}
+  vmStartupScript: .github/gcp-vm-startup.sh
+
+jobs:
+  installation-and-connectivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build cilium CLI binary
+        run: make
+
+      - name: Install cilium CLI binary
+        run: sudo make install
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: gcloud info
+        run: |
+          gcloud info
+
+      - name: Create GKE cluster
+        run: |
+          gcloud container clusters create ${{ env.clusterName }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName}} --zone ${{ env.zone }}
+
+      - name: Create GCP VM
+        run: |
+          gcloud compute instances create ${{ env.vmName }} --image-project ubuntu-os-cloud --image-family ubuntu-2010 --machine-type n1-standard-4 --zone ${{ env.zone }} --metadata hostname=${{ env.vmName }} --metadata-from-file startup-script=${{ env.vmStartupScript }}
+
+      - name: Install cilium in cluster
+        run: |
+          cilium install --cluster-name ${{ env.clusterName }} --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan
+
+      - name: Enable ClusterMesh
+        run: |
+          cilium clustermesh enable
+          cilium clustermesh status --wait --wait-duration 5m
+
+      - name: Add external workload
+        run: |
+          cilium clustermesh vm create ${{ env.vmName }} -n default --ipv4-alloc-cidr 10.192.1.0/30
+          cilium clustermesh vm status
+
+      - name: Install cilium on external workload
+        run: |
+          cilium clustermesh vm install install-external-workload.sh
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "hostname"
+          gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "~/install-external-workload.sh"
+          sleep 10s
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
+          kubectl get cew --all-namespaces -o wide
+          kubectl get cep --all-namespaces -o wide
+
+      - name: Verify cluster DNS on external workload
+        run: |
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "nslookup -norecurse clustermesh-apiserver.kube-system.svc.cluster.local"
+
+      - name: Ping clustermesh-apiserver from external workload
+        run: |
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cilium status
+          cilium clustermesh status
+          cilium clustermesh vm status
+          kubectl get pods --all-namespaces -o wide
+          kubectl get cew --all-namespaces -o wide
+          kubectl get cep --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+          gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }}
+          gcloud compute instances delete --quiet ${{ env.vmName }} --zone ${{ env.zone }}
+        shell: bash {0}
+
+      - name: Upload Artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
