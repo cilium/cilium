@@ -244,26 +244,6 @@ function bpf_compile()
 	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
 }
 
-function xdp_load()
-{
-	DEV=$1
-	MODE=$2
-	OPTS=$3
-	IN=$4
-	OUT=$5
-	SEC=$6
-	CIDR_MAP=$7
-
-	rm -f "$CILIUM_BPF_MNT/xdp/globals/$CIDR_MAP" 2> /dev/null || true
-	cilium-map-migrate -s $OUT
-	set +e
-	ip -force link set dev $DEV $MODE obj $OUT sec $SEC
-	RETCODE=$?
-	set -e
-	cilium-map-migrate -e $OUT -r $RETCODE
-	return $RETCODE
-}
-
 function bpf_unload()
 {
 	DEV=$1
@@ -596,11 +576,6 @@ fi
 
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
-fi
-
-if [ "$XDP_DEV" != "<nil>" ]; then
-	CIDR_MAP="cilium_cidr_v*"
-	xdp_load $XDP_DEV $XDP_MODE "" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
 
 # Compile dummy BPF file containing all shared struct definitions used by

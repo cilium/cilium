@@ -267,7 +267,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	for i, interfaceName := range interfaceNames {
 		symbol := symbols[i]
-		if err := l.replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i]); err != nil {
+		if err := replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i], false, ""); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: interfaceName,
@@ -315,7 +315,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
+		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, ""); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
@@ -330,7 +330,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		}
 
 		if ep.RequireEgressProg() {
-			if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress); err != nil {
+			if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, false, ""); err != nil {
 				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 					logfields.Path: objPath,
 					logfields.Veth: ep.InterfaceName(),
@@ -389,7 +389,7 @@ func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string
 		log.WithError(err).Fatal("failed to compile encryption programs")
 	}
 	for _, iface := range option.Config.EncryptInterface {
-		if err := l.replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress); err != nil {
+		if err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, ""); err != nil {
 			log.WithField(logfields.Interface, iface).Fatal("Load encryption network failed")
 		}
 	}
