@@ -193,7 +193,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			return encap_and_redirect_ipsec(ctx, tunnel_endpoint,
 							encrypt_key, seclabel);
 #endif
-#if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
+#if !defined(ENABLE_NODEPORT)
 		/* For IPSec and the host firewall, traffic from a pod to a remote node
 		 * is sent through the tunnel. In the case of node --> VIP@remote pod,
 		 * packets may be DNATed when they enter the remote node. If kube-proxy
@@ -204,7 +204,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 #else
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
-#endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
+#endif /* !ENABLE_NODEPORT */
 	}
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);

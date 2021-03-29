@@ -964,7 +964,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 
 		*ifindex = ct_state.ifindex;
 #ifdef ENCAP_IFINDEX
-		{
+		/* Only send packets back to tunnel if the original packets comes from tunnel.
+		 * Note in that case ifindex can be 0 because NATIVE_DEV_IFINDEX is 0 on overlay devices.
+		 */
+		if (*ifindex == 0  || *ifindex == ENCAP_IFINDEX) {
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
 			struct remote_endpoint_info *info;
 
@@ -1184,19 +1187,9 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 				return false;
 #endif
-#ifndef ENCAP_IFINDEX
-			/* In the tunnel mode, a packet from a local ep
-			 * to a remote node is not encap'd, and is sent
-			 * via a native dev. Therefore, such packet has
-			 * to be MASQ'd. Otherwise, it might be dropped
-			 * either by underlying network (e.g. AWS drops
-			 * packets by default from unknown subnets) or
-			 * by the remote node if its native dev's
-			 * rp_filter=1.
-			 */
+			/* Do not SNAT if it's to another node. */
 			if (info->sec_label == REMOTE_NODE_ID)
 				return false;
-#endif
 
 			*addr = IPV4_MASQUERADE;
 			return true;
@@ -1962,7 +1955,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 		*ifindex = ct_state.ifindex;
 #ifdef ENCAP_IFINDEX
-		{
+		/* Only send packets back to tunnel if the original packets comes from tunnel.
+		 * Note in that case ifindex can be 0 because NATIVE_DEV_IFINDEX is 0 on overlay devices.
+		 */
+		if (*ifindex == 0  || *ifindex == ENCAP_IFINDEX) {
 			struct remote_endpoint_info *info;
 
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);

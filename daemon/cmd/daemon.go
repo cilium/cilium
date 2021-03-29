@@ -589,8 +589,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity ||
-			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
+		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity) {
 
 		var msg string
 		switch {
@@ -600,10 +599,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		case !option.Config.EnableRemoteNodeIdentity:
 			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
 				option.EnableRemoteNodeIdentity)
-		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
-		case option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices():
-			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
-				option.EnableHostReachableServices)
 		case option.Config.EgressMasqueradeInterfaces != "":
 			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
 				option.EgressMasqueradeInterfaces, option.Devices)

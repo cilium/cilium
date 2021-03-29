@@ -1461,7 +1461,7 @@ skip_policy_enforcement:
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* !ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
