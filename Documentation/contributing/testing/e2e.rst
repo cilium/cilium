@@ -130,9 +130,6 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.13
-* 1.14
-* 1.15
 * 1.16
 * 1.17
 * 1.18

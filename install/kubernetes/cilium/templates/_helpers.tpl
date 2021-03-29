@@ -9,9 +9,7 @@ Create chart name and version as used by the chart label.
 Return the appropriate apiVersion for ingress.
 */}}
 {{- define "ingress.apiVersion" -}}
-{{- if semverCompare ">=1.4-0, <1.14-0" .Capabilities.KubeVersion.Version -}}
-{{- print "extensions/v1beta1" -}}
-{{- else if semverCompare ">=1.14-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
+{{- if semverCompare ">=1.16-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
 {{- print "networking.k8s.io/v1beta1" -}}
 {{- else if semverCompare "^1.19-0" .Capabilities.KubeVersion.Version -}}
 {{- print "networking.k8s.io/v1" -}}
