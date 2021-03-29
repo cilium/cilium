@@ -55,8 +55,6 @@ const (
 	initArgDevices
 	initArgHostDev1
 	initArgHostDev2
-	initArgXDPDevice
-	initArgXDPMode
 	initArgMTU
 	initArgHostReachableServices
 	initArgHostReachableServicesUDP
@@ -248,14 +246,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if err := l.writeNetdevHeader("./", o); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
-	}
-
-	if option.Config.XDPDevice != "undefined" {
-		args[initArgXDPDevice] = option.Config.XDPDevice
-		args[initArgXDPMode] = option.Config.XDPMode
-	} else {
-		args[initArgXDPDevice] = "<nil>"
-		args[initArgXDPMode] = "<nil>"
 	}
 
 	if option.Config.DevicePreFilter != "undefined" {
