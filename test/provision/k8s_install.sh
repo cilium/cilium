@@ -233,30 +233,6 @@ fi
 # SystemVerification errors are ignored as net-next VM often triggers them, eg:
 #     [ERROR SystemVerification]: unsupported kernel release: 5.0.0-rc6+
 case $K8S_VERSION in
-    "1.13")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.13.12"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification,swap"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        ;;
-    "1.14")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.14.10"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        ;;
-    "1.15")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.15.12"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        ;;
     "1.16")
         KUBERNETES_CNI_VERSION="0.7.5"
         K8S_FULL_VERSION="1.16.15"
@@ -315,18 +291,30 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
+    "1.21")
+        # kubeadm 1.21 requires conntrack to be installed, we can remove this
+        # once we have upgrade the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="0.8.7"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.21.0-rc.0"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        ;;
 esac
 
-# TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
-#           (skipping the kube-proxy phase).
-#if [ "$KUBEPROXY" == "0" ]; then
-#    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
-#fi
+if [ "$KUBEPROXY" == "0" ]; then
+    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
+fi
 
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.13"|"1.14"|"1.15"|"1.16"|"1.17"|"1.18"|"1.19"|"1.20")
+    "1.16"|"1.17"|"1.18"|"1.19"|"1.20")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
@@ -338,9 +326,9 @@ case $K8S_VERSION in
             install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
         fi
         ;;
-#   "1.20")
-#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
-#       ;;
+   "1.21")
+       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
+       ;;
 esac
 set -e
 
@@ -391,11 +379,6 @@ if [[ "${HOST}" == "k8s1" ]]; then
       sudo sed -i "s/${KUBEADM_ADDR}/k8s1/" /etc/kubernetes/admin.conf
       sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
       sudo chown root:root /root/.kube/config
-
-      if [[ "${KUBEPROXY}" == "0" ]]; then
-          kubectl -n kube-system delete ds kube-proxy
-          iptables-restore <(iptables-save | grep -v KUBE)
-      fi
 
       sudo -u vagrant mkdir -p /home/vagrant/.kube
       sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config

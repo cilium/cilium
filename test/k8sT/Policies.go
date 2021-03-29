@@ -1702,13 +1702,11 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	Context("GuestBook Examples", func() {
 		var (
-			deployment                = "guestbook_deployment.yaml"
-			redisPolicy               = "guestbook-policy-redis.json"
-			redisPolicyName           = "guestbook-policy-redis"
-			redisPolicyDeprecated     = "guestbook-policy-redis-deprecated.json"
-			redisPolicyDeprecatedName = "guestbook-redis-deprecated"
-			webPolicy                 = "guestbook-policy-web.yaml"
-			webPolicyName             = "guestbook-policy-web"
+			deployment      = "guestbook_deployment.yaml"
+			redisPolicy     = "guestbook-policy-redis.json"
+			redisPolicyName = "guestbook-policy-redis"
+			webPolicy       = "guestbook-policy-web.yaml"
+			webPolicyName   = "guestbook-policy-web"
 		)
 
 		var ciliumPods []string
@@ -1731,13 +1729,6 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), webPolicy)).ExpectSuccess(
 				"Web policy cannot be deleted")
-			k8sVersion := helpers.GetCurrentK8SEnv()
-			switch k8sVersion {
-			case "1.13", "1.14", "1.15":
-				kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated)).ExpectSuccess(
-					"Redis deprecated policy cannot be deleted")
-			default:
-			}
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), deployment)).ExpectSuccess(
 				"Guestbook deployment cannot be deleted")
 
@@ -1825,27 +1816,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
-
-			k8sVersion := helpers.GetCurrentK8SEnv()
-			switch k8sVersion {
-			case "1.13", "1.14", "1.15":
-			default:
-				Skip(fmt.Sprintf("K8s %s doesn't support extensions/v1beta1 NetworkPolicies, skipping test", k8sVersion))
-			}
-
-			By("Apply deprecated policy to Redis")
-
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated),
-				helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
-
-			policyCheck = fmt.Sprintf("%s=%s %s=%s",
-				helpers.KubectlPolicyNameLabel, redisPolicyDeprecatedName,
-				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			policyCheckStatus(policyCheck)
-
-			testConnectivitytoRedis()
 		})
 	})
 

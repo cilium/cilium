@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/pkg/versioncheck"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -1646,9 +1645,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				// behavior on the iptables-backend for kube-proxy.
 				httpURL = getHTTPLink(node.node1IP, data.Spec.Ports[0].NodePort)
 				tftpURL = getTFTPLink(node.node1IP, data.Spec.Ports[1].NodePort)
-				k8sVersion := versioncheck.MustVersion(helpers.GetCurrentK8SEnv())
-				isSupported := versioncheck.MustCompile(">=1.15.0")
-				if helpers.RunsWithoutKubeProxy() || helpers.RunsWithKubeProxy() && isSupported(k8sVersion) {
+				if helpers.RunsWithoutKubeProxy() || helpers.RunsWithKubeProxy() {
 					testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
 					testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
 				}
@@ -1669,12 +1666,12 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				hostReachableServicesTCP := kubectl.HasHostReachableServices(ciliumPodK8s2, true, false)
 				hostReachableServicesUDP := kubectl.HasHostReachableServices(ciliumPodK8s2, false, true)
 				bpfNodePort := kubectl.HasBPFNodePort(ciliumPodK8s2)
-				if (hostReachableServicesTCP && bpfNodePort) || !isSupported(k8sVersion) {
+				if hostReachableServicesTCP && bpfNodePort {
 					testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
 				} else {
 					testCurlFailFromPodInHostNetNS(httpURL, 1, k8s2NodeName)
 				}
-				if (hostReachableServicesUDP && bpfNodePort) || !isSupported(k8sVersion) {
+				if hostReachableServicesUDP && bpfNodePort {
 					testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
 				} else {
 					testCurlFailFromPodInHostNetNS(tftpURL, 1, k8s2NodeName)
@@ -1990,18 +1987,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				deploymentManager.DeleteCilium()
 			})
 
-			SkipItIf(func() bool {
-				return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x")
-			}, "with the host firewall and externalTrafficPolicy=Local", func() {
+			It("with the host firewall and externalTrafficPolicy=Local", func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"hostFirewall": "true",
 				})
 				testExternalTrafficPolicyLocal()
 			})
 
-			SkipItIf(func() bool {
-				return helpers.SkipQuarantined() && helpers.SkipK8sVersions("1.14.x")
-			}, "with externalTrafficPolicy=Local", func() {
+			It("with externalTrafficPolicy=Local", func() {
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
 				testExternalTrafficPolicyLocal()
 			})
