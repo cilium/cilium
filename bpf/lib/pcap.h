@@ -119,7 +119,6 @@ struct capture_rule {
 	__u32 cap_len;
 };
 
-#ifdef ENABLE_IPV4
 /* 5-tuple wildcard key / mask. */
 struct capture4_wcard {
 	__be32 daddr;   /* masking: prefix */
@@ -132,6 +131,19 @@ struct capture4_wcard {
 	__u8   flags;   /* reserved: 0 */
 };
 
+/* 5-tuple wildcard key / mask. */
+struct capture6_wcard {
+	union v6addr daddr; /* masking: prefix */
+	union v6addr saddr; /* masking: prefix */
+	__be16 dport;       /* masking: 0 or 0xffff */
+	__be16 sport;       /* masking: 0 or 0xffff */
+	__u8   nexthdr;     /* masking: 0 or 0xff */
+	__u8   dmask;       /* prefix len: daddr */
+	__u8   smask;       /* prefix len: saddr */
+	__u8   flags;       /* reserved: 0 */
+};
+
+#ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps CAPTURE4_RULES = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct capture4_wcard),
@@ -242,18 +254,6 @@ _Pragma("unroll")
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-/* 5-tuple wildcard key / mask. */
-struct capture6_wcard {
-	union v6addr daddr; /* masking: prefix */
-	union v6addr saddr; /* masking: prefix */
-	__be16 dport;       /* masking: 0 or 0xffff */
-	__be16 sport;       /* masking: 0 or 0xffff */
-	__u8   nexthdr;     /* masking: 0 or 0xff */
-	__u8   dmask;       /* prefix len: daddr */
-	__u8   smask;       /* prefix len: saddr */
-	__u8   flags;       /* reserved: 0 */
-};
-
 struct bpf_elf_map __section_maps CAPTURE6_RULES = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct capture6_wcard),

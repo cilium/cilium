@@ -21,6 +21,7 @@
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"
+#include "lib/pcap.h"
 #include "sockops/bpf_sockops.h"
 
 /* DECLARE declares a unique usage of the union or struct 'x' on the stack.
@@ -85,6 +86,9 @@ int main(void)
 	DECLARE(struct, edt_info, iter);
 	DECLARE(struct, egress_key, iter);
 	DECLARE(struct, egress_info, iter);
+	DECLARE(struct, capture4_wcard, iter);
+	DECLARE(struct, capture6_wcard, iter);
+	DECLARE(struct, capture_rule, iter);
 
 	return 0;
 }
