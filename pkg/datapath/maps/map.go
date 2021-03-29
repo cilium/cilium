@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -154,6 +155,8 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.Affinity6MapName,
 			lbmap.SourceRange6MapName,
 			lbmap.HealthProbe6MapName,
+			cidrmap.MapName + "v6_dyn",
+			cidrmap.MapName + "v6_fix",
 		}...)
 	}
 
@@ -176,6 +179,8 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.SourceRange4MapName,
 			lbmap.HealthProbe4MapName,
 			ipmasq.MapName,
+			cidrmap.MapName + "v4_dyn",
+			cidrmap.MapName + "v4_fix",
 		}...)
 	}
 
@@ -214,6 +219,15 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !option.Config.EnableIPMasqAgent {
 		maps = append(maps, ipmasq.MapName)
+	}
+
+	if option.Config.DevicePreFilter == "undefined" {
+		maps = append(maps, []string{
+			cidrmap.MapName + "v4_dyn",
+			cidrmap.MapName + "v4_fix",
+			cidrmap.MapName + "v6_dyn",
+			cidrmap.MapName + "v6_fix",
+		}...)
 	}
 
 	for _, m := range maps {

@@ -65,11 +65,18 @@ func replaceQdisc(ifName string) error {
 	return nil
 }
 
-// replaceDatapath the qdisc and BPF program for a endpoint
-func (l *Loader) replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string) error {
-	err := replaceQdisc(ifName)
-	if err != nil {
-		return fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
+// replaceDatapath the qdisc and BPF program for a endpoint or XDP program.
+func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string, xdp bool, xdpMode string) error {
+	var (
+		err        error
+		loaderProg string
+		args       []string
+	)
+
+	if !xdp {
+		if err = replaceQdisc(ifName); err != nil {
+			return fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
+		}
 	}
 
 	// FIXME: Replace cilium-map-migrate with Golang map migration
@@ -92,14 +99,21 @@ func (l *Loader) replaceDatapath(ctx context.Context, ifName, objPath, progSec, 
 	}()
 
 	// FIXME: replace exec with native call
-	args := []string{"filter", "replace", "dev", ifName, progDirection,
-		"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
-		"sec", progSec,
+	if xdp {
+		loaderProg = "ip"
+		args = []string{"-force", "link", "set", "dev", ifName, xdpMode,
+			"obj", objPath, "sec", progSec}
+	} else {
+		loaderProg = "tc"
+		args = []string{"filter", "replace", "dev", ifName, progDirection,
+			"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
+			"sec", progSec,
+		}
 	}
-	cmd = exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	cmd = exec.CommandContext(ctx, loaderProg, args...).WithFilters(libbpfFixupMsg)
 	_, err = cmd.CombinedOutput(log, true)
 	if err != nil {
-		return fmt.Errorf("Failed to load tc filter: %s", err)
+		return fmt.Errorf("Failed to load prog with %s: %w", loaderProg, err)
 	}
 
 	return nil

@@ -17,6 +17,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -93,8 +94,8 @@ func xdpCompileArgs(xdpDev string) ([]string, error) {
 	return args, nil
 }
 
-// compileXDPProg compiles bpf_xdp.c for the given XDP device.
-func compileXDPProg(xdpDev string) error {
+// compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
+func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string) error {
 	args, err := xdpCompileArgs(xdpDev)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
@@ -113,5 +114,13 @@ func compileXDPProg(xdpDev string) error {
 		Options:    args,
 	}
 
-	return compile(context.Background(), prog, dirs)
+	if err := compile(ctx, prog, dirs); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	objPath := path.Join(dirs.Output, prog.Output)
+	return replaceDatapath(ctx, xdpDev, objPath, symbolFromHostNetdevEp, "", true, xdpMode)
 }

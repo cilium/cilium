@@ -418,16 +418,17 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
+	defer cancel()
+
 	maybeUnloadObsoleteXDPPrograms(option.Config.XDPDevice, option.Config.XDPMode)
 	if option.Config.XDPDevice != "undefined" {
-		if err := compileXDPProg(option.Config.XDPDevice); err != nil {
+		if err := compileAndLoadXDPProg(ctx, option.Config.XDPDevice, option.Config.XDPMode); err != nil {
 			log.WithError(err).Fatal("Failed to compile XDP program")
 		}
 	}
 
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
-	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
-	defer cancel()
 	cmd := exec.CommandContext(ctx, prog, args...)
 	cmd.Env = bpf.Environment()
 	if _, err := cmd.CombinedOutput(log, true); err != nil {
