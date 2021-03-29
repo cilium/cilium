@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -73,7 +74,11 @@ func CheckStructAlignments(path string) error {
 		"macaddr":              {reflect.TypeOf(neighborsmap.Value{})},
 		"ipv4_frag_id":         {reflect.TypeOf(fragmap.FragmentKey{})},
 		"ipv4_frag_l4ports":    {reflect.TypeOf(fragmap.FragmentValue{})},
+		"capture4_wcard":       {reflect.TypeOf(recorder.CaptureWcard4{})},
+		"capture6_wcard":       {reflect.TypeOf(recorder.CaptureWcard6{})},
+		"capture_rule":         {reflect.TypeOf(recorder.CaptureRule4{})},
 		// TODO: alignchecker does not support nested structs yet.
+		// "capture_rule":      {reflect.TypeOf(recorder.CaptureRule6{})},
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
 		"endpoint_key": {
