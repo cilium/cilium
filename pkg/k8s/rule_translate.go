@@ -244,6 +244,10 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 	defer cache.mutex.Unlock()
 
 	for _, rule := range r {
+		// Translate only handles egress rules
+		if rule.Egress == nil {
+			continue
+		}
 		for ns, ep := range cache.endpoints {
 			svc, ok := cache.services[ns]
 			if ok && svc.IsExternal() {
