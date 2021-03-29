@@ -419,6 +419,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	maybeUnloadObsoleteXDPPrograms(option.Config.XDPDevice, option.Config.XDPMode)
+	if option.Config.XDPDevice != "undefined" {
+		if err := compileXDPProg(option.Config.XDPDevice); err != nil {
+			log.WithError(err).Fatal("Failed to compile XDP program")
+		}
+	}
 
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)

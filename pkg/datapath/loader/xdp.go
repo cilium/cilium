@@ -15,8 +15,12 @@
 package loader
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/vishvananda/netlink"
@@ -63,4 +67,51 @@ func maybeUnloadObsoleteXDPPrograms(xdpDev, xdpMode string) {
 		netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkGeneric)))
 		netlink.LinkSetXdpFdWithFlags(link, -1, int(xdpModeToFlag(option.XDPModeLinkDriver)))
 	}
+}
+
+// xdpCompileArgs derives compile arguments for bpf_xdp.c.
+func xdpCompileArgs(xdpDev string) ([]string, error) {
+	link, err := netlink.LinkByName(xdpDev)
+	if err != nil {
+		return nil, err
+	}
+
+	args := []string{
+		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
+		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
+		"-DCALLS_MAP=cilium_calls_xdp",
+	}
+
+	if option.Config.EnableNodePort {
+		args = append(args, []string{
+			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
+			fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index),
+			"-DDISABLE_LOOPBACK_LB",
+		}...)
+	}
+
+	return args, nil
+}
+
+// compileXDPProg compiles bpf_xdp.c for the given XDP device.
+func compileXDPProg(xdpDev string) error {
+	args, err := xdpCompileArgs(xdpDev)
+	if err != nil {
+		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
+	}
+
+	dirs := &directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
+	}
+	prog := &progInfo{
+		Source:     xdpProg,
+		Output:     xdpObj,
+		OutputType: outputObject,
+		Options:    args,
+	}
+
+	return compile(context.Background(), prog, dirs)
 }

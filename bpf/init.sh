@@ -254,10 +254,6 @@ function xdp_load()
 	SEC=$6
 	CIDR_MAP=$7
 
-	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
-	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
-
-	bpf_compile $IN $OUT obj "$OPTS -DNODE_MAC=${NODE_MAC}"
 	rm -f "$CILIUM_BPF_MNT/xdp/globals/$CIDR_MAP" 2> /dev/null || true
 	cilium-map-migrate -s $OUT
 	set +e
@@ -604,18 +600,7 @@ fi
 
 if [ "$XDP_DEV" != "<nil>" ]; then
 	CIDR_MAP="cilium_cidr_v*"
-	COPTS="-DSECLABEL=${ID_WORLD} -DCALLS_MAP=cilium_calls_xdp"
-	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
-	fi
-	if [ "$NODE_PORT" = "true" ]; then
-		THIS_MTU=$(cat /sys/class/net/${XDP_DEV}/mtu)
-		echo "#define THIS_MTU $THIS_MTU" >> $RUNDIR/globals/node_config.h
-
-		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
-		COPTS="${COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
-	fi
-	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
+	xdp_load $XDP_DEV $XDP_MODE "" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
 
 # Compile dummy BPF file containing all shared struct definitions used by
