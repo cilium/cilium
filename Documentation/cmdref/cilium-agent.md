@@ -100,6 +100,7 @@ cilium-agent [flags]
       --enable-monitor                                       Enable the monitor unix domain socket server (default true)
       --enable-node-port                                     Enable NodePort type services by Cilium
       --enable-policy string                                 Enable policy enforcement (default "default")
+      --enable-recorder                                      Enable BPF datapath pcap recorder
       --enable-remote-node-identity                          Enable use of remote node identity
       --enable-session-affinity                              Enable support for service session affinity
       --enable-svc-source-range-check                        Enable check of service source ranges (currently, only for LoadBalancer) (default true)
