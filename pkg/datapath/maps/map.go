@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -148,7 +149,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
 			"cilium_proxy6",
-			"cilium_capture6_rules",
+			recorder.MapNameWcard6,
 			lbmap.MaglevOuter6MapName,
 			lbmap.Affinity6MapName,
 			lbmap.SourceRange6MapName,
@@ -169,7 +170,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
 			"cilium_proxy4",
-			"cilium_capture4_rules",
+			recorder.MapNameWcard4,
 			lbmap.MaglevOuter4MapName,
 			lbmap.Affinity4MapName,
 			lbmap.SourceRange4MapName,
@@ -183,7 +184,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !option.Config.EnableRecorder {
-		maps = append(maps, []string{"cilium_capture4_rules", "cilium_capture6_rules",
+		maps = append(maps, []string{recorder.MapNameWcard4, recorder.MapNameWcard6,
 			"cilium_capture_cache", "cilium_ktime_cache"}...)
 	}
 

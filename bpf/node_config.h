@@ -62,6 +62,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
+#define CAPTURE4_RULES cilium_capture4_rules
+#define CAPTURE4_SIZE 16384
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -70,6 +72,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
+#define CAPTURE6_RULES cilium_capture6_rules
+#define CAPTURE6_SIZE 16384
 #endif /* ENABLE_IPV6 */
 
 #define ENCAP_GENEVE 1

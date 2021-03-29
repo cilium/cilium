@@ -132,12 +132,12 @@ struct capture4_wcard {
 	__u8   flags;   /* reserved: 0 */
 };
 
-struct bpf_elf_map __section_maps cilium_capture4_rules = {
+struct bpf_elf_map __section_maps CAPTURE4_RULES = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct capture4_wcard),
 	.size_value	= sizeof(struct capture_rule),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1024,
+	.max_elem	= CAPTURE4_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 };
 
@@ -254,12 +254,12 @@ struct capture6_wcard {
 	__u8   flags;       /* reserved: 0 */
 };
 
-struct bpf_elf_map __section_maps cilium_capture6_rules = {
+struct bpf_elf_map __section_maps CAPTURE6_RULES = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct capture6_wcard),
 	.size_value	= sizeof(struct capture_rule),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1024,
+	.max_elem	= CAPTURE6_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 };
 
