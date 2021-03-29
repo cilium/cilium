@@ -60,6 +60,10 @@ const (
 	networkPrefix = "bpf_network"
 	networkProg   = networkPrefix + "." + string(outputSource)
 	networkObj    = networkPrefix + ".o"
+
+	xdpPrefix = "bpf_xdp"
+	xdpProg   = xdpPrefix + "." + string(outputSource)
+	xdpObj    = xdpPrefix + ".o"
 )
 
 var (
