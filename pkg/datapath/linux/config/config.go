@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -260,6 +261,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableRecorder {
 			cDefinesMap["ENABLE_CAPTURE"] = "1"
+			if option.Config.EnableIPv4 {
+				cDefinesMap["CAPTURE4_RULES"] = recorder.MapNameWcard4
+				cDefinesMap["CAPTURE4_SIZE"] = fmt.Sprintf("%d", recorder.MapSize)
+			}
+			if option.Config.EnableIPv6 {
+				cDefinesMap["CAPTURE6_RULES"] = recorder.MapNameWcard6
+				cDefinesMap["CAPTURE6_SIZE"] = fmt.Sprintf("%d", recorder.MapSize)
+			}
 		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 		cDefinesMap["ENABLE_LOADBALANCER"] = "1"
