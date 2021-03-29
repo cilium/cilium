@@ -241,6 +241,142 @@ _Pragma("unroll")
 }
 #endif /* ENABLE_IPV4 */
 
+#ifdef ENABLE_IPV6
+/* 5-tuple wildcard key / mask. */
+struct capture6_wcard {
+	union v6addr daddr; /* masking: prefix */
+	union v6addr saddr; /* masking: prefix */
+	__be16 dport;       /* masking: 0 or 0xffff */
+	__be16 sport;       /* masking: 0 or 0xffff */
+	__u8   nexthdr;     /* masking: 0 or 0xff */
+	__u8   dmask;       /* prefix len: daddr */
+	__u8   smask;       /* prefix len: saddr */
+	__u8   flags;       /* reserved: 0 */
+};
+
+struct bpf_elf_map __section_maps cilium_capture6_rules = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct capture6_wcard),
+	.size_value	= sizeof(struct capture_rule),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1024,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+
+static __always_inline void
+cilium_capture6_masked_key(const struct capture6_wcard *orig,
+			   const struct capture6_wcard *mask,
+			   struct capture6_wcard *out)
+{
+	out->daddr.d1 = orig->daddr.d1 & mask->daddr.d1;
+	out->daddr.d2 = orig->daddr.d2 & mask->daddr.d2;
+	out->saddr.d1 = orig->saddr.d1 & mask->saddr.d1;
+	out->saddr.d2 = orig->saddr.d2 & mask->saddr.d2;
+	out->dport = orig->dport & mask->dport;
+	out->sport = orig->sport & mask->sport;
+	out->nexthdr = orig->nexthdr & mask->nexthdr;
+	out->dmask = mask->dmask;
+	out->smask = mask->smask;
+}
+
+/* The agent is generating and emitting the PREFIX_MASKS6 and regenerating
+ * if a mask was added or removed. Example for compile testing:
+ */
+#ifndef PREFIX_MASKS6
+# define PREFIX_MASKS6					 \
+	{						 \
+		/* rule_id 1:				 \
+		 *  srcIP/128, dstIP/128, dport, nexthdr \
+		 */					 \
+		.daddr = {				 \
+			.d1 = 0xffffffff,		 \
+			.d2 = 0xffffffff,		 \
+		},					 \
+		.dmask    = 128,			 \
+		.saddr = {				 \
+			.d1 = 0xffffffff,		 \
+			.d2 = 0xffffffff,		 \
+		},					 \
+		.smask    = 128,			 \
+		.dport    = 0xffff,			 \
+		.sport    = 0,				 \
+		.nexthdr  = 0xff,			 \
+	}, {						 \
+		/* rule_id 2 (1st mask):		 \
+		 *  srcIP/128 or dstIP/128		 \
+		 */					 \
+		.daddr = {				 \
+			.d1 = 0xffffffff,		 \
+			.d2 = 0xffffffff,		 \
+		},					 \
+		.dmask    = 128,			 \
+		.saddr    = {},				 \
+		.smask    = 0,				 \
+		.dport    = 0,				 \
+		.sport    = 0,				 \
+		.nexthdr  = 0,				 \
+	}, {						 \
+		/* rule_id 2 (2nd mask):		 \
+		 *  srcIP/128 or dstIP/128		 \
+		 */					 \
+		.daddr    = {},				 \
+		.dmask    = 0,				 \
+		.saddr = {				 \
+			.d1 = 0xffffffff,		 \
+			.d2 = 0xffffffff,		 \
+		},					 \
+		.smask    = 128,			 \
+		.dport    = 0,				 \
+		.sport    = 0,				 \
+		.nexthdr  = 0,				 \
+	},
+#endif /* PREFIX_MASKS6 */
+
+static __always_inline struct capture_rule *
+cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
+{
+	struct capture6_wcard prefix_masks[] = { PREFIX_MASKS6 };
+	struct capture6_wcard okey, lkey;
+	struct capture_rule *match;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int i, ret, l3_off = ETH_HLEN;
+	const int size = sizeof(prefix_masks) /
+			 sizeof(prefix_masks[0]);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return NULL;
+
+	ipv6_addr_copy(&okey.daddr, (union v6addr *)&ip6->daddr);
+	okey.dmask = 128;
+	ipv6_addr_copy(&okey.saddr, (union v6addr *)&ip6->saddr);
+	okey.smask = 128;
+	okey.nexthdr = ip6->nexthdr;
+
+	ret = ipv6_hdrlen(ctx, l3_off, &okey.nexthdr);
+	if (ret < 0)
+		return NULL;
+
+	ret = extract_l4_port(ctx, okey.nexthdr, l3_off + ret,
+			      0, &okey.dport, NULL);
+	if (IS_ERR(ret))
+		return NULL;
+
+	okey.flags = 0;
+	lkey.flags = 0;
+
+_Pragma("unroll")
+	for (i = 0; i < size; i++) {
+		cilium_capture6_masked_key(&okey, &prefix_masks[i], &lkey);
+		match = map_lookup_elem(&cilium_capture6_rules, &lkey);
+		if (match)
+			return match;
+	}
+
+	return NULL;
+}
+#endif /* ENABLE_IPV6 */
+
 static __always_inline struct capture_rule *
 cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 {
@@ -255,6 +391,11 @@ cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 		ret = cilium_capture4_classify_wcard(ctx);
 		break;
 #endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = cilium_capture6_classify_wcard(ctx);
+		break;
+#endif /* ENABLE_IPV6 */
 	default:
 		break;
 	}
