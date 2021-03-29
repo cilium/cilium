@@ -1,5 +1,5 @@
 // Copyright 2017 The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ type NetworkPolicy struct {
 	Spec NetworkPolicySpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 }
 
-// Policy Type string describes the NetworkPolicy type
+// PolicyType string describes the NetworkPolicy type
 // This type is beta-level in 1.8
 type PolicyType string
 
@@ -79,7 +79,7 @@ type NetworkPolicySpec struct {
 	Egress []NetworkPolicyEgressRule `json:"egress,omitempty" protobuf:"bytes,3,rep,name=egress"`
 
 	// List of rule types that the NetworkPolicy relates to.
-	// Valid options are "Ingress", "Egress", or "Ingress,Egress".
+	// Valid options are ["Ingress"], ["Egress"], or ["Ingress", "Egress"].
 	// If this field is not specified, it will default based on the existence of Ingress or Egress rules;
 	// policies that contain an Egress section are assumed to affect Egress, and all policies
 	// (whether or not they contain an Ingress section) are assumed to affect Ingress.
@@ -140,8 +140,10 @@ type NetworkPolicyPort struct {
 	// +optional
 	Protocol *slim_corev1.Protocol `json:"protocol,omitempty" protobuf:"bytes,1,opt,name=protocol,casttype=k8s.io/api/core/v1.Protocol"`
 
-	// The port on the given protocol. This can either be a numerical or named port on
-	// a pod. If this field is not provided, this matches all port names and numbers.
+	// The port on the given protocol. This can either be a numerical or named
+	// port on a pod. If this field is not provided, this matches all port names and
+	// numbers.
+	// If present, only traffic on the specified protocol AND port will be matched.
 	// +optional
 	Port *intstr.IntOrString `json:"port,omitempty" protobuf:"bytes,2,opt,name=port"`
 }

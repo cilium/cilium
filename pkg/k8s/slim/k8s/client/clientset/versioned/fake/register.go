@@ -18,6 +18,7 @@ package fake
 
 import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +34,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	corev1.AddToScheme,
 	discoveryv1beta1.AddToScheme,
+	discoveryv1.AddToScheme,
 	metav1.AddToScheme,
 }
 

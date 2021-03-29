@@ -1,5 +1,5 @@
 // Copyright 2015 The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -632,6 +632,7 @@ type ServicePort struct {
 
 	// The IP protocol for this port. Supports "TCP", "UDP", and "SCTP".
 	// Default is TCP.
+	// +default="TCP"
 	// +optional
 	Protocol Protocol `json:"protocol,omitempty" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
 

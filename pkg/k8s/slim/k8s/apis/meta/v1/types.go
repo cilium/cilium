@@ -1,5 +1,5 @@
 // Copyright 2015 The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -148,15 +148,15 @@ type ObjectMeta struct {
 
 const (
 	// NamespaceDefault means the object is in the default namespace which is applied when not specified by clients
-	NamespaceDefault string = "default"
+	NamespaceDefault = "default"
 	// NamespaceAll is the default argument to specify on a context when you want to list or filter resources across all namespaces
-	NamespaceAll string = ""
+	NamespaceAll = ""
 	// NamespaceNone is the argument for a context when there is no namespace.
-	NamespaceNone string = ""
+	NamespaceNone = ""
 	// NamespaceSystem is the system namespace where we place system components.
-	NamespaceSystem string = "kube-system"
+	NamespaceSystem = "kube-system"
 	// NamespacePublic is the namespace where we place public info (ConfigMaps)
-	NamespacePublic string = "kube-public"
+	NamespacePublic = "kube-public"
 )
 
 // Note:

@@ -218,11 +218,11 @@ func NewK8sWatcher(
 // k8s client-go package
 type k8sMetrics struct{}
 
-func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
+func (*k8sMetrics) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
 	metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
 }
 
-func (*k8sMetrics) Increment(code string, method string, host string) {
+func (*k8sMetrics) Increment(_ context.Context, code string, method string, host string) {
 	metrics.KubernetesAPICallsTotal.WithLabelValues(host, method, code).Inc()
 	// The 'code' is set to '<error>' in case an error is returned from k8s
 	// more info:
