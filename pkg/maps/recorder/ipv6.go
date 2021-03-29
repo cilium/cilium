@@ -16,11 +16,13 @@ package recorder
 
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type CaptureWcard6 struct {
@@ -37,7 +39,9 @@ type CaptureWcard6 struct {
 type CaptureRule6 CaptureRule
 
 func (k *CaptureWcard6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *CaptureWcard6) NewValue() bpf.MapValue    { return &CaptureRule6{} }
+
+func (k *CaptureWcard6) NewValue() bpf.MapValue { return &CaptureRule6{} }
+
 func (k *CaptureWcard6) DeepCopyMapKey() bpf.MapKey {
 	return &CaptureWcard6{
 		DestAddr: k.DestAddr,
@@ -50,18 +54,34 @@ func (k *CaptureWcard6) DeepCopyMapKey() bpf.MapKey {
 		Flags:    k.Flags,
 	}
 }
-func (k *CaptureWcard6) String() string {
-	return fmt.Sprintf("%s/%d %s/%d %d %d %d\n",
-		k.DestAddr,
-		int(k.DestMask),
+
+func (k *CaptureWcard6) Dump(sb *strings.Builder) {
+	sb.WriteString(fmt.Sprintf("[%s/%d]:%d -> [%s/%d]:%d %s ",
 		k.SrcAddr,
 		int(k.SrcMask),
-		byteorder.NetworkToHost(k.DestPort),
-		byteorder.NetworkToHost(k.SrcPort),
-		int(k.NextHdr))
+		k.SrcPort,
+		k.DestAddr,
+		int(k.DestMask),
+		k.DestPort,
+		u8proto.U8proto(k.NextHdr)))
+}
+
+func (k *CaptureWcard6) String() string {
+	var sb strings.Builder
+
+	k.ToHost().Dump(&sb)
+	return sb.String() + "\n"
+}
+
+func (k *CaptureWcard6) ToHost() RecorderKey {
+	x := *k
+	x.DestPort = byteorder.NetworkToHost(k.DestPort).(uint16)
+	x.SrcPort = byteorder.NetworkToHost(k.SrcPort).(uint16)
+	return &x
 }
 
 func (v *CaptureRule6) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
 func (v *CaptureRule6) DeepCopyMapValue() bpf.MapValue {
 	return &CaptureRule6{
 		RuleId:   v.RuleId,
@@ -69,16 +89,29 @@ func (v *CaptureRule6) DeepCopyMapValue() bpf.MapValue {
 		CapLen:   v.CapLen,
 	}
 }
-func (v *CaptureRule6) String() string {
-	return fmt.Sprintf("%d %d", int(v.RuleId), int(v.CapLen))
+
+func (v *CaptureRule6) Dump(sb *strings.Builder) {
+	sb.WriteString(fmt.Sprintf("ID:%d CapLen:%d\n",
+		int(v.RuleId),
+		int(v.CapLen)))
 }
 
-var CaptureMap6 = bpf.NewMap(
-	MapNameWcard6,
-	bpf.MapTypeHash,
-	&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
-	&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
-	MapSize,
-	bpf.BPF_F_NO_PREALLOC, 0,
-	bpf.ConvertKeyValue,
-).WithCache()
+func (v *CaptureRule6) String() string {
+	var sb strings.Builder
+
+	v.Dump(&sb)
+	return sb.String()
+}
+
+var CaptureMap6 = &Map{
+	Map: *bpf.NewMap(
+		MapNameWcard6,
+		bpf.MapTypeHash,
+		&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
+		&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
+		MapSize,
+		bpf.BPF_F_NO_PREALLOC, 0,
+		bpf.ConvertKeyValue,
+	).WithCache(),
+	v4: false,
+}

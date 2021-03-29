@@ -14,6 +14,12 @@
 
 package recorder
 
+import (
+	"strings"
+
+	"github.com/cilium/cilium/pkg/bpf"
+)
+
 const (
 	// MapNameWcard4 represents IPv4 capture wildcard table.
 	MapNameWcard4 = "cilium_capture4_rules"
@@ -27,4 +33,46 @@ type CaptureRule struct {
 	RuleId   uint16 `align:"rule_id"`
 	Reserved uint16 `align:"reserved"`
 	CapLen   uint32 `align:"cap_len"`
+}
+
+type CaptureMap interface {
+	Open() error
+	Close() error
+	Path() (string, error)
+	DumpEntries() (string, error)
+	DumpWithCallback(bpf.DumpCallback) error
+}
+
+type Map struct {
+	bpf.Map
+	v4 bool
+}
+
+type RecorderKey interface {
+	bpf.MapKey
+	ToHost() RecorderKey
+	Dump(sb *strings.Builder)
+}
+
+type RecorderEntry interface {
+	bpf.MapValue
+	Dump(sb *strings.Builder)
+}
+
+type MapRecord struct {
+	Key   RecorderKey
+	Value RecorderEntry
+}
+
+func (m *Map) DumpEntries() (string, error) {
+	var sb strings.Builder
+
+	cb := func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(RecorderKey)
+		key.ToHost().Dump(&sb)
+		val := v.(RecorderEntry)
+		val.Dump(&sb)
+	}
+	err := m.DumpWithCallback(cb)
+	return sb.String(), err
 }
