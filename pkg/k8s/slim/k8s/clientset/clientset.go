@@ -1,5 +1,5 @@
 // Copyright The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@ import (
 	"fmt"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
 
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	discoveryv1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
 	discoveryv1beta1 "k8s.io/client-go/kubernetes/typed/discovery/v1beta1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	rest "k8s.io/client-go/rest"
@@ -36,6 +38,7 @@ type Clientset struct {
 	*kubernetes.Clientset
 	coreV1           *corev1.CoreV1Client
 	discoveryV1beta1 *discoveryv1beta1.DiscoveryV1beta1Client
+	discoveryV1      *discoveryv1.DiscoveryV1Client
 	networkingV1     *networkingv1.NetworkingV1Client
 }
 
@@ -47,6 +50,11 @@ func (c *Clientset) CoreV1() corev1.CoreV1Interface {
 // DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
 func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
 	return c.discoveryV1beta1
+}
+
+// DiscoveryV1 retrieves the DiscoveryV1Client
+func (c *Clientset) DiscoveryV1() discoveryv1.DiscoveryV1Interface {
+	return c.discoveryV1
 }
 
 // NetworkingV1 retrieves the NetworkingV1Client
@@ -86,6 +94,13 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	cs.discoveryV1beta1 = discoveryv1beta1.New(slimDiscoveryV1beta1.RESTClient())
 
+	// Wrap discoveryV1 with our own implementation
+	slimDiscoveryV1, err := slim_discovery_v1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
+	cs.discoveryV1 = discoveryv1.New(slimDiscoveryV1.RESTClient())
+
 	// Wrap networkingV1 with our own implementation
 	slimNetworkingV1, err := slim_networkingv1.NewForConfig(&configShallowCopy)
 	if err != nil {
@@ -108,6 +123,9 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	// Wrap discoveryV1beta1 with our own implementation
 	cs.discoveryV1beta1 = discoveryv1beta1.New(slim_discovery_v1beta1.NewForConfigOrDie(c).RESTClient())
 
+	// Wrap discoveryV1 with our own implementation
+	cs.discoveryV1 = discoveryv1.New(slim_discovery_v1.NewForConfigOrDie(c).RESTClient())
+
 	// Wrap networkingV1 with our own implementation
 	cs.networkingV1 = networkingv1.New(slim_networkingv1.NewForConfigOrDie(c).RESTClient())
 
@@ -124,6 +142,9 @@ func New(c rest.Interface) *Clientset {
 
 	// Wrap discoveryV1beta1 with our own implementation
 	cs.discoveryV1beta1 = discoveryv1beta1.New(slim_discovery_v1beta1.New(c).RESTClient())
+
+	// Wrap discoveryV1 with our own implementation
+	cs.discoveryV1 = discoveryv1.New(slim_discovery_v1.New(c).RESTClient())
 
 	// Wrap networkingV1 with our own implementation
 	cs.networkingV1 = networkingv1.New(slim_networkingv1.New(c).RESTClient())

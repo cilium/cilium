@@ -376,12 +376,14 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1)
 	$(call generate_k8s_api_deepcopy_deepequal_client,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"$\
 	discovery:v1beta1\
+	discovery:v1\
 	networking:v1\
 	core:v1")
 	$(call generate_k8s_api_deepcopy_deepequal_client,apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\

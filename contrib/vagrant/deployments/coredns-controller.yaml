@@ -1,5 +1,5 @@
 # File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.20/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.21/cluster/addons/dns/coredns/coredns.yaml.base
 # __MACHINE_GENERATED_WARNING__
 
 apiVersion: apps/v1
@@ -52,7 +52,7 @@ spec:
         kubernetes.io/os: linux
       containers:
       - name: coredns
-        image: k8s.gcr.io/coredns:1.7.0
+        image: k8s.gcr.io/coredns/coredns:v1.8.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:

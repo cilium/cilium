@@ -1,5 +1,5 @@
 // Copyright 2016 The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 )
 
 // LabelSelectorAsSelector converts the LabelSelector api type into a struct that implements
@@ -92,55 +95,6 @@ func LabelSelectorAsMap(ps *LabelSelector) (map[string]string, error) {
 	return selector, nil
 }
 
-// ParseToLabelSelector parses a string representing a selector into a LabelSelector object.
-// Note: This function should be kept in sync with the parser in pkg/labels/selector.go
-func ParseToLabelSelector(selector string) (*LabelSelector, error) {
-	reqs, err := labels.ParseToRequirements(selector)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't parse the selector string \"%s\": %v", selector, err)
-	}
-
-	labelSelector := &LabelSelector{
-		MatchLabels:      map[string]string{},
-		MatchExpressions: []LabelSelectorRequirement{},
-	}
-	for _, req := range reqs {
-		var op LabelSelectorOperator
-		switch req.Operator() {
-		case selection.Equals, selection.DoubleEquals:
-			vals := req.Values()
-			if vals.Len() != 1 {
-				return nil, fmt.Errorf("equals operator must have exactly one value")
-			}
-			val, ok := vals.PopAny()
-			if !ok {
-				return nil, fmt.Errorf("equals operator has exactly one value but it cannot be retrieved")
-			}
-			labelSelector.MatchLabels[req.Key()] = val
-			continue
-		case selection.In:
-			op = LabelSelectorOpIn
-		case selection.NotIn:
-			op = LabelSelectorOpNotIn
-		case selection.Exists:
-			op = LabelSelectorOpExists
-		case selection.DoesNotExist:
-			op = LabelSelectorOpDoesNotExist
-		case selection.GreaterThan, selection.LessThan:
-			// Adding a separate case for these operators to indicate that this is deliberate
-			return nil, fmt.Errorf("%q isn't supported in label selectors", req.Operator())
-		default:
-			return nil, fmt.Errorf("%q is not a valid label selector operator", req.Operator())
-		}
-		labelSelector.MatchExpressions = append(labelSelector.MatchExpressions, LabelSelectorRequirement{
-			Key:      req.Key(),
-			Operator: op,
-			Values:   req.Values().List(),
-		})
-	}
-	return labelSelector, nil
-}
-
 // SetAsLabelSelector converts the labels.Set object into a LabelSelector api object.
 func SetAsLabelSelector(ls labels.Set) *LabelSelector {
 	if ls == nil {
@@ -169,4 +123,24 @@ func FormatLabelSelector(labelSelector *LabelSelector) string {
 		l = "<none>"
 	}
 	return l
+}
+
+// HasAnnotation returns a bool if passed in annotation exists
+func HasAnnotation(obj ObjectMeta, ann string) bool {
+	_, found := obj.Annotations[ann]
+	return found
+}
+
+// HasLabel returns a bool if passed in label exists
+func HasLabel(obj ObjectMeta, label string) bool {
+	_, found := obj.Labels[label]
+	return found
+}
+
+// SingleObject returns a ListOptions for watching a single object.
+func SingleObject(meta ObjectMeta) metav1.ListOptions {
+	return metav1.ListOptions{
+		FieldSelector:   fields.OneTermEqualSelector("metadata.name", meta.Name).String(),
+		ResourceVersion: meta.ResourceVersion,
+	}
 }
