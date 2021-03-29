@@ -60,7 +60,7 @@ func (k *K8sClusterMesh) createClusterMeshServerCertificate(ctx context.Context)
 		defaults.ClusterMeshServerSecretKeyName:  key,
 	}
 
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshServerSecretName, err)
 	}
@@ -99,7 +99,7 @@ func (k *K8sClusterMesh) createClusterMeshAdminCertificate(ctx context.Context) 
 		defaults.ClusterMeshAdminSecretKeyName:  key,
 	}
 
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshAdminSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshAdminSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshAdminSecretName, err)
 	}
@@ -135,7 +135,7 @@ func (k *K8sClusterMesh) createClusterMeshClientCertificate(ctx context.Context)
 		defaults.ClusterMeshClientSecretKeyName:  key,
 	}
 
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshClientSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshClientSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshClientSecretName, err)
 	}
@@ -171,7 +171,7 @@ func (k *K8sClusterMesh) createClusterMeshExternalWorkloadCertificate(ctx contex
 		defaults.ClusterMeshExternalWorkloadSecretKeyName:  key,
 	}
 
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.ClusterMeshExternalWorkloadSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshExternalWorkloadSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshExternalWorkloadSecretName, err)
 	}
