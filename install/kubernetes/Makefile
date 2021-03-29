@@ -11,10 +11,7 @@ NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
 CERTGEN_VERSION := "v0.1.3"
 
 MIN_K8S_MAJOR := 1
-# NOTE: The min k8s version that we support is 1.13 but the Cilium's HA operator
-# requires 1.14, in order to not break the quick-install.yaml for the majority
-# of the users, we set this minor version to 14.
-MIN_K8S_MINOR := 14
+MIN_K8S_MINOR := 16
 MIN_K8S_VERSION := "v$(MIN_K8S_MAJOR).$(MIN_K8S_MINOR).0"
 
 MIN_K8S_OPTIONS := \

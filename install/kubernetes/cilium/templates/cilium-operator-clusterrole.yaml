@@ -91,13 +91,9 @@ rules:
 # For cilium-operator running in HA mode.
 #
 # Cilium operator running in HA mode requires the use of ResourceLock for Leader Election
-# between mulitple running instances.
+# between multiple running instances.
 # The preferred way of doing this is to use LeasesResourceLock as edits to Leases are less
 # common and fewer objects in the cluster watch "all Leases".
-# The support for leases was introduced in coordination.k8s.io/v1 during Kubernetes 1.14 release.
-# In Cilium we currently don't support HA mode for K8s version < 1.14. This condition make sure
-# that we only authorize access to leases resources in supported K8s versions.
-{{- if or (ge $k8sMinor "14") (gt $k8sMajor "1") }}
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -106,5 +102,4 @@ rules:
   - create
   - get
   - update
-{{- end }}
 {{- end }}

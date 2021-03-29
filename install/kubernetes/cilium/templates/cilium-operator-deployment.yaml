@@ -28,14 +28,9 @@ metadata:
   name: cilium-operator
   namespace: {{ .Release.Namespace }}
 spec:
-  # We support HA mode only for Kubernetes version > 1.14
   # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
   # for more details.
-{{- if or (ge $k8sMinor "14") (gt $k8sMajor "1") }}
   replicas: {{ .Values.operator.replicas }}
-{{- else }}
-  replicas: 1
-{{- end }}
   selector:
     matchLabels:
       io.cilium/app: operator
@@ -65,14 +60,12 @@ spec:
         {{- toYaml . | nindent 8 }}
 {{- end }}
     spec:
-{{- if or (ge $k8sMinor "14") (gt $k8sMajor "1") }}
       # In HA mode, cilium-operator pods must not be scheduled on the same
       # node as they will clash with each other.
   {{- if .Values.operator.affinity }}
       affinity:
   {{- toYaml .Values.operator.affinity | trim | nindent 8 }}
   {{- end }}
-{{- end }}
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 6 }}
