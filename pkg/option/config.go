@@ -303,6 +303,9 @@ const (
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager = "enable-bandwidth-manager"
 
+	// EnableRecorder enables the datapath pcap recorder
+	EnableRecorder = "enable-recorder"
+
 	// EnableLocalRedirectPolicy enables support for local redirect policy
 	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
 
@@ -1942,6 +1945,9 @@ type DaemonConfig struct {
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
 
+	// EnableRecorder enables the datapath pcap recorder
+	EnableRecorder bool
+
 	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
 	KubeProxyReplacementHealthzBindAddr string
 
@@ -2608,6 +2614,7 @@ func (c *DaemonConfig) Populate() {
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
+	c.EnableRecorder = viper.GetBool(EnableRecorder)
 	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = viper.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = viper.GetString(EncryptInterface)

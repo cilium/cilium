@@ -313,6 +313,21 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			}
 		}
 
+		if option.Config.EnableRecorder {
+			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+				log.Fatalf("pcap recorder --%s currently only supported for --%s=%s", option.EnableRecorder, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+			}
+			found := false
+			if h := probesManager.GetHelpers("xdp"); h != nil {
+				if _, ok := h["bpf_ktime_get_boot_ns"]; ok {
+					found = true
+				}
+			}
+			if !found {
+				log.Fatalf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
+			}
+		}
+
 		option.Config.EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				option.Config.NodePortMode == option.NodePortModeDSR &&

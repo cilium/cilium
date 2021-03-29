@@ -258,6 +258,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
+		if option.Config.EnableRecorder {
+			cDefinesMap["ENABLE_CAPTURE"] = "1"
+		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 		cDefinesMap["ENABLE_LOADBALANCER"] = "1"
 		if option.Config.EnableIPv4 {
