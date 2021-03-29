@@ -57,7 +57,7 @@ func (k *K8sInstaller) createHubbleServerCertificate(ctx context.Context) error 
 		defaults.HubbleServerSecretKeyName:  key,
 	}
 
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.HubbleServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.HubbleServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.HubbleServerSecretName, err)
 	}
