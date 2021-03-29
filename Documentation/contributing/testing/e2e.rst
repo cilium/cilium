@@ -515,8 +515,8 @@ cluster.
 
   CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
 
-.. note:: The kubernetes version defaults to 1.18 but can be configured with
-          versions between 1.13 and 1.18. Version should match the server
+.. note:: The kubernetes version defaults to 1.21 but can be configured with
+          versions between 1.16 and 1.21. Version should match the server
           version reported by ``kubectl version``.
 
 AWS EKS (experimental)

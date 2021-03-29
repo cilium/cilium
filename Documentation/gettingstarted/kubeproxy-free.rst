@@ -36,32 +36,9 @@ Quick-Start
 Initialize the control-plane node via ``kubeadm init`` and skip the
 installation of the ``kube-proxy`` add-on:
 
-.. tabs::
-
-  .. group-tab:: K8s 1.16 and newer
-
-    .. code:: bash
+.. code:: bash
 
       kubeadm init --skip-phases=addon/kube-proxy
-
-  .. group-tab:: K8s 1.15 and older
-
-    In K8s 1.15 and older it is not yet possible to disable kube-proxy via ``--skip-phases=addon/kube-proxy``
-    in kubeadm, therefore the below workaround for manually removing the ``kube-proxy`` DaemonSet and
-    cleaning the corresponding iptables rules after kubeadm initialization is still necessary (`kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__).
-
-    Initialize control-plane as first step:
-
-    .. code:: bash
-
-      kubeadm init
-
-    Then delete the ``kube-proxy`` DaemonSet and remove its iptables rules as following:
-
-    .. code:: bash
-
-      kubectl -n kube-system delete ds kube-proxy
-      iptables-restore <(iptables-save | grep -v KUBE)
 
 For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
 by using the following commands:

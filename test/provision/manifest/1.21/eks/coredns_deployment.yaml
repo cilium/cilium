@@ -1,5 +1,5 @@
 # File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.15/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.21/cluster/addons/dns/coredns/coredns.yaml.base
 # __MACHINE_GENERATED_WARNING__
 
 apiVersion: v1
@@ -63,25 +63,28 @@ metadata:
       addonmanager.kubernetes.io/mode: EnsureExists
 data:
   Corefile: |
+    cilium.test:53 {
+        forward . 10.100.0.100:53 {
+            max_fails 0
+        }
+    }
     .:53 {
         log
         errors
-        health
+        health {
+            lameduck 5s
+        }
+        ready
         kubernetes cluster.local in-addr.arpa ip6.arpa {
             pods insecure
-            ttl 5
-            upstream
+            ttl 0
             fallthrough in-addr.arpa ip6.arpa
         }
-        proxy cilium.test 10.96.0.100:53 {
-            fail_timeout 10s
-            max_fails 0
-        }
-        proxy . /etc/resolv.conf {
-            fail_timeout 10s
-            max_fails 0
-        }
         prometheus :9153
+        forward . /etc/resolv.conf {
+            max_concurrent 1000
+            max_fails 0
+        }
         loop
         reload
         loadbalance
@@ -113,17 +116,31 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns
-      annotations:
-        seccomp.security.alpha.kubernetes.io/pod: 'docker/default'
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       priorityClassName: system-cluster-critical
       serviceAccountName: coredns
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: k8s-app
+                    operator: In
+                    values: ["kube-dns"]
+              topologyKey: kubernetes.io/hostname
       tolerations:
         - key: "CriticalAddonsOnly"
           operator: "Exists"
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
       - name: coredns
-        image: k8s.gcr.io/coredns:1.3.1
+        image: k8s.gcr.io/coredns/coredns:v1.8.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -157,8 +174,8 @@ spec:
           failureThreshold: 5
         readinessProbe:
           httpGet:
-            path: /health
-            port: 8080
+            path: /ready
+            port: 8181
             scheme: HTTP
         securityContext:
           allowPrivilegeEscalation: false
@@ -193,7 +210,7 @@ metadata:
 spec:
   selector:
     k8s-app: kube-dns
-  clusterIP: 10.96.0.10
+  clusterIP: 10.100.0.10
   ports:
   - name: dns
     port: 53

@@ -42,7 +42,7 @@ After you don't need to run tests on your branch, please remove the branch from 
    with a test suite and create a regex, e.g
    ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next``
    will run specified test in 1.18 Kubernetes cluster running on net-next nodes.
-   Kubernetes version defaults to 1.20, kernel version defaults to 4.19.
+   Kubernetes version defaults to 1.21, kernel version defaults to 4.19.
 
    +------------------------------------------------+-------------------------------------------+
    | ``test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
@@ -217,9 +217,9 @@ If you want to run test suite with race condition detection enabled, enter follo
 +====================================================================================+========================+
 | https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Kernel-Race-Detection | test-race-4.19         |
 +------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.13-net-next-Race-Detection   | test-race-net-next     |
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.16-net-next-Race-Detection   | test-race-net-next     |
 +------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.20-kernel-4.9-Race-Detection | test-race-4.9          |
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.21-kernel-4.9-Race-Detection | test-race-4.9          |
 +------------------------------------------------------------------------------------+------------------------+
 | https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-GKE-Race-Detection             | test-race-gke          |
 +------------------------------------------------------------------------------------+------------------------+

@@ -84,12 +84,6 @@ var _ = Describe("K8sIstioTest", func() {
 	)
 
 	BeforeAll(func() {
-		k8sVersion := helpers.GetCurrentK8SEnv()
-		switch k8sVersion {
-		case "1.13":
-			Skip(fmt.Sprintf("Istio %s doesn't support K8S %s", istioVersion, k8sVersion))
-		}
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		By("Downloading cilium-istioctl")
