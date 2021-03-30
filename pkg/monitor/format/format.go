@@ -141,6 +141,18 @@ func (m *MonitorFormatter) policyVerdictEvents(prefix string, data []byte) {
 	}
 }
 
+func (m *MonitorFormatter) recorderCaptureEvents(prefix string, data []byte) {
+	rc := monitor.RecorderCapture{}
+
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &rc); err != nil {
+		fmt.Printf("Error while parsing capture record: %s\n", err)
+	}
+
+	if m.match(monitorAPI.MessageTypeRecCapture, 0, 0) {
+		rc.DumpInfo(data)
+	}
+}
+
 // debugEvents prints out all the debug messages.
 func (m *MonitorFormatter) debugEvents(prefix string, data []byte) {
 	dm := monitor.DebugMsg{}
@@ -242,6 +254,8 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		m.agentEvents(prefix, data)
 	case monitorAPI.MessageTypePolicyVerdict:
 		m.policyVerdictEvents(prefix, data)
+	case monitorAPI.MessageTypeRecCapture:
+		m.recorderCaptureEvents(prefix, data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}
