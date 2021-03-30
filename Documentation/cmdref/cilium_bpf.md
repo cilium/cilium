@@ -32,6 +32,7 @@ Direct access to local BPF maps
 * [cilium bpf metrics](../cilium_bpf_metrics)	 - BPF datapath traffic metrics
 * [cilium bpf nat](../cilium_bpf_nat)	 - NAT mapping tables
 * [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
+* [cilium bpf recorder](../cilium_bpf_recorder)	 - PCAP recorder
 * [cilium bpf sha](../cilium_bpf_sha)	 - Manage compiled BPF template objects
 * [cilium bpf tunnel](../cilium_bpf_tunnel)	 - Tunnel endpoint map
 
