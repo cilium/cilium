@@ -2623,7 +2623,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							// "-c 1" captures only one packet (it's enough, as we expect that no
 							// unencrypted packet is being forwarded).
 							_, dstPodIPK8s2 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 1)
-							cmd := fmt.Sprintf("tcpdump -i %s --immediate-mode -n 'host %s' -c 1", privateIface, dstPodIPK8s2)
+							podPort := data.Spec.Ports[0].TargetPort.String()
+							cmd := fmt.Sprintf("tcpdump -i %s --immediate-mode -n 'host %s and port %s' -c 1", privateIface, dstPodIPK8s2, podPort)
 							res, cancel, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s1NodeName, cmd)
 							Expect(err).Should(BeNil(), "Cannot exec tcpdump in bg")
 
