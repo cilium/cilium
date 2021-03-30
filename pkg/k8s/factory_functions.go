@@ -22,7 +22,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -188,26 +187,6 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid k8s v1 Namespace")
-	return nil
-}
-
-func ObjToV1beta1CRD(obj interface{}) *slim_apiextensions_v1beta1.CustomResourceDefinition {
-	crd, ok := obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
-	if ok {
-		return crd
-	}
-	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-	if ok {
-		// Delete was not observed by the watcher but is
-		// removed from kube-apiserver. This is the last
-		// known state and the object no longer exists.
-		crd, ok := deletedObj.Obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
-		if ok {
-			return crd
-		}
-	}
-	log.WithField(logfields.Object, logfields.Repr(obj)).
-		Warn("Ignoring invalid k8s v1beta1 CustomResourceDefinition")
 	return nil
 }
 

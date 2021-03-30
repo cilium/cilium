@@ -1,5 +1,5 @@
 // Copyright The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	slim_apiextensionsv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/typed/apiextensions/v1"
-	slim_apiextensionsv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/typed/apiextensions/v1beta1"
 
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -64,13 +63,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 		return nil, err
 	}
 
-	// Wrap extensionsV1Beta1 with our own implementation
-	extensionsV1Beta1, err := slim_apiextensionsv1beta1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
-	cs.apiextensionsV1beta1 = apiextensionsv1beta1.New(extensionsV1Beta1.RESTClient())
-
 	// Wrap extensionsV1 with our own implementation
 	extensionsV1, err := slim_apiextensionsv1.NewForConfig(&configShallowCopy)
 	if err != nil {
@@ -87,9 +79,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.Clientset = apiextclientset.NewForConfigOrDie(c)
 
-	// Wrap extensionsV1Beta1 with our own implementation
-	cs.apiextensionsV1beta1 = apiextensionsv1beta1.New(slim_apiextensionsv1beta1.NewForConfigOrDie(c).RESTClient())
-
 	// Wrap extensionsV1 with our own implementation
 	cs.apiextensionsV1 = apiextensionsv1.New(slim_apiextensionsv1.NewForConfigOrDie(c).RESTClient())
 
@@ -100,9 +89,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.Clientset = apiextclientset.New(c)
-
-	// Wrap extensionsV1Beta1 with our own implementation
-	cs.apiextensionsV1beta1 = apiextensionsv1beta1.New(slim_apiextensionsv1beta1.New(c).RESTClient())
 
 	// Wrap extensionsV1 with our own implementation
 	cs.apiextensionsV1 = apiextensionsv1.New(slim_apiextensionsv1.New(c).RESTClient())
