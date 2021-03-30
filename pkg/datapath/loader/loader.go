@@ -351,32 +351,18 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	}
 
 	if ip := ep.IPv4Address(); ip.IsSet() {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-			logfields.Veth: ep.InterfaceName(),
-		})
 		if ep.RequireEndpointRoute() {
-			if err := upsertEndpointRoute(ep, *ip.IPNet(32)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to upsert route")
-			}
+			upsertEndpointRoute(ep, *ip.IPNet(32))
 		} else {
-			if err := removeEndpointRoute(ep, *ip.IPNet(32)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to remove route")
-			}
+			removeEndpointRoute(ep, *ip.IPNet(32))
 		}
 	}
 
 	if ip := ep.IPv6Address(); ip.IsSet() {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-			logfields.Veth: ep.InterfaceName(),
-		})
 		if ep.RequireEndpointRoute() {
-			if err := upsertEndpointRoute(ep, *ip.IPNet(128)); err != nil {
-				scopedLog.WithError(err).Warn("Failed to upsert route")
-			} else {
-				if err := removeEndpointRoute(ep, *ip.IPNet(128)); err != nil {
-					scopedLog.WithError(err).Warn("Failed to remove route")
-				}
-			}
+			upsertEndpointRoute(ep, *ip.IPNet(128))
+		} else {
+			removeEndpointRoute(ep, *ip.IPNet(128))
 		}
 	}
 
