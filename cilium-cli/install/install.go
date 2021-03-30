@@ -611,11 +611,11 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 												},
 												Items: []corev1.KeyToPath{
 													{
-														Key:  defaults.HubbleServerSecretCertName,
+														Key:  corev1.TLSCertKey,
 														Path: "server.crt",
 													},
 													{
-														Key:  defaults.HubbleServerSecretKeyName,
+														Key:  corev1.TLSPrivateKeyKey,
 														Path: "server.key",
 													},
 												},

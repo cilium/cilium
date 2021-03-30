@@ -24,6 +24,7 @@ import (
 
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,8 +57,8 @@ func (k *K8sClusterMesh) createClusterMeshServerCertificate(ctx context.Context)
 	}
 
 	data := map[string][]byte{
-		defaults.ClusterMeshServerSecretCertName: cert,
-		defaults.ClusterMeshServerSecretKeyName:  key,
+		corev1.TLSCertKey:       cert,
+		corev1.TLSPrivateKeyKey: key,
 	}
 
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
@@ -95,8 +96,8 @@ func (k *K8sClusterMesh) createClusterMeshAdminCertificate(ctx context.Context) 
 	}
 
 	data := map[string][]byte{
-		defaults.ClusterMeshAdminSecretCertName: cert,
-		defaults.ClusterMeshAdminSecretKeyName:  key,
+		corev1.TLSCertKey:       cert,
+		corev1.TLSPrivateKeyKey: key,
 	}
 
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshAdminSecretName, k.params.Namespace, data), metav1.CreateOptions{})
@@ -131,8 +132,8 @@ func (k *K8sClusterMesh) createClusterMeshClientCertificate(ctx context.Context)
 	}
 
 	data := map[string][]byte{
-		defaults.ClusterMeshClientSecretCertName: cert,
-		defaults.ClusterMeshClientSecretKeyName:  key,
+		corev1.TLSCertKey:       cert,
+		corev1.TLSPrivateKeyKey: key,
 	}
 
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshClientSecretName, k.params.Namespace, data), metav1.CreateOptions{})
@@ -167,8 +168,8 @@ func (k *K8sClusterMesh) createClusterMeshExternalWorkloadCertificate(ctx contex
 	}
 
 	data := map[string][]byte{
-		defaults.ClusterMeshExternalWorkloadSecretCertName: cert,
-		defaults.ClusterMeshExternalWorkloadSecretKeyName:  key,
+		corev1.TLSCertKey:       cert,
+		corev1.TLSPrivateKeyKey: key,
 	}
 
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshExternalWorkloadSecretName, k.params.Namespace, data), metav1.CreateOptions{})
