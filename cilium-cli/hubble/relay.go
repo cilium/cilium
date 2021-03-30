@@ -195,15 +195,6 @@ func (k *K8sHubble) generateRelayDeployment() *appsv1.Deployment {
 														Key:  corev1.TLSPrivateKeyKey,
 														Path: "client.key",
 													},
-												},
-											},
-										},
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.CASecretName,
-												},
-												Items: []corev1.KeyToPath{
 													{
 														Key:  defaults.CASecretCertName,
 														Path: "hubble-server-ca.crt",
@@ -215,15 +206,6 @@ func (k *K8sHubble) generateRelayDeployment() *appsv1.Deployment {
 								},
 							},
 						},
-						//{{- if .Values.hubble.relay.tls.server.enabled }}
-						//          - secret:
-						//              name: hubble-relay-server-certs
-						//              items:
-						//                - key: tls.crt
-						//                  path: server.crt
-						//                - key: tls.key
-						//                  path: server.key
-						//{{- end }}
 					},
 				},
 			},

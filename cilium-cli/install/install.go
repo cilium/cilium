@@ -618,15 +618,6 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 														Key:  corev1.TLSPrivateKeyKey,
 														Path: "server.key",
 													},
-												},
-											},
-										},
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: defaults.CASecretName,
-												},
-												Items: []corev1.KeyToPath{
 													{
 														Key:  defaults.CASecretCertName,
 														Path: "client-ca.crt",
