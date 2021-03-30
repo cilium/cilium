@@ -143,7 +143,7 @@ struct capture6_wcard {
 	__u8   flags;       /* reserved: 0 */
 };
 
-#ifdef ENABLE_IPV4
+#if defined(ENABLE_IPV4) && defined(ENABLE_CAPTURE)
 struct bpf_elf_map __section_maps CAPTURE4_RULES = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct capture4_wcard),
@@ -251,9 +251,9 @@ _Pragma("unroll")
 
 	return NULL;
 }
-#endif /* ENABLE_IPV4 */
+#endif /* ENABLE_IPV4 && ENABLE_CAPTURE */
 
-#ifdef ENABLE_IPV6
+#if defined(ENABLE_IPV6) && defined(ENABLE_CAPTURE)
 struct bpf_elf_map __section_maps CAPTURE6_RULES = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct capture6_wcard),
@@ -375,7 +375,7 @@ _Pragma("unroll")
 
 	return NULL;
 }
-#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_IPV6 && ENABLE_CAPTURE */
 
 static __always_inline struct capture_rule *
 cilium_capture_classify_wcard(struct __ctx_buff *ctx)
@@ -386,16 +386,16 @@ cilium_capture_classify_wcard(struct __ctx_buff *ctx)
 	if (!validate_ethertype(ctx, &proto))
 		return ret;
 	switch (proto) {
-#ifdef ENABLE_IPV4
+#if defined(ENABLE_IPV4) && defined(ENABLE_CAPTURE)
 	case bpf_htons(ETH_P_IP):
 		ret = cilium_capture4_classify_wcard(ctx);
 		break;
-#endif /* ENABLE_IPV4 */
-#ifdef ENABLE_IPV6
+#endif /* ENABLE_IPV4 && ENABLE_CAPTURE */
+#if defined(ENABLE_IPV6) && defined(ENABLE_CAPTURE)
 	case bpf_htons(ETH_P_IPV6):
 		ret = cilium_capture6_classify_wcard(ctx);
 		break;
-#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_IPV6 && ENABLE_CAPTURE */
 	default:
 		break;
 	}
