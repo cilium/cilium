@@ -741,7 +741,12 @@ func endpointNoTrackRules(prog string, cmd string, IP string, port *lb.L4Addr, i
 	return nil
 }
 
-func InstallEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
+// InstallNoTrackRules is explicitly called when a pod has valid "io.cilium.no-track-port" annotation.
+// When InstallNoConntrackIptRules flag is set, a super set of v4 NOTRACK rules will be automatically
+// installed upon agent bootstrap (via function addNoTrackPodTrafficRules) and this function will be skipped.
+// When InstallNoConntrackIptRules is not set, this function will be executed to install NOTRACK rules.
+// The rules installed by this function is very specific, for now, the only user is node-local-dns pods.
+func InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
 	if skipPodTrafficConntrack(ipv6) {
@@ -776,9 +781,10 @@ func InstallEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func RemoveEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
-	// Do not attempt removing per endpoint NOTRACK rules if we are already
-	// skipping conntrack for all pod traffic.
+// See comments for InstallNoTrackRules.
+func RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	// Do not install per endpoint NOTRACK rules if we are already skipping
+	// conntrack for all pod traffic.
 	if skipPodTrafficConntrack(ipv6) {
 		return nil
 	}
