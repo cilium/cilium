@@ -1426,6 +1426,8 @@ for ((i = 0 ; i < 24; i++)); do
     echo "Waiting for kube-dns service to come available..."
 done
 
+namespace=$(cilium endpoint get -l reserved:host -o jsonpath='{$[0].status.identity.labels}' | tr -d "[]\"" | tr "," "\n" | grep io.kubernetes.pod.namespace | cut -d= -f2)
+
 if [ -n "$kubedns" ] ; then
     if grep "nameserver $kubedns" /etc/resolv.conf ; then
 	echo "kube-dns IP $kubedns already in /etc/resolv.conf"
@@ -1438,6 +1440,7 @@ if [ -n "$kubedns" ] ; then
 # This file is installed by Cilium to use kube dns server from a non-k8s node.
 [Resolve]
 DNS=$kubedns
+Domains=${namespace}.svc.cluster.local svc.cluster.local cluster.local
 EOF
 	    ${SUDO} systemctl daemon-reload
 	    ${SUDO} systemctl reenable systemd-resolved.service
@@ -1446,7 +1449,7 @@ EOF
 	else
 	    echo "Adding kube-dns IP $kubedns to /etc/resolv.conf"
 	    ${SUDO} cp /etc/resolv.conf /etc/resolv.conf.orig
-	    resolvconf="nameserver $kubedns\n$(cat /etc/resolv.conf)\n"
+	    resolvconf="nameserver $kubedns\n$(cat /etc/resolv.conf)\nsearch ${namespace}.svc.cluster.local svc.cluster.local cluster.local\n"
 	    printf "$resolvconf" | ${SUDO} tee /etc/resolv.conf
 	fi
     fi
