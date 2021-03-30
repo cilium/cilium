@@ -25,6 +25,7 @@ import (
 
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,8 +54,8 @@ func (k *K8sInstaller) createHubbleServerCertificate(ctx context.Context) error 
 	}
 
 	data := map[string][]byte{
-		defaults.HubbleServerSecretCertName: cert,
-		defaults.HubbleServerSecretKeyName:  key,
+		corev1.TLSCertKey:       cert,
+		corev1.TLSPrivateKeyKey: key,
 	}
 
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.HubbleServerSecretName, k.params.Namespace, data), metav1.CreateOptions{})
