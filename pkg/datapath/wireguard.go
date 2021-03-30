@@ -19,8 +19,6 @@ import "net"
 // WireguardAgent manages the Wireguard peers
 type WireguardAgent interface {
 	Init() error
-	UpdatePeer(nodeName, pubKeyHex string,
-		nodeIPv4 net.IP, podCIDRv4 *net.IPNet,
-		nodeIPv6 net.IP, podCIDRv6 *net.IPNet) error
+	UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error
 	DeletePeer(nodeName string) error
 }
