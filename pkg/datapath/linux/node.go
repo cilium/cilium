@@ -923,16 +923,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return nil
 	}
 
-	if option.Config.EnableWireguard {
-		var podCIDRv4, podCIDRv6 *net.IPNet
-		if newNode.IPv4AllocCIDR != nil {
-			podCIDRv4 = newNode.IPv4AllocCIDR.IPNet
-		}
-		if newNode.IPv6AllocCIDR != nil {
-			podCIDRv6 = newNode.IPv6AllocCIDR.IPNet
-		}
-		if err := n.wgAgent.UpdatePeer(newNode.Name, newNode.WireguardPubKey,
-			newIP4, podCIDRv4, newIP6, podCIDRv6); err != nil {
+	if option.Config.EnableWireguard && newNode.WireguardPubKey != "" {
+		if err := n.wgAgent.UpdatePeer(newNode.Name, newNode.WireguardPubKey, newIP4, newIP6); err != nil {
 			log.WithError(err).
 				WithField(logfields.NodeName, newNode.Name).
 				Warning("Failed to update wireguard configuration for peer")

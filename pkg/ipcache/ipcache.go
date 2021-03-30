@@ -580,6 +580,23 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (ips []string)
 	return ips
 }
 
+// LookupByHostRLocked returns the list of IPs returns the set of IPs
+// (endpoint or CIDR prefix) that have hostIPv4 or hostIPv6 associated as the
+// host of the entry. Requires the caller to hold the RLock.
+func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.IPNet) {
+	for ip, host := range ipc.ipToHostIPCache {
+		if hostIPv4 != nil && host.IP.Equal(hostIPv4) || hostIPv6 != nil && host.IP.Equal(hostIPv6) {
+			_, cidr, err := net.ParseCIDR(ip)
+			if err != nil {
+				endpointIP := net.ParseIP(ip)
+				cidr = endpointIPToCIDR(endpointIP)
+			}
+			cidrs = append(cidrs, *cidr)
+		}
+	}
+	return cidrs
+}
+
 // GetIPIdentityMapModel returns all known endpoint IP to security identity mappings
 // stored in the key-value store.
 func GetIPIdentityMapModel() {
