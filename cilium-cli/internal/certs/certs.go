@@ -143,3 +143,13 @@ func (c *CertManager) GenerateCertificate(profile string, certReq *csr.Certifica
 	}
 	return certBytes, keyBytes, nil
 }
+
+// CACertBytes return the CA public certificate bytes, or nil when it is not
+// set.
+func (c *CertManager) CACertBytes() []byte {
+	// NOTE: return a copy just to avoid the caller modifiying our CA
+	// certificate.
+	crt := make([]byte, len(c.caCert))
+	copy(crt, c.caCert)
+	return crt
+}
