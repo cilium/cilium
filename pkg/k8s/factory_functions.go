@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -90,7 +91,7 @@ func ObjToV1Endpoints(obj interface{}) *slim_corev1.Endpoints {
 	return nil
 }
 
-func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice {
+func ObjToV1Beta1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice {
 	ep, ok := obj.(*slim_discover_v1beta1.EndpointSlice)
 	if ok {
 		return ep
@@ -107,6 +108,26 @@ func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice 
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid k8s v1beta1 EndpointSlice")
+	return nil
+}
+
+func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1.EndpointSlice {
+	ep, ok := obj.(*slim_discover_v1.EndpointSlice)
+	if ok {
+		return ep
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ep, ok := deletedObj.Obj.(*slim_discover_v1.EndpointSlice)
+		if ok {
+			return ep
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 EndpointSlice")
 	return nil
 }
 
