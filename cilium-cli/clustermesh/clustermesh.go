@@ -655,14 +655,14 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("unable to get secret %q to access clustermesh service: %s", defaults.ClusterMeshClientSecretName, err)
 	}
 
-	clientKey, ok := meshSecret.Data[defaults.ClusterMeshClientSecretKeyName]
+	clientKey, ok := meshSecret.Data[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, defaults.ClusterMeshClientSecretKeyName)
+		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, corev1.TLSPrivateKeyKey)
 	}
 
-	clientCert, ok := meshSecret.Data[defaults.ClusterMeshClientSecretCertName]
+	clientCert, ok := meshSecret.Data[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, defaults.ClusterMeshClientSecretCertName)
+		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshClientSecretName, corev1.TLSCertKey)
 	}
 
 	externalWorkloadSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshExternalWorkloadSecretName, metav1.GetOptions{})
@@ -670,14 +670,14 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("unable to get secret %q to access clustermesh service: %s", defaults.ClusterMeshExternalWorkloadSecretName, err)
 	}
 
-	externalWorkloadKey, ok := externalWorkloadSecret.Data[defaults.ClusterMeshExternalWorkloadSecretKeyName]
+	externalWorkloadKey, ok := externalWorkloadSecret.Data[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshExternalWorkloadSecretName, defaults.ClusterMeshExternalWorkloadSecretKeyName)
+		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshExternalWorkloadSecretName, corev1.TLSPrivateKeyKey)
 	}
 
-	externalWorkloadCert, ok := externalWorkloadSecret.Data[defaults.ClusterMeshExternalWorkloadSecretCertName]
+	externalWorkloadCert, ok := externalWorkloadSecret.Data[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshExternalWorkloadSecretName, defaults.ClusterMeshExternalWorkloadSecretCertName)
+		return nil, fmt.Errorf("secret %q does not contain key %q", defaults.ClusterMeshExternalWorkloadSecretName, corev1.TLSCertKey)
 	}
 
 	ai := &accessInformation{
