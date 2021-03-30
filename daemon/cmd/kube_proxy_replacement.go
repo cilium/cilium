@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func initKubeProxyReplacementOptions() (strict bool) {
@@ -370,6 +372,10 @@ func probeCgroupSupportTCP(strict, ipv4 bool) {
 	if err != nil {
 		scopedLog := log.WithError(err)
 		msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
+		if errors.Is(err, unix.EPERM) {
+			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
+		}
+
 		if strict {
 			scopedLog.Fatal(msg)
 		} else {
@@ -390,6 +396,10 @@ func probeCgroupSupportUDP(strict, ipv4 bool) {
 	if err != nil {
 		scopedLog := log.WithError(err)
 		msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+		if errors.Is(err, unix.EPERM) {
+			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
+		}
+
 		if strict {
 			scopedLog.Fatal(msg)
 		} else {
