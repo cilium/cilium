@@ -59,19 +59,6 @@ type ServerCapabilities struct {
 	// This capability was introduced in K8s version 1.16, prior to which
 	// apiextensions/v1beta1 CRDs were used exclusively.
 	APIExtensionsV1CRD bool
-
-	// WatchPartialObjectMetadata is set to true when the K8s server supports a
-	// watch operation on the metav1.PartialObjectMetadata (and metav1.Table)
-	// resource.
-	//
-	// This capability was introduced in K8s version 1.15, prior to which
-	// watches cannot be performed on the aforementioned resources.
-	//
-	// Source:
-	//   - KEP:
-	//   https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/20190322-server-side-get-to-ga.md#goals
-	//   - PR: https://github.com/kubernetes/kubernetes/pull/71548
-	WatchPartialObjectMetadata bool
 }
 
 type cachedVersion struct {
@@ -102,10 +89,6 @@ var (
 	// v1 CRDs was introduced in K8s version 1.16.
 	isGEThanAPIExtensionsV1CRD = versioncheck.MustCompile(">=1.16.0")
 
-	// Constraint to check support for watching metav1.PartialObjectMetadata
-	// and metav1.Table types. Support was introduced in K8s 1.15.
-	isGEThanWatchPartialObjectMeta = versioncheck.MustCompile(">=1.15.0")
-
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
 	isGEThanMinimalVersionConstraint = versioncheck.MustCompile(">=" + MinimalVersionConstraint)
@@ -135,7 +118,6 @@ func updateVersion(version semver.Version) {
 
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
-	cached.capabilities.WatchPartialObjectMetadata = isGEThanWatchPartialObjectMeta(version)
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
