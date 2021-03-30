@@ -22,10 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Build cilium CLI binary
-        run: make
-
-      - name: Install cilium CLI binary
+      - name: Build and install cilium CLI binary
         run: sudo make install
 
       - name: Create kind cluster
