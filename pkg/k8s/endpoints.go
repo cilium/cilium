@@ -23,13 +23,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
-	"k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
@@ -146,20 +146,26 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 	return ParseEndpointsID(ep), endpoints
 }
 
+type endpointSlice interface {
+	GetNamespace() string
+	GetName() string
+	GetLabels() map[string]string
+}
+
 // ParseEndpointSliceID parses a Kubernetes endpoints slice and returns a
 // EndpointSliceID
-func ParseEndpointSliceID(es *slim_discover_v1beta1.EndpointSlice) EndpointSliceID {
+func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	return EndpointSliceID{
 		ServiceID: ServiceID{
-			Name:      es.ObjectMeta.GetLabels()[v1beta1.LabelServiceName],
-			Namespace: es.ObjectMeta.Namespace,
+			Name:      es.GetLabels()[slim_discovery_v1.LabelServiceName],
+			Namespace: es.GetNamespace(),
 		},
-		EndpointSliceName: es.ObjectMeta.GetName(),
+		EndpointSliceName: es.GetName(),
 	}
 }
 
-// ParseEndpointSlice parses a Kubernetes Endpoints resource
-func ParseEndpointSlice(ep *slim_discover_v1beta1.EndpointSlice) (EndpointSliceID, *Endpoints) {
+// ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
+func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (EndpointSliceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Endpoints {
@@ -182,7 +188,7 @@ func ParseEndpointSlice(ep *slim_discover_v1beta1.EndpointSlice) (EndpointSliceI
 			}
 
 			for _, port := range ep.Ports {
-				name, lbPort := parseEndpointPort(port)
+				name, lbPort := parseEndpointPortV1Beta1(port)
 				if lbPort != nil {
 					backend.Ports[name] = lbPort
 				}
@@ -193,9 +199,73 @@ func ParseEndpointSlice(ep *slim_discover_v1beta1.EndpointSlice) (EndpointSliceI
 	return ParseEndpointSliceID(ep), endpoints
 }
 
-// parseEndpointPort returns the port name and the port parsed as a L4Addr from
+// parseEndpointPortV1Beta1 returns the port name and the port parsed as a
+// L4Addr from the given port.
+func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
+	proto := loadbalancer.TCP
+	if port.Protocol != nil {
+		switch *port.Protocol {
+		case slim_corev1.ProtocolTCP:
+			proto = loadbalancer.TCP
+		case slim_corev1.ProtocolUDP:
+			proto = loadbalancer.UDP
+		default:
+			return "", nil
+		}
+	}
+	if port.Port == nil {
+		return "", nil
+	}
+	var name string
+	if port.Name != nil {
+		name = *port.Name
+	}
+	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
+	return name, lbPort
+}
+
+// ParseEndpointSliceV1 parses a Kubernetes Endpoints resource
+func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID, *Endpoints) {
+	endpoints := newEndpoints()
+
+	for _, sub := range ep.Endpoints {
+		// ready indicates that this endpoint is prepared to receive traffic,
+		// according to whatever system is managing the endpoint. A nil value
+		// indicates an unknown state. In most cases consumers should interpret this
+		// unknown state as ready.
+		// More info: vendor/k8s.io/api/discovery/v1/types.go:117
+		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
+			continue
+		}
+		for _, addr := range sub.Addresses {
+			backend, ok := endpoints.Backends[addr]
+			if !ok {
+				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
+				endpoints.Backends[addr] = backend
+				if sub.NodeName != nil {
+					backend.NodeName = *sub.NodeName
+				} else {
+					if nodeName, ok := sub.DeprecatedTopology["kubernetes.io/hostname"]; ok {
+						backend.NodeName = nodeName
+					}
+				}
+			}
+
+			for _, port := range ep.Ports {
+				name, lbPort := parseEndpointPortV1(port)
+				if lbPort != nil {
+					backend.Ports[name] = lbPort
+				}
+			}
+		}
+	}
+
+	return ParseEndpointSliceID(ep), endpoints
+}
+
+// parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from
 // the given port.
-func parseEndpointPort(port slim_discover_v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbalancer.L4Addr) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
@@ -288,6 +358,12 @@ func newExternalEndpoints() externalEndpoints {
 // watch and process endpoint slices.
 func SupportsEndpointSlice() bool {
 	return version.Capabilities().EndpointSlice && option.Config.K8sEnableK8sEndpointSlice
+}
+
+// SupportsEndpointSliceV1 returns true if cilium-operator or cilium-agent should
+// watch and process endpoint slices V1.
+func SupportsEndpointSliceV1() bool {
+	return version.Capabilities().EndpointSliceV1 && option.Config.K8sEnableK8sEndpointSlice
 }
 
 // HasEndpointSlice returns true if the hasEndpointSlices is closed before the

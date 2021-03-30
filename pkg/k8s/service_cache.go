@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -304,8 +305,14 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg 
 	return s.updateEndpoints(epSliceID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) UpdateEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	svcID, newEndpoints := ParseEndpointSlice(epSlice)
+func (s *ServiceCache) UpdateEndpointSlicesV1(epSlice *slim_discovery_v1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+	svcID, newEndpoints := ParseEndpointSliceV1(epSlice)
+
+	return s.updateEndpoints(svcID, newEndpoints, swg)
+}
+
+func (s *ServiceCache) UpdateEndpointSlicesV1Beta1(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+	svcID, newEndpoints := ParseEndpointSliceV1Beta1(epSlice)
 
 	return s.updateEndpoints(svcID, newEndpoints, swg)
 }
@@ -348,7 +355,7 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg 
 	return s.deleteEndpoints(epSliceID, swg)
 }
 
-func (s *ServiceCache) DeleteEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCache) DeleteEndpointSlices(epSlice endpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointSliceID(epSlice)
 
 	return s.deleteEndpoints(svcID, swg)

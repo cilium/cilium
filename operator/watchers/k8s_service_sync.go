@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -36,8 +37,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -262,47 +265,93 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 	var (
 		hasEndpointSlices = make(chan struct{})
 		once              sync.Once
+		esClient          rest.Interface
+		objType           runtime.Object
+		addFunc, delFunc  func(obj interface{})
+		updateFunc        func(oldObj, newObj interface{})
 	)
 
+	if k8s.SupportsEndpointSliceV1() {
+		esClient = k8sClient.DiscoveryV1().RESTClient()
+		objType = &slim_discover_v1.EndpointSlice{}
+		addFunc = func(obj interface{}) {
+			once.Do(func() {
+				// signalize that we have received an endpoint slice
+				// so it means the cluster has endpoint slices enabled.
+				close(hasEndpointSlices)
+			})
+			metrics.EventTSK8s.SetToCurrentTime()
+			if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
+				K8sSvcCache.UpdateEndpointSlicesV1(k8sEP, swgEps)
+			}
+		}
+		updateFunc = func(oldObj, newObj interface{}) {
+			metrics.EventTSK8s.SetToCurrentTime()
+			if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
+				if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
+					if oldk8sEP.DeepEqual(newk8sEP) {
+						return
+					}
+					K8sSvcCache.UpdateEndpointSlicesV1(newk8sEP, swgEps)
+				}
+			}
+		}
+		delFunc = func(obj interface{}) {
+			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEP := k8s.ObjToV1EndpointSlice(obj)
+			if k8sEP == nil {
+				return
+			}
+			K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
+		}
+	} else {
+		esClient = k8sClient.DiscoveryV1beta1().RESTClient()
+		objType = &slim_discover_v1beta1.EndpointSlice{}
+		addFunc = func(obj interface{}) {
+			once.Do(func() {
+				// signalize that we have received an endpoint slice
+				// so it means the cluster has endpoint slices enabled.
+				close(hasEndpointSlices)
+			})
+			metrics.EventTSK8s.SetToCurrentTime()
+			if k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj); k8sEP != nil {
+				K8sSvcCache.UpdateEndpointSlicesV1Beta1(k8sEP, swgEps)
+			}
+		}
+		updateFunc = func(oldObj, newObj interface{}) {
+			metrics.EventTSK8s.SetToCurrentTime()
+			if oldk8sEP := k8s.ObjToV1Beta1EndpointSlice(oldObj); oldk8sEP != nil {
+				if newk8sEP := k8s.ObjToV1Beta1EndpointSlice(newObj); newk8sEP != nil {
+					if oldk8sEP.DeepEqual(newk8sEP) {
+						return
+					}
+					K8sSvcCache.UpdateEndpointSlicesV1Beta1(newk8sEP, swgEps)
+				}
+			}
+		}
+		delFunc = func(obj interface{}) {
+			metrics.EventTSK8s.SetToCurrentTime()
+			k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj)
+			if k8sEP == nil {
+				return
+			}
+			K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
+		}
+	}
+
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.DiscoveryV1beta1().RESTClient(),
+		cache.NewListWatchFromClient(esClient,
 			"endpointslices", v1.NamespaceAll, fields.Everything()),
-		&slim_discover_v1beta1.EndpointSlice{},
+		objType,
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				once.Do(func() {
-					// signalize that we have received an endpoint slice
-					// so it means the cluster has endpoint slices enabled.
-					close(hasEndpointSlices)
-				})
-				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
-					K8sSvcCache.UpdateEndpointSlices(k8sEP, swgEps)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
-				if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
-					if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
-						if oldk8sEP.DeepEqual(newk8sEP) {
-							return
-						}
-						K8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.EventTSK8s.SetToCurrentTime()
-				k8sEP := k8s.ObjToV1EndpointSlice(obj)
-				if k8sEP == nil {
-					return
-				}
-				K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
-			},
+			AddFunc:    addFunc,
+			UpdateFunc: updateFunc,
+			DeleteFunc: delFunc,
 		},
 		nil,
 	)
+
 	ecr := make(chan struct{})
 	go endpointController.Run(ecr)
 
