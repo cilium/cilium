@@ -75,6 +75,7 @@ Advanced Networking
    kata
    ipam
    local-redirect-policy
+   bgp
 
 Cluster Mesh
 ------------
