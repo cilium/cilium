@@ -90,7 +90,7 @@ Make sure to disable DHCP on ENIs
 ---------------------------------
 
 Cilium will use both the primary and secondary IP addresses assigned to ENIs.
-Use of the primary IP address optimizes the number of IPs available to pods but
+Use of the primary IP address is required for SNAT on the ENI, but this
 can conflict with a DHCP agent running on the node and assigning the primary IP
 of the ENI to the interface of the node. A common scenario where this happens
 is if ``NetworkManager`` is running on the node and automatically performing
