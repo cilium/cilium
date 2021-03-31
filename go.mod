@@ -86,11 +86,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.18.16
-	k8s.io/apiextensions-apiserver v0.18.16
-	k8s.io/apimachinery v0.18.16
-	k8s.io/client-go v0.18.16
-	k8s.io/code-generator v0.18.16
+	k8s.io/api v0.18.17
+	k8s.io/apiextensions-apiserver v0.18.17
+	k8s.io/apimachinery v0.18.17
+	k8s.io/client-go v0.18.17
+	k8s.io/code-generator v0.18.17
 	k8s.io/klog v1.0.0
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -100,5 +100,5 @@ replace (
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	// Using cilium/netlink until XFRM patches merged upstream
 	github.com/vishvananda/netlink => github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210218151442-a9e8e8f5befd
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210331160701-89ef15ed3b02
 )
