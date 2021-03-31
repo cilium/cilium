@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -495,12 +495,8 @@ func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) 
 // kernel (depending on the image, it's the latest kernel either from net-next.git
 // or bpf-next.git tree).
 func RunsOnNetNextKernel() bool {
-	netNext := os.Getenv("NETNEXT")
-	if netNext == "true" || netNext == "1" {
-		return true
-	}
-	netNext = os.Getenv("KERNEL")
-	return netNext == "net-next"
+	netNext := os.Getenv("KERNEL")
+	return netNext == "netnext"
 }
 
 // DoesNotRunOnNetNextKernel is the complement function of RunsOnNetNextKernel.

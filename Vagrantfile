@@ -11,7 +11,17 @@ $NETNEXT_SERVER_BOX = (ENV['NETNEXT_SERVER_BOX'] || $NETNEXT_SERVER_BOX)
 $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSION)
 $NO_BUILD = (ENV['NO_BUILD'] || "0")
 
+# TODO: Remove in Cilium 1.12
 if ENV['NETNEXT'] == "true" || ENV['NETNEXT'] == "1" then
+    raise Vagrant::Errors::VagrantError.new, <<END
+The 'NETNEXT' environment variable is not longer supported.
+To run with the net-next kernel, please use 'KERNEL=netnext':
+  export KERNEL=netnext
+  ./contrib/vagrant/start.sh
+END
+end
+
+if ENV['KERNEL'] == "netnext" then
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
     $vm_kernel = '+'

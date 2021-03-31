@@ -91,7 +91,7 @@ existing cluster. For example, to add a net-next VM to a one-node cluster:
 
 ::
 
-    $ K8S=1 NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
+    $ K8S=1 NWORKERS=1 KERNEL=netnext ./contrib/vagrant/start.sh k8s2+
 
 Cilium Vagrantfiles look for a file ``.devvmrc`` in the root of your
 Cilium repository. This file is ignored for Git, so it does not exist
@@ -145,7 +145,7 @@ brought up by vagrant:
   kube-proxy, kubectl and Cilium. When used in combination with ``NWORKERS=1`` a
   second node is created, where ``k8s2`` will be a kubernetes node, which
   contains: kubelet, kube-proxy, kubectl and cilium.
-* ``NETNEXT=1``: Run with net-next kernel.
+* ``KERNEL=netnext``: Run with net-next kernel.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not

@@ -14,9 +14,9 @@ pipeline {
             returnStdout: true,
             script: 'echo -n "${JobKernelVersion}"'
             )}"""
-        NETNEXT="""${sh(
+        KERNEL="""${sh(
             returnStdout: true,
-            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
+            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "netnext"; else echo -n ""; fi'
             )}"""
         TESTED_SUITE="runtime"
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
