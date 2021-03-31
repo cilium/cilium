@@ -145,16 +145,25 @@ var hubbleCfg = map[string]string{
 }
 
 func (k *K8sHubble) disableHubble(ctx context.Context) error {
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to get ConfigMap %s: %w", defaults.ConfigMapName, err)
+	}
+
 	var changes []string
 	for k := range hubbleCfg {
-		changes = append(changes, `{"op": "remove", "path": "/data/`+k+`"}`)
+		if _, ok := cm.Data[k]; ok {
+			changes = append(changes, `{"op": "remove", "path": "/data/`+k+`"}`)
+		}
 	}
-	patch := []byte(`[` + strings.Join(changes, ",") + `]`)
+	if len(changes) > 0 {
+		patch := []byte(`[` + strings.Join(changes, ",") + `]`)
 
-	k.Log("✨ Patching ConfigMap %s to disable Hubble...", defaults.ConfigMapName)
-	_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.JSONPatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
+		k.Log("✨ Patching ConfigMap %s to disable Hubble...", defaults.ConfigMapName)
+		_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.JSONPatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
+		}
 	}
 
 	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
