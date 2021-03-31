@@ -87,11 +87,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.19.8
-	k8s.io/apiextensions-apiserver v0.19.8
-	k8s.io/apimachinery v0.19.8
-	k8s.io/client-go v0.19.8
-	k8s.io/code-generator v0.19.8
+	k8s.io/api v0.19.9
+	k8s.io/apiextensions-apiserver v0.19.9
+	k8s.io/apimachinery v0.19.9
+	k8s.io/client-go v0.19.9
+	k8s.io/code-generator v0.19.9
 	k8s.io/klog/v2 v2.2.0
 	// We specify the controller-tools version here to be the version of the
 	// fork below, so that when we generate CRDs, the generated CRD contains
@@ -109,7 +109,7 @@ replace (
 	// Using cilium/netlink until XFRM patches merged upstream
 	github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20210223023818-d826f2a4c934
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8 // To avoid https://github.com/go-yaml/yaml/pull/571.
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210331161019-5ccb1ab6cbdc
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
