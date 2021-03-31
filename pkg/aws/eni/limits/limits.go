@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -27,6 +28,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
+
+var limitsOnce sync.Once
 
 // limit contains limits for adapter count and addresses. The mappings will be
 // updated from agent configuration at bootstrap time.
@@ -37,12 +40,13 @@ import (
 // AWS_REGION=us-east-1 aws ec2 describe-instance-types | jq -r '.InstanceTypes[] |
 // 	"\"\(.InstanceType)\": {Adapters: \(.NetworkInfo.MaximumNetworkInterfaces), IPv4: \(.NetworkInfo.Ipv4AddressesPerInterface), IPv6: \(.NetworkInfo.Ipv6AddressesPerInterface)},"' \
 // | sort
-var limits = struct {
+var limits struct {
 	lock.RWMutex
-
 	m map[string]ipamTypes.Limits
-}{
-	m: map[string]ipamTypes.Limits{
+}
+
+func populateStaticENILimits() {
+	limits.m = map[string]ipamTypes.Limits{
 		"a1.2xlarge":    {Adapters: 4, IPv4: 15, IPv6: 15},
 		"a1.4xlarge":    {Adapters: 8, IPv4: 30, IPv6: 30},
 		"a1.large":      {Adapters: 3, IPv4: 10, IPv6: 10},
@@ -426,11 +430,13 @@ var limits = struct {
 		"z1d.large":     {Adapters: 3, IPv4: 10, IPv6: 10},
 		"z1d.metal":     {Adapters: 15, IPv4: 50, IPv6: 50},
 		"z1d.xlarge":    {Adapters: 4, IPv4: 15, IPv6: 15},
-	},
+	}
 }
 
 // Get returns the instance limits of a particular instance type.
 func Get(instanceType string) (limit ipamTypes.Limits, ok bool) {
+	limitsOnce.Do(populateStaticENILimits)
+
 	limits.RLock()
 	limit, ok = limits.m[instanceType]
 	limits.RUnlock()
@@ -439,6 +445,8 @@ func Get(instanceType string) (limit ipamTypes.Limits, ok bool) {
 
 // UpdateFromUserDefinedMappings updates limits from the given map.
 func UpdateFromUserDefinedMappings(m map[string]string) (err error) {
+	limitsOnce.Do(populateStaticENILimits)
+
 	limits.Lock()
 	defer limits.Unlock()
 
@@ -460,6 +468,8 @@ func UpdateFromEC2API(ctx context.Context, ec2Client *ec2shim.Client) error {
 	if err != nil {
 		return err
 	}
+
+	limitsOnce.Do(populateStaticENILimits)
 
 	limits.Lock()
 	defer limits.Unlock()
