@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
 package v2
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -118,7 +118,7 @@ type CiliumClusterwideNetworkPolicyList struct {
 // policy rules.
 func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
-		return nil, fmt.Errorf("CiliumClusterwideNetworkPolicy must have name")
+		return nil, NewErrParse("CiliumClusterwideNetworkPolicy must have name")
 	}
 
 	name := r.ObjectMeta.Name
@@ -132,7 +132,7 @@ func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
-			return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err)
+			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
 		}
 		cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, r.Spec)
 		retRules = append(retRules, cr)
@@ -140,7 +140,7 @@ func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
 			if err := rule.Sanitize(); err != nil {
-				return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err)
+				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
 
 			}
 			cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, rule)
@@ -150,7 +150,3 @@ func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 
 	return retRules, nil
 }
-
-// ErrEmptyCCNP is an error representing a CCNP that is empty, which means it is
-// missing both a `spec` and `specs` (both are nil).
-var ErrEmptyCCNP = errors.New("Invalid CiliumClusterwideNetworkPolicy spec(s): empty policy")
