@@ -385,7 +385,12 @@ func updateV1CRD(
 					context.TODO(),
 					clusterCRD,
 					metav1.UpdateOptions{})
-				if err == nil {
+				switch {
+				case errors.IsConflict(err): // Occurs as Operators race to update CRDs.
+					scopedLog.WithError(err).
+						Debug("The CRD update was based on an older version, retrying...")
+					return false, nil
+				case err == nil:
 					return true, nil
 				}
 
