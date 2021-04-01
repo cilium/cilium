@@ -1645,10 +1645,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				// behavior on the iptables-backend for kube-proxy.
 				httpURL = getHTTPLink(node.node1IP, data.Spec.Ports[0].NodePort)
 				tftpURL = getTFTPLink(node.node1IP, data.Spec.Ports[1].NodePort)
-				if helpers.RunsWithoutKubeProxy() || helpers.RunsWithKubeProxy() {
-					testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
-					testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
-				}
+				testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
+				testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
 				// In-cluster connectivity from k8s2 to k8s1 IP will still work with
 				// HostReachableServices (regardless of if we are running with or
 				// without kube-proxy) since we'll hit the wildcard rule in bpf_sock
