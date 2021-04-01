@@ -104,7 +104,7 @@ func (a *Agent) Init() error {
 		return err
 	}
 
-	if !option.Config.EnableIPv4 {
+	if option.Config.EnableIPv4 {
 		if err := sysctl.Write(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", types.IfaceName), "2"); err != nil {
 			return nil
 		}
