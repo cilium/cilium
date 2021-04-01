@@ -379,6 +379,8 @@ New Options
   running in direct routing mode and is using the kube-proxy replacement.
   Moreover, this option cannot be enabled when Cilium is running in a managed
   Kubernetes environment or in a chained CNI setup.
+* ``allocator-list-timeout``: This option configures the timeout value for listing
+  allocator state before exiting (default 3m0s).
 
 Removed Options
 ~~~~~~~~~~~~~~~

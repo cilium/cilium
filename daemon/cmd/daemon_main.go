@@ -534,6 +534,9 @@ func init() {
 	flags.MarkHidden(option.K8sSyncTimeoutName)
 	option.BindEnv(option.K8sSyncTimeoutName)
 
+	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
+	option.BindEnv(option.AllocatorListTimeoutName)
+
 	flags.String(option.LabelPrefixFile, "", "Valid label prefixes file path")
 	option.BindEnv(option.LabelPrefixFile)
 

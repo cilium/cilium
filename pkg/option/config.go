@@ -208,6 +208,9 @@ const (
 	// K8sSyncTimeout is the timeout to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
+	// AllocatorListTimeout is the timeout to list initial allocator state.
+	AllocatorListTimeoutName = "allocator-list-timeout"
+
 	// KeepConfig when restoring state, keeps containers' configuration in place
 	KeepConfig = "keep-config"
 
@@ -1394,6 +1397,7 @@ type DaemonConfig struct {
 	K8sClientBurst                int
 	K8sClientQPSLimit             float64
 	K8sSyncTimeout                time.Duration
+	AllocatorListTimeout          time.Duration
 	K8sWatcherEndpointSelector    string
 	KVStore                       string
 	KVStoreOpt                    map[string]string
@@ -1930,6 +1934,7 @@ var (
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
+		AllocatorListTimeout:         defaults.AllocatorListTimeout,
 
 		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
@@ -2373,6 +2378,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
 	c.K8sEventHandover = viper.GetBool(K8sEventHandover)
 	c.K8sSyncTimeout = viper.GetDuration(K8sSyncTimeoutName)
+	c.AllocatorListTimeout = viper.GetDuration(AllocatorListTimeoutName)
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)

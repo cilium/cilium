@@ -13,6 +13,7 @@ cilium-agent [flags]
 ```
       --agent-health-port int                                TCP port for agent health status API (default 9876)
       --agent-labels strings                                 Additional labels to identify this agent
+      --allocator-list-timeout duration                      Timeout for listing allocator state before exiting (default 3m0s)
       --allow-icmp-frag-needed                               Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                               Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
       --annotate-k8s-node                                    Annotate Kubernetes node (default true)

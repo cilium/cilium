@@ -223,6 +223,9 @@ func runApiserver() error {
 	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 	option.BindEnv(option.K8sServiceProxyName)
 
+	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
+	option.BindEnv(option.AllocatorListTimeoutName)
+
 	viper.BindPFlags(flags)
 	option.Config.Populate()
 
