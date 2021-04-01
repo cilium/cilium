@@ -42,10 +42,6 @@ const (
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing.
 	maxAllocAttempts = 16
-
-	// listTimeout is the time to wait for the initial list operation to
-	// succeed when creating a new allocator
-	listTimeout = 3 * time.Minute
 )
 
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
@@ -320,7 +316,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 		go func() {
 			select {
 			case <-a.initialListDone:
-			case <-time.After(listTimeout):
+			case <-time.After(option.Config.AllocatorListTimeout):
 				log.Fatalf("Timeout while waiting for initial allocator state")
 			}
 			a.startLocalKeySync()
