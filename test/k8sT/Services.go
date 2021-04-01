@@ -132,7 +132,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 	manualIPv6TestingNotRequired := func(f func() bool) func() bool {
 		return func() bool {
-			return helpers.DualStackSupported() || f()
+			// IPv6 tests do not work on Integrations like GKE as we don't have IPv6
+			// addresses assigned to nodes in those environments.
+			return helpers.DualStackSupported() || helpers.GetCurrentIntegration() != "" || f()
 		}
 	}
 
@@ -2002,11 +2004,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			})
 		})
 
-		// IPv6 tests do not work on Integrations like GKE as we don't have IPv6
-		// addresses assigned to nodes in those environments.
-		SkipContextIf(manualIPv6TestingNotRequired(func() bool {
-			return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
-		}), "Tests IPv6 NodePort Services", func() {
+		SkipContextIf(manualIPv6TestingNotRequired(helpers.DoesNotRunWithKubeProxyReplacement), "Tests IPv6 NodePort Services", func() {
 			var (
 				testDSIPv6 string = "fd03::310"
 				data       v1.Service
