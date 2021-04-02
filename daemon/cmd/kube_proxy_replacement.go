@@ -489,7 +489,10 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		}
 	}
 
-	// After this point, BPF NodePort should not be disabled
+	// +-------------------------------------------------------+
+	// | After this point, BPF NodePort should not be disabled |
+	// +-------------------------------------------------------+
+
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
@@ -506,7 +509,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddr(option.Config.Devices):
+		case !mac.HaveMACAddrs(option.Config.Devices):
 			msg = "BPF host routing is currently not supported with devices without L2 addr."
 		case option.Config.EnableWireguard:
 			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
@@ -652,8 +655,14 @@ func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
 		devSet[option.Config.DirectRoutingDevice] = struct{}{}
 	}
 
+	l3DevOK := supportL3Dev()
 	option.Config.Devices = make([]string, 0, len(devSet))
 	for dev := range devSet {
+		if !l3DevOK && !mac.HasMacAddr(dev) {
+			log.WithField(logfields.Device, dev).
+				Warn("Ignoring L3 device; >= 5.8 kernel is required.")
+			continue
+		}
 		option.Config.Devices = append(option.Config.Devices, dev)
 	}
 	return nil
@@ -802,4 +811,13 @@ func hasFullHostReachableServices() bool {
 	return option.Config.EnableHostReachableServices &&
 		option.Config.EnableHostServicesTCP &&
 		option.Config.EnableHostServicesUDP
+}
+
+func supportL3Dev() bool {
+	probesManager := probes.NewProbeManager()
+	if h := probesManager.GetHelpers("sched_cls"); h != nil {
+		_, found := h["bpf_skb_change_head"]
+		return found
+	}
+	return false
 }

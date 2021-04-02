@@ -112,14 +112,22 @@ func GenerateRandMAC() (MAC, error) {
 	return MAC(buf), nil
 }
 
-// HaveMACAddr return true if all given network interfaces have L2 addr.
-func HaveMACAddr(ifaces []string) bool {
+// HasMacAddr returns true if the given network interface has L2 addr.
+func HasMacAddr(iface string) bool {
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return false
+	}
+	if len(link.Attrs().HardwareAddr) == 0 {
+		return false
+	}
+	return true
+}
+
+// HaveMACAddrs returns true if all given network interfaces have L2 addr.
+func HaveMACAddrs(ifaces []string) bool {
 	for _, iface := range ifaces {
-		iface, err := netlink.LinkByName(iface)
-		if err != nil {
-			return false
-		}
-		if len(iface.Attrs().HardwareAddr) == 0 {
+		if !HasMacAddr(iface) {
 			return false
 		}
 	}
