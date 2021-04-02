@@ -41,7 +41,6 @@ type K8sConfig struct {
 
 type Parameters struct {
 	Namespace string
-	Restart   bool
 	Writer    io.Writer
 }
 
