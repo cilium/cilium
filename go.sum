@@ -182,8 +182,8 @@ github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6 h1:FhiaMJPUHPEw5pjoTfC
 github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
-github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f h1:5IFq1y2Ptz45Cfuu0rHjy5+vOxs/pkwkKiOzatf92rg=
-github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f/go.mod h1:3/7XqsnwanF+NM3mwSxXi2qPPLIvaLY4CbrNe/YzArk=
+github.com/cilium/metallb v0.1.1-0.20210614184915-4db306a8dd83 h1:W/MUqyA/RhfIBiXxAGrCpmm0I+xDC9QvbeMuvhzjijM=
+github.com/cilium/metallb v0.1.1-0.20210614184915-4db306a8dd83/go.mod h1:3/7XqsnwanF+NM3mwSxXi2qPPLIvaLY4CbrNe/YzArk=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32 h1:8imv/jHGU2g796+N6VEwSZcU8H6MQ0z33VTNeFeKMpQ=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
