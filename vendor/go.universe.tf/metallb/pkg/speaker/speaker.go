@@ -6,6 +6,7 @@ import (
 
 	"go.universe.tf/metallb/pkg/bgp"
 	"go.universe.tf/metallb/pkg/config"
+	"go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	"go.universe.tf/metallb/pkg/layer2"
 
@@ -74,7 +75,7 @@ type Service struct {
 	Ingress       []v1.LoadBalancerIngress
 }
 
-func (c *Controller) SetBalancer(l gokitlog.Logger, name string, svc *v1.Service, eps *v1.Endpoints) types.SyncState {
+func (c *Controller) SetBalancer(l gokitlog.Logger, name string, svc *v1.Service, eps k8s.EpsOrSlices) types.SyncState {
 	s := c.SetService(l, name, &Service{
 		Type:          string(svc.Spec.Type),
 		TrafficPolicy: string(svc.Spec.ExternalTrafficPolicy),
@@ -250,29 +251,57 @@ func (c *Controller) SetNodeLabels(l gokitlog.Logger, labels map[string]string) 
 	return types.SyncStateSuccess
 }
 
+// PeerSessions returns the underlying BGP sessions from the BGP controller. In
+// Layer2 mode only, this returns nil.
+func (c *Controller) PeerSessions() []Session {
+	if handler, ok := c.protocols[config.BGP]; ok {
+		return handler.(*BGPController).PeerSessions()
+	}
+	return nil
+}
+
 // Endpoints represents an object containing the minimal representation of a
 // v1.Endpoints similar to Service.
 type Endpoints struct {
 	Ready, NotReady []Endpoint
 }
 
-func toEndpoints(in *v1.Endpoints) *Endpoints {
-	if in == nil {
-		return nil
-	}
+func toEndpoints(in k8s.EpsOrSlices) *Endpoints {
 	out := new(Endpoints)
-	for _, sub := range in.Subsets {
-		for _, ep := range sub.Addresses {
-			out.Ready = append(out.Ready, Endpoint{
-				IP:       ep.IP,
-				NodeName: ep.NodeName,
-			})
+	switch in.Type {
+	case k8s.Eps:
+		for _, sub := range in.EpVal.Subsets {
+			for _, ep := range sub.Addresses {
+				out.Ready = append(out.Ready, Endpoint{
+					IP:       ep.IP,
+					NodeName: ep.NodeName,
+				})
+			}
+			for _, ep := range sub.NotReadyAddresses {
+				out.NotReady = append(out.NotReady, Endpoint{
+					IP:       ep.IP,
+					NodeName: ep.NodeName,
+				})
+			}
 		}
-		for _, ep := range sub.NotReadyAddresses {
-			out.NotReady = append(out.NotReady, Endpoint{
-				IP:       ep.IP,
-				NodeName: ep.NodeName,
-			})
+	case k8s.Slices:
+		for _, slice := range in.SlicesVal {
+			for _, ep := range slice.Endpoints {
+				node := ep.Topology["kubernetes.io/hostname"]
+				for _, addr := range ep.Addresses {
+					if k8s.IsConditionReady(ep.Conditions) {
+						out.Ready = append(out.Ready, Endpoint{
+							IP:       addr,
+							NodeName: &node,
+						})
+					} else {
+						out.NotReady = append(out.NotReady, Endpoint{
+							IP:       addr,
+							NodeName: &node,
+						})
+					}
+				}
+			}
 		}
 	}
 	return out
