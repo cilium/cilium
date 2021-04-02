@@ -77,6 +77,8 @@ type progInfo struct {
 	Output string
 	// OutputType to be created by LLVM
 	OutputType OutputType
+	// Options are passed directly to LLVM as individual parameters
+	Options []string
 }
 
 // directoryInfo includes relevant directories for compilation and linking
@@ -292,6 +294,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 	}
 
 	args = append(args, standardCFlags...)
+	args = append(args, prog.Options...)
 	args = append(args, progCFlags(prog, dir)...)
 
 	// Compilation is split between two exec calls. First clang generates
@@ -379,10 +382,12 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 	return nil
 }
 
-// Compile compiles a BPF program generating an object file.
-func Compile(ctx context.Context, src string, out string) error {
+// CompileWithOptions compiles a BPF program generating an object file,
+// using a set of provided compiler options.
+func CompileWithOptions(ctx context.Context, src string, out string, opts []string) error {
 	prog := progInfo{
 		Source:     src,
+		Options:    opts,
 		Output:     out,
 		OutputType: outputObject,
 	}
@@ -393,6 +398,11 @@ func Compile(ctx context.Context, src string, out string) error {
 		State:   option.Config.StateDir,
 	}
 	return compile(ctx, &prog, &dirs)
+}
+
+// Compile compiles a BPF program generating an object file.
+func Compile(ctx context.Context, src string, out string) error {
+	return CompileWithOptions(ctx, src, out, nil)
 }
 
 // compileTemplate compiles a BPF program generating a template object file.

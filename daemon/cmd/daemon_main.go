@@ -252,6 +252,10 @@ func init() {
 	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
 	option.BindEnv(option.ClusterMeshConfigName)
 
+	flags.StringSlice(option.CompilerFlags, []string{}, "Extra CFLAGS for BPF compilation")
+	flags.MarkHidden(option.CompilerFlags)
+	option.BindEnv(option.CompilerFlags)
+
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(option.ConfigFile)
 
