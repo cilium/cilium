@@ -84,13 +84,7 @@ func newCmdConfigSet() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(
-		&params.Namespace,
-		"namespace",
-		"n",
-		"kube-system",
-		"Namespace Cilium is running in",
-	)
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 
 	return cmd
 }
@@ -114,13 +108,7 @@ func newCmdConfigDelete() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(
-		&params.Namespace,
-		"namespace",
-		"n",
-		"kube-system",
-		"Namespace Cilium is running in",
-	)
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 
 	return cmd
 }
