@@ -34,7 +34,7 @@ import (
 
 type peer struct {
 	cfg *config.Peer
-	bgp session
+	bgp Session
 }
 
 type BGPController struct {
@@ -227,11 +227,11 @@ func (c *BGPController) updateAds() error {
 		// and detecting conflicting advertisements.
 		allAds = append(allAds, ads...)
 	}
-	for _, peer := range c.peers {
-		if peer.bgp == nil {
+	for _, session := range c.PeerSessions() {
+		if session == nil {
 			continue
 		}
-		if err := peer.bgp.Set(allAds...); err != nil {
+		if err := session.Set(allAds...); err != nil {
 			return err
 		}
 	}
@@ -246,7 +246,8 @@ func (c *BGPController) DeleteBalancer(l log.Logger, name, reason string) error 
 	return c.updateAds()
 }
 
-type session interface {
+// Session gives access to the BGP session.
+type Session interface {
 	io.Closer
 	Set(advs ...*bgp.Advertisement) error
 }
@@ -265,6 +266,15 @@ func (c *BGPController) SetNodeLabels(l log.Logger, lbls map[string]string) erro
 	return c.syncPeers(l)
 }
 
-var newBGP = func(logger log.Logger, addr string, myASN uint32, routerID net.IP, asn uint32, hold time.Duration, password string, myNode string) (session, error) {
+// PeerSessions returns the underlying BGP sessions for direct use.
+func (c *BGPController) PeerSessions() []Session {
+	s := make([]Session, len(c.peers))
+	for i, peer := range c.peers {
+		s[i] = peer.bgp
+	}
+	return s
+}
+
+var newBGP = func(logger log.Logger, addr string, myASN uint32, routerID net.IP, asn uint32, hold time.Duration, password string, myNode string) (Session, error) {
 	return bgp.New(logger, addr, myASN, routerID, asn, hold, password, myNode)
 }
