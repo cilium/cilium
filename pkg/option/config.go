@@ -96,6 +96,9 @@ const (
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
+	// CompilerFlags allow to specify extra compiler commands for advanced debugging
+	CompilerFlags = "cflags"
+
 	// ConfigFile is the Configuration file (default "$HOME/ciliumd.yaml")
 	ConfigFile = "config"
 
@@ -1205,6 +1208,7 @@ var HelpFlagSections = []FlagsSection{
 	{
 		Name: "Path and config file flags",
 		Flags: []string{
+			CompilerFlags,
 			ConfigFile,
 			ConfigDir,
 			CGroupRoot,
@@ -1656,6 +1660,7 @@ type DaemonConfig struct {
 	BPFRoot                       string
 	CGroupRoot                    string
 	BPFCompileDebug               string
+	CompilerFlags                 []string
 	ConfigFile                    string
 	ConfigDir                     string
 	Debug                         bool
@@ -2933,6 +2938,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableIptablesFeederRules = viper.GetStringSlice(DisableIptablesFeederRules)
 
 	// Hidden options
+	c.CompilerFlags = viper.GetStringSlice(CompilerFlags)
 	c.ConfigFile = viper.GetString(ConfigFile)
 	c.HTTP403Message = viper.GetString(HTTP403Message)
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
