@@ -640,7 +640,8 @@ func init() {
 	option.BindEnv(option.LogDriver)
 
 	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
-		option.LogOpt, "Log driver options for cilium")
+		option.LogOpt, `Log driver options for cilium-agent, `+
+			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}`)
 	option.BindEnv(option.LogOpt)
 
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
@@ -1012,7 +1013,9 @@ func initEnv(cmd *cobra.Command) {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug)
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
 
 	option.LogRegisteredOptions(log)
 

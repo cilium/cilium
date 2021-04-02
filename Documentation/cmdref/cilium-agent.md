@@ -180,7 +180,7 @@ cilium-agent [flags]
       --lib-dir string                                       Directory path to store runtime build environment (default "/var/lib/cilium")
       --local-router-ip string                               Link-local IP used for Cilium's router devices
       --log-driver strings                                   Logging endpoints to use for example syslog
-      --log-opt map                                          Log driver options for cilium (default map[])
+      --log-opt map                                          Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"} (default map[])
       --log-system-load                                      Enable periodic logging of system load
       --metrics strings                                      Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                           Level of monitor aggregation for traces from the datapath (default "None")

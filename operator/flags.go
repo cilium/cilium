@@ -98,7 +98,8 @@ func init() {
 	option.BindEnv(option.LogDriver)
 
 	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
-		option.LogOpt, "Log driver options for cilium-operator")
+		option.LogOpt, `Log driver options for cilium-operator, `+
+			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}`)
 	option.BindEnv(option.LogOpt)
 
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
