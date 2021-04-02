@@ -20,8 +20,10 @@ import (
 	"os"
 
 	"github.com/cilium/cilium-cli/config"
+	"github.com/cilium/cilium-cli/defaults"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func newCmdConfig() *cobra.Command {
@@ -80,6 +82,15 @@ func newCmdConfigSet() *cobra.Command {
 			if err := check.Set(context.Background(), args[0], args[1]); err != nil {
 				fatalf("Unable to set config:  %s", err)
 			}
+			if !params.Restart {
+				fmt.Println("⚠️  Restart Cilium pods for configmap changes to take effect")
+				return nil
+			}
+			if err := k8sClient.DeletePodCollection(context.Background(), params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
+				fmt.Printf("⚠️  Unable to restart Cilium pods: %s\n", err)
+			} else {
+				fmt.Println("♻️  Restarted Cilium pods")
+			}
 			return nil
 		},
 	}
@@ -91,7 +102,13 @@ func newCmdConfigSet() *cobra.Command {
 		"kube-system",
 		"Namespace Cilium is running in",
 	)
-
+	cmd.Flags().BoolVarP(
+		&params.Restart,
+		"restart",
+		"r",
+		true,
+		"Restart Cilium pods",
+	)
 	return cmd
 }
 
