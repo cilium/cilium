@@ -133,7 +133,9 @@ func initEnv() {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug)
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
 
 	option.LogRegisteredOptions(log)
 	// Enable fallback to direct API probing to check for support of Leases in
