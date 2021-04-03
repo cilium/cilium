@@ -19,6 +19,7 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -53,6 +54,7 @@ type Options struct {
 	OnServerInit   []OnServerInit          // invoked when the hubble server is initialized
 	OnMonitorEvent []OnMonitorEvent        // invoked before an event is decoded
 	OnDecodedFlow  []OnDecodedFlow         // invoked after a flow has been decoded
+	OnDecodedEvent []OnDecodedEvent        // invoked after an event has been decoded
 	OnBuildFilter  []filters.OnBuildFilter // invoked while building a flow filter
 	OnFlowDelivery []OnFlowDelivery        // invoked before a flow is delivered via API
 	OnGetFlows     []OnGetFlows            // invoked on new GetFlows API call
@@ -103,6 +105,19 @@ type OnDecodedFlowFunc func(context.Context, *pb.Flow) (stop, error)
 // OnDecodedFlow is invoked after a flow has been decoded
 func (f OnDecodedFlowFunc) OnDecodedFlow(ctx context.Context, flow *pb.Flow) (stop, error) {
 	return f(ctx, flow)
+}
+
+// OnDecodedEvent is invoked after an event has been decoded
+type OnDecodedEvent interface {
+	OnDecodedEvent(context.Context, *v1.Event) (stop, error)
+}
+
+// OnDecodedEventFunc implements OnDecodedEvent for a single function
+type OnDecodedEventFunc func(context.Context, *v1.Event) (stop, error)
+
+// OnDecodedEvent is invoked after a flow has been decoded
+func (f OnDecodedEventFunc) OnDecodedEvent(ctx context.Context, event *v1.Event) (stop, error) {
+	return f(ctx, event)
 }
 
 // OnFlowDelivery is invoked before a flow is delivered via the API
@@ -193,6 +208,19 @@ func WithOnDecodedFlow(f OnDecodedFlow) Option {
 // WithOnDecodedFlowFunc adds a new callback to be invoked after decoding
 func WithOnDecodedFlowFunc(f func(context.Context, *pb.Flow) (stop, error)) Option {
 	return WithOnDecodedFlow(OnDecodedFlowFunc(f))
+}
+
+// WithOnDecodedEvent adds a new callback to be invoked after decoding an event.
+func WithOnDecodedEvent(f OnDecodedEvent) Option {
+	return func(o *Options) error {
+		o.OnDecodedEvent = append(o.OnDecodedEvent, f)
+		return nil
+	}
+}
+
+// WithOnDecodedEventFunc adds a new callback to be invoked after decoding an event
+func WithOnDecodedEventFunc(f func(context.Context, *v1.Event) (stop, error)) Option {
+	return WithOnDecodedEvent(OnDecodedEventFunc(f))
 }
 
 // WithOnBuildFilter adds a new callback to be invoked while building a flow filter

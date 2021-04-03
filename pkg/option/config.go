@@ -869,6 +869,20 @@ const (
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics = "hubble-metrics"
 
+	// HubbleExportFilePath specifies the filepath to write Hubble events to.
+	// e.g. "/var/run/cilium/hubble/events.log"
+	HubbleExportFilePath = "hubble-export-file-path"
+
+	// HubbleExportFileMaxSizeMB specifies the file size in MB at which to rotate
+	// the Hubble export file.
+	HubbleExportFileMaxSizeMB = "hubble-export-file-max-size-mb"
+
+	// HubbleExportFileMaxBacks specifies the number of rotated files to keep.
+	HubbleExportFileMaxBackups = "hubble-export-file-max-backups"
+
+	// HubbleExportFileCompress specifies whether rotated files are compressed.
+	HubbleExportFileCompress = "hubble-export-file-compress"
+
 	// DisableIptablesFeederRules specifies which chains will be excluded
 	// when installing the feeder rules
 	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
@@ -1813,6 +1827,20 @@ type DaemonConfig struct {
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics []string
 
+	// HubbleExportFilePath specifies the filepath to write Hubble events to.
+	// e.g. "/var/run/cilium/hubble/events.log"
+	HubbleExportFilePath string
+
+	// HubbleExportFileMaxSizeMB specifies the file size in MB at which to rotate
+	// the Hubble export file.
+	HubbleExportFileMaxSizeMB int
+
+	// HubbleExportFileMaxBacks specifies the number of rotated files to keep.
+	HubbleExportFileMaxBackups int
+
+	// HubbleExportFileCompress specifies whether rotated files are compressed.
+	HubbleExportFileCompress bool
+
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout time.Duration
 
@@ -2650,6 +2678,10 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.HubbleMetricsServer = viper.GetString(HubbleMetricsServer)
 	c.HubbleMetrics = viper.GetStringSlice(HubbleMetrics)
+	c.HubbleExportFilePath = viper.GetString(HubbleExportFilePath)
+	c.HubbleExportFileMaxSizeMB = viper.GetInt(HubbleExportFileMaxSizeMB)
+	c.HubbleExportFileMaxBackups = viper.GetInt(HubbleExportFileMaxBackups)
+	c.HubbleExportFileCompress = viper.GetBool(HubbleExportFileCompress)
 	c.DisableIptablesFeederRules = viper.GetStringSlice(DisableIptablesFeederRules)
 
 	// Hidden options

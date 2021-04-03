@@ -27,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/math"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -132,6 +134,24 @@ func (d *Daemon) launchHubble() {
 		observeroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
 		observeroption.WithCiliumDaemon(d),
 	)
+	if option.Config.HubbleExportFilePath != "" {
+		exporterOpts := []exporteroption.Option{
+			exporteroption.WithPath(option.Config.HubbleExportFilePath),
+			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
+			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
+		}
+		if option.Config.HubbleExportFileCompress {
+			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
+		}
+		hubbleExporter, err := exporter.NewExporter(logger, exporterOpts...)
+		if err != nil {
+			logger.WithError(err).Error("Failed to configure Hubble export")
+		} else {
+			opt := observeroption.WithOnDecodedEvent(hubbleExporter)
+			observerOpts = append(observerOpts, opt)
+		}
+	}
+
 	d.hubbleObserver, err = observer.NewLocalServer(payloadParser, logger,
 		observerOpts...,
 	)
