@@ -131,6 +131,10 @@ cilium-agent [flags]
       --hubble-disable-tls                                   Allow Hubble server to run on the given listen address without TLS.
       --hubble-event-buffer-capacity int                     Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                          Buffer size of the channel to receive monitor events.
+      --hubble-export-file-compress                          Compress rotated Hubble export files.
+      --hubble-export-file-max-backups int                   Number of rotated Hubble export files to keep. (default 5)
+      --hubble-export-file-max-size-mb int                   Size in MB at which to rotate Hubble export file. (default 10)
+      --hubble-export-file-path string                       Filepath to write Hubble events to.
       --hubble-listen-address string                         An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                               List of Hubble metrics to enable.
       --hubble-metrics-server string                         Address to serve Hubble metrics on.

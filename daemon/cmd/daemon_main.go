@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -930,6 +931,18 @@ func init() {
 
 	flags.StringSlice(option.HubbleMetrics, []string{}, "List of Hubble metrics to enable.")
 	option.BindEnv(option.HubbleMetrics)
+
+	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to.")
+	option.BindEnv(option.HubbleExportFilePath)
+
+	flags.Int(option.HubbleExportFileMaxSizeMB, exporteroption.Default.MaxSizeMB, "Size in MB at which to rotate Hubble export file.")
+	option.BindEnv(option.HubbleExportFileMaxSizeMB)
+
+	flags.Int(option.HubbleExportFileMaxBackups, exporteroption.Default.MaxBackups, "Number of rotated Hubble export files to keep.")
+	option.BindEnv(option.HubbleExportFileMaxBackups)
+
+	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
+	option.BindEnv(option.HubbleExportFileCompress)
 
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(option.DisableIptablesFeederRules)
