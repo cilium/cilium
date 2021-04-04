@@ -29,35 +29,38 @@ import (
 
 // OnAdd handles an add event for services. It implements
 // github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler.
-func (m *Manager) OnAdd(obj *slim_corev1.Service) {
+func (m *Manager) OnAdd(obj *slim_corev1.Service) error {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err == nil {
-		m.queue.Add(svcEvent(key))
-	} else {
+	if err != nil {
 		logInvalidObject(obj, err)
+		return err
 	}
+	m.queue.Add(svcEvent(key))
+	return nil
 }
 
 // OnUpdate handles an update event for services. It implements
 // github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler.
-func (m *Manager) OnUpdate(oldObj, newObj *slim_corev1.Service) {
+func (m *Manager) OnUpdate(oldObj, newObj *slim_corev1.Service) error {
 	key, err := cache.MetaNamespaceKeyFunc(newObj)
-	if err == nil {
-		m.queue.Add(svcEvent(key))
-	} else {
+	if err != nil {
 		logInvalidObject(newObj, err)
+		return err
 	}
+	m.queue.Add(svcEvent(key))
+	return nil
 }
 
 // OnDelete handles a delete event for services. It implements
 // github.com/cilium/cilium/pkg/k8s/watchers/subscriber.ServiceHandler.
-func (m *Manager) OnDelete(obj *slim_corev1.Service) {
+func (m *Manager) OnDelete(obj *slim_corev1.Service) error {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err == nil {
-		m.queue.Add(svcEvent(key))
-	} else {
+	if err != nil {
 		logInvalidObject(obj, err)
+		return err
 	}
+	m.queue.Add(svcEvent(key))
+	return nil
 }
 
 func logInvalidObject(obj *slim_corev1.Service, err error) {
