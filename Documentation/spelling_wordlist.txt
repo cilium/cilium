@@ -256,6 +256,7 @@ bugfix
 bugfixes
 bugtool
 buildx
+busybox
 bytecode
 cBPF
 callee

@@ -76,6 +76,7 @@ Advanced Networking
    ipam
    local-redirect-policy
    bgp
+   egress-gateway
 
 Cluster Mesh
 ------------
