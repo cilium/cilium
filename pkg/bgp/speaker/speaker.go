@@ -26,6 +26,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -34,6 +35,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
+
+// compile time check, Speaker must be a subscriber.Node
+var _ subscriber.Node = (*Speaker)(nil)
 
 // New creates a new MetalLB BGP speaker controller.
 func New() *Speaker {
@@ -177,10 +181,20 @@ func (s *Speaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.Endpoi
 	}
 }
 
+// OnAddNode notifies the Speaker of a new node.
+func (s *Speaker) OnAddNode(node *v1.Node) error { return nil }
+
 // OnUpdateNode notifies the Speaker of an update to a node.
-func (s *Speaker) OnUpdateNode(node *v1.Node) {
-	s.queue.Add(nodeEvent(&node.Labels))
+func (s *Speaker) OnUpdateNode(oldNode, newNode *v1.Node) error {
+	s.queue.Add(nodeEvent{
+		labels:   newNode.Labels,
+		podCIDRs: podCIDRs(newNode),
+	})
+	return nil
 }
+
+// OnDeleteNode notifies the Speaker of a node deletion.
+func (s *Speaker) OnDeleteNode(node *v1.Node) error { return nil }
 
 // RegisterSvcCache registers the K8s watcher cache with this Speaker.
 func (s *Speaker) RegisterSvcCache(cache endpointsGetter) {
