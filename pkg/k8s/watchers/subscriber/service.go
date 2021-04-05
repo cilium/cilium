@@ -21,9 +21,9 @@ import (
 // ServiceHandler is implemented by event handlers responding to K8s Service
 // events.
 type ServiceHandler interface {
-	OnAdd(*slim_corev1.Service) error
-	OnUpdate(oldObj, newObj *slim_corev1.Service) error
-	OnDelete(*slim_corev1.Service) error
+	OnAddService(*slim_corev1.Service) error
+	OnUpdateService(oldObj, newObj *slim_corev1.Service) error
+	OnDeleteService(*slim_corev1.Service) error
 }
 
 // NewService creates a new subscriber list for ServiceHandlers.
@@ -45,7 +45,7 @@ func (l *ServiceList) NotifyAdd(svc *slim_corev1.Service) []error {
 	defer l.RUnlock()
 	errs := make([]error, 0, len(l.subs))
 	for _, s := range l.subs {
-		if err := s.OnAdd(svc); err != nil {
+		if err := s.OnAddService(svc); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -58,7 +58,7 @@ func (l *ServiceList) NotifyUpdate(oldSvc, newSvc *slim_corev1.Service) []error 
 	defer l.RUnlock()
 	errs := make([]error, 0, len(l.subs))
 	for _, s := range l.subs {
-		if err := s.OnUpdate(oldSvc, newSvc); err != nil {
+		if err := s.OnUpdateService(oldSvc, newSvc); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -71,7 +71,7 @@ func (l *ServiceList) NotifyDelete(svc *slim_corev1.Service) []error {
 	defer l.RUnlock()
 	errs := make([]error, 0, len(l.subs))
 	for _, s := range l.subs {
-		if err := s.OnDelete(svc); err != nil {
+		if err := s.OnDeleteService(svc); err != nil {
 			errs = append(errs, err)
 		}
 	}
