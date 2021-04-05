@@ -340,7 +340,7 @@ ct_recreate6:
 		}
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
 	 */
@@ -349,7 +349,7 @@ ct_recreate6:
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_MISSED_TAIL_CALL;
 	}
-#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
@@ -774,7 +774,7 @@ ct_recreate4:
 		}
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
 	 */
@@ -783,7 +783,7 @@ ct_recreate4:
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_MISSED_TAIL_CALL;
 	}
-#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
@@ -1145,14 +1145,14 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
-#if defined(ENABLE_ENDPOINT_ROUTES) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
 	/* See comment in IPv4 path. */
 	ctx_change_type(ctx, PACKET_HOST);
 #else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ENDPOINT_ROUTES && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1447,7 +1447,7 @@ skip_policy_enforcement:
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
-#if defined(ENABLE_ENDPOINT_ROUTES) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
 	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
 	 * redirect() because that would bypass conntrack and the reverse DNAT.
@@ -1461,7 +1461,7 @@ skip_policy_enforcement:
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ENDPOINT_ROUTES && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1717,7 +1717,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 	send_trace_notify(ctx, trace, identity, 0, 0,
 			  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 
-#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,
 	 * jump to bpf_host to enforce egress host policies before anything else.
 	 * We will jump back to bpf_lxc once host policies are enforced.
@@ -1728,7 +1728,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_MISSED_TAIL_CALL;
 	}
-#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
