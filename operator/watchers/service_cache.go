@@ -34,17 +34,17 @@ type serviceCacheSubscriber struct {
 	swgSvcs, swgEps *lock.StoppableWaitGroup
 }
 
-func (c *serviceCacheSubscriber) OnAdd(obj *slim_corev1.Service) error {
+func (c *serviceCacheSubscriber) OnAddService(obj *slim_corev1.Service) error {
 	log.WithField(logfields.ServiceName, obj.Name).Debugf("Received service addition %+v", obj)
 	K8sSvcCache.UpdateService(obj, c.swgSvcs)
 	return nil
 }
-func (c *serviceCacheSubscriber) OnUpdate(oldObj, newObj *slim_corev1.Service) error {
+func (c *serviceCacheSubscriber) OnUpdateService(oldObj, newObj *slim_corev1.Service) error {
 	log.WithField(logfields.ServiceName, newObj.Name).Debugf("Received service update %+v", newObj)
 	K8sSvcCache.UpdateService(newObj, c.swgSvcs)
 	return nil
 }
-func (c *serviceCacheSubscriber) OnDelete(obj *slim_corev1.Service) error {
+func (c *serviceCacheSubscriber) OnDeleteService(obj *slim_corev1.Service) error {
 	log.WithField(logfields.ServiceName, obj.Name).Debugf("Received service deletion %+v", obj)
 	K8sSvcCache.DeleteService(obj, c.swgSvcs)
 	return nil
