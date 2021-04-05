@@ -1133,7 +1133,7 @@ out:
 	return ret;
 }
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
 #ifdef ENABLE_IPV6
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 			 is_defined(DEBUG)), CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
@@ -1286,6 +1286,6 @@ handle_lxc_traffic(struct __ctx_buff *ctx)
 
 	return to_host_from_lxc(ctx);
 }
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
 
 BPF_LICENSE("GPL");
