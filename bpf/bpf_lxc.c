@@ -86,7 +86,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 					    int l3_off, struct ipv6hdr *ip6,
 					    __u32 *dstID)
 {
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 	union macaddr router_mac = NODE_MAC;
 #endif
 	int ret, verdict = 0, l4_off, hdrlen;
@@ -314,7 +314,7 @@ ct_recreate6:
 	daddr = (union v6addr *)&ip6->daddr;
 
 	/* See handle_ipv4_from_lxc() re hairpin_flow */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+	if (is_defined(ENABLE_ENDPOINT_ROUTES) || hairpin_flow) {
 		struct endpoint_info *ep;
 
 		/* Lookup IPv6 address, this will return a match if:
@@ -325,7 +325,7 @@ ct_recreate6:
 		 */
 		ep = lookup_ip6_endpoint(ip6);
 		if (ep) {
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 			if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
 				goto to_host;
@@ -333,14 +333,14 @@ ct_recreate6:
 				return DROP_HOST_UNREACHABLE;
 #endif
 			}
-#endif /* ENABLE_ROUTING */
+#endif /* ENABLE_ENDPOINT_ROUTES */
 			policy_clear_mark(ctx);
 			return ipv6_local_delivery(ctx, l3_off, SECLABEL, ep,
 						   METRIC_EGRESS, false);
 		}
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
 	 */
@@ -349,7 +349,7 @@ ct_recreate6:
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_MISSED_TAIL_CALL;
 	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
@@ -392,7 +392,7 @@ ct_recreate6:
 
 	goto pass_to_stack;
 
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 to_host:
 	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
 	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
@@ -412,7 +412,7 @@ to_host:
 #endif
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 	ret = ipv6_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
@@ -515,7 +515,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 						__u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 	union macaddr router_mac = NODE_MAC;
 #endif
 	void *data, *data_end;
@@ -742,12 +742,12 @@ ct_recreate4:
 
 	orig_dip = ip4->daddr;
 
-	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
+	/* Allow a hairpin packet to be redirected even if ENABLE_ENDPOINT_ROUTES is
 	 * disabled. Otherwise, the packet will be dropped by the kernel if
 	 * it is going to be routed via an interface it came from after it has
 	 * been passed to the stack.
 	 */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+	if (is_defined(ENABLE_ENDPOINT_ROUTES) || hairpin_flow) {
 		struct endpoint_info *ep;
 
 		/* Lookup IPv4 address, this will return a match if:
@@ -759,7 +759,7 @@ ct_recreate4:
 		 */
 		ep = lookup_ip4_endpoint(ip4);
 		if (ep) {
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 			if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
 				goto to_host;
@@ -767,14 +767,14 @@ ct_recreate4:
 				return DROP_HOST_UNREACHABLE;
 #endif
 			}
-#endif /* ENABLE_ROUTING */
+#endif /* ENABLE_ENDPOINT_ROUTES */
 			policy_clear_mark(ctx);
 			return ipv4_local_delivery(ctx, l3_off, SECLABEL, ip4,
 						   ep, METRIC_EGRESS, false);
 		}
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
 	 */
@@ -783,7 +783,7 @@ ct_recreate4:
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_MISSED_TAIL_CALL;
 	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
@@ -837,7 +837,7 @@ skip_egress_gateway:
 
 	goto pass_to_stack;
 
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 to_host:
 	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
 	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
@@ -857,7 +857,7 @@ to_host:
 #endif
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
+#ifdef ENABLE_ENDPOINT_ROUTES
 	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
@@ -1145,14 +1145,14 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
-#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+#if defined(ENABLE_ENDPOINT_ROUTES) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
 	/* See comment in IPv4 path. */
 	ctx_change_type(ctx, PACKET_HOST);
 #else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* ENABLE_ENDPOINT_ROUTES && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1447,7 +1447,7 @@ skip_policy_enforcement:
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
-#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+#if defined(ENABLE_ENDPOINT_ROUTES) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
 	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
 	 * redirect() because that would bypass conntrack and the reverse DNAT.
@@ -1461,7 +1461,7 @@ skip_policy_enforcement:
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* ENABLE_ENDPOINT_ROUTES && ENCAP_IFINDEX && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1717,7 +1717,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 	send_trace_notify(ctx, trace, identity, 0, 0,
 			  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,
 	 * jump to bpf_host to enforce egress host policies before anything else.
 	 * We will jump back to bpf_lxc once host policies are enforced.
@@ -1728,7 +1728,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
 		return DROP_MISSED_TAIL_CALL;
 	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
