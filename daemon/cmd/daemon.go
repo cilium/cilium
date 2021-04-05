@@ -450,6 +450,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 
+	d.k8sWatcher.NodeChain.Register(d.endpointManager)
+	if option.Config.BGPAnnounceLBIP {
+		d.k8sWatcher.NodeChain.Register(d.bgpSpeaker)
+	}
+
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
 	if option.Config.BGPAnnounceLBIP {
