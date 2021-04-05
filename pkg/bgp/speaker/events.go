@@ -28,10 +28,12 @@ type svcEvent struct {
 	eps *metallbspr.Endpoints
 }
 type epEvent svcEvent
-
-// nodeEvent must be a pointer to a map because maps are not hashable, aka
-// cannot be keys in a map, which queue is.
-type nodeEvent *map[string]string
+type nodeEvent struct {
+	// The following fields must be a pointers because they are not hashable
+	// (read comparable) in Go.
+	labels   *map[string]string
+	podCIDRs *[]string
+}
 
 // run runs the reconciliation loop, fetching events off of the queue to
 // process. The events supported are svcEvent, epEvent, and nodeEvent. This
@@ -69,9 +71,37 @@ func (s *Speaker) do(key interface{}) types.SyncState {
 	case epEvent:
 		return s.SetService(s.logger, k.id.String(), k.svc, k.eps)
 	case nodeEvent:
-		return s.SetNodeLabels(s.logger, *k)
+		return s.handleNodeEvent(k)
 	default:
 		log.Debugf("Encountered an unknown key type %T in BGP speaker", k)
 		return types.SyncStateSuccess
 	}
+}
+
+func (s *Speaker) handleNodeEvent(k nodeEvent) types.SyncState {
+	var (
+		ret    types.SyncState
+		failed bool
+	)
+
+	if s.announceLBIP {
+		if r := s.SetNodeLabels(s.logger, *k.labels); r != types.SyncStateSuccess {
+			failed = true
+			ret = r
+		}
+	}
+	if s.announcePodCIDR {
+		if err := s.announcePodCIDRs(*k.podCIDRs); err != nil {
+			if !failed {
+				failed = true
+				ret = types.SyncStateError
+			}
+			log.WithError(err).WithField("CIDRs", k.podCIDRs).Error("Failed to announce pod CIDRs")
+		}
+	}
+
+	if failed {
+		return ret
+	}
+	return types.SyncStateSuccess
 }
