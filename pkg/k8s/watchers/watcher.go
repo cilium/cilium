@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,7 +53,6 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -163,9 +163,8 @@ type bgpSpeakerManager interface {
 	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
 	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice)
 	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice)
-
-	OnUpdateNode(node *corev1.Node)
 }
+
 type egressPolicyManager interface {
 	AddEgressPolicy(config egresspolicy.Config) (bool, error)
 	DeleteEgressPolicy(configID types.NamespacedName) error
@@ -187,6 +186,12 @@ type K8sWatcher struct {
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
 	K8sSvcCache k8s.ServiceCache
+
+	// NodeChain is the root of a notification chain for k8s Node events.
+	// This NodeChain allows registration of subscriber.Node implementations.
+	// On k8s Node events all registered subscriber.Node implementations will
+	// have their event handling methods called in order of registration.
+	NodeChain *subscriber.NodeChain
 
 	endpointManager endpointManager
 
@@ -244,6 +249,7 @@ func NewK8sWatcher(
 		redirectPolicyManager: redirectPolicyManager,
 		bgpSpeakerManager:     bgpSpeakerManager,
 		egressPolicyManager:   egressPolicyManager,
+		NodeChain:             subscriber.NewNodeChain(),
 		cfg:                   cfg,
 	}
 }
