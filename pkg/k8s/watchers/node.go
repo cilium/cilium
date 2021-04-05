@@ -19,9 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -41,8 +39,8 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 				var valid bool
 				if node := k8s.ObjToV1Node(obj); node != nil {
 					valid = true
-					err := k.updateK8sNodeV1(nil, node)
-					k.K8sEventProcessed(metricNode, metricCreate, err == nil)
+					errs := k.NodeChain.OnAddNode(node)
+					k.K8sEventProcessed(metricNode, metricCreate, errs == nil)
 				}
 				k.K8sEventReceived(metricNode, metricCreate, valid, false)
 			},
@@ -56,12 +54,14 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 						if comparator.MapStringEquals(oldNodeLabels, newNodeLabels) {
 							equal = true
 						} else {
-							err := k.updateK8sNodeV1(oldNode, newNode)
-							k.K8sEventProcessed(metricNode, metricUpdate, err == nil)
+							errs := k.NodeChain.OnUpdateNode(oldNode, newNode)
+							k.K8sEventProcessed(metricNode, metricUpdate, errs == nil)
 						}
 					}
 				}
 				k.K8sEventReceived(metricNode, metricUpdate, valid, equal)
+			},
+			DeleteFunc: func(obj interface{}) {
 			},
 		},
 		nil,
@@ -70,29 +70,4 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 	go nodeController.Run(wait.NeverStop)
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
-}
-
-func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) error {
-	var oldNodeLabels map[string]string
-	if oldK8sNode != nil {
-		oldNodeLabels = oldK8sNode.GetLabels()
-	}
-	newNodeLabels := newK8sNode.GetLabels()
-
-	if option.Config.BGPAnnounceLBIP {
-		k.bgpSpeakerManager.OnUpdateNode(newK8sNode)
-	}
-
-	nodeEP := k.endpointManager.GetHostEndpoint()
-	if nodeEP == nil {
-		log.Debug("Host endpoint not found, updating node labels")
-		node.SetLabels(newNodeLabels)
-		return nil
-	}
-
-	err := updateEndpointLabels(nodeEP, oldNodeLabels, newNodeLabels)
-	if err != nil {
-		return err
-	}
-	return nil
 }
