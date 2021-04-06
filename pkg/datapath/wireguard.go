@@ -20,7 +20,7 @@ import "net"
 type WireguardAgent interface {
 	Init() error
 	UpdatePeer(nodeName, pubKeyHex string,
-		wgIPv4, nodeIPv4 net.IP, podCIDRv4 *net.IPNet,
-		wgIPv6, nodeIPv6 net.IP, podCIDRv6 *net.IPNet) error
+		nodeIPv4 net.IP, podCIDRv4 *net.IPNet,
+		nodeIPv6 net.IP, podCIDRv6 *net.IPNet) error
 	DeletePeer(nodeName string) error
 }
