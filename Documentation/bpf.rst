@@ -1939,7 +1939,7 @@ describe some of the differences for the BPF model:
         .max_elem       = 1,
     };
 
-    __section_tail(JMP_MAP_ID, 0)
+    __section_tail(BPF_JMP_MAP_ID, 0)
     int looper(struct __sk_buff *skb)
     {
         printk("skb cb: %u\n", skb->cb[0]++);
