@@ -21,6 +21,58 @@ static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 	ctx->queue_mapping = aggregate;
 }
 
+static __always_inline void
+__edt_aggregate_from_proxy_v4(struct __ctx_buff *ctx __maybe_unused,
+			      __u32 *aggregate __maybe_unused)
+{
+#ifdef ENABLE_IPV4
+	struct endpoint_info *ep;
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return;
+
+	ep = __lookup_ip4_endpoint(ip4->saddr);
+	if (ep && !(ep->flags & ENDPOINT_F_HOST))
+		*aggregate = ep->lxc_id;
+#endif /* ENABLE_IPV4 */
+}
+
+static __always_inline void
+__edt_aggregate_from_proxy_v6(struct __ctx_buff *ctx __maybe_unused,
+			      __u32 *aggregate __maybe_unused)
+{
+#ifdef ENABLE_IPV6
+	struct endpoint_info *ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return;
+
+	ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+	if (ep && !(ep->flags & ENDPOINT_F_HOST))
+		*aggregate = ep->lxc_id;
+#endif /* ENABLE_IPV6 */
+}
+
+static __always_inline void edt_set_aggregate_from_proxy(struct __ctx_buff *ctx)
+{
+	__u32 aggregate = 0;
+
+	/* In case of traffic from proxy the EDT aggregate was scrubbed.
+	 * We need to derive it from the packet source address to match
+	 * local Pod egress traffic.
+	 */
+	if (ctx->protocol == bpf_htons(ETH_P_IP))
+		__edt_aggregate_from_proxy_v4(ctx, &aggregate);
+	else if (ctx->protocol == bpf_htons(ETH_P_IPV6))
+		__edt_aggregate_from_proxy_v6(ctx, &aggregate);
+
+	ctx->queue_mapping = aggregate;
+}
+
 static __always_inline __u32 edt_get_aggregate(struct __ctx_buff *ctx)
 {
 	__u32 aggregate = ctx->queue_mapping;
@@ -79,6 +131,11 @@ static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
 static __always_inline void
 edt_set_aggregate(struct __ctx_buff *ctx __maybe_unused,
 		  __u32 aggregate __maybe_unused)
+{
+}
+
+static __always_inline void
+edt_set_aggregate_from_proxy(struct __ctx_buff *ctx __maybe_unused)
 {
 }
 #endif /* ENABLE_BANDWIDTH_MANAGER */
