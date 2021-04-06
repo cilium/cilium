@@ -817,6 +817,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	bpf_clear_meta(ctx);
 
 	if (from_host) {
+		int trace = TRACE_FROM_HOST;
+		bool from_proxy;
+
 #ifdef HOST_REDIRECT_TO_INGRESS
 		if (proto == bpf_htons(ETH_P_ARP)) {
 			union macaddr mac = HOST_IFINDEX_MAC;
@@ -832,10 +835,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 					   BPF_F_INGRESS);
 		}
 #endif
-
-		int trace = TRACE_FROM_HOST;
-		bool from_proxy;
-
 		from_proxy = inherit_identity_from_host(ctx, &identity);
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
