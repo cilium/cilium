@@ -184,6 +184,14 @@ func init() {
 
 	cobra.OnInitialize(option.InitConfig("Cilium", "ciliumd"))
 
+	// Reset the help function to also exit, as we block elsewhere in interrupts
+	// and would not exit when called with -h.
+	oldHelpFunc := RootCmd.HelpFunc()
+	RootCmd.SetHelpFunc(func(c *cobra.Command, a []string) {
+		oldHelpFunc(c, a)
+		os.Exit(0)
+	})
+
 	flags := RootCmd.Flags()
 
 	// Validators
@@ -960,12 +968,6 @@ func init() {
 	option.BindEnv(option.EnableCustomCallsName)
 
 	viper.BindPFlags(flags)
-
-	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)
-
-	// Reset the help function to also exit, as we block elsewhere in interrupts
-	// and would not exit when called with -h.
-	ResetHelpandExit(RootCmd)
 }
 
 // restoreExecPermissions restores file permissions to 0740 of all files inside
