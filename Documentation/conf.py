@@ -238,5 +238,6 @@ default_role = 'any'
 def setup(app):
     app.add_stylesheet('parsed-literal.css')
     app.add_stylesheet('copybutton.css')
+    app.add_stylesheet('editbutton.css')
     app.add_javascript('clipboardjs.min.js')
     app.add_javascript("copybutton.js")
