@@ -107,7 +107,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"text/tabwriter"
 )
 
 // ErrHelp is the error returned if the flag -help is invoked but no such flag is defined.
@@ -123,16 +122,6 @@ const (
 	ExitOnError
 	// PanicOnError will panic() if an error is found when parsing flags
 	PanicOnError
-	// from the beginning of flagname to usage
-	MinWidth = 56
-	// number of characters in each usage line
-	UsageFirstLine   = 67
-	UsageSecondLine  = 120
-	UsageThirdLine   = 180
-	UsageForthLine   = 240
-	UsageFifthLine   = 300
-	UsageSixthLine   = 360
-	UsageSeventhLine = 420
 )
 
 // ParseErrorsWhitelist defines the parsing errors that can be ignored
@@ -682,54 +671,6 @@ func wrap(i, w int, s string) string {
 
 }
 
-func ParseLineUsage(tab *tabwriter.Writer, line string, usage string) {
-	usage_len := len(usage)
-	usage_arr := []rune(usage)
-	usage_start := " "
-	if usage_len <= UsageFirstLine {
-		fmt.Fprintf(tab, "%s\t%s", line, usage)
-	} else if usage_len <= UsageSecondLine {
-		usage1 := string(usage_arr[0:UsageFirstLine])
-		usage2 := strings.TrimSpace(string(usage_arr[UsageFirstLine:usage_len]))
-		fmt.Fprintf(tab, "%s\t%s\n%s\t%s", line, usage1, usage_start, usage2)
-	} else if usage_len <= UsageThirdLine {
-		usage1 := string(usage_arr[0:UsageFirstLine])
-		usage2 := strings.TrimSpace(string(usage_arr[UsageFirstLine:UsageSecondLine]))
-		usage3 := strings.TrimSpace(string(usage_arr[UsageSecondLine:usage_len]))
-		fmt.Fprintf(tab, "%s\t%s\n%s\t%s\n%s\t%s", line, usage1, usage_start, usage2, usage_start, usage3)
-	} else if usage_len <= UsageForthLine {
-		usage1 := string(usage_arr[0:UsageFirstLine])
-		usage2 := strings.TrimSpace(string(usage_arr[UsageFirstLine:UsageSecondLine]))
-		usage3 := strings.TrimSpace(string(usage_arr[UsageSecondLine:UsageThirdLine]))
-		usage4 := strings.TrimSpace(string(usage_arr[UsageThirdLine:usage_len]))
-		fmt.Fprintf(tab, "%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s", line, usage1, usage_start, usage2, usage_start, usage3, usage_start, usage4)
-	} else if usage_len <= UsageFifthLine {
-		usage1 := string(usage_arr[0:UsageFirstLine])
-		usage2 := strings.TrimSpace(string(usage_arr[UsageFirstLine:UsageSecondLine]))
-		usage3 := strings.TrimSpace(string(usage_arr[UsageSecondLine:UsageThirdLine]))
-		usage4 := strings.TrimSpace(string(usage_arr[UsageThirdLine:UsageForthLine]))
-		usage5 := strings.TrimSpace(string(usage_arr[UsageForthLine:usage_len]))
-		fmt.Fprintf(tab, "%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s", line, usage1, usage_start, usage2, usage_start, usage3, usage_start, usage4, usage_start, usage5)
-	} else if usage_len <= UsageSixthLine {
-		usage1 := string(usage_arr[0:UsageFirstLine])
-		usage2 := strings.TrimSpace(string(usage_arr[UsageFirstLine:UsageSecondLine]))
-		usage3 := strings.TrimSpace(string(usage_arr[UsageSecondLine:UsageThirdLine]))
-		usage4 := strings.TrimSpace(string(usage_arr[UsageThirdLine:UsageForthLine]))
-		usage5 := strings.TrimSpace(string(usage_arr[UsageForthLine:UsageFifthLine]))
-		usage6 := strings.TrimSpace(string(usage_arr[UsageFifthLine:usage_len]))
-		fmt.Fprintf(tab, "%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s", line, usage1, usage_start, usage2, usage_start, usage3, usage_start, usage4, usage_start, usage5, usage_start, usage6)
-	} else if usage_len <= UsageSeventhLine {
-		usage1 := string(usage_arr[0:UsageFirstLine])
-		usage2 := strings.TrimSpace(string(usage_arr[UsageFirstLine:UsageSecondLine]))
-		usage3 := strings.TrimSpace(string(usage_arr[UsageSecondLine:UsageThirdLine]))
-		usage4 := strings.TrimSpace(string(usage_arr[UsageThirdLine:UsageForthLine]))
-		usage5 := strings.TrimSpace(string(usage_arr[UsageForthLine:UsageFifthLine]))
-		usage6 := strings.TrimSpace(string(usage_arr[UsageFifthLine:UsageSixthLine]))
-		usage7 := strings.TrimSpace(string(usage_arr[UsageSixthLine:usage_len]))
-		fmt.Fprintf(tab, "%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s\n%s\t%s", line, usage1, usage_start, usage2, usage_start, usage3, usage_start, usage4, usage_start, usage5, usage_start, usage6, usage_start, usage7)
-	}
-}
-
 // FlagUsagesWrapped returns a string containing the usage information
 // for all flags in the FlagSet. Wrapped to `cols` columns (0 for no
 // wrapping)
@@ -739,7 +680,6 @@ func (f *FlagSet) FlagUsagesWrapped(cols int) string {
 	lines := make([]string, 0, len(f.formal))
 
 	maxlen := 0
-	var temp_line bytes.Buffer
 	f.VisitAll(func(flag *Flag) {
 		if flag.Hidden {
 			return
@@ -749,7 +689,7 @@ func (f *FlagSet) FlagUsagesWrapped(cols int) string {
 		if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
 			line = fmt.Sprintf("  -%s, --%s", flag.Shorthand, flag.Name)
 		} else {
-			line = fmt.Sprintf("  --%s", flag.Name)
+			line = fmt.Sprintf("      --%s", flag.Name)
 		}
 
 		varname, usage := UnquoteUsage(flag)
@@ -780,34 +720,26 @@ func (f *FlagSet) FlagUsagesWrapped(cols int) string {
 			maxlen = len(line)
 		}
 
+		line += usage
 		if !flag.defaultIsZeroValue() {
 			if flag.Value.Type() == "string" {
-				usage += fmt.Sprintf(" (default %q)", flag.DefValue)
+				line += fmt.Sprintf(" (default %q)", flag.DefValue)
 			} else {
-				usage += fmt.Sprintf(" (default %s)", flag.DefValue)
+				line += fmt.Sprintf(" (default %s)", flag.DefValue)
 			}
 		}
 		if len(flag.Deprecated) != 0 {
-			usage += fmt.Sprintf(" (DEPRECATED: %s)", flag.Deprecated)
+			line += fmt.Sprintf(" (DEPRECATED: %s)", flag.Deprecated)
 		}
 
-		//tab writter to align between flagname and usage
-		//The usage ouput with muliple lines will appear based on the usage_len
-		// tab writer syntax:func NewWriter(output io.Writer, minwidth, tabwidth, padding int, padchar byte, flags uint) *Writer
-		tab := tabwriter.NewWriter(&temp_line, MinWidth, 0, 0, ' ', tabwriter.TabIndent)
-		temp_line.Reset()
-		ParseLineUsage(tab, line, usage)
-		tab.Flush()
-
-		line = ""
-		line = temp_line.String()
 		lines = append(lines, line)
 	})
 
 	for _, line := range lines {
 		sidx := strings.Index(line, "\x00")
+		spacing := strings.Repeat(" ", maxlen-sidx)
 		// maxlen + 2 comes from + 1 for the \x00 and + 1 for the (deliberate) off-by-one in maxlen-sidx
-		fmt.Fprintln(buf, line[:sidx], line[sidx+1:])
+		fmt.Fprintln(buf, line[:sidx], spacing, wrap(maxlen+2, cols, line[sidx+1:]))
 	}
 
 	return buf.String()
