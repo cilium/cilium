@@ -17,7 +17,7 @@ spec:
       hostNetwork: true
       containers:
       - name: kube-wireguarder
-        image: quay.io/cilium/kube-wireguarder:0.0.2
+        image: quay.io/cilium/kube-wireguarder:0.0.4
         imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true
