@@ -24,7 +24,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/lock"
@@ -48,26 +47,22 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "wireguard")
 
-// Agent needs to be initialized with Init() after the local Wireguard node IP
-// is known. In .Init(), the Wireguard tunnel device will be created
-// and the proper routes set.
-// During Init(), existing peer keys are placed into `restoredPubKeys`.
-// Once RestoreFinished() is called obsolete keys and peers are removed.
-// UpdatePeer() inserts or updates the public key of peer discovered via
-// the node manager.
+// Agent needs to be initialized with Init(). In Init(), the Wireguard tunnel
+// device will be created and the proper routes set.  During Init(), existing
+// peer keys are placed into `restoredPubKeys`.  Once RestoreFinished() is
+// called obsolete keys and peers are removed.  UpdatePeer() inserts or updates
+// the public key of peer discovered via the node manager.
 type Agent struct {
 	lock.RWMutex
 	wgClient         *wgctrl.Client
 	listenPort       int
 	privKey          wgtypes.Key
-	wireguardV4CIDR  *net.IPNet
-	wireguardV6CIDR  *net.IPNet
 	pubKeyByNodeName map[string]string // nodeName => pubKey
 	restoredPubKeys  map[string]struct{}
 }
 
 // NewAgent creates a new Wireguard Agent
-func NewAgent(privKeyPath string, wgV4Net, wgV6Net *net.IPNet) (*Agent, error) {
+func NewAgent(privKeyPath string) (*Agent, error) {
 	key, err := loadOrGeneratePrivKey(privKeyPath)
 	if err != nil {
 		return nil, err
@@ -83,8 +78,6 @@ func NewAgent(privKeyPath string, wgV4Net, wgV6Net *net.IPNet) (*Agent, error) {
 	return &Agent{
 		wgClient:         wgClient,
 		privKey:          key,
-		wireguardV4CIDR:  wgV4Net,
-		wireguardV6CIDR:  wgV6Net,
 		listenPort:       listenPort,
 		pubKeyByNodeName: map[string]string{},
 		restoredPubKeys:  map[string]struct{}{},
@@ -107,45 +100,6 @@ func (a *Agent) Init() error {
 	if option.Config.EnableIPv4 {
 		if err := sysctl.Write(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", types.IfaceName), "2"); err != nil {
 			return nil
-		}
-	}
-
-	type ipNetFamily struct {
-		ip     *net.IPNet
-		family int
-	}
-	wireguardIPs := []ipNetFamily{}
-	if option.Config.EnableIPv4 {
-		ip := &net.IPNet{
-			IP:   node.GetWireguardIPv4(),
-			Mask: a.wireguardV4CIDR.Mask,
-		}
-		wireguardIPs = append(wireguardIPs, ipNetFamily{ip: ip, family: netlink.FAMILY_V4})
-	}
-	if option.Config.EnableIPv6 {
-		ip := &net.IPNet{
-			IP:   node.GetWireguardIPv6(),
-			Mask: a.wireguardV6CIDR.Mask,
-		}
-		wireguardIPs = append(wireguardIPs, ipNetFamily{ip: ip, family: netlink.FAMILY_V6})
-	}
-	for _, p := range wireguardIPs {
-		// Removes stale IP addresses from wg device
-		addrs, err := netlink.AddrList(link, p.family)
-		if err != nil {
-			return err
-		}
-		for _, addr := range addrs {
-			if !cidr.NewCIDR(addr.IPNet).Equal(cidr.NewCIDR(p.ip)) {
-				if err := netlink.AddrDel(link, &addr); err != nil {
-					return fmt.Errorf("failed to remove stale wg ip: %w", err)
-				}
-			}
-		}
-
-		err = netlink.AddrAdd(link, &netlink.Addr{IPNet: p.ip})
-		if err != nil && !errors.Is(err, unix.EEXIST) {
-			return err
 		}
 	}
 
@@ -221,8 +175,8 @@ func (a *Agent) RestoreFinished() error {
 }
 
 func (a *Agent) UpdatePeer(nodeName, pubKeyHex string,
-	wgIPv4, nodeIPv4 net.IP, podCIDRv4 *net.IPNet,
-	wgIPv6, nodeIPv6 net.IP, podCIDRv6 *net.IPNet) error {
+	nodeIPv4 net.IP, podCIDRv4 *net.IPNet,
+	nodeIPv6 net.IP, podCIDRv6 *net.IPNet) error {
 
 	a.Lock()
 	defer a.Unlock()
@@ -242,10 +196,8 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string,
 		logfields.PubKey:    pubKeyHex,
 		logfields.NodeIPv4:  nodeIPv4,
 		logfields.PodCIDRv4: podCIDRv4,
-		logfields.WgIPv4:    wgIPv4,
 		logfields.NodeIPv6:  nodeIPv6,
 		logfields.PodCIDRv6: podCIDRv6,
-		logfields.WgIPv6:    wgIPv6,
 	}).Info("Adding peer")
 
 	pubKey, err := wgtypes.ParseKey(pubKeyHex)
@@ -256,23 +208,11 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string,
 	allowedIPs := []net.IPNet{}
 
 	if option.Config.EnableIPv4 {
-		if wgIPv4 != nil {
-			var peerIPNet net.IPNet
-			peerIPNet.IP = wgIPv4
-			peerIPNet.Mask = net.IPv4Mask(255, 255, 255, 255)
-			allowedIPs = append(allowedIPs, peerIPNet)
-		}
 		if podCIDRv4 != nil {
 			allowedIPs = append(allowedIPs, *podCIDRv4)
 		}
 	}
 	if option.Config.EnableIPv6 {
-		if wgIPv6 != nil {
-			var peerIPNet net.IPNet
-			peerIPNet.IP = wgIPv6
-			peerIPNet.Mask = net.CIDRMask(128, 128)
-			allowedIPs = append(allowedIPs, peerIPNet)
-		}
 		if podCIDRv6 != nil {
 			allowedIPs = append(allowedIPs, *podCIDRv6)
 		}

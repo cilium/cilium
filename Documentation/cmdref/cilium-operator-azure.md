@@ -73,8 +73,6 @@ cilium-operator-azure [flags]
       --synchronize-k8s-services                  Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
       --version                                   Print version information
-      --wireguard-subnet-v4 string                Wireguard tunnel IPv4 subnet (default "172.16.43.0/24")
-      --wireguard-subnet-v6 string                Wireguard tunnel IPv6 subnet (default "fdc9:281f:04d7:9ee9::1/64")
 ```
 
 ### SEE ALSO
