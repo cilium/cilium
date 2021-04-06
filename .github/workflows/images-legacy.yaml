@@ -44,9 +44,6 @@ jobs:
           - name: docker-plugin
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
 
-          - name: cilium-test
-            dockerfile: ./images/cilium-test/Dockerfile
-
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@154c24e1f33dbb5865a021c99f1318cfebf27b32
