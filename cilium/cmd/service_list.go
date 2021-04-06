@@ -63,10 +63,10 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	fmt.Fprintln(w, "ID\tFrontend\tService Type\tBackend\t")
 
 	type ServiceOutput struct {
-		ID               int64
-		ServiceType      string
-		FrontendAddress  string
-		BackendAddresses []string
+		ID                      int64
+		ServiceType             string
+		FrontendAddress         string
+		BackendAddressesWeights []string
 	}
 	svcs := []ServiceOutput{}
 
@@ -82,22 +82,22 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 			continue
 		}
 
-		var backendAddresses []string
+		var backendAddressesWeights []string
 		for i, be := range svc.Status.Realized.BackendAddresses {
 			beA, err := loadbalancer.NewL3n4AddrFromBackendModel(be)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error parsing backend %+v", be)
 				continue
 			}
-			str := fmt.Sprintf("%d => %s", i+1, beA.String())
-			backendAddresses = append(backendAddresses, str)
+			str := fmt.Sprintf("%d => %s (%d)", i+1, beA.String(), svc.Status.Realized.BackendWeights[i].Weight)
+			backendAddressesWeights = append(backendAddressesWeights, str)
 		}
 
 		SvcOutput := ServiceOutput{
-			ID:               svc.Status.Realized.ID,
-			ServiceType:      svc.Spec.Flags.Type,
-			FrontendAddress:  feA.String(),
-			BackendAddresses: backendAddresses,
+			ID:                      svc.Status.Realized.ID,
+			ServiceType:             svc.Spec.Flags.Type,
+			FrontendAddress:         feA.String(),
+			BackendAddressesWeights: backendAddressesWeights,
 		}
 		svcs = append(svcs, SvcOutput)
 	}
@@ -109,7 +109,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	for _, service := range svcs {
 		var str string
 
-		if len(service.BackendAddresses) == 0 {
+		if len(service.BackendAddressesWeights) == 0 {
 			str = fmt.Sprintf("%d\t%s\t%s\t\t",
 				service.ID, service.FrontendAddress, service.ServiceType)
 			fmt.Fprintln(w, str)
@@ -118,11 +118,11 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 
 		str = fmt.Sprintf("%d\t%s\t%s\t%s\t",
 			service.ID, service.FrontendAddress, service.ServiceType,
-			service.BackendAddresses[0])
+			service.BackendAddressesWeights[0])
 		fmt.Fprintln(w, str)
 
-		for _, bkaddr := range service.BackendAddresses[1:] {
-			str := fmt.Sprintf("\t\t\t%s\t", bkaddr)
+		for _, bkaddrWeight := range service.BackendAddressesWeights[1:] {
+			str := fmt.Sprintf("\t\t\t%s\t", bkaddrWeight)
 			fmt.Fprintln(w, str)
 		}
 	}

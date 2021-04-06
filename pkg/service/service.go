@@ -27,6 +27,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -46,10 +47,10 @@ var (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*lbmap.UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]uint16, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]*maglev.BackendPoint, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
-	AddBackend(uint16, net.IP, uint16, bool) error
+	AddBackend(uint16, net.IP, uint16, bool, uint32) error
 	DeleteBackendByID(uint16, bool) error
 	AddAffinityMatch(uint16, uint16) error
 	DeleteAffinityMatch(uint16, uint16) error
@@ -711,20 +712,21 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		scopedLog.WithFields(logrus.Fields{
-			logfields.BackendID: b.ID,
-			logfields.L3n4Addr:  b.L3n4Addr,
+			logfields.BackendID:     b.ID,
+			logfields.BackendWeight: b.Weight,
+			logfields.L3n4Addr:      b.L3n4Addr,
 		}).Debug("Adding new backend")
 
 		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,
-			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
+			b.L3n4Addr.L4Addr.Port, ipv6, b.Weight); err != nil {
 			return err
 		}
 	}
 
 	// Upsert service entries into BPF maps
-	backends := make(map[string]uint16, len(svc.backends))
+	backends := make(map[string]*maglev.BackendPoint, len(svc.backends))
 	for _, b := range svc.backends {
-		backends[b.String()] = uint16(b.ID)
+		backends[b.String()] = &maglev.BackendPoint{ID: uint16(b.ID), Weight: b.Weight}
 	}
 
 	p := &lbmap.UpsertServiceParams{
@@ -854,9 +856,9 @@ func (s *Service) restoreServicesLocked() error {
 		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
 			newSVC.useMaglev() && s.lbmap.IsMaglevLookupTableRecreated(ipv6) {
 
-			backends := make(map[string]uint16, len(newSVC.backends))
+			backends := make(map[string]*maglev.BackendPoint, len(newSVC.backends))
 			for _, b := range newSVC.backends {
-				backends[b.String()] = uint16(b.ID)
+				backends[b.String()] = &maglev.BackendPoint{ID: uint16(b.ID), Weight: b.Weight}
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
 				return err
@@ -953,15 +955,18 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
+				backends[i].Weight = backend.Weight
 				newBackends = append(newBackends, backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = &backends[i]
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
+				backends[i].Weight = s.backendByHash[hash].Weight
 			}
 			svc.backendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
+			backends[i].Weight = b.Weight
 		}
 	}
 

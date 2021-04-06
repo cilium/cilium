@@ -17,7 +17,6 @@ package lbmap
 import (
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -64,7 +63,7 @@ type UpsertServiceParams struct {
 	ID                        uint16
 	IP                        net.IP
 	Port                      uint16
-	Backends                  map[string]uint16
+	Backends                  map[string]*maglev.BackendPoint
 	PrevBackendCount          int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
@@ -100,14 +99,15 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if p.UseMaglev && len(p.Backends) != 0 {
-		if err := lbmap.UpsertMaglevLookupTable(p.ID, p.Backends, p.IPv6); err != nil {
+		maglev.GetLookupTable(p.Backends, lbmap.maglevTableSize, lbmap.maglevBackendIDsBuffer)
+		if err := updateMaglevTable(p.IPv6, p.ID, lbmap.maglevBackendIDsBuffer); err != nil {
 			return err
 		}
 	}
 
 	backendIDs := make([]uint16, 0, len(p.Backends))
 	for _, id := range p.Backends {
-		backendIDs = append(backendIDs, id)
+		backendIDs = append(backendIDs, id.ID)
 	}
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
@@ -153,21 +153,8 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
-func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
-	backendNames := make([]string, 0, len(backends))
-	for name := range backends {
-		backendNames = append(backendNames, name)
-	}
-	// Maglev algorithm might produce different lookup table for the same
-	// set of backends listed in a different order. To avoid that sort
-	// backends by name, as the names are the same on all nodes (in opposite
-	// to backend IDs which are node-local).
-	sort.Strings(backendNames)
-	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
-	for i, pos := range table {
-		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
-	}
-
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*maglev.BackendPoint, ipv6 bool) error {
+	maglev.GetLookupTable(backends, lbmap.maglevTableSize, lbmap.maglevBackendIDsBuffer)
 	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
 		return err
 	}
@@ -216,7 +203,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 }
 
 // AddBackend adds a backend into a BPF map.
-func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool, weight uint32) error {
 	var (
 		backend Backend
 		err     error
@@ -227,9 +214,9 @@ func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error 
 	}
 
 	if ipv6 {
-		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY, weight)
 	} else {
-		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY, weight)
 	}
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
@@ -484,7 +471,8 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		ip := backendVal.GetAddress()
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
-		lbBackend := loadbalancer.NewBackend(backendID, proto, ip, port)
+		weight := backendVal.GetWeight()
+		lbBackend := loadbalancer.NewBackend(backendID, proto, ip, port, weight)
 		lbBackends = append(lbBackends, lbBackend)
 	}
 

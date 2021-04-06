@@ -2310,6 +2310,14 @@ definitions:
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string
+  BackendWeight:
+    description: Service backend weight
+    type: object
+    properties:
+      weight:
+        description: Backend weight
+        type: integer
+        format: uint32
   LRPBackend:
     description: Pod backend of an LRP
     type: object
@@ -2382,6 +2390,11 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/BackendAddress"
+      backend-weights:
+        description: List of backend weights
+        type: array
+        items:
+          "$ref": "#/definitions/BackendWeight"
       flags:
         description: Optional service configuration flags
         type: object

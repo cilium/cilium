@@ -16,6 +16,7 @@ package mockmaps
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/maglev"
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -43,8 +44,8 @@ func NewLBMockMap() *LBMockMap {
 
 func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	backendsList := make([]lb.Backend, 0, len(p.Backends))
-	for name, backendID := range p.Backends {
-		b, found := m.BackendByID[backendID]
+	for name, backend := range p.Backends {
+		b, found := m.BackendByID[backend.ID]
 		if !found {
 			return fmt.Errorf("Backend %s (%d) not found", name, p.ID)
 		}
@@ -70,7 +71,7 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	return nil
 }
 
-func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*maglev.BackendPoint, ipv6 bool) error {
 	m.DummyMaglevTable[svcID] = len(backends)
 	return nil
 }
@@ -94,12 +95,12 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool, weight uint32) error {
 	if _, found := m.BackendByID[id]; found {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
+	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port, weight)
 
 	return nil
 }

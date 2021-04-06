@@ -155,20 +155,44 @@ var _ = Describe("K8sServicesTest", func() {
 		return backends
 	}
 
-	ciliumAddService := func(id int64, frontend string, backends []string, svcType, trafficPolicy string) {
+	generateBackendNames := func(podIPs map[string]string) []string {
+		names := []string{}
+		for name := range podIPs {
+			names = append(names, name)
+		}
+		return names
+	}
+
+	generateBackends := func(podIPs map[string]string, port string) []string {
+		backends := []string{}
+		for _, ip := range podIPs {
+			backends = append(backends, net.JoinHostPort(ip, port))
+		}
+		return backends
+	}
+
+	generateBackendWeights := func(len int, weight uint) []uint {
+		result := make([]uint, len)
+		for i := range result {
+			result[i] = 1
+		}
+		return result
+	}
+
+	ciliumAddService := func(id int64, frontend string, backends []string, backendWeights []uint, svcType, trafficPolicy string) {
 		ciliumPods, err := kubectl.GetCiliumPods()
 		ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 		for _, pod := range ciliumPods {
-			err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
+			err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, backendWeights, svcType, trafficPolicy)
 			ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 		}
 	}
 
-	ciliumAddServiceOnNode := func(node string, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
+	ciliumAddServiceOnNode := func(node string, id int64, frontend string, backends []string, backendWeights []uint, svcType, trafficPolicy string) {
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
 		ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Cannot get cilium pod on node %s", node))
 
-		err = kubectl.CiliumServiceAdd(ciliumPod, id, frontend, backends, svcType, trafficPolicy)
+		err = kubectl.CiliumServiceAdd(ciliumPod, id, frontend, backends, backendWeights, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Failed to add cilium service on node %s", node))
 	}
 
@@ -469,14 +493,18 @@ var _ = Describe("K8sServicesTest", func() {
 			BeforeAll(func() {
 				// Installs the IPv6 equivalent of app1-service (demo.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
+				ciliumAddService(10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, httpBackendWeights, "ClusterIP", "Cluster")
 				tftpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				tftpBackendWeights := generateBackendWeights(len(tftpBackends), 1)
+				ciliumAddService(10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, tftpBackendWeights, "ClusterIP", "Cluster")
 				// Installs the IPv6 equivalent of echo (echo-svc.yaml)
 				httpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				httpBackendWeights = generateBackendWeights(len(httpBackends), 1)
+				ciliumAddService(20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, httpBackendWeights, "ClusterIP", "Cluster")
 				tftpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(20069, net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				tftpBackendWeights = generateBackendWeights(len(tftpBackends), 1)
+				ciliumAddService(20069, net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, tftpBackendWeights, "ClusterIP", "Cluster")
 			})
 
 			AfterAll(func() {
@@ -1879,6 +1907,56 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 		}
 
+		testMaglevWeight := func(nodePort int32, podNames []string, index int) {
+			var (
+				count = 10
+			)
+
+			// Flush CT tables so that any entry with src port 6{0,1,2}000
+			// from previous tests with --node-port-algorithm=random
+			// won't interfere the backend selection.
+			for _, label := range []string{helpers.K8s1, helpers.K8s2} {
+				pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+				ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
+				kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+			}
+
+			podSelectCounts := map[string]int{}
+			for _, pod := range podNames {
+				podSelectCounts[pod] = 0
+			}
+			for _, port := range []int{60000, 61000, 62000} {
+				dstPod := ""
+
+				// Send requests from the same IP and port to different nodes, and check
+				// that the same backend is selected
+
+				for _, host := range []string{k8s1IP} {
+					url := getHTTPLink(host, nodePort)
+					cmd := helpers.CurlFail("--local-port %d %s", port, url) + " | grep 'Hostpod name is in the hostnamename:' " //
+
+					By("Making %d HTTP requests from %s:%d to %q", count, outsideNodeName, port, url)
+
+					for i := 1; i <= count; i++ {
+						res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+						ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+							"Cannot connect to service %q (%d/%d)", url, i, count)
+						pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
+						if dstPod == "" {
+							dstPod = pod
+							podSelectCounts[pod] = 1
+						} else {
+							ExpectWithOffset(1, dstPod).To(Equal(pod))
+							podSelectCounts[pod] += 1
+						}
+					}
+				}
+			}
+
+			PodNotSelected := podNames[index]
+			ExpectWithOffset(1, podSelectCounts[PodNotSelected]).To(Equal(0))
+		}
+
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Checks ClusterIP Connectivity", func() {
 			services := []string{testDSServiceIPv4}
 			if helpers.DualStackSupported() {
@@ -1904,9 +1982,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			BeforeAll(func() {
 				// Install rules for testds-service (demo_ds.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				httpBackendsWeights := generateBackendWeights(len(httpBackends), 1)
+				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, "80"), httpBackends, httpBackendsWeights, "ClusterIP", "Cluster")
 				tftpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				tftpBackendWeights := generateBackendWeights(len(tftpBackends), 1)
+				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, "69"), tftpBackends, tftpBackendWeights, "ClusterIP", "Cluster")
 			})
 
 			AfterAll(func() {
@@ -1930,7 +2010,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				k8s2NodeIP      string
 				k8s1EndpointIPs map[string]string
 
-				testDSK8s1IPv6 string = "fd03::310"
+				testDSK8s1IPv6 = "fd03::310"
 			)
 
 			BeforeAll(func() {
@@ -1954,7 +2034,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					k8s1Backends = append(k8s1Backends, net.JoinHostPort(epIP, "80"))
 				}
 
-				ciliumAddService(31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, "ClusterIP", "Cluster")
+				k8s1BackendWeights := generateBackendWeights(len(k8s1Backends), 1)
+				ciliumAddService(31080, net.JoinHostPort(testDSK8s1IPv6, "80"), k8s1Backends, k8s1BackendWeights, "ClusterIP", "Cluster")
 			})
 
 			It("across K8s nodes", func() {
@@ -2008,7 +2089,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			return helpers.RunsWithKubeProxy() || helpers.GetCurrentIntegration() != ""
 		}), "Tests IPv6 NodePort Services", func() {
 			var (
-				testDSIPv6 string = "fd03::310"
+				testDSIPv6 = "fd03::310"
 				data       v1.Service
 			)
 
@@ -2018,22 +2099,24 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 				// Install rules for testds-service NodePort Service(demo_ds.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
-				ciliumAddService(31081, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
+				httpBackendWeights := generateBackendWeights(len(httpBackends), 1)
+				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
+				ciliumAddService(31081, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
 				// Add service corresponding to IPv6 address of the nodes so that they become
 				// reachable from outside the cluster.
 				ciliumAddServiceOnNode(helpers.K8s1, 31082, net.JoinHostPort(primaryK8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
-					httpBackends, "NodePort", "Cluster")
+					httpBackends, httpBackendWeights, "NodePort", "Cluster")
 				ciliumAddServiceOnNode(helpers.K8s2, 31082, net.JoinHostPort(primaryK8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
-					httpBackends, "NodePort", "Cluster")
+					httpBackends, httpBackendWeights, "NodePort", "Cluster")
 
 				tftpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
-				ciliumAddService(31070, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
+				tftpBackendWeights := generateBackendWeights(len(tftpBackends), 1)
+				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, tftpBackendWeights, "NodePort", "Cluster")
+				ciliumAddService(31070, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, tftpBackendWeights, "NodePort", "Cluster")
 				ciliumAddServiceOnNode(helpers.K8s1, 31071, net.JoinHostPort(primaryK8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
-					tftpBackends, "NodePort", "Cluster")
+					tftpBackends, tftpBackendWeights, "NodePort", "Cluster")
 				ciliumAddServiceOnNode(helpers.K8s2, 31071, net.JoinHostPort(primaryK8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
-					tftpBackends, "NodePort", "Cluster")
+					tftpBackends, tftpBackendWeights, "NodePort", "Cluster")
 			})
 
 			AfterAll(func() {
@@ -2310,6 +2393,58 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
 							"Tests Maglev backend selection", func() {
 								testMaglev()
+							})
+					})
+
+					Context("Tests NodePort with Maglev Weight", func() {
+						var (
+							echoYAML               string
+							podIPs                 map[string]string
+							nodePort               = 8088
+							zeroWeightBackendIndex = 0
+						)
+
+						BeforeAll(func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"loadBalancer.algorithm": "maglev",
+								// The echo svc has two backends. the closest supported
+								// prime number which is greater than 100 * |backends_count|
+								// is 251.
+								"maglev.tableSize": "251",
+								// Support for host firewall + Maglev is currently broken,
+								// see #14047 for details.
+								"hostFirewall": "false",
+							})
+
+							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
+							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+							Expect(err).Should(BeNil())
+
+							// create a new NodePort service with the same backends of echo service, but with different node port.
+							// set the last backend's weight to 0.
+							podIPs, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "name=echo")
+							Expect(err).Should(BeNil())
+							httpBackends := generateBackends(podIPs, "80")
+							httpBackendWeights := generateBackendWeights(len(httpBackends), 125)
+							zeroWeightBackendIndex = len(httpBackendWeights) - 1
+							httpBackendWeights[zeroWeightBackendIndex] = 0
+							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
+						})
+
+						AfterAll(func() {
+							kubectl.Delete(echoYAML)
+							ciliumDelService(10080)
+						})
+
+						It("Tests NodePort", func() {
+							testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
+
+						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+							"Tests Maglev backend selection with zero weight", func() {
+								backendNames := generateBackendNames(podIPs)
+								testMaglevWeight(int32(nodePort), backendNames, zeroWeightBackendIndex)
 							})
 					})
 

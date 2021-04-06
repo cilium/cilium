@@ -18,6 +18,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"runtime"
+	"sort"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/murmur3"
@@ -116,35 +117,63 @@ func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
 	return permutation[:bCount*int(m)]
 }
 
-// GetLookupTable returns the Maglev lookup table of the size "m" for the given
+// BackendPoint is a backend point with weight
+type BackendPoint struct {
+	ID     uint16
+	Weight uint32
+}
+
+// GetLookupTable fill a slice with backend IDs based on each backend's weight.
 // backends. The lookup table contains the indices of the given backends.
-func GetLookupTable(backends []string, m uint64) []int {
-	if len(backends) == 0 {
-		return nil
+// maglevBackendIDsBuffer. The slice contains backend IDs.
+func GetLookupTable(backends map[string]*BackendPoint, m uint64, maglevBackendIDsBuffer []uint16) {
+	backendNames := make([]string, 0, len(backends))
+	for name := range backends {
+		backendNames = append(backendNames, name)
 	}
 
-	perm := getPermutation(backends, m, runtime.NumCPU())
-	next := make([]int, len(backends))
+	// Maglev algorithm might produce different lookup table for the same
+	// set of backends listed in a different order. To avoid that sort
+	// backends by name, as the names are the same on all nodes (in opposite
+	// to backend IDs which are node-local).
+	sort.Strings(backendNames)
+
+	perm := getPermutation(backendNames, m, runtime.NumCPU())
+	next := make([]int, len(backendNames))
 	entry := make([]int, m)
 
 	for j := uint64(0); j < m; j++ {
 		entry[j] = -1
 	}
 
-	l := len(backends)
-
-	for n := uint64(0); n < m; n++ {
-		i := int(n) % l
-		c := perm[i*int(m)+next[i]]
-		for entry[c] >= 0 {
-			next[i] += 1
-			c = perm[i*int(m)+next[i]]
+	runs := uint64(0)
+	for {
+		for i, backendName := range backendNames {
+			// Support weight for backend.
+			// Current implementation assumes that sum of all weights must be more or less the size of hashing ring (by default 65537).
+			// So for example, if a service is configured with 1 VIP and 2 real backends and you want to configure backend weights to have 1:10 ratio.
+			// You should have weight 6k and another ~60k for these two endpoints.
+			// Here what we do, is using logic in control plane of balancer which is working like this:
+			//	1.Calculate sum of all real. (Eg 1+10)
+			//	2.Devide hash ring size by this sum. (65537/11 = 5957)
+			//	3.Allocate weight to each by multiple it’s original weight with number from step 2 (1*5957 for real one. 10 * 5957 for real 2)
+			for j := uint32(0); j < backends[backendName].Weight; j++ {
+				c := perm[i*int(m)+next[i]]
+				for entry[c] >= 0 {
+					next[i] += 1
+					c = perm[i*int(m)+next[i]]
+				}
+				entry[c] = i
+				next[i] += 1
+				maglevBackendIDsBuffer[c] = backends[backendName].ID
+				runs++
+				if runs == m {
+					return
+				}
+			}
+			backends[backendName].Weight = 1
 		}
-		entry[c] = i
-		next[i] += 1
 	}
-
-	return entry
 }
 
 // derivePermutationSliceLen derives the permutations slice length depending on

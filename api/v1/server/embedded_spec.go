@@ -1451,6 +1451,17 @@ func init() {
         }
       }
     },
+    "BackendWeight": {
+      "description": "Service backend weight",
+      "type": "object",
+      "properties": {
+        "weight": {
+          "description": "Backend weight",
+          "type": "integer",
+          "format": "uint32"
+        }
+      }
+    },
     "BandwidthManager": {
       "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -3424,6 +3435,13 @@ func init() {
             "$ref": "#/definitions/BackendAddress"
           }
         },
+        "backend-weights": {
+          "description": "List of backend weights",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BackendWeight"
+          }
+        },
         "flags": {
           "description": "Optional service configuration flags",
           "type": "object",
@@ -5353,6 +5371,17 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        }
+      }
+    },
+    "BackendWeight": {
+      "description": "Service backend weight",
+      "type": "object",
+      "properties": {
+        "weight": {
+          "description": "Backend weight",
+          "type": "integer",
+          "format": "uint32"
         }
       }
     },
@@ -7621,6 +7650,13 @@ func init() {
           "type": "array",
           "items": {
             "$ref": "#/definitions/BackendAddress"
+          }
+        },
+        "backend-weights": {
+          "description": "List of backend weights",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BackendWeight"
           }
         },
         "flags": {

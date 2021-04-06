@@ -66,13 +66,20 @@ func (s *MaglevTestSuite) TestPermutations(c *C) {
 }
 
 func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
-	m := uint64(1021) // 3 (backends) * 100 should be less than M
-	backends := []string{"one", "two", "three"}
+	m := uint64(1021) // 3 (backendNames) * 100 should be less than M
+	backends := map[string]*BackendPoint{
+		"one":   {0, 1},
+		"two":   {1, 1},
+		"three": {2, 1},
+	}
 	changesInExistingBackends := 0
 
-	before := GetLookupTable(backends, m)
+	before := make([]uint16, m)
+	GetLookupTable(backends, m, before)
 	// Remove backend "three"
-	after := GetLookupTable(backends[:len(backends)-1], m)
+	delete(backends, "three")
+	after := make([]uint16, m)
+	GetLookupTable(backends, m, after)
 
 	for pos, backend := range before {
 		if (backend == 0 || backend == 1) && after[pos] != before[pos] {
@@ -83,28 +90,81 @@ func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 		}
 	}
 
-	// Check that count of changes of existing backends is less than
-	// 1% (should be guaranteed by |backends| * 100 < M)
+	// Check that count of changes of existing backendNames is less than
+	// 1% (should be guaranteed by |backendNames| * 100 < M)
 	c.Assert(float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0, Equals, true)
+}
+
+func (s *MaglevTestSuite) TestBackendWeight(c *C) {
+	m := uint64(1021)
+
+	// weight ratio = 1 : 10 : 100
+	// sum of weight = 1 + 10 + 100 = 111
+	// avg = m / 111 = 1021 / 111 = 9.198 = 9.2
+	// weight ratio = 1*9.2 : 10*9.2 : 100:9.2 = 9 : 92: 920
+	backends := map[string]*BackendPoint{
+		"one":   {0, 9},
+		"two":   {1, 92},
+		"three": {2, 920},
+	}
+	maglevBackendIDsBuffer := make([]uint16, m)
+	GetLookupTable(backends, m, maglevBackendIDsBuffer)
+	result := make(map[uint16]uint32, len(backends))
+	for _, id := range maglevBackendIDsBuffer {
+		result[id]++
+	}
+	c.Assert(result[0], Equals, uint32(9))
+	c.Assert(result[1], Equals, uint32(92))
+	c.Assert(result[2], Equals, uint32(920))
+}
+
+func (s *MaglevTestSuite) TestBackendID(c *C) {
+	m := uint64(1021)
+
+	// weight ratio = 1 : 10 : 100
+	// sum of weight = 1 + 10 + 100 = 111
+	// avg = m / 111 = 1021 / 111 = 9.198 = 9.2
+	// weight ratio = 1*9.2 : 10*9.2 : 100:9.2 = 9 : 92: 920
+	backends := map[string]*BackendPoint{
+		"one":   {568, 9},
+		"two":   {10, 92},
+		"three": {2978, 920},
+	}
+	maglevBackendIDsBuffer := make([]uint16, m)
+	GetLookupTable(backends, m, maglevBackendIDsBuffer)
+	result := make(map[uint16]uint32, len(backends))
+	for _, id := range maglevBackendIDsBuffer {
+		result[id]++
+	}
+	c.Assert(result[568], Equals, uint32(9))
+	c.Assert(result[10], Equals, uint32(92))
+	c.Assert(result[2978], Equals, uint32(920))
 }
 
 func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
 	backendCount := 1000
 	m := uint64(131071)
 
-	if err := Init(DefaultHashSeed, m); err != nil {
-		c.Fatal(err)
-	}
-
-	backends := make([]string, 0, backendCount)
+	backends := make(map[string]*BackendPoint, backendCount)
 	for i := 0; i < backendCount; i++ {
-		backends = append(backends, fmt.Sprintf("backend-%d", i))
+		name := fmt.Sprintf("backend-%d", i)
+		backends[name] = &BackendPoint{
+			ID:     uint16(i),
+			Weight: 1,
+		}
 	}
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		table := GetLookupTable(backends, m)
-		c.Assert(len(table), Equals, int(m))
+		maglevBackendIDsBuffer := make([]uint16, m)
+		GetLookupTable(backends, m, maglevBackendIDsBuffer)
+		result := make(map[uint16]uint32, backendCount)
+		for _, id := range maglevBackendIDsBuffer {
+			result[id]++
+		}
+		for _, r := range result {
+			c.Assert(r, Equals, 1)
+		}
 	}
 	c.StopTimer()
 }
