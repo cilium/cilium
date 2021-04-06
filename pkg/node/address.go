@@ -58,8 +58,6 @@ var (
 
 	ipsecKeyIdentity uint8
 
-	wireguardIPv4   net.IP
-	wireguardIPv6   net.IP
 	wireguardPubKey string
 )
 
@@ -568,22 +566,6 @@ func GetK8sNodeIP() net.IP {
 // SetK8sNodeIP sets k8s Node IP addr.
 func SetK8sNodeIP(ip net.IP) {
 	k8sNodeIP = ip
-}
-
-func SetWireguardIPv4(ip net.IP) {
-	wireguardIPv4 = ip
-}
-
-func GetWireguardIPv4() net.IP {
-	return wireguardIPv4
-}
-
-func SetWireguardIPv6(ip net.IP) {
-	wireguardIPv6 = ip
-}
-
-func GetWireguardIPv6() net.IP {
-	return wireguardIPv6
 }
 
 func SetWireguardPubKey(key string) {
