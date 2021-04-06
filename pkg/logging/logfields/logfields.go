@@ -535,12 +535,6 @@ const (
 	// PodCIDRv6 is the pod IPv4 allocation CIDR
 	PodCIDRv6 = "podCIDRv6"
 
-	// WgIPv4 is the Wireguard IPv4 tunnel addr
-	WgIPv4 = "wgIPv4"
-
-	// WgIPv6 is the Wireguard IPv4 tunnel addr
-	WgIPv6 = "wgIPv6"
-
 	// AttachedENIs are the ENIs which have been attached to the node
 	AttachedENIs = "attachedENIs"
 

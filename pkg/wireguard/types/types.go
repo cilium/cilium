@@ -21,11 +21,3 @@ const (
 	// PrivKeyFilename is the name of the Wireguard private key file
 	PrivKeyFilename = "cilium_wg0.key"
 )
-
-// Family is the IP address family
-type Family string
-
-const (
-	IPv6 Family = "ipv6"
-	IPv4 Family = "ipv4"
-)

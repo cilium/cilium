@@ -230,8 +230,6 @@ cilium-agent [flags]
       --trace-payloadlen int                                 Length of payload to capture when tracing (default 128)
   -t, --tunnel string                                        Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --version                                              Print version information
-      --wireguard-subnet-v4 string                           Wireguard tunnel IPv4 subnet (default "172.16.43.0/24")
-      --wireguard-subnet-v6 string                           Wireguard tunnel IPv6 subnet (default "fdc9:281f:04d7:9ee9::1/64")
       --write-cni-conf-when-ready string                     Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 

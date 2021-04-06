@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -926,8 +925,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 	if option.Config.EnableWireguard {
 		var podCIDRv4, podCIDRv6 *net.IPNet
-		wgIPv4 := newNode.GetIPByType(addressing.NodeWireguardIP, false)
-		wgIPv6 := newNode.GetIPByType(addressing.NodeWireguardIP, true)
 		if newNode.IPv4AllocCIDR != nil {
 			podCIDRv4 = newNode.IPv4AllocCIDR.IPNet
 		}
@@ -935,7 +932,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			podCIDRv6 = newNode.IPv6AllocCIDR.IPNet
 		}
 		if err := n.wgAgent.UpdatePeer(newNode.Name, newNode.WireguardPubKey,
-			wgIPv4, newIP4, podCIDRv4, wgIPv6, newIP6, podCIDRv6); err != nil {
+			newIP4, podCIDRv4, newIP6, podCIDRv6); err != nil {
 			log.WithError(err).
 				WithField(logfields.NodeName, newNode.Name).
 				Warning("Failed to update wireguard configuration for peer")

@@ -225,19 +225,6 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
-	if ip := node.GetWireguardIPv4(); ip != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeWireguardIP,
-			IP:   ip,
-		})
-	}
-	if ip := node.GetWireguardIPv6(); ip != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeWireguardIP,
-			IP:   ip,
-		})
-	}
-
 	go func() {
 		log.WithFields(
 			logrus.Fields{
@@ -364,18 +351,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		k8sNodeAddresses []nodeTypes.Address
 	)
 
-	addrs := []ciliumv2.NodeAddress{}
-	if option.Config.EnableWireguard {
-		// Avoid resetting allocated wireguard IPs in the CiliumNode object once
-		// cilium-agent has been restarted and the CiliumNode object is created
-		// from scratch.
-		for _, addr := range nodeResource.Spec.Addresses {
-			if addr.Type == addressing.NodeWireguardIP {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
-	nodeResource.Spec.Addresses = addrs
+	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
