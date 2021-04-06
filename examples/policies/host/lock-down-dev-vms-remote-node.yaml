@@ -3,7 +3,8 @@ kind: CiliumClusterwideNetworkPolicy
 metadata:
   name: "lock-down-dev-vms"
 spec:
-  description: "Lock down the development VMs. USE ELSEWHERE AT YOUR OWN RISK."
+  description: "Lock down the development VMs when enable-remote-node-identity=true.
+    USE ELSEWHERE AT YOUR OWN RISK."
   nodeSelector:
     {}
   ingress:
@@ -11,9 +12,6 @@ spec:
   - fromEntities:
     - remote-node
     - health
-  # Same as above, but for when remote-node identities are disabled.
-  - fromCIDR:
-    - 192.168.33.0/24
 
   # SSH access to the VMs
   - fromEntities:
@@ -25,22 +23,6 @@ spec:
 
   - fromEntities:
     - remote-node
-    toPorts:
-    - ports:
-      # VXLAN tunnels between nodes
-      - port: "8472"
-        protocol: UDP
-      # etcd connections
-      - port: "2379"
-        protocol: TCP
-      - port: "2380"
-        protocol: TCP
-      # kube-api server
-      - port: "6443"
-        protocol: TCP
-  # Same as above, but for when remote-node identities are disabled.
-  - fromCIDR:
-    - 192.168.33.0/24
     toPorts:
     - ports:
       # VXLAN tunnels between nodes
@@ -73,13 +55,6 @@ spec:
     - ports:
       - port: "4240"
         protocol: TCP
-  # Same as above, but for when remote-node identities are disabled.
-  - fromCIDR:
-    - 192.168.33.0/24
-    toPorts:
-    - ports:
-      - port: "4240"
-        protocol: TCP
 
   # NodePort
   # These two rules are only needed when kube-proxy is used.
@@ -105,9 +80,6 @@ spec:
   - toEntities:
     - remote-node
     - health
-  # Same as above, but for when remote-node identities are disabled.
-  - toCIDR:
-    - 192.168.33.0/24
 
   # DNS traffic to kube-dns
   - toEndpoints:
@@ -138,34 +110,11 @@ spec:
       # kube-api server
       - port: "6443"
         protocol: TCP
-  # Same as above, but for when remote-node identities are disabled.
-  - toCIDR:
-    - 192.168.33.0/24
-    toPorts:
-    - ports:
-      # VXLAN tunnels between nodes
-      - port: "8472"
-        protocol: UDP
-      # etcd connections
-      - port: "2379"
-        protocol: TCP
-      - port: "2380"
-        protocol: TCP
-      # kube-api server
-      - port: "6443"
-        protocol: TCP
 
   # Health checks
   - toEntities:
     - remote-node
     - health
-    toPorts:
-    - ports:
-      - port: "4240"
-        protocol: TCP
-  # Same as above, but for when remote-node identities are disabled.
-  - toCIDR:
-    - 192.168.33.0/24
     toPorts:
     - ports:
       - port: "4240"
