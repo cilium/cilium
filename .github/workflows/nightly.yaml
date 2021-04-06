@@ -8,13 +8,16 @@ jobs:
     if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-18.04
     steps:
+      - name: Trim git sha
+        id: vars
+        run: echo "::set-output name=sha_short::$(echo ${GITHUB_SHA:0:9})"
       - name: Request GKE test cluster
         uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706
         env:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --namespace=test-clusters --image=quay.io/cilium/cilium-test-ci:${{ env.GITHUB_SHA }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium-ci:${{ env.GITHUB_SHA }}" "quay.io/cilium/operator-generic-ci:${{ env.GITHUB_SHA }}" "quay.io/cilium/hubble-relay-ci:${{ env.GITHUB_SHA }}" "NightlyPolicyStress"
+          args: --namespace=test-clusters --image=cilium/cilium-test-dev:${{ steps.vars.outputs.sha_short }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium:latest" "quay.io/cilium/operator-generic:latest" "quay.io/cilium/hubble-relay:latest" "NightlyPolicyStress"
   baseline-test:
     name: Start performance test
     if: github.repository == 'cilium/cilium'
