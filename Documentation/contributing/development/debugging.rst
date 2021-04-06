@@ -149,7 +149,7 @@ callbacks provided by other packages via daemon in cilium-agent.
   query) an error occurred. These errors would come from the internal rule
   lookup in the proxy, the ``allowed`` field.
 - ``Timeout waiting for response to forwarded proxied DNS lookup``: The proxy
-  forwards requests 1:1 and does not cache. It applies a 5s timeout on
+  forwards requests 1:1 and does not cache. It applies a 10s timeout on
   responses to those requests, as the client will retry within this period
   (usually). Bursts of these errors can happen if the DNS target server
   misbehaves and many pods see DNS timeouts. This isn't an actual problem with
