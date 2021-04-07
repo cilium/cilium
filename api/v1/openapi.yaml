@@ -637,6 +637,65 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+  "/recorder":
+    get:
+      summary: Retrieve list of all recorders
+      tags:
+      - recorder
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/Recorder"
+  "/recorder/{id}":
+    get:
+      summary: Retrieve configuration of a recorder
+      tags:
+      - recorder
+      parameters:
+      - "$ref": "#/parameters/recorder-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Recorder"
+        '404':
+          description: Recorder not found
+    put:
+      summary: Create or update recorder
+      tags:
+      - recorder
+      parameters:
+      - "$ref": "#/parameters/recorder-id"
+      - "$ref": "#/parameters/recorder-config"
+      responses:
+        '200':
+          description: Updated
+        '201':
+          description: Created
+        '500':
+          description: Error while creating recorder
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete a recorder
+      tags:
+      - recorder
+      parameters:
+      - "$ref": "#/parameters/recorder-id"
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Recorder not found
+        '500':
+          description: Recorder deletion failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/prefilter":
     get:
       summary: Retrieve list of CIDRs
@@ -937,6 +996,19 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/ServiceSpec"
+  recorder-id:
+    name: id
+    description: ID of recorder
+    required: true
+    in: path
+    type: integer
+  recorder-config:
+    name: config
+    description: Recorder configuration
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/RecorderSpec"
   prefilter-spec:
     name: prefilter-spec
     description: List of CIDR ranges for filter table
@@ -2418,6 +2490,61 @@ definitions:
     properties:
       realized:
         "$ref": "#/definitions/ServiceSpec"
+  Recorder:
+    description: Collection of wildcard filters for pcap recorder
+    type: object
+    properties:
+      spec:
+        "$ref": "#/definitions/RecorderSpec"
+      status:
+        "$ref": "#/definitions/RecorderStatus"
+  RecorderFilter:
+    description: n-tuple filter to match traffic to be recorded
+    type: object
+    properties:
+      src-prefix:
+        description: Layer 3 source CIDR
+        type: string
+      src-port:
+        description: Layer 4 source port, zero (or in future range)
+        type: string
+      dst-prefix:
+        description: Layer 3 destination CIDR
+        type: string
+      dst-port:
+        description: Layer 4 destination port, zero (or in future range)
+        type: string
+      protocol:
+        description: Layer 4 protocol
+        type: string
+        enum:
+        - TCP
+        - UDP
+        - ANY
+  RecorderSpec:
+    description: Configuration of a recorder
+    type: object
+    required:
+    - id
+    - filters
+    properties:
+      id:
+        description: Unique identification
+        type: integer
+      capture-length:
+        description: Maximum packet length or zero for full packet length
+        type: integer
+      filters:
+        description: List of wildcard filters for given recorder
+        type: array
+        items:
+          "$ref": "#/definitions/RecorderFilter"
+  RecorderStatus:
+    description: Configuration of a recorder
+    type: object
+    properties:
+      realized:
+        "$ref": "#/definitions/RecorderSpec"
   ProxyStatus:
     description: |-
       Status of proxy
