@@ -35,6 +35,10 @@ type CTMapTestSuite struct{}
 
 var _ = Suite(&CTMapTestSuite{})
 
+func init() {
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
+}
+
 func Test(t *testing.T) {
 	TestingT(t)
 }
