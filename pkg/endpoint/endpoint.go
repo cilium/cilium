@@ -80,32 +80,35 @@ var (
 	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
 )
 
+// State is an enumeration for possible endpoint states.
+type State string
+
 const (
 	// StateWaitingForIdentity is used to set if the endpoint is waiting
 	// for an identity from the KVStore.
-	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
+	StateWaitingForIdentity = State(models.EndpointStateWaitingForIdentity)
 
 	// StateReady specifies if the endpoint is ready to be used.
-	StateReady = string(models.EndpointStateReady)
+	StateReady = State(models.EndpointStateReady)
 
 	// StateWaitingToRegenerate specifies when the endpoint needs to be regenerated, but regeneration has not started yet.
-	StateWaitingToRegenerate = string(models.EndpointStateWaitingToRegenerate)
+	StateWaitingToRegenerate = State(models.EndpointStateWaitingToRegenerate)
 
 	// StateRegenerating specifies when the endpoint is being regenerated.
-	StateRegenerating = string(models.EndpointStateRegenerating)
+	StateRegenerating = State(models.EndpointStateRegenerating)
 
 	// StateDisconnecting indicates that the endpoint is being disconnected
-	StateDisconnecting = string(models.EndpointStateDisconnecting)
+	StateDisconnecting = State(models.EndpointStateDisconnecting)
 
 	// StateDisconnected is used to set the endpoint is disconnected.
-	StateDisconnected = string(models.EndpointStateDisconnected)
+	StateDisconnected = State(models.EndpointStateDisconnected)
 
 	// StateRestoring is used to set the endpoint is being restored.
-	StateRestoring = string(models.EndpointStateRestoring)
+	StateRestoring = State(models.EndpointStateRestoring)
 
 	// StateInvalid is used when an endpoint failed during creation due to
 	// invalid data.
-	StateInvalid = string(models.EndpointStateInvalid)
+	StateInvalid = State(models.EndpointStateInvalid)
 
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
@@ -225,7 +228,7 @@ type Endpoint struct {
 	dnsHistoryTrigger *trigger.Trigger
 
 	// state is the state the endpoint is in. See setState()
-	state string
+	state State
 
 	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
 	// compiled and installed.
@@ -432,7 +435,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state string) *Endpoint {
+func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
 	ep := createEndpoint(owner, proxy, allocator, ID, "")
 	ep.state = state
 	ep.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize)
@@ -923,7 +926,7 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 			Code:  code,
 			Msg:   msg,
 			Type:  typ,
-			State: e.state,
+			State: string(e.state),
 		},
 		Timestamp: time.Now().UTC(),
 	}
@@ -1267,13 +1270,13 @@ func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
 
 // getState returns the endpoint's state
 // endpoint.mutex may only be rlockAlive()ed
-func (e *Endpoint) getState() string {
+func (e *Endpoint) getState() State {
 	return e.state
 }
 
 // GetState returns the endpoint's state
 // endpoint.mutex may only be rlockAlive()ed
-func (e *Endpoint) GetState() string {
+func (e *Endpoint) GetState() State {
 	e.unconditionalRLock()
 	defer e.runlock()
 	return e.getState()
@@ -1281,14 +1284,14 @@ func (e *Endpoint) GetState() string {
 
 // SetState modifies the endpoint's state. Returns true only if endpoints state
 // was changed as requested
-func (e *Endpoint) SetState(toState, reason string) bool {
+func (e *Endpoint) SetState(toState State, reason string) bool {
 	e.unconditionalLock()
 	defer e.unlock()
 
 	return e.setState(toState, reason)
 }
 
-func (e *Endpoint) setState(toState, reason string) bool {
+func (e *Endpoint) setState(toState State, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 
@@ -1367,7 +1370,7 @@ OKState:
 
 	if fromState != "" {
 		metrics.EndpointStateCount.
-			WithLabelValues(fromState).Dec()
+			WithLabelValues(string(fromState)).Dec()
 	}
 
 	// Since StateDisconnected and StateInvalid are final states, after which
@@ -1375,7 +1378,7 @@ OKState:
 	// for these states.
 	if toState != "" && toState != StateDisconnected && toState != StateInvalid {
 		metrics.EndpointStateCount.
-			WithLabelValues(toState).Inc()
+			WithLabelValues(string(toState)).Inc()
 	}
 	return true
 }
@@ -1383,7 +1386,7 @@ OKState:
 // BuilderSetStateLocked modifies the endpoint's state
 // endpoint.mutex must be Lock()ed
 // endpoint buildMutex must be held!
-func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
+func (e *Endpoint) BuilderSetStateLocked(toState State, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
@@ -1435,7 +1438,7 @@ OKState:
 
 	if fromState != "" {
 		metrics.EndpointStateCount.
-			WithLabelValues(fromState).Dec()
+			WithLabelValues(string(fromState)).Dec()
 	}
 
 	// Since StateDisconnected and StateInvalid are final states, after which
@@ -1443,7 +1446,7 @@ OKState:
 	// for these states.
 	if toState != "" && toState != StateDisconnected && toState != StateInvalid {
 		metrics.EndpointStateCount.
-			WithLabelValues(toState).Inc()
+			WithLabelValues(string(toState)).Inc()
 	}
 	return true
 }

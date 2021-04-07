@@ -373,8 +373,8 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 }
 
 func assertStateTransition(c *C,
-	e *Endpoint, stateSetter func(string, string) bool,
-	from, to string,
+	e *Endpoint, stateSetter func(toState State, reason string) bool,
+	from, to State,
 	success bool) {
 
 	e.state = from
@@ -417,12 +417,12 @@ func assertStateTransition(c *C,
 	}
 }
 
-func isFinalState(state string) bool {
-	return (state == StateDisconnected || state == StateInvalid)
+func isFinalState(state State) bool {
+	return state == StateDisconnected || state == StateInvalid
 }
 
-func getMetricValue(state string) int64 {
-	return int64(metrics.GetGaugeValue(metrics.EndpointStateCount.WithLabelValues(state)))
+func getMetricValue(state State) int64 {
+	return int64(metrics.GetGaugeValue(metrics.EndpointStateCount.WithLabelValues(string(state))))
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {

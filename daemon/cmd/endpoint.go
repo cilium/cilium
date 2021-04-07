@@ -568,7 +568,7 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 // model specifies is one to which an Endpoint can transition as part of a
 // call to PATCH on an Endpoint.
 func validPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
+	switch endpoint.State(state) {
 	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
 		return true
 	}
