@@ -14,6 +14,8 @@ The generic veth chaining plugin enables CNI chaining on top of any CNI plugin
 that is using a veth device model. The majority of CNI plugins use such a
 model.
 
+.. include:: cni-chaining-limitations.rst
+
 Validate that the current CNI plugin is using veth
 ==================================================
 
