@@ -75,6 +75,18 @@ Deploy Cilium release via Helm:
              --namespace kube-system \\
              --set containerRuntime.integration=containerd
 
+.. warning::
+
+   Kata containers do not work with :ref:`host-services`, or with
+   :ref:`kube-proxy replacement <kubeproxy-free>` in strict mode. These
+   features should be disabled with ``--set hostServices.enabled=false``
+   (default) and ``--set kubeProxyReplacement=disabled`` (or ``partial``).
+
+   Both features rely on socket-based load-balancing, which is not possible
+   given that Kata containers are virtual machines running with their own
+   kernel. For kube-proxy replacement, this limitation is tracked with
+   `GitHub issue 15437 <https://github.com/cilium/cilium/issues/15437>`_.
+
 .. include:: k8s-install-validate.rst
 
 Run Kata Containers with Cilium CNI
