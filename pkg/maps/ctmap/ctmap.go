@@ -608,10 +608,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				// No CT entry is found, so delete SNAT for both original and
 				// reverse flows
 				oNatKey := oNatKeyFromReverse(natKey, natVal)
-				if err := natMap.Delete(oNatKey); err == nil {
+				if deleted, _ := natMap.Delete(oNatKey); deleted {
 					stats.EgressDeleted += 1
 				}
-				if err := natMap.Delete(natKey); err == nil {
+				if deleted, _ := natMap.Delete(natKey); deleted {
 					stats.IngressDeleted += 1
 				}
 			} else {
