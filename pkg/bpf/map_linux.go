@@ -959,12 +959,13 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 	}
 }
 
-// Delete deletes the map entry corresponding to the given key.
-func (m *Map) Delete(key MapKey) error {
+// deleteMapEntry deletes the map entry corresponding to the given key.
+// If ignoreMissing is set to true and the entry is not found, then
+// the error metric is not incremented for missing entries and nil error is returned.
+func (m *Map) deleteMapEntry(key MapKey, ignoreMissing bool) (deleted bool, err error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	var err error
 	defer func() {
 		m.deleteCacheEntry(key, err)
 		if err != nil {
@@ -973,16 +974,37 @@ func (m *Map) Delete(key MapKey) error {
 	}()
 
 	if err = m.open(); err != nil {
-		return err
+		return false, err
 	}
 
 	_, errno := deleteElement(m.fd, key.GetKeyPtr())
-	if option.Config.MetricsConfig.BPFMapOps {
+	deleted = errno == 0
+
+	// Error handling is skipped in the case ignoreMissing is set and the
+	// error is ENOENT. This removes false positives in the delete metrics
+	// and skips the deferred cleanup of non-existing entries. This situation
+	// occurs at least in the context of cleanup of NAT mappings from CT GC.
+	handleError := errno != unix.ENOENT || !ignoreMissing
+
+	if option.Config.MetricsConfig.BPFMapOps && handleError {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	}
-	if errno != 0 {
+
+	if errno != 0 && handleError {
 		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
 	}
+	return
+}
+
+// SilentDelete deletes the map entry corresponding to the given key.
+// If a map entry is not found this returns (true, nil).
+func (m *Map) SilentDelete(key MapKey) (deleted bool, err error) {
+	return m.deleteMapEntry(key, true)
+}
+
+// Delete deletes the map entry corresponding to the given key.
+func (m *Map) Delete(key MapKey) error {
+	_, err := m.deleteMapEntry(key, false)
 	return err
 }
 

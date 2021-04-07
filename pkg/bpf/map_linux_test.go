@@ -308,6 +308,24 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	c.Assert(err, Not(IsNil))
 	c.Assert(value, Equals, nil)
 
+	err = existingMap.Delete(key1)
+	c.Assert(err, Not(IsNil))
+
+	deleted, err := existingMap.SilentDelete(key1)
+	c.Assert(err, IsNil)
+	c.Assert(deleted, Equals, false)
+
+	err = existingMap.Update(key1, value1)
+	c.Assert(err, IsNil)
+
+	deleted, err = existingMap.SilentDelete(key1)
+	c.Assert(err, IsNil)
+	c.Assert(deleted, Equals, true)
+
+	value, err = existingMap.Lookup(key1)
+	c.Assert(err, Not(IsNil))
+	c.Assert(value, Equals, nil)
+
 	err = existingMap.DeleteAll()
 	c.Assert(err, IsNil)
 	value, err = existingMap.Lookup(key1)
