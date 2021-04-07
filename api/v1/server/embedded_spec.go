@@ -1194,6 +1194,104 @@ func init() {
         }
       }
     },
+    "/recorder": {
+      "get": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Retrieve list of all recorders",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Recorder"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recorder/{id}": {
+      "get": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Retrieve configuration of a recorder",
+        "parameters": [
+          {
+            "$ref": "#/parameters/recorder-id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Recorder"
+            }
+          },
+          "404": {
+            "description": "Recorder not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Create or update recorder",
+        "parameters": [
+          {
+            "$ref": "#/parameters/recorder-id"
+          },
+          {
+            "$ref": "#/parameters/recorder-config"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "500": {
+            "description": "Error while creating recorder",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Delete a recorder",
+        "parameters": [
+          {
+            "$ref": "#/parameters/recorder-id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "404": {
+            "description": "Recorder not found"
+          },
+          "500": {
+            "description": "Recorder deletion failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/service": {
       "get": {
         "tags": [
@@ -3306,6 +3404,83 @@ func init() {
         }
       }
     },
+    "Recorder": {
+      "description": "Collection of wildcard filters for pcap recorder",
+      "type": "object",
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/RecorderSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/RecorderStatus"
+        }
+      }
+    },
+    "RecorderFilter": {
+      "description": "n-tuple filter to match traffic to be recorded",
+      "type": "object",
+      "properties": {
+        "dst-port": {
+          "description": "Layer 4 destination port, zero (or in future range)",
+          "type": "string"
+        },
+        "dst-prefix": {
+          "description": "Layer 3 destination CIDR",
+          "type": "string"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol",
+          "type": "string",
+          "enum": [
+            "TCP",
+            "UDP",
+            "ANY"
+          ]
+        },
+        "src-port": {
+          "description": "Layer 4 source port, zero (or in future range)",
+          "type": "string"
+        },
+        "src-prefix": {
+          "description": "Layer 3 source CIDR",
+          "type": "string"
+        }
+      }
+    },
+    "RecorderSpec": {
+      "description": "Configuration of a recorder",
+      "type": "object",
+      "required": [
+        "id",
+        "filters"
+      ],
+      "properties": {
+        "capture-length": {
+          "description": "Maximum packet length or zero for full packet length",
+          "type": "integer"
+        },
+        "filters": {
+          "description": "List of wildcard filters for given recorder",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecorderFilter"
+          }
+        },
+        "id": {
+          "description": "Unique identification",
+          "type": "integer"
+        }
+      }
+    },
+    "RecorderStatus": {
+      "description": "Configuration of a recorder",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "$ref": "#/definitions/RecorderSpec"
+        }
+      }
+    },
     "RemoteCluster": {
       "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -3736,6 +3911,22 @@ func init() {
       "schema": {
         "$ref": "#/definitions/PrefilterSpec"
       }
+    },
+    "recorder-config": {
+      "description": "Recorder configuration",
+      "name": "config",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/RecorderSpec"
+      }
+    },
+    "recorder-id": {
+      "type": "integer",
+      "description": "ID of recorder",
+      "name": "id",
+      "in": "path",
+      "required": true
     },
     "service-address": {
       "description": "Service address configuration",
@@ -5073,6 +5264,122 @@ func init() {
           },
           "500": {
             "description": "Prefilter update failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/recorder": {
+      "get": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Retrieve list of all recorders",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Recorder"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recorder/{id}": {
+      "get": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Retrieve configuration of a recorder",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of recorder",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Recorder"
+            }
+          },
+          "404": {
+            "description": "Recorder not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Create or update recorder",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of recorder",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Recorder configuration",
+            "name": "config",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RecorderSpec"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "500": {
+            "description": "Error while creating recorder",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Delete a recorder",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of recorder",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "404": {
+            "description": "Recorder not found"
+          },
+          "500": {
+            "description": "Recorder deletion failed",
             "schema": {
               "$ref": "#/definitions/Error"
             },
@@ -7505,6 +7812,83 @@ func init() {
         }
       }
     },
+    "Recorder": {
+      "description": "Collection of wildcard filters for pcap recorder",
+      "type": "object",
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/RecorderSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/RecorderStatus"
+        }
+      }
+    },
+    "RecorderFilter": {
+      "description": "n-tuple filter to match traffic to be recorded",
+      "type": "object",
+      "properties": {
+        "dst-port": {
+          "description": "Layer 4 destination port, zero (or in future range)",
+          "type": "string"
+        },
+        "dst-prefix": {
+          "description": "Layer 3 destination CIDR",
+          "type": "string"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol",
+          "type": "string",
+          "enum": [
+            "TCP",
+            "UDP",
+            "ANY"
+          ]
+        },
+        "src-port": {
+          "description": "Layer 4 source port, zero (or in future range)",
+          "type": "string"
+        },
+        "src-prefix": {
+          "description": "Layer 3 source CIDR",
+          "type": "string"
+        }
+      }
+    },
+    "RecorderSpec": {
+      "description": "Configuration of a recorder",
+      "type": "object",
+      "required": [
+        "id",
+        "filters"
+      ],
+      "properties": {
+        "capture-length": {
+          "description": "Maximum packet length or zero for full packet length",
+          "type": "integer"
+        },
+        "filters": {
+          "description": "List of wildcard filters for given recorder",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RecorderFilter"
+          }
+        },
+        "id": {
+          "description": "Unique identification",
+          "type": "integer"
+        }
+      }
+    },
+    "RecorderStatus": {
+      "description": "Configuration of a recorder",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "$ref": "#/definitions/RecorderSpec"
+        }
+      }
+    },
     "RemoteCluster": {
       "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -7974,6 +8358,22 @@ func init() {
       "schema": {
         "$ref": "#/definitions/PrefilterSpec"
       }
+    },
+    "recorder-config": {
+      "description": "Recorder configuration",
+      "name": "config",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/RecorderSpec"
+      }
+    },
+    "recorder-id": {
+      "type": "integer",
+      "description": "ID of recorder",
+      "name": "id",
+      "in": "path",
+      "required": true
     },
     "service-address": {
       "description": "Service address configuration",
