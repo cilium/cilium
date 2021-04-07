@@ -11,6 +11,8 @@ Weave Net
 This guide instructs how to install Cilium in chaining configuration on top of
 `Weave Net <https://github.com/weaveworks/weave>`_.
 
+.. include:: cni-chaining-limitations.rst
+
 Create a CNI configuration
 ==========================
 
