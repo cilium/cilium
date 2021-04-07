@@ -202,10 +202,6 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6, nodeport bool) {
 		anyMaxEntries, natMaps[mapTypeIPv6AnyGlobal])
 }
 
-func init() {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
-}
-
 // CtEndpoint represents an endpoint for the functions required to manage
 // conntrack maps for the endpoint.
 type CtEndpoint interface {

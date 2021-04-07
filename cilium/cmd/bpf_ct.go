@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/spf13/cobra"
 )
 
@@ -25,5 +27,6 @@ var bpfCtCmd = &cobra.Command{
 }
 
 func init() {
+	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 	bpfCmd.AddCommand(bpfCtCmd)
 }
