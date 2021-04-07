@@ -8,6 +8,8 @@
 Azure CNI
 *********
 
+.. include:: cni-chaining-limitations.rst
+
 This guide explains how to set up Cilium in combination with Azure CNI. In this
 hybrid mode, the Azure CNI plugin is responsible for setting up the virtual
 network devices as well as address allocation (IPAM). After the initial

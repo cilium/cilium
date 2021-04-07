@@ -15,6 +15,14 @@ networking is setup, the Cilium CNI plugin is called to attach BPF programs to
 the network devices set up by aws-cni to enforce network policies, perform
 load-balancing, and encryption.
 
+.. include:: cni-chaining-limitations.rst
+
+.. important::
+
+   Due to a bug in certain version of the AWS CNI, please ensure that you are
+   running the AWS CNI `1.7.9 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.7.9>`_
+   or newer to guarantee compatibility with Cilium.
+
 .. image:: aws-cni-architecture.png
 
 
