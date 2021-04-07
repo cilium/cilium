@@ -1844,6 +1844,14 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	// /service/
 	restAPI.ServiceGetServiceHandler = NewGetServiceHandler(d.svc)
 
+	// /recorder/{id}/
+	restAPI.RecorderGetRecorderIDHandler = NewGetRecorderIDHandler(d.rec)
+	restAPI.RecorderDeleteRecorderIDHandler = NewDeleteRecorderIDHandler(d.rec)
+	restAPI.RecorderPutRecorderIDHandler = NewPutRecorderIDHandler(d.rec)
+
+	// /recorder/
+	restAPI.RecorderGetRecorderHandler = NewGetRecorderHandler(d.rec)
+
 	// /prefilter/
 	restAPI.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
 	restAPI.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
