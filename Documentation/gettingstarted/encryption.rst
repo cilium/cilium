@@ -23,14 +23,22 @@ distributed, but that is not shown here.
     ENI datapath mode. In combination with encapsulation/tunneling, the feature
     is still in beta phase.
 
-.. note::
 
-    Packets destined to the same node they were sent out of are not encrypted.
-    This is a intended behavior as it doesn't provide any benefits because the
-    raw traffic on the node can be seen.
+Packets destined to the same node they were sent out of are not encrypted.
+This is a intended behavior as it doesn't provide any benefits because the
+raw traffic on the node can be seen.
+
+Transparent encryption is not currently supported when chaining Cilium on top
+of other CNI plugins. For more information, see
+`GitHub issue #15596 <https://github.com/cilium/cilium/issues/15596>`_.
 
 Generate & import the PSK
 =========================
+
+.. note::
+
+    ``Secret`` resources need to be deployed in the same namespace as Cilium!
+    In our example, we use ``kube-system``.
 
 First, create a Kubernetes secret for the IPsec keys to be stored. This will
 generate the necessary IPsec keys which will be distributed as a Kubernetes
