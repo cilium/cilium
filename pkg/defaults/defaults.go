@@ -422,4 +422,7 @@ const (
 
 	// WireguardSubnetV6 is a default wireguard tunnel subnet
 	WireguardSubnetV6 = "fdc9:281f:04d7:9ee9::1/64"
+
+	// SupportNoProtoSvc TODO
+	SupportNoProtoSvc = true
 )

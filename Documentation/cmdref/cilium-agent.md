@@ -211,6 +211,7 @@ cilium-agent [flags]
       --socket-path string                                   Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --sockops-enable                                       Enable sockops when kernel supported
       --state-dir string                                     Directory path to store runtime state (default "/var/run/cilium")
+      --support-no-proto-svc                                 Support no proto svc TODO (default true)
       --tofqdns-dns-reject-response-code string              DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
       --tofqdns-enable-dns-compression                       Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-endpoint-max-ip-per-hostname int             Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)

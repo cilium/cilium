@@ -959,6 +959,9 @@ func init() {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(option.EnableCustomCallsName)
 
+	flags.Bool(option.SupportNoProtoSvc, defaults.SupportNoProtoSvc, "Support no proto svc TODO")
+	option.BindEnv(option.SupportNoProtoSvc)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)

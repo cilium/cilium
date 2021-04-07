@@ -241,13 +241,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	return nil
 }
 
-// UpsertService inserts or updates the given service.
-//
-// The first return value is true if the service hasn't existed before.
-func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
-	s.Lock()
-	defer s.Unlock()
-
+func (s *Service) upsertServiceLocked(params *lb.SVC) (bool, lb.ID, error) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceIP: params.Frontend.L3n4Addr,
 		logfields.Backends:  params.Backends,
@@ -351,6 +345,16 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	return new, lb.ID(svc.frontend.ID), nil
 }
 
+// UpsertService inserts or updates the given service.
+//
+// The first return value is true if the service hasn't existed before.
+func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.upsertServiceLocked(params)
+}
+
 // DeleteServiceByID removes a service identified by the given ID.
 func (s *Service) DeleteServiceByID(id lb.ServiceID) (bool, error) {
 	s.Lock()
@@ -404,6 +408,34 @@ func (s *Service) GetDeepCopyServices() []*lb.SVC {
 	return svcs
 }
 
+// TODO check errors
+func (s *Service) createNoProtoServices() {
+	for _, svc := range s.svcByID {
+		lbsvc := svc.deepCopyToLBSVC()
+
+		if lbsvc.Frontend.L3n4Addr.Protocol == lb.NONE {
+			continue
+		}
+
+		lbsvc.Frontend.L3n4Addr.Protocol = lb.NONE
+
+		newID, err := AcquireID(lbsvc.Frontend.L3n4Addr, 0)
+		if err != nil {
+			log.WithError(err).Warn("Failed to allocate ID")
+			continue
+		}
+
+		lbsvc.Frontend.ID = newID.ID
+
+		for i := range lbsvc.Backends {
+			lbsvc.Backends[i].ID = 0
+			lbsvc.Backends[i].L3n4Addr.Protocol = lb.NONE
+		}
+
+		s.upsertServiceLocked(lbsvc)
+	}
+}
+
 // RestoreServices restores services from BPF maps.
 //
 // The method should be called once before establishing a connectivity
@@ -440,6 +472,10 @@ func (s *Service) RestoreServices() error {
 	if err := s.deleteOrphanBackends(); err != nil {
 		log.WithError(err).Warn("Failed to remove orphan backends")
 
+	}
+
+	if option.Config.SupportNoProtoSvc {
+		s.createNoProtoServices()
 	}
 
 	return nil
@@ -772,7 +808,10 @@ func (s *Service) restoreBackendsLocked() error {
 		return fmt.Errorf("Unable to dump backend maps: %s", err)
 	}
 
+	//fmt.Println("restoreBackendsLocked()")
 	for _, b := range backends {
+		//fmt.Printf("%#v -> %#v\n", k, b)
+
 		log.WithFields(logrus.Fields{
 			logfields.BackendID: b.ID,
 			logfields.L3n4Addr:  b.L3n4Addr.String(),
@@ -814,7 +853,9 @@ func (s *Service) restoreServicesLocked() error {
 		log.WithError(err).Warning("Error occurred while dumping service maps")
 	}
 
+	//fmt.Println("restoreServicesLocked()")
 	for _, svc := range svcs {
+		//fmt.Printf("%#v -> %#v\n", k, svc)
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.Frontend.ID,
 			logfields.ServiceIP: svc.Frontend.L3n4Addr.String(),

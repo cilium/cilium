@@ -934,6 +934,9 @@ const (
 	// EnableCustomCallsName is the name of the option to enable tail calls
 	// for user-defined custom eBPF programs.
 	EnableCustomCallsName = "enable-custom-calls"
+
+	// SupportNoProtoSvc TODO
+	SupportNoProtoSvc = "support-no-proto-svc"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -1654,6 +1657,9 @@ type DaemonConfig struct {
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
+
+	// todo
+	SupportNoProtoSvc bool
 
 	// CLI options
 
@@ -2693,6 +2699,7 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
+	c.SupportNoProtoSvc = viper.GetBool(SupportNoProtoSvc)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
