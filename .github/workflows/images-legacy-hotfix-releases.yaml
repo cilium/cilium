@@ -110,7 +110,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@4a7a711286f30c025902c28b541c10e147a9b843
+        uses: actions/download-artifact@158ca71f7c614ae705e79f25522ef4658df18253
         with:
           path: image-digest/
 
