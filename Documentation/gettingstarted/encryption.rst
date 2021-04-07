@@ -17,29 +17,32 @@ as Cilium managed host traffic, will be encrypted using IPsec. This guide uses
 Kubernetes secrets to distribute keys. Alternatively, keys may be manually
 distributed, but that is not shown here.
 
+Packets destined to the same node they were sent out of are not encrypted.
+This is a intended behavior as it doesn't provide any benefits because the
+raw traffic on the node can be seen.
+
+Transparent encryption is not currently supported when chaining Cilium on top
+of other CNI plugins. For more information, see
+`GitHub issue #15596 <https://github.com/cilium/cilium/issues/15596>`_.
+
+Generate & import the PSK
+=========================
+
+First, create a Kubernetes secret for the IPsec configuration to be stored. The
+example below demonstrates generation of the necessary IPsec configuration
+which will be distributed as a Kubernetes secret called ``cilium-ipsec-keys``.
+A Kubernetes secret should consist of one key-value pair where the key is the
+name of the file to be mounted as a volume in cilium-agent pods, and the
+value is an IPSec configuration in the following format:
+
+``key-id encryption-algorithms PSK-in-hex-format key-size``
+
 .. note::
 
     ``Secret`` resources need to be deployed in the same namespace as Cilium!
     In our example, we use ``kube-system``.
 
-.. note::
-
-    The encryption feature is stable in combination with the direct-routing and
-    ENI datapath mode. In combination with encapsulation/tunneling, the feature
-    is still in beta phase.
-
-.. note::
-
-    Packets destined to the same node they were sent out of are not encrypted.
-    This is a intended behavior as it doesn't provide any benefits because the
-    raw traffic on the node can be seen.
-
-Generate & import the PSK
-=========================
-
-First, create a Kubernetes secret for the IPsec keys to be stored. This will
-generate the necessary IPsec keys which will be distributed as a Kubernetes
-secret called ``cilium-ipsec-keys``. In this example we use GMC-128-AES, but
+In the example below we use GMC-128-AES, but
 any of the supported Linux algorithms may be used. To generate, use the
 following:
 
