@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload Artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-ci-sysdump.zip
           path: cilium-ci-sysdump.zip

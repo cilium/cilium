@@ -103,7 +103,7 @@ jobs:
           python cilium-sysdump.zip --output cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip
