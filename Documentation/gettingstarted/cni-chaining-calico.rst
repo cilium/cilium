@@ -11,11 +11,7 @@ Calico
 This guide instructs how to install Cilium in chaining configuration on top of
 `Calico <https://github.com/projectcalico/calico>`_.
 
-.. note::
-
-   When running Cilium in chaining configuration on top of Calico, the L7
-   policies may not work because of conflicting packet mark usage. This
-   limitation is currently tracked at `#12454 <https://github.com/cilium/cilium/issues/12454>`_.
+.. include:: cni-chaining-limitations.rst
 
 Create a CNI configuration
 ==========================
