@@ -45,7 +45,7 @@ jobs:
 
       - name: Set PR status check to pending
         if: ${{ steps.vars.outputs.is_pr }}
-        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
@@ -147,7 +147,7 @@ jobs:
 
       - name: Set PR status check to success
         if: ${{ steps.vars.outputs.is_pr && success() }}
-        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
@@ -158,7 +158,7 @@ jobs:
 
       - name: Set PR status check to failure
         if: ${{ steps.vars.outputs.is_pr && failure() }}
-        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
@@ -169,7 +169,7 @@ jobs:
 
       - name: Set PR status check to cancelled
         if: ${{ steps.vars.outputs.is_pr && cancelled() }}
-        uses: Sibz/github-status-action@e92e9076ba64fe070b6f06221720fc647d82e90e
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
