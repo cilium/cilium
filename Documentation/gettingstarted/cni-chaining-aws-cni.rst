@@ -15,10 +15,7 @@ networking is setup, the Cilium CNI plugin is called to attach eBPF programs to
 the network devices set up by aws-cni to enforce network policies, perform
 load-balancing, and encryption.
 
-.. note::
-
-   When running Cilium in chaining configuration on top of AWS VPC CNI, the L7 policies may not work. 
-   This limitation is currently tracked at `#12454 <https://github.com/cilium/cilium/issues/12454>`_.
+.. include:: cni-chaining-limitations.rst
 
 .. important::
 
