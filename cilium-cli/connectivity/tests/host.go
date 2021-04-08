@@ -18,13 +18,19 @@ import (
 	"context"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
-type PodToHost struct{}
+type PodToHost struct {
+	check.PolicyContext
+	Variant string
+}
+
+func (t *PodToHost) WithPolicy(yaml string) check.ConnectivityTest {
+	return t.WithPolicyRunner(t, yaml)
+}
 
 func (t *PodToHost) Name() string {
-	return "pod-to-host"
+	return "pod-to-host" + t.Variant
 }
 
 func (t *PodToHost) Run(ctx context.Context, c check.TestContext) {
@@ -44,23 +50,13 @@ func (t *PodToHost) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		for hostIP := range hostIPs {
 			cmd := []string{"ping", "-c", "3", hostIP}
-			run := check.NewTestRun(t.Name(), c, client, check.NetworkEndpointContext{Peer: hostIP})
-
-			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
-			if err != nil {
-				run.Failure("ping command failed: %s", err)
-			} else {
-				run.Success("ping command %q succeeded", cmd)
-			}
-
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, filters.FlowSetRequirement{
-				First: filters.FlowRequirement{Filter: filters.And(filters.IP(client.Pod.Status.PodIP, hostIP), filters.Or(filters.ICMP(8), filters.ICMPv6(128))), Msg: "ICMP request"},
-				Last:  filters.FlowRequirement{Filter: filters.And(filters.IP(hostIP, client.Pod.Status.PodIP), filters.Or(filters.ICMP(0), filters.ICMPv6(129))), Msg: "ICMP response", SkipOnAggregation: true},
-				Except: []filters.FlowRequirement{
-					{Filter: filters.Drop(), Msg: "Drop"},
-				},
+			run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: hostIP})
+			stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
+			run.LogResult(cmd, err, stdout)
+			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
+				Protocol: check.ICMP,
 			})
-
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
 			run.End()
 		}
 	}
