@@ -489,7 +489,7 @@ func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req filt
 	defer w.Cancel()
 
 retry:
-	flows, err := t.getFlows(ctx, hubbleClient, t.started.Add(100*time.Millisecond), pod, podIP)
+	flows, err := t.getFlows(ctx, hubbleClient, t.started, pod, podIP)
 	if err != nil || flows == nil || len(flows.flows) == 0 {
 		if err == nil {
 			err = fmt.Errorf("no flows returned")
