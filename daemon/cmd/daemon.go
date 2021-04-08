@@ -371,6 +371,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.svc = service.NewService(&d)
 
+	d.rec = recorder.NewRecorder()
+
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),
 		certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
