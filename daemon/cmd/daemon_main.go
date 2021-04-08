@@ -1398,10 +1398,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
-		option.Config.NeedsRelaxVerifier = true
-	}
-
 	if option.Config.LocalRouterIP != "" {
 		if option.Config.IPAM != "" {
 			log.Fatalf("Cannot specify %s along with %s, leave router IP unspecified if Cilium is handling IPAM.", option.LocalRouterIP, option.IPAM)

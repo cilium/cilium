@@ -12,7 +12,7 @@
  */
 static __always_inline void relax_verifier(void)
 {
-#ifdef NEEDS_RELAX_VERIFIER
+#ifndef HAVE_LARGE_INSN_LIMIT
        volatile int __maybe_unused id = get_smp_processor_id();
 #endif
 }
