@@ -727,6 +727,26 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, auxVolumes...)
 	ds.Spec.Template.Spec.Containers[0].VolumeMounts = append(ds.Spec.Template.Spec.Containers[0].VolumeMounts, auxVolumeMounts...)
 
+	if k.bgpEnabled() {
+		ds.Spec.Template.Spec.Containers[0].VolumeMounts = append(ds.Spec.Template.Spec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "bgp-config-path",
+				ReadOnly:  true,
+				MountPath: "/var/lib/cilium/bgp",
+			},
+		)
+		ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: "bgp-config-path",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "bgp-config",
+					},
+				},
+			},
+		})
+	}
+
 	return ds
 }
 
@@ -912,6 +932,26 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  "AZURE_CLIENT_SECRET",
 			Value: k.params.Azure.ClientSecret,
+		})
+	}
+
+	if k.bgpEnabled() {
+		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "bgp-config-path",
+				ReadOnly:  true,
+				MountPath: "/var/lib/cilium/bgp",
+			},
+		)
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: "bgp-config-path",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "bgp-config",
+					},
+				},
+			},
 		})
 	}
 
