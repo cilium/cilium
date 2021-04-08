@@ -16,18 +16,55 @@ package connectivity
 
 import (
 	"context"
+	_ "embed"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
 )
 
+var (
+	//go:embed manifests/allow-all.yaml
+	allowAllPolicyYAML string
+
+	//go:embed manifests/client-egress-only-dns.yaml
+	clientEgressOnlyDNSPolicyYAML string
+
+	//go:embed manifests/client-egress-to-echo.yaml
+	clientEgressToEchoPolicyYAML string
+)
+
 func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
 	return k.Run(ctx,
+		// First all tests without policies
 		&tests.PodToPod{},
 		&tests.PodToService{},
 		&tests.PodToNodePort{},
 		&tests.PodToLocalNodePort{},
 		&tests.PodToWorld{},
 		&tests.PodToHost{},
+		// Then test with an allow-all policy
+		(&check.PolicyContext{}).WithPolicy(allowAllPolicyYAML),
+		&tests.PodToPod{Variant: "-allow-all"},
+		&tests.PodToService{Variant: "-allow-all"},
+		&tests.PodToNodePort{Variant: "-allow-all"},
+		&tests.PodToLocalNodePort{Variant: "-allow-all"},
+		&tests.PodToWorld{Variant: "-allow-all"},
+		&tests.PodToHost{Variant: "-allow-all"},
+
+		// By itself this should fail, but allow-all policy is in effect so this succeeds
+		(&tests.PodToPod{Variant: "-client-egress-only-dns-with-allow-all"}).WithPolicy(clientEgressOnlyDNSPolicyYAML),
+		(&check.PolicyContext{}).WithPolicy(""), // delete all applied policies
+		// Now this should fail
+		(&tests.PodToPod{Variant: "-client-egress-only-dns"}).
+			WithPolicy(clientEgressOnlyDNSPolicyYAML).
+			WithExpectations(
+				func(t *check.TestRun) (egress, ingress check.Result) {
+					return check.ResultDrop, check.ResultNone
+				}),
+		// Policy installed with 'WithPolicy()' is automatically removed, so this should succeed:
+		&tests.PodToPod{Variant: "-no-policy"},
+		// This policy allows port 8080 from client to echo, so this should succeed
+		(&tests.PodToPod{Variant: "-client-egress-to-echo"}).WithPolicy(clientEgressToEchoPolicyYAML),
+		(&check.PolicyContext{}).WithPolicy(""), // delete all applied policies
 	)
 }

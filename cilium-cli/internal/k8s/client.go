@@ -427,3 +427,43 @@ func (c *Client) CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2
 func (c *Client) DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumClientset.CiliumV2().CiliumExternalWorkloads().Delete(ctx, name, opts)
 }
+
+func (c *Client) ListCiliumNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumNetworkPolicyList, error) {
+	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).List(ctx, opts)
+}
+
+func (c *Client) GetCiliumNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumNetworkPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) CreateCiliumNetworkPolicy(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumNetworkPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(cnp.Namespace).Create(ctx, cnp, opts)
+}
+
+func (c *Client) UpdateCiliumNetworkPolicy(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumNetworkPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(cnp.Namespace).Update(ctx, cnp, opts)
+}
+
+func (c *Client) DeleteCiliumNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).Delete(ctx, name, opts)
+}
+
+func (c *Client) ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
+	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx, opts)
+}
+
+func (c *Client) GetCiliumClusterwideNetworkPolicy(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Get(ctx, name, opts)
+}
+
+func (c *Client) CreateCiliumClusterwideNetworkPolicy(ctx context.Context, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Create(ctx, ccnp, opts)
+}
+
+func (c *Client) UpdateCiliumClusterwideNetworkPolicy(ctx context.Context, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumClusterwideNetworkPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Update(ctx, ccnp, opts)
+}
+
+func (c *Client) DeleteCiliumClusterwideNetworkPolicy(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().Delete(ctx, name, opts)
+}
