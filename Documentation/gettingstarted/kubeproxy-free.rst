@@ -1245,6 +1245,13 @@ For more information, ensure that you have the fix `Pull Request <https://github
     48498    getpeername4
     48494    getpeername6
 
+External Access To ClusterIP Services
+*************************************
+
+As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`__,
+Cilium's eBPF kube-proxy replacement by default disallows access to a ClusterIP service from outside the cluster.
+This can be allowed by setting ``bpf.lbExternalClusterIP=true``.
+
 Limitations
 ###########
 
@@ -1275,9 +1282,6 @@ Limitations
       release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
       resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
       to work. For a more detailed discussion see :gh-issue:`12438`.
-    * As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`__,
-      Cilium's eBPF kube-proxy replacement disallow access of a ClusterIP service
-      from outside a cluster.
 
 Further Readings
 ################

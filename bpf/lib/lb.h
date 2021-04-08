@@ -325,29 +325,9 @@ bool lb6_svc_is_affinity(const struct lb6_service *svc)
 	return svc->flags & SVC_FLAG_AFFINITY;
 }
 
-static __always_inline
-__u8 svc_is_routable_mask(void)
-{
-	__u8 mask = SVC_FLAG_ROUTABLE;
-
-#ifdef ENABLE_LOADBALANCER
-	mask |= SVC_FLAG_LOADBALANCER;
-#endif
-#ifdef ENABLE_NODEPORT
-	mask |= SVC_FLAG_NODEPORT;
-#endif
-#ifdef ENABLE_EXTERNAL_IP
-	mask |= SVC_FLAG_EXTERNAL_IP;
-#endif
-#ifdef ENABLE_HOSTPORT
-	mask |= SVC_FLAG_HOSTPORT;
-#endif
-	return mask;
-}
-
 static __always_inline bool __lb_svc_is_routable(__u8 flags)
 {
-	return (flags & svc_is_routable_mask()) > SVC_FLAG_ROUTABLE;
+	return (flags & SVC_FLAG_ROUTABLE) != 0;
 }
 
 static __always_inline

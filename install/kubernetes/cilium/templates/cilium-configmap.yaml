@@ -300,6 +300,10 @@ data:
 {{- if hasKey .Values.bpf "lbBypassFIBLookup" }}
   bpf-lb-bypass-fib-lookup: {{ .Values.bpf.lbBypassFIBLookup | quote }}
 {{- end }}
+{{- if hasKey .Values.bpf "lbExternalClusterIP" }}
+  bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
+{{- end }}
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;
