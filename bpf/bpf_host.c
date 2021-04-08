@@ -942,6 +942,14 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 __section("from-netdev")
 int from_netdev(struct __ctx_buff *ctx)
 {
+	/* VLAN packets will appear on main interface first and in order
+	 * to process them properly we need to pass them back to the stack -
+	 * kernel will strip vlan tag/info and we'll receive it back on
+	 * proper interface, or kernel will drop it.
+	 */
+	if (ctx->vlan_present)
+		return CTX_ACT_OK;
+
 	return handle_netdev(ctx, false);
 }
 
@@ -971,6 +979,13 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u32 __maybe_unused src_id = 0;
 	__u16 __maybe_unused proto = 0;
 	int ret = CTX_ACT_OK;
+
+	/* We've already processed VLAN packets
+	 * (if bpf programs are attached to vlan interface),
+	 * or we do not have to process them
+	 */
+	if (ctx->vlan_present)
+		return CTX_ACT_OK;
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (!proto && !validate_ethertype(ctx, &proto)) {
