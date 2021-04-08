@@ -1902,11 +1902,6 @@ type DaemonConfig struct {
 	// available.
 	CRDWaitTimeout time.Duration
 
-	// NeedsRelaxVerifier enables the relax_verifier() helper which is used
-	// to introduce state pruning points for the verifier in the datapath
-	// program.
-	NeedsRelaxVerifier bool
-
 	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.

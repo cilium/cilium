@@ -20,6 +20,8 @@
 
 #include "node_config.h"
 
+#define HAVE_LARGE_INSN_LIMIT
+
 #define CONNTRACK
 
 #define htonl bpf_htonl
