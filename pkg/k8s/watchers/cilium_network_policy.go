@@ -203,7 +203,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		updateContext := &k8s.CNPStatusUpdateContext{
 			CiliumNPClient:              ciliumNPClient,
 			NodeName:                    nodeTypes.GetName(),
-			NodeManager:                 k.nodeDiscoverManager,
+			NodeManager:                 k.nodeDiscovery.Manager,
 			UpdateDuration:              spanstat.Start(),
 			WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
 		}
@@ -333,7 +333,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 	updateContext := &k8s.CNPStatusUpdateContext{
 		CiliumNPClient:              ciliumNPClient,
 		NodeName:                    nodeTypes.GetName(),
-		NodeManager:                 k.nodeDiscoverManager,
+		NodeManager:                 k.nodeDiscovery.Manager,
 		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
 	}
