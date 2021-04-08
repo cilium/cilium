@@ -55,6 +55,23 @@ pipeline {
                    }
             }
         }
+        stage('Set programmatic env vars') {
+            steps {
+                script {
+                    flags = env.ghprbCommentBody?.replace("\\", "")
+                    env.FOCUS = sh script: '''
+                        if [ "${ghprbCommentBody}" != "" ]; then
+                            python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="focus" | \
+                            sed "s/^$/Runtime/" | \
+                            sed "s/K8s.*/NoTests/" | \
+                            sed 's/^"//' | sed 's/"$//' | \
+                            xargs echo -n
+                        else
+                            echo -n "Runtime"
+                        fi''', returnStdout: true
+                }
+            }
+        }
         stage('Checkout') {
             options {
                 timeout(time: 30, unit: 'MINUTES')
@@ -133,7 +150,8 @@ pipeline {
                 TESTDIR="${GOPATH}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; ginkgo --focus="$(python get-gh-comment-info.py "${ghprbCommentBody}" | sed "s/^$/Runtime/" | sed "s/K8s.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
+                sh 'env'
+                sh 'cd ${TESTDIR}; ginkgo --focus="${FOCUS}" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.runQuarantined=${RUN_QUARANTINED}'
             }
             post {
                 always {
