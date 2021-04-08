@@ -87,6 +87,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	err := k8sCLI.AnnotateNode("node1",
 		0,
+		"",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6AllocRange(),
 		nil,
@@ -159,6 +160,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	err = k8sCLI.AnnotateNode("node2",
 		0,
+		"",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6AllocRange(),
 		nil,

@@ -717,7 +717,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}).Info("Annotating k8s node")
 
 		err := k8s.Client().AnnotateNode(nodeTypes.GetName(),
-			encryptKeyID,
+			encryptKeyID, node.GetWireguardPubKey(),
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
 			node.GetInternalIPv4Router(), node.GetIPv6Router())

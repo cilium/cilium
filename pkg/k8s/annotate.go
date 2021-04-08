@@ -51,7 +51,7 @@ type K8sAPIExtensionsClient struct {
 	apiextclientset.Interface
 }
 
-func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey uint8, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
+func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey uint8, wireguardPubKey string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
 	annotations := map[string]string{}
 
 	if v4CIDR != nil {
@@ -80,6 +80,10 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey ui
 		annotations[annotation.CiliumEncryptionKey] = strconv.FormatUint(uint64(encryptKey), 10)
 	}
 
+	if wireguardPubKey != "" {
+		annotations[annotation.WireguardPubKey] = wireguardPubKey
+	}
+
 	if len(annotations) == 0 {
 		return nil
 	}
@@ -98,7 +102,7 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey ui
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
+func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, wireguardPubKey string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:       nodeName,
 		logfields.V4Prefix:       v4CIDR,
@@ -114,7 +118,7 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, v4CIDR, 
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
 			DoFunc: func(_ context.Context) error {
-				err := updateNodeAnnotation(k8sCli, nodeName, encryptKey, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
+				err := updateNodeAnnotation(k8sCli, nodeName, encryptKey, wireguardPubKey, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
 				if err != nil {
 					scopedLog.WithFields(logrus.Fields{}).WithError(err).Warn("Unable to patch node resource with annotation")
 				}

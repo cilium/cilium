@@ -120,12 +120,18 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 		}
 	}
 
+	wireguardPubKey := ""
+	if key, ok := k8sNode.Annotations[annotation.WireguardPubKey]; ok {
+		wireguardPubKey = key
+	}
+
 	newNode := &nodeTypes.Node{
-		Name:          k8sNode.Name,
-		Cluster:       option.Config.ClusterName,
-		IPAddresses:   addrs,
-		Source:        source,
-		EncryptionKey: encryptKey,
+		Name:            k8sNode.Name,
+		Cluster:         option.Config.ClusterName,
+		IPAddresses:     addrs,
+		Source:          source,
+		EncryptionKey:   encryptKey,
+		WireguardPubKey: wireguardPubKey,
 	}
 
 	if len(k8sNode.Spec.PodCIDRs) != 0 {
