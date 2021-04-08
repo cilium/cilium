@@ -192,7 +192,7 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 			__be16 proxy_port, bool from_host __maybe_unused,
 			bool ipv4 __maybe_unused)
 {
-	int result = CTX_ACT_OK;
+	int result __maybe_unused = CTX_ACT_OK;
 
 #ifdef ENABLE_TPROXY
 	if (!from_host)
