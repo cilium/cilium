@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
 
@@ -150,6 +151,14 @@ func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 	}
 }
 
+type k8sPolicyImplementation interface {
+	ListCiliumNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumNetworkPolicyList, error)
+	GetCiliumNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumNetworkPolicy, error)
+	CreateCiliumNetworkPolicy(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumNetworkPolicy, error)
+	UpdateCiliumNetworkPolicy(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumNetworkPolicy, error)
+	DeleteCiliumNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
+}
+
 type k8sConnectivityImplementation interface {
 	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
 	GetService(ctx context.Context, namespace, service string, opts metav1.GetOptions) (*corev1.Service, error)
@@ -170,6 +179,8 @@ type k8sConnectivityImplementation interface {
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
 	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
 	ClusterName() (name string)
+
+	k8sPolicyImplementation
 }
 
 // PodContext is a pod acting as a peer in a connectivity test
@@ -241,6 +252,12 @@ type TestContext interface {
 	// EchoServices returns a map of all deployed echo services
 	EchoServices() map[string]ServiceContext
 
+	// ApplyCNPs applies the given CNP to the test context, returns the number of failures
+	ApplyCNPs(ctx context.Context, deletePrevious bool, cnps []*ciliumv2.CiliumNetworkPolicy) int
+
+	// DeleteCNP deleted the given CNP from the test context
+	DeleteCNPs(ctx context.Context, cnps []*ciliumv2.CiliumNetworkPolicy)
+
 	// Log is used to log a status update
 	Log(format string, a ...interface{})
 
@@ -255,6 +272,9 @@ type TestContext interface {
 
 	// AllFlows returns true if all flows should be shown
 	AllFlows() bool
+
+	// Verbose returns true if additional diagnostic messages should be shown
+	Verbose() bool
 
 	// FlowAggregation returns true if flow aggregation is enabled in any
 	// of the clusters
@@ -291,6 +311,12 @@ type TestRun struct {
 	// dst is the peer used as the destination (server)
 	dst TestPeer
 
+	// expectedEgress is the expected test result for egress from the source pod
+	expectedEgress Result
+
+	// expectedIngress is the expected test result for the ingress in to the destination pod
+	expectedIngress Result
+
 	// flows is a map of all flow logs, indexed by pod name
 	flows map[string]*flowsSet
 
@@ -307,12 +333,12 @@ type TestRun struct {
 }
 
 // NewTestRun creates a new test run
-func NewTestRun(name string, c TestContext, src, dst TestPeer) *TestRun {
-	c.Header("🔌 [%s] Testing %s -> %s...", name, src.Name(), dst.Name())
+func NewTestRun(t ConnectivityTest, c TestContext, src, dst TestPeer) *TestRun {
+	c.Header("🔌 [%s] Testing %s -> %s...", t.Name(), src.Name(), dst.Name())
 
-	return &TestRun{
-		name:        name,
-		verboseName: name + ": " + src.Name() + " -> " + dst.Name(),
+	run := &TestRun{
+		name:        t.Name(),
+		verboseName: fmt.Sprintf("%s: %s -> %s", t.Name(), src.Name(), dst.Name()),
 		context:     c,
 		src:         src,
 		dst:         dst,
@@ -320,6 +346,17 @@ func NewTestRun(name string, c TestContext, src, dst TestPeer) *TestRun {
 		flows:       map[string]*flowsSet{},
 		flowResults: map[string]FlowRequirementResults{},
 	}
+
+	// Record policy apply failure on each test run
+	k := c.(*K8sConnectivityCheck)
+	if k.policyFailures > 0 {
+		run.Failure("Policy apply failed")
+	}
+
+	// Set policy expectations for this test run
+	run.expectedEgress, run.expectedIngress = t.getExpectations(run)
+
+	return run
 }
 
 // Failure must be called when a failure is detected performing the test
@@ -331,6 +368,34 @@ func (t *TestRun) Failure(format string, a ...interface{}) {
 // Success can be called to log a successful event
 func (t *TestRun) Success(format string, a ...interface{}) {
 	t.context.Log("✅ "+format, a...)
+}
+
+// Waiting can be called to log a slow event
+func (t *TestRun) Waiting(format string, a ...interface{}) {
+	t.context.Log("⌛ "+format+"...", a...)
+}
+
+// LogResult can be called to log command results
+func (t *TestRun) LogResult(cmd []string, err error, stdout bytes.Buffer) {
+	cmdName := cmd[0]
+	cmdStr := strings.Join(cmd, " ")
+	shouldSucceed := t.expectedEgress == ResultOK && t.expectedIngress == ResultOK
+	if err != nil {
+		if shouldSucceed {
+			t.Failure("%s command %q failed: %w", cmdName, cmdStr, err)
+		} else {
+			t.Success("%s command %q failed as expected: %w", cmdName, cmdStr, err)
+		}
+	} else {
+		if shouldSucceed {
+			t.Success("%s command %q succeeded", cmdName, cmdStr)
+		} else {
+			t.Failure("%s command %q succeeded while it should have failed", cmdName, cmdStr)
+		}
+		if t.context.Verbose() {
+			t.context.Log("ℹ️  %s output: %s", cmdName, stdout.String())
+		}
+	}
 }
 
 // Warning must be called when a warning is detected performing the test
@@ -393,7 +458,7 @@ type FlowRequirementResults struct {
 	LastMatchTimestamp time.Time
 }
 
-func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod string, req filters.FlowSetRequirement) (r FlowRequirementResults) {
+func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod string, req *filters.FlowSetRequirement) (r FlowRequirementResults) {
 	var goodLog []string
 
 	r.Matched = MatchMap{}
@@ -472,9 +537,198 @@ func (t *TestRun) matchFlowRequirements(ctx context.Context, flows *flowsSet, po
 	return
 }
 
+// L4Protocol identifies the network protocol being tested
+type L4Protocol int
+
+const (
+	TCP L4Protocol = iota
+	UDP
+	ICMP
+)
+
+// FlowParameters defines parameters for test result flow matching
+type FlowParameters struct {
+	// Protocol is the network protocol being tested
+	Protocol L4Protocol
+
+	// DNSRequired is true if DNS flows must be seen before the test protocol
+	DNSRequired bool
+
+	// RSTAllowed is true if TCP connection may end with either RST or FIN
+	RSTAllowed bool
+
+	// DstPort is the destination port number to be mached. Ignored for ICMP.
+	DstPort int
+
+	// NodePort, if non-zero, indicates an alternative port number for the DstPort to be matched
+	NodePort int
+}
+
+func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequirement {
+	var egress *filters.FlowSetRequirement
+	srcIP := t.src.Address()
+	dstIP := t.dst.Address()
+
+	if dstIP != "" && net.ParseIP(dstIP) == nil {
+		// dstIP is not an IP address, assume it is a domain name
+		dstIP = ""
+	}
+
+	ipResponse := filters.IP(dstIP, srcIP)
+	ipRequest := filters.IP(srcIP, dstIP)
+
+	switch p.Protocol {
+	case ICMP:
+		icmpRequest := filters.Or(filters.ICMP(8), filters.ICMPv6(128))
+		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
+
+		switch t.expectedEgress {
+		case ResultOK:
+			egress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
+			}
+		case ResultDrop:
+			egress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
+				},
+			}
+		default:
+			t.Failure("Invalid expected egress result %s", t.expectedEgress.String())
+		}
+	case TCP:
+		tcpRequest := filters.TCP(0, p.DstPort)
+		tcpResponse := filters.TCP(p.DstPort, 0)
+		if p.NodePort != 0 {
+			tcpRequest = filters.Or(filters.TCP(0, p.NodePort), tcpRequest)
+			tcpResponse = filters.Or(filters.TCP(p.NodePort, 0), tcpResponse)
+		}
+
+		switch t.expectedEgress {
+		case ResultOK:
+			if p.RSTAllowed {
+				egress = &filters.FlowSetRequirement{
+					First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
+					Middle: []filters.FlowRequirement{
+						{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+					},
+					// For the connection termination, we will either see:
+					// a) FIN + FIN b) FIN + RST c) RST
+					Last: filters.FlowRequirement{Filter: filters.And(ipResponse, tcpResponse, filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST", SkipOnAggregation: true},
+					Except: []filters.FlowRequirement{
+						{Filter: filters.Drop(), Msg: "Drop"},
+					},
+				}
+			} else {
+				egress = &filters.FlowSetRequirement{
+					First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
+					Middle: []filters.FlowRequirement{
+						{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+					},
+					// Either side may FIN first
+					Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
+					Except: []filters.FlowRequirement{
+						{Filter: filters.RST(), Msg: "RST"},
+						{Filter: filters.Drop(), Msg: "Drop"},
+					},
+				}
+			}
+		case ResultDrop:
+			egress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.SYNACK(), Msg: "SYN-ACK"},
+					{Filter: filters.FIN(), Msg: "FIN"},
+				},
+			}
+		default:
+			t.Failure("Invalid expected egress result %s", t.expectedEgress.String())
+		}
+	case UDP:
+		t.Failure("UDP egress flow matching not implemented yet")
+	default:
+		t.Failure("Invalid egress flow matching protocol %d", p.Protocol)
+	}
+
+	if p.DNSRequired {
+		dnsRequest := filters.Or(filters.UDP(0, 53), filters.TCP(0, 53))
+		dnsResponse := filters.Or(filters.UDP(53, 0), filters.TCP(53, 0))
+
+		first := egress.First
+		egress.First = filters.FlowRequirement{Filter: filters.And(ipRequest, dnsRequest), Msg: "DNS request"}
+		egress.Middle = append([]filters.FlowRequirement{
+			{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"},
+			first,
+		}, egress.Middle...)
+	}
+
+	return egress
+}
+
+func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequirement {
+	srcIP := t.src.Address()
+	dstIP := t.dst.Address()
+
+	var ingress *filters.FlowSetRequirement
+
+	if dstIP != "" && net.ParseIP(dstIP) == nil {
+		// dstIP is not an IP address, assume it is a domain name
+		dstIP = ""
+	}
+
+	ipResponse := filters.IP(dstIP, srcIP)
+	ipRequest := filters.IP(srcIP, dstIP)
+
+	tcpRequest := filters.TCP(0, p.DstPort)
+	tcpResponse := filters.TCP(p.DstPort, 0)
+	if p.NodePort != 0 {
+		tcpRequest = filters.Or(filters.TCP(0, p.NodePort), tcpRequest)
+		tcpResponse = filters.Or(filters.TCP(p.NodePort, 0), tcpResponse)
+	}
+
+	switch p.Protocol {
+	case ICMP:
+		t.Failure("ICMP ingress flow matching not implemented yet")
+	case TCP:
+		switch t.expectedIngress {
+		case ResultOK:
+			ingress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
+				Middle: []filters.FlowRequirement{
+					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+				},
+				// Either side may FIN first
+				Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.RST(), Msg: "RST"},
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
+			}
+		case ResultNone:
+			// Nothing, used when expecting a drop in egress so that packet does not show up at ingress
+		default:
+			// Ingress drops not supported yet
+			t.Failure("Invalid expected ingress result %s", t.expectedIngress.String())
+		}
+	case UDP:
+		t.Failure("UDP ingress flow matching not implemented yet")
+	default:
+		t.Failure("Invalid ingress flow matching protocol %d", p.Protocol)
+	}
+
+	return ingress
+}
+
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Failure() is called.
-func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req filters.FlowSetRequirement) {
+func (t *TestRun) ValidateFlows(ctx context.Context, pod, podIP string, req *filters.FlowSetRequirement) {
 	hubbleClient := t.context.HubbleClient()
 	if hubbleClient == nil {
 		return
@@ -578,6 +832,8 @@ type TestPeer interface {
 
 // ConnectivityTest is the interface to implement for all connectivity tests
 type ConnectivityTest interface {
+	Policy
+
 	// Name must return the name of the test
 	Name() string
 
@@ -634,6 +890,8 @@ type K8sConnectivityCheck struct {
 	results            TestResults
 	lastFlowTimestamps map[string]time.Time
 	flowAggregation    bool
+	policies           map[string]*ciliumv2.CiliumNetworkPolicy
+	policyFailures     int
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) (*K8sConnectivityCheck, error) {
@@ -799,6 +1057,7 @@ type Parameters struct {
 	FlowValidation        string
 	AllFlows              bool
 	Writer                io.Writer
+	Verbose               bool
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
@@ -1270,6 +1529,8 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 		k.waitForService(ctx, k.client, serviceName)
 	}
 
+	k.policies = map[string]*ciliumv2.CiliumNetworkPolicy{}
+
 	return nil
 }
 
@@ -1302,6 +1563,10 @@ func (k *K8sConnectivityCheck) PrintFlows() bool {
 
 func (k *K8sConnectivityCheck) AllFlows() bool {
 	return k.params.AllFlows
+}
+
+func (k *K8sConnectivityCheck) Verbose() bool {
+	return k.params.Verbose
 }
 
 func (k *K8sConnectivityCheck) FlowAggregation() bool {

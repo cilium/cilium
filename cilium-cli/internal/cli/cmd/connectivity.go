@@ -71,6 +71,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run a particular set of tests")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
+	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show additional diagnostic messages")
 
 	return cmd
 }

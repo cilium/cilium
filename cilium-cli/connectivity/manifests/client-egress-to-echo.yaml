@@ -1,0 +1,26 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-egress-to-echo
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: cilium-test
+        k8s:kind: echo
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns

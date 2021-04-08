@@ -20,50 +20,38 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/connectivity/filters"
 )
 
-type PodToPod struct{}
+type PodToPod struct {
+	check.PolicyContext
+	Variant string
+}
+
+func (t *PodToPod) WithPolicy(yaml string) check.ConnectivityTest {
+	return t.WithPolicyRunner(t, yaml)
+}
 
 func (t *PodToPod) Name() string {
-	return "pod-to-pod"
+	return "pod-to-pod" + t.Variant
 }
 
 func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		for _, echo := range c.EchoPods() {
-			run := check.NewTestRun(t.Name(), c, client, echo)
+			run := check.NewTestRun(t, c, client, echo)
 			cmd := curlCommand(net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080)))
-			_, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
-			if err != nil {
-				run.Failure("curl connectivity check command failed: %s", err)
-			} else {
-				run.Success("curl command %q succeeded", cmd)
+			stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
+			run.LogResult(cmd, err, stdout)
+			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
+				DstPort: 8080,
+			})
+			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{
+				DstPort: 8080,
+			})
+			if ingressFlowRequirements != nil {
+				run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, ingressFlowRequirements)
 			}
-
-			echoToClient := filters.IP(echo.Pod.Status.PodIP, client.Pod.Status.PodIP) // echo -> client response
-			clientToEcho := filters.IP(client.Pod.Status.PodIP, echo.Pod.Status.PodIP) // client -> echo request
-			tcpRequest := filters.TCP(0, 8080)                                         // request to port 8080
-			tcpResponse := filters.TCP(8080, 0)                                        // response from port 8080
-
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, filters.FlowSetRequirement{
-				First: filters.FlowRequirement{Filter: filters.And(echoToClient, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
-				Last:  filters.FlowRequirement{Filter: filters.And(echoToClient, tcpResponse, filters.FIN()), Msg: "FIN-ACK"},
-				Except: []filters.FlowRequirement{
-					{Filter: filters.RST(), Msg: "RST"},
-					{Filter: filters.Drop(), Msg: "Drop"},
-				},
-			})
-
-			run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, filters.FlowSetRequirement{
-				First: filters.FlowRequirement{Filter: filters.And(clientToEcho, tcpRequest, filters.SYN()), Msg: "SYN"},
-				Last:  filters.FlowRequirement{Filter: filters.And(clientToEcho, tcpRequest, filters.FIN()), Msg: "FIN"},
-				Except: []filters.FlowRequirement{
-					{Filter: filters.RST(), Msg: "RST"},
-					{Filter: filters.Drop(), Msg: "Drop"},
-				},
-			})
-
 			run.End()
 		}
 	}
