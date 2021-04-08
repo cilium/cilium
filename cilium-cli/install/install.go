@@ -151,6 +151,12 @@ var operatorClusterRole = &rbacv1.ClusterRole{
 			Verbs: []string{"get", "list", "watch"},
 		},
 		{
+
+			APIGroups: []string{""},
+			Resources: []string{"services/status"}, // to perform LB IP allocation for BGP
+			Verbs:     []string{"update"},
+		},
+		{
 			APIGroups: []string{"cilium.io"},
 			Resources: []string{
 				"ciliumnetworkpolicies",
