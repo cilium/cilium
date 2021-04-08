@@ -274,6 +274,9 @@ bpf:
   # first time in a connection.
   monitorFlags: "all"
 
+  # -- Allow cluster external access to ClusterIP services.
+  lbExternalClusterIP: false
+
   # -- Enable native IP masquerade support in eBPF
   #masquerade: true
 
