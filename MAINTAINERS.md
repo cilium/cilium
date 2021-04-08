@@ -24,9 +24,11 @@ by the "janitor role" which is rotated between all committers.
 ## Cilium & Hubble Committers
 
  * [Aditi Ghag] (Isovalent)
+ * [Alexandre Perrin] (Isovalent)
  * [Beatriz Martinez] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
+ * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak]
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
@@ -40,6 +42,7 @@ by the "janitor role" which is rotated between all committers.
  * [Martynas Pumputis] (Isovalent)
  * [Michael Rostecki] (SUSE)
  * [Michi Mutsuzaki] (Isovalent)
+ * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
@@ -60,10 +63,12 @@ Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
 
 [Aditi Ghag]: https://github.com/aditighag
+[Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
 [Beatriz Martinez]: https://github.com/b3a-dev
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
+[Dan Wendlandt]: https://github.com/danwent
 [Deepesh Pathak]: https://github.com/fristonio
 [Eloy Coto]: https://github.com/eloycoto
 [Gilberto Bertin]: https://github.com/jibi
@@ -79,6 +84,7 @@ project.
 [Martynas Pumputis]: https://github.com/brb
 [Michael Rostecki]: https://github.com/mrostecki
 [Michi Mutsuzaki]: https://github.com/michi-covalent
+[Natália Réka Ivánkó]: https://github.com/sharlns
 [Nathan Sweet]: https://github.com/nathanjsweet
 [Nirmoy Das]: https://github.com/nirmoy
 [Paul Chaignon]: https://github.com/pchaigno
