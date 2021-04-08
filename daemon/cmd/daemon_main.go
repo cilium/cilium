@@ -985,6 +985,9 @@ func init() {
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(option.BGPConfigPath)
 
+	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
+	option.BindEnv(option.ExternalClusterIPName)
+
 	viper.BindPFlags(flags)
 }
 

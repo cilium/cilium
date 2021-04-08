@@ -579,6 +579,53 @@ var _ = Describe("K8sServicesTest", func() {
 				testCurlFromPods(echoPodLabel, url, 5, 0)
 			}
 		})
+
+		curlClusterIPFromExternalHost := func() *helpers.CmdRes {
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", serviceName)
+			ExpectWithOffset(1, govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+			httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
+
+			By("testing external connectivity via cluster IP %s", clusterIP)
+
+			status := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, helpers.CurlFail(httpSVCURL))
+			ExpectWithOffset(1, status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
+
+			return kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(httpSVCURL))
+		}
+
+		SkipItIf(func() bool { return helpers.DoesNotExistNodeWithoutCilium() },
+			"ClusterIP cannot be accessed externally when access is disabled",
+			func() {
+				Expect(curlClusterIPFromExternalHost()).ShouldNot(helpers.CMDSuccess(),
+					"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", outsideNodeName)
+			})
+
+		SkipContextIf(func() bool { return helpers.DoesNotExistNodeWithoutCilium() }, "With ClusterIP external access", func() {
+			var (
+				svcIP string
+			)
+			BeforeAll(func() {
+				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+					"bpf.lbExternalClusterIP": "true",
+				})
+				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+				svcIP = clusterIP
+				Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
+				res := kubectl.AddIPRoute(outsideNodeName, svcIP, k8s1IP, false)
+				Expect(res).Should(helpers.CMDSuccess(), "Error adding IP route for %s via %s", svcIP, k8s1IP)
+			})
+
+			AfterAll(func() {
+				res := kubectl.DelIPRoute(outsideNodeName, svcIP, k8s1IP)
+				Expect(res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", svcIP, k8s1IP)
+				DeployCiliumAndDNS(kubectl, ciliumFilename)
+			})
+
+			It("ClusterIP can be accessed when external access is enabled", func() {
+				Expect(curlClusterIPFromExternalHost()).Should(helpers.CMDSuccess(), "Could not curl ClusterIP %s from external host", svcIP)
+			})
+		})
 	})
 
 	SkipContextIf(func() bool { return !helpers.RunsOnNetNextOr419Kernel() }, "Checks local redirect policy", func() {

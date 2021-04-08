@@ -504,6 +504,10 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	checkSourceRange bool) error {
 
+	// isRoutable denotes whether this service can be accessed from outside the cluster.
+	isRoutable := !fe.IsSurrogate() &&
+		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+
 	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
@@ -512,7 +516,7 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 		SvcType:          svcType,
 		SvcLocal:         svcLocal,
 		SessionAffinity:  sessionAffinity,
-		IsRoutable:       !fe.IsSurrogate(),
+		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
 	})
 	zeroValue.SetFlags(flag.UInt16())
