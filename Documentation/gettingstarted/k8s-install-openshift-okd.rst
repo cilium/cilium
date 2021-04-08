@@ -118,54 +118,40 @@ Next, generate OpenShift manifests:
 
    openshift-install create manifests --dir "${CLUSTER_NAME}"
 
-Now, define ``cilium`` namespace:
-
-.. code:: bash
-
-   cat << EOF > "${CLUSTER_NAME}/manifests/cluster-network-03-cilium-namespace.yaml"
-   apiVersion: v1
-   kind: Namespace
-   metadata:
-     name: cilium
-     annotations:
-       # node selector is required to make cilium-operator run on control plane nodes
-       openshift.io/node-selector: ""
-     labels:
-       name: cilium
-       # run level sets priority for Cilium to be deployed prior to other components
-       openshift.io/run-level: "0"
-       # enable cluster logging for Cilium namespace
-       openshift.io/cluster-logging: "true"
-       # enable cluster monitoring for Cilium namespace
-       openshift.io/cluster-monitoring: "true"
-   EOF
-
-.. include:: k8s-install-download-release.rst
-
-Next, render Cilium manifest:
+Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to ``${CLUSTER_NAME}/manifests``:
 
 .. parsed-literal::
 
-   helm template |CHART_RELEASE|  \\
-      --namespace cilium \\
-      --set ipam.mode=cluster-pool \\
-      --set cni.binPath=/var/lib/cni/bin \\
-      --set cni.confPath=/var/run/multus/cni/net.d \\
-      --set ipam.operator.clusterPoolIPv4PodCIDR=10.128.0.0/14 \\
-      --set ipam.operator.clusterPoolIPv4MaskSize=23 \\
-      --set nativeRoutingCIDR=10.128.0.0/14 \\
-      --set bpf.masquerade=false \\
-      --set endpointRoutes.enabled=true \\
-      --output-dir "${OLDPWD}"
-   cd "${OLDPWD}"
+   cilium_olm_rev=master
 
-Copy Cilium manifest to ``${CLUSTER_NAME}/manifests``:
+   curl --silent --location --fail --show-error "https://github.com/cilium/cilium-olm/archive/${cilium_olm_rev}.tar.gz" --output /tmp/cilium-olm.tgz
+   tar -C /tmp -xf /tmp/cilium-olm.tgz
 
-.. code:: bash
+   cp /tmp/cilium-olm-${cilium_olm_rev}/manifests/cilium.v\ |release|\ /* "${CLUSTER_NAME}/manifests"
 
-    for resource in cilium/templates/*
-        do cp "${resource}" "${CLUSTER_NAME}/manifests/cluster-network-04-cilium-$(basename ${resource})"
-    done
+   rm -rf -- /tmp/cilium-olm.tgz "/tmp/cilium-olm-${cilium_olm_rev}"
+
+.. note::
+
+   At this stage manifest directory contains all that is needed to install Cilium.
+   To get a list of the Cilium manifests, run ``ls ${CLUSTER_NAME}/manifests/cluster-network-*-cilium-*``.
+
+.. note::
+
+   If you wish to set any custom Helm values, you can do it by editing ``${CLUSTER_NAME}/manifests/cluster-network-07-cilium-ciliumconfig.yaml``.
+
+   It's also possible to update Helm values once the cluster is running by changing ``CiliumConfig`` object,
+   e.g. with  ``kubectl edit ciliumconfig -n cilium cilium``. You may need to restart Cilium agent pods for
+   certain options to take effect.
+
+.. note::
+
+   If you are not using a real OpenShift pull secret, you will not be able to install the Cilium OLM operator
+   using RedHat registry. You can fix this by running:
+
+   .. code-block:: shell-session
+
+       sed -i 's|image:\ registry.connect.redhat.com/isovalent/|image:\ quay.io/cilium/|g' "${CLUSTER_NAME}/manifests/cluster-network-06-cilium-00002-cilium-olm-deployment.yaml"``
 
 Create the cluster:
 
