@@ -120,6 +120,46 @@ jobs:
         run: |
           cilium connectivity test
 
+      - name: Clean up Cilium
+        run: |
+          cilium uninstall --wait
+          pgrep -f "kubectl port-forward" | xargs kill -9 # kill background port forwards
+
+      - name: Install Cilium With Encryption
+        run: |
+          cilium install \
+            --encryption \
+            --cluster-name=${{ env.clusterName }} \
+            --wait=false \
+            --restart-unmanaged-pods=false \
+            --config monitor-aggregation=none \
+            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
+            --version ${{ steps.vars.outputs.sha }}
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Port forward Relay
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Restart connectivity test pods
+        run: |
+          kubectl delete pod -n cilium-test --selector=kind=client
+          kubectl delete pod -n cilium-test --selector=kind=echo
+          # workaround for github.com/cilium/cilium-cli/issues/156
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test
+
       - name: Post-test information gathering
         if: ${{ always() }}
         run: |
