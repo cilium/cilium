@@ -1,6 +1,6 @@
 module github.com/cilium/cilium-cli
 
-go 1.15
+go 1.16
 
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
