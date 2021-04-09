@@ -22,6 +22,7 @@
 # @cilium/policy             Policy behaviour
 # @cilium/proxy              L7 proxy, Envoy
 # @cilium/vendor             Vendoring, dependency management
+# @cilium/wireguard          Wireguard integration
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
@@ -211,6 +212,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/sysctl @cilium/bpf
 /pkg/testutils/ @cilium/ci-structure
 /pkg/tuple @cilium/bpf
+/pkg/wireguard @cilium/wireguard
 /plugins/cilium-cni/ @cilium/kubernetes
 /plugins/cilium-docker/ @cilium/docker
 /proxylib/ @cilium/proxy
