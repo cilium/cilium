@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -35,12 +36,21 @@ func NewPutRecorderIDHandler(rec *recorder.Recorder) PutRecorderIDHandler {
 
 func (h *putRecorderID) Handle(params PutRecorderIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /recorder/{id} request")
-
 	if params.Config.ID == nil {
 		return api.Error(PutRecorderIDFailureCode, fmt.Errorf("invalid recorder ID 0"))
 	}
-
-	return api.Error(PutRecorderIDFailureCode, fmt.Errorf("not supported yet"))
+	ri, err := recorder.ModelToRecorder(params.Config)
+	if err != nil {
+		return api.Error(PutRecorderIDFailureCode, err)
+	}
+	created, err := h.rec.UpsertRecorder(ri)
+	if err != nil {
+		return api.Error(PutRecorderIDFailureCode, err)
+	} else if created {
+		return NewPutRecorderIDCreated()
+	} else {
+		return NewPutRecorderIDOK()
+	}
 }
 
 type deleteRecorderID struct {
@@ -53,7 +63,15 @@ func NewDeleteRecorderIDHandler(rec *recorder.Recorder) DeleteRecorderIDHandler 
 
 func (h *deleteRecorderID) Handle(params DeleteRecorderIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /recorder/{id} request")
-	return NewDeleteRecorderIDNotFound()
+	found, err := h.rec.DeleteRecorder(recorder.ID(params.ID))
+	switch {
+	case err != nil:
+		return api.Error(DeleteRecorderIDFailureCode, err)
+	case !found:
+		return NewDeleteRecorderIDNotFound()
+	default:
+		return NewDeleteRecorderIDOK()
+	}
 }
 
 type getRecorderID struct {
@@ -66,7 +84,21 @@ func NewGetRecorderIDHandler(rec *recorder.Recorder) GetRecorderIDHandler {
 
 func (h *getRecorderID) Handle(params GetRecorderIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /recorder/{id} request")
-	return NewGetRecorderIDNotFound()
+	ri, err := h.rec.RetrieveRecorder(recorder.ID(params.ID))
+	if err != nil {
+		return NewGetRecorderIDNotFound()
+	}
+	spec, err := recorder.RecorderToModel(ri)
+	if err != nil {
+		return api.Error(PutRecorderIDFailureCode, err)
+	}
+	rec := &models.Recorder{
+		Spec: spec,
+		Status: &models.RecorderStatus{
+			Realized: spec,
+		},
+	}
+	return NewGetRecorderIDOK().WithPayload(rec)
 }
 
 type getRecorder struct {
@@ -79,5 +111,22 @@ func NewGetRecorderHandler(rec *recorder.Recorder) GetRecorderHandler {
 
 func (h *getRecorder) Handle(params GetRecorderParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /recorder request")
-	return NewGetRecorderOK()
+	recList := getRecorderList(h.rec)
+	return NewGetRecorderOK().WithPayload(recList)
+}
+
+func getRecorderList(rec *recorder.Recorder) []*models.Recorder {
+	ris := rec.RetrieveRecorderSet()
+	recList := make([]*models.Recorder, 0, len(ris))
+	for _, ri := range ris {
+		spec, _ := recorder.RecorderToModel(ri)
+		rec := &models.Recorder{
+			Spec: spec,
+			Status: &models.RecorderStatus{
+				Realized: spec,
+			},
+		}
+		recList = append(recList, rec)
+	}
+	return recList
 }
