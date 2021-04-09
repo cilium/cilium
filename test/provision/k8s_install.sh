@@ -297,7 +297,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.21.0-rc.0"
+        K8S_FULL_VERSION="1.21.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -314,7 +314,7 @@ fi
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.16"|"1.17"|"1.18"|"1.19"|"1.20")
+    "1.16"|"1.17"|"1.18"|"1.19"|"1.20"|"1.21")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
@@ -326,9 +326,9 @@ case $K8S_VERSION in
             install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
         fi
         ;;
-   "1.21")
-       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
-       ;;
+#   "1.21")
+#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
+#       ;;
 esac
 set -e
 
