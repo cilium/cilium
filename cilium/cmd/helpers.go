@@ -77,6 +77,16 @@ func requireEndpointIDorGlobal(cmd *cobra.Command, args []string) {
 	}
 }
 
+func requireRecorderID(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		Usagef(cmd, "Missing recorder id argument")
+	}
+
+	if args[0] == "" {
+		Usagef(cmd, "Empty recorder id argument")
+	}
+}
+
 func requirePath(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		Usagef(cmd, "Missing path argument")
