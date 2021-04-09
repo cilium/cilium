@@ -59,6 +59,8 @@ func ethtoolIoctl(iface string, info *ethtoolDrvInfo) error {
 	if err != nil {
 		return err
 	}
+	defer unix.Close(fd)
+
 	copy(ifname[:], iface)
 	req := ifreq{
 		name: ifname,
