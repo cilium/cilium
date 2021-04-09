@@ -422,20 +422,24 @@ data:
   enable-ip-masq-agent: "true"
 {{- end }}
 
-{{- if hasKey .Values "wireguard" }}
-{{- if .Values.wireguard.enabled }}
-  enable-wireguard: {{ .Values.wireguard.enabled | quote }}
+{{- if .Values.encryption.wireguard.enabled }}
+  enable-wireguard: {{ .Values.encryption.wireguard.enabled | quote }}
+{{- if hasKey .Values.encryption.wireguard "wireguardsubnetv4" }}
+  wireguard-subnet-v4: {{ .Values.encryption.wireguard.wireguardsubnetv4 | quote }}
+{{- end }}
+{{- if hasKey .Values.encryption.wireguard "wireguardsubnetv6" }}
+  wireguard-subnet-v6: {{ .Values.encryption.wireguard.wireguardsubnetv6 | quote }}
 {{- end }}
 {{- end }}
 
-{{- if .Values.encryption.enabled }}
-  enable-ipsec: {{ .Values.encryption.enabled | quote }}
-  ipsec-key-file: {{ .Values.encryption.mountPath }}/{{ .Values.encryption.keyFile }}
-{{- if hasKey .Values.encryption "interface" }}
-  encrypt-interface: {{ .Values.encryption.interface }}
+{{- if .Values.encryption.ipsec.enabled }}
+  enable-ipsec: {{ .Values.encryption.ipsec.enabled | quote }}
+  ipsec-key-file: {{ .Values.encryption.ipsec.mountPath }}/{{ .Values.encryption.ipsec.keyFile }}
+{{- if hasKey .Values.encryption.ipsec "interface" }}
+  encrypt-interface: {{ .Values.encryption.ipsec.interface }}
 {{- end }}
-{{- if .Values.encryption.nodeEncryption }}
-  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+{{- if .Values.encryption.ipsec.nodeEncryption }}
+  encrypt-node: {{ .Values.encryption.ipsec.nodeEncryption | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "datapathMode" }}

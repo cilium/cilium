@@ -118,11 +118,12 @@ contributors across the globe, there is almost always someone available to help.
 | enableIPv6Masquerade | bool | `true` | Enables masquerading of IPv6 traffic leaving the node from endpoints. |
 | enableK8sEventHandover | bool | `false` | Configures the use of the KVStore to optimize Kubernetes event handling by mirroring it into the KVstore for reduced overhead in large clusters. |
 | enableXTSocketFallback | bool | `true` |  |
-| encryption.enabled | bool | `false` | Enable transparent network encryption. |
-| encryption.keyFile | string | `"keys"` | Name of the key file inside the Kubernetes secret configured via secretName. |
-| encryption.mountPath | string | `"/etc/ipsec"` | Path to mount the secret inside the Cilium pod. |
-| encryption.nodeEncryption | bool | `false` | Enable encryption for pure node to node traffic. |
-| encryption.secretName | string | `"cilium-ipsec-keys"` | Name of the Kubernetes secret containing the encryption keys. |
+| encryption.ipsec.enabled | bool | `false` | Enable transparent network encryption using IPSec. |
+| encryption.ipsec.keyFile | string | `"keys"` | Name of the key file inside the Kubernetes secret configured via secretName. |
+| encryption.ipsec.mountPath | string | `"/etc/ipsec"` | Path to mount the secret inside the Cilium pod. |
+| encryption.ipsec.nodeEncryption | bool | `false` | Enable encryption for pure node to node traffic. |
+| encryption.ipsec.secretName | string | `"cilium-ipsec-keys"` | Name of the Kubernetes secret containing the encryption keys. |
+| encryption.wireguard.enabled | bool | `false` | Enable transparent network encryption using Wireguard. |
 | endpointHealthChecking.enabled | bool | `true` |  |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
 | eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI |

@@ -405,23 +405,34 @@ enableK8sEventHandover: false
 enableXTSocketFallback: true
 
 encryption:
-  # -- Enable transparent network encryption.
-  enabled: false
+  wireguard:
+    # -- Enable transparent network encryption using Wireguard.
+    enabled: false
 
-  # -- Name of the key file inside the Kubernetes secret configured via secretName.
-  keyFile: keys
+    # -- Option to set the wireguard IPv4 subnet. Default set to 172.16.43.0/24
+    # wireguardsubnetv4: 172.16.43.0/24
 
-  # -- Path to mount the secret inside the Cilium pod.
-  mountPath: /etc/ipsec
+    # -- Option to set the Wireguard IPv6 subnet. Default set to fdc9:281f:04d7:9ee9::1/64
+    # wireguardsubnetv6: fdc9:281f:04d7:9ee9::1/64
 
-  # -- Name of the Kubernetes secret containing the encryption keys.
-  secretName: cilium-ipsec-keys
+  ipsec:
+    # -- Enable transparent network encryption using IPSec.
+    enabled: false
 
-  # -- Enable encryption for pure node to node traffic.
-  nodeEncryption: false
+    # -- Name of the key file inside the Kubernetes secret configured via secretName.
+    keyFile: keys
 
-  # -- The interface to use for encrypted traffic.
-  # interface: eth0
+    # -- Path to mount the secret inside the Cilium pod.
+    mountPath: /etc/ipsec
+
+    # -- Name of the Kubernetes secret containing the encryption keys.
+    secretName: cilium-ipsec-keys
+
+    # -- Enable encryption for pure node to node traffic.
+    nodeEncryption: false
+
+    # -- The interface to use for encrypted traffic.
+    # interface: eth0
 
 # TODO: Add documentation
 endpointHealthChecking:
