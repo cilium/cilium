@@ -21,15 +21,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	SIOCETHTOOL      = 0x8946
-	ETHTOOL_GDRVINFO = 0x00000003 // Get driver info
-
-	IFNAMSIZ = 16
-)
-
 type ifreq struct {
-	name [IFNAMSIZ]byte
+	name [unix.IFNAMSIZ]byte
 	data uintptr
 }
 
@@ -49,20 +42,19 @@ type ethtoolDrvInfo struct {
 }
 
 func ethtoolIoctl(iface string, info *ethtoolDrvInfo) error {
-	var ifname [IFNAMSIZ]byte
-
 	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, unix.IPPROTO_IP)
 	if err != nil {
 		return err
 	}
 	defer unix.Close(fd)
 
+	var ifname [unix.IFNAMSIZ]byte
 	copy(ifname[:], iface)
 	req := ifreq{
 		name: ifname,
 		data: uintptr(unsafe.Pointer(info)),
 	}
-	_, _, ep := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), SIOCETHTOOL, uintptr(unsafe.Pointer(&req)))
+	_, _, ep := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), unix.SIOCETHTOOL, uintptr(unsafe.Pointer(&req)))
 	if ep != 0 {
 		return ep
 	}
@@ -71,7 +63,7 @@ func ethtoolIoctl(iface string, info *ethtoolDrvInfo) error {
 
 func GetDeviceName(iface string) (string, error) {
 	info := ethtoolDrvInfo{
-		cmd: ETHTOOL_GDRVINFO,
+		cmd: unix.ETHTOOL_GDRVINFO,
 	}
 
 	if err := ethtoolIoctl(iface, &info); err != nil {
