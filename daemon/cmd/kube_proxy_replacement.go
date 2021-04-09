@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
-	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -416,17 +415,6 @@ func probeCgroupSupportUDP(strict, ipv4 bool) {
 
 // handleNativeDevices tries to detect bpf_host devices (if needed).
 func handleNativeDevices(strict bool) {
-	if option.Config.EnableWireguard {
-		// Change the direct routing device to the Wireguard tunnel, so that
-		// NodePort BPF would forward requests to a service endpoint on a remote
-		// node via the Wireguard tunnel device which makes requests to be
-		// encrypted.
-		prevDev := option.Config.DirectRoutingDevice
-		option.Config.DirectRoutingDevice = wireguardTypes.IfaceName
-		log.Infof("Switching direct routing device from %s to %s", prevDev,
-			option.Config.DirectRoutingDevice)
-	}
-
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
 		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
