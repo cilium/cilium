@@ -1489,6 +1489,7 @@ func (d *Daemon) initKVStore() {
 		d.k8sWatcher.WaitForCacheSync(
 			watchers.K8sAPIGroupServiceV1Core,
 			watchers.K8sAPIGroupEndpointV1Core,
+			watchers.K8sAPIGroupEndpointSliceV1Discovery,
 			watchers.K8sAPIGroupEndpointSliceV1Beta1Discovery,
 		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
