@@ -28,10 +28,6 @@ const (
 	IFNAMSIZ = 16
 )
 
-const (
-	veth = "veth"
-)
-
 type ifreq struct {
 	name [IFNAMSIZ]byte
 	data uintptr
@@ -90,10 +86,5 @@ func IsVirtualDriver(iface string) (bool, error) {
 		return false, err
 	}
 
-	switch drvName {
-	case veth:
-		return true, nil
-	}
-
-	return true, nil
+	return drvName == "veth", nil
 }
