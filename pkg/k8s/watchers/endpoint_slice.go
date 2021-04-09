@@ -40,9 +40,11 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 		objType           runtime.Object
 		addFunc, delFunc  func(obj interface{})
 		updateFunc        func(oldObj, newObj interface{})
+		apiGroup          string
 	)
 
 	if k8s.SupportsEndpointSliceV1() {
+		apiGroup = K8sAPIGroupEndpointSliceV1Discovery
 		esClient = k8sClient.DiscoveryV1().RESTClient()
 		objType = &slim_discover_v1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
@@ -87,6 +89,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 			k.K8sEventProcessed(metricEndpointSlice, metricDelete, true)
 		}
 	} else {
+		apiGroup = K8sAPIGroupEndpointSliceV1Beta1Discovery
 		esClient = k8sClient.DiscoveryV1beta1().RESTClient()
 		objType = &slim_discover_v1beta1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
@@ -145,9 +148,9 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 		nil,
 	)
 	ecr := make(chan struct{})
-	k.blockWaitGroupToSyncResources(ecr, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	k.blockWaitGroupToSyncResources(ecr, swgEps, endpointController.HasSynced, apiGroup)
 	go endpointController.Run(ecr)
-	k.k8sAPIGroups.AddAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	k.k8sAPIGroups.AddAPI(apiGroup)
 
 	if k8s.HasEndpointSlice(hasEndpointSlices, endpointController) {
 		return true
@@ -155,7 +158,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 
 	// K8s is not running with endpoint slices enabled, stop the endpoint slice
 	// controller to avoid watching for unnecessary stuff in k8s.
-	k.k8sAPIGroups.RemoveAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	k.k8sAPIGroups.RemoveAPI(apiGroup)
 	close(ecr)
 	return false
 }

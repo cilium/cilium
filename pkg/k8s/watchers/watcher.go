@@ -66,6 +66,7 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
+	K8sAPIGroupEndpointSliceV1Discovery         = "discovery/v1::EndpointSlice"
 
 	metricCNP            = "CiliumNetworkPolicy"
 	metricCCNP           = "CiliumClusterwideNetworkPolicy"
@@ -305,6 +306,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 			// with the right service -> backend (k8s endpoints) translation.
 			K8sAPIGroupEndpointV1Core,
 			K8sAPIGroupEndpointSliceV1Beta1Discovery,
+			K8sAPIGroupEndpointSliceV1Discovery,
 			// We need all network policies in place before restoring to make sure
 			// we are enforcing the correct policies for each endpoint before
 			// restarting.
