@@ -39,7 +39,6 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".status.state",description="Endpoint current state",name="Endpoint State",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv6",description="Endpoint IPv6 address",name="IPv6",type=string
-// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
 // CiliumEndpoint is the status of a Cilium policy rule.
