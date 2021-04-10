@@ -536,6 +536,12 @@ Upgrading from >=1.7.0 to 1.8.y
   messages which could have been read with ``cilium monitor -v``. To enable
   them, add ``"datapath"`` to the ``debug-verbose`` option.
 
+* For the agent, operator and hubble-relay, the gops listener has been mapped to
+  fixed ports instead of port auto-binding. Meaning, the agent's gops server
+  will listen on 9890, the operator on 9891, and hubble-relay on port 9893 by
+  default. If needed, the port can also be remapped for each through using the
+  ``--gops-port`` flag.
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 

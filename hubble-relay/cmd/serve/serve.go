@@ -33,6 +33,7 @@ type flags struct {
 	debug                  bool
 	pprof                  bool
 	gops                   bool
+	gopsPort               int
 	dialTimeout            time.Duration
 	listenAddress          string
 	peerService            string
@@ -61,6 +62,10 @@ func New() *cobra.Command {
 	cmd.Flags().BoolVar(
 		&f.gops, "gops", true, "Run gops agent",
 	)
+	cmd.Flags().IntVar(
+		&f.gopsPort, "gops-port",
+		defaults.GopsPort,
+		"Port for gops server to listen on")
 	cmd.Flags().DurationVar(
 		&f.dialTimeout, "dial-timeout",
 		defaults.DialTimeout,
@@ -104,7 +109,11 @@ func runServe(f flags) error {
 		pprof.Enable()
 	}
 	if f.gops {
-		if err := agent.Listen(agent.Options{}); err != nil {
+		addr := fmt.Sprintf("127.0.0.1:%d", f.gopsPort)
+		if err := agent.Listen(agent.Options{
+			Addr:                   addr,
+			ReuseSocketAddrAndPort: true,
+		}); err != nil {
 			return fmt.Errorf("failed to start gops agent: %v", err)
 		}
 	}

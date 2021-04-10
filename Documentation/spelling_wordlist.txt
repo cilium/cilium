@@ -348,6 +348,7 @@ gluecon
 gobpf
 gocheck
 golang
+gops
 grafana
 grep
 hairpinned
