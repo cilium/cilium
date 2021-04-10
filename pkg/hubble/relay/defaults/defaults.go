@@ -26,6 +26,8 @@ const (
 	// DialTimeout is the timeout that is used when establishing a new
 	// connection.
 	DialTimeout = 5 * time.Second
+	// GopsPort is the default port for gops to listen on.
+	GopsPort = 9893
 	// RetryTimeout is the duration to wait between reconnection attempts.
 	RetryTimeout = 30 * time.Second
 	// HubbleTarget is the address of the local Hubble instance.
