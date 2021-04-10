@@ -68,6 +68,63 @@ Deploy Cilium release via Helm:
 .. include:: namespace-kube-system.rst
 .. include:: hubble-enable.rst
 
+ENI Subnet tags
+===============
+
+To allow the Cilium Operator to filter subnets by tag in ENI mode, there are
+two pieces of configuration that must be provided, a custom CNI configuration
+and a field in the Cilium ``ConfigMap``:
+
+Create a CNI configuration
+--------------------------
+
+Create a ``cni-config.yaml`` file based on the template below. Fill in the
+``subnet-tags`` field, assuming that the subnets in AWS have the tags applied
+to them:
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: cni-configuration
+     namespace: kube-system
+   data:
+     cni-config: |-
+       {
+         "cniVersion":"0.3.1",
+         "name":"cilium",
+         "plugins": [
+           {
+             "cniVersion":"0.3.1",
+             "type":"cilium-cni",
+             "eni": {
+               "subnet-tags":{
+                 "foo":"true"
+               }
+             }
+           }
+         ]
+       }
+
+Deploy the ``ConfigMap``:
+
+.. code-block:: shell-session
+
+   kubectl apply -f cni-config.yaml
+
+Configure Cilium with subnet-tags-filter
+----------------------------------------
+
+Using the instructions above to deploy Cilium, specify the following additional
+arguments to Helm:
+
+.. code-block:: shell-session
+
+   --set cni.customConf=true \
+   --set cni.configMap=cni-configuration \
+   --set eni.subnetTagsFilter="foo=true"
+
 .. _eni_limitations:
 
 Limitations
