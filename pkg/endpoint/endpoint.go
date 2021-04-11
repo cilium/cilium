@@ -2158,15 +2158,15 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
+	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		e.getLogger().WithFields(logrus.Fields{
 			"ep":     e.GetID(),
 			"ipAddr": e.GetIPv4Address(),
 		}).Debug("Deleting endpoint routing rules")
 
 		// This is a best-effort attempt to cleanup. We expect there to be one
-		// ingress rule and one egress rule. If we find more than one rule in
-		// either case, then the rules will be left as-is because there was
+		// ingress rule and multiple egress rules. If we find more rules than
+		// expected, then the rules will be left as-is because there was
 		// likely manual intervention.
 		if err := linuxrouting.Delete(e.IPv4.IP(), option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %s", err))
@@ -2180,12 +2180,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}).Debug("Deleting endpoint NOTRACK rules")
 
 		if e.IPv4.IsSet() {
-			if err := iptables.RemoveEndpointNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
+			if err := iptables.RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv4 rules: %s", err))
 			}
 		}
 		if e.IPv6.IsSet() {
-			if err := iptables.RemoveEndpointNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
+			if err := iptables.RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv6 rules: %s", err))
 			}
 		}

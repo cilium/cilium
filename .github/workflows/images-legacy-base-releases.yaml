@@ -30,11 +30,11 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@154c24e1f33dbb5865a021c99f1318cfebf27b32
+        uses: docker/setup-buildx-action@2a4b53665e15ce7d7049afb11ff1f70ff1610609
 
       - name: Set up QEMU
         id: qemu
-        uses: docker/setup-qemu-action@6520a2d2cb6db42c90c297c8025839c98e531268
+        uses: docker/setup-qemu-action@25f0500ff22e406f7191a2a8ba8cda16901ca018
 
       - name: Checkout Source Code
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
@@ -66,7 +66,7 @@ jobs:
 
       - name: Release build ${{ matrix.name }}
         if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@9379083e426e2e84abb80c8c091f5cdeb7d3fd7a
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
         id: docker_build_release
         with:
           context: ${{ matrix.context }}
@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload artifact digests
         if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
-        uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -106,7 +106,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@4a7a711286f30c025902c28b541c10e147a9b843
+        uses: actions/download-artifact@158ca71f7c614ae705e79f25522ef4658df18253
         with:
           path: image-digest/
 

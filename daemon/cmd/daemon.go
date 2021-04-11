@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -40,6 +41,8 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egresspolicy"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -171,6 +174,10 @@ type Daemon struct {
 	endpointCreations *endpointCreationManager
 
 	redirectPolicyManager *redirectpolicy.Manager
+
+	bgpSpeaker *speaker.Speaker
+
+	egressPolicyManager *egresspolicy.Manager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -379,6 +386,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.endpointManager.InitMetrics()
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+	if option.Config.BGPAnnounceLBIP {
+		d.bgpSpeaker = speaker.New()
+	}
+
+	d.egressPolicyManager = egresspolicy.NewEgressPolicyManager()
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
@@ -388,11 +400,16 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.svc,
 		d.datapath,
 		d.redirectPolicyManager,
+		d.bgpSpeaker,
+		d.egressPolicyManager,
 		option.Config,
 	)
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
+	if option.Config.BGPAnnounceLBIP {
+		d.bgpSpeaker.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	}
 
 	bootstrapStats.daemonInit.End(true)
 
@@ -406,9 +423,21 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	// Stop all endpoints (its goroutines) on exit.
 	cleaner.cleanupFuncs.Add(func() {
-		for _, ep := range d.endpointManager.GetEndpoints() {
-			ep.Stop()
+		log.Info("Waiting for all endpoints' go routines to be stopped.")
+		var wg sync.WaitGroup
+
+		eps := d.endpointManager.GetEndpoints()
+		wg.Add(len(eps))
+
+		for _, ep := range eps {
+			go func(ep *endpoint.Endpoint) {
+				ep.Stop()
+				wg.Done()
+			}(ep)
 		}
+
+		wg.Wait()
+		log.Info("All endpoints' goroutines stopped.")
 	})
 
 	// Open or create BPF maps.
@@ -718,7 +747,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	if option.Config.IPAM == ipamOption.IPAMCRD || option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
+	if option.Config.IPAM == ipamOption.IPAMCRD || option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure ||
+		option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		if option.Config.EnableIPv6 {
 			d.ipam.IPv6Allocator.RestoreFinished()
 		}

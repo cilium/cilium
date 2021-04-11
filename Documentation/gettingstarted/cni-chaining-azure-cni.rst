@@ -15,6 +15,8 @@ Azure CNI
    Follow this guide if you specifically want to run Cilium in combination with
    the Azure CNI in a chaining configuration.
 
+.. include:: cni-chaining-limitations.rst
+
 This guide explains how to set up Cilium in combination with Azure CNI in a
 chaining configuration. In this hybrid mode, the Azure CNI plugin is
 responsible for setting up the virtual network devices as well as address

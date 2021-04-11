@@ -209,7 +209,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	for _, ip := range iface.PrivateIpAddresses {
-		if ip.PrivateIpAddress != nil {
+		if ip.PrivateIpAddress != nil && !ip.Primary {
 			eni.Addresses = append(eni.Addresses, aws.ToString(ip.PrivateIpAddress))
 		}
 	}

@@ -171,6 +171,18 @@ func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID,
 	return addrsByPort, len(svc.FrontendIPs)
 }
 
+// GetEndpointsOfService returns all the endpoints that correlate with a
+// service given a ServiceID.
+func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	eps, ok := s.endpoints[svcID]
+	if !ok {
+		return nil
+	}
+	return eps.GetEndpoints()
+}
+
 // GetNodeAddressing returns the registered node addresses to this service cache.
 func (s *ServiceCache) GetNodeAddressing() datapath.NodeAddressing {
 	return s.nodeAddressing

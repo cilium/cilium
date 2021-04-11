@@ -51,6 +51,9 @@ type CiliumEgressNATPolicyList struct {
 	Items []CiliumEgressNATPolicy `json:"items"`
 }
 
+// +kubebuilder:validation:Pattern=`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$`
+type IPv4CIDR string
+
 type CiliumEgressNATPolicySpec struct {
 	// Egress represents a list of rules by which egress traffic is
 	// filtered from the source pods.
@@ -58,7 +61,7 @@ type CiliumEgressNATPolicySpec struct {
 
 	// DestinationCIDRs is a list of destination CIDRs for destination IP addresses.
 	// If a destination IP matches any one CIDR, it will be selected.
-	DestinationCIDRs []string `json:"destinationCIDRs"`
+	DestinationCIDRs []IPv4CIDR `json:"destinationCIDRs"`
 
 	// EgressSourceIP is a source ip address that the egress traffic is
 	// redirected to and SNATed with.

@@ -1,1 +1,0 @@
-jenkinsfiles/kubernetes-upstream.Jenkinsfile

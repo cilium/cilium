@@ -13,12 +13,15 @@ cilium-agent [flags]
 ```
       --agent-health-port int                                TCP port for agent health status API (default 9876)
       --agent-labels strings                                 Additional labels to identify this agent
+      --allocator-list-timeout duration                      Timeout for listing allocator state before exiting (default 3m0s)
       --allow-icmp-frag-needed                               Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                               Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
       --annotate-k8s-node                                    Annotate Kubernetes node (default true)
       --api-rate-limit map                                   API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2) (default map[])
       --auto-create-cilium-node-resource                     Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                              Enable automatic L2 routing between nodes
+      --bgp-announce-lb-ip                                   Announces service IPs of type LoadBalancer via BGP
+      --bgp-config-path string                               Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --bpf-ct-global-any-max int                            Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                            Maximum number of entries in TCP CT table (default 524288)
       --bpf-ct-timeout-regular-any duration                  Timeout for entries in non-TCP CT table (default 1m0s)
@@ -130,6 +133,10 @@ cilium-agent [flags]
       --hubble-disable-tls                                   Allow Hubble server to run on the given listen address without TLS.
       --hubble-event-buffer-capacity int                     Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                          Buffer size of the channel to receive monitor events.
+      --hubble-export-file-compress                          Compress rotated Hubble export files.
+      --hubble-export-file-max-backups int                   Number of rotated Hubble export files to keep. (default 5)
+      --hubble-export-file-max-size-mb int                   Size in MB at which to rotate Hubble export file. (default 10)
+      --hubble-export-file-path string                       Filepath to write Hubble events to.
       --hubble-listen-address string                         An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                               List of Hubble metrics to enable.
       --hubble-metrics-server string                         Address to serve Hubble metrics on.
@@ -180,7 +187,7 @@ cilium-agent [flags]
       --lib-dir string                                       Directory path to store runtime build environment (default "/var/lib/cilium")
       --local-router-ip string                               Link-local IP used for Cilium's router devices
       --log-driver strings                                   Logging endpoints to use for example syslog
-      --log-opt map                                          Log driver options for cilium (default map[])
+      --log-opt map                                          Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"} (default map[])
       --log-system-load                                      Enable periodic logging of system load
       --metrics strings                                      Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                           Level of monitor aggregation for traces from the datapath (default "None")

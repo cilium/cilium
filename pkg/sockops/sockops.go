@@ -265,7 +265,7 @@ func bpfCompileProg(src string, dst string) error {
 	srcpath := filepath.Join("sockops", src)
 	outpath := filepath.Join(dst)
 
-	err := loader.Compile(ctx, srcpath, outpath)
+	err := loader.CompileWithOptions(ctx, srcpath, outpath, option.Config.CompilerFlags)
 	if err != nil {
 		return fmt.Errorf("failed compile %s: %s", srcpath, err)
 	}
