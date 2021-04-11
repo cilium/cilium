@@ -1,1 +1,0 @@
-jenkinsfiles/ginkgo-kubernetes-all.Jenkinsfile

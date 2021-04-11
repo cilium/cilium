@@ -335,6 +335,11 @@ spec:
           name: kube-config
           readOnly: true
 {{- end }}
+{{- if .Values.bgp.enabled }}
+        - mountPath: /var/lib/cilium/bgp
+          name: bgp-config-path
+          readOnly: true
+{{- end }}
 {{- if and (.Values.hubble.enabled) (hasKey .Values.hubble "listenAddress") (.Values.hubble.tls.enabled) }}
         - mountPath: /var/lib/cilium/tls/hubble
           name: hubble-tls
@@ -546,6 +551,11 @@ spec:
       - name: cni-configuration
         configMap:
           name: {{ .Values.cni.configMap }}
+{{- end }}
+{{- if .Values.bgp.enabled }}
+      - configMap:
+          name: bgp-config
+        name: bgp-config-path
 {{- end }}
 {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls

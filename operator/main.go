@@ -133,7 +133,9 @@ func initEnv() {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug)
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
 
 	option.LogRegisteredOptions(log)
 	// Enable fallback to direct API probing to check for support of Leases in
@@ -379,7 +381,7 @@ func onOperatorStartLeading(ctx context.Context) {
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
-	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool:
+	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool, ipamOption.IPAMAlibabaCloud:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
@@ -424,6 +426,11 @@ func onOperatorStartLeading(ctx context.Context) {
 		if err := wgOperator.RestoreFinished(); err != nil {
 			log.WithError(err).Warn("Failed to allocate wireguard IP addrs")
 		}
+	}
+
+	if operatorOption.Config.BGPAnnounceLBIP {
+		log.Info("Starting LB IP allocator")
+		operatorWatchers.StartLBIPAllocator(option.Config)
 	}
 
 	if kvstoreEnabled() {

@@ -358,6 +358,11 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if .Values.alibabacloud.enabled }}
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
+{{- end }}
+
 {{- if .Values.flannel.enabled }}
   # Interface to be used when running Cilium on top of a CNI plugin.
   # For flannel, use "cni0"
@@ -694,6 +699,12 @@ data:
 {{- if and .Values.customCalls .Values.customCalls.enabled }}
   # Enable tail call hooks for custom eBPF programs.
   enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
+{{- end }}
+
+{{- if and .Values.bgp.enabled (not .Values.bgp.announce.loadbalancerIP) }}
+{{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
+{{- else if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
+  bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
 {{- end }}
 
 {{- if .Values.extraConfig }}

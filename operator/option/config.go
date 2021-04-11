@@ -17,8 +17,13 @@ package option
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"github.com/spf13/viper"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
@@ -29,6 +34,13 @@ const (
 )
 
 const (
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
+	BGPAnnounceLBIP = "bgp-announce-lb-ip"
+
+	// BGPConfigPath is the file path to the BGP configuration. It is
+	// compatible with MetalLB's configuration.
+	BGPConfigPath = "bgp-config-path"
+
 	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
 	// removed from the cluster in CiliumNetworkPolicy and
 	// CiliumClusterwideNetworkPolicy Status.
@@ -179,6 +191,16 @@ const (
 	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between
 	// tries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod = "leader-election-retry-period"
+
+	// AlibabaCloud options
+
+	// AlibabaCloudVPCID allows user to specific vpc
+	AlibabaCloudVPCID = "alibaba-cloud-vpc-id"
+
+	// AlibabaCloudReleaseExcessIPs allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AlibabaCloud ECS service.
+	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -236,6 +258,25 @@ type OperatorConfig struct {
 
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
+
+	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
+	// force acquire leadership in Cilium Operator HA deployment.
+	LeaderElectionLeaseDuration time.Duration
+
+	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
+	// will retry refreshing leadership in before giving up the lock.
+	LeaderElectionRenewDeadline time.Duration
+
+	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
+	// retries of the actions in operator HA deployment.
+	LeaderElectionRetryPeriod time.Duration
+
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
+	BGPAnnounceLBIP bool
+
+	// BGPConfigPath is the file path to the BGP configuration. It is
+	// compatible with MetalLB's configuration.
+	BGPConfigPath string
 
 	// IPAM options
 
@@ -314,17 +355,15 @@ type OperatorConfig struct {
 	// primary IPConfiguration
 	AzureUsePrimaryAddress bool
 
-	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
-	// force acquire leadership in Cilium Operator HA deployment.
-	LeaderElectionLeaseDuration time.Duration
+	// AlibabaCloud options
 
-	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
-	// will retry refreshing leadership in before giving up the lock.
-	LeaderElectionRenewDeadline time.Duration
+	// AlibabaCloudVPCID allow user to specific vpc
+	AlibabaCloudVPCID string
 
-	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
-	// retries of the actions in operator HA deployment.
-	LeaderElectionRetryPeriod time.Duration
+	// AlibabaCloudReleaseExcessIPs allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AlibabaCloud ECS service.
+	AlibabaCloudReleaseExcessIPs bool
 }
 
 // Populate sets all options with the values from viper.
@@ -353,6 +392,14 @@ func (c *OperatorConfig) Populate() {
 	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
+	c.BGPAnnounceLBIP = viper.GetBool(BGPAnnounceLBIP)
+	c.BGPConfigPath = viper.GetString(BGPConfigPath)
+
+	if c.BGPAnnounceLBIP {
+		c.SyncK8sServices = true
+		log.Infof("Auto-set %q to `true` because BGP support requires synchronizing services.",
+			SyncK8sServices)
+	}
 
 	// AWS options
 
@@ -368,6 +415,11 @@ func (c *OperatorConfig) Populate() {
 	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
 	c.AzureUsePrimaryAddress = viper.GetBool(AzureUsePrimaryAddress)
 	c.AzureUserAssignedIdentityID = viper.GetString(AzureUserAssignedIdentityID)
+
+	// AlibabaCloud options
+
+	c.AlibabaCloudVPCID = viper.GetString(AlibabaCloudVPCID)
+	c.AlibabaCloudReleaseExcessIPs = viper.GetBool(AlibabaCloudReleaseExcessIPs)
 
 	// Option maps and slices
 

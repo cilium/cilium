@@ -363,7 +363,7 @@ func SupportsEndpointSlice() bool {
 // SupportsEndpointSliceV1 returns true if cilium-operator or cilium-agent should
 // watch and process endpoint slices V1.
 func SupportsEndpointSliceV1() bool {
-	return version.Capabilities().EndpointSliceV1 && option.Config.K8sEnableK8sEndpointSlice
+	return SupportsEndpointSlice() && version.Capabilities().EndpointSliceV1
 }
 
 // HasEndpointSlice returns true if the hasEndpointSlices is closed before the

@@ -11,6 +11,7 @@ cilium-operator [flags]
 ### Options
 
 ```
+      --alibaba-cloud-vpc-id string               Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --aws-instance-limit-mapping map            Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --aws-release-excess-ips                    Enable releasing excess free IP addresses from AWS ENI.
       --azure-cloud-name string                   Name of the Azure cloud being used (default "AzurePublicCloud")
@@ -18,6 +19,8 @@ cilium-operator [flags]
       --azure-subscription-id string              Subscription ID to access Azure API
       --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations (default true)
       --azure-user-assigned-identity-id string    ID of the user assigned identity used to auth with the Azure API
+      --bgp-announce-lb-ip                        Announces service IPs of type LoadBalancer via BGP
+      --bgp-config-path string                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 5m0s)
       --cluster-id int                            Unique identifier of the cluster
       --cluster-name string                       Name of the cluster (default "default")
@@ -62,7 +65,7 @@ cilium-operator [flags]
       --limit-ipam-api-burst int                  Upper burst limit when accessing external APIs (default 4)
       --limit-ipam-api-qps float                  Queries per second limit when accessing external IPAM APIs (default 20)
       --log-driver strings                        Logging endpoints to use for example syslog
-      --log-opt map                               Log driver options for cilium-operator (default map[])
+      --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"} (default map[])
       --nodes-gc-interval duration                GC interval for nodes store in the kvstore (default 2m0s)
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":6942")

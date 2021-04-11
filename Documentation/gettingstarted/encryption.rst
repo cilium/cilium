@@ -17,16 +17,13 @@ as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
 Kubernetes secrets to distribute keys. Alternatively, keys may be manually
 distributed, but that is not shown here.
 
-.. note::
+Packets destined to the same node they were sent out of are not encrypted.
+This is a intended behavior as it doesn't provide any benefits because the
+raw traffic on the node can be seen.
 
-    ``Secret`` resources need to be deployed in the same namespace as Cilium!
-    In our example, we use ``kube-system``.
-
-.. note::
-
-    Packets destined to the same node they were sent out of are not encrypted.
-    This is a intended behavior as it doesn't provide any benefits because the
-    raw traffic on the node can be seen.
+Transparent encryption is not currently supported when chaining Cilium on top
+of other CNI plugins. For more information, see
+`GitHub issue #15596 <https://github.com/cilium/cilium/issues/15596>`_.
 
 Generate & import the PSK
 =========================
@@ -39,6 +36,11 @@ name of the file to be mounted as a volume in cilium-agent pods, and the
 value is an IPSec configuration in the following format:
 
 ``key-id encryption-algorithms PSK-in-hex-format key-size``
+
+.. note::
+
+    ``Secret`` resources need to be deployed in the same namespace as Cilium!
+    In our example, we use ``kube-system``.
 
 In the example below we use GMC-128-AES, but
 any of the supported Linux algorithms may be used. To generate, use the

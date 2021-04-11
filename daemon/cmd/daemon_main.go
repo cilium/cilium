@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -184,6 +185,14 @@ func init() {
 
 	cobra.OnInitialize(option.InitConfig("Cilium", "ciliumd"))
 
+	// Reset the help function to also exit, as we block elsewhere in interrupts
+	// and would not exit when called with -h.
+	oldHelpFunc := RootCmd.HelpFunc()
+	RootCmd.SetHelpFunc(func(c *cobra.Command, a []string) {
+		oldHelpFunc(c, a)
+		os.Exit(0)
+	})
+
 	flags := RootCmd.Flags()
 
 	// Validators
@@ -251,6 +260,10 @@ func init() {
 
 	flags.String(option.ClusterMeshConfigName, "", "Path to the ClusterMesh configuration directory")
 	option.BindEnv(option.ClusterMeshConfigName)
+
+	flags.StringSlice(option.CompilerFlags, []string{}, "Extra CFLAGS for BPF compilation")
+	flags.MarkHidden(option.CompilerFlags)
+	option.BindEnv(option.CompilerFlags)
 
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(option.ConfigFile)
@@ -522,6 +535,9 @@ func init() {
 	flags.MarkHidden(option.K8sSyncTimeoutName)
 	option.BindEnv(option.K8sSyncTimeoutName)
 
+	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
+	option.BindEnv(option.AllocatorListTimeoutName)
+
 	flags.String(option.LabelPrefixFile, "", "Valid label prefixes file path")
 	option.BindEnv(option.LabelPrefixFile)
 
@@ -628,7 +644,8 @@ func init() {
 	option.BindEnv(option.LogDriver)
 
 	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
-		option.LogOpt, "Log driver options for cilium")
+		option.LogOpt, `Log driver options for cilium-agent, `+
+			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}`)
 	option.BindEnv(option.LogOpt)
 
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
@@ -915,6 +932,18 @@ func init() {
 	flags.StringSlice(option.HubbleMetrics, []string{}, "List of Hubble metrics to enable.")
 	option.BindEnv(option.HubbleMetrics)
 
+	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to.")
+	option.BindEnv(option.HubbleExportFilePath)
+
+	flags.Int(option.HubbleExportFileMaxSizeMB, exporteroption.Default.MaxSizeMB, "Size in MB at which to rotate Hubble export file.")
+	option.BindEnv(option.HubbleExportFileMaxSizeMB)
+
+	flags.Int(option.HubbleExportFileMaxBackups, exporteroption.Default.MaxBackups, "Number of rotated Hubble export files to keep.")
+	option.BindEnv(option.HubbleExportFileMaxBackups)
+
+	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
+	option.BindEnv(option.HubbleExportFileCompress)
+
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(option.DisableIptablesFeederRules)
 
@@ -955,13 +984,13 @@ func init() {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(option.EnableCustomCallsName)
 
+	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
+	option.BindEnv(option.BGPAnnounceLBIP)
+
+	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
+	option.BindEnv(option.BGPConfigPath)
+
 	viper.BindPFlags(flags)
-
-	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)
-
-	// Reset the help function to also exit, as we block elsewhere in interrupts
-	// and would not exit when called with -h.
-	ResetHelpandExit(RootCmd)
 }
 
 // restoreExecPermissions restores file permissions to 0740 of all files inside
@@ -1006,7 +1035,9 @@ func initEnv(cmd *cobra.Command) {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug)
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
 
 	option.LogRegisteredOptions(log)
 
@@ -1411,6 +1442,25 @@ func initEnv(cmd *cobra.Command) {
 		// only be an IPv4 CIDR at the moment.
 		if !option.Config.EnableIPv4 {
 			log.Fatalf("%s requires IPv4 support.", option.InstallNoConntrackIptRules)
+		}
+	}
+
+	// This is necessary because the code inside pkg/k8s.NewService() for
+	// parsing services would not trigger unless NodePort is enabled. Without
+	// NodePort enabled, the external and LB IPs would not be parsed out.
+	if option.Config.BGPAnnounceLBIP {
+		option.Config.EnableNodePort = true
+		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
+
+		if option.Config.K8sEnableK8sEndpointSlice {
+			option.Config.K8sEnableK8sEndpointSlice = false
+			log.WithFields(logrus.Fields{
+				logfields.URL: "https://github.com/metallb/metallb/issues/811",
+			}).Warnf(
+				"Disabling EndpointSlice support (%q) due to incompatibility with BGP mode. "+
+					"Cilium will fallback to using the original Endpoint resource.",
+				option.K8sEnableEndpointSlice,
+			)
 		}
 	}
 }

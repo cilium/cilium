@@ -89,7 +89,7 @@ type Agent struct {
 func NewAgent(ctx context.Context, nPages int) (a *Agent, err error) {
 	// assert that we can actually connect the monitor
 	path := oldBPF.MapPath(eventsMapName)
-	eventsMap, err := ebpf.LoadPinnedMap(path)
+	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
 	if err != nil {
 		return nil, err
 	}

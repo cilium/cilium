@@ -136,20 +136,6 @@ const (
 
 	// CEWName is the full name of Cilium External Workload
 	CEWName = CEWPluralName + "." + CustomResourceDefinitionGroup
-
-	// Cilium Egress NAT Policy (CENP)
-
-	// CENPSingularName is the singular name of Cilium Egress NAT Policy
-	CENPSingularName = "ciliumegressnatpolicy"
-
-	// CENPPluralName is the plural name of Cilium Egress NAT Policy
-	CENPPluralName = "ciliumegressnatpolicies"
-
-	// CENPKindDefinition is the kind name of Cilium Egress NAT Policy
-	CENPKindDefinition = "CiliumEgressNATPolicy"
-
-	// CENPName is the full name of Cilium Egress NAT Policy
-	CENPName = CENPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects

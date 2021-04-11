@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2349,7 +2349,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if !RunsWithKubeProxy() {
+	if RunsWithKubeProxyReplacement() {
 		opts := map[string]string{
 			"kubeProxyReplacement": "strict",
 		}
@@ -2387,7 +2387,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		addIfNotOverwritten(options, "hostFirewall", "true")
 	}
 
-	if !RunsWithKubeProxy() || options["hostFirewall"] == "true" {
+	if RunsWithKubeProxyReplacement() || options["hostFirewall"] == "true" {
 		// Set devices
 		privateIface, err := kub.GetPrivateIface()
 		if err != nil {
@@ -3490,7 +3490,7 @@ func (kub *Kubectl) ExecInHostNetNSInBackground(ctx context.Context, node, cmd s
 	bgCmd := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, LogGathererNamespace, pod, cmd)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return kub.ExecInBackground(ctx, bgCmd, ExecOptions{SkipLog: true}), cancel, nil
+	return kub.ExecInBackground(ctx, bgCmd, ExecOptions{}), cancel, nil
 }
 
 // ExecInHostNetNSByLabel runs given command in a pod running in a host network namespace.

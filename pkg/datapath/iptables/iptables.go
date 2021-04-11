@@ -741,7 +741,12 @@ func endpointNoTrackRules(prog string, cmd string, IP string, port *lb.L4Addr, i
 	return nil
 }
 
-func InstallEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
+// InstallNoTrackRules is explicitly called when a pod has valid "io.cilium.no-track-port" annotation.
+// When InstallNoConntrackIptRules flag is set, a super set of v4 NOTRACK rules will be automatically
+// installed upon agent bootstrap (via function addNoTrackPodTrafficRules) and this function will be skipped.
+// When InstallNoConntrackIptRules is not set, this function will be executed to install NOTRACK rules.
+// The rules installed by this function is very specific, for now, the only user is node-local-dns pods.
+func InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	// Do not install per endpoint NOTRACK rules if we are already skipping
 	// conntrack for all pod traffic.
 	if skipPodTrafficConntrack(ipv6) {
@@ -776,9 +781,10 @@ func InstallEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
 	return nil
 }
 
-func RemoveEndpointNoTrackRules(IP string, port uint16, ipv6 bool) error {
-	// Do not attempt removing per endpoint NOTRACK rules if we are already
-	// skipping conntrack for all pod traffic.
+// See comments for InstallNoTrackRules.
+func RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	// Do not install per endpoint NOTRACK rules if we are already skipping
+	// conntrack for all pod traffic.
 	if skipPodTrafficConntrack(ipv6) {
 		return nil
 	}
@@ -851,7 +857,7 @@ func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name 
 
 func getDeliveryInterface(ifName string) string {
 	deliveryInterface := ifName
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.EnableEndpointRoutes {
+	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud || option.Config.EnableEndpointRoutes {
 		deliveryInterface = "lxc+"
 	}
 	return deliveryInterface
@@ -1232,7 +1238,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	// and route them back the same way even if the pod responding is using
 	// the IP of a different interface. Please see note in Reinitialize()
 	// in pkg/datapath/loader for more details.
-	if option.Config.IPAM == ipamOption.IPAMENI {
+	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		if err := m.addCiliumENIRules(); err != nil {
 			return fmt.Errorf("cannot install rules for ENI multi-node NodePort: %w", err)
 		}

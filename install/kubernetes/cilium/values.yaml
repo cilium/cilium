@@ -207,10 +207,23 @@ azure:
   # clientSecret: 00000000-0000-0000-0000-000000000000
   # userAssignedIdentityID: 00000000-0000-0000-0000-000000000000
 
+alibabacloud:
+  # -- Enable AlibabaCloud ENI integration
+  enabled: false
+
 # -- Optimize TCP and UDP workloads and enable rate-limiting traffic from
 # individual Pods with EDT (Earliest Departure Time)
 # through the "kubernetes.io/egress-bandwidth" Pod annotation.
 bandwidthManager: true
+
+# -- Configure BGP
+bgp:
+  # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
+  # cilium-agent and cilium-operator
+  enabled: false
+  announce:
+    # -- Enable allocation and announcement of service LoadBalancer IPs
+    loadbalancerIP: false
 
 bpf:
   clockProbe: false
@@ -1149,6 +1162,8 @@ operator:
     azureDigest: ""
     # operator-aws-digest
     awsDigest: ""
+    # operator-alibabacloud-digest
+    alibabacloudDigest: ""
     useDigest: false
     pullPolicy: Always
     suffix: ""

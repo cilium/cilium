@@ -1,0 +1,110 @@
+name: Cyclonus network policy test
+
+on:
+  schedule:
+    # run once a day at midnight
+    - cron: '0 0 * * *'
+
+env:
+  KIND_VERSION: v0.9.0
+  KIND_CONFIG: .github/kind-config.yaml
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
+
+jobs:
+  preflight-clusterrole:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check pre-flight clusterrole
+        run: |
+          cd install/kubernetes/cilium/templates
+          echo "Checking for differences between preflight and agent clusterrole"
+          diff \
+             -I '^[ ]\{2\}name: cilium.*' \
+             -I '^Keep file in synced with.*' \
+             -I '{{- if.*' \
+             cilium-agent-clusterrole.yaml \
+             cilium-preflight-clusterrole.yaml
+
+  cyclonus-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.1.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+
+      - name: Install cilium chart
+        run: |
+          helm install cilium ./install/kubernetes/cilium \
+             --wait \
+             --namespace kube-system \
+             --set nodeinit.enabled=true \
+             --set kubeProxyReplacement=partial \
+             --set hostServices.enabled=false \
+             --set externalIPs.enabled=true \
+             --set nodePort.enabled=true \
+             --set hostPort.enabled=true \
+             --set bpf.masquerade=false \
+             --set ipam.mode=kubernetes \
+             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+             --set image.tag=${{ steps.vars.outputs.tag }} \
+             --set image.pullPolicy=IfNotPresent \
+             --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+             --set operator.image.suffix=-ci \
+             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+             --set operator.image.pullPolicy=IfNotPresent \
+             --set prometheus.enabled=true \
+             --set operator.prometheus.enabled=true \
+             --set hubble.enabled=true \
+             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Run cyclonus network policy test
+        working-directory: tests/netpol-cyclonus
+        run: ./test-cyclonus.sh
+
+      - name: Capture cilium-sysdump
+        if: ${{ failure() }}
+        run: |
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

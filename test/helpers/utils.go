@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -553,6 +553,19 @@ func RunsOnEKS() bool {
 // DoesNotRunOnEKS is the complement function of DoesNotRunOnEKS.
 func DoesNotRunOnEKS() bool {
 	return !RunsOnEKS()
+}
+
+// RunsWithKubeProxyReplacement returns true if the kernel supports our
+// kube-proxy replacement. Note that kube-proxy may still be running
+// alongside Cilium.
+func RunsWithKubeProxyReplacement() bool {
+	return RunsOnGKE() || RunsOnNetNextOr419Kernel()
+}
+
+// DoesNotRunWithKubeProxyReplacement is the complement function of
+// RunsWithKubeProxyReplacement.
+func DoesNotRunWithKubeProxyReplacement() bool {
+	return !RunsWithKubeProxyReplacement()
 }
 
 // DoesNotHaveHosts returns a function which returns true if a CI job

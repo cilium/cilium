@@ -21,6 +21,7 @@ import (
 	"time"
 
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,6 +62,9 @@ const (
 
 	// CLRPCRDName is the full name of the CLRP CRD.
 	CLRPCRDName = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CENPCRDName is the full name of the CENP CRD.
+	CENPCRDName = k8sconstv2alpha1.CENPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
@@ -103,6 +107,10 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return createCLRPCRD(clientset)
 	})
 
+	g.Go(func() error {
+		return createCENPCRD(clientset)
+	})
+
 	return g.Wait()
 }
 
@@ -133,6 +141,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes, err = examplesCrdsCiliumexternalworkloadsYamlBytes()
 	case CLRPCRDName:
 		crdBytes, err = examplesCrdsCiliumlocalredirectpoliciesYamlBytes()
+	case CENPCRDName:
+		crdBytes, err = examplesCrdsCiliumegressnatpoliciesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -235,6 +245,17 @@ func createCLRPCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		CLRPCRDName,
 		constructV1CRD(k8sconstv2.CLRPName, cLrpCRD),
+		newDefaultPoller(),
+	)
+}
+
+func createCENPCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(CENPCRDName)
+
+	return createUpdateCRD(
+		clientset,
+		CENPCRDName,
+		constructV1CRD(k8sconstv2alpha1.CENPName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }
@@ -385,7 +406,12 @@ func updateV1CRD(
 					context.TODO(),
 					clusterCRD,
 					metav1.UpdateOptions{})
-				if err == nil {
+				switch {
+				case errors.IsConflict(err): // Occurs as Operators race to update CRDs.
+					scopedLog.WithError(err).
+						Debug("The CRD update was based on an older version, retrying...")
+					return false, nil
+				case err == nil:
 					return true, nil
 				}
 

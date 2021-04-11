@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -33,6 +34,10 @@ import (
 type CTMapTestSuite struct{}
 
 var _ = Suite(&CTMapTestSuite{})
+
+func init() {
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
+}
 
 func Test(t *testing.T) {
 	TestingT(t)
