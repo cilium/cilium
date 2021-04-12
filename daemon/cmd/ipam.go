@@ -174,14 +174,26 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	return status
 }
 
-func (d *Daemon) allocateRouterIP(family datapath.NodeAddressingFamily) (net.IP, error) {
-	if option.Config.LocalRouterIP != "" {
-		routerIP := net.ParseIP(option.Config.LocalRouterIP)
+func (d *Daemon) allocateRouterIPv4(family datapath.NodeAddressingFamily) (net.IP, error) {
+	if option.Config.LocalRouterIPv4 != "" {
+		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
 		if routerIP == nil {
-			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.LocalRouterIP)
+			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv4)
 		}
 		if d.datapath.LocalNodeAddressing().IPv4().AllocationCIDR().Contains(routerIP) {
 			log.Warn("Specified router IP is within IPv4 podCIDR.")
+		}
+		return routerIP, nil
+	} else {
+		return d.allocateDatapathIPs(family)
+	}
+}
+
+func (d *Daemon) allocateRouterIPv6(family datapath.NodeAddressingFamily) (net.IP, error) {
+	if option.Config.LocalRouterIPv6 != "" {
+		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
+		if routerIP == nil {
+			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv6)
 		}
 		if d.datapath.LocalNodeAddressing().IPv6().AllocationCIDR().Contains(routerIP) {
 			log.Warn("Specified router IP is within IPv6 podCIDR.")
@@ -283,7 +295,7 @@ func (d *Daemon) allocateHealthIPs() error {
 func (d *Daemon) allocateIPs() error {
 	bootstrapStats.ipam.Start()
 	if option.Config.EnableIPv4 {
-		routerIP, err := d.allocateRouterIP(d.datapath.LocalNodeAddressing().IPv4())
+		routerIP, err := d.allocateRouterIPv4(d.datapath.LocalNodeAddressing().IPv4())
 		if err != nil {
 			return err
 		}
@@ -293,7 +305,7 @@ func (d *Daemon) allocateIPs() error {
 	}
 
 	if option.Config.EnableIPv6 {
-		routerIP, err := d.allocateRouterIP(d.datapath.LocalNodeAddressing().IPv6())
+		routerIP, err := d.allocateRouterIPv6(d.datapath.LocalNodeAddressing().IPv6())
 		if err != nil {
 			return err
 		}
