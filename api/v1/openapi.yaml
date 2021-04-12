@@ -649,6 +649,18 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/Recorder"
+  "/recorder/masks":
+    get:
+      summary: Retrieve list of all recorder masks
+      tags:
+      - recorder
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/RecorderMask"
   "/recorder/{id}":
     get:
       summary: Retrieve configuration of a recorder
@@ -2498,6 +2510,12 @@ definitions:
         "$ref": "#/definitions/RecorderSpec"
       status:
         "$ref": "#/definitions/RecorderStatus"
+  RecorderMask:
+    description: Individual mask for pcap recorder
+    type: object
+    properties:
+      status:
+        "$ref": "#/definitions/RecorderMaskStatus"
   RecorderFilter:
     description: n-tuple filter to match traffic to be recorded
     type: object
@@ -2539,12 +2557,40 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/RecorderFilter"
+  RecorderMaskSpec:
+    description: Configuration of a recorder mask
+    type: object
+    properties:
+      users:
+        description: Number of users of this mask
+        type: integer
+      src-prefix-mask:
+        description: Layer 3 source IP mask
+        type: string
+      src-port-mask:
+        description: Layer 4 source port mask
+        type: string
+      dst-prefix-mask:
+        description: Layer 3 destination IP mask
+        type: string
+      dst-port-mask:
+        description: Layer 4 destination port mask
+        type: string
+      protocol-mask:
+        description: Layer 4 protocol mask
+        type: string
   RecorderStatus:
     description: Configuration of a recorder
     type: object
     properties:
       realized:
         "$ref": "#/definitions/RecorderSpec"
+  RecorderMaskStatus:
+    description: Configuration of a recorder mask
+    type: object
+    properties:
+      realized:
+        "$ref": "#/definitions/RecorderMaskSpec"
   ProxyStatus:
     description: |-
       Status of proxy
