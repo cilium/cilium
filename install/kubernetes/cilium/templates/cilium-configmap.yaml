@@ -177,6 +177,10 @@ data:
   enable-metrics: "true"
 {{- end }}
 
+{{- if .Values.operator.skipCRDCreation }}
+  skip-crd-creation: "true"
+{{- end }}
+
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
   # address.
   enable-ipv4: {{ .Values.ipv4.enabled | quote }}
