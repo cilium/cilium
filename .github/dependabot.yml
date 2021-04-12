@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
     ignore:
@@ -20,7 +20,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
     labels:
@@ -30,7 +30,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     target-branch: "v1.9"
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
@@ -41,7 +41,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     target-branch: "v1.8"
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
@@ -52,7 +52,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     target-branch: "v1.7"
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
