@@ -80,6 +80,10 @@ func (k *CaptureWcard4) ToHost() RecorderKey {
 	return &x
 }
 
+func (k *CaptureWcard4) Map() *bpf.Map {
+	return &CaptureMap4.Map
+}
+
 func (v *CaptureRule4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (v *CaptureRule4) DeepCopyMapValue() bpf.MapValue {
