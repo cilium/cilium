@@ -36,11 +36,11 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 type ID uint16
 
 type RecorderTuple struct {
-	srcPrefix net.IPNet
-	srcPort   uint16
-	dstPrefix net.IPNet
-	dstPort   uint16
-	proto     u8proto.U8proto
+	SrcPrefix net.IPNet
+	SrcPort   uint16
+	DstPrefix net.IPNet
+	DstPort   uint16
+	Proto     u8proto.U8proto
 }
 
 type recorderMask struct {
@@ -52,9 +52,9 @@ type recorderMask struct {
 }
 
 type RecInfo struct {
-	id      ID
-	capLen  uint16
-	filters []RecorderTuple
+	ID      ID
+	CapLen  uint16
+	Filters []RecorderTuple
 }
 
 type RecMask struct {
@@ -90,20 +90,20 @@ func NewRecorder() *Recorder {
 
 func convertTupleToMask(t RecorderTuple) recorderMask {
 	m := recorderMask{
-		srcMask: make([]byte, len(t.srcPrefix.Mask)),
-		dstMask: make([]byte, len(t.dstPrefix.Mask)),
+		srcMask: make([]byte, len(t.SrcPrefix.Mask)),
+		dstMask: make([]byte, len(t.DstPrefix.Mask)),
 	}
-	if t.srcPort != 0 {
+	if t.SrcPort != 0 {
 		m.srcPort = 0xffff
 	}
-	if t.dstPort != 0 {
+	if t.DstPort != 0 {
 		m.dstPort = 0xffff
 	}
-	if t.proto != 0 {
+	if t.Proto != 0 {
 		m.proto = 0xff
 	}
-	copy(m.srcMask, t.srcPrefix.Mask)
-	copy(m.dstMask, t.dstPrefix.Mask)
+	copy(m.srcMask, t.SrcPrefix.Mask)
+	copy(m.dstMask, t.DstPrefix.Mask)
 	return m
 }
 
@@ -132,8 +132,8 @@ func hashMask(x *recorderMask) string {
 
 func hashTuple(x *RecorderTuple) string {
 	return fmt.Sprintf("%s/%s/%x/%x/%x",
-		x.srcPrefix.String(), x.dstPrefix.String(),
-		int(x.srcPort), int(x.dstPort), int(x.proto))
+		x.SrcPrefix.String(), x.DstPrefix.String(),
+		int(x.SrcPort), int(x.DstPort), int(x.Proto))
 }
 
 func (r *Recorder) triggerDatapathRegenerate() error {
@@ -178,14 +178,14 @@ func (r *Recorder) queueAddDatapathFilter(ri *RecInfo, i int) {
 	if r.queue.ri == nil {
 		r.queue.ri = ri
 	}
-	r.queue.add = append(r.queue.add, &ri.filters[i])
+	r.queue.add = append(r.queue.add, &ri.Filters[i])
 }
 
 func (r *Recorder) queueDelDatapathFilter(ri *RecInfo, i int) {
 	if r.queue.ri == nil {
 		r.queue.ri = ri
 	}
-	filter := &ri.filters[i]
+	filter := &ri.Filters[i]
 	hash := hashTuple(filter)
 	// If the recorder updated an existing filter element which sits
 	// in both queues, then we do not need any change in the BPF data
@@ -202,7 +202,7 @@ func (r *Recorder) queueDelDatapathFilter(ri *RecInfo, i int) {
 
 func (r *Recorder) deleteRecInfoLocked(ri *RecInfo, withID bool) bool {
 	triggerRegen := false
-	for i, filter := range ri.filters {
+	for i, filter := range ri.Filters {
 		mask := convertTupleToMask(filter)
 		maskHash := hashMask(&mask)
 		if rm, found := r.recMask[maskHash]; found {
@@ -215,7 +215,7 @@ func (r *Recorder) deleteRecInfoLocked(ri *RecInfo, withID bool) bool {
 		r.queueDelDatapathFilter(ri, i)
 	}
 	if withID {
-		delete(r.recByID, ri.id)
+		delete(r.recByID, ri.ID)
 	}
 	return triggerRegen
 }
@@ -235,10 +235,10 @@ func (r *Recorder) DeleteRecorder(id ID) (bool, error) {
 
 func (r *Recorder) createRecInfoLocked(ri *RecInfo, withID bool) bool {
 	if withID {
-		r.recByID[ri.id] = ri
+		r.recByID[ri.ID] = ri
 	}
 	triggerRegen := false
-	for i, filter := range ri.filters {
+	for i, filter := range ri.Filters {
 		mask := convertTupleToMask(filter)
 		maskHash := hashMask(&mask)
 		if rm, found := r.recMask[maskHash]; found {
@@ -281,19 +281,19 @@ func deepCopyPrefix(p net.IPNet) net.IPNet {
 
 func deepCopyRecInfo(recInfo *RecInfo) *RecInfo {
 	ri := &RecInfo{
-		id:      recInfo.id,
-		capLen:  recInfo.capLen,
-		filters: []RecorderTuple{},
+		ID:      recInfo.ID,
+		CapLen:  recInfo.CapLen,
+		Filters: []RecorderTuple{},
 	}
-	for _, filter := range recInfo.filters {
+	for _, filter := range recInfo.Filters {
 		f := RecorderTuple{
-			srcPort: filter.srcPort,
-			dstPort: filter.dstPort,
-			proto:   filter.proto,
+			SrcPort: filter.SrcPort,
+			DstPort: filter.DstPort,
+			Proto:   filter.Proto,
 		}
-		f.srcPrefix = deepCopyPrefix(filter.srcPrefix)
-		f.dstPrefix = deepCopyPrefix(filter.dstPrefix)
-		ri.filters = append(ri.filters, f)
+		f.SrcPrefix = deepCopyPrefix(filter.SrcPrefix)
+		f.DstPrefix = deepCopyPrefix(filter.DstPrefix)
+		ri.Filters = append(ri.Filters, f)
 	}
 	return ri
 }
@@ -311,7 +311,7 @@ func (r *Recorder) UpsertRecorder(recInfoNew *RecInfo) (bool, error) {
 	recInfoCpy := deepCopyRecInfo(recInfoNew)
 	r.Lock()
 	defer r.Unlock()
-	if recInfoCur, found := r.recByID[recInfoCpy.id]; found {
+	if recInfoCur, found := r.recByID[recInfoCpy.ID]; found {
 		return false, r.updateRecInfoLocked(recInfoCpy, recInfoCur)
 	} else {
 		return true, r.applyDatapath(r.createRecInfoLocked(recInfoCpy, true))
@@ -386,9 +386,9 @@ func ModelToRecorder(mo *models.RecorderSpec) (*RecInfo, error) {
 		return nil, fmt.Errorf("Recorder model ID must be defined")
 	}
 	ri := &RecInfo{
-		id:      ID(*mo.ID),
-		capLen:  uint16(mo.CaptureLength),
-		filters: []RecorderTuple{},
+		ID:      ID(*mo.ID),
+		CapLen:  uint16(mo.CaptureLength),
+		Filters: []RecorderTuple{},
 	}
 	for _, mf := range mo.Filters {
 		f := RecorderTuple{}
@@ -396,61 +396,61 @@ func ModelToRecorder(mo *models.RecorderSpec) (*RecInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		f.dstPrefix = *prefix
+		f.DstPrefix = *prefix
 		ipSrc, prefix, err := net.ParseCIDR(mf.SrcPrefix)
 		if err != nil {
 			return nil, err
 		}
-		f.srcPrefix = *prefix
+		f.SrcPrefix = *prefix
 		if (ipDst.To4() == nil) != (ipSrc.To4() == nil) {
 			return nil, fmt.Errorf("Recorder source (%s) and destination (%s) prefix must be same protocol version",
-				f.srcPrefix, f.dstPrefix)
+				f.SrcPrefix, f.DstPrefix)
 		}
 		if !option.Config.EnableIPv4 && ipDst.To4() != nil ||
 			!option.Config.EnableIPv6 && ipDst.To4() == nil {
 			return nil, fmt.Errorf("Recorder source (%s) and destination (%s) prefix not supported by agent config",
-				f.srcPrefix, f.dstPrefix)
+				f.SrcPrefix, f.DstPrefix)
 		}
 		port, err := strconv.ParseUint(mf.DstPort, 10, 16)
 		if err != nil {
 			return nil, err
 		}
-		f.dstPort = uint16(port)
+		f.DstPort = uint16(port)
 		port, err = strconv.ParseUint(mf.SrcPort, 10, 16)
 		if err != nil {
 			return nil, err
 		}
-		f.srcPort = uint16(port)
+		f.SrcPort = uint16(port)
 		switch mf.Protocol {
 		case models.RecorderFilterProtocolTCP:
-			f.proto = u8proto.TCP
+			f.Proto = u8proto.TCP
 		case models.RecorderFilterProtocolUDP:
-			f.proto = u8proto.UDP
+			f.Proto = u8proto.UDP
 		case models.RecorderFilterProtocolANY:
-			f.proto = u8proto.ANY
+			f.Proto = u8proto.ANY
 		default:
 			return nil, fmt.Errorf("Recorder protocol %s not supported by backend",
 				mf.Protocol)
 		}
-		ri.filters = append(ri.filters, f)
+		ri.Filters = append(ri.Filters, f)
 	}
 	return ri, nil
 }
 
 func RecorderToModel(ri *RecInfo) (*models.RecorderSpec, error) {
-	id := int64(ri.id)
+	id := int64(ri.ID)
 	mo := &models.RecorderSpec{
 		ID:            &id,
 		Filters:       []*models.RecorderFilter{},
-		CaptureLength: int64(ri.capLen),
+		CaptureLength: int64(ri.CapLen),
 	}
-	for _, rf := range ri.filters {
+	for _, rf := range ri.Filters {
 		mf := &models.RecorderFilter{}
-		mf.DstPrefix = rf.dstPrefix.String()
-		mf.SrcPrefix = rf.srcPrefix.String()
-		mf.DstPort = fmt.Sprintf("%d", int(rf.dstPort))
-		mf.SrcPort = fmt.Sprintf("%d", int(rf.srcPort))
-		switch rf.proto {
+		mf.DstPrefix = rf.DstPrefix.String()
+		mf.SrcPrefix = rf.SrcPrefix.String()
+		mf.DstPort = fmt.Sprintf("%d", int(rf.DstPort))
+		mf.SrcPort = fmt.Sprintf("%d", int(rf.SrcPort))
+		switch rf.Proto {
 		case u8proto.TCP:
 			mf.Protocol = models.RecorderFilterProtocolTCP
 		case u8proto.UDP:
@@ -459,7 +459,7 @@ func RecorderToModel(ri *RecInfo) (*models.RecorderSpec, error) {
 			mf.Protocol = models.RecorderFilterProtocolANY
 		default:
 			return nil, fmt.Errorf("Recorder protocol %d not supported by model",
-				int(rf.proto))
+				int(rf.Proto))
 		}
 		mo.Filters = append(mo.Filters, mf)
 	}
