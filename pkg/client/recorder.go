@@ -28,6 +28,14 @@ func (c *Client) GetRecorder() ([]*models.Recorder, error) {
 	return resp.Payload, nil
 }
 
+func (c *Client) GetRecorderMasks() ([]*models.RecorderMask, error) {
+	resp, err := c.Recorder.GetRecorderMasks(nil)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
+}
+
 func (c *Client) GetRecorderID(id int64) (*models.Recorder, error) {
 	params := recorder.NewGetRecorderIDParams().WithID(id).WithTimeout(api.ClientTimeout)
 	resp, err := c.Recorder.GetRecorderID(params)
