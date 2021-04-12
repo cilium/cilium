@@ -617,9 +617,9 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 
 	sr.Stale = stale
 
-	//CiliumVersion definition
+	// CiliumVersion definition
 	ver := version.GetCiliumVersion()
-	ciliumVer := fmt.Sprintf("%s (v.%s-r.%s)", ver.Version, ver.Version, ver.Revision)
+	ciliumVer := fmt.Sprintf("%s (v%s-%s)", ver.Version, ver.Version, ver.Revision)
 
 	switch {
 	case len(sr.Stale) > 0:
