@@ -1310,6 +1310,9 @@ operator:
       ##
       enabled: false
 
+  # -- Skip CRDs creation for cilium-operator
+  skipCRDCreation: false
+
 
 nodeinit:
   # -- Enable the node initialization DaemonSet
