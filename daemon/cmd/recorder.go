@@ -130,3 +130,22 @@ func getRecorderList(rec *recorder.Recorder) []*models.Recorder {
 	}
 	return recList
 }
+
+type getRecorderMasks struct {
+	rec *recorder.Recorder
+}
+
+func NewGetRecorderMasksHandler(rec *recorder.Recorder) GetRecorderMasksHandler {
+	return &getRecorderMasks{rec: rec}
+}
+
+func (h *getRecorderMasks) Handle(params GetRecorderMasksParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /recorder/masks request")
+	recMaskList := getRecorderMaskList(h.rec)
+	return NewGetRecorderMasksOK().WithPayload(recMaskList)
+}
+
+func getRecorderMaskList(rec *recorder.Recorder) []*models.RecorderMask {
+	recMaskList := make([]*models.RecorderMask, 0, 0)
+	return recMaskList
+}
