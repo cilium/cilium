@@ -43,7 +43,8 @@ import (
 )
 
 const (
-	ClientDeploymentName = "client"
+	ClientDeploymentName  = "client"
+	Client2DeploymentName = "client2"
 
 	echoSameNodeDeploymentName  = "echo-same-node"
 	echoOtherNodeDeploymentName = "echo-other-node"
@@ -80,6 +81,7 @@ type deploymentParameters struct {
 	Command        []string
 	Affinity       *corev1.Affinity
 	ReadinessProbe *corev1.Probe
+	Labels         map[string]string
 }
 
 func newDeployment(p deploymentParameters) *appsv1.Deployment {
@@ -87,7 +89,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 		p.Replicas = 1
 	}
 	replicas32 := int32(p.Replicas)
-	return &appsv1.Deployment{
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: p.Name,
 			Labels: map[string]string{
@@ -132,6 +134,12 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 			},
 		},
 	}
+
+	for k, v := range p.Labels {
+		dep.Spec.Template.ObjectMeta.Labels[k] = v
+	}
+
+	return dep
 }
 
 func newLocalReadinessProbe(port int, path string) *corev1.Probe {
@@ -203,6 +211,12 @@ func (p PodContext) Address() string {
 	return p.Pod.Status.PodIP
 }
 
+// HasLabel checks if given label exists and value matches
+func (p PodContext) HasLabel(name, value string) bool {
+	v, ok := p.Pod.Labels[name]
+	return ok && v == value
+}
+
 // ServiceContext is a service acting as a peer in a connectivity test
 type ServiceContext struct {
 	// Service  is the Kubernetes service resource
@@ -217,6 +231,12 @@ func (s ServiceContext) Name() string {
 // Address returns the network address of the service
 func (s ServiceContext) Address() string {
 	return s.Service.Name
+}
+
+// HasLabel checks if given label exists and value matches
+func (s ServiceContext) HasLabel(name, value string) bool {
+	v, ok := s.Service.Labels[name]
+	return ok && v == value
 }
 
 // NetworkEndpointContext is a network endpoint acting as a peer in a connectivity test
@@ -239,6 +259,11 @@ func (n NetworkEndpointContext) Name() string {
 // Address it the network address of the network endpoint
 func (n NetworkEndpointContext) Address() string {
 	return n.Peer
+}
+
+// HasLabel checks if given label exists and value matches
+func (n NetworkEndpointContext) HasLabel(name, value string) bool {
+	return false
 }
 
 // TestContext is the context a test uses to interact with the test framework
@@ -305,11 +330,11 @@ type TestRun struct {
 	// context is the test context of the framework
 	context TestContext
 
-	// src is the peer used as the source (client)
-	src TestPeer
+	// Src is the peer used as the source (client)
+	Src TestPeer
 
-	// dst is the peer used as the destination (server)
-	dst TestPeer
+	// Dst is the peer used as the destination (server)
+	Dst TestPeer
 
 	// expectedEgress is the expected test result for egress from the source pod
 	expectedEgress Result
@@ -340,8 +365,8 @@ func NewTestRun(t ConnectivityTest, c TestContext, src, dst TestPeer) *TestRun {
 		name:        t.Name(),
 		verboseName: fmt.Sprintf("%s: %s -> %s", t.Name(), src.Name(), dst.Name()),
 		context:     c,
-		src:         src,
-		dst:         dst,
+		Src:         src,
+		Dst:         dst,
 		started:     time.Now(),
 		flows:       map[string]*flowsSet{},
 		flowResults: map[string]FlowRequirementResults{},
@@ -566,8 +591,8 @@ type FlowParameters struct {
 
 func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequirement {
 	var egress *filters.FlowSetRequirement
-	srcIP := t.src.Address()
-	dstIP := t.dst.Address()
+	srcIP := t.Src.Address()
+	dstIP := t.Dst.Address()
 
 	if dstIP != "" && net.ParseIP(dstIP) == nil {
 		// dstIP is not an IP address, assume it is a domain name
@@ -584,12 +609,20 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 
 		switch t.expectedEgress {
 		case ResultOK:
-			egress = &filters.FlowSetRequirement{
-				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
-				Except: []filters.FlowRequirement{
-					{Filter: filters.Drop(), Msg: "Drop"},
-				},
+			if t.expectedIngress != ResultOK {
+				// If ingress drops we may get the drop flows also for egress, tolerate that
+				egress = &filters.FlowSetRequirement{
+					First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+					Last:  filters.FlowRequirement{Filter: filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, filters.Drop())), Msg: "ICMP response or request drop", SkipOnAggregation: true},
+				}
+			} else {
+				egress = &filters.FlowSetRequirement{
+					First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+					Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
+					Except: []filters.FlowRequirement{
+						{Filter: filters.Drop(), Msg: "Drop"},
+					},
+				}
 			}
 		case ResultDrop:
 			egress = &filters.FlowSetRequirement{
@@ -600,7 +633,7 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 				},
 			}
 		default:
-			t.Failure("Invalid expected egress result %s", t.expectedEgress.String())
+			t.Failure("Invalid expected ICMP egress result %s", t.expectedEgress.String())
 		}
 	case TCP:
 		tcpRequest := filters.TCP(0, p.DstPort)
@@ -649,7 +682,7 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 				},
 			}
 		default:
-			t.Failure("Invalid expected egress result %s", t.expectedEgress.String())
+			t.Failure("Invalid expected TCP egress result %s", t.expectedEgress.String())
 		}
 	case UDP:
 		t.Failure("UDP egress flow matching not implemented yet")
@@ -673,8 +706,8 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 }
 
 func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequirement {
-	srcIP := t.src.Address()
-	dstIP := t.dst.Address()
+	srcIP := t.Src.Address()
+	dstIP := t.Dst.Address()
 
 	var ingress *filters.FlowSetRequirement
 
@@ -695,7 +728,29 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 
 	switch p.Protocol {
 	case ICMP:
-		t.Failure("ICMP ingress flow matching not implemented yet")
+		icmpRequest := filters.Or(filters.ICMP(8), filters.ICMPv6(128))
+		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
+
+		switch t.expectedIngress {
+		case ResultOK:
+			ingress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
+			}
+		case ResultDrop:
+			ingress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
+				},
+			}
+		default:
+			t.Failure("Invalid expected ICMP ingress result %s", t.expectedEgress.String())
+		}
 	case TCP:
 		switch t.expectedIngress {
 		case ResultOK:
@@ -715,7 +770,7 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 			// Nothing, used when expecting a drop in egress so that packet does not show up at ingress
 		default:
 			// Ingress drops not supported yet
-			t.Failure("Invalid expected ingress result %s", t.expectedIngress.String())
+			t.Failure("Invalid expected TCP ingress result %s", t.expectedIngress.String())
 		}
 	case UDP:
 		t.Failure("UDP ingress flow matching not implemented yet")
@@ -805,8 +860,8 @@ func (t *TestRun) End() {
 
 	t.context.Log("%s [%s] %s (%s) -> %s (%s)",
 		prefix, t.name,
-		t.src.Name(), t.src.Address(),
-		t.dst.Name(), t.dst.Address())
+		t.Src.Name(), t.Src.Address(),
+		t.Dst.Name(), t.Dst.Address())
 
 	if duration := t.context.PostTestSleepDuration(); duration != time.Duration(0) {
 		time.Sleep(duration)
@@ -828,6 +883,9 @@ type TestPeer interface {
 	// Address must return the network address of the peer. This can be a
 	// DNS name or an IP address.
 	Address() string
+
+	// HasLabel checks if given label exists and value matches
+	HasLabel(name, value string) bool
 }
 
 // ConnectivityTest is the interface to implement for all connectivity tests
@@ -1121,6 +1179,7 @@ func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8s
 	client.DeleteDeployment(ctx, k.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteDeployment(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteDeployment(ctx, k.params.TestNamespace, ClientDeploymentName, metav1.DeleteOptions{})
+	client.DeleteDeployment(ctx, k.params.TestNamespace, Client2DeploymentName, metav1.DeleteOptions{})
 	client.DeleteService(ctx, k.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteService(ctx, k.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
@@ -1138,7 +1197,7 @@ func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8s
 }
 
 func (k *K8sConnectivityCheck) deploymentList() (srcList []string, dstList []string) {
-	srcList = []string{ClientDeploymentName, echoSameNodeDeploymentName}
+	srcList = []string{ClientDeploymentName, Client2DeploymentName, echoSameNodeDeploymentName}
 
 	if k.params.MultiCluster != "" || !k.params.SingleNode {
 		dstList = append(dstList, echoOtherNodeDeploymentName)
@@ -1304,10 +1363,11 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 	if err != nil {
 		k.Log("✨ [%s] Deploying same-node deployment...", k.clients.src.ClusterName())
 		echoDeployment := newDeployment(deploymentParameters{
-			Name:  echoSameNodeDeploymentName,
-			Kind:  kindEchoName,
-			Port:  8080,
-			Image: "quay.io/cilium/json-mock:1.2",
+			Name:   echoSameNodeDeploymentName,
+			Kind:   kindEchoName,
+			Port:   8080,
+			Image:  "quay.io/cilium/json-mock:1.2",
+			Labels: map[string]string{"other": "echo"},
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -1344,6 +1404,24 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 		_, err = k.clients.src.CreateDeployment(ctx, k.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create deployment %s: %s", ClientDeploymentName, err)
+		}
+	}
+
+	// 2nd client with label other=client
+	_, err = k.clients.src.GetDeployment(ctx, k.params.TestNamespace, Client2DeploymentName, metav1.GetOptions{})
+	if err != nil {
+		k.Log("✨ [%s] Deploying client2 deployment...", k.clients.src.ClusterName())
+		clientDeployment := newDeployment(deploymentParameters{
+			Name:    Client2DeploymentName,
+			Kind:    kindClientName,
+			Port:    8080,
+			Image:   "quay.io/cilium/alpine-curl:1.1",
+			Command: []string{"/bin/ash", "-c", "sleep 10000000"},
+			Labels:  map[string]string{"other": "client"},
+		})
+		_, err = k.clients.src.CreateDeployment(ctx, k.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %s", Client2DeploymentName, err)
 		}
 	}
 
@@ -1451,7 +1529,7 @@ func (k *K8sConnectivityCheck) waitForService(ctx context.Context, client k8sCon
 	}
 
 retry:
-	if _, _, err := client.ExecInPodWithStderr(ctx, clientPod.Pod.Namespace, clientPod.Pod.Name, ClientDeploymentName, []string{"nslookup", service}); err != nil {
+	if _, _, err := client.ExecInPodWithStderr(ctx, clientPod.Pod.Namespace, clientPod.Pod.Name, clientPod.Pod.Labels["name"], []string{"nslookup", service}); err != nil {
 		select {
 		case <-time.After(time.Second):
 		case <-ctx.Done():

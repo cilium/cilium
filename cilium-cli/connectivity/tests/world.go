@@ -39,7 +39,7 @@ func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn})
 		cmd := curlCommand("https://" + fqdn)
-		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, check.ClientDeploymentName, cmd)
+		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
 		run.LogResult(cmd, err, stdout)
 		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 			DNSRequired: true,
