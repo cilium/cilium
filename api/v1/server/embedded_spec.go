@@ -1213,6 +1213,25 @@ func init() {
         }
       }
     },
+    "/recorder/masks": {
+      "get": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Retrieve list of all recorder masks",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/RecorderMask"
+              }
+            }
+          }
+        }
+      }
+    },
     "/recorder/{id}": {
       "get": {
         "tags": [
@@ -3447,6 +3466,54 @@ func init() {
         }
       }
     },
+    "RecorderMask": {
+      "description": "Individual mask for pcap recorder",
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/RecorderMaskStatus"
+        }
+      }
+    },
+    "RecorderMaskSpec": {
+      "description": "Configuration of a recorder mask",
+      "type": "object",
+      "properties": {
+        "dst-port-mask": {
+          "description": "Layer 4 destination port mask",
+          "type": "string"
+        },
+        "dst-prefix-mask": {
+          "description": "Layer 3 destination IP mask",
+          "type": "string"
+        },
+        "protocol-mask": {
+          "description": "Layer 4 protocol mask",
+          "type": "string"
+        },
+        "src-port-mask": {
+          "description": "Layer 4 source port mask",
+          "type": "string"
+        },
+        "src-prefix-mask": {
+          "description": "Layer 3 source IP mask",
+          "type": "string"
+        },
+        "users": {
+          "description": "Number of users of this mask",
+          "type": "integer"
+        }
+      }
+    },
+    "RecorderMaskStatus": {
+      "description": "Configuration of a recorder mask",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "$ref": "#/definitions/RecorderMaskSpec"
+        }
+      }
+    },
     "RecorderSpec": {
       "description": "Configuration of a recorder",
       "type": "object",
@@ -5285,6 +5352,25 @@ func init() {
               "type": "array",
               "items": {
                 "$ref": "#/definitions/Recorder"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recorder/masks": {
+      "get": {
+        "tags": [
+          "recorder"
+        ],
+        "summary": "Retrieve list of all recorder masks",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/RecorderMask"
               }
             }
           }
@@ -7852,6 +7938,54 @@ func init() {
         "src-prefix": {
           "description": "Layer 3 source CIDR",
           "type": "string"
+        }
+      }
+    },
+    "RecorderMask": {
+      "description": "Individual mask for pcap recorder",
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/RecorderMaskStatus"
+        }
+      }
+    },
+    "RecorderMaskSpec": {
+      "description": "Configuration of a recorder mask",
+      "type": "object",
+      "properties": {
+        "dst-port-mask": {
+          "description": "Layer 4 destination port mask",
+          "type": "string"
+        },
+        "dst-prefix-mask": {
+          "description": "Layer 3 destination IP mask",
+          "type": "string"
+        },
+        "protocol-mask": {
+          "description": "Layer 4 protocol mask",
+          "type": "string"
+        },
+        "src-port-mask": {
+          "description": "Layer 4 source port mask",
+          "type": "string"
+        },
+        "src-prefix-mask": {
+          "description": "Layer 3 source IP mask",
+          "type": "string"
+        },
+        "users": {
+          "description": "Number of users of this mask",
+          "type": "integer"
+        }
+      }
+    },
+    "RecorderMaskStatus": {
+      "description": "Configuration of a recorder mask",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "$ref": "#/definitions/RecorderMaskSpec"
         }
       }
     },

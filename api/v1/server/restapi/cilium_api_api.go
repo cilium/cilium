@@ -156,6 +156,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		RecorderGetRecorderIDHandler: recorder.GetRecorderIDHandlerFunc(func(params recorder.GetRecorderIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation recorder.GetRecorderID has not yet been implemented")
 		}),
+		RecorderGetRecorderMasksHandler: recorder.GetRecorderMasksHandlerFunc(func(params recorder.GetRecorderMasksParams) middleware.Responder {
+			return middleware.NotImplemented("operation recorder.GetRecorderMasks has not yet been implemented")
+		}),
 		ServiceGetServiceHandler: service.GetServiceHandlerFunc(func(params service.GetServiceParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
 		}),
@@ -297,6 +300,8 @@ type CiliumAPIAPI struct {
 	RecorderGetRecorderHandler recorder.GetRecorderHandler
 	// RecorderGetRecorderIDHandler sets the operation handler for the get recorder ID operation
 	RecorderGetRecorderIDHandler recorder.GetRecorderIDHandler
+	// RecorderGetRecorderMasksHandler sets the operation handler for the get recorder masks operation
+	RecorderGetRecorderMasksHandler recorder.GetRecorderMasksHandler
 	// ServiceGetServiceHandler sets the operation handler for the get service operation
 	ServiceGetServiceHandler service.GetServiceHandler
 	// ServiceGetServiceIDHandler sets the operation handler for the get service ID operation
@@ -500,6 +505,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.RecorderGetRecorderIDHandler == nil {
 		unregistered = append(unregistered, "recorder.GetRecorderIDHandler")
+	}
+	if o.RecorderGetRecorderMasksHandler == nil {
+		unregistered = append(unregistered, "recorder.GetRecorderMasksHandler")
 	}
 	if o.ServiceGetServiceHandler == nil {
 		unregistered = append(unregistered, "service.GetServiceHandler")
@@ -764,6 +772,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/recorder/{id}"] = recorder.NewGetRecorderID(o.context, o.RecorderGetRecorderIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/recorder/masks"] = recorder.NewGetRecorderMasks(o.context, o.RecorderGetRecorderMasksHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
