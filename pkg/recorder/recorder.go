@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -76,8 +77,6 @@ type Recorder struct {
 	recByID map[ID]*RecInfo
 	recMask map[string]*RecMask
 	queue   recQueue
-	map4    *recorder.Map
-	map6    *recorder.Map
 }
 
 func NewRecorder() (*Recorder, error) {
@@ -92,12 +91,12 @@ func NewRecorder() (*Recorder, error) {
 	if option.Config.EnableRecorder {
 		maps := []*bpf.Map{}
 		if option.Config.EnableIPv4 {
-			rec.map4 = recorder.CaptureMap4
-			maps = append(maps, &rec.map4.Map)
+			t := &recorder.CaptureWcard4{}
+			maps = append(maps, t.Map())
 		}
 		if option.Config.EnableIPv6 {
-			rec.map6 = recorder.CaptureMap6
-			maps = append(maps, &rec.map6.Map)
+			t := &recorder.CaptureWcard6{}
+			maps = append(maps, t.Map())
 		}
 		for _, m := range maps {
 			if _, err := m.OpenOrCreate(); err != nil {
@@ -159,16 +158,74 @@ func hashTuple(x *RecorderTuple) string {
 		int(x.SrcPort), int(x.DstPort), int(x.Proto))
 }
 
+func (t *RecorderTuple) isIPv4() bool {
+	_, bits := t.SrcPrefix.Mask.Size()
+	return bits == 32
+}
+
 func (r *Recorder) triggerDatapathRegenerate() error {
 	return nil
 }
 
+func recorderTupleToMapTuple4(ri *RecInfo, t *RecorderTuple) (*recorder.CaptureWcard4, *recorder.CaptureRule4) {
+	onesSrc, _ := t.SrcPrefix.Mask.Size()
+	onesDst, _ := t.DstPrefix.Mask.Size()
+
+	k := &recorder.CaptureWcard4{
+		NextHdr:  uint8(t.Proto),
+		DestMask: uint8(onesDst),
+		SrcMask:  uint8(onesSrc),
+	}
+	k.DestPort = byteorder.HostToNetwork(t.DstPort).(uint16)
+	k.SrcPort = byteorder.HostToNetwork(t.SrcPort).(uint16)
+	copy(k.DestAddr[:], t.DstPrefix.IP.To4()[:])
+	copy(k.SrcAddr[:], t.SrcPrefix.IP.To4()[:])
+	v := &recorder.CaptureRule4{
+		RuleId: uint16(ri.ID),
+		CapLen: uint32(ri.CapLen),
+	}
+	return k, v
+}
+
+func recorderTupleToMapTuple6(ri *RecInfo, t *RecorderTuple) (*recorder.CaptureWcard6, *recorder.CaptureRule6) {
+	onesSrc, _ := t.SrcPrefix.Mask.Size()
+	onesDst, _ := t.DstPrefix.Mask.Size()
+
+	k := &recorder.CaptureWcard6{
+		NextHdr:  uint8(t.Proto),
+		DestMask: uint8(onesDst),
+		SrcMask:  uint8(onesSrc),
+	}
+	k.DestPort = byteorder.HostToNetwork(t.DstPort).(uint16)
+	k.SrcPort = byteorder.HostToNetwork(t.SrcPort).(uint16)
+	copy(k.DestAddr[:], t.DstPrefix.IP.To16()[:])
+	copy(k.SrcAddr[:], t.SrcPrefix.IP.To16()[:])
+	v := &recorder.CaptureRule6{
+		RuleId: uint16(ri.ID),
+		CapLen: uint32(ri.CapLen),
+	}
+	return k, v
+}
+
+func recorderTupleToMapTuple(ri *RecInfo, t *RecorderTuple) (recorder.RecorderKey, recorder.RecorderEntry) {
+	var k recorder.RecorderKey
+	var v recorder.RecorderEntry
+	if t.isIPv4() {
+		k, v = recorderTupleToMapTuple4(ri, t)
+	} else {
+		k, v = recorderTupleToMapTuple6(ri, t)
+	}
+	return k, v
+}
+
 func (r *Recorder) triggerMapUpsert(ri *RecInfo, t *RecorderTuple) error {
-	return nil
+	k, v := recorderTupleToMapTuple(ri, t)
+	return k.Map().Update(k, v)
 }
 
 func (r *Recorder) triggerMapDelete(ri *RecInfo, t *RecorderTuple) error {
-	return nil
+	k, _ := recorderTupleToMapTuple(ri, t)
+	return k.Map().Delete(k)
 }
 
 func (r *Recorder) applyDatapath(regen bool) error {
