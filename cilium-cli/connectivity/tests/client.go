@@ -16,41 +16,43 @@ package tests
 
 import (
 	"context"
-	"net"
-	"strconv"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-type PodToPod struct {
+type ClientToClient struct {
 	check.PolicyContext
 	Variant string
 }
 
-func (t *PodToPod) WithPolicy(yaml string) check.ConnectivityTest {
+func (t *ClientToClient) WithPolicy(yaml string) check.ConnectivityTest {
 	return t.WithPolicyRunner(t, yaml)
 }
 
-func (t *PodToPod) Name() string {
-	return "pod-to-pod" + t.Variant
+func (t *ClientToClient) Name() string {
+	return "client-to-client" + t.Variant
 }
 
-func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
-	for _, client := range c.ClientPods() {
-		for _, echo := range c.EchoPods() {
-			run := check.NewTestRun(t, c, client, echo)
-			cmd := curlCommand(net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080)))
-			stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+func (t *ClientToClient) Run(ctx context.Context, c check.TestContext) {
+	for _, src := range c.ClientPods() {
+		for _, dst := range c.ClientPods() {
+			if src.Pod.Status.PodIP == dst.Pod.Status.PodIP {
+				// Currently we only get flows once per IP
+				continue
+			}
+			run := check.NewTestRun(t, c, src, dst)
+			cmd := []string{"ping", "-c", "3", dst.Pod.Status.PodIP}
+			stdout, err := src.K8sClient.ExecInPod(ctx, src.Pod.Namespace, src.Pod.Name, "", cmd)
 			run.LogResult(cmd, err, stdout)
 			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-				DstPort: 8080,
+				Protocol: check.ICMP,
 			})
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+			run.ValidateFlows(ctx, src.Name(), src.Pod.Status.PodIP, egressFlowRequirements)
 			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{
-				DstPort: 8080,
+				Protocol: check.ICMP,
 			})
 			if ingressFlowRequirements != nil {
-				run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, ingressFlowRequirements)
+				run.ValidateFlows(ctx, dst.Name(), dst.Pod.Status.PodIP, ingressFlowRequirements)
 			}
 			run.End()
 		}
