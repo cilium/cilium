@@ -718,11 +718,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		fmt.Fprintf(fw, "#define FORCE_LOCAL_POLICY_EVAL_AT_SOURCE 1\n")
 	}
 
-	if e.RequireRouting() {
-		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
-	}
-
-	if e.RequireEndpointRoute() {
+	if e.RequireEndpointRoute() || e.RequireRouting() {
 		fmt.Fprintf(fw, "#define ENABLE_ENDPOINT_ROUTES 1\n")
 	}
 

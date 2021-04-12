@@ -1164,7 +1164,9 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	return ret;
 }
 #endif /* ENABLE_IPV4 */
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_ENDPOINT_ROUTES)
 static __always_inline int
 /* Handles packet from a local endpoint entering the host namespace. Applies
  * ingress host policies.
@@ -1285,6 +1287,6 @@ handle_lxc_traffic(struct __ctx_buff *ctx)
 
 	return to_host_from_lxc(ctx);
 }
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* ENABLE_HOST_FIREWALL && ENABLE_ENDPOINT_ROUTES */
 
 BPF_LICENSE("GPL");
