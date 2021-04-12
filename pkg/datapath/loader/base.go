@@ -204,7 +204,8 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		if len(option.Config.IPv4PodSubnets) == 0 {
 			if info := node.GetRouterInfo(); info != nil {
 				for _, c := range info.GetIPv4CIDRs() {
-					option.Config.IPv4PodSubnets = append(option.Config.IPv4PodSubnets, &c)
+					cidr := c // create a copy to be able to take a reference
+					option.Config.IPv4PodSubnets = append(option.Config.IPv4PodSubnets, &cidr)
 				}
 			}
 		}
