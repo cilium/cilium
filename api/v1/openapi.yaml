@@ -2564,6 +2564,9 @@ definitions:
       users:
         description: Number of users of this mask
         type: integer
+      priority:
+        description: Priority of this mask
+        type: integer
       src-prefix-mask:
         description: Layer 3 source IP mask
         type: string

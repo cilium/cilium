@@ -24,6 +24,9 @@ type RecorderMaskSpec struct {
 	// Layer 3 destination IP mask
 	DstPrefixMask string `json:"dst-prefix-mask,omitempty"`
 
+	// Priority of this mask
+	Priority int64 `json:"priority,omitempty"`
+
 	// Layer 4 protocol mask
 	ProtocolMask string `json:"protocol-mask,omitempty"`
 

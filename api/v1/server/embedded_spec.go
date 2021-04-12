@@ -3487,6 +3487,10 @@ func init() {
           "description": "Layer 3 destination IP mask",
           "type": "string"
         },
+        "priority": {
+          "description": "Priority of this mask",
+          "type": "integer"
+        },
         "protocol-mask": {
           "description": "Layer 4 protocol mask",
           "type": "string"
@@ -7961,6 +7965,10 @@ func init() {
         "dst-prefix-mask": {
           "description": "Layer 3 destination IP mask",
           "type": "string"
+        },
+        "priority": {
+          "description": "Priority of this mask",
+          "type": "integer"
         },
         "protocol-mask": {
           "description": "Layer 4 protocol mask",
