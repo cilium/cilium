@@ -33,12 +33,50 @@ var recorderListCmd = &cobra.Command{
 	Short:   "List current pcap recorders",
 	Run: func(cmd *cobra.Command, args []string) {
 		listRecorders(cmd, args)
+		listMasks(cmd, args)
 	},
 }
 
 func init() {
 	recorderCmd.AddCommand(recorderListCmd)
 	command.AddJSONOutput(recorderListCmd)
+}
+
+func listMasks(cmd *cobra.Command, args []string) {
+	list, err := client.GetRecorderMasks()
+	if err != nil {
+		Fatalf("Cannot get recorder mask list: %s", err)
+	}
+
+	if command.OutputJSON() {
+		if err := command.PrintOutput(list); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	printRecorderMaskList(w, list)
+}
+
+func printRecorderMaskList(w *tabwriter.Writer, maskList []*models.RecorderMask) {
+	fmt.Fprintln(w, "Users\t           \tWildcard Masks\t")
+	for _, mask := range maskList {
+		if mask.Status == nil || mask.Status.Realized == nil {
+			fmt.Fprint(os.Stderr, "error parsing recorder: empty state")
+			continue
+		}
+	}
+	for _, mask := range maskList {
+		spec := mask.Status.Realized
+		str := fmt.Sprintf("%d\t\t%s:%s\t->\t%s:%s\t%s",
+			spec.Users,
+			spec.SrcPrefixMask, spec.SrcPortMask,
+			spec.DstPrefixMask, spec.DstPortMask,
+			spec.ProtocolMask)
+		fmt.Fprintln(w, str)
+	}
+	w.Flush()
 }
 
 func listRecorders(cmd *cobra.Command, args []string) {
@@ -95,5 +133,6 @@ func printRecorderList(w *tabwriter.Writer, recList []*models.Recorder) {
 			fmt.Fprintln(w, str)
 		}
 	}
+	fmt.Fprintln(w, "")
 	w.Flush()
 }
