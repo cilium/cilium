@@ -1,0 +1,58 @@
+name: build_commits
+
+on: [pull_request]
+
+jobs:
+  build_commits:
+    name: Check if build works for every commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Install Go
+        uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
+        with:
+          go-version: 1.16.3
+          
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@26968a09c0ea4f3e233fdddbafd1166051a095f6
+        with:
+          path: $HOME/.clang
+          key: llvm-10.0
+          
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@4609a7b44dbb15353bdb46dafaac2914948399c9
+        with:
+          version: "10.0"
+          directory: $HOME/.clang
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+          
+      - name: Install libelf
+        run: |
+          sudo apt-get install libelf-dev
+          
+      - name: Checkout code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          
+      - name: Check if build works for every commit
+        run: |
+          PR_COMMITS_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.pull_request.commits_url }})
+          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
+          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
+          git rebase --exec "make build -j $(nproc) && make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
+        
+      - name: Failed commit during the build
+        if: ${{ failure() }}
+        run: git --no-pager log --format=%B -n 1
+        
