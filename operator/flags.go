@@ -309,5 +309,8 @@ func init() {
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(option.BGPConfigPath)
 
+	flags.Bool(option.SkipCRDCreation, false, "When true, Kubernetes Custom Resource Definitions will not be created")
+	option.BindEnv(option.SkipCRDCreation)
+
 	viper.BindPFlags(flags)
 }

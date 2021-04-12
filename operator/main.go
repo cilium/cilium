@@ -272,8 +272,12 @@ func runOperator() {
 
 	// Register the CRDs after validating that we are running on a supported
 	// version of K8s.
-	if err := client.RegisterCRDs(); err != nil {
-		log.WithError(err).Fatal("Unable to register CRDs")
+	if !operatorOption.Config.SkipCRDCreation {
+		if err := client.RegisterCRDs(); err != nil {
+			log.WithError(err).Fatal("Unable to register CRDs")
+		}
+	} else {
+		log.Info("Skipping creation of CRDs")
 	}
 
 	// We only support Operator in HA mode for Kubernetes Versions having support for
