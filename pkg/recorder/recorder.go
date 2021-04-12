@@ -328,6 +328,38 @@ func (r *Recorder) RetrieveRecorderSet() []*RecInfo {
 	return recList
 }
 
+func deepCopyMask(m net.IPMask) net.IPMask {
+	out := make([]byte, len(m))
+	copy(out, m)
+	return out
+}
+
+func deepCopyRecMask(recMask *RecMask) *RecMask {
+	rm := &RecMask{
+		users: recMask.users,
+		mask: recorderMask{
+			srcPort: recMask.mask.srcPort,
+			dstPort: recMask.mask.dstPort,
+			proto:   recMask.mask.proto,
+		},
+	}
+	rm.mask.srcMask = deepCopyMask(recMask.mask.srcMask)
+	rm.mask.dstMask = deepCopyMask(recMask.mask.dstMask)
+	return rm
+}
+
+// RetrieveRecorderMaskSet will return a list of all existing recorder masks.
+func (r *Recorder) RetrieveRecorderMaskSet() []*RecMask {
+	recMaskList := []*RecMask{}
+	r.RLock()
+	defer r.RUnlock()
+	for _, mask := range r.recMask {
+		maskCpy := deepCopyRecMask(mask)
+		recMaskList = append(recMaskList, maskCpy)
+	}
+	return recMaskList
+}
+
 func ModelToRecorder(mo *models.RecorderSpec) (*RecInfo, error) {
 	if mo.ID == nil {
 		return nil, fmt.Errorf("Recorder model ID must be defined")
@@ -411,4 +443,16 @@ func RecorderToModel(ri *RecInfo) (*models.RecorderSpec, error) {
 		mo.Filters = append(mo.Filters, mf)
 	}
 	return mo, nil
+}
+
+func RecorderMaskToModel(rm *RecMask) *models.RecorderMaskSpec {
+	mo := &models.RecorderMaskSpec{
+		Users: int64(rm.users),
+	}
+	mo.DstPrefixMask = rm.mask.dstMask.String()
+	mo.SrcPrefixMask = rm.mask.srcMask.String()
+	mo.DstPortMask = fmt.Sprintf("%x", int(rm.mask.dstPort))
+	mo.SrcPortMask = fmt.Sprintf("%x", int(rm.mask.srcPort))
+	mo.ProtocolMask = fmt.Sprintf("%x", int(rm.mask.proto))
+	return mo
 }

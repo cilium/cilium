@@ -146,6 +146,16 @@ func (h *getRecorderMasks) Handle(params GetRecorderMasksParams) middleware.Resp
 }
 
 func getRecorderMaskList(rec *recorder.Recorder) []*models.RecorderMask {
-	recMaskList := make([]*models.RecorderMask, 0, 0)
+	rms := rec.RetrieveRecorderMaskSet()
+	recMaskList := make([]*models.RecorderMask, 0, len(rms))
+	for _, rm := range rms {
+		spec := recorder.RecorderMaskToModel(rm)
+		recMask := &models.RecorderMask{
+			Status: &models.RecorderMaskStatus{
+				Realized: spec,
+			},
+		}
+		recMaskList = append(recMaskList, recMask)
+	}
 	return recMaskList
 }
