@@ -41,7 +41,7 @@ func (t *ClientToClient) Run(ctx context.Context, c check.TestContext) {
 				continue
 			}
 			run := check.NewTestRun(t, c, src, dst)
-			cmd := []string{"ping", "-c", "3", dst.Pod.Status.PodIP}
+			cmd := []string{"ping", "-w", "3", "-c", "1", dst.Pod.Status.PodIP}
 			stdout, err := src.K8sClient.ExecInPod(ctx, src.Pod.Namespace, src.Pod.Name, "", cmd)
 			run.LogResult(cmd, err, stdout)
 			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
