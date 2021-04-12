@@ -51,8 +51,9 @@ var (
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	repo := NewPolicyRepository(nil, nil)
 	cache := repo.policyCache
-	identity := ep1.GetSecurityIdentity()
-	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
+	identity, _ := ep1.GetSecurityIdentity()
+	identity2, _ := ep2.GetSecurityIdentity()
+	c.Assert(identity2, Equals, identity)
 
 	// Nonsense delete of entry that isn't yet inserted
 	deleted := cache.delete(identity)
@@ -74,7 +75,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	// be there.
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	identity3 := ep3.GetSecurityIdentity()
+	identity3, _ := ep3.GetSecurityIdentity()
 	c.Assert(identity3, Not(Equals), identity)
 	policy1 = cache.insert(identity)
 	policy3 := cache.insert(identity3)
@@ -89,8 +90,9 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	repo.revision = 42
 	cache := repo.policyCache
 
-	identity1 := ep1.GetSecurityIdentity()
-	c.Assert(ep2.GetSecurityIdentity(), Equals, identity1)
+	identity1, _ := ep1.GetSecurityIdentity()
+	identity2, _ := ep2.GetSecurityIdentity()
+	c.Assert(identity2, Equals, identity1)
 	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
@@ -114,7 +116,8 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
+	identity3, _ := ep2.GetSecurityIdentity()
+	_, err = cache.updateSelectorPolicy(identity3)
 	c.Assert(err, NotNil)
 	c.Assert(updated, Equals, false)
 
@@ -123,7 +126,6 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	policy1 = cache.insert(identity1)
 	idp1 = policy1.(*cachedSelectorPolicy).getPolicy()
 	c.Assert(idp1, NotNil)
-	identity3 := ep3.GetSecurityIdentity()
 	policy3 := cache.insert(identity3)
 	c.Assert(policy3, Not(Equals), policy1)
 	updated, err = cache.updateSelectorPolicy(identity3)
