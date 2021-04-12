@@ -953,8 +953,11 @@ func init() {
 	flags.Int(option.LBMapEntriesName, lbmap.MaxEntries, "Maximum number of entries in Cilium BPF lbmap")
 	option.BindEnv(option.LBMapEntriesName)
 
-	flags.String(option.LocalRouterIP, "", "Link-local IP used for Cilium's router devices")
-	option.BindEnv(option.LocalRouterIP)
+	flags.String(option.LocalRouterIPv4, "", "Link-local IPv4 used for Cilium's router devices")
+	option.BindEnv(option.LocalRouterIPv4)
+
+	flags.String(option.LocalRouterIPv6, "", "Link-local IPv6 used for Cilium's router devices")
+	option.BindEnv(option.LocalRouterIPv6)
 
 	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 	option.BindEnv(option.K8sServiceProxyName)
@@ -1392,18 +1395,16 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.LocalRouterIP != "" {
-		if option.Config.IPAM != "" {
-			log.Fatalf("Cannot specify %s along with %s, leave router IP unspecified if Cilium is handling IPAM.", option.LocalRouterIP, option.IPAM)
-		}
+	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
+		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
 		if option.Config.Tunnel != option.TunnelDisabled {
-			log.Fatalf("Cannot specify %s in tunnel mode.", option.LocalRouterIP)
+			log.Fatalf("Cannot specify %s or %s in tunnel mode.", option.LocalRouterIPv4, option.LocalRouterIPv6)
 		}
 		if !option.Config.EnableEndpointRoutes {
-			log.Fatalf("Cannot specify %s without %s.", option.LocalRouterIP, option.EnableEndpointRoutes)
+			log.Fatalf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
 		}
 		if option.Config.EnableIPSec {
-			log.Fatalf("Cannot specify %s with %s.", option.LocalRouterIP, option.EnableIPSecName)
+			log.Fatalf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName)
 		}
 	}
 
