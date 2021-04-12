@@ -45,6 +45,7 @@ func listen(link netlink.Link) (*packetConn, error) {
 	}
 
 	if err := unix.SetNonblock(us, true); err != nil {
+		unix.Close(us)
 		return nil, err
 	}
 
