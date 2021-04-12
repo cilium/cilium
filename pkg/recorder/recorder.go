@@ -20,9 +20,11 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -74,9 +76,11 @@ type Recorder struct {
 	recByID map[ID]*RecInfo
 	recMask map[string]*RecMask
 	queue   recQueue
+	map4    *recorder.Map
+	map6    *recorder.Map
 }
 
-func NewRecorder() *Recorder {
+func NewRecorder() (*Recorder, error) {
 	rec := &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -85,7 +89,26 @@ func NewRecorder() *Recorder {
 			del: []*RecorderTuple{},
 		},
 	}
-	return rec
+	if option.Config.EnableRecorder {
+		maps := []*bpf.Map{}
+		if option.Config.EnableIPv4 {
+			rec.map4 = recorder.CaptureMap4
+			maps = append(maps, &rec.map4.Map)
+		}
+		if option.Config.EnableIPv6 {
+			rec.map6 = recorder.CaptureMap6
+			maps = append(maps, &rec.map6.Map)
+		}
+		for _, m := range maps {
+			if _, err := m.OpenOrCreate(); err != nil {
+				return nil, err
+			}
+			if err := m.DeleteAll(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return rec, nil
 }
 
 func convertTupleToMask(t RecorderTuple) recorderMask {
