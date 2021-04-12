@@ -60,17 +60,20 @@ func listMasks(cmd *cobra.Command, args []string) {
 }
 
 func printRecorderMaskList(w *tabwriter.Writer, maskList []*models.RecorderMask) {
-	fmt.Fprintln(w, "Users\t           \tWildcard Masks\t")
+	fmt.Fprintln(w, "Users\tPriority   \tWildcard Masks\t")
 	for _, mask := range maskList {
 		if mask.Status == nil || mask.Status.Realized == nil {
 			fmt.Fprint(os.Stderr, "error parsing recorder: empty state")
 			continue
 		}
 	}
+	sort.Slice(maskList, func(i, j int) bool {
+		return maskList[i].Status.Realized.Priority > maskList[j].Status.Realized.Priority
+	})
 	for _, mask := range maskList {
 		spec := mask.Status.Realized
-		str := fmt.Sprintf("%d\t\t%s:%s\t->\t%s:%s\t%s",
-			spec.Users,
+		str := fmt.Sprintf("%d\t%d\t%s:%s\t->\t%s:%s\t%s",
+			spec.Users, spec.Priority,
 			spec.SrcPrefixMask, spec.SrcPortMask,
 			spec.DstPrefixMask, spec.DstPortMask,
 			spec.ProtocolMask)
