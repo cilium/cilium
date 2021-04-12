@@ -27,7 +27,6 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/sirupsen/logrus"
@@ -519,10 +518,6 @@ func (p defaultPoll) Poll(
 
 // RegisterCRDs registers all CRDs with the K8s apiserver.
 func RegisterCRDs() error {
-	if option.Config.SkipCRDCreation {
-		return nil
-	}
-
 	if err := CreateCustomResourceDefinitions(k8s.APIExtClient()); err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}
