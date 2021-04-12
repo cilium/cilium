@@ -130,7 +130,6 @@ cilium-agent [flags]
       --host-reachable-services-protos strings               Only enable reachability of services for host applications for specific protocols (default [tcp,udp])
       --http-idle-timeout uint                               Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                           Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
-      --http-normalize-path                                  Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution. (default true)
       --http-request-timeout uint                            Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                                Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                              Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
@@ -221,7 +220,6 @@ cilium-agent [flags]
       --restore                                              Restores state, if possible, from previous daemon (default true)
       --sidecar-istio-proxy-image string                     Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                                 Use a single cluster route instead of per node routes
-      --skip-crd-creation                                    Skip Kubernetes Custom Resource Definitions creations
       --socket-path string                                   Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --sockops-enable                                       Enable sockops when kernel supported
       --state-dir string                                     Directory path to store runtime state (default "/var/run/cilium")
