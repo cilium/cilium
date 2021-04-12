@@ -146,6 +146,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
 /pkg/bandwidth/ @cilium/bpf
+/pkg/bgp/ @cilium/kubernetes @cilium/loadbalancer
 /pkg/bpf/ @cilium/bpf
 /pkg/byteorder/ @cilium/bpf @cilium/api
 /pkg/client @cilium/api
