@@ -36,10 +36,6 @@ type EndpointDatapathConfiguration struct {
 	// Endpoint requires a host-facing egress program to be attached to implement ingress policy and reverse NAT.
 	//
 	RequireEgressProg bool `json:"require-egress-prog,omitempty"`
-
-	// Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.
-	//
-	RequireRouting *bool `json:"require-routing,omitempty"`
 }
 
 // Validate validates this endpoint datapath configuration

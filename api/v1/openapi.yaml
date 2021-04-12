@@ -1192,12 +1192,6 @@ definitions:
           IP from being released and re-allocation of the IP address is skipped
           on restore.
         type: boolean
-      require-routing:
-        description: >
-          Endpoint requires BPF routing to be enabled, when disabled, routing
-          is delegated to Linux routing.
-        type: boolean
-        default: true
       install-endpoint-route:
         description: >
           Installs a route in the Linux routing table pointing to the device of

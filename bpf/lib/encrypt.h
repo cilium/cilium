@@ -71,7 +71,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 	return CTX_ACT_OK;
 #else
 	return redirect(CILIUM_IFINDEX, 0);
-#endif /* ENABLE_ROUTING */
+#endif /* ENABLE_ENDPOINT_ROUTES */
 }
 #else
 static __always_inline int

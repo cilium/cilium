@@ -140,7 +140,6 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		return
 	}
 
-	var disabled = false
 	ep := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: vethIP,
@@ -167,9 +166,6 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			// The IP is managed by the aws-cni plugin, no need for
 			// Cilium to manage any aspect of addressing
 			ExternalIpam: true,
-
-			// All routing is performed by the Linux stack
-			RequireRouting: &disabled,
 		},
 	}
 

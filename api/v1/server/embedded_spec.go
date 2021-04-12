@@ -2212,11 +2212,6 @@ func init() {
         "require-egress-prog": {
           "description": "Endpoint requires a host-facing egress program to be attached to implement ingress policy and reverse NAT.\n",
           "type": "boolean"
-        },
-        "require-routing": {
-          "description": "Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.\n",
-          "type": "boolean",
-          "default": true
         }
       }
     },
@@ -6616,11 +6611,6 @@ func init() {
         "require-egress-prog": {
           "description": "Endpoint requires a host-facing egress program to be attached to implement ingress policy and reverse NAT.\n",
           "type": "boolean"
-        },
-        "require-routing": {
-          "description": "Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.\n",
-          "type": "boolean",
-          "default": true
         }
       }
     },

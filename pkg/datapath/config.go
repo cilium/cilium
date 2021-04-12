@@ -78,10 +78,6 @@ type CompileTimeConfiguration interface {
 	// "to-container"
 	RequireEgressProg() bool
 
-	// RequireRouting returns true if the endpoint requires BPF routing to
-	// be enabled, when disabled, routing is delegated to Linux routing
-	RequireRouting() bool
-
 	// RequireEndpointRoute returns true if the endpoint wishes to have a
 	// per endpoint route installed in the host's routing table to point to
 	// the endpoint's interface
