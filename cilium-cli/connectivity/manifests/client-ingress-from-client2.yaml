@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-ingress-from-client2
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:other: client
