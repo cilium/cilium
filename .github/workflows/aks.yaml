@@ -22,7 +22,7 @@ jobs:
   installation-and-connectivity:
     if: ${{ (github.event.issue.pull_request && startsWith(github.event.comment.body, 'ci-aks')) || github.event_name == 'push' || github.event.label.name == 'ci-run/aks' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Set up job variables
         id: vars
@@ -125,6 +125,49 @@ jobs:
         run: |
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
           sleep 5s
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test
+
+      - name: Clean up Cilium
+        run: |
+          cilium uninstall --wait
+          pgrep -f "kubectl port-forward" | xargs kill -9 # kill background port forwards
+
+      - name: Install Cilium with encryption enabled
+        run: |
+          cilium install \
+            --encryption \
+            --cluster-name ${{ env.name }} \
+            --wait=false \
+            --config monitor-aggregation=none \
+            --azure-resource-group ${{ env.name }} \
+            --azure-tenant-id ${{ secrets.AZURE_PR_SP_TENANT_ID}} \
+            --azure-client-id ${{ secrets.AZURE_PR_SP_CLIENT_ID }} \
+            --azure-client-secret ${{ secrets.AZURE_PR_SP_CLIENT_SECRET }} \
+            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --operator-image=quay.io/${{ github.repository_owner }}/operator-azure-ci \
+            --version ${{ steps.vars.outputs.sha }}
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Port forward Relay
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
+      - name: Restart connectivity test pods
+        run: |
+          kubectl delete pod -n cilium-test --selector=kind=client
+          kubectl delete pod -n cilium-test --selector=kind=echo
+          # workaround for github.com/cilium/cilium-cli/issues/156
 
       - name: Run connectivity test
         run: |
