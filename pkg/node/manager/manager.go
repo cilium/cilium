@@ -568,6 +568,7 @@ func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
 			interval = time.Duration(baseReachableU32) * time.Millisecond
 		}
 	}
+	interval *= 10 // TODO(brb) document
 	ctx, cancel := context.WithCancel(context.Background())
 	controller.NewManager().UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
