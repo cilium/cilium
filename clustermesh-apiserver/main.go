@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ func readMockFile(path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal CiliumEndpoint")
 			} else {
-				updateEndpoint(&endpoint)
+				updateEndpoint(nil, &endpoint)
 			}
 		case strings.Contains(line, "\"Service\""):
 			var service slim_corev1.Service
@@ -416,14 +416,9 @@ func synchronizeNodes() {
 	go ciliumNodeInformer.Run(wait.NeverStop)
 }
 
-func updateEndpoint(obj interface{}) {
-	e, ok := obj.(*types.CiliumEndpoint)
-	if !ok {
-		log.Warningf("Unknown CiliumEndpoint object type %s received: %+v", reflect.TypeOf(obj), obj)
-		return
-	}
-
-	if n := e.Networking; n != nil {
+func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
+	var ipsAdded []string
+	if n := newEp.Networking; n != nil {
 		for _, address := range n.Addressing {
 			for _, ip := range []string{address.IPV4, address.IPV6} {
 				if ip == "" {
@@ -435,16 +430,16 @@ func updateEndpoint(obj interface{}) {
 					IP:           net.ParseIP(ip),
 					Metadata:     "",
 					HostIP:       net.ParseIP(n.NodeIP),
-					K8sNamespace: e.Namespace,
-					K8sPodName:   e.Name,
+					K8sNamespace: newEp.Namespace,
+					K8sPodName:   newEp.Name,
 				}
 
-				if e.Identity != nil {
-					entry.ID = identity.NumericIdentity(e.Identity.ID)
+				if newEp.Identity != nil {
+					entry.ID = identity.NumericIdentity(newEp.Identity.ID)
 				}
 
-				if e.Encryption != nil {
-					entry.Key = uint8(e.Encryption.Key)
+				if newEp.Encryption != nil {
+					entry.Key = uint8(newEp.Encryption.Key)
 				}
 
 				marshaledEntry, err := json.Marshal(entry)
@@ -457,7 +452,39 @@ func updateEndpoint(obj interface{}) {
 				if err != nil {
 					log.WithError(err).Warningf("Unable to update endpoint %s in etcd", keyPath)
 				} else {
+					ipsAdded = append(ipsAdded, ip)
 					log.Infof("Inserted endpoint into etcd: %v", entry)
+				}
+			}
+		}
+	}
+
+	// Delete the old endpoint IPs from the KVStore in case the endpoint
+	// changed its IP addresses.
+	if oldEp == nil {
+		return
+	}
+	oldNet := oldEp.Networking
+	if oldNet == nil {
+		return
+	}
+	for _, address := range oldNet.Addressing {
+		for _, oldIP := range []string{address.IPV4, address.IPV6} {
+			var found bool
+			for _, newIP := range ipsAdded {
+				if newIP == oldIP {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Delete the old IPs from the kvstore:
+				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, oldIP)
+				if err := kvstore.Client().Delete(context.Background(), keyPath); err != nil {
+					log.WithError(err).
+						WithFields(logrus.Fields{
+							"path": keyPath,
+						}).Warningf("Unable to delete endpoint in etcd")
 				}
 			}
 		}
@@ -467,7 +494,7 @@ func updateEndpoint(obj interface{}) {
 func deleteEndpoint(obj interface{}) {
 	e, ok := obj.(*types.CiliumEndpoint)
 	if !ok {
-		log.Warningf("Unknown CiliumEndpoint object type %s received: %+v", reflect.TypeOf(obj), obj)
+		log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", obj, obj)
 		return
 	}
 
@@ -494,9 +521,26 @@ func synchronizeCiliumEndpoints() {
 		&ciliumv2.CiliumEndpoint{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: updateEndpoint,
-			UpdateFunc: func(_, newObj interface{}) {
-				updateEndpoint(newObj)
+			AddFunc: func(obj interface{}) {
+				e, ok := obj.(*types.CiliumEndpoint)
+				if !ok {
+					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", obj, obj)
+					return
+				}
+				updateEndpoint(nil, e)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldEp, ok := oldObj.(*types.CiliumEndpoint)
+				if !ok {
+					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", oldObj, oldObj)
+					return
+				}
+				newEp, ok := newObj.(*types.CiliumEndpoint)
+				if !ok {
+					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", newObj, newObj)
+					return
+				}
+				updateEndpoint(oldEp, newEp)
 			},
 			DeleteFunc: func(obj interface{}) {
 				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)

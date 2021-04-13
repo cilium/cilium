@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricCreate, valid, equal) }()
 					if ciliumEndpoint, ok := obj.(*types.CiliumEndpoint); ok {
 						valid = true
-						k.endpointUpdated(ciliumEndpoint)
+						k.endpointUpdated(nil, ciliumEndpoint)
 						k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
 					}
 				},
@@ -66,7 +66,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 								equal = true
 								return
 							}
-							k.endpointUpdated(newCE)
+							k.endpointUpdated(oldCE, newCE)
 							k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
 						}
 					}
@@ -112,7 +112,44 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 	}
 }
 
-func (k *K8sWatcher) endpointUpdated(endpoint *types.CiliumEndpoint) {
+func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint) {
+	var namedPortsChanged bool
+	defer func() {
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+		}
+	}()
+
+	var ipsAdded []string
+	if oldEndpoint != nil && oldEndpoint.Networking != nil {
+		// Delete the old IP addresses from the IP cache
+		defer func() {
+			for _, oldPair := range oldEndpoint.Networking.Addressing {
+				v4Added, v6Added := false, false
+				for _, ipAdded := range ipsAdded {
+					if ipAdded == oldPair.IPV4 {
+						v4Added = true
+					}
+					if ipAdded == oldPair.IPV6 {
+						v6Added = true
+					}
+				}
+				if !v4Added {
+					portsChanged := ipcache.IPIdentityCache.Delete(oldPair.IPV4, source.CustomResource)
+					if portsChanged {
+						namedPortsChanged = true
+					}
+				}
+				if !v6Added {
+					portsChanged := ipcache.IPIdentityCache.Delete(oldPair.IPV6, source.CustomResource)
+					if portsChanged {
+						namedPortsChanged = true
+					}
+				}
+			}
+		}()
+	}
+
 	// default to the standard key
 	encryptionKey := node.GetIPsecKeyIdentity()
 
@@ -125,61 +162,57 @@ func (k *K8sWatcher) endpointUpdated(endpoint *types.CiliumEndpoint) {
 		encryptionKey = uint8(endpoint.Encryption.Key)
 	}
 
-	if endpoint.Networking != nil {
-		if endpoint.Networking.NodeIP == "" {
-			// When upgrading from an older version, the nodeIP may
-			// not be available yet in the CiliumEndpoint and we
-			// have to wait for it to be propagated
-			return
-		}
+	if endpoint.Networking == nil || endpoint.Networking.NodeIP == "" {
+		// When upgrading from an older version, the nodeIP may
+		// not be available yet in the CiliumEndpoint and we
+		// have to wait for it to be propagated
+		return
+	}
 
-		nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
-		if nodeIP == nil {
-			log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
-			return
-		}
+	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
+	if nodeIP == nil {
+		log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
+		return
+	}
 
-		k8sMeta := &ipcache.K8sMetadata{
-			Namespace:  endpoint.Namespace,
-			PodName:    endpoint.Name,
-			NamedPorts: make(policy.NamedPortMap, len(endpoint.NamedPorts)),
+	k8sMeta := &ipcache.K8sMetadata{
+		Namespace:  endpoint.Namespace,
+		PodName:    endpoint.Name,
+		NamedPorts: make(policy.NamedPortMap, len(endpoint.NamedPorts)),
+	}
+	for _, port := range endpoint.NamedPorts {
+		p, err := u8proto.ParseProtocol(port.Protocol)
+		if err != nil {
+			continue
 		}
-		for _, port := range endpoint.NamedPorts {
-			p, err := u8proto.ParseProtocol(port.Protocol)
-			if err != nil {
-				continue
-			}
-			k8sMeta.NamedPorts[port.Name] = policy.PortProto{
-				Port:  uint16(port.Port),
-				Proto: uint8(p),
-			}
+		k8sMeta.NamedPorts[port.Name] = policy.PortProto{
+			Port:  port.Port,
+			Proto: uint8(p),
 		}
+	}
 
-		namedPortsChanged := false
-		for _, pair := range endpoint.Networking.Addressing {
-			if pair.IPV4 != "" {
-				_, portsChanged := ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
-					ipcache.Identity{ID: id, Source: source.CustomResource})
-				if portsChanged {
-					namedPortsChanged = true
-				}
-			}
-
-			if pair.IPV6 != "" {
-				_, portsChanged := ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
-					ipcache.Identity{ID: id, Source: source.CustomResource})
-				if portsChanged {
-					namedPortsChanged = true
-				}
+	for _, pair := range endpoint.Networking.Addressing {
+		if pair.IPV4 != "" {
+			ipsAdded = append(ipsAdded, pair.IPV4)
+			_, portsChanged := ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
+				ipcache.Identity{ID: id, Source: source.CustomResource})
+			if portsChanged {
+				namedPortsChanged = true
 			}
 		}
-		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
-		}
 
-		if option.Config.EnableEgressGateway {
-			k.egressPolicyManager.OnUpdateEndpoint(endpoint)
+		if pair.IPV6 != "" {
+			ipsAdded = append(ipsAdded, pair.IPV6)
+			_, portsChanged := ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
+				ipcache.Identity{ID: id, Source: source.CustomResource})
+			if portsChanged {
+				namedPortsChanged = true
+			}
 		}
+	}
+
+	if option.Config.EnableEgressGateway {
+		k.egressPolicyManager.OnUpdateEndpoint(endpoint)
 	}
 }
 

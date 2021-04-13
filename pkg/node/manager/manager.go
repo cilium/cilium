@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -358,6 +358,13 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 	}
 
+	var ipsAdded, healthIPsAdded []string
+
+	// helper function with the required logic to skip IPCache interactions
+	skipIPCache := func(address nodeTypes.Address) bool {
+		return m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP
+	}
+
 	for _, address := range n.IPAddresses {
 		var tunnelIP net.IP
 		key := n.EncryptionKey
@@ -371,7 +378,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			tunnelIP = nodeIP
 		}
 
-		if m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP {
+		if skipIPCache(address) {
 			continue
 		}
 
@@ -385,7 +392,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			key = 0
 		}
 
-		isOwning, _ := m.ipcache.Upsert(address.IP.String(), tunnelIP, key, nil, ipcache.Identity{
+		ipAddrStr := address.IP.String()
+		isOwning, _ := m.ipcache.Upsert(ipAddrStr, tunnelIP, key, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
@@ -396,6 +404,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// that source of truth is updated.
 		if !isOwning {
 			dpUpdate = false
+		} else {
+			ipsAdded = append(ipsAdded, ipAddrStr)
 		}
 	}
 
@@ -403,12 +413,15 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		if address == nil {
 			continue
 		}
-		isOwning, _ := m.ipcache.Upsert(address.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		addrStr := address.String()
+		isOwning, _ := m.ipcache.Upsert(addrStr, nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})
 		if !isOwning {
 			dpUpdate = false
+		} else {
+			healthIPsAdded = append(healthIPsAdded, addrStr)
 		}
 	}
 
@@ -431,6 +444,19 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 				nh.NodeUpdate(oldNode, entry.node)
 			})
 		}
+		// Delete the old node IP addresses if they have changed in this node.
+		var oldNodeIPAddrs []net.IP
+		for _, address := range oldNode.IPAddresses {
+			if skipIPCache(address) {
+				continue
+			}
+			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP)
+		}
+		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded)
+
+		// Delete the old health IP addresses if they have changed in this node.
+		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP}, healthIPsAdded)
+
 		entry.mutex.Unlock()
 	} else {
 		m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
@@ -446,6 +472,29 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			})
 		}
 		entry.mutex.Unlock()
+	}
+}
+
+// deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
+// if they are not found in the newIPs slice.
+func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string) {
+	for _, address := range oldIPs {
+		if address == nil {
+			continue
+		}
+		addrStr := address.String()
+		var found bool
+		for _, ipAdded := range newIPs {
+			if ipAdded == addrStr {
+				found = true
+				break
+			}
+		}
+		// Delete from the IPCache if the node's IP addresses was not
+		// added in this update.
+		if !found {
+			m.ipcache.Delete(addrStr, oldSource)
+		}
 	}
 }
 

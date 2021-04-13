@@ -229,7 +229,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 	var err error
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) > 0 {
-		err = k.updatePodHostData(pod, podIPs)
+		err = k.updatePodHostData(nil, pod, nil, podIPs)
 
 		// There might be duplicate callbacks here since this function is also
 		// called from updateK8sPodV1, the consumer will need to handle the duplicate
@@ -580,19 +580,49 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 	return svcs
 }
 
-func (k *K8sWatcher) upsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
+func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs []string) error {
 	if !option.Config.EnableHostPort {
 		return nil
 	}
+	var svcsAdded []loadbalancer.L3n4Addr
 
 	logger := log.WithFields(logrus.Fields{
-		logfields.K8sPodName:   pod.ObjectMeta.Name,
-		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIPs":               podIPs,
-		"hostIP":               pod.Status.HostIP,
+		logfields.K8sPodName:   newPod.ObjectMeta.Name,
+		logfields.K8sNamespace: newPod.ObjectMeta.Namespace,
+		"podIPs":               newPodIPs,
+		"hostIP":               newPod.Status.HostIP,
 	})
 
-	svcs := k.genServiceMappings(pod, podIPs, logger)
+	svcs := k.genServiceMappings(newPod, newPodIPs, logger)
+
+	if oldPod != nil {
+		for _, dpSvc := range svcs {
+			svcsAdded = append(svcsAdded, dpSvc.Frontend.L3n4Addr)
+		}
+
+		defer func() {
+			// delete all IPs that were not added regardless if the insertion of
+			// service in LB map was successful or not because we will not receive
+			// any other event with these old IP addresses.
+			oldSvcs := k.genServiceMappings(oldPod, oldPodIPs, logger)
+
+			for _, dpSvc := range oldSvcs {
+				var added bool
+				for _, svcsAdded := range svcsAdded {
+					if dpSvc.Frontend.L3n4Addr.DeepEqual(&svcsAdded) {
+						added = true
+						break
+					}
+				}
+				if !added {
+					if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
+						logger.WithError(err).Error("Error while deleting service in LB map")
+					}
+				}
+			}
+		}()
+	}
+
 	if len(svcs) == 0 {
 		return nil
 	}
@@ -604,9 +634,10 @@ func (k *K8sWatcher) upsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 			Type:                dpSvc.Type,
 			TrafficPolicy:       dpSvc.TrafficPolicy,
 			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
-			Name:                fmt.Sprintf("%s/host-port/%d", pod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
-			Namespace:           pod.ObjectMeta.Namespace,
+			Name:                fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
+			Namespace:           newPod.ObjectMeta.Namespace,
 		}
+
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			logger.WithError(err).Error("Error while inserting service in LB map")
 			return err
@@ -643,26 +674,53 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	return nil
 }
 
-func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) error {
-	err := k.upsertHostPortMapping(pod, podIPs)
+func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs []string) error {
+	var namedPortsChanged bool
+	defer func() {
+		// delete all IPs that were not added regardless if the insertion of the
+		// entry in the ipcache map was successful or not because we will not
+		// receive any other event with these old IP addresses.
+		for _, oldPodIP := range oldPodIPs {
+			var found bool
+			for _, newPodIP := range newPodIPs {
+				if newPodIP == oldPodIP {
+					found = true
+					break
+				}
+			}
+			if !found {
+				npc := ipcache.IPIdentityCache.Delete(oldPodIP, source.Kubernetes)
+				if npc {
+					namedPortsChanged = true
+				}
+			}
+		}
+
+		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+		}
+	}()
+
+	err := k.upsertHostPortMapping(oldPod, newPod, oldPodIPs, newPodIPs)
 	if err != nil {
-		return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
+		return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", newPodIPs)
 	}
 
-	hostIP := net.ParseIP(pod.Status.HostIP)
+	hostIP := net.ParseIP(newPod.Status.HostIP)
 	if hostIP == nil {
-		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
 
 	k8sMeta := &ipcache.K8sMetadata{
-		Namespace: pod.Namespace,
-		PodName:   pod.Name,
+		Namespace: newPod.Namespace,
+		PodName:   newPod.Name,
 	}
 
 	// Store Named ports, if any.
-	for _, container := range pod.Spec.Containers {
+	for _, container := range newPod.Spec.Containers {
 		for _, port := range container.Ports {
 			if port.Name == "" {
 				continue
@@ -685,17 +743,16 @@ func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) er
 	}
 
 	var errs []string
-	for _, podIP := range podIPs {
+	for _, podIP := range newPodIPs {
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
-		selfOwned, namedPortsChanged := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+		selfOwned, npc := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 			ID:     identity.ReservedIdentityUnmanaged,
 			Source: source.Kubernetes,
 		})
-		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
-		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+		if npc {
+			namedPortsChanged = true
 		}
 		if !selfOwned {
 			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent", podIP))
