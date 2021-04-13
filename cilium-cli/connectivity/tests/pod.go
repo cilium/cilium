@@ -38,17 +38,13 @@ func (t *PodToPod) Name() string {
 func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
 	for _, client := range c.ClientPods() {
 		for _, echo := range c.EchoPods() {
-			run := check.NewTestRun(t, c, client, echo)
+			run := check.NewTestRun(t, c, client, echo, 8080)
 			cmd := curlCommand(net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080)))
 			stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
 			run.LogResult(cmd, err, stdout)
-			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-				DstPort: 8080,
-			})
+			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{})
 			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
-			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{
-				DstPort: 8080,
-			})
+			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{})
 			if ingressFlowRequirements != nil {
 				run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, ingressFlowRequirements)
 			}

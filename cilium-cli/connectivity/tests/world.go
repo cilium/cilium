@@ -36,15 +36,44 @@ func (t *PodToWorld) Name() string {
 func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	fqdn := "google.com"
 
-	for _, client := range c.ClientPods() {
-		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn})
+	// With https
+	if client := c.RandomClientPod(); client != nil {
+		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn}, 443)
 		cmd := curlCommand("https://" + fqdn)
 		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
 		run.LogResult(cmd, err, stdout)
 		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 			DNSRequired: true,
 			RSTAllowed:  true,
-			DstPort:     443,
+		})
+		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+		run.End()
+	}
+
+	// With http
+	if client := c.RandomClientPod(); client != nil {
+		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn}, 80)
+		cmd := curlCommand("http://" + fqdn)
+		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+		run.LogResult(cmd, err, stdout)
+		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
+			DNSRequired: true,
+			RSTAllowed:  true,
+		})
+		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+		run.End()
+	}
+
+	// With http to www.google.com
+	fqdn2 := "www.google.com"
+	if client := c.RandomClientPod(); client != nil {
+		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn2}, 80)
+		cmd := curlCommand("http://" + fqdn2)
+		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+		run.LogResult(cmd, err, stdout)
+		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
+			DNSRequired: true,
+			RSTAllowed:  true,
 		})
 		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
 		run.End()

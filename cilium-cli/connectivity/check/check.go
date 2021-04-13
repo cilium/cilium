@@ -19,7 +19,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -274,6 +276,9 @@ type TestContext interface {
 	// ClientPods returns a map of all deployed client pods
 	ClientPods() map[string]PodContext
 
+	// RandomClientPod returns a randomly selected client pod, if available
+	RandomClientPod() *PodContext
+
 	// EchoServices returns a map of all deployed echo services
 	EchoServices() map[string]ServiceContext
 
@@ -336,6 +341,9 @@ type TestRun struct {
 	// Dst is the peer used as the destination (server)
 	Dst TestPeer
 
+	// DstPort is the destination port number used by the traffic in this test case
+	DstPort int
+
 	// expectedEgress is the expected test result for egress from the source pod
 	expectedEgress Result
 
@@ -358,15 +366,16 @@ type TestRun struct {
 }
 
 // NewTestRun creates a new test run
-func NewTestRun(t ConnectivityTest, c TestContext, src, dst TestPeer) *TestRun {
-	c.Header("🔌 [%s] Testing %s -> %s...", t.Name(), src.Name(), dst.Name())
+func NewTestRun(t ConnectivityTest, c TestContext, src, dst TestPeer, dstPort int) *TestRun {
+	c.Header("🔌 [%s] Testing %s -> %s:%d...", t.Name(), src.Name(), dst.Name(), dstPort)
 
 	run := &TestRun{
 		name:        t.Name(),
-		verboseName: fmt.Sprintf("%s: %s -> %s", t.Name(), src.Name(), dst.Name()),
+		verboseName: fmt.Sprintf("%s: %s -> %s:%d", t.Name(), src.Name(), dst.Name(), dstPort),
 		context:     c,
 		Src:         src,
 		Dst:         dst,
+		DstPort:     dstPort,
 		started:     time.Now(),
 		flows:       map[string]*flowsSet{},
 		flowResults: map[string]FlowRequirementResults{},
@@ -404,7 +413,7 @@ func (t *TestRun) Waiting(format string, a ...interface{}) {
 func (t *TestRun) LogResult(cmd []string, err error, stdout bytes.Buffer) {
 	cmdName := cmd[0]
 	cmdStr := strings.Join(cmd, " ")
-	shouldSucceed := t.expectedEgress == ResultOK && t.expectedIngress == ResultOK
+	shouldSucceed := !t.expectedEgress.Drop && !t.expectedIngress.Drop
 	if err != nil {
 		if shouldSucceed {
 			t.Failure("%s command %q failed: %w", cmdName, cmdStr, err)
@@ -582,9 +591,6 @@ type FlowParameters struct {
 	// RSTAllowed is true if TCP connection may end with either RST or FIN
 	RSTAllowed bool
 
-	// DstPort is the destination port number to be mached. Ignored for ICMP.
-	DstPort int
-
 	// NodePort, if non-zero, indicates an alternative port number for the DstPort to be matched
 	NodePort int
 }
@@ -607,10 +613,17 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 		icmpRequest := filters.Or(filters.ICMP(8), filters.ICMPv6(128))
 		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
 
-		switch t.expectedEgress {
-		case ResultOK:
-			if t.expectedIngress != ResultOK {
-				// If ingress drops we may get the drop flows also for egress, tolerate that
+		if t.expectedEgress.Drop {
+			egress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
+				},
+			}
+		} else {
+			if t.expectedIngress.Drop {
+				// If ingress drops is in the same node we get the drop flows also for egress, tolerate that
 				egress = &filters.FlowSetRequirement{
 					First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 					Last:  filters.FlowRequirement{Filter: filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, filters.Drop())), Msg: "ICMP response or request drop", SkipOnAggregation: true},
@@ -624,55 +637,16 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 					},
 				}
 			}
-		case ResultDrop:
-			egress = &filters.FlowSetRequirement{
-				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
-				Except: []filters.FlowRequirement{
-					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
-				},
-			}
-		default:
-			t.Failure("Invalid expected ICMP egress result %s", t.expectedEgress.String())
 		}
 	case TCP:
-		tcpRequest := filters.TCP(0, p.DstPort)
-		tcpResponse := filters.TCP(p.DstPort, 0)
+		tcpRequest := filters.TCP(0, t.DstPort)
+		tcpResponse := filters.TCP(t.DstPort, 0)
 		if p.NodePort != 0 {
 			tcpRequest = filters.Or(filters.TCP(0, p.NodePort), tcpRequest)
 			tcpResponse = filters.Or(filters.TCP(p.NodePort, 0), tcpResponse)
 		}
 
-		switch t.expectedEgress {
-		case ResultOK:
-			if p.RSTAllowed {
-				egress = &filters.FlowSetRequirement{
-					First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
-					Middle: []filters.FlowRequirement{
-						{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
-					},
-					// For the connection termination, we will either see:
-					// a) FIN + FIN b) FIN + RST c) RST
-					Last: filters.FlowRequirement{Filter: filters.And(ipResponse, tcpResponse, filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST", SkipOnAggregation: true},
-					Except: []filters.FlowRequirement{
-						{Filter: filters.Drop(), Msg: "Drop"},
-					},
-				}
-			} else {
-				egress = &filters.FlowSetRequirement{
-					First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
-					Middle: []filters.FlowRequirement{
-						{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
-					},
-					// Either side may FIN first
-					Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
-					Except: []filters.FlowRequirement{
-						{Filter: filters.RST(), Msg: "RST"},
-						{Filter: filters.Drop(), Msg: "Drop"},
-					},
-				}
-			}
-		case ResultDrop:
+		if t.expectedEgress.Drop {
 			egress = &filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
@@ -681,8 +655,32 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 					{Filter: filters.FIN(), Msg: "FIN"},
 				},
 			}
-		default:
-			t.Failure("Invalid expected TCP egress result %s", t.expectedEgress.String())
+		} else {
+			egress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
+				Middle: []filters.FlowRequirement{
+					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+				},
+				// Either side may FIN first
+				Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
+			}
+			if t.expectedEgress.HTTP.Status != "" || t.expectedEgress.HTTP.Method != "" || t.expectedEgress.HTTP.URL != "" {
+				code, err := strconv.Atoi(t.expectedEgress.HTTP.Status)
+				if err != nil {
+					code = math.MaxUint32
+				}
+				egress.Middle = append(egress.Middle, filters.FlowRequirement{Filter: filters.HTTP(uint32(code), t.expectedEgress.HTTP.Method, t.expectedEgress.HTTP.URL), Msg: "HTTP"})
+			}
+			if p.RSTAllowed {
+				// For the connection termination, we will either see:
+				// a) FIN + FIN b) FIN + RST c) RST
+				egress.Last = filters.FlowRequirement{Filter: filters.And(ipResponse, tcpResponse, filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST", SkipOnAggregation: true}
+			} else {
+				egress.Except = append(egress.Except, filters.FlowRequirement{Filter: filters.RST(), Msg: "RST"})
+			}
 		}
 	case UDP:
 		t.Failure("UDP egress flow matching not implemented yet")
@@ -690,7 +688,7 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 		t.Failure("Invalid egress flow matching protocol %d", p.Protocol)
 	}
 
-	if p.DNSRequired {
+	if p.DNSRequired || t.expectedEgress.DNSProxy {
 		dnsRequest := filters.Or(filters.UDP(0, 53), filters.TCP(0, 53))
 		dnsResponse := filters.Or(filters.UDP(53, 0), filters.TCP(53, 0))
 
@@ -700,17 +698,25 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 			{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"},
 			first,
 		}, egress.Middle...)
+
+		if t.expectedEgress.DNSProxy {
+			egress.Middle = append([]filters.FlowRequirement{
+				{Filter: filters.And(ipResponse, dnsResponse, filters.DNS(t.Dst.Address()+".", 0)), Msg: "DNS proxy"},
+			}, egress.Middle...)
+		}
 	}
 
 	return egress
 }
 
 func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequirement {
+	var ingress *filters.FlowSetRequirement
+	if t.expectedIngress.None {
+		return ingress
+	}
+
 	srcIP := t.Src.Address()
 	dstIP := t.Dst.Address()
-
-	var ingress *filters.FlowSetRequirement
-
 	if dstIP != "" && net.ParseIP(dstIP) == nil {
 		// dstIP is not an IP address, assume it is a domain name
 		dstIP = ""
@@ -719,8 +725,8 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 	ipResponse := filters.IP(dstIP, srcIP)
 	ipRequest := filters.IP(srcIP, dstIP)
 
-	tcpRequest := filters.TCP(0, p.DstPort)
-	tcpResponse := filters.TCP(p.DstPort, 0)
+	tcpRequest := filters.TCP(0, t.DstPort)
+	tcpResponse := filters.TCP(t.DstPort, 0)
 	if p.NodePort != 0 {
 		tcpRequest = filters.Or(filters.TCP(0, p.NodePort), tcpRequest)
 		tcpResponse = filters.Or(filters.TCP(p.NodePort, 0), tcpResponse)
@@ -731,16 +737,7 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 		icmpRequest := filters.Or(filters.ICMP(8), filters.ICMPv6(128))
 		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
 
-		switch t.expectedIngress {
-		case ResultOK:
-			ingress = &filters.FlowSetRequirement{
-				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
-				Except: []filters.FlowRequirement{
-					{Filter: filters.Drop(), Msg: "Drop"},
-				},
-			}
-		case ResultDrop:
+		if t.expectedIngress.Drop {
 			ingress = &filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
@@ -748,12 +745,20 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
 				},
 			}
-		default:
-			t.Failure("Invalid expected ICMP ingress result %s", t.expectedEgress.String())
+		} else {
+			ingress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.Drop(), Msg: "Drop"},
+				},
+			}
 		}
 	case TCP:
-		switch t.expectedIngress {
-		case ResultOK:
+		if t.expectedIngress.Drop {
+			// Ingress drops not supported yet
+			t.Failure("Unimplemented expected TCP ingress result %s", t.expectedIngress.String())
+		} else {
 			ingress = &filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Middle: []filters.FlowRequirement{
@@ -766,11 +771,6 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 					{Filter: filters.Drop(), Msg: "Drop"},
 				},
 			}
-		case ResultNone:
-			// Nothing, used when expecting a drop in egress so that packet does not show up at ingress
-		default:
-			// Ingress drops not supported yet
-			t.Failure("Invalid expected TCP ingress result %s", t.expectedIngress.String())
 		}
 	case UDP:
 		t.Failure("UDP ingress flow matching not implemented yet")
@@ -1510,7 +1510,7 @@ func (k *K8sConnectivityCheck) waitForDeploymentsReady(ctx context.Context, clie
 	return nil
 }
 
-func (k *K8sConnectivityCheck) randomClientPod() *PodContext {
+func (k *K8sConnectivityCheck) RandomClientPod() *PodContext {
 	for _, p := range k.clientPods {
 		return &p
 	}
@@ -1523,7 +1523,7 @@ func (k *K8sConnectivityCheck) waitForService(ctx context.Context, client k8sCon
 	ctx, cancel := context.WithTimeout(ctx, k.params.serviceReadyTimeout())
 	defer cancel()
 
-	clientPod := k.randomClientPod()
+	clientPod := k.RandomClientPod()
 	if clientPod == nil {
 		return fmt.Errorf("no client pod available")
 	}
