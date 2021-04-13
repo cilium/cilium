@@ -938,6 +938,15 @@ func init() {
 	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
 	option.BindEnv(option.HubbleExportFileCompress)
 
+	flags.Bool(option.EnableHubbleRecorderAPI, false, "Enable the Hubble recorder API")
+	option.BindEnv(option.EnableHubbleRecorderAPI)
+
+	flags.String(option.HubbleRecorderStoragePath, defaults.HubbleRecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
+	option.BindEnv(option.HubbleRecorderStoragePath)
+
+	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
+	option.BindEnv(option.HubbleRecorderSinkQueueSize)
+
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(option.DisableIptablesFeederRules)
 

@@ -24,6 +24,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
+	recorderpb "github.com/cilium/cilium/api/v1/recorder"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -43,6 +44,7 @@ type Options struct {
 	HealthService   healthpb.HealthServer
 	ObserverService observerpb.ObserverServer
 	PeerService     peerpb.PeerServer
+	RecorderService recorderpb.RecorderServer
 	ServerTLSConfig certloader.ServerConfigBuilder
 	Insecure        bool
 }
@@ -131,6 +133,14 @@ func WithInsecure() Option {
 func WithServerTLS(cfg certloader.ServerConfigBuilder) Option {
 	return func(o *Options) error {
 		o.ServerTLSConfig = cfg
+		return nil
+	}
+}
+
+// WithPeerService configures the server to expose the given peer server service.
+func WithRecorderService(svc recorderpb.RecorderServer) Option {
+	return func(o *Options) error {
+		o.RecorderService = svc
 		return nil
 	}
 }

@@ -75,6 +75,13 @@ const (
 	// HubbleSockPath.
 	HubbleSockPathEnv = "HUBBLE_SOCK"
 
+	// HubbleRecorderStoragePath specifies the directory in which pcap files
+	// created via the Hubble Recorder API are stored
+	HubbleRecorderStoragePath = RuntimePath + "/pcaps"
+
+	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
+	HubbleRecorderSinkQueueSize = 1024
+
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
 	// This is the 1.2 protocol version.
