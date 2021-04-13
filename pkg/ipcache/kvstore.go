@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -303,6 +303,12 @@ restart:
 					}
 				}
 
+				// There is no need to delete the "old" IP addresses from this
+				// ip ID pair. The only places where the ip ID pair are created
+				// is the clustermesh, where it sends a delete to the KVStore,
+				// and the endpoint-runIPIdentitySync where it bounded to a
+				// lease and a controller which is stopped/removed when the
+				// endpoint is gone.
 				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
 					ID:     ipIDPair.ID,
 					Source: source.KVStore,
