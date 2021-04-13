@@ -17,6 +17,7 @@ package hubble
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -405,6 +406,27 @@ func (k *K8sHubble) createRelayClientCertificate(ctx context.Context) error {
 	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewSecret(defaults.RelayClientSecretName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.RelayClientSecretName, err)
+	}
+
+	return nil
+}
+
+func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
+	cmd := "kubectl"
+	args := []string{
+		"port-forward",
+		"-n", k.params.Namespace,
+		"svc/hubble-relay",
+		"--address", "0.0.0.0",
+		"--address", "::",
+		fmt.Sprintf("%d:80", k.params.PortForward)}
+
+	c := exec.Command(cmd, args...)
+	c.Stdout = k.params.Writer
+	c.Stderr = k.params.Writer
+
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("unable to execute command %s %v: %s", cmd, args, err)
 	}
 
 	return nil

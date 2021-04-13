@@ -92,7 +92,7 @@ jobs:
       - name: Relay Port Forward
         run: |
           CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
-          kubectl --context $CONTEXT1 port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward --context $CONTEXT1&
           sleep 5s
 
       - name: Connectivity test
