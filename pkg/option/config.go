@@ -880,6 +880,16 @@ const (
 	// HubbleExportFileCompress specifies whether rotated files are compressed.
 	HubbleExportFileCompress = "hubble-export-file-compress"
 
+	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
+	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
+
+	// HubbleRecorderStoragePath specifies the directory in which pcap files
+	// created via the Hubble Recorder API are stored
+	HubbleRecorderStoragePath = "hubble-recorder-storage-path"
+
+	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
+	HubbleRecorderSinkQueueSize = "hubble-recorder-sink-queue-size"
+
 	// DisableIptablesFeederRules specifies which chains will be excluded
 	// when installing the feeder rules
 	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
@@ -1842,6 +1852,16 @@ type DaemonConfig struct {
 	// HubbleExportFileCompress specifies whether rotated files are compressed.
 	HubbleExportFileCompress bool
 
+	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
+	EnableHubbleRecorderAPI bool
+
+	// HubbleRecorderStoragePath specifies the directory in which pcap files
+	// created via the Hubble Recorder API are stored
+	HubbleRecorderStoragePath string
+
+	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
+	HubbleRecorderSinkQueueSize int
+
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout time.Duration
 
@@ -2672,6 +2692,9 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleExportFileMaxSizeMB = viper.GetInt(HubbleExportFileMaxSizeMB)
 	c.HubbleExportFileMaxBackups = viper.GetInt(HubbleExportFileMaxBackups)
 	c.HubbleExportFileCompress = viper.GetBool(HubbleExportFileCompress)
+	c.EnableHubbleRecorderAPI = viper.GetBool(EnableHubbleRecorderAPI)
+	c.HubbleRecorderStoragePath = viper.GetString(HubbleRecorderStoragePath)
+	c.HubbleRecorderSinkQueueSize = viper.GetInt(HubbleRecorderSinkQueueSize)
 	c.DisableIptablesFeederRules = viper.GetStringSlice(DisableIptablesFeederRules)
 
 	// Hidden options

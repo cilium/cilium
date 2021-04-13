@@ -37,6 +37,9 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	"github.com/cilium/cilium/pkg/hubble/recorder"
+	"github.com/cilium/cilium/pkg/hubble/recorder/recorderoption"
+	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -168,13 +171,32 @@ func (d *Daemon) launchHubble() {
 	if option.Config.HubbleTLSDisabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
-	localSrv, err := server.NewServer(logger,
+
+	localSrvOpts := []serveroption.Option{
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
 		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)),
 		serveroption.WithInsecure(),
-	)
+	}
+
+	if option.Config.EnableRecorder && option.Config.EnableHubbleRecorderAPI {
+		dispatch, err := sink.NewDispatch(option.Config.HubbleRecorderSinkQueueSize)
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
+			return
+		}
+		d.monitorAgent.RegisterNewConsumer(dispatch)
+		svc, err := recorder.NewService(d.rec, dispatch,
+			recorderoption.WithStoragePath(option.Config.HubbleRecorderStoragePath))
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble recorder service")
+			return
+		}
+		localSrvOpts = append(localSrvOpts, serveroption.WithRecorderService(svc))
+	}
+
+	localSrv, err := server.NewServer(logger, localSrvOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize local Hubble server")
 		return

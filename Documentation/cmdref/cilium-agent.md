@@ -85,6 +85,7 @@ cilium-agent [flags]
       --enable-host-port                                     Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
       --enable-host-reachable-services                       Enable reachability of services for host applications
       --enable-hubble                                        Enable hubble server
+      --enable-hubble-recorder-api                           Enable the Hubble recorder API
       --enable-identity-mark                                 Enable setting identity mark for local traffic (default true)
       --enable-ip-masq-agent                                 Enable BPF ip-masq-agent
       --enable-ipsec                                         Enable IPSec support
@@ -140,6 +141,8 @@ cilium-agent [flags]
       --hubble-listen-address string                         An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                               List of Hubble metrics to enable.
       --hubble-metrics-server string                         Address to serve Hubble metrics on.
+      --hubble-recorder-sink-queue-size int                  Queue size of each Hubble recorder sink (default 1024)
+      --hubble-recorder-storage-path string                  Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
       --hubble-socket-path string                            Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --hubble-tls-cert-file string                          Path to the public key file for the Hubble server. The file must contain PEM encoded data.
       --hubble-tls-client-ca-files strings                   Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
