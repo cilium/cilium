@@ -67,6 +67,7 @@ type CiliumStatusMap map[string]*models.StatusResponse
 type ErrorCount struct {
 	Errors   []error
 	Warnings []error
+	Disabled bool
 }
 
 type ErrorCountMap map[string]*ErrorCount
@@ -120,6 +121,11 @@ func (s *Status) aggregatedErrorCount(deployment, pod string) *ErrorCount {
 	}
 
 	return m[pod]
+}
+
+func (s *Status) SetDisabled(deployment, pod string, disabled bool) {
+	m := s.aggregatedErrorCount(deployment, pod)
+	m.Disabled = disabled
 }
 
 func (s *Status) AddAggregatedError(deployment, pod string, err error) {
@@ -204,22 +210,32 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 func (s *Status) statusSummary(name string) (text string) {
 	var errors, warnings int
 	if a := s.Errors[name]; a != nil {
+		var disabled bool
 		for _, c := range a {
 			errors += len(c.Errors)
 			warnings += len(c.Warnings)
+
+			if c.Disabled {
+				disabled = true
+			}
 		}
 
+		var s []string
 		if errors > 0 {
-			text += Red + fmt.Sprintf("%d errors", errors) + Reset
+			s = append(s, Red+fmt.Sprintf("%d errors", errors)+Reset)
 		}
 
 		if warnings > 0 {
-			if text != "" {
-				text += ", "
-			}
-			text += Yellow + fmt.Sprintf("%d warnings", warnings) + Reset
+			s = append(s, Yellow+fmt.Sprintf("%d warnings", warnings)+Reset)
 		}
+
+		if disabled {
+			s = append(s, Cyan+"disabled"+Reset)
+		}
+
+		text = strings.Join(s, ", ")
 	}
+
 	if text == "" {
 		text = Green + "OK" + Reset
 	}
