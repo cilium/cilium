@@ -40,8 +40,8 @@ func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	if client := c.RandomClientPod(); client != nil {
 		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn}, 443)
 		cmd := curlCommand("https://" + fqdn)
-		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-		run.LogResult(cmd, err, stdout)
+		stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+		run.LogResult(cmd, err, stdout, stderr)
 		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 			DNSRequired: true,
 			RSTAllowed:  true,
@@ -54,8 +54,8 @@ func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	if client := c.RandomClientPod(); client != nil {
 		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn}, 80)
 		cmd := curlCommand("http://" + fqdn)
-		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-		run.LogResult(cmd, err, stdout)
+		stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+		run.LogResult(cmd, err, stdout, stderr)
 		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 			DNSRequired: true,
 			RSTAllowed:  true,
@@ -69,8 +69,8 @@ func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
 	if client := c.RandomClientPod(); client != nil {
 		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn2}, 80)
 		cmd := curlCommand("http://" + fqdn2)
-		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-		run.LogResult(cmd, err, stdout)
+		stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+		run.LogResult(cmd, err, stdout, stderr)
 		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 			DNSRequired: true,
 			RSTAllowed:  true,
