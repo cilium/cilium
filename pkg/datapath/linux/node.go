@@ -760,7 +760,19 @@ func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *n
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	n.insertNeighbor(ctx, nodeToRefresh, true)
+	insertComplete := make(chan struct{})
+	go func() {
+		n.insertNeighbor(ctx, nodeToRefresh, true)
+		close(insertComplete)
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-insertComplete:
+			return
+		}
+	}
 }
 
 // Must be called with linuxNodeHandler.mutex held.
