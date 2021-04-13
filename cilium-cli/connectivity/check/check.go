@@ -306,6 +306,12 @@ type TestContext interface {
 	// Verbose returns true if additional diagnostic messages should be shown
 	Verbose() bool
 
+	// SetVerbose sets verbosity value
+	SetVerbose(bool)
+
+	// ResetVerbose returns the normal verbosity value
+	ResetVerbose()
+
 	// FlowAggregation returns true if flow aggregation is enabled in any
 	// of the clusters
 	FlowAggregation() bool
@@ -367,6 +373,7 @@ type TestRun struct {
 
 // NewTestRun creates a new test run
 func NewTestRun(t ConnectivityTest, c TestContext, src, dst TestPeer, dstPort int) *TestRun {
+	c.ResetVerbose()
 	c.Header("🔌 [%s] Testing %s -> %s:%d...", t.Name(), src.Name(), dst.Name(), dstPort)
 
 	run := &TestRun{
@@ -397,6 +404,7 @@ func NewTestRun(t ConnectivityTest, c TestContext, src, dst TestPeer, dstPort in
 func (t *TestRun) Failure(format string, a ...interface{}) {
 	t.context.Log("❌ "+format, a...)
 	t.failures++
+	t.context.SetVerbose(true)
 }
 
 // Success can be called to log a successful event
@@ -410,15 +418,15 @@ func (t *TestRun) Waiting(format string, a ...interface{}) {
 }
 
 // LogResult can be called to log command results
-func (t *TestRun) LogResult(cmd []string, err error, stdout bytes.Buffer) {
+func (t *TestRun) LogResult(cmd []string, err error, stdout, stderr bytes.Buffer) {
 	cmdName := cmd[0]
 	cmdStr := strings.Join(cmd, " ")
 	shouldSucceed := !t.expectedEgress.Drop && !t.expectedIngress.Drop
-	if err != nil {
+	if err != nil || stderr.Len() > 0 {
 		if shouldSucceed {
-			t.Failure("%s command %q failed: %w", cmdName, cmdStr, err)
+			t.Failure("%s command %q failed: %s", cmdName, cmdStr, err)
 		} else {
-			t.Success("%s command %q failed as expected: %w", cmdName, cmdStr, err)
+			t.Success("%s command %q failed as expected: %s", cmdName, cmdStr, err)
 		}
 	} else {
 		if shouldSucceed {
@@ -426,7 +434,11 @@ func (t *TestRun) LogResult(cmd []string, err error, stdout bytes.Buffer) {
 		} else {
 			t.Failure("%s command %q succeeded while it should have failed", cmdName, cmdStr)
 		}
-		if t.context.Verbose() {
+	}
+	if t.context.Verbose() {
+		if stderr.Len() > 0 {
+			t.context.Log("ℹ️  %s error: %s", cmdName, stderr.String())
+		} else if stdout.Len() > 0 {
 			t.context.Log("ℹ️  %s output: %s", cmdName, stdout.String())
 		}
 	}
@@ -951,6 +963,7 @@ type K8sConnectivityCheck struct {
 	flowAggregation    bool
 	policies           map[string]*ciliumv2.CiliumNetworkPolicy
 	policyFailures     int
+	verbose            bool
 }
 
 func NewK8sConnectivityCheck(client k8sConnectivityImplementation, p Parameters) (*K8sConnectivityCheck, error) {
@@ -1645,7 +1658,15 @@ func (k *K8sConnectivityCheck) AllFlows() bool {
 }
 
 func (k *K8sConnectivityCheck) Verbose() bool {
-	return k.params.Verbose
+	return k.verbose
+}
+
+func (k *K8sConnectivityCheck) SetVerbose(verbose bool) {
+	k.verbose = verbose
+}
+
+func (k *K8sConnectivityCheck) ResetVerbose() {
+	k.verbose = k.params.Verbose
 }
 
 func (k *K8sConnectivityCheck) FlowAggregation() bool {
