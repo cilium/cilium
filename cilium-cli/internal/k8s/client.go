@@ -239,11 +239,7 @@ func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, contai
 		Container: container,
 		Command:   command,
 	})
-	if err != nil {
-		return bytes.Buffer{}, bytes.Buffer{}, err
-	}
-
-	return result.Stdout, result.Stderr, nil
+	return result.Stdout, result.Stderr, err
 }
 
 func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
