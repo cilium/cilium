@@ -34,6 +34,9 @@ var (
 
 	//go:embed manifests/client-ingress-from-client2.yaml
 	clientIngressFromClient2PolicyYAML string
+
+	//go:embed manifests/client-egress-to-fqdns-google.yaml
+	clientEgressToFQDNsGooglePolicyYAML string
 )
 
 func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
@@ -83,5 +86,20 @@ func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
 
 		// This policy allows port 8080 from client to echo, so this should succeed
 		(&tests.PodToPod{Variant: "-client-egress-to-echo"}).WithPolicy(clientEgressToEchoPolicyYAML),
+
+		// This policy only allows port 80 to "google.com"
+		(&tests.PodToWorld{Variant: "-toFQDNs"}).
+			WithPolicy(clientEgressToFQDNsGooglePolicyYAML).
+			WithExpectations(func(t *check.TestRun) (egress, ingress check.Result) {
+				if t.DstPort == 80 && t.Dst.Address() == "google.com" {
+					egress = check.ResultDNSOK
+					egress.HTTP = check.HTTP{
+						Method: "GET",
+						URL:    "http://google.com/",
+					}
+					return egress, check.ResultNone
+				}
+				return check.ResultDNSDrop, check.ResultNone
+			}),
 	)
 }

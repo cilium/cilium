@@ -16,6 +16,7 @@ package filters
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -359,4 +360,125 @@ func (t *tcpFilter) String() string {
 // TCP matches on TCP packets with the specified source and destination ports
 func TCP(srcPort, dstPort int) FlowFilterImplementation {
 	return &tcpFilter{srcPort: srcPort, dstPort: dstPort}
+}
+
+type dnsFilter struct {
+	query string
+	rcode uint32
+}
+
+func (d *dnsFilter) Match(flow *flowpb.Flow) bool {
+	l7 := flow.GetL7()
+	if l7 == nil {
+		return false
+	}
+
+	dns := l7.GetDns()
+	if dns == nil {
+		return false
+	}
+
+	if d.query != "" && dns.Query != d.query {
+		return false
+	}
+
+	if d.rcode != math.MaxUint32 && dns.Rcode != d.rcode {
+		return false
+	}
+
+	return true
+}
+
+func (d *dnsFilter) String() string {
+	var s []string
+	if d.query != "" {
+		s = append(s, fmt.Sprintf("query=%s", d.query))
+	}
+	if d.rcode != math.MaxUint32 {
+		s = append(s, fmt.Sprintf("rcode=%d", d.rcode))
+	}
+	return "dns(" + strings.Join(s, ",") + ")"
+}
+
+// DNS matches on proxied DNS packets containing a specific value, if any
+func DNS(query string, rcode uint32) FlowFilterImplementation {
+	return &dnsFilter{query: query, rcode: rcode}
+}
+
+type httpFilter struct {
+	code     uint32
+	method   string
+	url      string
+	protocol string
+	headers  map[string]string
+}
+
+func (h *httpFilter) Match(flow *flowpb.Flow) bool {
+	l7 := flow.GetL7()
+	if l7 == nil {
+		return false
+	}
+
+	http := l7.GetHttp()
+	if http == nil {
+		return false
+	}
+
+	if h.code != math.MaxUint32 && http.Code != h.code {
+		return false
+	}
+
+	if h.method != "" && http.Method != h.method {
+		return false
+	}
+
+	if h.url != "" && http.Url != h.url {
+		return false
+	}
+
+	if h.protocol != "" && http.Protocol != h.protocol {
+		return false
+	}
+
+	for k, v := range h.headers {
+		idx := -1
+		for i, hdr := range http.Headers {
+			if hdr != nil && hdr.Key == k && (v == "" || hdr.Value == v) {
+				idx = i
+			}
+		}
+		if idx < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *httpFilter) String() string {
+	var s []string
+	if h.code != math.MaxUint32 {
+		s = append(s, fmt.Sprintf("code=%d", h.code))
+	}
+	if h.method != "" {
+		s = append(s, fmt.Sprintf("method=%s", h.method))
+	}
+	if h.url != "" {
+		s = append(s, fmt.Sprintf("url=%s", h.url))
+	}
+	if h.protocol != "" {
+		s = append(s, fmt.Sprintf("protocol=%s", h.protocol))
+	}
+	if len(h.headers) > 0 {
+		var hs []string
+		for k, v := range h.headers {
+			hs = append(hs, fmt.Sprintf("%s=%s", k, v))
+		}
+		s = append(s, "headers=("+strings.Join(hs, ",")+")")
+	}
+	return "http(" + strings.Join(s, ",") + ")"
+}
+
+// HTTP matches on proxied HTTP packets containing a specific value, if any
+func HTTP(code uint32, method, url string) FlowFilterImplementation {
+	return &httpFilter{code: code, method: method, url: url}
 }
