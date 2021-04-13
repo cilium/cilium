@@ -129,13 +129,12 @@ func testConnetivityToServiceDefinition(ctx context.Context, c check.TestContext
 		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{
 			CustomName: destination + " (" + definition.name + ")",
 			Peer:       destination,
-		})
+		}, 8080)
 		cmd := curlCommand(destination)
 		stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
 		run.LogResult(cmd, err, stdout)
 		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 			DNSRequired: definition.dns,
-			DstPort:     8080,
 			NodePort:    definition.port,
 		})
 		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
