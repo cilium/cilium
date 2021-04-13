@@ -75,6 +75,7 @@ type Parameters struct {
 	RelayServiceType string
 	PortForward      int
 	CreateCA         bool
+	UI               bool
 	Writer           io.Writer
 }
 
@@ -177,6 +178,10 @@ func (k *K8sHubble) disableHubble(ctx context.Context) error {
 }
 
 func (k *K8sHubble) Disable(ctx context.Context) error {
+	if err := k.disableUI(ctx); err != nil {
+		return err
+	}
+
 	if err := k.disableRelay(ctx); err != nil {
 		return err
 	}
@@ -233,6 +238,12 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 
 	if k.params.Relay {
 		if err := k.enableRelay(ctx); err != nil {
+			return err
+		}
+	}
+
+	if k.params.UI {
+		if err := k.enableUI(ctx); err != nil {
 			return err
 		}
 	}
