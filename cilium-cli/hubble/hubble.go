@@ -73,6 +73,7 @@ type Parameters struct {
 	RelayImage       string
 	RelayVersion     string
 	RelayServiceType string
+	PortForward      int
 	CreateCA         bool
 	Writer           io.Writer
 }
