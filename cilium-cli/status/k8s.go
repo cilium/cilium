@@ -26,6 +26,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -128,14 +129,18 @@ func (k *K8sStatusCollector) clusterMeshConnectivity(ctx context.Context, cilium
 	return c, nil
 }
 
-func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Status, name string) error {
+func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Status, name string) (bool, error) {
 	d, err := k.client.GetDeployment(ctx, k.params.Namespace, name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return true, nil
+	}
+
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if d == nil {
-		return fmt.Errorf("deployment %s is not available", name)
+		return false, fmt.Errorf("deployment %s is not available", name)
 	}
 
 	stateCount := PodStateCount{Type: "Deployment"}
@@ -154,7 +159,7 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 		status.AddAggregatedWarning(name, name, fmt.Errorf("%d pods of DaemonSet %s are not available", unavailable, name))
 	}
 
-	return nil
+	return false, nil
 }
 
 func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status, name string) error {
@@ -299,7 +304,8 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		status.CollectionError(err)
 	}
 
-	err = k.deploymentStatus(ctx, status, defaults.OperatorDeploymentName)
+	disabled, err := k.deploymentStatus(ctx, status, defaults.OperatorDeploymentName)
+	status.SetDisabled(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, disabled)
 	if err != nil {
 		status.AddAggregatedError(defaults.OperatorDeploymentName, defaults.OperatorDeploymentName, err)
 		status.CollectionError(err)
@@ -310,7 +316,8 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		status.CollectionError(err)
 	}
 
-	err = k.deploymentStatus(ctx, status, defaults.RelayDeploymentName)
+	disabled, err = k.deploymentStatus(ctx, status, defaults.RelayDeploymentName)
+	status.SetDisabled(defaults.RelayDeploymentName, defaults.RelayDeploymentName, disabled)
 	if err != nil {
 		if _, ok := status.PodState[defaults.RelayDeploymentName]; !ok {
 			status.AddAggregatedWarning(defaults.RelayDeploymentName, defaults.RelayDeploymentName, fmt.Errorf("hubble relay is not deployed"))
@@ -328,7 +335,8 @@ func (k *K8sStatusCollector) status(ctx context.Context) (*Status, error) {
 		}
 	}
 
-	err = k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
+	disabled, err = k.deploymentStatus(ctx, status, defaults.ClusterMeshDeploymentName)
+	status.SetDisabled(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, disabled)
 	if err != nil {
 		if _, ok := status.PodState[defaults.ClusterMeshDeploymentName]; !ok {
 			status.AddAggregatedWarning(defaults.ClusterMeshDeploymentName, defaults.ClusterMeshDeploymentName, fmt.Errorf("clustermesh is not deployed"))
