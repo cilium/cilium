@@ -242,7 +242,7 @@ jobs:
     if: ${{ github.repository == 'cilium/cilium' }}
     name: Display Digests
     runs-on: ubuntu-20.04
-    needs: [build-and-push-prs, build-and-push-cilium-test]
+    needs: [build-and-push-prs, build-and-push-with-qemu]
     steps:
       - name: Downloading Image Digests
         shell: bash
