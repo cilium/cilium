@@ -225,6 +225,19 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	return nil
 }
 
+// ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
+// and reinsertion of the object into the kernel as well as an atomic program replacement
+// at the XDP hook.
+func (l *Loader) ReinitializeXDP(ctx context.Context) error {
+	maybeUnloadObsoleteXDPPrograms(option.Config.XDPDevice, option.Config.XDPMode)
+	if option.Config.XDPDevice != "undefined" {
+		if err := compileAndLoadXDPProg(ctx, option.Config.XDPDevice, option.Config.XDPMode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Reinitialize (re-)configures the base datapath configuration including global
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
@@ -419,11 +432,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
-	maybeUnloadObsoleteXDPPrograms(option.Config.XDPDevice, option.Config.XDPMode)
-	if option.Config.XDPDevice != "undefined" {
-		if err := compileAndLoadXDPProg(ctx, option.Config.XDPDevice, option.Config.XDPMode); err != nil {
-			log.WithError(err).Fatal("Failed to compile XDP program")
-		}
+	if err := l.ReinitializeXDP(ctx); err != nil {
+		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
