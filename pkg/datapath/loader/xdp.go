@@ -71,7 +71,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDev, xdpMode string) {
 }
 
 // xdpCompileArgs derives compile arguments for bpf_xdp.c.
-func xdpCompileArgs(xdpDev string) ([]string, error) {
+func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 	link, err := netlink.LinkByName(xdpDev)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func xdpCompileArgs(xdpDev string) ([]string, error) {
 		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		"-DCALLS_MAP=cilium_calls_xdp",
 	}
-
+	args = append(args, extraCArgs...)
 	if option.Config.EnableNodePort {
 		args = append(args, []string{
 			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
@@ -95,8 +95,8 @@ func xdpCompileArgs(xdpDev string) ([]string, error) {
 }
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string) error {
-	args, err := xdpCompileArgs(xdpDev)
+func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCArgs []string) error {
+	args, err := xdpCompileArgs(xdpDev, extraCArgs)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
 	}
