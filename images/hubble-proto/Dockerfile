@@ -6,12 +6,6 @@ ARG ALPINE_IMAGE=docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10d
 
 FROM ${GOLANG_IMAGE} as builder
 
-RUN apk add --no-cache \
-  curl \
-  bash \
-  make \
-  && true
-
 COPY install-protoplugins.sh /tmp/install-protoplugins.sh
 RUN /tmp/install-protoplugins.sh
 
