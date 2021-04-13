@@ -15,5 +15,5 @@
 package tests
 
 func curlCommand(target string) []string {
-	return []string{"curl", "-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n", "--silent", "--fail", "--show-error", "--connect-timeout", "5", "--output", "/dev/null", target}
+	return []string{"curl", "-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n", "--show-error", "--silent", "--fail", "--show-error", "--connect-timeout", "5", "--output", "/dev/null", target}
 }
