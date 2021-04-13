@@ -56,6 +56,7 @@ type linuxNodeHandler struct {
 	neighNextHopByNode   map[nodeTypes.Identity]string // val = string(net.IP)
 	neighNextHopRefCount counter.StringCounter
 	neighByNextHop       map[string]*netlink.Neigh // key = string(net.IP)
+	neighLock            lock.Mutex
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -646,7 +647,7 @@ func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextH
 // this case it does not bail out early if the ARP entry already exists, and
 // sends the ARP request anyway.
 //
-// The method must be called with linuxNodeHandler.mutex held.
+// The method must be called with linuxNodeHandler.neighLock held.
 func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
 	if newNode.IsLocal() {
 		return
@@ -757,8 +758,8 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
 	defer close(completed)
 
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
+	n.neighLock.Lock()
+	defer n.neighLock.Unlock()
 
 	insertComplete := make(chan struct{})
 	go func() {
@@ -775,8 +776,10 @@ func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *n
 	}
 }
 
-// Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
+	n.neighLock.Lock()
+	defer n.neighLock.Unlock()
+
 	nextHopStr, found := n.neighNextHopByNode[oldNode.Identity()]
 	if !found {
 		return
@@ -886,7 +889,11 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.enableNeighDiscovery {
-		n.insertNeighbor(context.Background(), newNode, false)
+		go func() {
+			n.neighLock.Lock()
+			n.insertNeighbor(context.Background(), newNode, false)
+			n.neighLock.Unlock()
+		}()
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
@@ -982,7 +989,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if n.enableNeighDiscovery {
-		n.deleteNeighbor(oldNode)
+		go n.deleteNeighbor(oldNode)
 	}
 
 	if n.nodeConfig.EnableIPSec {
