@@ -16,6 +16,9 @@ package hubble
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -291,6 +294,40 @@ func (k *K8sHubble) enableUI(ctx context.Context) error {
 
 	if _, err := k.client.CreateService(ctx, k.params.Namespace, k.generateHubbleUIService(), metav1.CreateOptions{}); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (k *K8sHubble) UIPortForwardCommand(ctx context.Context) error {
+	cmd := "kubectl"
+	args := []string{
+		"port-forward",
+		"-n", k.params.Namespace,
+		"svc/hubble-ui",
+		"--address", "0.0.0.0",
+		"--address", "::",
+		fmt.Sprintf("%d:80", k.params.UIPortForward)}
+
+	c := exec.Command(cmd, args...)
+	c.Stdout = k.params.Writer
+	c.Stderr = k.params.Writer
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		url := fmt.Sprintf("http://localhost:%d", k.params.UIPortForward)
+
+		c := exec.Command("open", url)
+		c.Stdout = k.params.Writer
+		c.Stderr = k.params.Writer
+		if err := c.Run(); err != nil {
+			k.Log("⚠️  Unable to execute command %s %v: %s", cmd, args, err)
+			k.Log("ℹ️  Opening the following URL in your browser:" + url)
+		}
+	}()
+
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("unable to execute command %s %v: %s", cmd, args, err)
 	}
 
 	return nil
