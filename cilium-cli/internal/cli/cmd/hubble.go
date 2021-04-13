@@ -34,6 +34,7 @@ func newCmdHubble() *cobra.Command {
 	cmd.AddCommand(
 		newCmdHubbleEnable(),
 		newCmdHubbleDisable(),
+		newCmdPortForwardCommand(),
 	)
 
 	return cmd
@@ -88,6 +89,31 @@ func newCmdHubbleDisable() *cobra.Command {
 
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+
+	return cmd
+}
+
+func newCmdPortForwardCommand() *cobra.Command {
+	var params = hubble.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "port-forward",
+		Short: "Forward the relay port to the local machine",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			h := hubble.NewK8sHubble(k8sClient, params)
+			if err := h.PortForwardCommand(context.Background()); err != nil {
+				fatalf("Unable to port forward: %s", err)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().IntVar(&params.PortForward, "port-forward", 4245, "Local port to forward to")
 
 	return cmd
 }
