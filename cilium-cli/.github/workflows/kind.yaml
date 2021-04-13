@@ -52,7 +52,7 @@ jobs:
 
       - name: Relay Port Forward
         run: |
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward&
           sleep 5s
 
       - name: Connectivity Test
