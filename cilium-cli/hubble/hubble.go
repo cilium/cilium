@@ -76,6 +76,7 @@ type Parameters struct {
 	PortForward      int
 	CreateCA         bool
 	UI               bool
+	UIPortForward    int
 	Writer           io.Writer
 }
 
