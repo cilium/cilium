@@ -74,7 +74,8 @@ generate_server_certs() {
     "${cli_name}",
     "${master_hostname}",
     "${master_ip}",
-    "${cluster_api_server_ip}",
+    "${cluster_api_server_ipv4}",
+    "${cluster_api_server_ipv6}",
     "${cli_name}.cluster.default"
   ],
   "key": {
