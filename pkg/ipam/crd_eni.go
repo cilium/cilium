@@ -15,6 +15,7 @@
 package ipam
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -22,8 +23,12 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 
 	"github.com/vishvananda/netlink"
@@ -198,6 +203,21 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig) error {
 	if err != nil && !errors.Is(err, unix.ESRCH) {
 		// We ignore ESRCH, as it means the entry was already deleted
 		return fmt.Errorf("failed to delete default route %q on link %q: %w", cfg.ip, link.Attrs().Name, err)
+	}
+
+	if option.Config.EnableIPSec {
+		interfaces := []string{cfg.name}
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ExecTimeout)
+		defer cancel()
+
+		if err := connector.DisableRpFilter(cfg.name); err != nil {
+			return fmt.Errorf("failed to disable rp filter on link %q: %w", cfg.name, err)
+		}
+
+		if err := loader.ReplaceNetworkDatapath(ctx, interfaces); err != nil {
+			return fmt.Errorf("failed to attach program on link %q: %w\n",
+				cfg.name, err)
+		}
 	}
 
 	return nil

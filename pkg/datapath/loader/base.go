@@ -218,7 +218,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 			}
 		}
 
-		if err := l.replaceNetworkDatapath(ctx, interfaces); err != nil {
+		if err := ReplaceNetworkDatapath(ctx, interfaces); err != nil {
 			return fmt.Errorf("failed to load encryption program: %w", err)
 		}
 	}

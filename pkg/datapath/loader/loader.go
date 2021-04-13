@@ -384,7 +384,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	return nil
 }
 
-func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
+func ReplaceNetworkDatapath(ctx context.Context, interfaces []string) error {
 	if err := compileNetwork(ctx); err != nil {
 		log.WithError(err).Fatal("failed to compile encryption programs")
 	}
