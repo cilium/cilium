@@ -84,6 +84,7 @@ cilium connectivity test`,
 		newCmdInstall(),
 		newCmdStatus(),
 		newCmdUninstall(),
+		newCmdUpgrade(),
 		newCmdVersion(),
 	)
 	cmd.SetOut(os.Stdout)
