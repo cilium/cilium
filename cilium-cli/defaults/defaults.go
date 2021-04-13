@@ -57,6 +57,12 @@ const (
 	RelayClientSecretCertName = "tls.crt"
 	RelayClientSecretKeyName  = "tls.key"
 
+	HubbleUIServiceName        = "hubble-ui"
+	HubbleUIClusterRoleName    = "hubble-ui"
+	HubbleUIServiceAccountName = "hubble-ui"
+	HubbleUIConfigMapName      = "hubble-ui-envoy"
+	HubbleUIDeploymentName     = "hubble-ui"
+
 	ClusterMeshDeploymentName                 = "clustermesh-apiserver"
 	ClusterMeshServiceAccountName             = "clustermesh-apiserver"
 	ClusterMeshClusterRoleName                = "clustermesh-apiserver"
@@ -105,4 +111,8 @@ var (
 	}
 
 	CiliumPodSelector = "k8s-app=cilium"
+
+	HubbleUIDeploymentLabels = map[string]string{
+		"k8s-app": "hubble-ui",
+	}
 )
