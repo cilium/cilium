@@ -51,8 +51,8 @@ func (t *PodToHost) Run(ctx context.Context, c check.TestContext) {
 		for hostIP := range hostIPs {
 			cmd := []string{"ping", "-w", "3", "-c", "1", hostIP}
 			run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: hostIP}, 0) // 0 port number for ICMP
-			stdout, err := client.K8sClient.ExecInPod(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-			run.LogResult(cmd, err, stdout)
+			stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
+			run.LogResult(cmd, err, stdout, stderr)
 			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
 				Protocol: check.ICMP,
 			})
