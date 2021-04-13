@@ -29,31 +29,67 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type Result int
+type HTTP struct {
+	Status string
+	Method string
+	URL    string
+}
 
-const (
-	ResultOK Result = iota
-	ResultNone
-	ResultDrop
-	ResultL7Drop
-	ResultL7Rejected
+type Result struct {
+	// Request is dropped
+	Drop bool
+
+	// No flows are to be expected. Used for ingress when egress drops
+	None bool
+
+	// DNSProxy is true when DNS Proxy is to be expected, only valid for egress
+	DNSProxy bool
+
+	// L7Proxy is true when L7 proxy (e.g., Envoy) is to be expected
+	L7Proxy bool
+
+	// HTTPStatus is true when a HTTP status code in response is to be expected
+	HTTP HTTP
+}
+
+var (
+	ResultOK      = Result{}
+	ResultDNSOK   = Result{DNSProxy: true}
+	ResultNone    = Result{None: true}
+	ResultDrop    = Result{Drop: true}
+	ResultDNSDrop = Result{Drop: true, DNSProxy: true}
 )
 
-func (k Result) String() string {
-	switch k {
-	case ResultOK:
-		return "OK"
-	case ResultNone:
+func (r Result) String() string {
+	if r.None {
 		return "None"
-	case ResultDrop:
-		return "Drop"
-	case ResultL7Drop:
-		return "L7Drop"
-	case ResultL7Rejected:
-		return "L7Rejected"
-	default:
-		return "invalid"
 	}
+	ret := "Allow"
+	if r.Drop {
+		ret = "Drop"
+	}
+	if r.DNSProxy {
+		ret += "-DNS"
+	}
+	if r.L7Proxy {
+		ret += "-L7"
+	}
+	if r.HTTP.Status != "" || r.HTTP.Method != "" || r.HTTP.URL != "" {
+		ret += "-HTTP"
+	}
+	if r.HTTP.Method != "" {
+		ret += "-"
+		ret += r.HTTP.Method
+	}
+	if r.HTTP.URL != "" {
+		ret += "-"
+		ret += r.HTTP.URL
+	}
+	if r.HTTP.Status != "" {
+		ret += "-"
+		ret += r.HTTP.Status
+	}
+	return ret
 }
 
 type GetExpectations func(t *TestRun) (egress, ingress Result)
@@ -134,7 +170,7 @@ func (pc *PolicyContext) getExpectations(t *TestRun) (egress, ingress Result) {
 	}
 
 	egress, ingress = pc.expectFunc(t)
-	if egress != ResultOK || ingress != ResultOK {
+	if egress.Drop || ingress.Drop {
 		t.Waiting("The following command is expected to fail")
 	}
 
