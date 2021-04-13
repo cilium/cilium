@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -195,6 +196,7 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 					}
 				}
 			}
+			option.Config.EncryptInterface = interfaces
 		}
 
 		// For the ENI ipam mode on EKS, this will be the interface that
@@ -210,6 +212,12 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 
 	// No interfaces is valid in tunnel disabled case
 	if len(interfaces) != 0 {
+		for _, iface := range interfaces {
+			if err := connector.DisableRpFilter(iface); err != nil {
+				log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
+			}
+		}
+
 		if err := l.replaceNetworkDatapath(ctx, interfaces); err != nil {
 			return fmt.Errorf("failed to load encryption program: %w", err)
 		}

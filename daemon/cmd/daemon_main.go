@@ -1505,8 +1505,7 @@ func (d *Daemon) initKVStore() {
 
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice:        option.Config.HostDevice,
-		EncryptInterfaces: option.Config.EncryptInterface,
+		HostDevice: option.Config.HostDevice,
 	}
 
 	log.Info("Initializing daemon")
