@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 package utils
 
 import (
+	"sort"
+
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
@@ -104,6 +106,32 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
 	}, nil
+}
+
+// ValidIPs return a sorted slice of unique IP addresses retrieved from the given PodStatus.
+// Returns an error when no IPs are found.
+func ValidIPs(podStatus slim_corev1.PodStatus) []string {
+	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
+		return nil
+	}
+
+	// make it a set first to avoid repeated IP addresses
+	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
+	if podStatus.PodIP != "" {
+		ipsMap[podStatus.PodIP] = struct{}{}
+	}
+	for _, podIP := range podStatus.PodIPs {
+		if podIP.IP != "" {
+			ipsMap[podIP.IP] = struct{}{}
+		}
+	}
+
+	ips := make([]string, 0, len(ipsMap))
+	for ipStr := range ipsMap {
+		ips = append(ips, ipStr)
+	}
+	sort.Strings(ips)
+	return ips
 }
 
 // IsPodRunning returns true if the pod is considered to be in running state.
