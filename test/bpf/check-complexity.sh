@@ -57,4 +57,4 @@ if ! grep -q "CILIUM_CALL_SIZE.*25" "$BPFDIR/lib/common.h" ; then
 	exit 1
 fi
 
-"$TESTDIR/verifier-test.sh" -v | get_insn_cnt | annotate_section_names
+"$TESTDIR/verifier-test.sh" -v -f | get_insn_cnt | annotate_section_names
