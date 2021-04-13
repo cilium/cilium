@@ -15,13 +15,17 @@
 package recorder
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -77,9 +81,15 @@ type Recorder struct {
 	recByID map[ID]*RecInfo
 	recMask map[string]*RecMask
 	queue   recQueue
+	ctx     context.Context
 }
 
-func NewRecorder() (*Recorder, error) {
+// NewRecorder initializes the main recorder infrastructure once upon agent
+// bootstrap for tracking tuple insertions and masks that need to be pushed
+// down into the BPF datapath. Given we currently do not support restore
+// functionality, it also flushes prior existing recorder objects from the
+// BPF maps.
+func NewRecorder(ctx context.Context) (*Recorder, error) {
 	rec := &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -87,6 +97,7 @@ func NewRecorder() (*Recorder, error) {
 			add: []*RecorderTuple{},
 			del: []*RecorderTuple{},
 		},
+		ctx: ctx,
 	}
 	if option.Config.EnableRecorder {
 		maps := []*bpf.Map{}
@@ -163,8 +174,89 @@ func (t *RecorderTuple) isIPv4() bool {
 	return bits == 32
 }
 
+func (m *recorderMask) isIPv4() bool {
+	_, bits := m.srcMask.Size()
+	return bits == 32
+}
+
+func (m *recorderMask) genMacroSpec() string {
+	onesSrc, _ := m.srcMask.Size()
+	onesDst, _ := m.dstMask.Size()
+
+	spec := "{"
+	if m.isIPv4() {
+		spec += fmt.Sprintf(".daddr=__constant_htonl(0x%s),", m.dstMask.String())
+		spec += fmt.Sprintf(".saddr=__constant_htonl(0x%s),", m.srcMask.String())
+	} else {
+		spec += fmt.Sprintf(".daddr={.addr={%s}},", common.GoArray2C(m.dstMask))
+		spec += fmt.Sprintf(".saddr={.addr={%s}},", common.GoArray2C(m.srcMask))
+	}
+	spec += fmt.Sprintf(".dmask=%d,", onesDst)
+	spec += fmt.Sprintf(".smask=%d,", onesSrc)
+	spec += fmt.Sprintf(".dport=%#x,", m.dstPort)
+	spec += fmt.Sprintf(".sport=%#x,", m.srcPort)
+	spec += fmt.Sprintf(".nexthdr=%#x,", uint8(m.proto))
+	spec += "},"
+	return spec
+}
+
+func (r *Recorder) orderedMaskSets() ([]*RecMask, []*RecMask) {
+	ordered4 := []*RecMask{}
+	ordered6 := []*RecMask{}
+	for _, m := range r.recMask {
+		if m.mask.isIPv4() {
+			ordered4 = append(ordered4, m)
+		} else {
+			ordered6 = append(ordered6, m)
+		}
+	}
+	sort.Slice(ordered4, func(i, j int) bool {
+		return ordered4[i].prio > ordered4[j].prio
+	})
+	sort.Slice(ordered6, func(i, j int) bool {
+		return ordered6[i].prio > ordered6[j].prio
+	})
+	return ordered4, ordered6
+}
+
 func (r *Recorder) triggerDatapathRegenerate() error {
-	return nil
+	var masks4, masks6 string
+	l := &loader.Loader{}
+	extraCArgs := []string{}
+	if len(r.recMask) == 0 {
+		extraCArgs = append(extraCArgs, "-Dcapture_enabled=0")
+	} else {
+		extraCArgs = append(extraCArgs, "-Dcapture_enabled=1")
+		ordered4, ordered6 := r.orderedMaskSets()
+		if option.Config.EnableIPv4 {
+			masks4 = "-DPREFIX_MASKS4="
+			if len(ordered4) == 0 {
+				masks4 += " "
+			} else {
+				for _, m := range ordered4 {
+					masks4 += m.mask.genMacroSpec()
+				}
+			}
+			extraCArgs = append(extraCArgs, masks4)
+		}
+		if option.Config.EnableIPv6 {
+			masks6 = "-DPREFIX_MASKS6="
+			if len(ordered6) == 0 {
+				masks6 += " "
+			} else {
+				for _, m := range ordered6 {
+					masks6 += m.mask.genMacroSpec()
+				}
+			}
+			extraCArgs = append(extraCArgs, masks6)
+		}
+	}
+	err := l.ReinitializeXDP(r.ctx, extraCArgs)
+	if err != nil {
+		log.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
+			masks4, masks6)
+	}
+	return err
 }
 
 func recorderTupleToMapTuple4(ri *RecInfo, t *RecorderTuple) (*recorder.CaptureWcard4, *recorder.CaptureRule4) {

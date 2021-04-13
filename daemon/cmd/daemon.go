@@ -371,7 +371,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.svc = service.NewService(&d)
 
-	d.rec, err = recorder.NewRecorder()
+	d.rec, err = recorder.NewRecorder(d.ctx)
 	if err != nil {
 		log.WithError(err).Error("Error while initializing BPF pcap recorder")
 		return nil, nil, err
