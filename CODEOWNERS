@@ -1,6 +1,7 @@
 # Code owners groups and a brief description of their areas:
 # @cilium/janitors           Catch-all for code not otherwise owned
 # @cilium/agent              Cilium Agent
+# @cilium/alibabacloud       Integration with AlibabaCloud
 # @cilium/aws                Integration with AWS
 # @cilium/azure              Integration with Azure
 # @cilium/bpf                BPF Data Path
@@ -96,6 +97,7 @@ Makefile* @cilium/build
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettinghelp.rst @cilium/contributing @cilium/docs-structure
+/Documentation/gettingstarted/alibabacloud* @cilium/alibabacloud @cilium/docs-structure
 /Documentation/gettingstarted/aws* @cilium/aws @cilium/docs-structure
 /Documentation/gettingstarted/bandwidth-manager.rst @cilium/bpf @cilium/docs-structure
 /Documentation/gettingstarted/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
@@ -139,6 +141,7 @@ jenkinsfiles @cilium/ci-structure
 Jenkinsfile.nightly @cilium/ci-structure
 /operator/ @cilium/operator
 /pkg/annotation @cilium/kubernetes
+/pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/api/ @cilium/api
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
@@ -169,6 +172,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/hubble/ @cilium/hubble
 /pkg/identity @cilium/policy
 /pkg/ipam/ @cilium/ipam
+/pkg/ipam/allocator/alibabacloud/ @cilium/ipam @cilium/alibabacloud
 /pkg/ipam/allocator/aws/ @cilium/ipam @cilium/aws
 /pkg/ipam/allocator/azure/ @cilium/ipam @cilium/azure
 /pkg/ipam/allocator/clusterpool/ @cilium/ipam @cilium/operator
