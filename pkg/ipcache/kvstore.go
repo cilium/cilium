@@ -203,10 +203,11 @@ func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore
 type IPIdentityWatcher struct {
-	backend  kvstore.BackendOperations
-	stop     chan struct{}
-	synced   chan struct{}
-	stopOnce sync.Once
+	backend    kvstore.BackendOperations
+	stop       chan struct{}
+	synced     chan struct{}
+	stopOnce   sync.Once
+	syncedOnce sync.Once
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
@@ -271,7 +272,7 @@ restart:
 					listener.OnIPIdentityCacheGC()
 				}
 				IPIdentityCache.Unlock()
-				close(iw.synced)
+				iw.closeSynced()
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 				var ipIDPair identity.IPIdentityPair
@@ -356,6 +357,13 @@ restart:
 func (iw *IPIdentityWatcher) Close() {
 	iw.stopOnce.Do(func() {
 		close(iw.stop)
+	})
+}
+
+//closeSynced the IPIdentityWathcer and case panic
+func (iw *IPIdentityWatcher) closeSynced() {
+	iw.syncedOnce.Do(func() {
+		close(iw.synced)
 	})
 }
 
