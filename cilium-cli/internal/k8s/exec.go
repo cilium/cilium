@@ -67,9 +67,5 @@ func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, 
 		Stderr: &result.Stderr,
 		Tty:    false,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("error in stream: %w", err)
-	}
-
-	return result, nil
+	return result, err
 }
