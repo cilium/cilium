@@ -171,6 +171,10 @@ func (c *Client) DeleteDeployment(ctx context.Context, namespace, name string, o
 	return c.Clientset.AppsV1().Deployments(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) PatchDeployment(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.Deployment, error) {
+	return c.Clientset.AppsV1().Deployments(namespace).Patch(ctx, name, pt, data, opts)
+}
+
 func (c *Client) DeploymentIsReady(ctx context.Context, namespace, deployment string) error {
 	d, err := c.GetDeployment(ctx, namespace, deployment, metav1.GetOptions{})
 	if err != nil {

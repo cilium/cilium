@@ -111,3 +111,42 @@ func newCmdUninstall() *cobra.Command {
 
 	return cmd
 }
+
+func newCmdUpgrade() *cobra.Command {
+	var params = install.InstallParameters{Writer: os.Stdout}
+
+	cmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Upgrade Cilium in a Kubernetes cluster",
+		Long: `Upgrade Cilium in a Kubernetes cluster
+
+Examples:
+# Upgrade Cilium to the latest micro release:
+cilium upgrade
+
+# Upgrade Cilium to a specific version
+cilium upgrade --version 1.9.5
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			installer, err := install.NewK8sInstaller(k8sClient, params)
+			if err != nil {
+				return err
+			}
+			cmd.SilenceUsage = true
+			if err := installer.Upgrade(context.Background()); err != nil {
+				fatalf("Unable to upgrade Cilium:  %s", err)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace to install Cilium into")
+	cmd.Flags().StringVar(&params.Version, "version", "", "Cilium version to install")
+	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait for status")
+	cmd.Flags().StringVar(&params.AgentImage, "agent-image", "", "Image path to use for Cilium agent")
+	cmd.Flags().StringVar(&params.OperatorImage, "operator-image", "", "Image path to use for Cilium operator")
+
+	return cmd
+}
