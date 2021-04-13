@@ -16,10 +16,8 @@ package linux
 
 import (
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -27,8 +25,6 @@ import (
 type DatapathConfiguration struct {
 	// HostDevice is the name of the device to be used to access the host.
 	HostDevice string
-	// EncryptInterfaces is the list of devices used for direct ruoting encryption
-	EncryptInterfaces []string
 }
 
 type linuxDatapath struct {
@@ -53,13 +49,6 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, wgAgent)
-
-	for _, iface := range cfg.EncryptInterfaces {
-		if err := connector.DisableRpFilter(iface); err != nil {
-			log.WithError(err).WithField(logfields.Interface, iface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
-		}
-	}
-
 	return dp
 }
 

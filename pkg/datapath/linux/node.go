@@ -1125,7 +1125,7 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	var device string
 
 	if option.Config.Tunnel == option.TunnelDisabled {
-		device = n.datapathConfig.EncryptInterfaces[0]
+		device = option.Config.EncryptInterface[0]
 	} else {
 		device = linux_defaults.TunnelDeviceName
 	}
