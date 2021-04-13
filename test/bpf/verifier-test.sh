@@ -28,6 +28,7 @@ XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
 IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests custom/bpf_custom"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 VERBOSE=false
+FORCE=false
 RUN_ALL_TESTS=false
 
 BPFFS=${BPFFS:-"/sys/fs/bpf"}
@@ -72,7 +73,7 @@ function load_prog {
 	echo "=> Loading ${name}..."
 	if $VERBOSE; then
 		# Redirect stderr to stdout to assist caller parsing
-		${loader} $args verbose 2>&1
+		${loader} $args verbose 2>&1 || $FORCE
 	else
 		# Only run verbose mode if loading fails.
 		${loader} $args 2>/dev/null \
@@ -192,7 +193,7 @@ function load_sockops_prog {
 
 	echo "=> Loading ${p}.c:${section}..."
 	if $VERBOSE; then
-		$BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args 2>&1
+		$BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args 2>&1 || $FORCE
 	else
 		$BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args 2>/dev/null \
 		|| $BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args
@@ -267,6 +268,9 @@ function handle_args {
 			shift;;
 		-v|--verbose)
 			VERBOSE=true
+			shift;;
+		-f|--force)
+			FORCE=true
 			shift;;
 		*)
 			echo "Unrecognized argument '$1'" 1>&2
