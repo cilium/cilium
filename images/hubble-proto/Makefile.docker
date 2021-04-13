@@ -10,7 +10,8 @@ HUBBLE_PROTO_SOURCES := \
 	./flow/flow.proto \
 	./peer/peer.proto \
 	./observer/observer.proto \
-	./relay/relay.proto
+	./relay/relay.proto \
+	./recorder/recorder.proto
 
 HUBBLE_GO_TARGETS := $(HUBBLE_PROTO_SOURCES:.proto=.pb.go) $(HUBBLE_PROTO_SOURCES:.proto=.pb.json.go)
 
