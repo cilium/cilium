@@ -405,7 +405,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			return "Disabled"
 		}
 
-		if !sr.Masquerading.EnabledProtocols.IPV4 && !sr.Masquerading.EnabledProtocols.IPV6 {
+		if sr.Masquerading.EnabledProtocols == nil {
+			status = enabled(sr.Masquerading.Enabled)
+		} else if !sr.Masquerading.EnabledProtocols.IPV4 && !sr.Masquerading.EnabledProtocols.IPV6 {
 			status = enabled(false)
 		} else {
 			if sr.Masquerading.Mode == models.MasqueradingModeBPF {
