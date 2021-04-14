@@ -869,6 +869,7 @@ func init() {
 	option.BindEnv(option.SelectiveRegeneration)
 
 	flags.Bool(option.SkipCRDCreation, false, "Skip Kubernetes Custom Resource Definitions creations")
+	flags.MarkDeprecated(option.SkipCRDCreation, "This will be deprecated in 1.10, and the flag will be removed in 1.11")
 	option.BindEnv(option.SkipCRDCreation)
 
 	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
