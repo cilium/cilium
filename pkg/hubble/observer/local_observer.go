@@ -419,54 +419,44 @@ func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, 
 				continue
 			}
 		}
-		res := EventToGetFlowsResponse(e)
-		if res == nil {
-			continue
-		}
-		if e.GetLostEvent() == nil {
-			r.eventCount++
-		}
-		return res, nil
-	}
-}
 
-// EventToGetFlowsResponse converts Event to GetFlowsResponse.
-func EventToGetFlowsResponse(e *v1.Event) *observerpb.GetFlowsResponse {
-	switch ev := e.Event.(type) {
-	case *flowpb.Flow:
-		return &observerpb.GetFlowsResponse{
-			Time:     ev.GetTime(),
-			NodeName: ev.GetNodeName(),
-			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
-				Flow: ev,
-			},
+		switch ev := e.Event.(type) {
+		case *flowpb.Flow:
+			r.eventCount++
+			return &observerpb.GetFlowsResponse{
+				Time:     ev.GetTime(),
+				NodeName: ev.GetNodeName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+					Flow: ev,
+				},
+			}, nil
+		case *flowpb.LostEvent:
+			return &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+					LostEvents: ev,
+				},
+			}, nil
+		case *flowpb.AgentEvent:
+			r.eventCount++
+			return &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_AgentEvent{
+					AgentEvent: ev,
+				},
+			}, nil
+		case *flowpb.DebugEvent:
+			r.eventCount++
+			return &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_DebugEvent{
+					DebugEvent: ev,
+				},
+			}, nil
 		}
-	case *flowpb.LostEvent:
-		return &observerpb.GetFlowsResponse{
-			Time:     e.Timestamp,
-			NodeName: nodeTypes.GetName(),
-			ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
-				LostEvents: ev,
-			},
-		}
-	case *flowpb.AgentEvent:
-		return &observerpb.GetFlowsResponse{
-			Time:     e.Timestamp,
-			NodeName: nodeTypes.GetName(),
-			ResponseTypes: &observerpb.GetFlowsResponse_AgentEvent{
-				AgentEvent: ev,
-			},
-		}
-	case *flowpb.DebugEvent:
-		return &observerpb.GetFlowsResponse{
-			Time:     e.Timestamp,
-			NodeName: nodeTypes.GetName(),
-			ResponseTypes: &observerpb.GetFlowsResponse_DebugEvent{
-				DebugEvent: ev,
-			},
-		}
-	default:
-		return nil
 	}
 }
 
