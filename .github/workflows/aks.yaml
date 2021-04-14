@@ -20,7 +20,13 @@ env:
 
 jobs:
   installation-and-connectivity:
-    if: ${{ (github.event.issue.pull_request && startsWith(github.event.comment.body, 'ci-aks')) || github.event_name == 'push' || github.event.label.name == 'ci-run/aks' }}
+    if: |
+      (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-aks') ||
+        startsWith(github.event.comment.body, 'test-me-please')
+      )) ||
+      github.event_name == 'push' ||
+      github.event.label.name == 'ci-run/aks'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
