@@ -89,8 +89,11 @@ jobs:
             --name ${{ env.name }} \
             --location ${{ env.location }} \
             --network-plugin azure \
-            --generate-ssh-keys \
-            --node-count 2
+            --node-count 2 \
+            --node-vm-size Standard_B2s \
+            --node-osdisk-size 30 \
+            --load-balancer-sku basic \
+            --generate-ssh-keys
 
       - name: Get cluster credentials
         run: |
