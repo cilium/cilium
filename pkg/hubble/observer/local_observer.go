@@ -39,6 +39,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // DefaultOptions to include in the server. Other packages may extend this
@@ -314,6 +315,17 @@ func logFilters(filters []*flowpb.FlowFilter) string {
 	return "{" + strings.Join(s, ",") + "}"
 }
 
+// genericRequest allows to abstract away generic request information for
+// GetFlowsRequest, GetAgentEventsRequest and GetDebugEventsRequest.
+type genericRequest interface {
+	GetNumber() uint64
+	GetFollow() bool
+	GetSince() *timestamppb.Timestamp
+	GetUntil() *timestamppb.Timestamp
+}
+
+var _ genericRequest = (*observerpb.GetFlowsRequest)(nil)
+
 // eventsReader reads flows using a RingReader. It applies the GetFlows request
 // criteria (blacklist, whitelist, follow, ...) before returning events.
 type eventsReader struct {
@@ -328,36 +340,37 @@ type eventsReader struct {
 // newEventsReader creates a new eventsReader that uses the given RingReader to
 // read through the ring buffer. Only events that match the request criteria
 // are returned.
-func newEventsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*eventsReader, error) {
+func newEventsReader(r *container.RingReader, req genericRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*eventsReader, error) {
 	log.WithFields(logrus.Fields{
 		"req":       req,
 		"whitelist": whitelist,
 		"blacklist": blacklist,
 	}).Debug("creating a new eventsReader")
 
+	since, until := req.GetSince(), req.GetUntil()
 	reader := &eventsReader{
 		ringReader: r,
 		whitelist:  whitelist,
 		blacklist:  blacklist,
-		maxEvents:  req.Number,
-		follow:     req.Follow,
-		timeRange:  req.Since != nil || req.Until != nil,
+		maxEvents:  req.GetNumber(),
+		follow:     req.GetFollow(),
+		timeRange:  since != nil || until != nil,
 	}
 
-	if req.Since != nil {
-		if err := req.Since.CheckValid(); err != nil {
+	if since != nil {
+		if err := since.CheckValid(); err != nil {
 			return nil, err
 		}
-		since := req.Since.AsTime()
-		reader.since = &since
+		sinceTime := since.AsTime()
+		reader.since = &sinceTime
 	}
 
-	if req.Until != nil {
-		if err := req.Until.CheckValid(); err != nil {
+	if until != nil {
+		if err := until.CheckValid(); err != nil {
 			return nil, err
 		}
-		until := req.Until.AsTime()
-		reader.until = &until
+		untilTime := until.AsTime()
+		reader.until = &untilTime
 	}
 
 	return reader, nil
@@ -462,18 +475,20 @@ func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, 
 
 // newRingReader creates a new RingReader that starts at the correct ring
 // offset to match the flow request.
-func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
-	if req.Follow && req.Number == 0 && req.Since == nil {
+func newRingReader(ring *container.Ring, req genericRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
+	since := req.GetSince()
+
+	if req.GetFollow() && req.GetNumber() == 0 && since == nil {
 		// no need to rewind
 		return container.NewRingReader(ring, ring.LastWriteParallel()), nil
 	}
 
-	var since time.Time
-	if req.Since != nil {
-		if err := req.Since.CheckValid(); err != nil {
+	var sinceTime time.Time
+	if since != nil {
+		if err := since.CheckValid(); err != nil {
 			return nil, err
 		}
-		since = req.Since.AsTime()
+		sinceTime = since.AsTime()
 	}
 
 	idx := ring.LastWriteParallel()
@@ -500,16 +515,16 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 			continue
 		}
 		eventCount++
-		if req.Since != nil {
+		if since != nil {
 			if err := e.Timestamp.CheckValid(); err != nil {
 				return nil, err
 			}
 			ts := e.Timestamp.AsTime()
-			if ts.Before(since) {
+			if ts.Before(sinceTime) {
 				idx++ // we went backward 1 too far
 				break
 			}
-		} else if eventCount == req.Number {
+		} else if eventCount == req.GetNumber() {
 			break // we went backward far enough
 		}
 	}
