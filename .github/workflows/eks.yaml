@@ -107,9 +107,12 @@ jobs:
         run: |
           eksctl create nodegroup \
             --cluster ${{ env.clusterName }} \
+            --nodes 2 \
+            --instance-types "t3.medium,t3a.medium" \
+            --node-volume-type gp3 \
+            --node-volume-size 10 \
             --managed \
             --spot \
-            --nodes 2 \
             --node-private-networking
 
       - name: Enable Relay
