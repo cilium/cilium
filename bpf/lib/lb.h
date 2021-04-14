@@ -4,6 +4,8 @@
 #ifndef __LB_H_
 #define __LB_H_
 
+#include <bpf/verifier.h>
+
 #include "csum.h"
 #include "conntrack.h"
 #include "ipv4.h"
@@ -1365,6 +1367,7 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
+	relax_verifier();
 	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 backend, has_l4_header);
