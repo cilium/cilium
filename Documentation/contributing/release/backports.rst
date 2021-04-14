@@ -190,6 +190,15 @@ Creating the Backports Branch
    backport reviewers towards which changes may deviate from the original
    commits to ensure that the changes are correctly backported.
 
+   **It is the backporter's responsibility to check that the backport commits
+   they are preparing are identical to the original commits**. This can be
+   achieved by preparing the commits, then running ``git show <commit>`` for
+   both the original upstream commit and the prepared backport, and read
+   through the commits side-by-side, line-by-line to check that the changes are
+   the same. If there is any uncertainty about the backport, reach out to the
+   original author directly to coordinate how to prepare the backport for the
+   target branch.
+
 #. (Optional) If there are any commits or pull requests that are tricky or
    time-consuming to backport, consider reaching out for help on Slack. If the
    commit does not cherry-pick cleanly, please mention the necessary changes in
