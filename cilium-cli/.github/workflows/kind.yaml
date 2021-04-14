@@ -75,15 +75,28 @@ jobs:
 
       - name: Install Cilium with Encryption
         run: |
-          cilium install --encryption
+          cilium install --encryption --kube-proxy-replacement=probe
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
       - name: Status
         run: |
           cilium status --wait
 
+      - name: Relay Port Forward
+        run: |
+          pkill -f "kubectl port-forward.*hubble-relay" || true
+          sleep 1s
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 5s
+
       - name: Connectivity test
         run: |
-          cilium connectivity test
+          cilium connectivity test --force-deploy -v
 
       - name: Cleanup
         if: ${{ always() }}
