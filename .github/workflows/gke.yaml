@@ -82,10 +82,12 @@ jobs:
           gcloud container clusters create ${{ env.clusterName }} \
             --labels "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
-            --preemptible \
-            --image-type COS \
+            --image-type COS_CONTAINERD \
             --num-nodes 2 \
-            --machine-type n1-standard-4
+            --machine-type e2-custom-2-4096 \
+            --disk-type pd-standard \
+            --disk-size 10GB \
+            --preemptible
 
       - name: Get cluster credentials
         run: |
