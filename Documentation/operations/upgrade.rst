@@ -413,6 +413,8 @@ Deprecated Options
   been deprecated in favor of ``enable-ipv4-masquerade`` and is planned to
   be removed in 1.11. For 1.10 release this option will have the same effect as
   ``enable-ipv4-masquerade`` where both options must not be used simultaneously.
+* ``skip-crd-creation``: This option does not have any effect since 1.10
+  and is planned to be removed in 1.11.
 * Helm options ``encryption.keyFile``, ``encryption.mountPath``,
   ``encryption.secretName`` and ``encryption.interface`` are now deprecated in
   favor of ``encryption.ipsec.keyFile``, ``encryption.ipsec.mountPath``,
