@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -419,6 +420,8 @@ func probeCgroupSupportUDP(strict, ipv4 bool) {
 
 // handleNativeDevices tries to detect bpf_host devices (if needed).
 func handleNativeDevices(strict bool) {
+	expandDevices()
+
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
 		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
@@ -711,6 +714,34 @@ func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
 	}
 
 	return link.Attrs().Name, nil
+}
+
+// expandDevices expands all wildcard device names to concrete devices.
+// e.g. device "eth+" expands to "eth0,eth1" etc. Non-matching wildcards are ignored.
+func expandDevices() {
+	allLinks, err := netlink.LinkList()
+	if err != nil {
+		log.WithError(err).Fatal("Cannot list network devices via netlink")
+	}
+	expandedDevices := make(map[string]bool)
+	for _, iface := range option.Config.Devices {
+		if strings.HasSuffix(iface, "+") {
+			prefix := strings.TrimRight(iface, "+")
+			for _, link := range allLinks {
+				attrs := link.Attrs()
+				if strings.HasPrefix(attrs.Name, prefix) {
+					expandedDevices[attrs.Name] = true
+				}
+			}
+		} else {
+			expandedDevices[iface] = true
+		}
+	}
+	option.Config.Devices = make([]string, 0, len(expandedDevices))
+	for dev := range expandedDevices {
+		option.Config.Devices = append(option.Config.Devices, dev)
+	}
+	sort.Strings(option.Config.Devices)
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
