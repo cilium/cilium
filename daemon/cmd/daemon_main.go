@@ -976,7 +976,7 @@ func init() {
 	option.BindEnv(option.CRDWaitTimeout)
 
 	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
-		"Use a new scheme to store rules and routes under ENI and Azure IPAM modes, if false. Otherwise, it will use the old scheme.")
+		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
 	option.BindEnv(option.EgressMultiHomeIPRuleCompat)
 
 	flags.Bool(option.EnableBPFBypassFIBLookup, defaults.EnableBPFBypassFIBLookup, "Enable FIB lookup bypass optimization for nodeport reverse NAT handling")
