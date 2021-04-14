@@ -1619,6 +1619,7 @@ type DaemonConfig struct {
 
 	// SkipCRDCreation disables creation of the CustomResourceDefinition
 	// on daemon startup
+	// Deprecated: this option is not used by the cilium-agents anymore.
 	SkipCRDCreation bool
 
 	// EnableEndpointRoutes enables use of per endpoint routes
