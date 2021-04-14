@@ -174,3 +174,26 @@ message TLS {
     // cert validation process.
     string server_name = 2;
 }
+
+// ExportEvent contains an event to be exported. Not to be used outside of the
+// exporter feature.
+message ExportEvent {
+    oneof response_types{
+        flow.Flow flow = 1;
+        // node_status informs clients about the state of the nodes
+        // participating in this particular GetFlows request.
+        relay.NodeStatusEvent node_status = 2;
+        // lost_events informs clients about events which got dropped due to
+        // a Hubble component being unavailable
+        flow.LostEvent lost_events = 3;
+        // agent_event informs clients about an event received from the Cilium
+        // agent.
+        flow.AgentEvent agent_event = 4;
+        // debug_event contains Cilium datapath debug events
+        flow.DebugEvent debug_event = 5;
+    }
+    // Name of the node where this event was observed.
+    string node_name = 1000;
+    // Timestamp at which this event was observed.
+    google.protobuf.Timestamp time = 1001;
+}

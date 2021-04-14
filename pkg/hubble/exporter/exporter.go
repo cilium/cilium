@@ -19,9 +19,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
-	"github.com/cilium/cilium/pkg/hubble/observer"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -60,9 +62,49 @@ func newExporter(logger logrus.FieldLogger, encoder *json.Encoder) *exporter {
 	}
 }
 
+// eventToExportEvent converts Event to ExportEvent.
+func eventToExportEvent(e *v1.Event) *observerpb.ExportEvent {
+	switch ev := e.Event.(type) {
+	case *flowpb.Flow:
+		return &observerpb.ExportEvent{
+			Time:     ev.GetTime(),
+			NodeName: ev.GetNodeName(),
+			ResponseTypes: &observerpb.ExportEvent_Flow{
+				Flow: ev,
+			},
+		}
+	case *flowpb.LostEvent:
+		return &observerpb.ExportEvent{
+			Time:     e.Timestamp,
+			NodeName: nodeTypes.GetName(),
+			ResponseTypes: &observerpb.ExportEvent_LostEvents{
+				LostEvents: ev,
+			},
+		}
+	case *flowpb.AgentEvent:
+		return &observerpb.ExportEvent{
+			Time:     e.Timestamp,
+			NodeName: nodeTypes.GetName(),
+			ResponseTypes: &observerpb.ExportEvent_AgentEvent{
+				AgentEvent: ev,
+			},
+		}
+	case *flowpb.DebugEvent:
+		return &observerpb.ExportEvent{
+			Time:     e.Timestamp,
+			NodeName: nodeTypes.GetName(),
+			ResponseTypes: &observerpb.ExportEvent_DebugEvent{
+				DebugEvent: ev,
+			},
+		}
+	default:
+		return nil
+	}
+}
+
 // Start calls GetFlows and writes responses to a file.
 func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error) {
-	res := observer.EventToGetFlowsResponse(ev)
+	res := eventToExportEvent(ev)
 	if res == nil {
 		return false, nil
 	}
