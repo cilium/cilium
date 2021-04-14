@@ -1,4 +1,4 @@
-name: ConformanceAKS
+name: ConformanceAKS (ci-aks)
 
 on:
   issue_comment:

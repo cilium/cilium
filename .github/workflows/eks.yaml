@@ -1,4 +1,4 @@
-name: ConformanceEKS
+name: ConformanceEKS (ci-eks)
 
 on:
   issue_comment:

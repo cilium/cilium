@@ -1,4 +1,4 @@
-name: ConformanceGKE
+name: ConformanceGKE (ci-gke)
 
 on:
   issue_comment:
