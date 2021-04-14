@@ -1,0 +1,51 @@
+name: Validate Github Workflows
+
+on:
+  pull_request:
+    paths:
+    - '.github/workflows/**'
+
+jobs:
+  verify-json-validation:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow:
+          - aks.yaml
+          - bpf-checks.yaml
+          - codeql-analysis.yml
+          - cyclonus-netpol-test.yaml
+          - docs.yaml
+          - eks.yaml
+          - gke.yaml
+          - go-check.yaml
+          - images-legacy-base-releases.yaml
+          - images-legacy-hotfix-releases.yaml
+          - images-legacy-releases.yaml
+          - images-legacy.yaml
+          - images.yaml
+          - kind-1.19.yaml
+          - nightly.yaml
+          - smoke-test-ipv6.yaml
+          - smoke-test.yaml
+          - validate-workflows.yaml
+    steps:
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+      - uses: fabasoad/yaml-json-xml-converter-action@7bc70591754798737773675d47037be8dddefcb4
+        id: yaml2json
+        with:
+          path: '.github/workflows/${{ matrix.workflow }}'
+          from: 'yaml'
+          to: 'json'
+      - uses: DamianReeves/write-file-action@e19fd875ed54f16fc583a3486e62547ce4a5dde8
+        with:
+          path: .github/workflows/${{ matrix.workflow }}.json
+          contents: |
+            ${{ steps.yaml2json.outputs.data }}
+          write-mode: overwrite
+      - name: Validate JSON
+        uses: docker://orrosenblatt/validate-json-action@sha256:02370758b8b199e0477da11ecfdd498c75c561685056b5c31b925a4ab95df7f4
+        env:
+          INPUT_SCHEMA: '.github/schema.json'
+          INPUT_JSONS: '.github/workflows/${{ matrix.workflow }}.json'
