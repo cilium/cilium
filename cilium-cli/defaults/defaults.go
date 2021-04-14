@@ -92,10 +92,10 @@ const (
 	WaitRetryInterval   = 2 * time.Second
 	WaitWarningInterval = 10 * time.Second
 
-	FlowWaitTimeout   = 5 * time.Second
+	FlowWaitTimeout   = 10 * time.Second
 	FlowRetryInterval = 500 * time.Millisecond
 
-	PolicyWaitTimeout = 10 * time.Second
+	PolicyWaitTimeout = 30 * time.Second
 
 	ConfigMapKeyMonitorAggregation      = "monitor-aggregation"
 	ConfigMapValueMonitorAggregatonNone = "none"
