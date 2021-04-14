@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -245,7 +245,7 @@ func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 			scopedLog := log.WithField("rule", rule)
 			scopedLog.WithError(err).WithField("routes", routes).
 				Warnf("Failed to cleanup after successfully migrating endpoint to %s ENI datapath. "+
-					"It is recommended that theses routes are cleaned up, as it is possible in the future "+
+					"It is recommended that theses routes are cleaned up (by running `ip route del`), as it is possible in the future "+
 					"to collide with another endpoint with the same IP.", version)
 		}
 	}
@@ -421,7 +421,7 @@ const (
 	downgradeRevertWarning = "Reverting the new ENI datapath failed. However, both the new and previous datapaths are still intact. " +
 		"Endpoint connectivity should not be affected. It is advised to retry the migration."
 	downgradeFailedRuleDeleteWarning = "Downgrading the datapath has succeeded, but failed to cleanup the original datapath. " +
-		"It is advised to manually remove the old rule."
+		"It is advised to manually remove the old rule (priority 110)."
 )
 
 // retrieveTableIDFromIfIndex computes the correct table ID based on the
