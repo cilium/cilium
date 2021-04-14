@@ -1694,6 +1694,10 @@ func (k *K8sConnectivityCheck) Report(r TestResult) {
 		k.results = TestResults{}
 	}
 
+	if _, ok := k.results[r.Name]; ok {
+		k.Log("❌ Overwriting results for test $q, failing the test", r.Name)
+		r.Failures++
+	}
 	k.results[r.Name] = r
 }
 
