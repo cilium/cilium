@@ -22,7 +22,7 @@ jobs:
   installation-and-connectivity:
     if: ${{ (github.event.issue.pull_request && startsWith(github.event.comment.body, 'ci-gke')) || github.event_name == 'push' || github.event.label.name == 'ci-run/gke' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Set up job variables
         id: vars
@@ -97,7 +97,6 @@ jobs:
           cilium install \
             --cluster-name=${{ env.clusterName }} \
             --wait=false \
-            --restart-unmanaged-pods=false \
             --config monitor-aggregation=none \
             --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
@@ -114,7 +113,7 @@ jobs:
       - name: Port forward Relay
         run: |
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
-          sleep 5s
+          sleep 10s
 
       - name: Run connectivity test
         run: |
@@ -131,7 +130,6 @@ jobs:
             --cluster-name=${{ env.clusterName }} \
             --wait=false \
             --datapath-mode=tunnel \
-            --restart-unmanaged-pods=false \
             --config monitor-aggregation=none \
             --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
@@ -148,7 +146,7 @@ jobs:
       - name: Port forward Relay
         run: |
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
-          sleep 5s
+          sleep 10s
 
       - name: Restart connectivity test pods
         run: |
@@ -170,7 +168,6 @@ jobs:
             --encryption \
             --cluster-name=${{ env.clusterName }} \
             --wait=false \
-            --restart-unmanaged-pods=false \
             --config monitor-aggregation=none \
             --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
@@ -187,7 +184,7 @@ jobs:
       - name: Port forward Relay
         run: |
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
-          sleep 5s
+          sleep 10s
 
       - name: Restart connectivity test pods
         run: |
@@ -211,7 +208,6 @@ jobs:
             --cluster-name=${{ env.clusterName }} \
             --wait=false \
             --datapath-mode=tunnel \
-            --restart-unmanaged-pods=false \
             --config monitor-aggregation=none \
             --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
             --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
@@ -228,7 +224,7 @@ jobs:
       - name: Port forward Relay
         run: |
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
-          sleep 5s
+          sleep 10s
 
       - name: Restart connectivity test pods
         run: |
