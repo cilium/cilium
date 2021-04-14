@@ -68,7 +68,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity test in")
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run a particular set of tests")
+	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run tests that start with one of the given prefixes, skip tests by starting the prefix with '!'")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
 	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show additional diagnostic messages")
