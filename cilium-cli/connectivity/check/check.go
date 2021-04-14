@@ -1172,7 +1172,7 @@ func (p Parameters) testEnabled(test string) bool {
 			numAllow++
 		}
 
-		if p == test {
+		if strings.HasPrefix(test, p) {
 			return result
 		}
 	}
