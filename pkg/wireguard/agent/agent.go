@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -386,7 +385,7 @@ func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
 
 // OnIPIdentityCacheChange implements ipcache.IPIdentityMappingListener
 func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipnet net.IPNet, oldHostIP, newHostIP net.IP,
-	_ *identity.NumericIdentity, _ identity.NumericIdentity, _ uint8, _ *ipcache.K8sMetadata) {
+	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ *ipcache.K8sMetadata) {
 
 	// This function is invoked from the IPCache with the
 	// ipcache.IPIdentityCache lock held. We therefore need to be careful when

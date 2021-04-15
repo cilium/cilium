@@ -519,12 +519,12 @@ func newDummyListener(ipc *IPCache) *dummyListener {
 }
 
 func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
-	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *identityPkg.NumericIdentity,
-	newID identityPkg.NumericIdentity, encryptKey uint8, k8sMeta *K8sMetadata) {
+	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *Identity,
+	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
 
 	switch modType {
 	case Upsert:
-		dl.entries[cidr.String()] = newID
+		dl.entries[cidr.String()] = newID.ID
 	default:
 		// Ignore, for simplicity we just clear the cache every time
 	}
