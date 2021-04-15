@@ -459,6 +459,15 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
+#ifndef ENABLE_IPV4_FRAGMENTS
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
