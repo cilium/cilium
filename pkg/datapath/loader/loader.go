@@ -16,12 +16,14 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path"
 	"reflect"
 	"sync"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -360,7 +362,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		} else {
-			if err := removeEndpointRoute(ep, *ip.IPNet(32)); err != nil {
+			if err := removeEndpointRoute(ep, *ip.IPNet(32)); err != nil && !errors.Is(err, syscall.ESRCH) {
 				scopedLog.WithError(err).Warn("Failed to remove route")
 			}
 		}
@@ -375,7 +377,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		} else {
-			if err := removeEndpointRoute(ep, *ip.IPNet(128)); err != nil {
+			if err := removeEndpointRoute(ep, *ip.IPNet(128)); err != nil && !errors.Is(err, syscall.ESRCH) {
 				scopedLog.WithError(err).Warn("Failed to remove route")
 			}
 		}
