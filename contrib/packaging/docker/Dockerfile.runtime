@@ -1,4 +1,4 @@
-ARG CILIUM_RUNTIME_TAG=2020-02-24
+ARG CILIUM_RUNTIME_TAG=2020-04-15
 
 #
 # Cilium runtime base image
