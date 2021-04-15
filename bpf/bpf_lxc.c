@@ -540,6 +540,16 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
+#ifndef ENABLE_IPV4_FRAGMENTS
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 	tuple.nexthdr = ip4->protocol;

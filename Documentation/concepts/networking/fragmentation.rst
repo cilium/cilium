@@ -16,7 +16,7 @@ implemented in eBPF using an LRU (*Least Recently Used*) map which requires
 Linux 4.10 or later. This feature may be configured using the following
 options:
 
-- ``--enable-ipv4-fragments-tracking``: Enable or disable IPv4 fragment
+- ``--enable-ipv4-fragment-tracking``: Enable or disable IPv4 fragment
   tracking. Enabled by default.
 - ``--bpf-fragments-map-max``: Control the maximum number of active concurrent
   connections using IP fragmentation. For the defaults, see `bpf_map_limitations`.
