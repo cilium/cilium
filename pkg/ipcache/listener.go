@@ -16,8 +16,6 @@ package ipcache
 
 import (
 	"net"
-
-	"github.com/cilium/cilium/pkg/identity"
 )
 
 // CacheModification represents the type of operation performed upon IPCache.
@@ -42,7 +40,7 @@ type IPIdentityMappingListener interface {
 	// k8sMeta contains the Kubernetes pod namespace and name behind the IP
 	// and may be nil.
 	OnIPIdentityCacheChange(modType CacheModification, cidr net.IPNet, oldHostIP, newHostIP net.IP,
-		oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8, k8sMeta *K8sMetadata)
+		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.

@@ -259,7 +259,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 	defer ipc.mutex.Unlock()
 
 	var cidr *net.IPNet
-	var oldIdentity *identity.NumericIdentity
+	var oldIdentity *Identity
 	callbackListeners := true
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
@@ -279,7 +279,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 			return true, false
 		}
 
-		oldIdentity = &cachedIdentity.ID
+		oldIdentity = &cachedIdentity
 	}
 
 	// Endpoint IP identities take precedence over CIDR identities, so if the
@@ -309,7 +309,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					cidrIdentity.shadowed = true
 					ipc.ipToIdentityCache[cidrStr] = cidrIdentity
-					oldIdentity = &cidrIdentity.ID
+					oldIdentity = &cidrIdentity
 				} else {
 					// The endpoint IP and the CIDR are associated with the
 					// same identity and host IP. Nothing changes for the
@@ -381,7 +381,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID, hostKey, k8sMeta)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta)
 		}
 	}
 
@@ -402,7 +402,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 			endpointIP := net.ParseIP(ip)
 			cidr = endpointIPToCIDR(endpointIP)
 		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity.ID, encryptKey, k8sMeta)
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, k8sMeta)
 	}
 }
 
@@ -430,7 +430,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
 	oldK8sMeta := ipc.getK8sMetadata(ip)
 	var newHostIP net.IP
-	var oldIdentity *identity.NumericIdentity
+	var oldIdentity *Identity
 	newIdentity := cachedIdentity
 	callbackListeners := true
 
@@ -457,7 +457,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 				cacheModification = Upsert
 				cidrIdentity.shadowed = false
 				ipc.ipToIdentityCache[cidrStr] = cidrIdentity
-				oldIdentity = &cachedIdentity.ID
+				oldIdentity = &cachedIdentity
 				newIdentity = cidrIdentity
 			} else {
 				// The endpoint IP and the CIDR were associated with the same
@@ -489,7 +489,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
-				oldIdentity, newIdentity.ID, encryptKey, oldK8sMeta)
+				oldIdentity, newIdentity, encryptKey, oldK8sMeta)
 		}
 	}
 
