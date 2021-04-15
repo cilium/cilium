@@ -269,7 +269,7 @@ func (s *LocalObserverServer) GetFlows(
 
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -282,12 +282,56 @@ func (s *LocalObserverServer) GetFlows(
 
 nextEvent:
 	for ; ; i++ {
-		resp, err := eventsReader.Next(ctx)
+		e, err := eventsReader.Next(ctx)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
+		}
+
+		var resp *observerpb.GetFlowsResponse
+
+		switch ev := e.Event.(type) {
+		case *flowpb.Flow:
+			eventsReader.eventCount++
+			resp = &observerpb.GetFlowsResponse{
+				Time:     ev.GetTime(),
+				NodeName: ev.GetNodeName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+					Flow: ev,
+				},
+			}
+		case *flowpb.LostEvent:
+			resp = &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+					LostEvents: ev,
+				},
+			}
+		case *flowpb.AgentEvent:
+			eventsReader.eventCount++
+			resp = &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_AgentEvent{
+					AgentEvent: ev,
+				},
+			}
+		case *flowpb.DebugEvent:
+			eventsReader.eventCount++
+			resp = &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_DebugEvent{
+					DebugEvent: ev,
+				},
+			}
+		}
+
+		if resp == nil {
+			continue
 		}
 
 		for _, f := range s.opts.OnFlowDelivery {
@@ -312,7 +356,60 @@ func (s *LocalObserverServer) GetAgentEvents(
 	req *observerpb.GetAgentEventsRequest,
 	server observerpb.Observer_GetAgentEventsServer,
 ) (err error) {
-	return status.Errorf(codes.Unimplemented, "GetAgentEvents not yet implemented")
+	ctx, cancel := context.WithCancel(server.Context())
+	defer cancel()
+
+	var whitelist, blacklist filters.FilterFuncs
+
+	start := time.Now()
+	log := s.GetLogger()
+	ring := s.GetRingBuffer()
+
+	i := uint64(0)
+	defer func() {
+		log.WithFields(logrus.Fields{
+			"number_of_agent_events": i,
+			"buffer_size":            ring.Cap(),
+			"took":                   time.Since(start),
+		}).Debug("GetAgentEvents finished")
+	}()
+
+	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+
+	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
+	if err != nil {
+		return err
+	}
+
+	for ; ; i++ {
+		e, err := eventsReader.Next(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+
+		switch ev := e.Event.(type) {
+		case *flowpb.AgentEvent:
+			eventsReader.eventCount++
+			resp := &observerpb.GetAgentEventsResponse{
+				Time:       e.Timestamp,
+				NodeName:   nodeTypes.GetName(),
+				AgentEvent: ev,
+			}
+			err = server.Send(resp)
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // GetDebugEvents implements observerpb.ObserverClient.GetDebugEvents.
@@ -320,7 +417,60 @@ func (s *LocalObserverServer) GetDebugEvents(
 	req *observerpb.GetDebugEventsRequest,
 	server observerpb.Observer_GetDebugEventsServer,
 ) (err error) {
-	return status.Errorf(codes.Unimplemented, "GetDebugEvents not yet implemented")
+	ctx, cancel := context.WithCancel(server.Context())
+	defer cancel()
+
+	var whitelist, blacklist filters.FilterFuncs
+
+	start := time.Now()
+	log := s.GetLogger()
+	ring := s.GetRingBuffer()
+
+	i := uint64(0)
+	defer func() {
+		log.WithFields(logrus.Fields{
+			"number_of_debug_events": i,
+			"buffer_size":            ring.Cap(),
+			"took":                   time.Since(start),
+		}).Debug("GetDebugEvents finished")
+	}()
+
+	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+
+	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
+	if err != nil {
+		return err
+	}
+
+	for ; ; i++ {
+		e, err := eventsReader.Next(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+
+		switch ev := e.Event.(type) {
+		case *flowpb.DebugEvent:
+			eventsReader.eventCount++
+			resp := &observerpb.GetDebugEventsResponse{
+				Time:       e.Timestamp,
+				NodeName:   nodeTypes.GetName(),
+				DebugEvent: ev,
+			}
+			err = server.Send(resp)
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
 
 func logFilters(filters []*flowpb.FlowFilter) string {
@@ -396,8 +546,8 @@ func newEventsReader(r *container.RingReader, req genericRequest, log logrus.Fie
 	return reader, nil
 }
 
-// Next returns the next flow that matches the request criteria.
-func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, error) {
+// Next returns the next event that matches the request criteria.
+func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -453,43 +603,7 @@ func (r *eventsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, 
 			}
 		}
 
-		switch ev := e.Event.(type) {
-		case *flowpb.Flow:
-			r.eventCount++
-			return &observerpb.GetFlowsResponse{
-				Time:     ev.GetTime(),
-				NodeName: ev.GetNodeName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
-					Flow: ev,
-				},
-			}, nil
-		case *flowpb.LostEvent:
-			return &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
-					LostEvents: ev,
-				},
-			}, nil
-		case *flowpb.AgentEvent:
-			r.eventCount++
-			return &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_AgentEvent{
-					AgentEvent: ev,
-				},
-			}, nil
-		case *flowpb.DebugEvent:
-			r.eventCount++
-			return &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_DebugEvent{
-					DebugEvent: ev,
-				},
-			}, nil
-		}
+		return e, nil
 	}
 }
 
