@@ -307,6 +307,22 @@ nextEvent:
 	}
 }
 
+// GetAgentEvents implements observerpb.ObserverClient.GetAgentEvents.
+func (s *LocalObserverServer) GetAgentEvents(
+	req *observerpb.GetAgentEventsRequest,
+	server observerpb.Observer_GetAgentEventsServer,
+) (err error) {
+	return status.Errorf(codes.Unimplemented, "GetAgentEvents not yet implemented")
+}
+
+// GetDebugEvents implements observerpb.ObserverClient.GetDebugEvents.
+func (s *LocalObserverServer) GetDebugEvents(
+	req *observerpb.GetDebugEventsRequest,
+	server observerpb.Observer_GetDebugEventsServer,
+) (err error) {
+	return status.Errorf(codes.Unimplemented, "GetDebugEvents not yet implemented")
+}
+
 func logFilters(filters []*flowpb.FlowFilter) string {
 	s := make([]string, 0, len(filters))
 	for _, f := range filters {
@@ -324,7 +340,11 @@ type genericRequest interface {
 	GetUntil() *timestamppb.Timestamp
 }
 
-var _ genericRequest = (*observerpb.GetFlowsRequest)(nil)
+var (
+	_ genericRequest = (*observerpb.GetFlowsRequest)(nil)
+	_ genericRequest = (*observerpb.GetAgentEventsRequest)(nil)
+	_ genericRequest = (*observerpb.GetDebugEventsRequest)(nil)
+)
 
 // eventsReader reads flows using a RingReader. It applies the GetFlows request
 // criteria (blacklist, whitelist, follow, ...) before returning events.
