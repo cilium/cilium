@@ -14,7 +14,7 @@ jobs:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --namespace=test-clusters --image=quay.io/cilium/cilium-test-ci:${{ env.GITHUB_SHA }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium-ci:${{ env.GITHUB_SHA }}" "quay.io/cilium/operator-generic-ci:${{ env.GITHUB_SHA }}" "quay.io/cilium/hubble-relay-ci:${{ env.GITHUB_SHA }}" "NightlyPolicyStress"
+          args: --namespace=test-clusters --image=quay.io/cilium/cilium-test-ci:${{ github.sha }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium-ci:${{ github.sha }}" "quay.io/cilium/operator-generic-ci:${{ github.sha }}" "quay.io/cilium/hubble-relay-ci:${{ github.sha }}" "NightlyPolicyStress"
   baseline-test:
     name: Start performance test
     if: github.repository == 'cilium/cilium'
