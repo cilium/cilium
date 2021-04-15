@@ -353,6 +353,9 @@ ct_recreate6:
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
+# ifdef ENABLE_WIREGUARD
+	if (!dst_remote_ep)
+# endif /* ENABLE_WIREGUARD */
 	{
 		struct endpoint_key key = {};
 
@@ -421,20 +424,20 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(ctx, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-#ifndef ENCAP_IFINDEX
-#ifdef ENABLE_IPSEC
-	if (encrypt_key && tunnel_endpoint) {
-		set_encrypt_key_mark(ctx, encrypt_key);
-#ifdef IP_POOLS
-		set_encrypt_dip(ctx, tunnel_endpoint);
-#endif
-	} else
-#elif defined(ENABLE_WIREGUARD)
+#ifdef ENABLE_WIREGUARD
 	if (dst_remote_ep)
 		set_encrypt_mark(ctx);
 	else
-#endif /* ENABLE_IPSEC */
-#endif /* ENCAP_IFINDEX */
+#elif !defined(ENCAP_IFINDEX)
+# ifdef ENABLE_IPSEC
+	if (encrypt_key && tunnel_endpoint) {
+		set_encrypt_key_mark(ctx, encrypt_key);
+#  ifdef IP_POOLS
+		set_encrypt_dip(ctx, tunnel_endpoint);
+#  endif /* IP_POOLS */
+	} else
+# endif /* ENABLE_IPSEC */
+#endif /* ENABLE_WIREGUARD */
 	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
@@ -810,6 +813,12 @@ skip_egress_gateway:
 #endif
 
 #ifdef ENCAP_IFINDEX
+# ifdef ENABLE_WIREGUARD
+	/* In the tunnel mode we encapsulate pod2pod traffic only via Wireguard
+	 * device, i.e. we do not encapsulate twice.
+	 */
+	if (!dst_remote_ep)
+# endif /* ENABLE_WIREGUARD */
 	{
 		struct endpoint_key key = {};
 
@@ -831,7 +840,7 @@ skip_egress_gateway:
 		else
 			return ret;
 	}
-#endif
+#endif /* ENCAP_IFINDEX */
 	if (is_defined(ENABLE_REDIRECT_FAST))
 		return redirect_direct_v4(ctx, l3_off, ip4);
 
@@ -862,20 +871,21 @@ pass_to_stack:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
-#ifndef ENCAP_IFINDEX
-#ifdef ENABLE_IPSEC
-	if (encrypt_key && tunnel_endpoint) {
-		set_encrypt_key_mark(ctx, encrypt_key);
-#ifdef IP_POOLS
-		set_encrypt_dip(ctx, tunnel_endpoint);
-#endif
-	} else
-#elif defined(ENABLE_WIREGUARD)
+
+#ifdef ENABLE_WIREGUARD
 	if (dst_remote_ep)
 		set_encrypt_mark(ctx);
 	else /* Wireguard and identity mark are mutually exclusive */
-#endif /* ENABLE_IPSEC */
-#endif /* ENCAP_IFINDEX */
+#elif !defined(ENCAP_IFINDEX)
+# ifdef ENABLE_IPSEC
+	if (encrypt_key && tunnel_endpoint) {
+		set_encrypt_key_mark(ctx, encrypt_key);
+#  ifdef IP_POOLS
+		set_encrypt_dip(ctx, tunnel_endpoint);
+#  endif /* IP_POOLS */
+	} else
+# endif /* ENABLE_IPSEC */
+#endif /* ENABLE_WIREGUARD */
 	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.

@@ -1552,8 +1552,6 @@ func runDaemon() {
 	var wgAgent *wireguard.Agent
 	if option.Config.EnableWireguard {
 		switch {
-		case option.Config.Tunnel != option.TunnelDisabled:
-			log.Fatalf("Wireguard (--%s) cannot be used with tunneling", option.EnableWireguard)
 		case option.Config.EnableIPSec:
 			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
 				option.EnableWireguard, option.EnableIPSecName)
