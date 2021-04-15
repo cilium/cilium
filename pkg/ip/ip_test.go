@@ -39,14 +39,14 @@ func Test(t *testing.T) {
 
 func (s *IPTestSuite) TestCountIPs(c *C) {
 	tests := map[string]*big.Int{
-		"192.168.0.1/32": big.NewInt(1),
-		"192.168.0.1/31": big.NewInt(1),
-		"192.168.0.1/30": big.NewInt(3),
-		"192.168.0.1/24": big.NewInt(255),
-		"192.168.0.1/16": big.NewInt(65535),
-		"::1/128":        big.NewInt(1),
-		"::1/120":        big.NewInt(255),
-		"fd02:1::/32":    big.NewInt(0).Sub(big.NewInt(2).Exp(big.NewInt(2), big.NewInt(96), nil), big.NewInt(1)),
+		"192.168.0.1/32": big.NewInt(0),
+		"192.168.0.1/31": big.NewInt(0).Sub(big.NewInt(1), big.NewInt(1)),
+		"192.168.0.1/30": big.NewInt(2),
+		"192.168.0.1/24": big.NewInt(254),
+		"192.168.0.1/16": big.NewInt(65534),
+		"::1/128":        big.NewInt(0),
+		"::1/120":        big.NewInt(254),
+		"fd02:1::/32":    big.NewInt(0).Sub(big.NewInt(2).Exp(big.NewInt(2), big.NewInt(96), nil), big.NewInt(2)),
 	}
 	for cidr, nIPs := range tests {
 		_, ipnet, err := net.ParseCIDR(cidr)
