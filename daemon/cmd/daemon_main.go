@@ -1132,6 +1132,12 @@ func initEnv(cmd *cobra.Command) {
 		scopedLog.WithError(err).Fatal("Could not create runtime directory")
 	}
 
+	if option.Config.RunDir != defaults.RuntimePath {
+		if err := os.MkdirAll(defaults.RuntimePath, defaults.RuntimePathRights); err != nil {
+			scopedLog.WithError(err).Fatal("Could not create default runtime directory")
+		}
+	}
+
 	option.Config.StateDir = filepath.Join(option.Config.RunDir, defaults.StateDir)
 	scopedLog = scopedLog.WithField(logfields.Path+".StateDir", option.Config.StateDir)
 	if err := os.MkdirAll(option.Config.StateDir, defaults.StateDirRights); err != nil {
