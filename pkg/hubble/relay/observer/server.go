@@ -25,7 +25,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	grpcStatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -167,6 +169,18 @@ sortedFlowsLoop:
 		}
 	}
 	return g.Wait()
+}
+
+// GetAgentEvents implements observerpb.ObserverServer.GetAgentEvents by proxying requests to
+// the hubble instance the proxy is connected to.
+func (s *Server) GetAgentEvents(req *observerpb.GetAgentEventsRequest, stream observerpb.Observer_GetAgentEventsServer) error {
+	return grpcStatus.Errorf(codes.Unimplemented, "GetAgentEvents not yet implemented")
+}
+
+// GetDebugEvents implements observerpb.ObserverServer.GetDebugEvents by proxying requests to
+// the hubble instance the proxy is connected to.
+func (s *Server) GetDebugEvents(req *observerpb.GetDebugEventsRequest, stream observerpb.Observer_GetDebugEventsServer) error {
+	return grpcStatus.Errorf(codes.Unimplemented, "GetDebugEvents not yet implemented")
 }
 
 // GetNodes implements observerpb.ObserverClient.GetNodes.
