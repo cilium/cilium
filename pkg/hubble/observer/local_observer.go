@@ -310,24 +310,6 @@ nextEvent:
 					LostEvents: ev,
 				},
 			}
-		case *flowpb.AgentEvent:
-			eventsReader.eventCount++
-			resp = &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_AgentEvent{
-					AgentEvent: ev,
-				},
-			}
-		case *flowpb.DebugEvent:
-			eventsReader.eventCount++
-			resp = &observerpb.GetFlowsResponse{
-				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetName(),
-				ResponseTypes: &observerpb.GetFlowsResponse_DebugEvent{
-					DebugEvent: ev,
-				},
-			}
 		}
 
 		if resp == nil {
