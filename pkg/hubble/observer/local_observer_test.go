@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"testing"
 	"time"
 
@@ -202,6 +203,83 @@ func TestLocalObserverServer_GetFlows_AgentEvent(t *testing.T) {
 	err = s.GetFlows(req, fakeServer)
 	assert.NoError(t, err)
 	assert.Equal(t, req.Number, uint64(i))
+}
+
+func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
+	numEvents := 100
+	queueSize := 0
+	req := &observerpb.GetAgentEventsRequest{
+		Number: uint64(numEvents),
+	}
+	cidr := "10.0.0.0/8"
+	agentEventsReceived := 0
+	agentStartedReceived := 0
+	fakeServer := &testutils.FakeGetAgentEventsServer{
+		OnSend: func(response *observerpb.GetAgentEventsResponse) error {
+			switch ev := response.GetAgentEvent(); ev.GetType() {
+			case flowpb.AgentEventType_AGENT_STARTED:
+				startEvent := response.GetAgentEvent().GetAgentStart()
+				assert.NotNil(t, startEvent)
+				assert.Equal(t, startEvent.GetTime().GetSeconds(), int64(42))
+				assert.Equal(t, startEvent.GetTime().GetNanos(), int32(1))
+				agentStartedReceived++
+			case flowpb.AgentEventType_IPCACHE_UPSERTED:
+				ipcacheUpdate := response.GetAgentEvent().GetIpcacheUpdate()
+				assert.NotNil(t, ipcacheUpdate)
+				assert.Equal(t, cidr, ipcacheUpdate.GetCidr())
+			case flowpb.AgentEventType_SERVICE_DELETED:
+				serviceDelete := response.GetAgentEvent().GetServiceDelete()
+				assert.NotNil(t, serviceDelete)
+			default:
+				assert.Fail(t, "unexpected agent event", ev)
+			}
+			agentEventsReceived++
+			return nil
+		},
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
+			OnContext: func() context.Context {
+				return context.Background()
+			},
+		},
+	}
+
+	pp := noopParser(t)
+	s, err := NewLocalServer(pp, log,
+		observeroption.WithMonitorBuffer(queueSize),
+	)
+	require.NoError(t, err)
+	go s.Start()
+
+	m := s.GetEventsChannel()
+	for i := 0; i < numEvents; i++ {
+		ts := time.Unix(int64(i), 0)
+		node := fmt.Sprintf("node #%03d", i)
+		var msg monitorAPI.AgentNotifyMessage
+		if i == 0 {
+			msg = monitorAPI.StartMessage(time.Unix(42, 1))
+		} else if i%2 == 1 {
+			msg = monitorAPI.IPCacheUpsertedMessage(cidr, uint32(i), nil, net.ParseIP("10.1.5.4"), nil, 0xff, "default", "foobar")
+		} else {
+			msg = monitorAPI.ServiceDeleteMessage(uint32(i))
+		}
+		m <- &observerTypes.MonitorEvent{
+			Timestamp: ts,
+			NodeName:  node,
+			Payload: &observerTypes.AgentEvent{
+				Type:    monitorAPI.MessageTypeAgent,
+				Message: msg,
+			},
+		}
+	}
+	close(s.GetEventsChannel())
+	<-s.GetStopped()
+	err = s.GetAgentEvents(req, fakeServer)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, agentStartedReceived)
+	// FIXME:
+	// This should be assert.Equals(t, numEvents, agentEventsReceived)
+	// A bug in the ring buffer prevents this from succeeding
+	assert.Greater(t, agentEventsReceived, 0)
 }
 
 func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {

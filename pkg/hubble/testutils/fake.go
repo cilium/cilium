@@ -52,6 +52,21 @@ func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	panic("OnSend not set")
 }
 
+// FakeGetAgentEventsServer is used for unit tests and implements the
+// observerpb.Observer_GetAgentEventsServer interface.
+type FakeGetAgentEventsServer struct {
+	OnSend func(response *observerpb.GetAgentEventsResponse) error
+	*FakeGRPCServerStream
+}
+
+// Send implements observerpb.Observer_GetAgentEventsServer.Send.
+func (s *FakeGetAgentEventsServer) Send(response *observerpb.GetAgentEventsResponse) error {
+	if s.OnSend != nil {
+		return s.OnSend(response)
+	}
+	panic("OnSend not set")
+}
+
 // FakeObserverClient is used for unit tests and implements the
 // observerpb.ObserverClient interface.
 type FakeObserverClient struct {
