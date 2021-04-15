@@ -14,6 +14,8 @@ RUN apk add --no-cache --virtual --update \
     py-pip \
     python \
     sphinx-python \
+    gcc \
+    musl-dev \
     && true
 
 ADD ./requirements.txt /tmp/requirements.txt
