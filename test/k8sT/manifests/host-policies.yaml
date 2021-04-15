@@ -4,7 +4,9 @@ metadata:
   name: "host-policy"
 specs:
   - description: "Allow only test client <-> server communications on node <-> pod paths (local and remote pods)"
-    nodeSelector: {}
+    nodeSelector:
+      matchLabels:
+        status: lockdown
     ingress:
     - fromEndpoints:
       - matchLabels:

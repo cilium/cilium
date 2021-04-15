@@ -735,6 +735,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("Host firewall", func() {
+		BeforeAll(func() {
+			kubectl.Exec("kubectl label nodes --all status=lockdown")
+		})
+
+		AfterAll(func() {
+			kubectl.Exec("kubectl label nodes --all status-")
+		})
+
 		AfterEach(func() {
 			kubectl.Exec(fmt.Sprintf("%s delete --all ccnp", helpers.KubectlCmd))
 		})
