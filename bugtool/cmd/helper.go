@@ -200,13 +200,10 @@ func hashEncryptionKeys(output string) string {
 			hashedKey := hex.EncodeToString(h.Sum(nil))
 			line = line[:matched[6]] + "[hash:" + hashedKey + "]" + line[matched[7]:]
 		} else if matched != nil && matched[6] < 0 {
-			line = ""
+			line = "[redacted]"
 		}
-		if line != "" {
-			finalOutput = append(finalOutput, line+"\n")
-		} else {
-			finalOutput = append(finalOutput, line)
-		}
+		finalOutput = append(finalOutput, line)
 	}
-	return strings.Join(finalOutput, "")
+
+	return strings.Join(finalOutput, "\n")
 }
