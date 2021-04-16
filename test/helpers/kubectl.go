@@ -1772,37 +1772,39 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 	defer cancel()
 
 	cmd := fmt.Sprintf("dig +short %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-	res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
-	if res.err != nil {
-		return fmt.Errorf("unable to resolve service name %s with DNS server %s by running '%s' Cilium pod: %s",
-			serviceToResolve, kubeDnsService.Spec.ClusterIP, cmd, res.OutputPrettyPrint())
-	}
-	foundIP, ipFromDNS := hasIPAddress(res.ByLines())
-	if !foundIP {
-		return fmt.Errorf("dig did not return an IP: %s", res.SingleOut())
-	}
-
-	destinationService, err := kub.GetService(namespace, service)
+	results, err := kub.ExecInPods(ctx, LogGathererNamespace, logGathererSelector(true), cmd)
 	if err != nil {
 		return err
 	}
 
-	// If the destination service is headless, there is no ClusterIP, the
-	// IP returned by the dig is the IP of one of the pods.
-	if destinationService.Spec.ClusterIP == v1.ClusterIPNone {
-		cmd := fmt.Sprintf("dig +tcp %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-		res = kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
-		if !res.WasSuccessful() {
-			return fmt.Errorf("unable to resolve service name %s by running '%s': %s",
-				serviceToResolve, cmd, res.OutputPrettyPrint())
+	for podName, res := range results {
+		if res.err != nil {
+			return fmt.Errorf("unable to resolve service name %s with DNS server %s by running '%s' Cilium pod: %s",
+				serviceToResolve, kubeDnsService.Spec.ClusterIP, cmd, res.OutputPrettyPrint())
+		}
+		foundIP, ipFromDNS := hasIPAddress(res.ByLines())
+		if !foundIP {
+			return fmt.Errorf("dig did not return an IP: %s", res.SingleOut())
 		}
 
-		return nil
-	}
+		destinationService, err := kub.GetService(namespace, service)
+		if err != nil {
+			return err
+		}
 
-	if !strings.Contains(ipFromDNS, destinationService.Spec.ClusterIP) {
-		return fmt.Errorf("IP returned '%s' does not match the ClusterIP '%s' of the destination service",
-			res.SingleOut(), destinationService.Spec.ClusterIP)
+		// If the destination service is headless, there is no ClusterIP, the
+		// IP returned by the dig is the IP of one of the pods.
+		if destinationService.Spec.ClusterIP == v1.ClusterIPNone {
+			cmd := fmt.Sprintf("dig +tcp %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
+			res = kub.ExecInFirstPod(ctx, LogGathererNamespace, podName, cmd)
+			if !res.WasSuccessful() {
+				return fmt.Errorf("unable to resolve service name %s by running '%s': %s",
+					serviceToResolve, cmd, res.OutputPrettyPrint())
+			}
+		} else if !strings.Contains(ipFromDNS, destinationService.Spec.ClusterIP) {
+			return fmt.Errorf("IP returned '%s' does not match the ClusterIP '%s' of the destination service",
+				res.SingleOut(), destinationService.Spec.ClusterIP)
+		}
 	}
 
 	return nil
