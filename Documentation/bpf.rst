@@ -4636,7 +4636,12 @@ surrounding ecosystem in user space.
 
 All BPF update newsletters (01 - 12) can be found here:
 
-     https://cilium.io/blog/categories/bpf%20newsletter/
+     https://cilium.io/blog/categories/eBPF/
+
+And for the news on the latest resources and developments in the eBPF world,
+please refer to the link here:
+
+     https://ebpf.io/blog
 
 Podcasts
 --------
