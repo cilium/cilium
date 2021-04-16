@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -291,6 +292,10 @@ func Init() {
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
+func GetKubectlPath() string {
+	return path.Join(config.CiliumTestConfig.KubectlPath, GetCurrentK8SEnv())
+}
+
 // GetCurrentIntegration returns CI integration set up to run against Cilium.
 func GetCurrentIntegration() string {
 	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
@@ -353,6 +358,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 			environ = append(environ, os.Environ()...)
 		}
 		environ = append(environ, "KUBECONFIG="+config.CiliumTestConfig.Kubeconfig)
+		environ = append(environ, fmt.Sprintf("PATH=%s:%s", GetKubectlPath(), os.Getenv("PATH")))
 
 		// Create the executor
 		exec := CreateLocalExecutor(environ)
@@ -362,6 +368,9 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 			Executor: exec,
 		}
 		k.setBasePath()
+		if err := k.ensureKubectlVersion(); err != nil {
+			ginkgoext.Failf("failed to ensure kubectl version")
+		}
 	}
 
 	// Make sure the namespace Cilium uses exists.
@@ -4520,4 +4529,44 @@ func hasIPAddress(output []string) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+func (kub *Kubectl) ensureKubectlVersion() error {
+	//check current kubectl version
+	type Version struct {
+		ClientVersion struct {
+			Major string `json:"major"`
+			Minor string `json:"minor"`
+		} `json:"clientVersion"`
+	}
+	res := kub.ExecShort(fmt.Sprintf("%s version --client -o json", KubectlCmd))
+	if !res.WasSuccessful() {
+		return fmt.Errorf("failed to run kubectl version")
+	}
+
+	var v Version
+
+	err := json.Unmarshal([]byte(res.GetStdOut().String()), &v)
+	if err != nil {
+		return err
+	}
+
+	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, v.ClientVersion.Minor)
+	if versionstring == GetCurrentK8SEnv() {
+		//version available on host is matching current env
+		return nil
+	}
+
+	err = os.MkdirAll(GetKubectlPath(), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	path := path.Join(GetKubectlPath(), "kubectl")
+	res = kub.Exec(
+		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/v%s.0/bin/linux/amd64/kubectl && chmod +x %s",
+			path, GetCurrentK8SEnv(), path))
+	if !res.WasSuccessful() {
+		return fmt.Errorf("failed to download kubectl")
+	}
+	return nil
 }
