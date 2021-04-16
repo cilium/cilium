@@ -83,6 +83,10 @@ var _ = Describe("K8sIstioTest", func() {
 			Skip(fmt.Sprintf("Istio %s doesn't support K8S %s", istioVersion, k8sVersion))
 		}
 
+		if helpers.SkipQuarantined() {
+			Skip(fmt.Sprintf("Istio test is quarantined for CI triaging"))
+		}
+
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		By("Downloading cilium-istioctl")
