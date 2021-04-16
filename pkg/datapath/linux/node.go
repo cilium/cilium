@@ -52,7 +52,6 @@ type linuxNodeHandler struct {
 	datapathConfig       DatapathConfiguration
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
-	neighDiscoveryLink   netlink.Link
 	neighNextHopByNode   map[nodeTypes.Identity]string // val = string(net.IP)
 	neighNextHopRefCount counter.StringCounter
 	neighByNextHop       map[string]*netlink.Neigh // key = string(net.IP)
@@ -607,7 +606,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
-func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextHopIPv4 net.IP, err error) {
+func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP, ifaceName string) (srcIPv4, nextHopIPv4 net.IP, err error) {
 	// Figure out whether nodeIPv4 is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGet(nodeIPv4)
 	if err != nil {
@@ -639,7 +638,7 @@ func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextH
 // insertNeighbor inserts a permanent ARP entry for a nexthop to the given
 // "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop
 // is determined by sending ARP request for the nexthop from an iface specified
-// by n.neighDiscoveryLink.
+// by the given "ifaceName".
 //
 // The given "refresh" param denotes whether the method is called by a controller
 // which tries to update ARP entries previously inserted by insertNeighbor(). In
@@ -647,7 +646,7 @@ func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextH
 // sends the ARP request anyway.
 //
 // The method must be called with linuxNodeHandler.mutex held.
-func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
+func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, ifaceName string, refresh bool) {
 	if newNode.IsLocal() {
 		return
 	}
@@ -658,11 +657,11 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.LogSubsys: "node-neigh",
-		logfields.Interface: n.neighDiscoveryLink.Attrs().Name,
+		logfields.Interface: ifaceName,
 		logfields.IPAddr:    newNodeIP,
 	})
 
-	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4)
+	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4, ifaceName)
 	if err != nil {
 		scopedLog.WithError(err).Error("Failed to determine source and nexthop IP addr")
 		return
@@ -710,7 +709,14 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
 	if nextHopIsNew || refresh {
-		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, n.neighDiscoveryLink, srcIPv4)
+		linkAttr, err := netlink.LinkByName(ifaceName)
+		if err != nil {
+			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
+			return
+		}
+		link := linkAttr.Attrs().Index
+
+		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, linkAttr, srcIPv4)
 		if err != nil {
 			scopedLog.WithError(err).Error("arping failed")
 			return
@@ -735,7 +741,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
 		neigh := netlink.Neigh{
-			LinkIndex:    n.neighDiscoveryLink.Attrs().Index,
+			LinkIndex:    link,
 			IP:           nextHopIPv4,
 			HardwareAddr: hwAddr,
 			State:        netlink.NUD_PERMANENT,
@@ -754,13 +760,13 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 }
 
-func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, completed chan struct{}) {
+func (n *linuxNodeHandler) refreshNeighbor(ctx context.Context, nodeToRefresh *nodeTypes.Node, ifaceName string, completed chan struct{}) {
 	defer close(completed)
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	n.insertNeighbor(ctx, nodeToRefresh, true)
+	n.insertNeighbor(ctx, nodeToRefresh, ifaceName, true)
 }
 
 // Must be called with linuxNodeHandler.mutex held.
@@ -874,7 +880,13 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.enableNeighDiscovery {
-		n.insertNeighbor(context.Background(), newNode, false)
+		var ifaceName string
+		if option.Config.EnableNodePort {
+			ifaceName = option.Config.DirectRoutingDevice
+		} else {
+			ifaceName = option.Config.EncryptInterface
+		}
+		n.insertNeighbor(context.Background(), newNode, ifaceName, false)
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
@@ -1273,26 +1285,9 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
 
-	if n.nodeConfig.EnableIPv4 {
-		ifaceName := ""
-		switch {
-		case option.Config.EnableNodePort:
-			ifaceName = option.Config.DirectRoutingDevice
-			n.enableNeighDiscovery = true
-		case n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled:
-			ifaceName = option.Config.EncryptInterface
-			n.enableNeighDiscovery = true
-		}
-
-		if n.enableNeighDiscovery {
-			link, err := netlink.LinkByName(ifaceName)
-			if err != nil {
-				return fmt.Errorf("cannot find link by name %s for neigh discovery: %w",
-					ifaceName, err)
-			}
-			n.neighDiscoveryLink = link
-		}
-	}
+	n.enableNeighDiscovery = n.nodeConfig.EnableIPv4 &&
+		(option.Config.EnableNodePort ||
+			(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled))
 
 	n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true)
 
@@ -1355,8 +1350,14 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 		return
 	}
 
+	var ifaceName string
+	if option.Config.EnableNodePort {
+		ifaceName = option.Config.DirectRoutingDevice
+	} else if option.Config.EnableIPSec {
+		ifaceName = option.Config.EncryptInterface
+	}
 	refreshComplete := make(chan struct{})
-	go n.refreshNeighbor(ctx, &nodeToRefresh, refreshComplete)
+	go n.refreshNeighbor(ctx, &nodeToRefresh, ifaceName, refreshComplete)
 	for {
 		select {
 		case <-ctx.Done():
