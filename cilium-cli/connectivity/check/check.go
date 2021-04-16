@@ -162,6 +162,7 @@ type k8sConnectivityImplementation interface {
 	DeleteNamespace(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
 	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
+	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error)
 	GetCiliumEndpoint(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEndpoint, error)
@@ -791,15 +792,39 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 
 	// In single-cluster environment, automatically detect a single-node
 	// environment so we can skip deploying tests which depend on multiple
-	// nodes
-	if k.params.MultiCluster == "" {
+	// nodes.
+	if k.params.MultiCluster == "" && !k.params.SingleNode {
 		daemonSet, err := k.client.GetDaemonSet(ctx, k.params.CiliumNamespace, defaults.AgentDaemonSetName, metav1.GetOptions{})
 		if err != nil {
 			k.Log("❌ Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
 			return nil, fmt.Errorf("unable to determine status of Cilium DaemonSet: %w", err)
 		}
 
-		if daemonSet.Status.DesiredNumberScheduled == 1 && !k.params.SingleNode {
+		isSingleNode := false
+		if daemonSet.Status.DesiredNumberScheduled == 1 {
+			isSingleNode = true
+		} else {
+			nodes, err := k.client.ListNodes(ctx, metav1.ListOptions{})
+			if err != nil {
+				k.Log("❌ Unable to list nodes.")
+				return nil, fmt.Errorf("unable to list nodes: %w", err)
+			}
+
+			numWorkerNodes := len(nodes.Items)
+			for _, n := range nodes.Items {
+				for _, t := range n.Spec.Taints {
+					// cannot schedule connectivity test pods on
+					// master node.
+					if t.Key == "node-role.kubernetes.io/master" {
+						numWorkerNodes--
+					}
+				}
+			}
+
+			isSingleNode = numWorkerNodes == 1
+		}
+
+		if isSingleNode {
 			k.Log("ℹ️  Single node environment detected, enabling single node connectivity test")
 			k.params.SingleNode = true
 		}
