@@ -187,20 +187,14 @@ type clientOptions struct {
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
-	endpointsOpt, endpointsSet := e.opts[EtcdAddrOption]
-	configPathOpt, configSet := e.opts[EtcdOptionConfig]
-
-	rateLimitOpt, rateLimitSet := e.opts[EtcdRateLimitOption]
-
 	clientOptions := clientOptions{
 		KeepAliveHeartbeat: 15 * time.Second,
 		KeepAliveTimeout:   25 * time.Second,
 		RateLimit:          defaults.KVstoreQPS,
 	}
 
-	if rateLimitSet {
-		// error is discarded here because this option has validation
-		clientOptions.RateLimit, _ = strconv.Atoi(rateLimitOpt.value)
+	if o, ok := e.opts[EtcdRateLimitOption]; ok && o.value != "" {
+		clientOptions.RateLimit, _ = strconv.Atoi(o.value)
 	}
 
 	if o, ok := e.opts[etcdOptionKeepAliveTimeout]; ok && o.value != "" {
@@ -210,6 +204,9 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	if o, ok := e.opts[etcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
 		clientOptions.KeepAliveHeartbeat, _ = time.ParseDuration(o.value)
 	}
+
+	endpointsOpt, endpointsSet := e.opts[EtcdAddrOption]
+	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 
 	var configPath string
 	if configSet {
@@ -235,6 +232,13 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	if e.config.Endpoints == nil && endpointsSet {
 		e.config.Endpoints = []string{endpointsOpt.value}
 	}
+
+	log.WithFields(logrus.Fields{
+		"ConfigPath":         configPath,
+		"KeepAliveHeartbeat": clientOptions.KeepAliveHeartbeat,
+		"KeepAliveTimeout":   clientOptions.KeepAliveTimeout,
+		"RateLimit":          clientOptions.RateLimit,
+	}).Info("Creating etcd client")
 
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
