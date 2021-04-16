@@ -754,6 +754,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
+	relax_verifier();
 	entry.dsr = ct_state->dsr;
 	entry.ifindex = ct_state->ifindex;
 
@@ -845,6 +846,7 @@ static __always_inline int ct_create4(const void *map_main,
 
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
+	relax_verifier();
 	entry.dsr = ct_state->dsr;
 	entry.ifindex = ct_state->ifindex;
 
