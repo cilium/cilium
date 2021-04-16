@@ -45,6 +45,7 @@ type CiliumTestConfigType struct {
 	ProvisionK8s        bool
 	Timeout             time.Duration
 	Kubeconfig          string
+	KubectlPath         string
 	Registry            string
 	RegistryCredentials string
 	Benchmarks          bool
@@ -89,6 +90,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flagset.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
 	flagset.StringVar(&c.Registry, "cilium.registry", "", "docker registry hostname for Cilium image")
+	flagset.StringVar(&c.KubectlPath, "cilium.kubectl-path", "/tmp/kubectl",
+		"Path that holds version-specific kubectl binaries")
 	flagset.StringVar(&c.RegistryCredentials, "cilium.registryCredentials", "",
 		"Registry credentials to be used to download images")
 	flagset.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
