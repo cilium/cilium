@@ -69,6 +69,14 @@ if [ ! -f "${CNI_DIR}/bin/loopback" ]; then
 	cp /cni/loopback "${CNI_DIR}/bin/" || true
 fi
 
+# Install the CNI portmap driver if not installed already
+if [ ! -f "${CNI_DIR}/bin/portmap" ]; then
+	echo "Installing portmap driver..."
+
+	# Don't fail hard if this fails as it is usually not required
+	cp /cni/portmap "${CNI_DIR}/bin/" || true
+fi
+
 echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
 
 # Move an eventual old existing binary out of the way, we can't delete it

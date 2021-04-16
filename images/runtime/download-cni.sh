@@ -16,8 +16,10 @@ for arch in amd64 arm64 ; do
   curl --fail --show-error --silent --location "https://github.com/containernetworking/plugins/releases/download/v${cni_version}/cni-plugins-linux-${arch}-v${cni_version}.tgz" --output "/tmp/cni-${arch}.tgz"
   printf "%s %s" "${cni_sha512[${arch}]}" "/tmp/cni-${arch}.tgz" | sha512sum -c
   mkdir -p "/out/linux/${arch}/bin"
-  tar -C "/out/linux/${arch}/bin" -xf "/tmp/cni-${arch}.tgz" ./loopback
+  tar -C "/out/linux/${arch}/bin" -xf "/tmp/cni-${arch}.tgz" ./loopback ./portmap
 done
 
-x86_64-linux-gnu-strip /out/linux/amd64/bin/loopback
-aarch64-linux-gnu-strip /out/linux/arm64/bin/loopback
+for cni_bin in loopback portmap ; do
+  x86_64-linux-gnu-strip /out/linux/amd64/bin/${cni_bin}
+  aarch64-linux-gnu-strip /out/linux/arm64/bin/${cni_bin}
+done
