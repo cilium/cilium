@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -37,11 +38,13 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				var valid bool
 				if node := k8s.ObjToV1Node(obj); node != nil {
-					if option.Config.BGPAnnounceLBIP {
-						k.bgpSpeakerManager.OnUpdateNode(node) // Need to seed the BGP speaker
-					}
+					valid = true
+					err := k.updateK8sNodeV1(nil, node)
+					k.K8sEventProcessed(metricNode, metricCreate, err == nil)
 				}
+				k.K8sEventReceived(metricNode, metricCreate, valid, false)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
@@ -70,12 +73,16 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 }
 
 func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) error {
-	oldNodeLabels := oldK8sNode.GetLabels()
+	var oldNodeLabels map[string]string
+	if oldK8sNode != nil {
+		oldNodeLabels = oldK8sNode.GetLabels()
+	}
 	newNodeLabels := newK8sNode.GetLabels()
 
 	nodeEP := k.endpointManager.GetHostEndpoint()
 	if nodeEP == nil {
-		log.Error("Host endpoint not found")
+		log.Debug("Host endpoint not found, updating node labels")
+		node.SetLabels(newNodeLabels)
 		return nil
 	}
 
