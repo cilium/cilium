@@ -7,8 +7,8 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        VM_MEMORY = "8192"
-        VM_CPUS = "3"
+        VM_MEMORY = "15360"
+        VM_CPUS = "4"
         GOPATH="${WORKSPACE}"
         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
         GINKGO_TIMEOUT="170m"
