@@ -33,7 +33,7 @@ require (
 	github.com/go-openapi/strfmt v0.19.4
 	github.com/go-openapi/swag v0.19.7
 	github.com/go-openapi/validate v0.19.5
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.3.2
 	github.com/google/go-cmp v0.4.0
 	github.com/google/gofuzz v1.1.0
@@ -75,22 +75,22 @@ require (
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
-	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20201231184435-2d18734c6014
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	golang.org/x/tools v0.0.0-20200324175852-6fb6f5a9fc59
+	golang.org/x/tools v0.0.0-20210106214847-113979e3529a
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.18.17
-	k8s.io/apiextensions-apiserver v0.18.17
-	k8s.io/apimachinery v0.18.17
-	k8s.io/client-go v0.18.17
-	k8s.io/code-generator v0.18.17
+	k8s.io/api v0.18.18
+	k8s.io/apiextensions-apiserver v0.18.18
+	k8s.io/apimachinery v0.18.18
+	k8s.io/client-go v0.18.18
+	k8s.io/code-generator v0.18.18
 	k8s.io/klog v1.0.0
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -100,5 +100,5 @@ replace (
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	// Using cilium/netlink until XFRM patches merged upstream
 	github.com/vishvananda/netlink => github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210331160701-89ef15ed3b02
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210417023617-aeb4c6f1b557
 )

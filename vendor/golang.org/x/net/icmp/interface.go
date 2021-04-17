@@ -300,7 +300,7 @@ func parseInterfaceIdent(b []byte) (Extension, error) {
 	}
 	switch ifi.Type {
 	case typeInterfaceByName:
-		ifi.Name = strings.Trim(string(b[4:]), string(0))
+		ifi.Name = strings.Trim(string(b[4:]), "\x00")
 	case typeInterfaceByIndex:
 		if len(b[4:]) < 4 {
 			return nil, errInvalidExtension
