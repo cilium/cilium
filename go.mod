@@ -34,7 +34,7 @@ require (
 	github.com/go-openapi/strfmt v0.19.6
 	github.com/go-openapi/swag v0.19.9
 	github.com/go-openapi/validate v0.19.12
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.1
 	github.com/google/gofuzz v1.1.0
@@ -77,21 +77,21 @@ require (
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
+	golang.org/x/tools v0.0.0-20210106214847-113979e3529a
 	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.19.9
-	k8s.io/apiextensions-apiserver v0.19.9
-	k8s.io/apimachinery v0.19.9
-	k8s.io/client-go v0.19.9
-	k8s.io/code-generator v0.19.9
+	k8s.io/api v0.19.10
+	k8s.io/apiextensions-apiserver v0.19.10
+	k8s.io/apimachinery v0.19.10
+	k8s.io/client-go v0.19.10
+	k8s.io/code-generator v0.19.10
 	k8s.io/klog/v2 v2.2.0
 	// We specify the controller-tools version here to be the version of the
 	// fork below, so that when we generate CRDs, the generated CRD contains
@@ -99,10 +99,6 @@ require (
 	// the fork, even though this specific version doesn't exist in upstream
 	// controller-tools.
 	sigs.k8s.io/controller-tools v0.3.1-0.20200716001835-4a903ddb7005
-	// Must be bound to at least this commit until a new release is made with
-	// https://github.com/kubernetes-sigs/structured-merge-diff/pull/173
-	// included.
-	sigs.k8s.io/structured-merge-diff/v4 v4.0.3-0.20201124161302-9f9c77085dec // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
@@ -113,7 +109,7 @@ replace (
 	// Using cilium/netlink until XFRM patches merged upstream
 	github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20210223023818-d826f2a4c934
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8 // To avoid https://github.com/go-yaml/yaml/pull/571.
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210331161019-5ccb1ab6cbdc
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20210417023405-9e741bb9f5c5
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
