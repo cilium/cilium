@@ -77,9 +77,9 @@ func newIPcacheMock() *ipcacheMock {
 	}
 }
 
-func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, bool) {
+func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
 	i.events <- nodeEvent{"upsert", net.ParseIP(ip)}
-	return true, false
+	return false, nil
 }
 
 func (i *ipcacheMock) Delete(IP string, source source.Source) bool {

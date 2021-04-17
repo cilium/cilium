@@ -63,7 +63,7 @@ type nodeEntry struct {
 
 // IPCache is the set of interactions the node manager performs with the ipcache
 type IPCache interface {
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, bool)
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
 }
 
@@ -393,7 +393,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 
 		ipAddrStr := address.IP.String()
-		isOwning, _ := m.ipcache.Upsert(ipAddrStr, tunnelIP, key, nil, ipcache.Identity{
+		_, err := m.ipcache.Upsert(ipAddrStr, tunnelIP, key, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
@@ -402,7 +402,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// the source of the node update that triggered this node
 		// update (kvstore, k8s, ...) The datapath is only updated if
 		// that source of truth is updated.
-		if !isOwning {
+		if err != nil {
 			dpUpdate = false
 		} else {
 			ipsAdded = append(ipsAdded, ipAddrStr)
@@ -414,11 +414,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 		addrStr := address.String()
-		isOwning, _ := m.ipcache.Upsert(addrStr, nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		_, err := m.ipcache.Upsert(addrStr, nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})
-		if !isOwning {
+		if err != nil {
 			dpUpdate = false
 		} else {
 			healthIPsAdded = append(healthIPsAdded, addrStr)
