@@ -747,15 +747,15 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
-		selfOwned, npc := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+		npc, err := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 			ID:     identity.ReservedIdentityUnmanaged,
 			Source: source.Kubernetes,
 		})
 		if npc {
 			namedPortsChanged = true
 		}
-		if !selfOwned {
-			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent", podIP))
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent: %s", podIP, err))
 		}
 	}
 	if len(errs) != 0 {
