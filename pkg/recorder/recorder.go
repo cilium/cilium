@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/lock"
@@ -42,15 +43,17 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 type ID uint16
 
+// +k8s:deepcopy-gen=true
 type RecorderTuple struct {
-	SrcPrefix net.IPNet
+	SrcPrefix cidr.CIDR
 	SrcPort   uint16
-	DstPrefix net.IPNet
+	DstPrefix cidr.CIDR
 	DstPort   uint16
 	Proto     u8proto.U8proto
 }
 
-type recorderMask struct {
+// +k8s:deepcopy-gen=true
+type RecorderMask struct {
 	srcMask net.IPMask
 	srcPort uint16
 	dstMask net.IPMask
@@ -58,16 +61,18 @@ type recorderMask struct {
 	proto   u8proto.U8proto
 }
 
+// +k8s:deepcopy-gen=true
 type RecInfo struct {
 	ID      ID
 	CapLen  uint16
 	Filters []RecorderTuple
 }
 
+// +k8s:deepcopy-gen=true
 type RecMask struct {
 	users int
 	prio  int
-	mask  recorderMask
+	mask  RecorderMask
 }
 
 type recQueue struct {
@@ -121,8 +126,8 @@ func NewRecorder(ctx context.Context) (*Recorder, error) {
 	return rec, nil
 }
 
-func convertTupleToMask(t RecorderTuple) recorderMask {
-	m := recorderMask{
+func convertTupleToMask(t RecorderTuple) RecorderMask {
+	m := RecorderMask{
 		srcMask: make([]byte, len(t.SrcPrefix.Mask)),
 		dstMask: make([]byte, len(t.DstPrefix.Mask)),
 	}
@@ -140,7 +145,7 @@ func convertTupleToMask(t RecorderTuple) recorderMask {
 	return m
 }
 
-func countMaskOnes(m recorderMask) int {
+func countMaskOnes(m RecorderMask) int {
 	ones := 0
 	onesSrc, _ := m.srcMask.Size()
 	onesDst, _ := m.dstMask.Size()
@@ -157,7 +162,7 @@ func countMaskOnes(m recorderMask) int {
 	return ones
 }
 
-func hashMask(x *recorderMask) string {
+func hashMask(x *RecorderMask) string {
 	return fmt.Sprintf("%s/%s/%x/%x/%x",
 		x.srcMask.String(), x.dstMask.String(),
 		int(x.srcPort), int(x.dstPort), int(x.proto))
@@ -174,12 +179,12 @@ func (t *RecorderTuple) isIPv4() bool {
 	return bits == 32
 }
 
-func (m *recorderMask) isIPv4() bool {
+func (m *RecorderMask) isIPv4() bool {
 	_, bits := m.srcMask.Size()
 	return bits == 32
 }
 
-func (m *recorderMask) genMacroSpec() string {
+func (m *RecorderMask) genMacroSpec() string {
 	onesSrc, _ := m.srcMask.Size()
 	onesDst, _ := m.dstMask.Size()
 
@@ -441,35 +446,6 @@ func (r *Recorder) updateRecInfoLocked(riNew, riOld *RecInfo) error {
 	return r.applyDatapath(triggerRegen)
 }
 
-func deepCopyPrefix(p net.IPNet) net.IPNet {
-	out := net.IPNet{
-		IP:   make([]byte, len(p.IP)),
-		Mask: make([]byte, len(p.Mask)),
-	}
-	copy(out.IP, p.IP)
-	copy(out.Mask, p.Mask)
-	return out
-}
-
-func deepCopyRecInfo(recInfo *RecInfo) *RecInfo {
-	ri := &RecInfo{
-		ID:      recInfo.ID,
-		CapLen:  recInfo.CapLen,
-		Filters: []RecorderTuple{},
-	}
-	for _, filter := range recInfo.Filters {
-		f := RecorderTuple{
-			SrcPort: filter.SrcPort,
-			DstPort: filter.DstPort,
-			Proto:   filter.Proto,
-		}
-		f.SrcPrefix = deepCopyPrefix(filter.SrcPrefix)
-		f.DstPrefix = deepCopyPrefix(filter.DstPrefix)
-		ri.Filters = append(ri.Filters, f)
-	}
-	return ri
-}
-
 // UpsertRecorder will create a new or update an existing recorder object
 // based on its unique identifier. If needed, it will also update datapath
 // maps to insert new or remove obsolete recorder filters from the BPF maps
@@ -480,7 +456,7 @@ func (r *Recorder) UpsertRecorder(recInfoNew *RecInfo) (bool, error) {
 		return false, fmt.Errorf("Ignoring recorder request due to --%s being disabled in agent",
 			option.EnableRecorder)
 	}
-	recInfoCpy := deepCopyRecInfo(recInfoNew)
+	recInfoCpy := recInfoNew.DeepCopy()
 	r.Lock()
 	defer r.Unlock()
 	if recInfoCur, found := r.recByID[recInfoCpy.ID]; found {
@@ -492,7 +468,7 @@ func (r *Recorder) UpsertRecorder(recInfoNew *RecInfo) (bool, error) {
 
 func (r *Recorder) retrieveRecorderLocked(id ID) (*RecInfo, error) {
 	if recInfo, found := r.recByID[id]; found {
-		return deepCopyRecInfo(recInfo), nil
+		return recInfo.DeepCopy(), nil
 	} else {
 		return nil, fmt.Errorf("Recorder id %d not found", int(id))
 	}
@@ -520,34 +496,13 @@ func (r *Recorder) RetrieveRecorderSet() []*RecInfo {
 	return recList
 }
 
-func deepCopyMask(m net.IPMask) net.IPMask {
-	out := make([]byte, len(m))
-	copy(out, m)
-	return out
-}
-
-func deepCopyRecMask(recMask *RecMask) *RecMask {
-	rm := &RecMask{
-		users: recMask.users,
-		prio:  recMask.prio,
-		mask: recorderMask{
-			srcPort: recMask.mask.srcPort,
-			dstPort: recMask.mask.dstPort,
-			proto:   recMask.mask.proto,
-		},
-	}
-	rm.mask.srcMask = deepCopyMask(recMask.mask.srcMask)
-	rm.mask.dstMask = deepCopyMask(recMask.mask.dstMask)
-	return rm
-}
-
 // RetrieveRecorderMaskSet will return a list of all existing recorder masks.
 func (r *Recorder) RetrieveRecorderMaskSet() []*RecMask {
 	recMaskList := []*RecMask{}
 	r.RLock()
 	defer r.RUnlock()
 	for _, mask := range r.recMask {
-		maskCpy := deepCopyRecMask(mask)
+		maskCpy := mask.DeepCopy()
 		recMaskList = append(recMaskList, maskCpy)
 	}
 	return recMaskList
@@ -568,12 +523,12 @@ func ModelToRecorder(mo *models.RecorderSpec) (*RecInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		f.DstPrefix = *prefix
+		f.DstPrefix = *cidr.NewCIDR(prefix)
 		ipSrc, prefix, err := net.ParseCIDR(mf.SrcPrefix)
 		if err != nil {
 			return nil, err
 		}
-		f.SrcPrefix = *prefix
+		f.SrcPrefix = *cidr.NewCIDR(prefix)
 		if (ipDst.To4() == nil) != (ipSrc.To4() == nil) {
 			return nil, fmt.Errorf("Recorder source (%s) and destination (%s) prefix must be same protocol version",
 				f.SrcPrefix, f.DstPrefix)

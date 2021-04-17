@@ -428,7 +428,8 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	pkg:k8s\
 	pkg:labels\
 	pkg:loadbalancer\
-	pkg:tuple")
+	pkg:tuple\
+	pkg:recorder")
 
 # Explanation for the arguments to `go-bindata`:
 # - prefix:   Strip off the ROOT_DIR from the CRD YAML paths
