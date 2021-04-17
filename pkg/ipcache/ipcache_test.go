@@ -17,6 +17,7 @@
 package ipcache
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -70,7 +71,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 		ID:     identity,
 		Source: source.Kubernetes,
 	})
-	c.Assert(err, Not(IsNil))
+	c.Assert(errors.Is(err, &ErrOverwrite{NewSrc: source.Kubernetes}), Equals, true)
 
 	IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,

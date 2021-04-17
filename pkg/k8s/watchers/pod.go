@@ -755,7 +755,21 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 			namedPortsChanged = true
 		}
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent: %s", podIP, err))
+			// It is expected to receive error overwrites where the existing
+			// source is the KVStore, this can happen as KVStore event
+			// propagation can usually be faster than k8s event propagation.
+			// It is also expected to receive an error overwrite where the
+			// existing source is local since cilium-agent receives events for
+			// local pods.
+			if !errors.Is(err, &ipcache.ErrOverwrite{
+				ExistingSrc: source.KVStore,
+				NewSrc:      source.Kubernetes,
+			}) || !errors.Is(err, &ipcache.ErrOverwrite{
+				ExistingSrc: source.Local,
+				NewSrc:      source.Kubernetes,
+			}) {
+				errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s: %s", podIP, err))
+			}
 		}
 	}
 	if len(errs) != 0 {
