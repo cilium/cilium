@@ -48,7 +48,7 @@ func ParseIPv4Header(b []byte) (*ipv4.Header, error) {
 		Dst:      net.IPv4(b[16], b[17], b[18], b[19]),
 	}
 	switch runtime.GOOS {
-	case "darwin":
+	case "darwin", "ios":
 		h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4]))
 	case "freebsd":
 		if freebsdVersion >= 1000000 {
