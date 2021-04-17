@@ -26,6 +26,7 @@ import (
 	"time"
 
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
 	"github.com/cilium/cilium/pkg/hubble/recorder/recorderoption"
 	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
@@ -192,9 +193,9 @@ func parseFilters(include []*recorderpb.Filter) ([]recorder.RecorderTuple, error
 		}
 
 		filters = append(filters, recorder.RecorderTuple{
-			SrcPrefix: *srcPrefix,
+			SrcPrefix: *cidr.NewCIDR(srcPrefix),
 			SrcPort:   uint16(f.GetSourcePort()),
-			DstPrefix: *dstPrefix,
+			DstPrefix: *cidr.NewCIDR(dstPrefix),
 			DstPort:   uint16(f.GetDestinationPort()),
 			Proto:     u8proto.U8proto(f.GetProtocol()),
 		})
