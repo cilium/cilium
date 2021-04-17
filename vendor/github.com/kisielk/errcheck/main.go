@@ -2,15 +2,19 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 
-	"github.com/kisielk/errcheck/internal/errcheck"
+	"github.com/kisielk/errcheck/errcheck"
+	"golang.org/x/tools/go/packages"
 )
 
 const (
@@ -19,9 +23,13 @@ const (
 	exitFatalError
 )
 
-var abspath bool
-
 type ignoreFlag map[string]*regexp.Regexp
+
+// global flags
+var (
+	abspath bool
+	verbose bool
+)
 
 func (f ignoreFlag) String() string {
 	pairs := make([]string, 0, len(f))
@@ -61,17 +69,16 @@ func (f ignoreFlag) Set(s string) error {
 type tagsFlag []string
 
 func (f *tagsFlag) String() string {
-	return fmt.Sprintf("%q", strings.Join(*f, " "))
+	return fmt.Sprintf("%q", strings.Join(*f, ","))
 }
 
 func (f *tagsFlag) Set(s string) error {
 	if s == "" {
 		return nil
 	}
-	tags := strings.Split(s, " ")
-	if tags == nil {
-		return nil
-	}
+	tags := strings.FieldsFunc(s, func(c rune) bool {
+		return c == ' ' || c == ','
+	})
 	for _, tag := range tags {
 		if tag != "" {
 			*f = append(*f, tag)
@@ -80,14 +87,12 @@ func (f *tagsFlag) Set(s string) error {
 	return nil
 }
 
-var dotStar = regexp.MustCompile(".*")
-
-func reportUncheckedErrors(e *errcheck.UncheckedErrors, verbose bool) {
+func reportResult(e errcheck.Result) {
 	wd, err := os.Getwd()
 	if err != nil {
 		wd = ""
 	}
-	for _, uncheckedError := range e.Errors {
+	for _, uncheckedError := range e.UncheckedErrors {
 		pos := uncheckedError.Pos.String()
 		if !abspath {
 			newPos, err := filepath.Rel(wd, pos)
@@ -104,41 +109,87 @@ func reportUncheckedErrors(e *errcheck.UncheckedErrors, verbose bool) {
 	}
 }
 
-func mainCmd(args []string) int {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+func logf(msg string, args ...interface{}) {
+	if verbose {
+		fmt.Fprintf(os.Stderr, msg+"\n", args...)
+	}
+}
 
-	checker := errcheck.NewChecker()
-	paths, err := parseFlags(checker, args)
-	if err != exitCodeOk {
-		return err
+func mainCmd(args []string) int {
+	var checker errcheck.Checker
+	paths, rc := parseFlags(&checker, args)
+	if rc != exitCodeOk {
+		return rc
 	}
 
-	if err := checker.CheckPackages(paths...); err != nil {
-		if e, ok := err.(*errcheck.UncheckedErrors); ok {
-			reportUncheckedErrors(e, checker.Verbose)
-			return exitUncheckedError
-		} else if err == errcheck.ErrNoGoFiles {
+	result, err := checkPaths(&checker, paths...)
+	if err != nil {
+		if err == errcheck.ErrNoGoFiles {
 			fmt.Fprintln(os.Stderr, err)
 			return exitCodeOk
 		}
 		fmt.Fprintf(os.Stderr, "error: failed to check packages: %s\n", err)
 		return exitFatalError
 	}
+	if len(result.UncheckedErrors) > 0 {
+		reportResult(result)
+		return exitUncheckedError
+	}
 	return exitCodeOk
+}
+
+func checkPaths(c *errcheck.Checker, paths ...string) (errcheck.Result, error) {
+	pkgs, err := c.LoadPackages(paths...)
+	if err != nil {
+		return errcheck.Result{}, err
+	}
+	// Check for errors in the initial packages.
+	work := make(chan *packages.Package, len(pkgs))
+	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			return errcheck.Result{}, fmt.Errorf("errors while loading package %s: %v", pkg.ID, pkg.Errors)
+		}
+		work <- pkg
+	}
+	close(work)
+
+	var wg sync.WaitGroup
+	result := &errcheck.Result{}
+	mu := &sync.Mutex{}
+	for i := 0; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			for pkg := range work {
+				logf("checking %s", pkg.Types.Path())
+				r := c.CheckPackage(pkg)
+				mu.Lock()
+				result.Append(r)
+				mu.Unlock()
+			}
+		}()
+	}
+
+	wg.Wait()
+	return result.Unique(), nil
 }
 
 func parseFlags(checker *errcheck.Checker, args []string) ([]string, int) {
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	flags.BoolVar(&checker.Blank, "blank", false, "if true, check for errors assigned to blank identifier")
-	flags.BoolVar(&checker.Asserts, "asserts", false, "if true, check for ignored type assertion results")
-	flags.BoolVar(&checker.WithoutTests, "ignoretests", false, "if true, checking of _test.go files is disabled")
-	flags.BoolVar(&checker.WithoutGeneratedCode, "ignoregenerated", false, "if true, checking of files with generated code is disabled")
-	flags.BoolVar(&checker.Verbose, "verbose", false, "produce more verbose logging")
+
+	var checkAsserts, checkBlanks bool
+
+	flags.BoolVar(&checkBlanks, "blank", false, "if true, check for errors assigned to blank identifier")
+	flags.BoolVar(&checkAsserts, "asserts", false, "if true, check for ignored type assertion results")
+	flags.BoolVar(&checker.Exclusions.TestFiles, "ignoretests", false, "if true, checking of _test.go files is disabled")
+	flags.BoolVar(&checker.Exclusions.GeneratedFiles, "ignoregenerated", false, "if true, checking of files with generated code is disabled")
+	flags.BoolVar(&verbose, "verbose", false, "produce more verbose logging")
 
 	flags.BoolVar(&abspath, "abspath", false, "print absolute paths to files")
 
 	tags := tagsFlag{}
-	flags.Var(&tags, "tags", "space-separated list of build tags to include")
+	flags.Var(&tags, "tags", "comma or space-separated list of build tags to include")
 	ignorePkg := flags.String("ignorepkg", "", "comma-separated list of package paths to ignore")
 	ignore := ignoreFlag(map[string]*regexp.Regexp{})
 	flags.Var(ignore, "ignore", "[deprecated] comma-separated list of pairs of the form pkg:regex\n"+
@@ -147,46 +198,73 @@ func parseFlags(checker *errcheck.Checker, args []string) ([]string, int) {
 	var excludeFile string
 	flags.StringVar(&excludeFile, "exclude", "", "Path to a file containing a list of functions to exclude from checking")
 
+	var excludeOnly bool
+	flags.BoolVar(&excludeOnly, "excludeonly", false, "Use only excludes from -exclude file")
+
+	flags.StringVar(&checker.Mod, "mod", "", "module download mode to use: readonly or vendor. See 'go help modules' for more.")
+
 	if err := flags.Parse(args[1:]); err != nil {
 		return nil, exitFatalError
 	}
 
-	if excludeFile != "" {
-		exclude := make(map[string]bool)
-		fh, err := os.Open(excludeFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not read exclude file: %s\n", err)
-			return nil, exitFatalError
-		}
-		scanner := bufio.NewScanner(fh)
-		for scanner.Scan() {
-			name := scanner.Text()
-			exclude[name] = true
+	checker.Exclusions.BlankAssignments = !checkBlanks
+	checker.Exclusions.TypeAssertions = !checkAsserts
 
-			if checker.Verbose {
-				fmt.Printf("Excluding %s\n", name)
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not read exclude file: %s\n", err)
+	if !excludeOnly {
+		checker.Exclusions.Symbols = append(checker.Exclusions.Symbols, errcheck.DefaultExcludedSymbols...)
+	}
+
+	if excludeFile != "" {
+		excludes, err := readExcludes(excludeFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not read exclude file: %v\n", err)
 			return nil, exitFatalError
 		}
-		checker.SetExclude(exclude)
+		checker.Exclusions.Symbols = append(checker.Exclusions.Symbols, excludes...)
 	}
 
 	checker.Tags = tags
 	for _, pkg := range strings.Split(*ignorePkg, ",") {
 		if pkg != "" {
-			ignore[pkg] = dotStar
+			checker.Exclusions.Packages = append(checker.Exclusions.Packages, pkg)
 		}
 	}
-	checker.Ignore = ignore
+
+	checker.Exclusions.SymbolRegexpsByPackage = ignore
 
 	paths := flags.Args()
 	if len(paths) == 0 {
 		paths = []string{"."}
 	}
+
 	return paths, exitCodeOk
+}
+
+// readExcludes reads an excludes file, a newline delimited file that lists
+// patterns for which to allow unchecked errors.
+func readExcludes(path string) ([]string, error) {
+	var excludes []string
+
+	buf, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(buf))
+
+	for scanner.Scan() {
+		name := scanner.Text()
+		// Skip comments and empty lines.
+		if strings.HasPrefix(name, "//") || name == "" {
+			continue
+		}
+		excludes = append(excludes, name)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return excludes, nil
 }
 
 func main() {
