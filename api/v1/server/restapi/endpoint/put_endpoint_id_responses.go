@@ -106,6 +106,30 @@ func (o *PutEndpointIDExists) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(409)
 }
 
+// PutEndpointIDTooManyRequestsCode is the HTTP code returned for type PutEndpointIDTooManyRequests
+const PutEndpointIDTooManyRequestsCode int = 429
+
+/*PutEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
+
+swagger:response putEndpointIdTooManyRequests
+*/
+type PutEndpointIDTooManyRequests struct {
+}
+
+// NewPutEndpointIDTooManyRequests creates PutEndpointIDTooManyRequests with default headers values
+func NewPutEndpointIDTooManyRequests() *PutEndpointIDTooManyRequests {
+
+	return &PutEndpointIDTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *PutEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}
+
 // PutEndpointIDFailedCode is the HTTP code returned for type PutEndpointIDFailed
 const PutEndpointIDFailedCode int = 500
 

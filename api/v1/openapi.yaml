@@ -111,6 +111,8 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     put:
       summary: Create endpoint
       description: |
@@ -136,6 +138,8 @@ paths:
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Modify existing endpoint
       deprecated: true
@@ -161,6 +165,8 @@ paths:
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     delete:
       summary: Delete endpoint
       description: |
@@ -194,6 +200,8 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint":
     get:
       summary: Retrieves a list of endpoints that have metadata matching the provided parameters.
@@ -212,6 +220,8 @@ paths:
               "$ref": "#/definitions/Endpoint"
         '404':
           description: Endpoints with provided parameters not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -228,6 +238,8 @@ paths:
             "$ref": "#/definitions/EndpointConfigurationStatus"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Modify mutable endpoint configuration
       description: |
@@ -255,6 +267,8 @@ paths:
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/labels":
     get:
       summary: Retrieves the list of labels associated with an endpoint.
@@ -269,6 +283,8 @@ paths:
             "$ref": "#/definitions/LabelConfiguration"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Set label configuration of endpoint
       description: |
@@ -293,6 +309,8 @@ paths:
           x-go-name: UpdateFailed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/log":
     get:
       summary: Retrieves the status logs associated with this endpoint.
@@ -310,6 +328,8 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
 
   "/endpoint/{id}/healthz":
     get:
@@ -328,6 +348,8 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/identity":
     get:
       summary: Retrieves a list of identities that have metadata matching the provided parameters.
