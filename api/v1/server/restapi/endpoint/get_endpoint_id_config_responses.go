@@ -83,3 +83,27 @@ func (o *GetEndpointIDConfigNotFound) WriteResponse(rw http.ResponseWriter, prod
 
 	rw.WriteHeader(404)
 }
+
+// GetEndpointIDConfigTooManyRequestsCode is the HTTP code returned for type GetEndpointIDConfigTooManyRequests
+const GetEndpointIDConfigTooManyRequestsCode int = 429
+
+/*GetEndpointIDConfigTooManyRequests Rate-limiting too many requests in the given time frame
+
+swagger:response getEndpointIdConfigTooManyRequests
+*/
+type GetEndpointIDConfigTooManyRequests struct {
+}
+
+// NewGetEndpointIDConfigTooManyRequests creates GetEndpointIDConfigTooManyRequests with default headers values
+func NewGetEndpointIDConfigTooManyRequests() *GetEndpointIDConfigTooManyRequests {
+
+	return &GetEndpointIDConfigTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *GetEndpointIDConfigTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}

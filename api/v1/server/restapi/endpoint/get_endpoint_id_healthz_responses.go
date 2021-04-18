@@ -107,3 +107,27 @@ func (o *GetEndpointIDHealthzNotFound) WriteResponse(rw http.ResponseWriter, pro
 
 	rw.WriteHeader(404)
 }
+
+// GetEndpointIDHealthzTooManyRequestsCode is the HTTP code returned for type GetEndpointIDHealthzTooManyRequests
+const GetEndpointIDHealthzTooManyRequestsCode int = 429
+
+/*GetEndpointIDHealthzTooManyRequests Rate-limiting too many requests in the given time frame
+
+swagger:response getEndpointIdHealthzTooManyRequests
+*/
+type GetEndpointIDHealthzTooManyRequests struct {
+}
+
+// NewGetEndpointIDHealthzTooManyRequests creates GetEndpointIDHealthzTooManyRequests with default headers values
+func NewGetEndpointIDHealthzTooManyRequests() *GetEndpointIDHealthzTooManyRequests {
+
+	return &GetEndpointIDHealthzTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *GetEndpointIDHealthzTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}

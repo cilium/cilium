@@ -86,3 +86,27 @@ func (o *GetEndpointNotFound) WriteResponse(rw http.ResponseWriter, producer run
 
 	rw.WriteHeader(404)
 }
+
+// GetEndpointTooManyRequestsCode is the HTTP code returned for type GetEndpointTooManyRequests
+const GetEndpointTooManyRequestsCode int = 429
+
+/*GetEndpointTooManyRequests Rate-limiting too many requests in the given time frame
+
+swagger:response getEndpointTooManyRequests
+*/
+type GetEndpointTooManyRequests struct {
+}
+
+// NewGetEndpointTooManyRequests creates GetEndpointTooManyRequests with default headers values
+func NewGetEndpointTooManyRequests() *GetEndpointTooManyRequests {
+
+	return &GetEndpointTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *GetEndpointTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}

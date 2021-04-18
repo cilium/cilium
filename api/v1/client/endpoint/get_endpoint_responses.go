@@ -38,6 +38,12 @@ func (o *GetEndpointReader) ReadResponse(response runtime.ClientResponse, consum
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewGetEndpointTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
@@ -92,6 +98,27 @@ func (o *GetEndpointNotFound) Error() string {
 }
 
 func (o *GetEndpointNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewGetEndpointTooManyRequests creates a GetEndpointTooManyRequests with default headers values
+func NewGetEndpointTooManyRequests() *GetEndpointTooManyRequests {
+	return &GetEndpointTooManyRequests{}
+}
+
+/*GetEndpointTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type GetEndpointTooManyRequests struct {
+}
+
+func (o *GetEndpointTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests ", 429)
+}
+
+func (o *GetEndpointTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }
