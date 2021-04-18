@@ -18,9 +18,9 @@ import (
 // Hosts. When purchasing an offering, ensure that the instance family and Region
 // of the offering matches that of the Dedicated Hosts with which it is to be
 // associated. For more information about supported instance types, see Dedicated
-// Hosts Overview
+// Hosts
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeHostReservationOfferings(ctx context.Context, params *DescribeHostReservationOfferingsInput, optFns ...func(*Options)) (*DescribeHostReservationOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeHostReservationOfferingsInput{}
@@ -182,6 +182,10 @@ type DescribeHostReservationOfferingsPaginator struct {
 // NewDescribeHostReservationOfferingsPaginator returns a new
 // DescribeHostReservationOfferingsPaginator
 func NewDescribeHostReservationOfferingsPaginator(client DescribeHostReservationOfferingsAPIClient, params *DescribeHostReservationOfferingsInput, optFns ...func(*DescribeHostReservationOfferingsPaginatorOptions)) *DescribeHostReservationOfferingsPaginator {
+	if params == nil {
+		params = &DescribeHostReservationOfferingsInput{}
+	}
+
 	options := DescribeHostReservationOfferingsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -189,10 +193,6 @@ func NewDescribeHostReservationOfferingsPaginator(client DescribeHostReservation
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeHostReservationOfferingsInput{}
 	}
 
 	return &DescribeHostReservationOfferingsPaginator{

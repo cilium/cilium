@@ -103,13 +103,19 @@ type Address struct {
 	Tags []Tag
 }
 
+// The attributes associated with an Elastic IP address.
 type AddressAttribute struct {
+
+	// [EC2-VPC] The allocation ID.
 	AllocationId *string
 
+	// The pointer (PTR) record for the IP address.
 	PtrRecord *string
 
+	// The updated PTR record for the IP address.
 	PtrRecordUpdate *PtrUpdateStatus
 
+	// The public IP address.
 	PublicIp *string
 }
 
@@ -299,7 +305,7 @@ type AssociatedRole struct {
 
 	// The key of the Amazon S3 object ey where the certificate, certificate chain, and
 	// encrypted private key bundle is stored. The object key is formated as follows:
-	// certificate_arn/role_arn.
+	// role_arn/certificate_arn.
 	CertificateS3ObjectKey *string
 
 	// The ID of the KMS customer master key (CMK) used to encrypt the private key.
@@ -325,6 +331,26 @@ type AssociationStatus struct {
 
 	// A message about the status of the target network association, if applicable.
 	Message *string
+}
+
+// Describes integration options for Amazon Athena.
+type AthenaIntegration struct {
+
+	// The location in Amazon S3 to store the generated CloudFormation template.
+	//
+	// This member is required.
+	IntegrationResultS3DestinationArn *string
+
+	// The schedule for adding new partitions to the table.
+	//
+	// This member is required.
+	PartitionLoadFrequency PartitionLoadFrequency
+
+	// The end date for the partition.
+	PartitionEndDate *time.Time
+
+	// The start date for the partition.
+	PartitionStartDate *time.Time
 }
 
 // Describes a value for a resource attribute that is a Boolean value.
@@ -446,7 +472,7 @@ type BlockDeviceMapping struct {
 	// launched.
 	Ebs *EbsBlockDevice
 
-	// Suppresses the specified device included in the block device mapping of the AMI.
+	// To omit the device from the block device mapping, specify an empty string.
 	NoDevice *string
 
 	// The virtual device name (ephemeralN). Instance store volumes are numbered
@@ -635,6 +661,9 @@ type CapacityReservation struct {
 	// The ID of the AWS account that owns the Capacity Reservation.
 	OwnerId *string
 
+	// The date and time at which the Capacity Reservation was started.
+	StartDate *time.Time
+
 	// The current state of the Capacity Reservation. A Capacity Reservation can be in
 	// one of the following states:
 	//
@@ -646,16 +675,16 @@ type CapacityReservation struct {
 	// reserved capacity is no longer available for your use.
 	//
 	// * cancelled - The
-	// Capacity Reservation was manually cancelled. The reserved capacity is no longer
-	// available for your use.
+	// Capacity Reservation was cancelled. The reserved capacity is no longer available
+	// for your use.
 	//
-	// * pending - The Capacity Reservation request was
-	// successful but the capacity provisioning is still pending.
+	// * pending - The Capacity Reservation request was successful but
+	// the capacity provisioning is still pending.
 	//
-	// * failed - The
-	// Capacity Reservation request has failed. A request might fail due to invalid
-	// request parameters, capacity constraints, or instance limit constraints. Failed
-	// requests are retained for 60 minutes.
+	// * failed - The Capacity Reservation
+	// request has failed. A request might fail due to invalid request parameters,
+	// capacity constraints, or instance limit constraints. Failed requests are
+	// retained for 60 minutes.
 	State CapacityReservationState
 
 	// Any tags assigned to the Capacity Reservation.
@@ -692,10 +721,10 @@ type CapacityReservationGroup struct {
 // instant. For more information about Capacity Reservations, see On-Demand
 // Capacity Reservations
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html)
-// in the Amazon Elastic Compute Cloud User Guide. For examples of using Capacity
-// Reservations in an EC2 Fleet, see EC2 Fleet example configurations
+// in the Amazon EC2 User Guide. For examples of using Capacity Reservations in an
+// EC2 Fleet, see EC2 Fleet example configurations
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-examples.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 type CapacityReservationOptions struct {
 
 	// Indicates whether to use unused Capacity Reservations for fulfilling On-Demand
@@ -716,10 +745,10 @@ type CapacityReservationOptions struct {
 // instant. For more information about Capacity Reservations, see On-Demand
 // Capacity Reservations
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html)
-// in the Amazon Elastic Compute Cloud User Guide. For examples of using Capacity
-// Reservations in an EC2 Fleet, see EC2 Fleet example configurations
+// in the Amazon EC2 User Guide. For examples of using Capacity Reservations in an
+// EC2 Fleet, see EC2 Fleet example configurations
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-examples.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 type CapacityReservationOptionsRequest struct {
 
 	// Indicates whether to use unused Capacity Reservations for fulfilling On-Demand
@@ -1924,19 +1953,19 @@ type EbsBlockDevice struct {
 	// Indicates whether the EBS volume is deleted on instance termination. For more
 	// information, see Preserving Amazon EBS volumes on instance termination
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/terminating-instances.html#preserving-volumes-on-termination)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// in the Amazon EC2 User Guide.
 	DeleteOnTermination bool
 
 	// Indicates whether the encryption state of an EBS volume is changed while being
 	// restored from a backing snapshot. The effect of setting the encryption state to
 	// true depends on the volume origin (new or from a snapshot), starting encryption
 	// state, ownership, and whether encryption by default is enabled. For more
-	// information, see Amazon EBS Encryption
+	// information, see Amazon EBS encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#encryption-parameters)
-	// in the Amazon Elastic Compute Cloud User Guide. In no case can you remove
-	// encryption from an encrypted volume. Encrypted volumes can only be attached to
-	// instances that support Amazon EBS encryption. For more information, see
-	// Supported instance types
+	// in the Amazon EC2 User Guide. In no case can you remove encryption from an
+	// encrypted volume. Encrypted volumes can only be attached to instances that
+	// support Amazon EBS encryption. For more information, see Supported instance
+	// types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
 	// This parameter is not returned by .
 	Encrypted bool
@@ -1972,6 +2001,7 @@ type EbsBlockDevice struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestSpotInstances.html).
 	KmsKeyId *string
 
+	// The ARN of the Outpost on which the snapshot is stored.
 	OutpostArn *string
 
 	// The ID of the snapshot.
@@ -1991,18 +2021,16 @@ type EbsBlockDevice struct {
 	//
 	// * io1 and io2: 4-16,384
 	//
-	// * st1: 500-16,384
+	// * st1 and sc1: 125-16,384
 	//
-	// * sc1: 500-16,384
-	//
-	// *
-	// standard: 1-1,024
+	// * standard:
+	// 1-1,024
 	VolumeSize int32
 
 	// The volume type. For more information, see Amazon EBS volume types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. If the volume type is io1 or io2, you
-	// must specify the IOPS that the volume supports.
+	// Amazon EC2 User Guide. If the volume type is io1 or io2, you must specify the
+	// IOPS that the volume supports.
 	VolumeType VolumeType
 }
 
@@ -2013,9 +2041,9 @@ type EbsInfo struct {
 	EbsOptimizedInfo *EbsOptimizedInfo
 
 	// Indicates whether the instance type is Amazon EBS-optimized. For more
-	// information, see Amazon EBS-Optimized Instances
+	// information, see Amazon EBS-optimized instances
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSOptimized.html) in
-	// Amazon EC2 User Guide for Linux Instances.
+	// Amazon EC2 User Guide.
 	EbsOptimizedSupport EbsOptimizedSupport
 
 	// Indicates whether Amazon EBS encryption is supported.
@@ -2074,6 +2102,13 @@ type EbsOptimizedInfo struct {
 
 	// The maximum throughput performance for an EBS-optimized instance type, in MB/s.
 	MaximumThroughputInMBps *float64
+}
+
+// Describes the Elastic Fabric Adapters for the instance type.
+type EfaInfo struct {
+
+	// The maximum number of Elastic Fabric Adapters for the instance type.
+	MaximumEfaInterfaces *int32
 }
 
 // Describes an egress-only internet gateway.
@@ -2542,11 +2577,11 @@ type ExportImageTask struct {
 	// The status message for the export image task.
 	StatusMessage *string
 
-	// Any tags assigned to the image being exported.
+	// Any tags assigned to the export image task.
 	Tags []Tag
 }
 
-// Describes an instance export task.
+// Describes an export instance task.
 type ExportTask struct {
 
 	// A description of the resource being exported.
@@ -2593,7 +2628,7 @@ type ExportTaskS3LocationRequest struct {
 	S3Prefix *string
 }
 
-// Describes the format and location for an instance export task.
+// Describes the format and location for the export task.
 type ExportToS3Task struct {
 
 	// The container format used to combine disk images with metadata (such as OVF). If
@@ -2612,7 +2647,7 @@ type ExportToS3Task struct {
 	S3Key *string
 }
 
-// Describes an instance export task.
+// Describes an export instance task.
 type ExportToS3TaskSpecification struct {
 
 	// The container format used to combine disk images with metadata (such as OVF). If
@@ -2666,32 +2701,7 @@ type FederatedAuthenticationRequest struct {
 
 // A filter name and value pair that is used to return a more specific list of
 // results from a describe operation. Filters can be used to match a set of
-// resources by specific criteria, such as tags, attributes, or IDs. The filters
-// supported by a describe operation are documented with the describe operation.
-// For example:
-//
-// * DescribeAvailabilityZones
-//
-// * DescribeImages
-//
-// *
-// DescribeInstances
-//
-// * DescribeKeyPairs
-//
-// * DescribeSecurityGroups
-//
-// *
-// DescribeSnapshots
-//
-// * DescribeSubnets
-//
-// * DescribeTags
-//
-// * DescribeVolumes
-//
-// *
-// DescribeVpcs
+// resources by specific criteria, such as tags, attributes, or IDs.
 type Filter struct {
 
 	// The name of the filter. Filter names are case-sensitive.
@@ -2752,7 +2762,11 @@ type FleetData struct {
 	// The allocation strategy of On-Demand Instances in an EC2 Fleet.
 	OnDemandOptions *OnDemandOptions
 
-	// Indicates whether EC2 Fleet should replace unhealthy instances.
+	// Indicates whether EC2 Fleet should replace unhealthy Spot Instances. Supported
+	// only for fleets of type maintain. For more information, see EC2 Fleet health
+	// checks
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#ec2-fleet-health-checks)
+	// in the Amazon EC2 User Guide.
 	ReplaceUnhealthyInstances bool
 
 	// The configuration of Spot Instances in an EC2 Fleet.
@@ -2812,7 +2826,8 @@ type FleetLaunchTemplateConfigRequest struct {
 	LaunchTemplateSpecification *FleetLaunchTemplateSpecificationRequest
 
 	// Any parameters that you specify override the same parameters in the launch
-	// template.
+	// template. For fleets of type request and maintain, a maximum of 300 items is
+	// allowed across all launch templates.
 	Overrides []FleetLaunchTemplateOverridesRequest
 }
 
@@ -2831,11 +2846,16 @@ type FleetLaunchTemplateOverrides struct {
 	// The location where the instance launched, if applicable.
 	Placement *PlacementResponse
 
-	// The priority for the launch template override. If AllocationStrategy is set to
-	// prioritized, EC2 Fleet uses priority to determine which launch template override
-	// to use first in fulfilling On-Demand capacity. The highest priority is launched
-	// first. Valid values are whole numbers starting at 0. The lower the number, the
-	// higher the priority. If no number is set, the override has the lowest priority.
+	// The priority for the launch template override. The highest priority is launched
+	// first. If the On-Demand AllocationStrategy is set to prioritized, EC2 Fleet uses
+	// priority to determine which launch template override to use first in fulfilling
+	// On-Demand capacity. If the Spot AllocationStrategy is set to
+	// capacity-optimized-prioritized, EC2 Fleet uses priority on a best-effort basis
+	// to determine which launch template override to use in fulfilling Spot capacity,
+	// but optimizes for capacity first. Valid values are whole numbers starting at 0.
+	// The lower the number, the higher the priority. If no number is set, the override
+	// has the lowest priority. You can set the same priority for different launch
+	// template overrides.
 	Priority float64
 
 	// The ID of the subnet in which to launch the instances.
@@ -2860,12 +2880,16 @@ type FleetLaunchTemplateOverridesRequest struct {
 	// The location where the instance launched, if applicable.
 	Placement *Placement
 
-	// The priority for the launch template override. If AllocationStrategy is set to
-	// prioritized, EC2 Fleet uses priority to determine which launch template override
-	// to use first in fulfilling On-Demand capacity. The highest priority is launched
-	// first. Valid values are whole numbers starting at 0. The lower the number, the
-	// higher the priority. If no number is set, the launch template override has the
-	// lowest priority.
+	// The priority for the launch template override. The highest priority is launched
+	// first. If the On-Demand AllocationStrategy is set to prioritized, EC2 Fleet uses
+	// priority to determine which launch template override to use first in fulfilling
+	// On-Demand capacity. If the Spot AllocationStrategy is set to
+	// capacity-optimized-prioritized, EC2 Fleet uses priority on a best-effort basis
+	// to determine which launch template override to use in fulfilling Spot capacity,
+	// but optimizes for capacity first. Valid values are whole numbers starting at 0.
+	// The lower the number, the higher the priority. If no number is set, the launch
+	// template override has the lowest priority. You can set the same priority for
+	// different launch template overrides.
 	Priority float64
 
 	// The IDs of the subnets in which to launch the instances. Separate multiple
@@ -2905,7 +2929,7 @@ type FleetLaunchTemplateSpecification struct {
 // can be used by an EC2 Fleet to configure Amazon EC2 instances. For information
 // about launch templates, see Launching an instance from a launch template
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 type FleetLaunchTemplateSpecificationRequest struct {
 
 	// The ID of the launch template. If you specify the template ID, you can't specify
@@ -2940,7 +2964,7 @@ type FleetSpotCapacityRebalance struct {
 // that your Spot Instance is at an elevated risk of being interrupted. For more
 // information, see Capacity rebalancing
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-configuration-strategies.html#ec2-fleet-capacity-rebalance)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 type FleetSpotCapacityRebalanceRequest struct {
 
 	// The replacement strategy to use. Only available for fleets of type maintain. To
@@ -3206,7 +3230,7 @@ type GroupIdentifier struct {
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
 // For more information, see Hibernate your instance
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 type HibernationOptions struct {
 
 	// If this parameter is set to true, your instance is enabled for hibernation;
@@ -3219,7 +3243,7 @@ type HibernationOptions struct {
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
 // For more information, see Hibernate your instance
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 type HibernationOptionsRequest struct {
 
 	// If you set this parameter to true, your instance is enabled for hibernation.
@@ -3273,9 +3297,9 @@ type Host struct {
 	AllocationTime *time.Time
 
 	// Indicates whether the Dedicated Host supports multiple instance types of the
-	// same instance family, or a specific instance type only. one indicates that the
-	// Dedicated Host supports multiple instance types in the instance family. off
-	// indicates that the Dedicated Host supports a single instance type only.
+	// same instance family. If the value is on, the Dedicated Host supports multiple
+	// instance types in the instance family. If the value is off, the Dedicated Host
+	// supports a single instance type only.
 	AllowsMultipleInstanceTypes AllowsMultipleInstanceTypes
 
 	// Whether auto-placement is on or off.
@@ -3291,7 +3315,7 @@ type Host struct {
 	AvailableCapacity *AvailableCapacity
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see Ensuring Idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 
@@ -3525,6 +3549,9 @@ type Image struct {
 	// Any block device mapping entries.
 	BlockDeviceMappings []BlockDeviceMapping
 
+	// The boot mode of the image. For more information, see Boot modes
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html) in the
+	// Amazon Elastic Compute Cloud User Guide.
 	BootMode BootModeValues
 
 	// The date and time the image was created.
@@ -3628,8 +3655,8 @@ type ImageDiskContainer struct {
 	// The block device mapping for the disk.
 	DeviceName *string
 
-	// The format of the disk image being imported. Valid values: OVA | VHD | VHDX
-	// |VMDK
+	// The format of the disk image being imported. Valid values: OVA | VHD | VHDX |
+	// VMDK | RAW
 	Format *string
 
 	// The ID of the EBS snapshot to be used for importing the snapshot.
@@ -3858,6 +3885,9 @@ type Instance struct {
 	// Any block device mapping entries for the instance.
 	BlockDeviceMappings []InstanceBlockDeviceMapping
 
+	// The boot mode of the instance. For more information, see Boot modes
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html) in the
+	// Amazon EC2 User Guide.
 	BootMode BootModeValues
 
 	// The ID of the Capacity Reservation.
@@ -3983,13 +4013,7 @@ type Instance struct {
 	// The security groups for the instance.
 	SecurityGroups []GroupIdentifier
 
-	// Specifies whether to enable an instance launched in a VPC to perform NAT. This
-	// controls whether source/destination checking is enabled on the instance. A value
-	// of true means that checking is enabled, and false means that checking is
-	// disabled. The value must be false for the instance to perform NAT. For more
-	// information, see NAT Instances
-	// (https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html)
-	// in the Amazon Virtual Private Cloud User Guide.
+	// Indicates whether source/destination checking is enabled.
 	SourceDestCheck bool
 
 	// If the request is a Spot Instance request, the ID of the request.
@@ -4251,7 +4275,7 @@ type InstanceNetworkInterface struct {
 	// One or more private IPv4 addresses associated with the network interface.
 	PrivateIpAddresses []InstancePrivateIpAddress
 
-	// Indicates whether to validate network traffic to or from this network interface.
+	// Indicates whether source/destination checking is enabled.
 	SourceDestCheck bool
 
 	// The status of the network interface.
@@ -4614,9 +4638,9 @@ type InstanceTypeInfo struct {
 	// Indicates whether instance storage is supported.
 	InstanceStorageSupported *bool
 
-	// The instance type. For more information, see Instance Types
+	// The instance type. For more information, see Instance types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Amazon EC2 User Guide.
 	InstanceType InstanceType
 
 	// Describes the memory for the instance type.
@@ -4631,6 +4655,9 @@ type InstanceTypeInfo struct {
 	// Describes the processor.
 	ProcessorInfo *ProcessorInfo
 
+	// The supported boot modes. For more information, see Boot modes
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html) in the
+	// Amazon EC2 User Guide.
 	SupportedBootModes []BootModeType
 
 	// The supported root device types.
@@ -4649,9 +4676,9 @@ type InstanceTypeInfo struct {
 // The instance types offered.
 type InstanceTypeOffering struct {
 
-	// The instance type. For more information, see Instance Types
+	// The instance type. For more information, see Instance types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Amazon EC2 User Guide.
 	InstanceType InstanceType
 
 	// The identifier for the location. This depends on the location type. For example,
@@ -4672,6 +4699,13 @@ type InstanceUsage struct {
 	// The number of instances the AWS account currently has in the Capacity
 	// Reservation.
 	UsedInstanceCount int32
+}
+
+// Describes service integrations with VPC Flow logs.
+type IntegrateServices struct {
+
+	// Information about the integration with Amazon Athena.
+	AthenaIntegrations []AthenaIntegration
 }
 
 // Describes an internet gateway.
@@ -4831,7 +4865,8 @@ type LaunchPermission struct {
 	// The name of the group.
 	Group PermissionGroup
 
-	// The AWS account ID.
+	// The AWS account ID. Constraints: Up to 10 000 account IDs can be specified in a
+	// single request.
 	UserId *string
 }
 
@@ -4946,7 +4981,7 @@ type LaunchTemplateBlockDeviceMapping struct {
 	// Information about the block device for an EBS volume.
 	Ebs *LaunchTemplateEbsBlockDevice
 
-	// Suppresses the specified device included in the block device mapping of the AMI.
+	// To omit the device from the block device mapping, specify an empty string.
 	NoDevice *string
 
 	// The virtual device name (ephemeralN).
@@ -4963,7 +4998,7 @@ type LaunchTemplateBlockDeviceMappingRequest struct {
 	// launched.
 	Ebs *LaunchTemplateEbsBlockDeviceRequest
 
-	// Suppresses the specified device included in the block device mapping of the AMI.
+	// To omit the device from the block device mapping, specify an empty string.
 	NoDevice *string
 
 	// The virtual device name (ephemeralN). Instance store volumes are numbered
@@ -5104,8 +5139,8 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// 64,000 IOPS only for Instances built on the Nitro System
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
 	// Other instance families guarantee performance up to 32,000 IOPS. This parameter
-	// is required for io1 and io2 volumes. The default for gp3 volumes is 3,000 IOPS.
-	// This parameter is not supported for gp2, st1, sc1, or standard volumes.
+	// is supported for io1, io2, and gp3 volumes only. This parameter is not supported
+	// for gp2, st1, sc1, or standard volumes.
 	Iops int32
 
 	// The ARN of the symmetric AWS Key Management Service (AWS KMS) CMK used for
@@ -5120,24 +5155,22 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	Throughput int32
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
-	// volume size. If you specify a snapshot, the default is the snapshot size. You
-	// can specify a volume size that is equal to or larger than the snapshot size. The
-	// following are the supported volumes sizes for each volume type:
+	// volume size. The following are the supported volumes sizes for each volume
+	// type:
 	//
-	// * gp2 and gp3:
-	// 1-16,384
+	// * gp2 and gp3: 1-16,384
 	//
 	// * io1 and io2: 4-16,384
 	//
-	// * st1 and sc1: 125-16,384
+	// * st1 and sc1:
+	// 125-16,384
 	//
-	// * standard:
-	// 1-1,024
+	// * standard: 1-1,024
 	VolumeSize int32
 
-	// The volume type. The default is gp2. For more information, see Amazon EBS volume
-	// types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// The volume type. For more information, see Amazon EBS volume types
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
+	// Amazon Elastic Compute Cloud User Guide.
 	VolumeType VolumeType
 }
 
@@ -5451,12 +5484,16 @@ type LaunchTemplateOverrides struct {
 	// The instance type.
 	InstanceType InstanceType
 
-	// The priority for the launch template override. If OnDemandAllocationStrategy is
-	// set to prioritized, Spot Fleet uses priority to determine which launch template
-	// override to use first in fulfilling On-Demand capacity. The highest priority is
-	// launched first. Valid values are whole numbers starting at 0. The lower the
-	// number, the higher the priority. If no number is set, the launch template
-	// override has the lowest priority.
+	// The priority for the launch template override. The highest priority is launched
+	// first. If OnDemandAllocationStrategy is set to prioritized, Spot Fleet uses
+	// priority to determine which launch template override to use first in fulfilling
+	// On-Demand capacity. If the Spot AllocationStrategy is set to
+	// capacityOptimizedPrioritized, Spot Fleet uses priority on a best-effort basis to
+	// determine which launch template override to use in fulfilling Spot capacity, but
+	// optimizes for capacity first. Valid values are whole numbers starting at 0. The
+	// lower the number, the higher the priority. If no number is set, the launch
+	// template override has the lowest priority. You can set the same priority for
+	// different launch template overrides.
 	Priority float64
 
 	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
@@ -6296,6 +6333,9 @@ type NetworkInfo struct {
 	// The index of the default network card, starting at 0.
 	DefaultNetworkCardIndex *int32
 
+	// Describes the Elastic Fabric Adapters for the instance type.
+	EfaInfo *EfaInfo
+
 	// Indicates whether Elastic Fabric Adapter (EFA) is supported.
 	EfaSupported *bool
 
@@ -6451,14 +6491,14 @@ type NetworkInterface struct {
 	// The private IPv4 addresses associated with the network interface.
 	PrivateIpAddresses []NetworkInterfacePrivateIpAddress
 
-	// The ID of the entity that launched the instance on your behalf (for example, AWS
-	// Management Console or Auto Scaling).
+	// The alias or AWS account ID of the principal or service that created the network
+	// interface.
 	RequesterId *string
 
 	// Indicates whether the network interface is being managed by AWS.
 	RequesterManaged bool
 
-	// Indicates whether traffic to or from the instance is validated.
+	// Indicates whether source/destination checking is enabled.
 	SourceDestCheck bool
 
 	// The status of the network interface.
@@ -7178,11 +7218,16 @@ type ProvisionedBandwidth struct {
 	Status *string
 }
 
+// The status of an updated pointer (PTR) record for an Elastic IP address.
 type PtrUpdateStatus struct {
+
+	// The reason for the PTR record update.
 	Reason *string
 
+	// The status of the PTR record update.
 	Status *string
 
+	// The value for the PTR record update.
 	Value *string
 }
 
@@ -7320,6 +7365,51 @@ type RemovePrefixListEntry struct {
 	Cidr *string
 }
 
+// Information about a root volume replacement task.
+type ReplaceRootVolumeTask struct {
+
+	// The time the task completed.
+	CompleteTime *string
+
+	// The ID of the instance for which the root volume replacement task was created.
+	InstanceId *string
+
+	// The ID of the root volume replacement task.
+	ReplaceRootVolumeTaskId *string
+
+	// The time the task was started.
+	StartTime *string
+
+	// The tags assigned to the task.
+	Tags []Tag
+
+	// The state of the task. The task can be in one of the following states:
+	//
+	// *
+	// pending - the replacement volume is being created.
+	//
+	// * in-progress - the original
+	// volume is being detached and the replacement volume is being attached.
+	//
+	// *
+	// succeeded - the replacement volume has been successfully attached to the
+	// instance and the instance is available.
+	//
+	// * failing - the replacement task is in
+	// the process of failing.
+	//
+	// * failed - the replacement task has failed but the
+	// original root volume is still attached.
+	//
+	// * failing-detached - the replacement
+	// task is in the process of failing. The instance might have no root volume
+	// attached.
+	//
+	// * failed-detached - the replacement task has failed and the instance
+	// has no root volume attached.
+	TaskState ReplaceRootVolumeTaskState
+}
+
 // The information to include in the launch template.
 type RequestLaunchTemplateData struct {
 
@@ -7378,7 +7468,7 @@ type RequestLaunchTemplateData struct {
 	// Amazon Elastic Compute Cloud User Guide.
 	HibernationOptions *LaunchTemplateHibernationOptionsRequest
 
-	// The IAM instance profile.
+	// The name or Amazon Resource Name (ARN) of an IAM instance profile.
 	IamInstanceProfile *LaunchTemplateIamInstanceProfileSpecificationRequest
 
 	// The ID of the AMI.
@@ -7520,9 +7610,7 @@ type RequestSpotLaunchSpecification struct {
 	// EC2-Classic, you can specify the names or the IDs of the security groups.
 	SecurityGroups []string
 
-	// The IDs of the subnets in which to launch the instance. To specify multiple
-	// subnets, separate them using commas; for example, "subnet-1234abcdeexample1,
-	// subnet-0987cdef6example2".
+	// The ID of the subnet in which to launch the instance.
 	SubnetId *string
 
 	// The Base64-encoded user data for the instance. User data is limited to 16 KB.
@@ -8050,6 +8138,21 @@ type RunInstancesMonitoringEnabled struct {
 	Enabled bool
 }
 
+// The tags to apply to the AMI object that will be stored in the S3 bucket. For
+// more information, see Categorizing your storage using tags
+// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-tagging.html) in
+// the Amazon Simple Storage Service User Guide.
+type S3ObjectTag struct {
+
+	// The key of the tag. Constraints: Tag keys are case-sensitive and can be up to
+	// 128 Unicode characters in length. May not begin with aws:.
+	Key *string
+
+	// The value of the tag. Constraints: Tag values are case-sensitive and can be up
+	// to 256 Unicode characters in length.
+	Value *string
+}
+
 // Describes the storage parameters for S3 and S3 buckets for an instance
 // store-backed AMI.
 type S3Storage struct {
@@ -8227,7 +8330,7 @@ type ScheduledInstancesBlockDeviceMapping struct {
 	// launched.
 	Ebs *ScheduledInstancesEbs
 
-	// Suppresses the specified device included in the block device mapping of the AMI.
+	// To omit the device from the block device mapping, specify an empty string.
 	NoDevice *string
 
 	// The virtual device name (ephemeralN). Instance store volumes are numbered
@@ -8254,13 +8357,13 @@ type ScheduledInstancesEbs struct {
 	// The number of I/O operations per second (IOPS) to provision for an io1 or io2
 	// volume, with a maximum ratio of 50 IOPS/GiB for io1, and 500 IOPS/GiB for io2.
 	// Range is 100 to 64,000 IOPS for volumes in most Regions. Maximum IOPS of 64,000
-	// is guaranteed only on Nitro-based instances
+	// is guaranteed only on instances built on the Nitro System
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
 	// Other instance families guarantee performance up to 32,000 IOPS. For more
-	// information, see Amazon EBS Volume Types
+	// information, see Amazon EBS volume types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the
-	// Amazon Elastic Compute Cloud User Guide. This parameter is valid only for
-	// Provisioned IOPS SSD (io1 and io2) volumes.
+	// Amazon EC2 User Guide. This parameter is valid only for Provisioned IOPS SSD
+	// (io1 and io2) volumes.
 	Iops int32
 
 	// The ID of the snapshot.
@@ -8618,6 +8721,12 @@ type Snapshot struct {
 	// the parent volume.
 	KmsKeyId *string
 
+	// The ARN of the AWS Outpost on which the snapshot is stored. For more
+	// information, see EBS Local Snapshot on Outposts
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html) in
+	// the Amazon Elastic Compute Cloud User Guide.
+	OutpostArn *string
+
 	// The AWS owner alias, from an Amazon-maintained list (amazon). This is not the
 	// user-configured AWS account alias set using the IAM console.
 	OwnerAlias *string
@@ -8697,7 +8806,7 @@ type SnapshotDiskContainer struct {
 	// The description of the disk image being imported.
 	Description *string
 
-	// The format of the disk image being imported. Valid values: VHD | VMDK
+	// The format of the disk image being imported. Valid values: VHD | VMDK | RAW
 	Format *string
 
 	// The URL to the Amazon S3-based disk image being imported. It can either be a
@@ -8717,6 +8826,12 @@ type SnapshotInfo struct {
 
 	// Indicates whether the snapshot is encrypted.
 	Encrypted bool
+
+	// The ARN of the AWS Outpost on which the snapshot is stored. For more
+	// information, see EBS Local Snapshot on Outposts
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html) in
+	// the Amazon Elastic Compute Cloud User Guide.
+	OutpostArn *string
 
 	// Account id used when creating this snapshot.
 	OwnerId *string
@@ -8972,9 +9087,17 @@ type SpotFleetRequestConfigData struct {
 	// is lowestPrice, Spot Fleet launches instances from the Spot Instance pools with
 	// the lowest price. This is the default allocation strategy. If the allocation
 	// strategy is diversified, Spot Fleet launches instances from all the Spot
-	// Instance pools that you specify. If the allocation strategy is
-	// capacityOptimized, Spot Fleet launches instances from Spot Instance pools with
-	// optimal capacity for the number of instances that are launching.
+	// Instance pools that you specify. If the allocation strategy is capacityOptimized
+	// (recommended), Spot Fleet launches instances from Spot Instance pools with
+	// optimal capacity for the number of instances that are launching. To give certain
+	// instance types a higher chance of launching first, use
+	// capacityOptimizedPrioritized. Set a priority for each instance type by using the
+	// Priority parameter for LaunchTemplateOverrides. You can assign the same priority
+	// to different LaunchTemplateOverrides. EC2 implements the priorities on a
+	// best-effort basis, but optimizes for capacity first.
+	// capacityOptimizedPrioritized is supported only if your Spot Fleet uses a launch
+	// template. Note that if the OnDemandAllocationStrategy is set to prioritized, the
+	// same priority is applied when fulfilling On-Demand capacity.
 	AllocationStrategy AllocationStrategy
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
@@ -9255,8 +9378,8 @@ type SpotMarketOptions struct {
 
 	// The Spot Instance request type. For RunInstances
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances),
-	// persistent Spot Instance requests are only supported when
-	// InstanceInterruptionBehavior is set to either hibernate or stop.
+	// persistent Spot Instance requests are only supported when the instance
+	// interruption behavior is either hibernate or stop.
 	SpotInstanceType SpotInstanceType
 
 	// The end date of the request, in UTC format (YYYY-MM-DDTHH:MM:SSZ). Supported
@@ -9281,8 +9404,16 @@ type SpotOptions struct {
 	// lowest price. This is the default allocation strategy. If the allocation
 	// strategy is diversified, EC2 Fleet launches instances from all of the Spot
 	// Instance pools that you specify. If the allocation strategy is
-	// capacity-optimized, EC2 Fleet launches instances from Spot Instance pools with
-	// optimal capacity for the number of instances that are launching.
+	// capacity-optimized (recommended), EC2 Fleet launches instances from Spot
+	// Instance pools with optimal capacity for the number of instances that are
+	// launching. To give certain instance types a higher chance of launching first,
+	// use capacity-optimized-prioritized. Set a priority for each instance type by
+	// using the Priority parameter for LaunchTemplateOverrides. You can assign the
+	// same priority to different LaunchTemplateOverrides. EC2 implements the
+	// priorities on a best-effort basis, but optimizes for capacity first.
+	// capacity-optimized-prioritized is supported only if your fleet uses a launch
+	// template. Note that if the On-Demand AllocationStrategy is set to prioritized,
+	// the same priority is applied when fulfilling On-Demand capacity.
 	AllocationStrategy SpotAllocationStrategy
 
 	// The behavior when a Spot Instance is interrupted. The default is terminate.
@@ -9323,8 +9454,16 @@ type SpotOptionsRequest struct {
 	// lowest price. This is the default allocation strategy. If the allocation
 	// strategy is diversified, EC2 Fleet launches instances from all of the Spot
 	// Instance pools that you specify. If the allocation strategy is
-	// capacity-optimized, EC2 Fleet launches instances from Spot Instance pools with
-	// optimal capacity for the number of instances that are launching.
+	// capacity-optimized (recommended), EC2 Fleet launches instances from Spot
+	// Instance pools with optimal capacity for the number of instances that are
+	// launching. To give certain instance types a higher chance of launching first,
+	// use capacity-optimized-prioritized. Set a priority for each instance type by
+	// using the Priority parameter for LaunchTemplateOverrides. You can assign the
+	// same priority to different LaunchTemplateOverrides. EC2 implements the
+	// priorities on a best-effort basis, but optimizes for capacity first.
+	// capacity-optimized-prioritized is supported only if your fleet uses a launch
+	// template. Note that if the On-Demand AllocationStrategy is set to prioritized,
+	// the same priority is applied when fulfilling On-Demand capacity.
 	AllocationStrategy SpotAllocationStrategy
 
 	// The behavior when a Spot Instance is interrupted. The default is terminate.
@@ -9511,6 +9650,32 @@ type StorageLocation struct {
 	Key *string
 }
 
+// The information about the AMI store task, including the progress of the task.
+type StoreImageTaskResult struct {
+
+	// The ID of the AMI that is being stored.
+	AmiId *string
+
+	// The name of the S3 bucket that contains the stored AMI object.
+	Bucket *string
+
+	// The progress of the task as a percentage.
+	ProgressPercentage int32
+
+	// The name of the stored AMI object in the bucket.
+	S3objectKey *string
+
+	// If the tasks fails, the reason for the failure is returned. If the task
+	// succeeds, null is returned.
+	StoreTaskFailureReason *string
+
+	// The state of the store task (InProgress, Completed, or Failed).
+	StoreTaskState *string
+
+	// The time the task started.
+	TaskStartTime *time.Time
+}
+
 // Describes a subnet.
 type Subnet struct {
 
@@ -9687,7 +9852,7 @@ type TagSpecification struct {
 // OnDemandOptions
 // (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_OnDemandOptions.html)
 // and SpotOptions
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotOptions)
+// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotOptions).
 type TargetCapacitySpecification struct {
 
 	// The default TotalTargetCapacity, which is either Spot or On-Demand.

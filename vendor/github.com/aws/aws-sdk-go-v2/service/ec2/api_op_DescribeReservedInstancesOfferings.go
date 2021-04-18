@@ -21,7 +21,7 @@ import (
 // This is to ensure that you do not purchase your own Reserved Instances. For more
 // information, see Reserved Instance Marketplace
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) DescribeReservedInstancesOfferings(ctx context.Context, params *DescribeReservedInstancesOfferingsInput, optFns ...func(*Options)) (*DescribeReservedInstancesOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesOfferingsInput{}
@@ -100,9 +100,9 @@ type DescribeReservedInstancesOfferingsInput struct {
 	InstanceTenancy types.Tenancy
 
 	// The instance type that the reservation will cover (for example, m1.small). For
-	// more information, see Instance Types
+	// more information, see Instance types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Amazon EC2 User Guide.
 	InstanceType types.InstanceType
 
 	// The maximum duration (in seconds) to filter when searching for offerings.
@@ -249,6 +249,10 @@ type DescribeReservedInstancesOfferingsPaginator struct {
 // NewDescribeReservedInstancesOfferingsPaginator returns a new
 // DescribeReservedInstancesOfferingsPaginator
 func NewDescribeReservedInstancesOfferingsPaginator(client DescribeReservedInstancesOfferingsAPIClient, params *DescribeReservedInstancesOfferingsInput, optFns ...func(*DescribeReservedInstancesOfferingsPaginatorOptions)) *DescribeReservedInstancesOfferingsPaginator {
+	if params == nil {
+		params = &DescribeReservedInstancesOfferingsInput{}
+	}
+
 	options := DescribeReservedInstancesOfferingsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -256,10 +260,6 @@ func NewDescribeReservedInstancesOfferingsPaginator(client DescribeReservedInsta
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeReservedInstancesOfferingsInput{}
 	}
 
 	return &DescribeReservedInstancesOfferingsPaginator{

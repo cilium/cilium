@@ -170,6 +170,10 @@ type DescribeLocalGatewayRouteTableVpcAssociationsPaginator struct {
 // NewDescribeLocalGatewayRouteTableVpcAssociationsPaginator returns a new
 // DescribeLocalGatewayRouteTableVpcAssociationsPaginator
 func NewDescribeLocalGatewayRouteTableVpcAssociationsPaginator(client DescribeLocalGatewayRouteTableVpcAssociationsAPIClient, params *DescribeLocalGatewayRouteTableVpcAssociationsInput, optFns ...func(*DescribeLocalGatewayRouteTableVpcAssociationsPaginatorOptions)) *DescribeLocalGatewayRouteTableVpcAssociationsPaginator {
+	if params == nil {
+		params = &DescribeLocalGatewayRouteTableVpcAssociationsInput{}
+	}
+
 	options := DescribeLocalGatewayRouteTableVpcAssociationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -177,10 +181,6 @@ func NewDescribeLocalGatewayRouteTableVpcAssociationsPaginator(client DescribeLo
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeLocalGatewayRouteTableVpcAssociationsInput{}
 	}
 
 	return &DescribeLocalGatewayRouteTableVpcAssociationsPaginator{

@@ -11,7 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the running instances for the specified EC2 Fleet.
+// Describes the running instances for the specified EC2 Fleet. For more
+// information, see Monitoring your EC2 Fleet
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html#monitor-ec2-fleet)
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeFleetInstances(ctx context.Context, params *DescribeFleetInstancesInput, optFns ...func(*Options)) (*DescribeFleetInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeFleetInstancesInput{}

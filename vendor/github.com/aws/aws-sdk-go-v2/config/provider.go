@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/endpointcreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/processcreds"
+	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/smithy-go/logging"
 	"github.com/aws/smithy-go/middleware"
@@ -399,6 +400,24 @@ func getLogConfigurationWarnings(ctx context.Context, configs configs) (v bool, 
 	for _, c := range configs {
 		if p, ok := c.(logConfigurationWarningsProvider); ok {
 			v, found, err = p.getLogConfigurationWarnings(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
+// ssoCredentialOptionsProvider is an interface for retrieving a function for setting
+// the ssocreds.Options.
+type ssoCredentialOptionsProvider interface {
+	getSSOProviderOptions(context.Context) (func(*ssocreds.Options), bool, error)
+}
+
+func getSSOProviderOptions(ctx context.Context, configs configs) (v func(options *ssocreds.Options), found bool, err error) {
+	for _, c := range configs {
+		if p, ok := c.(ssoCredentialOptionsProvider); ok {
+			v, found, err = p.getSSOProviderOptions(ctx)
 			if err != nil || found {
 				break
 			}

@@ -102,54 +102,55 @@ type DescribeImagesInput struct {
 	// The name of the AMI (provided during image creation).
 	//
 	// * owner-alias - The owner
-	// alias, from an Amazon-maintained list (amazon | aws-marketplace). This is not
-	// the user-configured AWS account alias set using the IAM console. We recommend
-	// that you use the related parameter instead of this filter.
-	//
-	// * owner-id - The AWS
-	// account ID of the owner. We recommend that you use the related parameter instead
+	// alias (amazon | aws-marketplace). The valid aliases are defined in an
+	// Amazon-maintained list. This is not the AWS account alias that can be set using
+	// the IAM console. We recommend that you use the Owner request parameter instead
 	// of this filter.
 	//
-	// * platform - The platform. To only list Windows-based AMIs, use
-	// windows.
+	// * owner-id - The AWS account ID of the owner. We recommend that
+	// you use the Owner request parameter instead of this filter.
 	//
-	// * product-code - The product code.
+	// * platform - The
+	// platform. To only list Windows-based AMIs, use windows.
 	//
-	// * product-code.type - The type of
-	// the product code (devpay | marketplace).
+	// * product-code - The
+	// product code.
+	//
+	// * product-code.type - The type of the product code (devpay |
+	// marketplace).
 	//
 	// * ramdisk-id - The RAM disk ID.
 	//
-	// *
-	// root-device-name - The device name of the root device volume (for example,
-	// /dev/sda1).
+	// * root-device-name - The device
+	// name of the root device volume (for example, /dev/sda1).
 	//
-	// * root-device-type - The type of the root device volume (ebs |
-	// instance-store).
+	// * root-device-type -
+	// The type of the root device volume (ebs | instance-store).
 	//
-	// * state - The state of the image (available | pending |
-	// failed).
+	// * state - The state
+	// of the image (available | pending | failed).
 	//
-	// * state-reason-code - The reason code for the state change.
+	// * state-reason-code - The reason
+	// code for the state change.
 	//
-	// *
-	// state-reason-message - The message for the state change.
+	// * state-reason-message - The message for the state
+	// change.
 	//
-	// * sriov-net-support -
-	// A value of simple indicates that enhanced networking with the Intel 82599 VF
-	// interface is enabled.
+	// * sriov-net-support - A value of simple indicates that enhanced
+	// networking with the Intel 82599 VF interface is enabled.
 	//
-	// * tag: - The key/value combination of a tag assigned to
-	// the resource. Use the tag key in the filter name and the tag value as the filter
-	// value. For example, to find all resources that have a tag with the key Owner and
-	// the value TeamA, specify tag:Owner for the filter name and TeamA for the filter
-	// value.
+	// * tag: - The key/value
+	// combination of a tag assigned to the resource. Use the tag key in the filter
+	// name and the tag value as the filter value. For example, to find all resources
+	// that have a tag with the key Owner and the value TeamA, specify tag:Owner for
+	// the filter name and TeamA for the filter value.
 	//
-	// * tag-key - The key of a tag assigned to the resource. Use this filter
-	// to find all resources assigned a tag with a specific key, regardless of the tag
-	// value.
+	// * tag-key - The key of a tag
+	// assigned to the resource. Use this filter to find all resources assigned a tag
+	// with a specific key, regardless of the tag value.
 	//
-	// * virtualization-type - The virtualization type (paravirtual | hvm).
+	// * virtualization-type - The
+	// virtualization type (paravirtual | hvm).
 	Filters []types.Filter
 
 	// The image IDs. Default: Describes all images available to you.
@@ -378,16 +379,21 @@ func imageAvailableStateRetryable(ctx context.Context, input *DescribeImagesInpu
 
 		expectedValue := "available"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.ImageState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.ImageState value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}
@@ -404,13 +410,18 @@ func imageAvailableStateRetryable(ctx context.Context, input *DescribeImagesInpu
 		}
 
 		expectedValue := "failed"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.ImageState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.ImageState value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}

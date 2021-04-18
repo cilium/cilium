@@ -163,6 +163,10 @@ type DescribeIpv6PoolsPaginator struct {
 
 // NewDescribeIpv6PoolsPaginator returns a new DescribeIpv6PoolsPaginator
 func NewDescribeIpv6PoolsPaginator(client DescribeIpv6PoolsAPIClient, params *DescribeIpv6PoolsInput, optFns ...func(*DescribeIpv6PoolsPaginatorOptions)) *DescribeIpv6PoolsPaginator {
+	if params == nil {
+		params = &DescribeIpv6PoolsInput{}
+	}
+
 	options := DescribeIpv6PoolsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -170,10 +174,6 @@ func NewDescribeIpv6PoolsPaginator(client DescribeIpv6PoolsAPIClient, params *De
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeIpv6PoolsInput{}
 	}
 
 	return &DescribeIpv6PoolsPaginator{

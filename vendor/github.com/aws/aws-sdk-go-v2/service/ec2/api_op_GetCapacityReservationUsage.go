@@ -84,16 +84,16 @@ type GetCapacityReservationUsageOutput struct {
 	// reserved capacity is no longer available for your use.
 	//
 	// * cancelled - The
-	// Capacity Reservation was manually cancelled. The reserved capacity is no longer
-	// available for your use.
+	// Capacity Reservation was cancelled. The reserved capacity is no longer available
+	// for your use.
 	//
-	// * pending - The Capacity Reservation request was
-	// successful but the capacity provisioning is still pending.
+	// * pending - The Capacity Reservation request was successful but
+	// the capacity provisioning is still pending.
 	//
-	// * failed - The
-	// Capacity Reservation request has failed. A request might fail due to invalid
-	// request parameters, capacity constraints, or instance limit constraints. Failed
-	// requests are retained for 60 minutes.
+	// * failed - The Capacity Reservation
+	// request has failed. A request might fail due to invalid request parameters,
+	// capacity constraints, or instance limit constraints. Failed requests are
+	// retained for 60 minutes.
 	State types.CapacityReservationState
 
 	// The number of instances for which the Capacity Reservation reserves capacity.

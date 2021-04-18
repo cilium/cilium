@@ -163,6 +163,10 @@ type GetGroupsForCapacityReservationPaginator struct {
 // NewGetGroupsForCapacityReservationPaginator returns a new
 // GetGroupsForCapacityReservationPaginator
 func NewGetGroupsForCapacityReservationPaginator(client GetGroupsForCapacityReservationAPIClient, params *GetGroupsForCapacityReservationInput, optFns ...func(*GetGroupsForCapacityReservationPaginatorOptions)) *GetGroupsForCapacityReservationPaginator {
+	if params == nil {
+		params = &GetGroupsForCapacityReservationInput{}
+	}
+
 	options := GetGroupsForCapacityReservationPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -170,10 +174,6 @@ func NewGetGroupsForCapacityReservationPaginator(client GetGroupsForCapacityRese
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &GetGroupsForCapacityReservationInput{}
 	}
 
 	return &GetGroupsForCapacityReservationPaginator{

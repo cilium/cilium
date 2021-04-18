@@ -23,14 +23,14 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html)
 // and EC2Launch
 // (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2launch.html) in the
-// Amazon Elastic Compute Cloud User Guide. For the EC2Config service, the password
-// is not generated for rebundled AMIs unless Ec2SetPassword is enabled before
-// bundling. The password is encrypted using the key pair that you specified when
-// you launched the instance. You must provide the corresponding key pair file.
-// When you launch an instance, password generation and encryption may take a few
-// minutes. If you try to retrieve the password before it's available, the output
-// returns an empty string. We recommend that you wait up to 15 minutes after
-// launching an instance before trying to retrieve the generated password.
+// Amazon EC2 User Guide. For the EC2Config service, the password is not generated
+// for rebundled AMIs unless Ec2SetPassword is enabled before bundling. The
+// password is encrypted using the key pair that you specified when you launched
+// the instance. You must provide the corresponding key pair file. When you launch
+// an instance, password generation and encryption may take a few minutes. If you
+// try to retrieve the password before it's available, the output returns an empty
+// string. We recommend that you wait up to 15 minutes after launching an instance
+// before trying to retrieve the generated password.
 func (c *Client) GetPasswordData(ctx context.Context, params *GetPasswordDataInput, optFns ...func(*Options)) (*GetPasswordDataOutput, error) {
 	if params == nil {
 		params = &GetPasswordDataInput{}

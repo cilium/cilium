@@ -165,6 +165,10 @@ type DescribeFastSnapshotRestoresPaginator struct {
 // NewDescribeFastSnapshotRestoresPaginator returns a new
 // DescribeFastSnapshotRestoresPaginator
 func NewDescribeFastSnapshotRestoresPaginator(client DescribeFastSnapshotRestoresAPIClient, params *DescribeFastSnapshotRestoresInput, optFns ...func(*DescribeFastSnapshotRestoresPaginatorOptions)) *DescribeFastSnapshotRestoresPaginator {
+	if params == nil {
+		params = &DescribeFastSnapshotRestoresInput{}
+	}
+
 	options := DescribeFastSnapshotRestoresPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
@@ -172,10 +176,6 @@ func NewDescribeFastSnapshotRestoresPaginator(client DescribeFastSnapshotRestore
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeFastSnapshotRestoresInput{}
 	}
 
 	return &DescribeFastSnapshotRestoresPaginator{

@@ -154,6 +154,10 @@ type DescribeExportImageTasksPaginator struct {
 // NewDescribeExportImageTasksPaginator returns a new
 // DescribeExportImageTasksPaginator
 func NewDescribeExportImageTasksPaginator(client DescribeExportImageTasksAPIClient, params *DescribeExportImageTasksInput, optFns ...func(*DescribeExportImageTasksPaginatorOptions)) *DescribeExportImageTasksPaginator {
+	if params == nil {
+		params = &DescribeExportImageTasksInput{}
+	}
+
 	options := DescribeExportImageTasksPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -161,10 +165,6 @@ func NewDescribeExportImageTasksPaginator(client DescribeExportImageTasksAPIClie
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeExportImageTasksInput{}
 	}
 
 	return &DescribeExportImageTasksPaginator{

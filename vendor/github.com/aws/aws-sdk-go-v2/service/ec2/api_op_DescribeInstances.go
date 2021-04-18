@@ -272,35 +272,37 @@ type DescribeInstancesInput struct {
 	// * network-interface.vpc-id - The ID of the VPC for the network
 	// interface.
 	//
-	// * owner-id - The AWS account ID of the instance owner.
+	// * outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
 	//
 	// *
-	// placement-group-name - The name of the placement group for the instance.
+	// owner-id - The AWS account ID of the instance owner.
 	//
-	// *
-	// placement-partition-number - The partition in which the instance is located.
+	// * placement-group-name -
+	// The name of the placement group for the instance.
 	//
-	// *
-	// platform - The platform. To list only Windows instances, use windows.
+	// * placement-partition-number
+	// - The partition in which the instance is located.
 	//
-	// *
-	// private-dns-name - The private IPv4 DNS name of the instance.
+	// * platform - The platform. To
+	// list only Windows instances, use windows.
 	//
-	// *
-	// private-ip-address - The private IPv4 address of the instance.
+	// * private-dns-name - The private IPv4
+	// DNS name of the instance.
 	//
-	// * product-code -
-	// The product code associated with the AMI used to launch the instance.
+	// * private-ip-address - The private IPv4 address of
+	// the instance.
 	//
-	// *
-	// product-code.type - The type of product code (devpay | marketplace).
+	// * product-code - The product code associated with the AMI used to
+	// launch the instance.
 	//
-	// *
-	// ramdisk-id - The RAM disk ID.
+	// * product-code.type - The type of product code (devpay |
+	// marketplace).
 	//
-	// * reason - The reason for the current state of
-	// the instance (for example, shows "User Initiated [date]" when you stop or
-	// terminate the instance). Similar to the state-reason-code filter.
+	// * ramdisk-id - The RAM disk ID.
+	//
+	// * reason - The reason for the
+	// current state of the instance (for example, shows "User Initiated [date]" when
+	// you stop or terminate the instance). Similar to the state-reason-code filter.
 	//
 	// *
 	// requester-id - The ID of the entity that launched the instance on your behalf
@@ -476,6 +478,10 @@ type DescribeInstancesPaginator struct {
 
 // NewDescribeInstancesPaginator returns a new DescribeInstancesPaginator
 func NewDescribeInstancesPaginator(client DescribeInstancesAPIClient, params *DescribeInstancesInput, optFns ...func(*DescribeInstancesPaginatorOptions)) *DescribeInstancesPaginator {
+	if params == nil {
+		params = &DescribeInstancesInput{}
+	}
+
 	options := DescribeInstancesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -483,10 +489,6 @@ func NewDescribeInstancesPaginator(client DescribeInstancesAPIClient, params *De
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeInstancesInput{}
 	}
 
 	return &DescribeInstancesPaginator{
@@ -668,16 +670,21 @@ func instanceStoppedStateRetryable(ctx context.Context, input *DescribeInstances
 
 		expectedValue := "stopped"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.InstanceStateName)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.InstanceStateName value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}
@@ -694,13 +701,18 @@ func instanceStoppedStateRetryable(ctx context.Context, input *DescribeInstances
 		}
 
 		expectedValue := "pending"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.InstanceStateName)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.InstanceStateName value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}
@@ -713,13 +725,18 @@ func instanceStoppedStateRetryable(ctx context.Context, input *DescribeInstances
 		}
 
 		expectedValue := "terminated"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.InstanceStateName)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.InstanceStateName value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}
@@ -867,16 +884,21 @@ func instanceTerminatedStateRetryable(ctx context.Context, input *DescribeInstan
 
 		expectedValue := "terminated"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.InstanceStateName)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.InstanceStateName value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}
@@ -893,13 +915,18 @@ func instanceTerminatedStateRetryable(ctx context.Context, input *DescribeInstan
 		}
 
 		expectedValue := "pending"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.InstanceStateName)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.InstanceStateName value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}
@@ -912,13 +939,18 @@ func instanceTerminatedStateRetryable(ctx context.Context, input *DescribeInstan
 		}
 
 		expectedValue := "stopping"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.InstanceStateName)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.InstanceStateName value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}

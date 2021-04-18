@@ -27,20 +27,20 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-system-instance-status-check.html)
 // and Troubleshooting instances with failed status checks
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstances.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 //
-// * Scheduled events - Amazon EC2
-// can schedule events (such as reboot, stop, or terminate) for your instances
-// related to hardware issues, software updates, or system maintenance. For more
-// information, see Scheduled events for your instances
+// * Scheduled events - Amazon EC2 can schedule
+// events (such as reboot, stop, or terminate) for your instances related to
+// hardware issues, software updates, or system maintenance. For more information,
+// see Scheduled events for your instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 //
-// * Instance state - You can
-// manage your instances from the moment you launch them through their termination.
-// For more information, see Instance lifecycle
+// * Instance state - You can manage your instances
+// from the moment you launch them through their termination. For more information,
+// see Instance lifecycle
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeInstanceStatus(ctx context.Context, params *DescribeInstanceStatusInput, optFns ...func(*Options)) (*DescribeInstanceStatusOutput, error) {
 	if params == nil {
 		params = &DescribeInstanceStatusInput{}
@@ -239,6 +239,10 @@ type DescribeInstanceStatusPaginator struct {
 
 // NewDescribeInstanceStatusPaginator returns a new DescribeInstanceStatusPaginator
 func NewDescribeInstanceStatusPaginator(client DescribeInstanceStatusAPIClient, params *DescribeInstanceStatusInput, optFns ...func(*DescribeInstanceStatusPaginatorOptions)) *DescribeInstanceStatusPaginator {
+	if params == nil {
+		params = &DescribeInstanceStatusInput{}
+	}
+
 	options := DescribeInstanceStatusPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -246,10 +250,6 @@ func NewDescribeInstanceStatusPaginator(client DescribeInstanceStatusAPIClient, 
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeInstanceStatusInput{}
 	}
 
 	return &DescribeInstanceStatusPaginator{
@@ -431,16 +431,21 @@ func systemStatusOkStateRetryable(ctx context.Context, input *DescribeInstanceSt
 
 		expectedValue := "ok"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.SummaryStatus)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.SummaryStatus value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}

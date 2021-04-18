@@ -173,6 +173,10 @@ type DescribeTagsPaginator struct {
 
 // NewDescribeTagsPaginator returns a new DescribeTagsPaginator
 func NewDescribeTagsPaginator(client DescribeTagsAPIClient, params *DescribeTagsInput, optFns ...func(*DescribeTagsPaginatorOptions)) *DescribeTagsPaginator {
+	if params == nil {
+		params = &DescribeTagsInput{}
+	}
+
 	options := DescribeTagsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -180,10 +184,6 @@ func NewDescribeTagsPaginator(client DescribeTagsAPIClient, params *DescribeTags
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeTagsInput{}
 	}
 
 	return &DescribeTagsPaginator{

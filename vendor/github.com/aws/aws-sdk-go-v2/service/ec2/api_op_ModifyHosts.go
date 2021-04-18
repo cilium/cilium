@@ -46,9 +46,9 @@ type ModifyHostsInput struct {
 	AutoPlacement types.AutoPlacement
 
 	// Indicates whether to enable or disable host recovery for the Dedicated Host. For
-	// more information, see  Host Recovery
+	// more information, see  Host recovery
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-recovery.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// in the Amazon EC2 User Guide.
 	HostRecovery types.HostRecovery
 
 	// Specifies the instance family to be supported by the Dedicated Host. Specify

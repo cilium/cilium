@@ -170,6 +170,10 @@ type DescribeVpcEndpointConnectionsPaginator struct {
 // NewDescribeVpcEndpointConnectionsPaginator returns a new
 // DescribeVpcEndpointConnectionsPaginator
 func NewDescribeVpcEndpointConnectionsPaginator(client DescribeVpcEndpointConnectionsAPIClient, params *DescribeVpcEndpointConnectionsInput, optFns ...func(*DescribeVpcEndpointConnectionsPaginatorOptions)) *DescribeVpcEndpointConnectionsPaginator {
+	if params == nil {
+		params = &DescribeVpcEndpointConnectionsInput{}
+	}
+
 	options := DescribeVpcEndpointConnectionsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -177,10 +181,6 @@ func NewDescribeVpcEndpointConnectionsPaginator(client DescribeVpcEndpointConnec
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVpcEndpointConnectionsInput{}
 	}
 
 	return &DescribeVpcEndpointConnectionsPaginator{

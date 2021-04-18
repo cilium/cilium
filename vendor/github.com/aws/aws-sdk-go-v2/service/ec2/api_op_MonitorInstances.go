@@ -14,8 +14,7 @@ import (
 // Enables detailed monitoring for a running instance. Otherwise, basic monitoring
 // is enabled. For more information, see Monitoring your instances and volumes
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html) in
-// the Amazon Elastic Compute Cloud User Guide. To disable detailed monitoring, see
-// .
+// the Amazon EC2 User Guide. To disable detailed monitoring, see .
 func (c *Client) MonitorInstances(ctx context.Context, params *MonitorInstancesInput, optFns ...func(*Options)) (*MonitorInstancesOutput, error) {
 	if params == nil {
 		params = &MonitorInstancesInput{}

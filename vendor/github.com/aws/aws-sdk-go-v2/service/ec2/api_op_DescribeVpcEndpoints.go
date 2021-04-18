@@ -184,6 +184,10 @@ type DescribeVpcEndpointsPaginator struct {
 
 // NewDescribeVpcEndpointsPaginator returns a new DescribeVpcEndpointsPaginator
 func NewDescribeVpcEndpointsPaginator(client DescribeVpcEndpointsAPIClient, params *DescribeVpcEndpointsInput, optFns ...func(*DescribeVpcEndpointsPaginatorOptions)) *DescribeVpcEndpointsPaginator {
+	if params == nil {
+		params = &DescribeVpcEndpointsInput{}
+	}
+
 	options := DescribeVpcEndpointsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -191,10 +195,6 @@ func NewDescribeVpcEndpointsPaginator(client DescribeVpcEndpointsAPIClient, para
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVpcEndpointsInput{}
 	}
 
 	return &DescribeVpcEndpointsPaginator{

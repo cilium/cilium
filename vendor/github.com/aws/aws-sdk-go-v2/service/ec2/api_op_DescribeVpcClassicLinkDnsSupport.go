@@ -154,6 +154,10 @@ type DescribeVpcClassicLinkDnsSupportPaginator struct {
 // NewDescribeVpcClassicLinkDnsSupportPaginator returns a new
 // DescribeVpcClassicLinkDnsSupportPaginator
 func NewDescribeVpcClassicLinkDnsSupportPaginator(client DescribeVpcClassicLinkDnsSupportAPIClient, params *DescribeVpcClassicLinkDnsSupportInput, optFns ...func(*DescribeVpcClassicLinkDnsSupportPaginatorOptions)) *DescribeVpcClassicLinkDnsSupportPaginator {
+	if params == nil {
+		params = &DescribeVpcClassicLinkDnsSupportInput{}
+	}
+
 	options := DescribeVpcClassicLinkDnsSupportPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -161,10 +165,6 @@ func NewDescribeVpcClassicLinkDnsSupportPaginator(client DescribeVpcClassicLinkD
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVpcClassicLinkDnsSupportInput{}
 	}
 
 	return &DescribeVpcClassicLinkDnsSupportPaginator{

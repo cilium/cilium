@@ -14,17 +14,24 @@ import (
 )
 
 // Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3. You
-// can copy the snapshot within the same Region or from one Region to another. You
-// can use the snapshot to create EBS volumes or Amazon Machine Images (AMIs).
-// Copies of encrypted EBS snapshots remain encrypted. Copies of unencrypted
-// snapshots remain unencrypted, unless you enable encryption for the snapshot copy
-// operation. By default, encrypted snapshot copies use the default AWS Key
-// Management Service (AWS KMS) customer master key (CMK); however, you can specify
-// a different CMK. To copy an encrypted snapshot that has been shared from another
-// account, you must have permissions for the CMK used to encrypt the snapshot.
-// Snapshots created by copying another snapshot have an arbitrary volume ID that
-// should not be used for any purpose. For more information, see Copying an Amazon
-// EBS snapshot
+// can copy a snapshot within the same Region, from one Region to another, or from
+// a Region to an Outpost. You can't copy a snapshot from an Outpost to a Region,
+// from one Outpost to another, or within the same Outpost. You can use the
+// snapshot to create EBS volumes or Amazon Machine Images (AMIs). When copying
+// snapshots to a Region, copies of encrypted EBS snapshots remain encrypted.
+// Copies of unencrypted snapshots remain unencrypted, unless you enable encryption
+// for the snapshot copy operation. By default, encrypted snapshot copies use the
+// default AWS Key Management Service (AWS KMS) customer master key (CMK); however,
+// you can specify a different CMK. To copy an encrypted snapshot that has been
+// shared from another account, you must have permissions for the CMK used to
+// encrypt the snapshot. Snapshots copied to an Outpost are encrypted by default
+// using the default encryption key for the Region, or a different key that you
+// specify in the request using KmsKeyId. Outposts do not support unencrypted
+// snapshots. For more information,  Amazon EBS local snapshots on Outposts
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
+// in the Amazon Elastic Compute Cloud User Guide. Snapshots created by copying
+// another snapshot have an arbitrary volume ID that should not be used for any
+// purpose. For more information, see Copying an Amazon EBS snapshot
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-copy-snapshot.html) in
 // the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CopySnapshot(ctx context.Context, params *CopySnapshotInput, optFns ...func(*Options)) (*CopySnapshotOutput, error) {
@@ -56,6 +63,16 @@ type CopySnapshotInput struct {
 
 	// A description for the EBS snapshot.
 	Description *string
+
+	// The Amazon Resource Name (ARN) of the Outpost to which to copy the snapshot.
+	// Only specify this parameter when copying a snapshot from an AWS Region to an
+	// Outpost. The snapshot must be in the Region for the destination Outpost. You
+	// cannot copy a snapshot from an Outpost to a Region, from one Outpost to another,
+	// or within the same Outpost. For more information, see  Copying snapshots from an
+	// AWS Region to an Outpost
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#copy-snapshots)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	DestinationOutpostArn *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the

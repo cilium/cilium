@@ -56,11 +56,12 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// security group, not the name.
 	Groups []string
 
-	// Indicates whether source/destination checking is enabled. A value of true means
-	// checking is enabled, and false means checking is disabled. This value must be
-	// false for a NAT instance to perform NAT. For more information, see NAT Instances
-	// (https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html)
-	// in the Amazon Virtual Private Cloud User Guide.
+	// Enable or disable source/destination checks, which ensure that the instance is
+	// either the source or the destination of any traffic that it receives. If the
+	// value is true, source/destination checks are enabled; otherwise, they are
+	// disabled. The default value is true. You must disable source/destination checks
+	// if the instance runs services such as network address translation, routing, or
+	// firewalls.
 	SourceDestCheck *types.AttributeBooleanValue
 }
 

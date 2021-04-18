@@ -1939,6 +1939,19 @@ func awsAwsquery_deserializeOpDocumentAssumeRoleOutput(v **AssumeRoleOutput, dec
 				sv.PackedPolicySize = ptr.Int32(int32(i64))
 			}
 
+		case strings.EqualFold("SourceIdentity", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SourceIdentity = ptr.String(xtv)
+			}
+
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()
@@ -2041,6 +2054,19 @@ func awsAwsquery_deserializeOpDocumentAssumeRoleWithSAMLOutput(v **AssumeRoleWit
 					return err
 				}
 				sv.PackedPolicySize = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("SourceIdentity", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SourceIdentity = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("Subject", t.Name.Local):
@@ -2158,6 +2184,19 @@ func awsAwsquery_deserializeOpDocumentAssumeRoleWithWebIdentityOutput(v **Assume
 			{
 				xtv := string(val)
 				sv.Provider = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("SourceIdentity", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.SourceIdentity = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("SubjectFromWebIdentityToken", t.Name.Local):

@@ -265,6 +265,10 @@ type DescribeSnapshotsPaginator struct {
 
 // NewDescribeSnapshotsPaginator returns a new DescribeSnapshotsPaginator
 func NewDescribeSnapshotsPaginator(client DescribeSnapshotsAPIClient, params *DescribeSnapshotsInput, optFns ...func(*DescribeSnapshotsPaginatorOptions)) *DescribeSnapshotsPaginator {
+	if params == nil {
+		params = &DescribeSnapshotsInput{}
+	}
+
 	options := DescribeSnapshotsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -272,10 +276,6 @@ func NewDescribeSnapshotsPaginator(client DescribeSnapshotsAPIClient, params *De
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeSnapshotsInput{}
 	}
 
 	return &DescribeSnapshotsPaginator{
@@ -457,16 +457,21 @@ func snapshotCompletedStateRetryable(ctx context.Context, input *DescribeSnapsho
 
 		expectedValue := "completed"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.SnapshotState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.SnapshotState value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}

@@ -10,13 +10,30 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Initiates the copy of an AMI from the specified source Region to the current
-// Region. You specify the destination Region by using its endpoint when making the
-// request. Copies of encrypted backing snapshots for the AMI are encrypted. Copies
-// of unencrypted backing snapshots remain unencrypted, unless you set Encrypted
-// during the copy operation. You cannot create an unencrypted copy of an encrypted
-// backing snapshot. For more information about the prerequisites and limits when
-// copying an AMI, see Copying an AMI
+// Initiates the copy of an AMI. You can copy an AMI from one Region to another, or
+// from a Region to an AWS Outpost. You can't copy an AMI from an Outpost to a
+// Region, from one Outpost to another, or within the same Outpost. To copy an AMI
+// to another partition, see CreateStoreImageTask
+// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateStoreImageTask.html).
+// To copy an AMI from one Region to another, specify the source Region using
+// the
+//
+// SourceRegion parameter, and specify the destination Region using its
+// endpoint. Copies of encrypted backing snapshots for the AMI are encrypted.
+// Copies of unencrypted backing snapshots remain unencrypted, unless you set
+// Encrypted during the copy operation. You cannot create an unencrypted copy of an
+// encrypted backing snapshot. To copy an AMI from a Region to an Outpost, specify
+// the source Region using the
+//
+// SourceRegion parameter, and specify the ARN of the
+// destination Outpost using DestinationOutpostArn. Backing snapshots copied to an
+// Outpost are encrypted by default using the default encryption key for the
+// Region, or a different key that you specify in the request using KmsKeyId.
+// Outposts do not support unencrypted snapshots. For more information,  Amazon EBS
+// local snapshots on Outposts
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
+// in the Amazon Elastic Compute Cloud User Guide. For more information about the
+// prerequisites and limits when copying an AMI, see Copying an AMI
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/CopyingAMIs.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CopyImage(ctx context.Context, params *CopyImageInput, optFns ...func(*Options)) (*CopyImageOutput, error) {
@@ -53,14 +70,22 @@ type CopyImageInput struct {
 	SourceRegion *string
 
 	// Unique, case-sensitive identifier you provide to ensure idempotency of the
-	// request. For more information, see How to Ensure Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// request. For more information, see Ensuring idempotency
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// in the Amazon EC2 API Reference.
 	ClientToken *string
 
 	// A description for the new AMI in the destination Region.
 	Description *string
 
+	// The Amazon Resource Name (ARN) of the Outpost to which to copy the AMI. Only
+	// specify this parameter when copying an AMI from an AWS Region to an Outpost. The
+	// AMI must be in the Region of the destination Outpost. You cannot copy an AMI
+	// from an Outpost to a Region, from one Outpost to another, or within the same
+	// Outpost. For more information, see  Copying AMIs from an AWS Region to an
+	// Outpost
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#copy-amis)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	DestinationOutpostArn *string
 
 	// Checks whether you have the required permissions for the action, without

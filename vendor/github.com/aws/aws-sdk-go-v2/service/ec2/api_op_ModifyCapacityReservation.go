@@ -40,6 +40,9 @@ type ModifyCapacityReservationInput struct {
 	// This member is required.
 	CapacityReservationId *string
 
+	// Reserved. Capacity Reservations you have created are accepted by default.
+	Accept bool
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is

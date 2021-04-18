@@ -18,7 +18,8 @@ import (
 // successfully applied to the instance, the state of the modifications changes
 // from “pending” to “applied” in subsequent describe-instances API calls. For more
 // information, see Instance metadata and user data
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html).
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) ModifyInstanceMetadataOptions(ctx context.Context, params *ModifyInstanceMetadataOptionsInput, optFns ...func(*Options)) (*ModifyInstanceMetadataOptionsOutput, error) {
 	if params == nil {
 		params = &ModifyInstanceMetadataOptionsInput{}

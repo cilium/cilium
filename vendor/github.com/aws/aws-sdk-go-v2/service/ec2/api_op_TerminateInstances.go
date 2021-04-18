@@ -26,10 +26,10 @@ import (
 // parameter set to true are automatically deleted. For more information about the
 // differences between stopping and terminating instances, see Instance lifecycle
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
-// in the Amazon Elastic Compute Cloud User Guide. For more information about
-// troubleshooting, see Troubleshooting terminating your instance
+// in the Amazon EC2 User Guide. For more information about troubleshooting, see
+// Troubleshooting terminating your instance
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesShuttingDown.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) TerminateInstances(ctx context.Context, params *TerminateInstancesInput, optFns ...func(*Options)) (*TerminateInstancesOutput, error) {
 	if params == nil {
 		params = &TerminateInstancesInput{}

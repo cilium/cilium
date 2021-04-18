@@ -11,6 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Resets the attribute of the specified IP address. For requirements, see Using
+// reverse DNS for email applications
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#Using_Elastic_Addressing_Reverse_DNS).
 func (c *Client) ResetAddressAttribute(ctx context.Context, params *ResetAddressAttributeInput, optFns ...func(*Options)) (*ResetAddressAttributeOutput, error) {
 	if params == nil {
 		params = &ResetAddressAttributeInput{}
@@ -28,16 +31,26 @@ func (c *Client) ResetAddressAttribute(ctx context.Context, params *ResetAddress
 
 type ResetAddressAttributeInput struct {
 
+	// [EC2-VPC] The allocation ID.
+	//
 	// This member is required.
 	AllocationId *string
 
+	// The attribute of the IP address.
+	//
 	// This member is required.
 	Attribute types.AddressAttributeName
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation. Otherwise, it is
+	// UnauthorizedOperation.
 	DryRun bool
 }
 
 type ResetAddressAttributeOutput struct {
+
+	// Information about the IP address.
 	Address *types.AddressAttribute
 
 	// Metadata pertaining to the operation's result.

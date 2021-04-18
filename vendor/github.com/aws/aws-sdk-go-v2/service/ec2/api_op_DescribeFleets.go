@@ -12,7 +12,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the specified EC2 Fleets or all of your EC2 Fleets.
+// Describes the specified EC2 Fleets or all of your EC2 Fleets. For more
+// information, see Monitoring your EC2 Fleet
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html#monitor-ec2-fleet)
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeFleets(ctx context.Context, params *DescribeFleetsInput, optFns ...func(*Options)) (*DescribeFleetsOutput, error) {
 	if params == nil {
 		params = &DescribeFleetsInput{}
@@ -172,6 +175,10 @@ type DescribeFleetsPaginator struct {
 
 // NewDescribeFleetsPaginator returns a new DescribeFleetsPaginator
 func NewDescribeFleetsPaginator(client DescribeFleetsAPIClient, params *DescribeFleetsInput, optFns ...func(*DescribeFleetsPaginatorOptions)) *DescribeFleetsPaginator {
+	if params == nil {
+		params = &DescribeFleetsInput{}
+	}
+
 	options := DescribeFleetsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -179,10 +186,6 @@ func NewDescribeFleetsPaginator(client DescribeFleetsAPIClient, params *Describe
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeFleetsInput{}
 	}
 
 	return &DescribeFleetsPaginator{

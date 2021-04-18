@@ -69,8 +69,6 @@ type CreateImageInput struct {
 	// integrity on the created image can't be guaranteed.
 	NoReboot bool
 
-	OutpostArn *string
-
 	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI, the
 	// snapshots, or both.
 	//

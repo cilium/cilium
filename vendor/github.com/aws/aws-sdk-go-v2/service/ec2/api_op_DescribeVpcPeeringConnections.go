@@ -198,6 +198,10 @@ type DescribeVpcPeeringConnectionsPaginator struct {
 // NewDescribeVpcPeeringConnectionsPaginator returns a new
 // DescribeVpcPeeringConnectionsPaginator
 func NewDescribeVpcPeeringConnectionsPaginator(client DescribeVpcPeeringConnectionsAPIClient, params *DescribeVpcPeeringConnectionsInput, optFns ...func(*DescribeVpcPeeringConnectionsPaginatorOptions)) *DescribeVpcPeeringConnectionsPaginator {
+	if params == nil {
+		params = &DescribeVpcPeeringConnectionsInput{}
+	}
+
 	options := DescribeVpcPeeringConnectionsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -205,10 +209,6 @@ func NewDescribeVpcPeeringConnectionsPaginator(client DescribeVpcPeeringConnecti
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVpcPeeringConnectionsInput{}
 	}
 
 	return &DescribeVpcPeeringConnectionsPaginator{

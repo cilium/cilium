@@ -14,7 +14,7 @@ import (
 // Describes the specified placement groups or all of your placement groups. For
 // more information, see Placement groups
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) DescribePlacementGroups(ctx context.Context, params *DescribePlacementGroupsInput, optFns ...func(*Options)) (*DescribePlacementGroupsOutput, error) {
 	if params == nil {
 		params = &DescribePlacementGroupsInput{}

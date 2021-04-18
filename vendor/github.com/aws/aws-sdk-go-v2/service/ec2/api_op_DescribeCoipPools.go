@@ -159,6 +159,10 @@ type DescribeCoipPoolsPaginator struct {
 
 // NewDescribeCoipPoolsPaginator returns a new DescribeCoipPoolsPaginator
 func NewDescribeCoipPoolsPaginator(client DescribeCoipPoolsAPIClient, params *DescribeCoipPoolsInput, optFns ...func(*DescribeCoipPoolsPaginatorOptions)) *DescribeCoipPoolsPaginator {
+	if params == nil {
+		params = &DescribeCoipPoolsInput{}
+	}
+
 	options := DescribeCoipPoolsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -166,10 +170,6 @@ func NewDescribeCoipPoolsPaginator(client DescribeCoipPoolsAPIClient, params *De
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeCoipPoolsInput{}
 	}
 
 	return &DescribeCoipPoolsPaginator{

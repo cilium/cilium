@@ -84,7 +84,8 @@ type ModifyVolumeInput struct {
 	// * io2: 100-64,000 IOPS
 	//
 	// Default:
-	// If no IOPS value is specified, the existing value is retained.
+	// If no IOPS value is specified, the existing value is retained, unless a volume
+	// type is modified that supports different values.
 	Iops int32
 
 	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,

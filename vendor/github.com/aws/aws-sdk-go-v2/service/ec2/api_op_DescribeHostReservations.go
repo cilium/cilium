@@ -172,6 +172,10 @@ type DescribeHostReservationsPaginator struct {
 // NewDescribeHostReservationsPaginator returns a new
 // DescribeHostReservationsPaginator
 func NewDescribeHostReservationsPaginator(client DescribeHostReservationsAPIClient, params *DescribeHostReservationsInput, optFns ...func(*DescribeHostReservationsPaginatorOptions)) *DescribeHostReservationsPaginator {
+	if params == nil {
+		params = &DescribeHostReservationsInput{}
+	}
+
 	options := DescribeHostReservationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -179,10 +183,6 @@ func NewDescribeHostReservationsPaginator(client DescribeHostReservationsAPIClie
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeHostReservationsInput{}
 	}
 
 	return &DescribeHostReservationsPaginator{

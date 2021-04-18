@@ -237,6 +237,10 @@ type DescribeVolumesPaginator struct {
 
 // NewDescribeVolumesPaginator returns a new DescribeVolumesPaginator
 func NewDescribeVolumesPaginator(client DescribeVolumesAPIClient, params *DescribeVolumesInput, optFns ...func(*DescribeVolumesPaginatorOptions)) *DescribeVolumesPaginator {
+	if params == nil {
+		params = &DescribeVolumesInput{}
+	}
+
 	options := DescribeVolumesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -244,10 +248,6 @@ func NewDescribeVolumesPaginator(client DescribeVolumesAPIClient, params *Descri
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVolumesInput{}
 	}
 
 	return &DescribeVolumesPaginator{
@@ -429,16 +429,21 @@ func volumeAvailableStateRetryable(ctx context.Context, input *DescribeVolumesIn
 
 		expectedValue := "available"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.VolumeState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.VolumeState value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}
@@ -455,13 +460,18 @@ func volumeAvailableStateRetryable(ctx context.Context, input *DescribeVolumesIn
 		}
 
 		expectedValue := "deleted"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.VolumeState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.VolumeState value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}
@@ -609,16 +619,21 @@ func volumeInUseStateRetryable(ctx context.Context, input *DescribeVolumesInput,
 
 		expectedValue := "in-use"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.VolumeState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.VolumeState value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}
@@ -635,13 +650,18 @@ func volumeInUseStateRetryable(ctx context.Context, input *DescribeVolumesInput,
 		}
 
 		expectedValue := "deleted"
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		for _, v := range listOfValues {
-			if v == expectedValue {
+			value, ok := v.(types.VolumeState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.VolumeState value, got %T", pathValue)
+			}
+
+			if string(value) == expectedValue {
 				return false, fmt.Errorf("waiter state transitioned to Failure")
 			}
 		}

@@ -13,7 +13,7 @@ import (
 )
 
 // Exports an Amazon Machine Image (AMI) to a VM file. For more information, see
-// Exporting a VM Directory from an Amazon Machine Image (AMI)
+// Exporting a VM directly from an Amazon Machine Image (AMI)
 // (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport_image.html) in
 // the VM Import/Export User Guide.
 func (c *Client) ExportImage(ctx context.Context, params *ExportImageInput, optFns ...func(*Options)) (*ExportImageOutput, error) {
@@ -67,7 +67,7 @@ type ExportImageInput struct {
 	// named 'vmimport'.
 	RoleName *string
 
-	// The tags to apply to the image being exported.
+	// The tags to apply to the export image task during creation.
 	TagSpecifications []types.TagSpecification
 }
 
@@ -102,7 +102,7 @@ type ExportImageOutput struct {
 	// The status message for the export image task.
 	StatusMessage *string
 
-	// Any tags assigned to the image being exported.
+	// Any tags assigned to the export image task.
 	Tags []types.Tag
 
 	// Metadata pertaining to the operation's result.

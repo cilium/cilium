@@ -17,7 +17,7 @@ import (
 // minutes, Amazon EC2 performs a hard reboot. For more information about
 // troubleshooting, see Getting console output and rebooting instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-console.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) RebootInstances(ctx context.Context, params *RebootInstancesInput, optFns ...func(*Options)) (*RebootInstancesOutput, error) {
 	if params == nil {
 		params = &RebootInstancesInput{}

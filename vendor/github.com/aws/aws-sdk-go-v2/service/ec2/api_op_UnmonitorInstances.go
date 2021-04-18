@@ -14,7 +14,7 @@ import (
 // Disables detailed monitoring for a running instance. For more information, see
 // Monitoring your instances and volumes
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) UnmonitorInstances(ctx context.Context, params *UnmonitorInstancesInput, optFns ...func(*Options)) (*UnmonitorInstancesOutput, error) {
 	if params == nil {
 		params = &UnmonitorInstancesInput{}

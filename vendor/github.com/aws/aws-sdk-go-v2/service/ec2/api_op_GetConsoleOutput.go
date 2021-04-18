@@ -21,9 +21,9 @@ import (
 // the most recent 64 KB of console output is available. You can optionally
 // retrieve the latest serial console output at any time during the instance
 // lifecycle. This option is supported on instance types that use the Nitro
-// hypervisor. For more information, see Instance Console Output
+// hypervisor. For more information, see Instance console output
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-console.html#instance-console-console-output)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) GetConsoleOutput(ctx context.Context, params *GetConsoleOutputInput, optFns ...func(*Options)) (*GetConsoleOutputOutput, error) {
 	if params == nil {
 		params = &GetConsoleOutputInput{}

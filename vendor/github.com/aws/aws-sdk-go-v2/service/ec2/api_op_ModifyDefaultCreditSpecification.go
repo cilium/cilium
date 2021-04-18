@@ -23,7 +23,7 @@ import (
 // GetDefaultCreditSpecification and check DefaultCreditSpecification for updates.
 // For more information, see Burstable performance instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) ModifyDefaultCreditSpecification(ctx context.Context, params *ModifyDefaultCreditSpecificationInput, optFns ...func(*Options)) (*ModifyDefaultCreditSpecificationOutput, error) {
 	if params == nil {
 		params = &ModifyDefaultCreditSpecificationInput{}

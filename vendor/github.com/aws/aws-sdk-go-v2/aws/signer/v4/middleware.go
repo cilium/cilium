@@ -156,6 +156,16 @@ func (m *computePayloadSHA256) HandleBuild(
 	return next.HandleBuild(ctx, in)
 }
 
+// SwapComputePayloadSHA256ForUnsignedPayloadMiddleware replaces the
+// ComputePayloadSHA256 middleware with the UnsignedPayload middleware.
+//
+// Use this to disable computing the Payload SHA256 checksum and instead use
+// UNSIGNED-PAYLOAD for the SHA256 value.
+func SwapComputePayloadSHA256ForUnsignedPayloadMiddleware(stack *middleware.Stack) error {
+	_, err := stack.Build.Swap(computePayloadHashMiddlewareID, &unsignedPayload{})
+	return err
+}
+
 // contentSHA256Header sets the X-Amz-Content-Sha256 header value to
 // the Payload hash stored in the context.
 type contentSHA256Header struct{}

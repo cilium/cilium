@@ -159,6 +159,10 @@ type GetAssociatedIpv6PoolCidrsPaginator struct {
 // NewGetAssociatedIpv6PoolCidrsPaginator returns a new
 // GetAssociatedIpv6PoolCidrsPaginator
 func NewGetAssociatedIpv6PoolCidrsPaginator(client GetAssociatedIpv6PoolCidrsAPIClient, params *GetAssociatedIpv6PoolCidrsInput, optFns ...func(*GetAssociatedIpv6PoolCidrsPaginatorOptions)) *GetAssociatedIpv6PoolCidrsPaginator {
+	if params == nil {
+		params = &GetAssociatedIpv6PoolCidrsInput{}
+	}
+
 	options := GetAssociatedIpv6PoolCidrsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -166,10 +170,6 @@ func NewGetAssociatedIpv6PoolCidrsPaginator(client GetAssociatedIpv6PoolCidrsAPI
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &GetAssociatedIpv6PoolCidrsInput{}
 	}
 
 	return &GetAssociatedIpv6PoolCidrsPaginator{
