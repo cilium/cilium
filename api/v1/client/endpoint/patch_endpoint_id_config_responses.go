@@ -44,6 +44,12 @@ func (o *PatchEndpointIDConfigReader) ReadResponse(response runtime.ClientRespon
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewPatchEndpointIDConfigTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPatchEndpointIDConfigFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -115,6 +121,27 @@ func (o *PatchEndpointIDConfigNotFound) Error() string {
 }
 
 func (o *PatchEndpointIDConfigNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPatchEndpointIDConfigTooManyRequests creates a PatchEndpointIDConfigTooManyRequests with default headers values
+func NewPatchEndpointIDConfigTooManyRequests() *PatchEndpointIDConfigTooManyRequests {
+	return &PatchEndpointIDConfigTooManyRequests{}
+}
+
+/*PatchEndpointIDConfigTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type PatchEndpointIDConfigTooManyRequests struct {
+}
+
+func (o *PatchEndpointIDConfigTooManyRequests) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigTooManyRequests ", 429)
+}
+
+func (o *PatchEndpointIDConfigTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

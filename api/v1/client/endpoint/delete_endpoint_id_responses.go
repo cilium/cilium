@@ -50,6 +50,12 @@ func (o *DeleteEndpointIDReader) ReadResponse(response runtime.ClientResponse, c
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewDeleteEndpointIDTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
@@ -158,6 +164,27 @@ func (o *DeleteEndpointIDNotFound) Error() string {
 }
 
 func (o *DeleteEndpointIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewDeleteEndpointIDTooManyRequests creates a DeleteEndpointIDTooManyRequests with default headers values
+func NewDeleteEndpointIDTooManyRequests() *DeleteEndpointIDTooManyRequests {
+	return &DeleteEndpointIDTooManyRequests{}
+}
+
+/*DeleteEndpointIDTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type DeleteEndpointIDTooManyRequests struct {
+}
+
+func (o *DeleteEndpointIDTooManyRequests) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests ", 429)
+}
+
+func (o *DeleteEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

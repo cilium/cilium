@@ -149,3 +149,27 @@ func (o *DeleteEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, produce
 
 	rw.WriteHeader(404)
 }
+
+// DeleteEndpointIDTooManyRequestsCode is the HTTP code returned for type DeleteEndpointIDTooManyRequests
+const DeleteEndpointIDTooManyRequestsCode int = 429
+
+/*DeleteEndpointIDTooManyRequests Rate-limiting too many requests in the given time frame
+
+swagger:response deleteEndpointIdTooManyRequests
+*/
+type DeleteEndpointIDTooManyRequests struct {
+}
+
+// NewDeleteEndpointIDTooManyRequests creates DeleteEndpointIDTooManyRequests with default headers values
+func NewDeleteEndpointIDTooManyRequests() *DeleteEndpointIDTooManyRequests {
+
+	return &DeleteEndpointIDTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *DeleteEndpointIDTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}

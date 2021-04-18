@@ -158,6 +158,9 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       }
@@ -190,6 +193,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -221,6 +227,9 @@ func init() {
           "409": {
             "description": "Endpoint already exists",
             "x-go-name": "Exists"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           },
           "500": {
             "description": "Endpoint creation failed",
@@ -262,6 +271,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -294,6 +306,9 @@ func init() {
           "404": {
             "description": "Endpoint does not exist"
           },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
+          },
           "500": {
             "description": "Endpoint update failed",
             "schema": {
@@ -325,6 +340,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -357,6 +375,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           },
           "500": {
             "description": "Update failed. Details in message.",
@@ -392,6 +413,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       }
@@ -416,6 +440,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -444,6 +471,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           },
           "500": {
             "description": "Error while updating labels",
@@ -479,6 +509,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       }
@@ -4286,6 +4319,9 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       }
@@ -4322,6 +4358,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -4362,6 +4401,9 @@ func init() {
           "409": {
             "description": "Endpoint already exists",
             "x-go-name": "Exists"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           },
           "500": {
             "description": "Endpoint creation failed",
@@ -4407,6 +4449,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -4448,6 +4493,9 @@ func init() {
           "404": {
             "description": "Endpoint does not exist"
           },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
+          },
           "500": {
             "description": "Endpoint update failed",
             "schema": {
@@ -4483,6 +4531,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -4519,6 +4570,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           },
           "500": {
             "description": "Update failed. Details in message.",
@@ -4558,6 +4612,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       }
@@ -4586,6 +4643,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       },
@@ -4618,6 +4678,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           },
           "500": {
             "description": "Error while updating labels",
@@ -4657,6 +4720,9 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
           }
         }
       }
