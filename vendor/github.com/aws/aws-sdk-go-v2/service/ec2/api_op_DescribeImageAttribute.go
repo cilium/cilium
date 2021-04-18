@@ -31,10 +31,9 @@ func (c *Client) DescribeImageAttribute(ctx context.Context, params *DescribeIma
 // Contains the parameters for DescribeImageAttribute.
 type DescribeImageAttributeInput struct {
 
-	// The AMI attribute. Note: Depending on your account privileges, the
-	// blockDeviceMapping attribute may return a Client.AuthFailure error. If this
-	// happens, use DescribeImages to get information about the block device mapping
-	// for the AMI.
+	// The AMI attribute. Note: The blockDeviceMapping attribute is deprecated. Using
+	// this attribute returns the Client.AuthFailure error. To get information about
+	// the block device mappings for an AMI, use the DescribeImages action.
 	//
 	// This member is required.
 	Attribute types.ImageAttributeName

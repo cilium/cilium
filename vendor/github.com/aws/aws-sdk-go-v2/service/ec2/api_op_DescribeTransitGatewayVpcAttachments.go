@@ -170,6 +170,10 @@ type DescribeTransitGatewayVpcAttachmentsPaginator struct {
 // NewDescribeTransitGatewayVpcAttachmentsPaginator returns a new
 // DescribeTransitGatewayVpcAttachmentsPaginator
 func NewDescribeTransitGatewayVpcAttachmentsPaginator(client DescribeTransitGatewayVpcAttachmentsAPIClient, params *DescribeTransitGatewayVpcAttachmentsInput, optFns ...func(*DescribeTransitGatewayVpcAttachmentsPaginatorOptions)) *DescribeTransitGatewayVpcAttachmentsPaginator {
+	if params == nil {
+		params = &DescribeTransitGatewayVpcAttachmentsInput{}
+	}
+
 	options := DescribeTransitGatewayVpcAttachmentsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -177,10 +181,6 @@ func NewDescribeTransitGatewayVpcAttachmentsPaginator(client DescribeTransitGate
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeTransitGatewayVpcAttachmentsInput{}
 	}
 
 	return &DescribeTransitGatewayVpcAttachmentsPaginator{

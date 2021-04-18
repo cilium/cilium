@@ -11,8 +11,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/endpointcreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/processcreds"
+	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	"github.com/aws/aws-sdk-go-v2/service/sso"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -78,12 +80,15 @@ func resolveCredentialProvider(ctx context.Context, cfg *aws.Config, cfgs config
 // credentials are only refreshed when needed. This also protects the
 // credential provider to be used concurrently.
 func resolveCredentialChain(ctx context.Context, cfg *aws.Config, configs configs) (err error) {
-	_, sharedProfileSet, err := getSharedConfigProfile(ctx, configs)
+	envConfig, sharedConfig, other := getAWSConfigSources(configs)
+
+	// When checking if a profile was specified programmatically we should only consider the "other"
+	// configuration sources that have been provided. This ensures we correctly honor the expected credential
+	// hierarchy.
+	_, sharedProfileSet, err := getSharedConfigProfile(ctx, other)
 	if err != nil {
 		return err
 	}
-
-	envConfig, sharedConfig, other := getAWSConfigSources(configs)
 
 	switch {
 	case sharedProfileSet:
@@ -118,6 +123,9 @@ func resolveCredsFromProfile(ctx context.Context, cfg *aws.Config, envConfig *En
 			Value: sharedConfig.Credentials,
 		}
 
+	case sharedConfig.hasSSOConfiguration():
+		err = resolveSSOCredentials(ctx, cfg, sharedConfig, configs)
+
 	case len(sharedConfig.CredentialProcess) != 0:
 		// Get credentials from CredentialProcess
 		err = processCredentials(ctx, cfg, sharedConfig, configs)
@@ -147,6 +155,28 @@ func resolveCredsFromProfile(ctx context.Context, cfg *aws.Config, envConfig *En
 	if len(sharedConfig.RoleARN) > 0 {
 		return credsFromAssumeRole(ctx, cfg, sharedConfig, configs)
 	}
+
+	return nil
+}
+
+func resolveSSOCredentials(ctx context.Context, cfg *aws.Config, sharedConfig *SharedConfig, configs configs) error {
+	if err := sharedConfig.validateSSOConfiguration(); err != nil {
+		return err
+	}
+
+	var options []func(*ssocreds.Options)
+	v, found, err := getSSOProviderOptions(ctx, configs)
+	if err != nil {
+		return err
+	}
+	if found {
+		options = append(options, v)
+	}
+
+	cfgCopy := cfg.Copy()
+	cfgCopy.Region = sharedConfig.SSORegion
+
+	cfg.Credentials = ssocreds.New(sso.NewFromConfig(cfgCopy), sharedConfig.SSOAccountID, sharedConfig.SSORoleName, sharedConfig.SSOStartURL, options...)
 
 	return nil
 }
@@ -353,7 +383,7 @@ func assumeWebIdentity(ctx context.Context, cfg *aws.Config, filepath string, ro
 		optFns = append(optFns, optFn)
 	}
 
-	provider := stscreds.NewWebIdentityRoleProvider(sts.NewFromConfig(cfg.Copy()), roleARN, stscreds.IdentityTokenFile(filepath), optFns...)
+	provider := stscreds.NewWebIdentityRoleProvider(sts.NewFromConfig(*cfg), roleARN, stscreds.IdentityTokenFile(filepath), optFns...)
 
 	cfg.Credentials = provider
 
@@ -401,7 +431,7 @@ func credsFromAssumeRole(ctx context.Context, cfg *aws.Config, sharedCfg *Shared
 		}
 	}
 
-	cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(cfg.Copy()), sharedCfg.RoleARN, optFns...)
+	cfg.Credentials = stscreds.NewAssumeRoleProvider(sts.NewFromConfig(*cfg), sharedCfg.RoleARN, optFns...)
 
 	return nil
 }

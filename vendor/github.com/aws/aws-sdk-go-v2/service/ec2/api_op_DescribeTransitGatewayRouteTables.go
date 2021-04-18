@@ -173,6 +173,10 @@ type DescribeTransitGatewayRouteTablesPaginator struct {
 // NewDescribeTransitGatewayRouteTablesPaginator returns a new
 // DescribeTransitGatewayRouteTablesPaginator
 func NewDescribeTransitGatewayRouteTablesPaginator(client DescribeTransitGatewayRouteTablesAPIClient, params *DescribeTransitGatewayRouteTablesInput, optFns ...func(*DescribeTransitGatewayRouteTablesPaginatorOptions)) *DescribeTransitGatewayRouteTablesPaginator {
+	if params == nil {
+		params = &DescribeTransitGatewayRouteTablesInput{}
+	}
+
 	options := DescribeTransitGatewayRouteTablesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -180,10 +184,6 @@ func NewDescribeTransitGatewayRouteTablesPaginator(client DescribeTransitGateway
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeTransitGatewayRouteTablesInput{}
 	}
 
 	return &DescribeTransitGatewayRouteTablesPaginator{

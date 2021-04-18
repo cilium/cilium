@@ -17,10 +17,9 @@ import (
 // pricing history
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances-history.html)
 // in the Amazon EC2 User Guide for Linux Instances. When you specify a start and
-// end time, this operation returns the prices of the instance types within the
-// time range that you specified and the time when the price changed. The price is
-// valid within the time period that you specified; the response merely indicates
-// the last time that the price changed.
+// end time, the operation returns the prices of the instance types within that
+// time range. It also returns the last price change before the start time, which
+// is the effective price as of the start time.
 func (c *Client) DescribeSpotPriceHistory(ctx context.Context, params *DescribeSpotPriceHistoryInput, optFns ...func(*Options)) (*DescribeSpotPriceHistoryOutput, error) {
 	if params == nil {
 		params = &DescribeSpotPriceHistoryInput{}
@@ -200,6 +199,10 @@ type DescribeSpotPriceHistoryPaginator struct {
 // NewDescribeSpotPriceHistoryPaginator returns a new
 // DescribeSpotPriceHistoryPaginator
 func NewDescribeSpotPriceHistoryPaginator(client DescribeSpotPriceHistoryAPIClient, params *DescribeSpotPriceHistoryInput, optFns ...func(*DescribeSpotPriceHistoryPaginatorOptions)) *DescribeSpotPriceHistoryPaginator {
+	if params == nil {
+		params = &DescribeSpotPriceHistoryInput{}
+	}
+
 	options := DescribeSpotPriceHistoryPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -207,10 +210,6 @@ func NewDescribeSpotPriceHistoryPaginator(client DescribeSpotPriceHistoryAPIClie
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeSpotPriceHistoryInput{}
 	}
 
 	return &DescribeSpotPriceHistoryPaginator{

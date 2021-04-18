@@ -29,7 +29,7 @@ import (
 // zone, the call works normally. For more information, see Burstable performance
 // instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeInstanceCreditSpecifications(ctx context.Context, params *DescribeInstanceCreditSpecificationsInput, optFns ...func(*Options)) (*DescribeInstanceCreditSpecificationsOutput, error) {
 	if params == nil {
 		params = &DescribeInstanceCreditSpecificationsInput{}
@@ -180,6 +180,10 @@ type DescribeInstanceCreditSpecificationsPaginator struct {
 // NewDescribeInstanceCreditSpecificationsPaginator returns a new
 // DescribeInstanceCreditSpecificationsPaginator
 func NewDescribeInstanceCreditSpecificationsPaginator(client DescribeInstanceCreditSpecificationsAPIClient, params *DescribeInstanceCreditSpecificationsInput, optFns ...func(*DescribeInstanceCreditSpecificationsPaginatorOptions)) *DescribeInstanceCreditSpecificationsPaginator {
+	if params == nil {
+		params = &DescribeInstanceCreditSpecificationsInput{}
+	}
+
 	options := DescribeInstanceCreditSpecificationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -187,10 +191,6 @@ func NewDescribeInstanceCreditSpecificationsPaginator(client DescribeInstanceCre
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeInstanceCreditSpecificationsInput{}
 	}
 
 	return &DescribeInstanceCreditSpecificationsPaginator{

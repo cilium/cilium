@@ -12,7 +12,7 @@ import (
 )
 
 // Import single or multi-volume disk images or EBS snapshots into an Amazon
-// Machine Image (AMI). For more information, see Importing a VM as an Image Using
+// Machine Image (AMI). For more information, see Importing a VM as an image using
 // VM Import/Export
 // (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)
 // in the VM Import/Export User Guide.
@@ -118,7 +118,7 @@ type ImportImageInput struct {
 	// The name of the role to use when not using the default role, 'vmimport'.
 	RoleName *string
 
-	// The tags to apply to the image being imported.
+	// The tags to apply to the import image task during creation.
 	TagSpecifications []types.TagSpecification
 }
 
@@ -167,7 +167,7 @@ type ImportImageOutput struct {
 	// A detailed status message of the import task.
 	StatusMessage *string
 
-	// Any tags assigned to the image being imported.
+	// Any tags assigned to the import image task.
 	Tags []types.Tag
 
 	// Metadata pertaining to the operation's result.

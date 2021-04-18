@@ -63,13 +63,11 @@ import (
 // this key to provide secure access to the instance. Amazon EC2 public images use
 // this feature to provide secure access without passwords. For more information,
 // see Key pairs
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html) in the
-// Amazon Elastic Compute Cloud User Guide. For troubleshooting, see What to do if
-// an instance immediately terminates
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html). For
+// troubleshooting, see What to do if an instance immediately terminates
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_InstanceStraightToTerminated.html),
 // and Troubleshooting connecting to your instance
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html).
 func (c *Client) RunInstances(ctx context.Context, params *RunInstancesInput, optFns ...func(*Options)) (*RunInstancesOutput, error) {
 	if params == nil {
 		params = &RunInstancesInput{}
@@ -134,7 +132,7 @@ type RunInstancesInput struct {
 	// The CPU options for the instance. For more information, see Optimizing CPU
 	// options
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// in the Amazon EC2 User Guide.
 	CpuOptions *types.CpuOptionsRequest
 
 	// The credit option for CPU usage of the burstable performance instance. Valid
@@ -143,8 +141,8 @@ type RunInstancesInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceCreditSpecification.html).
 	// For more information, see Burstable performance instances
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
-	// in the Amazon Elastic Compute Cloud User Guide. Default: standard (T2 instances)
-	// or unlimited (T3/T3a instances)
+	// in the Amazon EC2 User Guide. Default: standard (T2 instances) or unlimited
+	// (T3/T3a instances)
 	CreditSpecification *types.CreditSpecificationRequest
 
 	// If you set this parameter to true, you can't terminate the instance using the
@@ -171,10 +169,10 @@ type RunInstancesInput struct {
 
 	// An elastic GPU to associate with the instance. An Elastic GPU is a GPU resource
 	// that you can attach to your Windows instance to accelerate the graphics
-	// performance of your applications. For more information, see  Amazon EC2 Elastic
+	// performance of your applications. For more information, see Amazon EC2 Elastic
 	// GPUs
 	// (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// in the Amazon EC2 User Guide.
 	ElasticGpuSpecification []types.ElasticGpuSpecification
 
 	// An elastic inference accelerator to associate with the instance. Elastic
@@ -193,11 +191,11 @@ type RunInstancesInput struct {
 	// Indicates whether an instance is enabled for hibernation. For more information,
 	// see Hibernate your instance
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html) in the
-	// Amazon Elastic Compute Cloud User Guide. You can't enable hibernation and AWS
-	// Nitro Enclaves on the same instance.
+	// Amazon EC2 User Guide. You can't enable hibernation and AWS Nitro Enclaves on
+	// the same instance.
 	HibernationOptions *types.HibernationOptionsRequest
 
-	// The IAM instance profile.
+	// The name or Amazon Resource Name (ARN) of an IAM instance profile.
 	IamInstanceProfile *types.IamInstanceProfileSpecification
 
 	// The ID of the AMI. An AMI ID is required to launch an instance and must be
@@ -216,7 +214,7 @@ type RunInstancesInput struct {
 
 	// The instance type. For more information, see Instance types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-	// Amazon Elastic Compute Cloud User Guide. Default: m1.small
+	// Amazon EC2 User Guide. Default: m1.small
 	InstanceType types.InstanceType
 
 	// [EC2-VPC] The number of IPv6 addresses to associate with the primary network
@@ -237,7 +235,7 @@ type RunInstancesInput struct {
 	// The ID of the kernel. We recommend that you use PV-GRUB instead of kernels and
 	// RAM disks. For more information, see  PV-GRUB
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// in the Amazon EC2 User Guide.
 	KernelId *string
 
 	// The name of the key pair. You can create a key pair using CreateKeyPair
@@ -287,7 +285,7 @@ type RunInstancesInput struct {
 	// and search for the kernel ID. We recommend that you use PV-GRUB instead of
 	// kernels and RAM disks. For more information, see  PV-GRUB
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html)
-	// in the Amazon Elastic Compute Cloud User Guide.
+	// in the Amazon EC2 User Guide.
 	RamdiskId *string
 
 	// The IDs of the security groups. You can create a security group using

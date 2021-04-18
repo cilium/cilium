@@ -20,7 +20,7 @@ import (
 // current scheduled time period ends, you can launch it again after a few minutes.
 // For more information, see Scheduled Instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-scheduled-instances.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) RunScheduledInstances(ctx context.Context, params *RunScheduledInstancesInput, optFns ...func(*Options)) (*RunScheduledInstancesOutput, error) {
 	if params == nil {
 		params = &RunScheduledInstancesInput{}

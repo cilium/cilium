@@ -174,6 +174,10 @@ type DescribeScheduledInstancesPaginator struct {
 // NewDescribeScheduledInstancesPaginator returns a new
 // DescribeScheduledInstancesPaginator
 func NewDescribeScheduledInstancesPaginator(client DescribeScheduledInstancesAPIClient, params *DescribeScheduledInstancesInput, optFns ...func(*DescribeScheduledInstancesPaginatorOptions)) *DescribeScheduledInstancesPaginator {
+	if params == nil {
+		params = &DescribeScheduledInstancesInput{}
+	}
+
 	options := DescribeScheduledInstancesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -181,10 +185,6 @@ func NewDescribeScheduledInstancesPaginator(client DescribeScheduledInstancesAPI
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeScheduledInstancesInput{}
 	}
 
 	return &DescribeScheduledInstancesPaginator{

@@ -162,6 +162,10 @@ type DescribeTrafficMirrorFiltersPaginator struct {
 // NewDescribeTrafficMirrorFiltersPaginator returns a new
 // DescribeTrafficMirrorFiltersPaginator
 func NewDescribeTrafficMirrorFiltersPaginator(client DescribeTrafficMirrorFiltersAPIClient, params *DescribeTrafficMirrorFiltersInput, optFns ...func(*DescribeTrafficMirrorFiltersPaginatorOptions)) *DescribeTrafficMirrorFiltersPaginator {
+	if params == nil {
+		params = &DescribeTrafficMirrorFiltersInput{}
+	}
+
 	options := DescribeTrafficMirrorFiltersPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -169,10 +173,6 @@ func NewDescribeTrafficMirrorFiltersPaginator(client DescribeTrafficMirrorFilter
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeTrafficMirrorFiltersInput{}
 	}
 
 	return &DescribeTrafficMirrorFiltersPaginator{

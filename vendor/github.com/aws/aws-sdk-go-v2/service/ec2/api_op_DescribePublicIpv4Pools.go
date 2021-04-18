@@ -159,6 +159,10 @@ type DescribePublicIpv4PoolsPaginator struct {
 // NewDescribePublicIpv4PoolsPaginator returns a new
 // DescribePublicIpv4PoolsPaginator
 func NewDescribePublicIpv4PoolsPaginator(client DescribePublicIpv4PoolsAPIClient, params *DescribePublicIpv4PoolsInput, optFns ...func(*DescribePublicIpv4PoolsPaginatorOptions)) *DescribePublicIpv4PoolsPaginator {
+	if params == nil {
+		params = &DescribePublicIpv4PoolsInput{}
+	}
+
 	options := DescribePublicIpv4PoolsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -166,10 +170,6 @@ func NewDescribePublicIpv4PoolsPaginator(client DescribePublicIpv4PoolsAPIClient
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribePublicIpv4PoolsInput{}
 	}
 
 	return &DescribePublicIpv4PoolsPaginator{

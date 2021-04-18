@@ -155,6 +155,10 @@ type DescribeIamInstanceProfileAssociationsPaginator struct {
 // NewDescribeIamInstanceProfileAssociationsPaginator returns a new
 // DescribeIamInstanceProfileAssociationsPaginator
 func NewDescribeIamInstanceProfileAssociationsPaginator(client DescribeIamInstanceProfileAssociationsAPIClient, params *DescribeIamInstanceProfileAssociationsInput, optFns ...func(*DescribeIamInstanceProfileAssociationsPaginatorOptions)) *DescribeIamInstanceProfileAssociationsPaginator {
+	if params == nil {
+		params = &DescribeIamInstanceProfileAssociationsInput{}
+	}
+
 	options := DescribeIamInstanceProfileAssociationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -162,10 +166,6 @@ func NewDescribeIamInstanceProfileAssociationsPaginator(client DescribeIamInstan
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeIamInstanceProfileAssociationsInput{}
 	}
 
 	return &DescribeIamInstanceProfileAssociationsPaginator{

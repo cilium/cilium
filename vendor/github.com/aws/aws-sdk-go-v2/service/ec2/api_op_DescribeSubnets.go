@@ -73,29 +73,31 @@ type DescribeSubnetsInput struct {
 	// * ipv6-cidr-block-association.state - The
 	// state of an IPv6 CIDR block associated with the subnet.
 	//
-	// * owner-id - The ID of
-	// the AWS account that owns the subnet.
+	// * outpost-arn - The
+	// Amazon Resource Name (ARN) of the Outpost.
 	//
-	// * state - The state of the subnet
-	// (pending | available).
+	// * owner-id - The ID of the AWS
+	// account that owns the subnet.
 	//
-	// * subnet-arn - The Amazon Resource Name (ARN) of the
-	// subnet.
+	// * state - The state of the subnet (pending |
+	// available).
 	//
-	// * subnet-id - The ID of the subnet.
+	// * subnet-arn - The Amazon Resource Name (ARN) of the subnet.
 	//
-	// * tag: - The key/value combination
-	// of a tag assigned to the resource. Use the tag key in the filter name and the
-	// tag value as the filter value. For example, to find all resources that have a
-	// tag with the key Owner and the value TeamA, specify tag:Owner for the filter
-	// name and TeamA for the filter value.
+	// *
+	// subnet-id - The ID of the subnet.
 	//
-	// * tag-key - The key of a tag assigned to
-	// the resource. Use this filter to find all resources assigned a tag with a
-	// specific key, regardless of the tag value.
+	// * tag: - The key/value combination of a tag
+	// assigned to the resource. Use the tag key in the filter name and the tag value
+	// as the filter value. For example, to find all resources that have a tag with the
+	// key Owner and the value TeamA, specify tag:Owner for the filter name and TeamA
+	// for the filter value.
 	//
-	// * vpc-id - The ID of the VPC for the
-	// subnet.
+	// * tag-key - The key of a tag assigned to the resource.
+	// Use this filter to find all resources assigned a tag with a specific key,
+	// regardless of the tag value.
+	//
+	// * vpc-id - The ID of the VPC for the subnet.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -212,6 +214,10 @@ type DescribeSubnetsPaginator struct {
 
 // NewDescribeSubnetsPaginator returns a new DescribeSubnetsPaginator
 func NewDescribeSubnetsPaginator(client DescribeSubnetsAPIClient, params *DescribeSubnetsInput, optFns ...func(*DescribeSubnetsPaginatorOptions)) *DescribeSubnetsPaginator {
+	if params == nil {
+		params = &DescribeSubnetsInput{}
+	}
+
 	options := DescribeSubnetsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -219,10 +225,6 @@ func NewDescribeSubnetsPaginator(client DescribeSubnetsAPIClient, params *Descri
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeSubnetsInput{}
 	}
 
 	return &DescribeSubnetsPaginator{
@@ -404,16 +406,21 @@ func subnetAvailableStateRetryable(ctx context.Context, input *DescribeSubnetsIn
 
 		expectedValue := "available"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.SubnetState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.SubnetState value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}

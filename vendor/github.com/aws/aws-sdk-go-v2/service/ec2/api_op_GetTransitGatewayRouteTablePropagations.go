@@ -171,6 +171,10 @@ type GetTransitGatewayRouteTablePropagationsPaginator struct {
 // NewGetTransitGatewayRouteTablePropagationsPaginator returns a new
 // GetTransitGatewayRouteTablePropagationsPaginator
 func NewGetTransitGatewayRouteTablePropagationsPaginator(client GetTransitGatewayRouteTablePropagationsAPIClient, params *GetTransitGatewayRouteTablePropagationsInput, optFns ...func(*GetTransitGatewayRouteTablePropagationsPaginatorOptions)) *GetTransitGatewayRouteTablePropagationsPaginator {
+	if params == nil {
+		params = &GetTransitGatewayRouteTablePropagationsInput{}
+	}
+
 	options := GetTransitGatewayRouteTablePropagationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -178,10 +182,6 @@ func NewGetTransitGatewayRouteTablePropagationsPaginator(client GetTransitGatewa
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &GetTransitGatewayRouteTablePropagationsInput{}
 	}
 
 	return &GetTransitGatewayRouteTablePropagationsPaginator{

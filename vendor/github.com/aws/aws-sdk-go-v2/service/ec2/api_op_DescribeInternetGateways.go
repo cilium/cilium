@@ -177,6 +177,10 @@ type DescribeInternetGatewaysPaginator struct {
 // NewDescribeInternetGatewaysPaginator returns a new
 // DescribeInternetGatewaysPaginator
 func NewDescribeInternetGatewaysPaginator(client DescribeInternetGatewaysAPIClient, params *DescribeInternetGatewaysInput, optFns ...func(*DescribeInternetGatewaysPaginatorOptions)) *DescribeInternetGatewaysPaginator {
+	if params == nil {
+		params = &DescribeInternetGatewaysInput{}
+	}
+
 	options := DescribeInternetGatewaysPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -184,10 +188,6 @@ func NewDescribeInternetGatewaysPaginator(client DescribeInternetGatewaysAPIClie
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeInternetGatewaysInput{}
 	}
 
 	return &DescribeInternetGatewaysPaginator{

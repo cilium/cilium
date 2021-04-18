@@ -213,6 +213,10 @@ type DescribeNetworkAclsPaginator struct {
 
 // NewDescribeNetworkAclsPaginator returns a new DescribeNetworkAclsPaginator
 func NewDescribeNetworkAclsPaginator(client DescribeNetworkAclsAPIClient, params *DescribeNetworkAclsInput, optFns ...func(*DescribeNetworkAclsPaginatorOptions)) *DescribeNetworkAclsPaginator {
+	if params == nil {
+		params = &DescribeNetworkAclsInput{}
+	}
+
 	options := DescribeNetworkAclsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -220,10 +224,6 @@ func NewDescribeNetworkAclsPaginator(client DescribeNetworkAclsAPIClient, params
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeNetworkAclsInput{}
 	}
 
 	return &DescribeNetworkAclsPaginator{

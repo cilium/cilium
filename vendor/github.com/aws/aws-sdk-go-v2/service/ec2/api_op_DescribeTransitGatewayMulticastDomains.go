@@ -166,6 +166,10 @@ type DescribeTransitGatewayMulticastDomainsPaginator struct {
 // NewDescribeTransitGatewayMulticastDomainsPaginator returns a new
 // DescribeTransitGatewayMulticastDomainsPaginator
 func NewDescribeTransitGatewayMulticastDomainsPaginator(client DescribeTransitGatewayMulticastDomainsAPIClient, params *DescribeTransitGatewayMulticastDomainsInput, optFns ...func(*DescribeTransitGatewayMulticastDomainsPaginatorOptions)) *DescribeTransitGatewayMulticastDomainsPaginator {
+	if params == nil {
+		params = &DescribeTransitGatewayMulticastDomainsInput{}
+	}
+
 	options := DescribeTransitGatewayMulticastDomainsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -173,10 +177,6 @@ func NewDescribeTransitGatewayMulticastDomainsPaginator(client DescribeTransitGa
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeTransitGatewayMulticastDomainsInput{}
 	}
 
 	return &DescribeTransitGatewayMulticastDomainsPaginator{

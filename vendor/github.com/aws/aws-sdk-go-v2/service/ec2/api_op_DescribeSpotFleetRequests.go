@@ -157,6 +157,10 @@ type DescribeSpotFleetRequestsPaginator struct {
 // NewDescribeSpotFleetRequestsPaginator returns a new
 // DescribeSpotFleetRequestsPaginator
 func NewDescribeSpotFleetRequestsPaginator(client DescribeSpotFleetRequestsAPIClient, params *DescribeSpotFleetRequestsInput, optFns ...func(*DescribeSpotFleetRequestsPaginatorOptions)) *DescribeSpotFleetRequestsPaginator {
+	if params == nil {
+		params = &DescribeSpotFleetRequestsInput{}
+	}
+
 	options := DescribeSpotFleetRequestsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -164,10 +168,6 @@ func NewDescribeSpotFleetRequestsPaginator(client DescribeSpotFleetRequestsAPICl
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeSpotFleetRequestsInput{}
 	}
 
 	return &DescribeSpotFleetRequestsPaginator{

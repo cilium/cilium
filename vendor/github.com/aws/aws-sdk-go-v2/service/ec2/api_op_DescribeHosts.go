@@ -178,6 +178,10 @@ type DescribeHostsPaginator struct {
 
 // NewDescribeHostsPaginator returns a new DescribeHostsPaginator
 func NewDescribeHostsPaginator(client DescribeHostsAPIClient, params *DescribeHostsInput, optFns ...func(*DescribeHostsPaginatorOptions)) *DescribeHostsPaginator {
+	if params == nil {
+		params = &DescribeHostsInput{}
+	}
+
 	options := DescribeHostsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -185,10 +189,6 @@ func NewDescribeHostsPaginator(client DescribeHostsAPIClient, params *DescribeHo
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeHostsInput{}
 	}
 
 	return &DescribeHostsPaginator{

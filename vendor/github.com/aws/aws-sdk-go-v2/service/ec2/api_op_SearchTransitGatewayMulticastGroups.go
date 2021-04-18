@@ -187,6 +187,10 @@ type SearchTransitGatewayMulticastGroupsPaginator struct {
 // NewSearchTransitGatewayMulticastGroupsPaginator returns a new
 // SearchTransitGatewayMulticastGroupsPaginator
 func NewSearchTransitGatewayMulticastGroupsPaginator(client SearchTransitGatewayMulticastGroupsAPIClient, params *SearchTransitGatewayMulticastGroupsInput, optFns ...func(*SearchTransitGatewayMulticastGroupsPaginatorOptions)) *SearchTransitGatewayMulticastGroupsPaginator {
+	if params == nil {
+		params = &SearchTransitGatewayMulticastGroupsInput{}
+	}
+
 	options := SearchTransitGatewayMulticastGroupsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -194,10 +198,6 @@ func NewSearchTransitGatewayMulticastGroupsPaginator(client SearchTransitGateway
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &SearchTransitGatewayMulticastGroupsInput{}
 	}
 
 	return &SearchTransitGatewayMulticastGroupsPaginator{

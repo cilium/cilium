@@ -166,6 +166,10 @@ type DescribeEgressOnlyInternetGatewaysPaginator struct {
 // NewDescribeEgressOnlyInternetGatewaysPaginator returns a new
 // DescribeEgressOnlyInternetGatewaysPaginator
 func NewDescribeEgressOnlyInternetGatewaysPaginator(client DescribeEgressOnlyInternetGatewaysAPIClient, params *DescribeEgressOnlyInternetGatewaysInput, optFns ...func(*DescribeEgressOnlyInternetGatewaysPaginatorOptions)) *DescribeEgressOnlyInternetGatewaysPaginator {
+	if params == nil {
+		params = &DescribeEgressOnlyInternetGatewaysInput{}
+	}
+
 	options := DescribeEgressOnlyInternetGatewaysPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -173,10 +177,6 @@ func NewDescribeEgressOnlyInternetGatewaysPaginator(client DescribeEgressOnlyInt
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeEgressOnlyInternetGatewaysInput{}
 	}
 
 	return &DescribeEgressOnlyInternetGatewaysPaginator{

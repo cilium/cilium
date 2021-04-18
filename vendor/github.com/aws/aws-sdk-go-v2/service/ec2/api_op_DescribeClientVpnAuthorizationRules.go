@@ -172,6 +172,10 @@ type DescribeClientVpnAuthorizationRulesPaginator struct {
 // NewDescribeClientVpnAuthorizationRulesPaginator returns a new
 // DescribeClientVpnAuthorizationRulesPaginator
 func NewDescribeClientVpnAuthorizationRulesPaginator(client DescribeClientVpnAuthorizationRulesAPIClient, params *DescribeClientVpnAuthorizationRulesInput, optFns ...func(*DescribeClientVpnAuthorizationRulesPaginatorOptions)) *DescribeClientVpnAuthorizationRulesPaginator {
+	if params == nil {
+		params = &DescribeClientVpnAuthorizationRulesInput{}
+	}
+
 	options := DescribeClientVpnAuthorizationRulesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -179,10 +183,6 @@ func NewDescribeClientVpnAuthorizationRulesPaginator(client DescribeClientVpnAut
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeClientVpnAuthorizationRulesInput{}
 	}
 
 	return &DescribeClientVpnAuthorizationRulesPaginator{

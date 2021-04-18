@@ -159,6 +159,10 @@ type GetManagedPrefixListAssociationsPaginator struct {
 // NewGetManagedPrefixListAssociationsPaginator returns a new
 // GetManagedPrefixListAssociationsPaginator
 func NewGetManagedPrefixListAssociationsPaginator(client GetManagedPrefixListAssociationsAPIClient, params *GetManagedPrefixListAssociationsInput, optFns ...func(*GetManagedPrefixListAssociationsPaginatorOptions)) *GetManagedPrefixListAssociationsPaginator {
+	if params == nil {
+		params = &GetManagedPrefixListAssociationsInput{}
+	}
+
 	options := GetManagedPrefixListAssociationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -166,10 +170,6 @@ func NewGetManagedPrefixListAssociationsPaginator(client GetManagedPrefixListAss
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &GetManagedPrefixListAssociationsInput{}
 	}
 
 	return &GetManagedPrefixListAssociationsPaginator{

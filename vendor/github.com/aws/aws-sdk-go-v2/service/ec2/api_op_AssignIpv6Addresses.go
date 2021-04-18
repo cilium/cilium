@@ -41,7 +41,9 @@ type AssignIpv6AddressesInput struct {
 	// This member is required.
 	NetworkInterfaceId *string
 
-	// The number of IPv6 addresses to assign to the network interface. Amazon EC2
+	// The number of additional IPv6 addresses to assign to the network interface. The
+	// specified number of IPv6 addresses are assigned in addition to the existing IPv6
+	// addresses that are already assigned to the network interface. Amazon EC2
 	// automatically selects the IPv6 addresses from the subnet range. You can't use
 	// this option if specifying specific IPv6 addresses.
 	Ipv6AddressCount int32
@@ -53,7 +55,9 @@ type AssignIpv6AddressesInput struct {
 
 type AssignIpv6AddressesOutput struct {
 
-	// The IPv6 addresses assigned to the network interface.
+	// The new IPv6 addresses assigned to the network interface. Existing IPv6
+	// addresses that were assigned to the network interface before the request are not
+	// included.
 	AssignedIpv6Addresses []string
 
 	// The ID of the network interface.

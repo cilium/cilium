@@ -174,6 +174,10 @@ type DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginator st
 // returns a new
 // DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginator
 func NewDescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginator(client DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient, params *DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsInput, optFns ...func(*DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginatorOptions)) *DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginator {
+	if params == nil {
+		params = &DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsInput{}
+	}
+
 	options := DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -181,10 +185,6 @@ func NewDescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginator
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsInput{}
 	}
 
 	return &DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginator{

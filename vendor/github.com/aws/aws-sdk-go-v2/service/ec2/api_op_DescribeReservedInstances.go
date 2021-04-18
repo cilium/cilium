@@ -14,7 +14,7 @@ import (
 // Describes one or more of the Reserved Instances that you purchased. For more
 // information about Reserved Instances, see Reserved Instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeReservedInstances(ctx context.Context, params *DescribeReservedInstancesInput, optFns ...func(*Options)) (*DescribeReservedInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesInput{}

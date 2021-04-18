@@ -23,7 +23,7 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html)
 // and Reserved Instance Marketplace
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) PurchaseReservedInstancesOffering(ctx context.Context, params *PurchaseReservedInstancesOfferingInput, optFns ...func(*Options)) (*PurchaseReservedInstancesOfferingOutput, error) {
 	if params == nil {
 		params = &PurchaseReservedInstancesOfferingInput{}

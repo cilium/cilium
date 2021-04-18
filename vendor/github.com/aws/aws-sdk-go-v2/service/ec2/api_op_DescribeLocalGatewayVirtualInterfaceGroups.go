@@ -165,6 +165,10 @@ type DescribeLocalGatewayVirtualInterfaceGroupsPaginator struct {
 // NewDescribeLocalGatewayVirtualInterfaceGroupsPaginator returns a new
 // DescribeLocalGatewayVirtualInterfaceGroupsPaginator
 func NewDescribeLocalGatewayVirtualInterfaceGroupsPaginator(client DescribeLocalGatewayVirtualInterfaceGroupsAPIClient, params *DescribeLocalGatewayVirtualInterfaceGroupsInput, optFns ...func(*DescribeLocalGatewayVirtualInterfaceGroupsPaginatorOptions)) *DescribeLocalGatewayVirtualInterfaceGroupsPaginator {
+	if params == nil {
+		params = &DescribeLocalGatewayVirtualInterfaceGroupsInput{}
+	}
+
 	options := DescribeLocalGatewayVirtualInterfaceGroupsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -172,10 +176,6 @@ func NewDescribeLocalGatewayVirtualInterfaceGroupsPaginator(client DescribeLocal
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeLocalGatewayVirtualInterfaceGroupsInput{}
 	}
 
 	return &DescribeLocalGatewayVirtualInterfaceGroupsPaginator{

@@ -208,6 +208,10 @@ type DescribeVpcsPaginator struct {
 
 // NewDescribeVpcsPaginator returns a new DescribeVpcsPaginator
 func NewDescribeVpcsPaginator(client DescribeVpcsAPIClient, params *DescribeVpcsInput, optFns ...func(*DescribeVpcsPaginatorOptions)) *DescribeVpcsPaginator {
+	if params == nil {
+		params = &DescribeVpcsInput{}
+	}
+
 	options := DescribeVpcsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -215,10 +219,6 @@ func NewDescribeVpcsPaginator(client DescribeVpcsAPIClient, params *DescribeVpcs
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVpcsInput{}
 	}
 
 	return &DescribeVpcsPaginator{
@@ -400,16 +400,21 @@ func vpcAvailableStateRetryable(ctx context.Context, input *DescribeVpcsInput, o
 
 		expectedValue := "available"
 		var match = true
-		listOfValues, ok := pathValue.([]string)
+		listOfValues, ok := pathValue.([]interface{})
 		if !ok {
-			return false, fmt.Errorf("waiter comparator expected []string value got %T", pathValue)
+			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
 		}
 
 		if len(listOfValues) == 0 {
 			match = false
 		}
 		for _, v := range listOfValues {
-			if v != expectedValue {
+			value, ok := v.(types.VpcState)
+			if !ok {
+				return false, fmt.Errorf("waiter comparator expected types.VpcState value, got %T", pathValue)
+			}
+
+			if string(value) != expectedValue {
 				match = false
 			}
 		}

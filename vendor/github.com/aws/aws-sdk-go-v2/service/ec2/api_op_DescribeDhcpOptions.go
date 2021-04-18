@@ -179,6 +179,10 @@ type DescribeDhcpOptionsPaginator struct {
 
 // NewDescribeDhcpOptionsPaginator returns a new DescribeDhcpOptionsPaginator
 func NewDescribeDhcpOptionsPaginator(client DescribeDhcpOptionsAPIClient, params *DescribeDhcpOptionsInput, optFns ...func(*DescribeDhcpOptionsPaginatorOptions)) *DescribeDhcpOptionsPaginator {
+	if params == nil {
+		params = &DescribeDhcpOptionsInput{}
+	}
+
 	options := DescribeDhcpOptionsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -186,10 +190,6 @@ func NewDescribeDhcpOptionsPaginator(client DescribeDhcpOptionsAPIClient, params
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeDhcpOptionsInput{}
 	}
 
 	return &DescribeDhcpOptionsPaginator{

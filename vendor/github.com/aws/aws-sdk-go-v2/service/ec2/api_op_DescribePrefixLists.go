@@ -161,6 +161,10 @@ type DescribePrefixListsPaginator struct {
 
 // NewDescribePrefixListsPaginator returns a new DescribePrefixListsPaginator
 func NewDescribePrefixListsPaginator(client DescribePrefixListsAPIClient, params *DescribePrefixListsInput, optFns ...func(*DescribePrefixListsPaginatorOptions)) *DescribePrefixListsPaginator {
+	if params == nil {
+		params = &DescribePrefixListsInput{}
+	}
+
 	options := DescribePrefixListsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -168,10 +172,6 @@ func NewDescribePrefixListsPaginator(client DescribePrefixListsAPIClient, params
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribePrefixListsInput{}
 	}
 
 	return &DescribePrefixListsPaginator{

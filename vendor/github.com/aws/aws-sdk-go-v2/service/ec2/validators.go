@@ -1210,6 +1210,26 @@ func (m *validateOpCreateNetworkInterfacePermission) HandleInitialize(ctx contex
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateReplaceRootVolumeTask struct {
+}
+
+func (*validateOpCreateReplaceRootVolumeTask) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateReplaceRootVolumeTask) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateReplaceRootVolumeTaskInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateReplaceRootVolumeTaskInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateReservedInstancesListing struct {
 }
 
@@ -1225,6 +1245,26 @@ func (m *validateOpCreateReservedInstancesListing) HandleInitialize(ctx context.
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateReservedInstancesListingInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateRestoreImageTask struct {
+}
+
+func (*validateOpCreateRestoreImageTask) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateRestoreImageTask) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateRestoreImageTaskInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateRestoreImageTaskInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -1345,6 +1385,26 @@ func (m *validateOpCreateSpotDatafeedSubscription) HandleInitialize(ctx context.
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateSpotDatafeedSubscriptionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateStoreImageTask struct {
+}
+
+func (*validateOpCreateStoreImageTask) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateStoreImageTask) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateStoreImageTaskInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateStoreImageTaskInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -3790,6 +3850,26 @@ func (m *validateOpGetDefaultCreditSpecification) HandleInitialize(ctx context.C
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetFlowLogsIntegrationTemplate struct {
+}
+
+func (*validateOpGetFlowLogsIntegrationTemplate) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetFlowLogsIntegrationTemplate) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetFlowLogsIntegrationTemplateInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetFlowLogsIntegrationTemplateInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetGroupsForCapacityReservation struct {
 }
 
@@ -6170,8 +6250,16 @@ func addOpCreateNetworkInterfacePermissionValidationMiddleware(stack *middleware
 	return stack.Initialize.Add(&validateOpCreateNetworkInterfacePermission{}, middleware.After)
 }
 
+func addOpCreateReplaceRootVolumeTaskValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateReplaceRootVolumeTask{}, middleware.After)
+}
+
 func addOpCreateReservedInstancesListingValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateReservedInstancesListing{}, middleware.After)
+}
+
+func addOpCreateRestoreImageTaskValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateRestoreImageTask{}, middleware.After)
 }
 
 func addOpCreateRouteValidationMiddleware(stack *middleware.Stack) error {
@@ -6196,6 +6284,10 @@ func addOpCreateSnapshotsValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpCreateSpotDatafeedSubscriptionValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateSpotDatafeedSubscription{}, middleware.After)
+}
+
+func addOpCreateStoreImageTaskValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateStoreImageTask{}, middleware.After)
 }
 
 func addOpCreateSubnetValidationMiddleware(stack *middleware.Stack) error {
@@ -6686,6 +6778,10 @@ func addOpGetDefaultCreditSpecificationValidationMiddleware(stack *middleware.St
 	return stack.Initialize.Add(&validateOpGetDefaultCreditSpecification{}, middleware.After)
 }
 
+func addOpGetFlowLogsIntegrationTemplateValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetFlowLogsIntegrationTemplate{}, middleware.After)
+}
+
 func addOpGetGroupsForCapacityReservationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetGroupsForCapacityReservation{}, middleware.After)
 }
@@ -7146,6 +7242,41 @@ func validateAddPrefixListEntry(v *types.AddPrefixListEntry) error {
 	}
 }
 
+func validateAthenaIntegration(v *types.AthenaIntegration) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AthenaIntegration"}
+	if v.IntegrationResultS3DestinationArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IntegrationResultS3DestinationArn"))
+	}
+	if len(v.PartitionLoadFrequency) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("PartitionLoadFrequency"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateAthenaIntegrationsSet(v []types.AthenaIntegration) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AthenaIntegrationsSet"}
+	for i := range v {
+		if err := validateAthenaIntegration(&v[i]); err != nil {
+			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateCidrAuthorizationContext(v *types.CidrAuthorizationContext) error {
 	if v == nil {
 		return nil
@@ -7339,6 +7470,23 @@ func validateExportTaskS3LocationRequest(v *types.ExportTaskS3LocationRequest) e
 	invalidParams := smithy.InvalidParamsError{Context: "ExportTaskS3LocationRequest"}
 	if v.S3Bucket == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("S3Bucket"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateIntegrateServices(v *types.IntegrateServices) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "IntegrateServices"}
+	if v.AthenaIntegrations != nil {
+		if err := validateAthenaIntegrationsSet(v.AthenaIntegrations); err != nil {
+			invalidParams.AddNested("AthenaIntegrations", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -7826,11 +7974,11 @@ func validateOpAssociateSubnetCidrBlockInput(v *AssociateSubnetCidrBlockInput) e
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "AssociateSubnetCidrBlockInput"}
-	if v.Ipv6CidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Ipv6CidrBlock"))
-	}
 	if v.SubnetId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
+	}
+	if v.Ipv6CidrBlock == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Ipv6CidrBlock"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -8557,11 +8705,11 @@ func validateOpCreateNatGatewayInput(v *CreateNatGatewayInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateNatGatewayInput"}
-	if v.AllocationId == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("AllocationId"))
-	}
 	if v.SubnetId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
+	}
+	if v.AllocationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AllocationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -8663,6 +8811,21 @@ func validateOpCreateNetworkInterfacePermissionInput(v *CreateNetworkInterfacePe
 	}
 }
 
+func validateOpCreateReplaceRootVolumeTaskInput(v *CreateReplaceRootVolumeTaskInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateReplaceRootVolumeTaskInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateReservedInstancesListingInput(v *CreateReservedInstancesListingInput) error {
 	if v == nil {
 		return nil
@@ -8676,6 +8839,24 @@ func validateOpCreateReservedInstancesListingInput(v *CreateReservedInstancesLis
 	}
 	if v.ReservedInstancesId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("ReservedInstancesId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateRestoreImageTaskInput(v *CreateRestoreImageTaskInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateRestoreImageTaskInput"}
+	if v.Bucket == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Bucket"))
+	}
+	if v.ObjectKey == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ObjectKey"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -8777,16 +8958,34 @@ func validateOpCreateSpotDatafeedSubscriptionInput(v *CreateSpotDatafeedSubscrip
 	}
 }
 
+func validateOpCreateStoreImageTaskInput(v *CreateStoreImageTaskInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateStoreImageTaskInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if v.Bucket == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Bucket"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateSubnetInput(v *CreateSubnetInput) error {
 	if v == nil {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateSubnetInput"}
-	if v.CidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("CidrBlock"))
-	}
 	if v.VpcId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
+	}
+	if v.CidrBlock == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CidrBlock"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -10766,6 +10965,31 @@ func validateOpGetDefaultCreditSpecificationInput(v *GetDefaultCreditSpecificati
 	}
 }
 
+func validateOpGetFlowLogsIntegrationTemplateInput(v *GetFlowLogsIntegrationTemplateInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetFlowLogsIntegrationTemplateInput"}
+	if v.FlowLogId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("FlowLogId"))
+	}
+	if v.ConfigDeliveryS3DestinationArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ConfigDeliveryS3DestinationArn"))
+	}
+	if v.IntegrateServices == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IntegrateServices"))
+	} else if v.IntegrateServices != nil {
+		if err := validateIntegrateServices(v.IntegrateServices); err != nil {
+			invalidParams.AddNested("IntegrateServices", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpGetGroupsForCapacityReservationInput(v *GetGroupsForCapacityReservationInput) error {
 	if v == nil {
 		return nil
@@ -12463,11 +12687,11 @@ func validateOpUnassignIpv6AddressesInput(v *UnassignIpv6AddressesInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "UnassignIpv6AddressesInput"}
-	if v.Ipv6Addresses == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Ipv6Addresses"))
-	}
 	if v.NetworkInterfaceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceId"))
+	}
+	if v.Ipv6Addresses == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Ipv6Addresses"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

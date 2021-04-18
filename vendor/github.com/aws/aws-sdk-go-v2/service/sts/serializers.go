@@ -570,6 +570,11 @@ func awsAwsquery_serializeOpDocumentAssumeRoleInput(v *AssumeRoleInput, value qu
 		objectKey.String(*v.SerialNumber)
 	}
 
+	if v.SourceIdentity != nil {
+		objectKey := object.Key("SourceIdentity")
+		objectKey.String(*v.SourceIdentity)
+	}
+
 	if v.Tags != nil {
 		objectKey := object.Key("Tags")
 		if err := awsAwsquery_serializeDocumentTagListType(v.Tags, objectKey); err != nil {

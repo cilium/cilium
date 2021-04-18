@@ -14,23 +14,28 @@ import (
 
 // Creates a snapshot of an EBS volume and stores it in Amazon S3. You can use
 // snapshots for backups, to make copies of EBS volumes, and to save data before
-// shutting down an instance. When a snapshot is created, any AWS Marketplace
-// product codes that are associated with the source volume are propagated to the
-// snapshot. You can take a snapshot of an attached volume that is in use. However,
-// snapshots only capture data that has been written to your EBS volume at the time
-// the snapshot command is issued; this might exclude any data that has been cached
-// by any applications or the operating system. If you can pause any file systems
-// on the volume long enough to take a snapshot, your snapshot should be complete.
-// However, if you cannot pause all file writes to the volume, you should unmount
-// the volume from within the instance, issue the snapshot command, and then
-// remount the volume to ensure a consistent and complete snapshot. You may remount
-// and use your volume while the snapshot status is pending. To create a snapshot
-// for EBS volumes that serve as root devices, you should stop the instance before
-// taking the snapshot. Snapshots that are taken from encrypted volumes are
-// automatically encrypted. Volumes that are created from encrypted snapshots are
-// also automatically encrypted. Your encrypted volumes and any associated
-// snapshots always remain protected. You can tag your snapshots during creation.
-// For more information, see Tagging your Amazon EC2 resources
+// shutting down an instance. You can create snapshots of volumes in a Region and
+// volumes on an Outpost. If you create a snapshot of a volume in a Region, the
+// snapshot must be stored in the same Region as the volume. If you create a
+// snapshot of a volume on an Outpost, the snapshot can be stored on the same
+// Outpost as the volume, or in the Region for that Outpost. When a snapshot is
+// created, any AWS Marketplace product codes that are associated with the source
+// volume are propagated to the snapshot. You can take a snapshot of an attached
+// volume that is in use. However, snapshots only capture data that has been
+// written to your EBS volume at the time the snapshot command is issued; this
+// might exclude any data that has been cached by any applications or the operating
+// system. If you can pause any file systems on the volume long enough to take a
+// snapshot, your snapshot should be complete. However, if you cannot pause all
+// file writes to the volume, you should unmount the volume from within the
+// instance, issue the snapshot command, and then remount the volume to ensure a
+// consistent and complete snapshot. You may remount and use your volume while the
+// snapshot status is pending. To create a snapshot for EBS volumes that serve as
+// root devices, you should stop the instance before taking the snapshot. Snapshots
+// that are taken from encrypted volumes are automatically encrypted. Volumes that
+// are created from encrypted snapshots are also automatically encrypted. Your
+// encrypted volumes and any associated snapshots always remain protected. You can
+// tag your snapshots during creation. For more information, see Tagging your
+// Amazon EC2 resources
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) in the
 // Amazon Elastic Compute Cloud User Guide. For more information, see Amazon
 // Elastic Block Store
@@ -69,6 +74,27 @@ type CreateSnapshotInput struct {
 	// UnauthorizedOperation.
 	DryRun bool
 
+	// The Amazon Resource Name (ARN) of the AWS Outpost on which to create a local
+	// snapshot.
+	//
+	// * To create a snapshot of a volume in a Region, omit this parameter.
+	// The snapshot is created in the same Region as the volume.
+	//
+	// * To create a
+	// snapshot of a volume on an Outpost and store the snapshot in the Region, omit
+	// this parameter. The snapshot is created in the Region for the Outpost.
+	//
+	// * To
+	// create a snapshot of a volume on an Outpost and store the snapshot on an
+	// Outpost, specify the ARN of the destination Outpost. The snapshot must be
+	// created on the same Outpost as the volume.
+	//
+	// For more information, see  Creating
+	// local snapshots from volumes on an Outpost
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-snapshot)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	OutpostArn *string
+
 	// The tags to apply to the snapshot during creation.
 	TagSpecifications []types.TagSpecification
 }
@@ -94,6 +120,12 @@ type CreateSnapshotOutput struct {
 	// customer master key (CMK) that was used to protect the volume encryption key for
 	// the parent volume.
 	KmsKeyId *string
+
+	// The ARN of the AWS Outpost on which the snapshot is stored. For more
+	// information, see EBS Local Snapshot on Outposts
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html) in
+	// the Amazon Elastic Compute Cloud User Guide.
+	OutpostArn *string
 
 	// The AWS owner alias, from an Amazon-maintained list (amazon). This is not the
 	// user-configured AWS account alias set using the IAM console.

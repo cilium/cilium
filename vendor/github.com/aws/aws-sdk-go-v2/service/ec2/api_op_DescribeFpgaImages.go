@@ -193,6 +193,10 @@ type DescribeFpgaImagesPaginator struct {
 
 // NewDescribeFpgaImagesPaginator returns a new DescribeFpgaImagesPaginator
 func NewDescribeFpgaImagesPaginator(client DescribeFpgaImagesAPIClient, params *DescribeFpgaImagesInput, optFns ...func(*DescribeFpgaImagesPaginatorOptions)) *DescribeFpgaImagesPaginator {
+	if params == nil {
+		params = &DescribeFpgaImagesInput{}
+	}
+
 	options := DescribeFpgaImagesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -200,10 +204,6 @@ func NewDescribeFpgaImagesPaginator(client DescribeFpgaImagesAPIClient, params *
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeFpgaImagesInput{}
 	}
 
 	return &DescribeFpgaImagesPaginator{

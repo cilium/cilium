@@ -171,6 +171,10 @@ type DescribeVpcEndpointServicePermissionsPaginator struct {
 // NewDescribeVpcEndpointServicePermissionsPaginator returns a new
 // DescribeVpcEndpointServicePermissionsPaginator
 func NewDescribeVpcEndpointServicePermissionsPaginator(client DescribeVpcEndpointServicePermissionsAPIClient, params *DescribeVpcEndpointServicePermissionsInput, optFns ...func(*DescribeVpcEndpointServicePermissionsPaginatorOptions)) *DescribeVpcEndpointServicePermissionsPaginator {
+	if params == nil {
+		params = &DescribeVpcEndpointServicePermissionsInput{}
+	}
+
 	options := DescribeVpcEndpointServicePermissionsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -178,10 +182,6 @@ func NewDescribeVpcEndpointServicePermissionsPaginator(client DescribeVpcEndpoin
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeVpcEndpointServicePermissionsInput{}
 	}
 
 	return &DescribeVpcEndpointServicePermissionsPaginator{

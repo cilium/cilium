@@ -182,6 +182,10 @@ type DescribeFlowLogsPaginator struct {
 
 // NewDescribeFlowLogsPaginator returns a new DescribeFlowLogsPaginator
 func NewDescribeFlowLogsPaginator(client DescribeFlowLogsAPIClient, params *DescribeFlowLogsInput, optFns ...func(*DescribeFlowLogsPaginatorOptions)) *DescribeFlowLogsPaginator {
+	if params == nil {
+		params = &DescribeFlowLogsInput{}
+	}
+
 	options := DescribeFlowLogsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -189,10 +193,6 @@ func NewDescribeFlowLogsPaginator(client DescribeFlowLogsAPIClient, params *Desc
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeFlowLogsInput{}
 	}
 
 	return &DescribeFlowLogsPaginator{

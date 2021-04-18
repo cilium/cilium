@@ -175,6 +175,10 @@ type DescribeLaunchTemplatesPaginator struct {
 // NewDescribeLaunchTemplatesPaginator returns a new
 // DescribeLaunchTemplatesPaginator
 func NewDescribeLaunchTemplatesPaginator(client DescribeLaunchTemplatesAPIClient, params *DescribeLaunchTemplatesInput, optFns ...func(*DescribeLaunchTemplatesPaginatorOptions)) *DescribeLaunchTemplatesPaginator {
+	if params == nil {
+		params = &DescribeLaunchTemplatesInput{}
+	}
+
 	options := DescribeLaunchTemplatesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -182,10 +186,6 @@ func NewDescribeLaunchTemplatesPaginator(client DescribeLaunchTemplatesAPIClient
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeLaunchTemplatesInput{}
 	}
 
 	return &DescribeLaunchTemplatesPaginator{

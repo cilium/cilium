@@ -26,7 +26,7 @@ import (
 // is met. You are charged based on the total price of all of the listings that you
 // purchase. For more information, see Reserved Instance Marketplace
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) DescribeReservedInstancesListings(ctx context.Context, params *DescribeReservedInstancesListingsInput, optFns ...func(*Options)) (*DescribeReservedInstancesListingsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesListingsInput{}

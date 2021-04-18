@@ -168,6 +168,10 @@ type DescribeNetworkInsightsPathsPaginator struct {
 // NewDescribeNetworkInsightsPathsPaginator returns a new
 // DescribeNetworkInsightsPathsPaginator
 func NewDescribeNetworkInsightsPathsPaginator(client DescribeNetworkInsightsPathsAPIClient, params *DescribeNetworkInsightsPathsInput, optFns ...func(*DescribeNetworkInsightsPathsPaginatorOptions)) *DescribeNetworkInsightsPathsPaginator {
+	if params == nil {
+		params = &DescribeNetworkInsightsPathsInput{}
+	}
+
 	options := DescribeNetworkInsightsPathsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -175,10 +179,6 @@ func NewDescribeNetworkInsightsPathsPaginator(client DescribeNetworkInsightsPath
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeNetworkInsightsPathsInput{}
 	}
 
 	return &DescribeNetworkInsightsPathsPaginator{

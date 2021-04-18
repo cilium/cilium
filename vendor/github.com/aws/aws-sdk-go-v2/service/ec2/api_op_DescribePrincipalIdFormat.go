@@ -171,6 +171,10 @@ type DescribePrincipalIdFormatPaginator struct {
 // NewDescribePrincipalIdFormatPaginator returns a new
 // DescribePrincipalIdFormatPaginator
 func NewDescribePrincipalIdFormatPaginator(client DescribePrincipalIdFormatAPIClient, params *DescribePrincipalIdFormatInput, optFns ...func(*DescribePrincipalIdFormatPaginatorOptions)) *DescribePrincipalIdFormatPaginator {
+	if params == nil {
+		params = &DescribePrincipalIdFormatInput{}
+	}
+
 	options := DescribePrincipalIdFormatPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -178,10 +182,6 @@ func NewDescribePrincipalIdFormatPaginator(client DescribePrincipalIdFormatAPICl
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribePrincipalIdFormatInput{}
 	}
 
 	return &DescribePrincipalIdFormatPaginator{

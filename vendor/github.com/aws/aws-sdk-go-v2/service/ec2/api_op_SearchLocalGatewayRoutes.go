@@ -162,6 +162,10 @@ type SearchLocalGatewayRoutesPaginator struct {
 // NewSearchLocalGatewayRoutesPaginator returns a new
 // SearchLocalGatewayRoutesPaginator
 func NewSearchLocalGatewayRoutesPaginator(client SearchLocalGatewayRoutesAPIClient, params *SearchLocalGatewayRoutesInput, optFns ...func(*SearchLocalGatewayRoutesPaginatorOptions)) *SearchLocalGatewayRoutesPaginator {
+	if params == nil {
+		params = &SearchLocalGatewayRoutesInput{}
+	}
+
 	options := SearchLocalGatewayRoutesPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
@@ -169,10 +173,6 @@ func NewSearchLocalGatewayRoutesPaginator(client SearchLocalGatewayRoutesAPIClie
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &SearchLocalGatewayRoutesInput{}
 	}
 
 	return &SearchLocalGatewayRoutesPaginator{

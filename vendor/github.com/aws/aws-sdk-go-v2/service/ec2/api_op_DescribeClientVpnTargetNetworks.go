@@ -175,6 +175,10 @@ type DescribeClientVpnTargetNetworksPaginator struct {
 // NewDescribeClientVpnTargetNetworksPaginator returns a new
 // DescribeClientVpnTargetNetworksPaginator
 func NewDescribeClientVpnTargetNetworksPaginator(client DescribeClientVpnTargetNetworksAPIClient, params *DescribeClientVpnTargetNetworksInput, optFns ...func(*DescribeClientVpnTargetNetworksPaginatorOptions)) *DescribeClientVpnTargetNetworksPaginator {
+	if params == nil {
+		params = &DescribeClientVpnTargetNetworksInput{}
+	}
+
 	options := DescribeClientVpnTargetNetworksPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -182,10 +186,6 @@ func NewDescribeClientVpnTargetNetworksPaginator(client DescribeClientVpnTargetN
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeClientVpnTargetNetworksInput{}
 	}
 
 	return &DescribeClientVpnTargetNetworksPaginator{

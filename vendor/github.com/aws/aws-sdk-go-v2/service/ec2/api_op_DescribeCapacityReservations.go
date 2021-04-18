@@ -80,16 +80,19 @@ type DescribeCapacityReservationsInput struct {
 	// capacity is no longer available for your use.
 	//
 	// * cancelled - The Capacity
-	// Reservation was manually cancelled. The reserved capacity is no longer available
-	// for your use.
+	// Reservation was cancelled. The reserved capacity is no longer available for your
+	// use.
 	//
-	// * pending - The Capacity Reservation request was successful but
-	// the capacity provisioning is still pending.
+	// * pending - The Capacity Reservation request was successful but the
+	// capacity provisioning is still pending.
 	//
 	// * failed - The Capacity Reservation
 	// request has failed. A request might fail due to invalid request parameters,
 	// capacity constraints, or instance limit constraints. Failed requests are
 	// retained for 60 minutes.
+	//
+	// * start-date - The date and time at which the Capacity
+	// Reservation was started.
 	//
 	// * end-date - The date and time at which the Capacity
 	// Reservation expires. When a Capacity Reservation expires, the reserved capacity
@@ -240,6 +243,10 @@ type DescribeCapacityReservationsPaginator struct {
 // NewDescribeCapacityReservationsPaginator returns a new
 // DescribeCapacityReservationsPaginator
 func NewDescribeCapacityReservationsPaginator(client DescribeCapacityReservationsAPIClient, params *DescribeCapacityReservationsInput, optFns ...func(*DescribeCapacityReservationsPaginatorOptions)) *DescribeCapacityReservationsPaginator {
+	if params == nil {
+		params = &DescribeCapacityReservationsInput{}
+	}
+
 	options := DescribeCapacityReservationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -247,10 +254,6 @@ func NewDescribeCapacityReservationsPaginator(client DescribeCapacityReservation
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeCapacityReservationsInput{}
 	}
 
 	return &DescribeCapacityReservationsPaginator{

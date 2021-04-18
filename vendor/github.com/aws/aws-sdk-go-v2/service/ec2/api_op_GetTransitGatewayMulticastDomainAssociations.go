@@ -172,6 +172,10 @@ type GetTransitGatewayMulticastDomainAssociationsPaginator struct {
 // NewGetTransitGatewayMulticastDomainAssociationsPaginator returns a new
 // GetTransitGatewayMulticastDomainAssociationsPaginator
 func NewGetTransitGatewayMulticastDomainAssociationsPaginator(client GetTransitGatewayMulticastDomainAssociationsAPIClient, params *GetTransitGatewayMulticastDomainAssociationsInput, optFns ...func(*GetTransitGatewayMulticastDomainAssociationsPaginatorOptions)) *GetTransitGatewayMulticastDomainAssociationsPaginator {
+	if params == nil {
+		params = &GetTransitGatewayMulticastDomainAssociationsInput{}
+	}
+
 	options := GetTransitGatewayMulticastDomainAssociationsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -179,10 +183,6 @@ func NewGetTransitGatewayMulticastDomainAssociationsPaginator(client GetTransitG
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &GetTransitGatewayMulticastDomainAssociationsInput{}
 	}
 
 	return &GetTransitGatewayMulticastDomainAssociationsPaginator{

@@ -33,6 +33,12 @@ const (
 	roleSessionNameKey     = `role_session_name` // optional
 	roleDurationSecondsKey = "duration_seconds"  // optional
 
+	// AWS Single Sign-On (AWS SSO) group
+	ssoAccountIDKey = "sso_account_id"
+	ssoRegionKey    = "sso_region"
+	ssoRoleNameKey  = "sso_role_name"
+	ssoStartURL     = "sso_start_url"
+
 	// Additional Config fields
 	regionKey = `region`
 
@@ -109,6 +115,11 @@ type SharedConfig struct {
 	CredentialSource     string
 	CredentialProcess    string
 	WebIdentityTokenFile string
+
+	SSOAccountID string
+	SSORegion    string
+	SSORoleName  string
+	SSOStartURL  string
 
 	RoleARN             string
 	ExternalID          string
@@ -748,9 +759,9 @@ func (c *SharedConfig) setFromIniSections(profiles map[string]struct{}, profile 
 		c.clearAssumeRoleOptions()
 	} else {
 		// First time a profile has been seen, It must either be a assume role
-		// or credentials. Assert if the credential type requires a role ARN,
-		// the ARN is also set.
-		if err := c.validateCredentialsRequireARN(profile); err != nil {
+		// credentials, or SSO. Assert if the credential type requires a role ARN,
+		// the ARN is also set, or validate that the SSO configuration is complete.
+		if err := c.validateCredentialsConfig(profile); err != nil {
 			return err
 		}
 	}
@@ -835,6 +846,12 @@ func (c *SharedConfig) setFromIniSection(profile string, section ini.Section) er
 	updateString(&c.CredentialSource, section, credentialSourceKey)
 	updateString(&c.Region, section, regionKey)
 
+	// AWS Single Sign-On (AWS SSO)
+	updateString(&c.SSOAccountID, section, ssoAccountIDKey)
+	updateString(&c.SSORegion, section, ssoRegionKey)
+	updateString(&c.SSORoleName, section, ssoRoleNameKey)
+	updateString(&c.SSOStartURL, section, ssoStartURL)
+
 	if section.Has(roleDurationSecondsKey) {
 		d := time.Duration(section.Int(roleDurationSecondsKey)) * time.Second
 		c.RoleDurationSeconds = &d
@@ -856,6 +873,14 @@ func (c *SharedConfig) setFromIniSection(profile string, section ini.Section) er
 
 	if creds.HasKeys() {
 		c.Credentials = creds
+	}
+
+	return nil
+}
+
+func (c *SharedConfig) validateCredentialsConfig(profile string) error {
+	if err := c.validateCredentialsRequireARN(profile); err != nil {
+		return err
 	}
 
 	return nil
@@ -890,8 +915,39 @@ func (c *SharedConfig) validateCredentialType() error {
 		len(c.CredentialSource) != 0,
 		len(c.CredentialProcess) != 0,
 		len(c.WebIdentityTokenFile) != 0,
+		c.hasSSOConfiguration(),
 	) {
-		return fmt.Errorf("only source profile or credential source can be specified, not both")
+		return fmt.Errorf("only one credential type may be specified per profile: source profile, credential source, credential process, web identity token, or sso")
+	}
+
+	return nil
+}
+
+func (c *SharedConfig) validateSSOConfiguration() error {
+	if !c.hasSSOConfiguration() {
+		return nil
+	}
+
+	var missing []string
+	if len(c.SSOAccountID) == 0 {
+		missing = append(missing, ssoAccountIDKey)
+	}
+
+	if len(c.SSORegion) == 0 {
+		missing = append(missing, ssoRegionKey)
+	}
+
+	if len(c.SSORoleName) == 0 {
+		missing = append(missing, ssoRoleNameKey)
+	}
+
+	if len(c.SSOStartURL) == 0 {
+		missing = append(missing, ssoStartURL)
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("profile %q is configured to use SSO but is missing required configuration: %s",
+			c.Profile, strings.Join(missing, ", "))
 	}
 
 	return nil
@@ -903,11 +959,24 @@ func (c *SharedConfig) hasCredentials() bool {
 	case len(c.CredentialSource) != 0:
 	case len(c.CredentialProcess) != 0:
 	case len(c.WebIdentityTokenFile) != 0:
+	case c.hasSSOConfiguration():
 	case c.Credentials.HasKeys():
 	default:
 		return false
 	}
 
+	return true
+}
+
+func (c *SharedConfig) hasSSOConfiguration() bool {
+	switch {
+	case len(c.SSOAccountID) != 0:
+	case len(c.SSORegion) != 0:
+	case len(c.SSORoleName) != 0:
+	case len(c.SSOStartURL) != 0:
+	default:
+		return false
+	}
 	return true
 }
 

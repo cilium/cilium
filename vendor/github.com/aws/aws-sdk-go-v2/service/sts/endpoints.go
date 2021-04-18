@@ -45,6 +45,27 @@ func resolveDefaultEndpointConfiguration(o *Options) {
 	o.EndpointResolver = NewDefaultEndpointResolver()
 }
 
+// EndpointResolverFromURL returns an EndpointResolver configured using the
+// provided endpoint url. By default, the resolved endpoint resolver uses the
+// client region as signing region, and the endpoint source is set to
+// EndpointSourceCustom.You can provide functional options to configure endpoint
+// values for the resolved endpoint.
+func EndpointResolverFromURL(url string, optFns ...func(*aws.Endpoint)) EndpointResolver {
+	e := aws.Endpoint{URL: url, Source: aws.EndpointSourceCustom}
+	for _, fn := range optFns {
+		fn(&e)
+	}
+
+	return EndpointResolverFunc(
+		func(region string, options EndpointResolverOptions) (aws.Endpoint, error) {
+			if len(e.SigningRegion) == 0 {
+				e.SigningRegion = region
+			}
+			return e, nil
+		},
+	)
+}
+
 type ResolveEndpoint struct {
 	Resolver EndpointResolver
 	Options  EndpointResolverOptions
@@ -84,6 +105,7 @@ func (m *ResolveEndpoint) HandleSerialize(ctx context.Context, in middleware.Ser
 		}
 		ctx = awsmiddleware.SetSigningName(ctx, signingName)
 	}
+	ctx = awsmiddleware.SetEndpointSource(ctx, endpoint.Source)
 	ctx = smithyhttp.SetHostnameImmutable(ctx, endpoint.HostnameImmutable)
 	ctx = awsmiddleware.SetSigningRegion(ctx, endpoint.SigningRegion)
 	ctx = awsmiddleware.SetPartitionID(ctx, endpoint.PartitionID)

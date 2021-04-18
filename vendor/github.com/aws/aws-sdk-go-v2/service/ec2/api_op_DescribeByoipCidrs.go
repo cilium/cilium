@@ -156,6 +156,10 @@ type DescribeByoipCidrsPaginator struct {
 
 // NewDescribeByoipCidrsPaginator returns a new DescribeByoipCidrsPaginator
 func NewDescribeByoipCidrsPaginator(client DescribeByoipCidrsAPIClient, params *DescribeByoipCidrsInput, optFns ...func(*DescribeByoipCidrsPaginatorOptions)) *DescribeByoipCidrsPaginator {
+	if params == nil {
+		params = &DescribeByoipCidrsInput{}
+	}
+
 	options := DescribeByoipCidrsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -163,10 +167,6 @@ func NewDescribeByoipCidrsPaginator(client DescribeByoipCidrsAPIClient, params *
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeByoipCidrsInput{}
 	}
 
 	return &DescribeByoipCidrsPaginator{

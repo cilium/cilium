@@ -175,6 +175,10 @@ type DescribeNatGatewaysPaginator struct {
 
 // NewDescribeNatGatewaysPaginator returns a new DescribeNatGatewaysPaginator
 func NewDescribeNatGatewaysPaginator(client DescribeNatGatewaysAPIClient, params *DescribeNatGatewaysInput, optFns ...func(*DescribeNatGatewaysPaginatorOptions)) *DescribeNatGatewaysPaginator {
+	if params == nil {
+		params = &DescribeNatGatewaysInput{}
+	}
+
 	options := DescribeNatGatewaysPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -182,10 +186,6 @@ func NewDescribeNatGatewaysPaginator(client DescribeNatGatewaysAPIClient, params
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeNatGatewaysInput{}
 	}
 
 	return &DescribeNatGatewaysPaginator{

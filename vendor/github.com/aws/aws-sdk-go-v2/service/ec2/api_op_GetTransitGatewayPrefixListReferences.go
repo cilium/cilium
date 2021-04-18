@@ -183,6 +183,10 @@ type GetTransitGatewayPrefixListReferencesPaginator struct {
 // NewGetTransitGatewayPrefixListReferencesPaginator returns a new
 // GetTransitGatewayPrefixListReferencesPaginator
 func NewGetTransitGatewayPrefixListReferencesPaginator(client GetTransitGatewayPrefixListReferencesAPIClient, params *GetTransitGatewayPrefixListReferencesInput, optFns ...func(*GetTransitGatewayPrefixListReferencesPaginatorOptions)) *GetTransitGatewayPrefixListReferencesPaginator {
+	if params == nil {
+		params = &GetTransitGatewayPrefixListReferencesInput{}
+	}
+
 	options := GetTransitGatewayPrefixListReferencesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -190,10 +194,6 @@ func NewGetTransitGatewayPrefixListReferencesPaginator(client GetTransitGatewayP
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &GetTransitGatewayPrefixListReferencesInput{}
 	}
 
 	return &GetTransitGatewayPrefixListReferencesPaginator{

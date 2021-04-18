@@ -60,7 +60,7 @@ type DescribeSecurityGroupsInput struct {
 	// referenced in an outbound security group rule.
 	//
 	// *
-	// egress.ip-permission.group-name - The name of a security group that has been
+	// egress.ip-permission.group-name - The name of a security group that is
 	// referenced in an outbound security group rule.
 	//
 	// * egress.ip-permission.ipv6-cidr
@@ -71,23 +71,23 @@ type DescribeSecurityGroupsInput struct {
 	// security group rule allows outbound access.
 	//
 	// * egress.ip-permission.protocol -
-	// The IP protocol for an outbound security group rule (tcp | udp | icmp or a
-	// protocol number).
+	// The IP protocol for an outbound security group rule (tcp | udp | icmp, a
+	// protocol number, or -1 for all protocols).
 	//
-	// * egress.ip-permission.to-port - For an outbound rule, the
-	// end of port range for the TCP and UDP protocols, or an ICMP code.
+	// * egress.ip-permission.to-port - For
+	// an outbound rule, the end of port range for the TCP and UDP protocols, or an
+	// ICMP code.
 	//
-	// *
-	// egress.ip-permission.user-id - The ID of an AWS account that has been referenced
-	// in an outbound security group rule.
+	// * egress.ip-permission.user-id - The ID of an AWS account that has
+	// been referenced in an outbound security group rule.
 	//
-	// * group-id - The ID of the security
-	// group.
+	// * group-id - The ID of the
+	// security group.
 	//
 	// * group-name - The name of the security group.
 	//
-	// * ip-permission.cidr -
-	// An IPv4 CIDR block for an inbound security group rule.
+	// *
+	// ip-permission.cidr - An IPv4 CIDR block for an inbound security group rule.
 	//
 	// *
 	// ip-permission.from-port - For an inbound rule, the start of port range for the
@@ -97,7 +97,7 @@ type DescribeSecurityGroupsInput struct {
 	// ID of a security group that has been referenced in an inbound security group
 	// rule.
 	//
-	// * ip-permission.group-name - The name of a security group that has been
+	// * ip-permission.group-name - The name of a security group that is
 	// referenced in an inbound security group rule.
 	//
 	// * ip-permission.ipv6-cidr - An
@@ -108,30 +108,31 @@ type DescribeSecurityGroupsInput struct {
 	// group rule allows inbound access.
 	//
 	// * ip-permission.protocol - The IP protocol
-	// for an inbound security group rule (tcp | udp | icmp or a protocol number).
+	// for an inbound security group rule (tcp | udp | icmp, a protocol number, or -1
+	// for all protocols).
+	//
+	// * ip-permission.to-port - For an inbound rule, the end of
+	// port range for the TCP and UDP protocols, or an ICMP code.
 	//
 	// *
-	// ip-permission.to-port - For an inbound rule, the end of port range for the TCP
-	// and UDP protocols, or an ICMP code.
+	// ip-permission.user-id - The ID of an AWS account that has been referenced in an
+	// inbound security group rule.
 	//
-	// * ip-permission.user-id - The ID of an AWS
-	// account that has been referenced in an inbound security group rule.
+	// * owner-id - The AWS account ID of the owner of
+	// the security group.
 	//
-	// * owner-id
-	// - The AWS account ID of the owner of the security group.
+	// * tag: - The key/value combination of a tag assigned to the
+	// resource. Use the tag key in the filter name and the tag value as the filter
+	// value. For example, to find all resources that have a tag with the key Owner and
+	// the value TeamA, specify tag:Owner for the filter name and TeamA for the filter
+	// value.
 	//
-	// * tag: - The key/value
-	// combination of a tag assigned to the resource. Use the tag key in the filter
-	// name and the tag value as the filter value. For example, to find all resources
-	// that have a tag with the key Owner and the value TeamA, specify tag:Owner for
-	// the filter name and TeamA for the filter value.
+	// * tag-key - The key of a tag assigned to the resource. Use this filter
+	// to find all resources assigned a tag with a specific key, regardless of the tag
+	// value.
 	//
-	// * tag-key - The key of a tag
-	// assigned to the resource. Use this filter to find all resources assigned a tag
-	// with a specific key, regardless of the tag value.
-	//
-	// * vpc-id - The ID of the VPC
-	// specified when the security group was created.
+	// * vpc-id - The ID of the VPC specified when the security group was
+	// created.
 	Filters []types.Filter
 
 	// The IDs of the security groups. Required for security groups in a nondefault
@@ -260,6 +261,10 @@ type DescribeSecurityGroupsPaginator struct {
 
 // NewDescribeSecurityGroupsPaginator returns a new DescribeSecurityGroupsPaginator
 func NewDescribeSecurityGroupsPaginator(client DescribeSecurityGroupsAPIClient, params *DescribeSecurityGroupsInput, optFns ...func(*DescribeSecurityGroupsPaginatorOptions)) *DescribeSecurityGroupsPaginator {
+	if params == nil {
+		params = &DescribeSecurityGroupsInput{}
+	}
+
 	options := DescribeSecurityGroupsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -267,10 +272,6 @@ func NewDescribeSecurityGroupsPaginator(client DescribeSecurityGroupsAPIClient, 
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeSecurityGroupsInput{}
 	}
 
 	return &DescribeSecurityGroupsPaginator{

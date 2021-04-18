@@ -20,19 +20,19 @@ import (
 // have access to Amazon EC2 capacity when you need it, for as long as you need it.
 // For more information, see Capacity Reservations
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html)
-// in the Amazon Elastic Compute Cloud User Guide. Your request to create a
-// Capacity Reservation could fail if Amazon EC2 does not have sufficient capacity
-// to fulfill the request. If your request fails due to Amazon EC2 capacity
-// constraints, either try again at a later time, try in a different Availability
-// Zone, or request a smaller capacity reservation. If your application is flexible
-// across instance types and sizes, try to create a Capacity Reservation with
-// different instance attributes. Your request could also fail if the requested
-// quantity exceeds your On-Demand Instance limit for the selected instance type.
-// If your request fails due to limit constraints, increase your On-Demand Instance
-// limit for the required instance type and try again. For more information about
-// increasing your instance limits, see Amazon EC2 Service Limits
+// in the Amazon EC2 User Guide. Your request to create a Capacity Reservation
+// could fail if Amazon EC2 does not have sufficient capacity to fulfill the
+// request. If your request fails due to Amazon EC2 capacity constraints, either
+// try again at a later time, try in a different Availability Zone, or request a
+// smaller capacity reservation. If your application is flexible across instance
+// types and sizes, try to create a Capacity Reservation with different instance
+// attributes. Your request could also fail if the requested quantity exceeds your
+// On-Demand Instance limit for the selected instance type. If your request fails
+// due to limit constraints, increase your On-Demand Instance limit for the
+// required instance type and try again. For more information about increasing your
+// instance limits, see Amazon EC2 Service Quotas
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) CreateCapacityReservation(ctx context.Context, params *CreateCapacityReservationInput, optFns ...func(*Options)) (*CreateCapacityReservationOutput, error) {
 	if params == nil {
 		params = &CreateCapacityReservationInput{}
@@ -61,9 +61,9 @@ type CreateCapacityReservationInput struct {
 	InstancePlatform types.CapacityReservationInstancePlatform
 
 	// The instance type for which to reserve capacity. For more information, see
-	// Instance Types
+	// Instance types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Amazon EC2 User Guide.
 	//
 	// This member is required.
 	InstanceType *string
@@ -75,7 +75,7 @@ type CreateCapacityReservationInput struct {
 	AvailabilityZoneId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
+	// the request. For more information, see Ensure Idempotency
 	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string
 

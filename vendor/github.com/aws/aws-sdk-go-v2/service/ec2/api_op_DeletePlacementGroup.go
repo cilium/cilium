@@ -14,7 +14,7 @@ import (
 // placement group before you can delete the placement group. For more information,
 // see Placement groups
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// the Amazon EC2 User Guide.
 func (c *Client) DeletePlacementGroup(ctx context.Context, params *DeletePlacementGroupInput, optFns ...func(*Options)) (*DeletePlacementGroupOutput, error) {
 	if params == nil {
 		params = &DeletePlacementGroupInput{}

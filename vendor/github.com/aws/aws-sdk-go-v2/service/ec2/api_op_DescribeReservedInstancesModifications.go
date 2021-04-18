@@ -18,7 +18,7 @@ import (
 // specific modification is returned. For more information, see Modifying Reserved
 // Instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-modifying.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 func (c *Client) DescribeReservedInstancesModifications(ctx context.Context, params *DescribeReservedInstancesModificationsInput, optFns ...func(*Options)) (*DescribeReservedInstancesModificationsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesModificationsInput{}
@@ -193,14 +193,14 @@ type DescribeReservedInstancesModificationsPaginator struct {
 // NewDescribeReservedInstancesModificationsPaginator returns a new
 // DescribeReservedInstancesModificationsPaginator
 func NewDescribeReservedInstancesModificationsPaginator(client DescribeReservedInstancesModificationsAPIClient, params *DescribeReservedInstancesModificationsInput, optFns ...func(*DescribeReservedInstancesModificationsPaginatorOptions)) *DescribeReservedInstancesModificationsPaginator {
+	if params == nil {
+		params = &DescribeReservedInstancesModificationsInput{}
+	}
+
 	options := DescribeReservedInstancesModificationsPaginatorOptions{}
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeReservedInstancesModificationsInput{}
 	}
 
 	return &DescribeReservedInstancesModificationsPaginator{

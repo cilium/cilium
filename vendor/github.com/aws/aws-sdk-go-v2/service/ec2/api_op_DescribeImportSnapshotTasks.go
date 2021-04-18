@@ -157,6 +157,10 @@ type DescribeImportSnapshotTasksPaginator struct {
 // NewDescribeImportSnapshotTasksPaginator returns a new
 // DescribeImportSnapshotTasksPaginator
 func NewDescribeImportSnapshotTasksPaginator(client DescribeImportSnapshotTasksAPIClient, params *DescribeImportSnapshotTasksInput, optFns ...func(*DescribeImportSnapshotTasksPaginatorOptions)) *DescribeImportSnapshotTasksPaginator {
+	if params == nil {
+		params = &DescribeImportSnapshotTasksInput{}
+	}
+
 	options := DescribeImportSnapshotTasksPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -164,10 +168,6 @@ func NewDescribeImportSnapshotTasksPaginator(client DescribeImportSnapshotTasksA
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeImportSnapshotTasksInput{}
 	}
 
 	return &DescribeImportSnapshotTasksPaginator{

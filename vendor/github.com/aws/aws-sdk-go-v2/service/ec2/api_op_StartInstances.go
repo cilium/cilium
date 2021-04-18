@@ -28,7 +28,7 @@ import (
 // that uses an instance store as its root device returns an error. For more
 // information, see Stopping instances
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput, optFns ...func(*Options)) (*StartInstancesOutput, error) {
 	if params == nil {
 		params = &StartInstancesInput{}

@@ -180,6 +180,10 @@ type DescribeClassicLinkInstancesPaginator struct {
 // NewDescribeClassicLinkInstancesPaginator returns a new
 // DescribeClassicLinkInstancesPaginator
 func NewDescribeClassicLinkInstancesPaginator(client DescribeClassicLinkInstancesAPIClient, params *DescribeClassicLinkInstancesInput, optFns ...func(*DescribeClassicLinkInstancesPaginatorOptions)) *DescribeClassicLinkInstancesPaginator {
+	if params == nil {
+		params = &DescribeClassicLinkInstancesInput{}
+	}
+
 	options := DescribeClassicLinkInstancesPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -187,10 +191,6 @@ func NewDescribeClassicLinkInstancesPaginator(client DescribeClassicLinkInstance
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeClassicLinkInstancesInput{}
 	}
 
 	return &DescribeClassicLinkInstancesPaginator{

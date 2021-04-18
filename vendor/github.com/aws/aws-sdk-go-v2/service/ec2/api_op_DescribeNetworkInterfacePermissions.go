@@ -169,6 +169,10 @@ type DescribeNetworkInterfacePermissionsPaginator struct {
 // NewDescribeNetworkInterfacePermissionsPaginator returns a new
 // DescribeNetworkInterfacePermissionsPaginator
 func NewDescribeNetworkInterfacePermissionsPaginator(client DescribeNetworkInterfacePermissionsAPIClient, params *DescribeNetworkInterfacePermissionsInput, optFns ...func(*DescribeNetworkInterfacePermissionsPaginatorOptions)) *DescribeNetworkInterfacePermissionsPaginator {
+	if params == nil {
+		params = &DescribeNetworkInterfacePermissionsInput{}
+	}
+
 	options := DescribeNetworkInterfacePermissionsPaginatorOptions{}
 	if params.MaxResults != 0 {
 		options.Limit = params.MaxResults
@@ -176,10 +180,6 @@ func NewDescribeNetworkInterfacePermissionsPaginator(client DescribeNetworkInter
 
 	for _, fn := range optFns {
 		fn(&options)
-	}
-
-	if params == nil {
-		params = &DescribeNetworkInterfacePermissionsInput{}
 	}
 
 	return &DescribeNetworkInterfacePermissionsPaginator{

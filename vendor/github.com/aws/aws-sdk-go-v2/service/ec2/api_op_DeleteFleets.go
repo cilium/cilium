@@ -31,7 +31,7 @@ import (
 //
 // For more information, see Deleting an EC2 Fleet
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#delete-fleet)
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 func (c *Client) DeleteFleets(ctx context.Context, params *DeleteFleetsInput, optFns ...func(*Options)) (*DeleteFleetsOutput, error) {
 	if params == nil {
 		params = &DeleteFleetsInput{}
