@@ -38,6 +38,12 @@ func (o *GetEndpointIDLabelsReader) ReadResponse(response runtime.ClientResponse
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewGetEndpointIDLabelsTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
@@ -94,6 +100,27 @@ func (o *GetEndpointIDLabelsNotFound) Error() string {
 }
 
 func (o *GetEndpointIDLabelsNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewGetEndpointIDLabelsTooManyRequests creates a GetEndpointIDLabelsTooManyRequests with default headers values
+func NewGetEndpointIDLabelsTooManyRequests() *GetEndpointIDLabelsTooManyRequests {
+	return &GetEndpointIDLabelsTooManyRequests{}
+}
+
+/*GetEndpointIDLabelsTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type GetEndpointIDLabelsTooManyRequests struct {
+}
+
+func (o *GetEndpointIDLabelsTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsTooManyRequests ", 429)
+}
+
+func (o *GetEndpointIDLabelsTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

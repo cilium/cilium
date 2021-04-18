@@ -44,6 +44,12 @@ func (o *PutEndpointIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewPutEndpointIDTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPutEndpointIDFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -125,6 +131,27 @@ func (o *PutEndpointIDExists) Error() string {
 }
 
 func (o *PutEndpointIDExists) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPutEndpointIDTooManyRequests creates a PutEndpointIDTooManyRequests with default headers values
+func NewPutEndpointIDTooManyRequests() *PutEndpointIDTooManyRequests {
+	return &PutEndpointIDTooManyRequests{}
+}
+
+/*PutEndpointIDTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type PutEndpointIDTooManyRequests struct {
+}
+
+func (o *PutEndpointIDTooManyRequests) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests ", 429)
+}
+
+func (o *PutEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

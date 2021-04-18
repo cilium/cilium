@@ -38,6 +38,12 @@ func (o *PatchEndpointIDLabelsReader) ReadResponse(response runtime.ClientRespon
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewPatchEndpointIDLabelsTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPatchEndpointIDLabelsUpdateFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -88,6 +94,27 @@ func (o *PatchEndpointIDLabelsNotFound) Error() string {
 }
 
 func (o *PatchEndpointIDLabelsNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPatchEndpointIDLabelsTooManyRequests creates a PatchEndpointIDLabelsTooManyRequests with default headers values
+func NewPatchEndpointIDLabelsTooManyRequests() *PatchEndpointIDLabelsTooManyRequests {
+	return &PatchEndpointIDLabelsTooManyRequests{}
+}
+
+/*PatchEndpointIDLabelsTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type PatchEndpointIDLabelsTooManyRequests struct {
+}
+
+func (o *PatchEndpointIDLabelsTooManyRequests) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsTooManyRequests ", 429)
+}
+
+func (o *PatchEndpointIDLabelsTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

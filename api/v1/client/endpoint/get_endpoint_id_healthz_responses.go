@@ -44,6 +44,12 @@ func (o *GetEndpointIDHealthzReader) ReadResponse(response runtime.ClientRespons
 			return nil, err
 		}
 		return nil, result
+	case 429:
+		result := NewGetEndpointIDHealthzTooManyRequests()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
@@ -121,6 +127,27 @@ func (o *GetEndpointIDHealthzNotFound) Error() string {
 }
 
 func (o *GetEndpointIDHealthzNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewGetEndpointIDHealthzTooManyRequests creates a GetEndpointIDHealthzTooManyRequests with default headers values
+func NewGetEndpointIDHealthzTooManyRequests() *GetEndpointIDHealthzTooManyRequests {
+	return &GetEndpointIDHealthzTooManyRequests{}
+}
+
+/*GetEndpointIDHealthzTooManyRequests handles this case with default header values.
+
+Rate-limiting too many requests in the given time frame
+*/
+type GetEndpointIDHealthzTooManyRequests struct {
+}
+
+func (o *GetEndpointIDHealthzTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests ", 429)
+}
+
+func (o *GetEndpointIDHealthzTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

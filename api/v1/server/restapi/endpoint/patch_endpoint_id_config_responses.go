@@ -88,6 +88,30 @@ func (o *PatchEndpointIDConfigNotFound) WriteResponse(rw http.ResponseWriter, pr
 	rw.WriteHeader(404)
 }
 
+// PatchEndpointIDConfigTooManyRequestsCode is the HTTP code returned for type PatchEndpointIDConfigTooManyRequests
+const PatchEndpointIDConfigTooManyRequestsCode int = 429
+
+/*PatchEndpointIDConfigTooManyRequests Rate-limiting too many requests in the given time frame
+
+swagger:response patchEndpointIdConfigTooManyRequests
+*/
+type PatchEndpointIDConfigTooManyRequests struct {
+}
+
+// NewPatchEndpointIDConfigTooManyRequests creates PatchEndpointIDConfigTooManyRequests with default headers values
+func NewPatchEndpointIDConfigTooManyRequests() *PatchEndpointIDConfigTooManyRequests {
+
+	return &PatchEndpointIDConfigTooManyRequests{}
+}
+
+// WriteResponse to the client
+func (o *PatchEndpointIDConfigTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(429)
+}
+
 // PatchEndpointIDConfigFailedCode is the HTTP code returned for type PatchEndpointIDConfigFailed
 const PatchEndpointIDConfigFailedCode int = 500
 
