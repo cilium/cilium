@@ -371,11 +371,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.svc = service.NewService(&d)
 
-	d.rec, err = recorder.NewRecorder()
-	if err != nil {
-		log.WithError(err).Error("Error while initializing BPF pcap recorder")
-		return nil, nil, err
-	}
+	d.rec = recorder.NewRecorder()
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),
