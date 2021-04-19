@@ -218,7 +218,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check connectivity with sockops and VXLAN encapsulation", func() {
 			// Note if run on kernel without sockops feature is ignored
-			if !helpers.RunsOnNetNextOr419Kernel() {
+			if !helpers.RunsOn419OrLaterKernel() {
 				Skip("Skipping sockops testing before 4.19 kernel")
 				return
 			}
@@ -255,7 +255,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
-			if helpers.RunsOnNetNextOr419Kernel() {
+			if helpers.RunsOn419OrLaterKernel() {
 				By("Test BPF masquerade")
 				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
 					Should(BeTrue(), "Connectivity test to http://google.com failed")
@@ -329,7 +329,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			if helpers.RunsOnNetNextOr419Kernel() {
+			if helpers.RunsOn419OrLaterKernel() {
 				By("Test BPF masquerade")
 				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
 					Should(BeTrue(), "Connectivity test to http://google.com failed")
@@ -354,7 +354,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check connectivity with sockops and direct routing", func() {
 			// Note if run on kernel without sockops feature is ignored
-			if !helpers.RunsOnNetNextOr419Kernel() {
+			if !helpers.RunsOn419OrLaterKernel() {
 				Skip("Skipping sockops testing before 4.19 kernel")
 				return
 			}
@@ -368,7 +368,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOnNetNextOr419Kernel()
+		return helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn419OrLaterKernel()
 	}, "Check BPF masquerading with ip-masq-agent", func() {
 		var (
 			tmpEchoPodPath      string

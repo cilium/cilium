@@ -2361,7 +2361,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			opts["k8sServicePort"] = "6443"
 		}
 
-		if RunsOnNetNextOr419Kernel() {
+		if RunsOn419OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
 		}
 
@@ -2372,7 +2372,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
-	if DoesNotRunOnNetNextOr419Kernel() {
+	if DoesNotRunOn419OrLaterKernel() {
 		addIfNotOverwritten(options, "kubeProxyReplacement", "disabled")
 		addIfNotOverwritten(options, "bpf.masquerade", "false")
 		addIfNotOverwritten(options, "sessionAffinity", "false")

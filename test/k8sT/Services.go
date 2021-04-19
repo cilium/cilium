@@ -581,7 +581,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 	})
 
-	SkipContextIf(func() bool { return !helpers.RunsOnNetNextOr419Kernel() }, "Checks local redirect policy", func() {
+	SkipContextIf(func() bool { return !helpers.RunsOn419OrLaterKernel() }, "Checks local redirect policy", func() {
 		const (
 			lrpServiceName = "lrp-demo-service"
 			be1Name        = "k8s1-backend"
@@ -1980,7 +1980,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		})
 
 		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort (kube-proxy)", func() {
-			SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "with IPSec and externalTrafficPolicy=Local", func() {
+			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
@@ -2860,7 +2860,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		// Run on net-next and 4.19 but not on old versions, because of
 		// LRU requirement.
 		SkipItIf(func() bool {
-			return helpers.DoesNotRunOnNetNextOr419Kernel() || helpers.RunsOnGKE()
+			return helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE()
 		}, "Supports IPv4 fragments", func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 			testIPv4FragmentSupport()
