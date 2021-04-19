@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _chaining_aws_cni:
+
 *******
 AWS-CNI
 *******
@@ -68,6 +70,5 @@ If you are unsure if a pod is managed by Cilium or not, run ``kubectl get cep``
 in the respective namespace and see if the pod is listed.
 
 .. include:: k8s-install-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
 
+.. include:: next-steps.rst

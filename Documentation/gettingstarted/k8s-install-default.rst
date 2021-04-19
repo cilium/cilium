@@ -5,33 +5,398 @@
     https://docs.cilium.io
 
 .. _k8s_quick_install:
+.. _k8s_install_standard:
 
 ******************
 Quick Installation
 ******************
 
-This guides takes you through the quick installation procedure.  The default
-settings will store all required state using Kubernetes custom resource
-definitions (CRDs). This is the simplest installation method as it only depends
-on Kubernetes and does not require additional external dependencies. It is a
-good option for environments up to about 250 nodes. For bigger environments or
-for environments which want to leverage the clustermesh functionality, a
-kvstore set up is required which can be set up using an :ref:`k8s_install_etcd`.
+This guide will walk you through the quick default installation. It will
+automatically detect and use the best configuration possible for the Kubernetes
+distribution you are using. All state is stored using Kubernetes CRDs.
+
+This is the best installation method for most use cases.  For large
+environments (> 500 nodes) or if you want to run specific datapath modes, refer
+to the :ref:`k8s_install_advanced` guide.
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
 
-Please consult the Kubernetes :ref:`k8s_requirements` for information on  how
-you need to configure your Kubernetes cluster to operate with Cilium.
+Install the Cilium CLI
+======================
 
+.. include:: install-cli.rst
+
+Create the Cluster
+===================
+
+If you don't have a Kubernetes Cluster yet, you can use the instructions below
+to create a Kubernetes cluster locally or using a managed Kubernetes service:
+
+.. tabs::
+
+    .. group-tab:: GKE
+
+       The following command creates a Kubernetes cluster using `Google
+       Kubernetes Engine <https://cloud.google.com/kubernetes-engine>`_.  See
+       `Installing Google Cloud SDK <https://cloud.google.com/sdk/install>`_
+       for instructions on how to install ``gcloud`` and prepare your
+       account.
+
+       .. code-block:: shell-session
+
+           export NAME="$(whoami)-$RANDOM"
+           gcloud container clusters create "${NAME}" --zone us-west2-a 
+           gcloud container clusters get-credentials "${NAME}" --zone us-west2-a
+
+    .. group-tab:: AKS
+
+       The following command creates a Kubernetes cluster using `Azure
+       Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_. See
+       `Azure Cloud CLI
+       <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
+       for instructions on how to install ``az`` and prepare your account.
+
+       .. code-block:: shell-session
+
+           export NAME="$(whoami)-$RANDOM"
+           export AZURE_RESOURCE_GROUP="aks-cilium-group"
+           az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
+           az aks create --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}" --network-plugin azure
+           az aks get-credentials --name "${NAME}" --resource-group "${AZURE_RESOURCE_GROUP}"
+
+       .. attention::
+
+           Do NOT specify the ``--network-policy`` flag when creating the
+           cluster, as this will cause the Azure CNI plugin to install unwanted
+           iptables rules.
+
+    .. group-tab:: EKS
+
+       The following command creates a Kubernetes cluster with ``eksctl``
+       using `Amazon Elastic Kubernetes Service
+       <https://aws.amazon.com/eks/>`_.  See `eksctl Installation
+       <https://github.com/weaveworks/eksctl>`_ for instructions on how to
+       install ``eksctl`` and prepare your account.
+
+       .. code-block:: shell-session
+
+           export NAME="$(whoami)-$RANDOM"
+           eksctl create cluster --name "${NAME}" --region eu-west-1 --without-nodegroup
+
+    .. group-tab:: kind
+
+       Install ``kind`` >= v0.7.0 per kind documentation:
+       `Installation and Usage <https://kind.sigs.k8s.io/#installation-and-usage>`_
+
+       .. parsed-literal::
+
+          curl -LO \ |SCM_WEB|\/Documentation/gettingstarted/kind-config.yaml
+          kind create cluster --config=kind-config.yaml
+
+    .. group-tab:: minikube
+
+       Install minikube >= v1.5.2 as per minikube documentation: 
+       `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
+
+       .. code-block:: shell-session
+
+          minikube start --network-plugin=cni
 
 Install Cilium
 ==============
 
-.. parsed-literal::
+You can install Cilium on any Kubernetes cluster. If you already have a
+Kubernetes cluster, skip this step. If you want to create a cluster, pick one
+of the options below:
 
-    kubectl create -f \ |SCM_WEB|\/install/kubernetes/quick-install.yaml
+.. tabs::
 
-.. include:: k8s-install-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
+    .. group-tab:: Generic
+
+       Cilium can be installed into any Kubernetes cluster. Please see the
+       other tabs for distribution/platform specific instructions. This version
+       describes the generic requirements and steps.
+
+       **Default Configuration:**
+
+       =============== =============== ==============
+       Datapath        IPAM            Datastore
+       =============== =============== ==============
+       Encapsulation   Cluster Pool    Kubernetes CRD
+       =============== =============== ==============
+
+       **Requirements:**
+      
+       * Kubernetes must be configured to use CNI (see `Network Plugin Requirements <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#network-plugin-requirements>`_)
+       * Linux kernel >= 4.9.17
+
+       .. tip::
+
+          See :ref:`admin_system_reqs` for more details on the system requirements.
+
+       **Install Cilium**
+
+       Install Cilium into the Kubernetes cluster pointed to by your current kubectl context:
+
+       .. code-block:: shell-session
+
+          cilium install
+
+    .. group-tab:: GKE
+
+       **Default Configuration:**
+
+       =============== =================== ==============
+       Datapath        IPAM                Datastore
+       =============== =================== ==============
+       Direct Routing  Kubernetes PodCIDR  Kubernetes CRD
+       =============== =================== ==============
+
+       **Requirements:**
+
+       * No special requirements. The Cilium installer will automatically
+         reconfigure your GKE cluster to use CNI mode.
+
+       **Install Cilium:**
+
+       Install Cilium into the GKE cluster:
+
+       .. code-block:: shell-session
+
+           cilium install
+
+    .. group-tab:: AKS
+
+       **Default Configuration:**
+
+       =============== =================== ==============
+       Datapath        IPAM                Datastore
+       =============== =================== ==============
+       Direct Routing  Azure IPAM          Kubernetes CRD
+       =============== =================== ==============
+
+       .. tip::
+
+          If you want to chain Cilium on top of the Azure CNI, refer to the
+          guide :ref:`chaining_azure`.
+
+       **Requirements:**
+
+       * The AKS cluster must be created with ``--network-plugin azure`` for
+         compatibility with Cilium. The Azure network plugin will be replaced
+         with Cilium by the installer.
+
+
+       **Install Cilium:**
+
+       Install Cilium into the AKS cluster:
+
+       .. code-block:: shell-session
+
+           cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
+
+    .. group-tab:: EKS
+
+       **Default Configuration:**
+
+       ===================== =================== ==============
+       Datapath              IPAM                Datastore
+       ===================== =================== ==============
+       Direct Routing (ENI)  Azure IPAM          Kubernetes CRD
+       ===================== =================== ==============
+
+       .. tip::
+
+          If you want to chain Cilium on top of the AWS CNI, refer to the guide
+          :ref:`chaining_aws_cni`.
+
+
+       **Requirements:**
+
+       * It is recommended to create an EKS cluster without any nodes, install
+         Cilium, and then scale up the number of nodes with Cilium already
+         deployed.
+
+       **Install Cilium:**
+
+       Install Cilium into the EKS cluster. Set ``--wait=false`` as no nodes
+       exist yet. Then scale up the number of nodes and wait for Cilium to
+       bootstrap successfully.
+
+       .. code-block:: shell-session
+
+           cilium install --wait=false
+           eksctl create nodegroup --cluster "${NAME}" --region eu-west-1 --nodes 2 
+           cilium status --wait
+
+    .. group-tab:: OpenShift
+
+       **Default Configuration:**
+
+       =============== =============== ==============
+       Datapath        IPAM            Datastore
+       =============== =============== ==============
+       Encapsulation   Cluster Pool    Kubernetes CRD
+       =============== =============== ==============
+
+       **Requirements:**
+
+       * OpenShift 4.x
+
+       **Install Cilium:**
+
+       Cilium is a `Certified OpenShift CNI Plugin
+       <https://access.redhat.com/articles/5436171>`_ and is best installed
+       when an OpenShift cluster is created using the OpenShift installer.
+       Please refer to :ref:`k8s_install_openshift_okd` for more information.
+
+    .. group-tab:: RKE
+
+       **Default Configuration:**
+
+       =============== =============== ==============
+       Datapath        IPAM            Datastore
+       =============== =============== ==============
+       Encapsulation   Cluster Pool    Kubernetes CRD
+       =============== =============== ==============
+
+       **Requirements:**
+
+       * Follow the `RKE Installation Guide <https://rancher.com/docs/rke/latest/en/installation/>`_
+         with the below change:
+
+         From:
+
+         .. code-block:: yaml
+
+            network:
+              options:
+                flannel_backend_type: "vxlan"
+              plugin: "canal"
+
+         To:
+
+         .. code-block:: yaml
+
+            network:
+              plugin: none
+
+       **Install Cilium:**
+
+       Install Cilium into your newly created RKE cluster:
+
+       .. code-block:: shell-session
+
+           cilium install
+
+    .. group-tab:: k3s
+
+       **Default Configuration:**
+
+       =============== =============== ==============
+       Datapath        IPAM            Datastore
+       =============== =============== ==============
+       Encapsulation   Cluster Pool    Kubernetes CRD
+       =============== =============== ==============
+
+       **Requirements:**
+
+       * Install your k3s cluster as you would normally would but pass in
+         ``--flannel-backend=none`` so you can install Cilium on top:
+
+         .. code-block:: shell-session
+
+             curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none' sh -
+      
+       **Install Cilium:**
+
+       Install Cilium into your newly created Kubernetes cluster:
+
+       .. code-block:: shell-session
+
+           cilium install
+
+
+If the installation fails for some reason, run ``cilium status`` to retrieve
+the overall status of the Cilium deployment and inspect the logs of whatever
+pods are failing to be deployed.
+
+.. tip::
+
+   You may be seeing ``cilium install`` print something like this:
+
+   .. code-block:: shell-session
+
+       ♻️  Restarted unmanaged pod kube-system/event-exporter-gke-564fb97f9-rv8hg
+       ♻️  Restarted unmanaged pod kube-system/kube-dns-6465f78586-hlcrz
+       ♻️  Restarted unmanaged pod kube-system/kube-dns-autoscaler-7f89fb6b79-fsmsg
+       ♻️  Restarted unmanaged pod kube-system/l7-default-backend-7fd66b8b88-qqhh5
+       ♻️  Restarted unmanaged pod kube-system/metrics-server-v0.3.6-7b5cdbcbb8-kjl65
+       ♻️  Restarted unmanaged pod kube-system/stackdriver-metadata-agent-cluster-level-6cc964cddf-8n2rt
+
+   This indicates that your cluster was already running some pods before Cilium
+   was deployed and the installer has automatically restarted them to ensure
+   all pods get networking provided by Cilium.
+
+Validate Installation
+=====================
+
+Check the Status
+----------------
+
+To validate the installation, run the ``cilium status`` command:
+
+.. code-block:: shell-session
+
+    cilium status
+        /¯¯\
+     /¯¯\__/¯¯\    Cilium:         OK
+     \__/¯¯\__/    Operator:       OK
+     /¯¯\__/¯¯\    Hubble:         disabled
+     \__/¯¯\__/    ClusterMesh:    disabled
+        \__/
+
+    DaemonSet         cilium                   Desired: 3, Ready: 3/3, Available: 3/3
+    Deployment        cilium-operator          Desired: 1, Ready: 1/1, Available: 1/1
+    Containers:       cilium                   Running: 3
+                      cilium-operator          Running: 1
+    Image versions    cilium                   quay.io/cilium/cilium:v1.9.4: 3
+                      cilium-operator          quay.io/cilium/operator-generic:v1.9.4: 1
+
+Run the Connectivity Test
+-------------------------
+
+Run the ``cilium connectivity test`` to validate that your cluster has proper
+network connectivity:
+
+.. code-block:: shell-session
+
+    cilium connectivity test
+    ✨ [gke_cilium-dev_us-west2-a_32287] Creating namespace for connectivity check...
+    [...]
+
+    ---------------------------------------------------------------------------------------------------------------------
+    🔌 [pod-to-pod] Testing cilium-test/client-77bd7f48dd-5zwkw -> cilium-test/echo-other-node-86774f89b9-xjmkn...
+    ---------------------------------------------------------------------------------------------------------------------
+    ✅ [pod-to-pod] cilium-test/client-77bd7f48dd-5zwkw (10.0.2.188) -> cilium-test/echo-other-node-86774f89b9-xjmkn (10.0.1.125)
+
+    ---------------------------------------------------------------------------------------------------------------------
+    🔌 [pod-to-pod] Testing cilium-test/client-77bd7f48dd-5zwkw -> cilium-test/echo-same-node-f789dd8f7-th9f7...
+    ---------------------------------------------------------------------------------------------------------------------
+    ✅ [pod-to-pod] cilium-test/client-77bd7f48dd-5zwkw (10.0.2.188) -> cilium-test/echo-same-node-f789dd8f7-th9f7 (10.0.2.223)
+
+    ---------------------------------------------------------------------------------------------------------------------
+    🔌 [pod-to-service] Testing cilium-test/client-77bd7f48dd-5zwkw -> echo-other-node:8080 (ClusterIP)...
+    ---------------------------------------------------------------------------------------------------------------------
+    ✅ [pod-to-service] cilium-test/client-77bd7f48dd-5zwkw (10.0.2.188) -> echo-other-node:8080 (ClusterIP) (echo-other-node:8080)
+    [...]
+    ---------------------------------------------------------------------------------------------------------------------
+    📋 Test Report
+    ---------------------------------------------------------------------------------------------------------------------
+    ✅ 9/9 tests successful (0 warnings)
+
+
+Congratulations! You have a fully functional Kubernetes cluster with Cilium. 🎉
+
+.. include:: next-steps.rst

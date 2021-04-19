@@ -1,4 +1,6 @@
-To install the latest version of the Cilium CLI, run the following commands:
+Install the latest version of the Cilium CLI on your local machine. The Cilium
+CLI can be used to install Cilium, inspect the state of a Cilium installation,
+and enable/disable a variety of functionality.
 
 .. tabs::
   .. group-tab:: Linux
