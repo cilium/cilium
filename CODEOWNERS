@@ -105,9 +105,6 @@ Makefile* @cilium/build
 /Documentation/gettingstarted/hubble* @cilium/hubble @cilium/docs-structure
 /Documentation/gettingstarted/index.rst @cilium/docs-structure
 /Documentation/gettingstarted/ipam.rst @cilium/ipam @cilium/docs-structure
-/Documentation/gettingstarted/k8s-install-eks.rst @cilium/aws @cilium/docs-structure
-/Documentation/gettingstarted/k8s-install-remove-aws-node.rst @cilium/aws @cilium/docs-structure
-/Documentation/gettingstarted/k8s-install-aks* @cilium/azure @cilium/docs-structure
 /Documentation/gettingstarted/kind-configure.rst @cilium/docs-structure
 /Documentation/gettingstarted/kubeproxy-free.rst @cilium/loadbalancer @cilium/docs-structure
 /Documentation/gettingstarted/policy-creation.rst @cilium/policy @cilium/docs-structure

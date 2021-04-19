@@ -55,7 +55,7 @@ assignees: ''
         generated helm charts point to the commit that contains the image
         digests.
 - [ ] Run sanity check of Helm install using connectivity-check script.
-      Suggested approach: Follow the full [GKE getting started guide].
+      Suggested approach: Follow the full [Quick Install]
 - [ ] Check draft release from [releases] page
   - [ ] Update the text at the top with 2-3 highlights of the release
   - [ ] Copy the text from `digest-vX.Y.Z.txt` (previously generated with
@@ -85,5 +85,5 @@ assignees: ''
 [kops]: https://github.com/kubernetes/kops/
 [kubespray]: https://github.com/kubernetes-sigs/kubespray/
 [cilium helm release tool]: https://github.com/cilium/charts/blob/master/prepare_artifacts.sh
-[GKE getting started guide]: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-gke/
+[Quick Instsall]: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default.html
 [cilium-runtime images]: https://quay.io/repository/cilium/cilium-runtime

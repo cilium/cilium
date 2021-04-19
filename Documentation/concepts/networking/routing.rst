@@ -307,5 +307,5 @@ The following configuration options must be set to run the datapath on GKE:
 * ``native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   is supported.
 
-See the getting started guide :ref:`k8s_install_gke` to install Cilium on
+See the getting started guide :ref:`k8s_install_quick` to install Cilium on
 Google Kubernetes Engine (GKE).

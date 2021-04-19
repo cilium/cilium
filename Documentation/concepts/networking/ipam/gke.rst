@@ -10,9 +10,8 @@
 Google Kubernetes Engine
 ########################
 
-When running Cilium on Google GKE following the :ref:`k8s_install_gke` guide,
-the native networking layer of Google Cloud will be utilized for address
-management and IP forwarding.
+When running Cilium on Google GKE, the native networking layer of Google Cloud
+will be utilized for address management and IP forwarding.
 
 ************
 Architecture
@@ -29,7 +28,7 @@ additional details of this IPAM mode.
 
 The corresponding datapath is described in section :ref:`gke_datapath`.
 
-See the getting started guide :ref:`k8s_install_gke` to install Cilium Google
+See the getting started guide :ref:`k8s_install_quick` to install Cilium Google
 Kubernetes Engine (GKE).
 
 *************

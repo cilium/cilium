@@ -595,7 +595,7 @@ instead for gaining visibility.
 NodePort XDP on AWS
 ===================
 
-In order to run with NodePort XDP on AWS, follow the instructions in the :ref:`k8s_install_eks`
+In order to run with NodePort XDP on AWS, follow the instructions in the :ref:`k8s_install_quick`
 guide to set up an EKS cluster or use any other method of your preference to set up a
 Kubernetes cluster.
 

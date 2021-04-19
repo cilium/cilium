@@ -486,7 +486,7 @@ An example invocation is
 Running in GKE
 ^^^^^^^^^^^^^^
 
-1- Setup a cluster as in :ref:`k8s_install_gke` or utilize an existing
+1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
 cluster.
 
 .. note:: You do not need to deploy Cilium in this step, as the End-To-End
@@ -525,7 +525,7 @@ AWS EKS (experimental)
 Not all tests can succeed on EKS. Many do, however and may be useful. This `GH issue
 <https://github.com/cilium/cilium/issues/9678#issuecomment-749350425>`_ contains a list of tests that are still failing.
 
-1- Setup a cluster as in :ref:`k8s_install_eks` or utilize an existing
+1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
 cluster.
 
 2- Source the testing integration script from ``cilium/contrib/testing/integrations.sh``.
