@@ -2322,7 +2322,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			opts["k8sServicePort"] = "6443"
 		}
 
-		if RunsOnNetNextOr419Kernel() {
+		if RunsOn419OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
 		}
 
