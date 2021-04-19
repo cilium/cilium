@@ -522,17 +522,16 @@ func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
 }
 
-// RunsOnNetNextOr419Kernel checks whether a test case is running on the net-next
-// kernel (depending on the image, it's the latest kernel either from net-next.git
-// or bpf-next.git tree), or on the > 4.19.57 kernel.
-func RunsOnNetNextOr419Kernel() bool {
+// RunsOn419OrLaterKernel checks whether a test case is running on the bpf-next
+// or 4.19.x (x > 57) kernels.
+func RunsOn419OrLaterKernel() bool {
 	return RunsOnNetNextKernel() || RunsOn419Kernel()
 }
 
-// DoesNotRunOnNetNextOr419Kernel is the complement function of
-// RunsOnNetNextOr419Kernel.
-func DoesNotRunOnNetNextOr419Kernel() bool {
-	return !RunsOnNetNextOr419Kernel()
+// DoesNotRunOn419OrLaterKernel is the complement function of
+// RunsOn419OrLaterKernel.
+func DoesNotRunOn419OrLaterKernel() bool {
+	return !RunsOn419OrLaterKernel()
 }
 
 // RunsOnGKE returns true if the tests are running on GKE.
@@ -559,7 +558,7 @@ func DoesNotRunOnEKS() bool {
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
 func RunsWithKubeProxyReplacement() bool {
-	return RunsOnGKE() || RunsOnNetNextOr419Kernel()
+	return RunsOnGKE() || RunsOn419OrLaterKernel()
 }
 
 // DoesNotRunWithKubeProxyReplacement is the complement function of
