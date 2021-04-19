@@ -49,26 +49,6 @@ jobs:
           make -C install/kubernetes docs
           git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
-  quick-install:
-    # Only run quick-install on stable branches
-    if: ${{ github.ref != 'refs/heads/master' }}
-    strategy:
-      matrix:
-        target:
-          - name: quick-install
-            template: install/kubernetes/quick-install.yaml
-          - name: quick-hubble-install
-            template: install/kubernetes/quick-hubble-install.yaml
-          - name: experimental-install
-            template: install/kubernetes/experimental-install.yaml
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Check ${{ matrix.target.template }}
-        run: |
-          make -C install/kubernetes ${{ matrix.target.name }}
-          git diff --exit-code || (echo "please run 'make -C install/kubernetes ${{ matrix.target.name }}' and submit your changes"; exit 1)
-
   conformance-test:
     if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-latest

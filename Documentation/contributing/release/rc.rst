@@ -84,9 +84,6 @@ If you intent to release a new feature release, see the
 
 #. Run ``make -C install/kubernetes all USE_DIGESTS=false``
 
-#. Add all files from the ``install/kubernetes`` using ``git add``, do not
-   forget to include the ``quick-install`` yaml files.
-
 #. If there is not branch for this RC, prepare the changelog now
    (as it was previously skipped).
    If this is the first RC, ``X.Y.Z`` should be the last, stable version,
