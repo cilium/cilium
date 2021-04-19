@@ -101,6 +101,8 @@ var _ = Describe("K8sVerifier", func() {
 			kernel = "netnext"
 		case helpers.RunsOn419Kernel():
 			kernel = "419"
+		case helpers.RunsOn54Kernel():
+			kernel = "54"
 		}
 		cmd := fmt.Sprintf("make -C bpf KERNEL=%s", kernel)
 		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, cmd)
