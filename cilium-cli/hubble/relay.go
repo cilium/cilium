@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ var relayClusterRole = &rbacv1.ClusterRole{
 }
 
 func (k *K8sHubble) generateRelayService() *corev1.Service {
+	// NOTE: assuming "disable-server-tls: true", see generateRelayConfigMap().
 	s := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   defaults.RelayServiceName,
@@ -68,7 +69,7 @@ func (k *K8sHubble) generateRelayService() *corev1.Service {
 			Type: corev1.ServiceType(k.params.RelayServiceType),
 			Ports: []corev1.ServicePort{
 				{
-					Port:       int32(80),
+					Port:       int32(defaults.RelayServicePlaintextPort),
 					TargetPort: relayPortIntstr,
 				},
 			},
@@ -419,7 +420,7 @@ func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
 		"svc/hubble-relay",
 		"--address", "0.0.0.0",
 		"--address", "::",
-		fmt.Sprintf("%d:80", k.params.PortForward)}
+		fmt.Sprintf("%d:%d", k.params.PortForward, defaults.RelayServicePlaintextPort)}
 
 	c := exec.Command(cmd, args...)
 	c.Stdout = k.params.Writer
