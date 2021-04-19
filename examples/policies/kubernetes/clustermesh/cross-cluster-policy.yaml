@@ -12,4 +12,5 @@ spec:
   - toEndpoints:
     - matchLabels:
         name: rebel-base
+        io.kubernetes.pod.namespace: default
         io.cilium.k8s.policy.cluster: cluster2
