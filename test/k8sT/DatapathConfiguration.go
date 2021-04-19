@@ -497,6 +497,17 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ExpectWithOffset(1, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
 			// Sanity check
 			ExpectWithOffset(1, srcHost.String()).Should(Equal(k8s1IP))
+			// Fetch srcPod IPv6
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			ExpectWithOffset(1, err).Should(BeNil(), "Unable to fetch cilium pod on k8s1")
+			endpointIPs := kubectl.CiliumEndpointIPv6(ciliumPodK8s1, "-l k8s:zgroup=testDSClient")
+			// Sanity check
+			ExpectWithOffset(1, len(endpointIPs)).Should(Equal(1), "BUG: more than one DS client on %s", ciliumPodK8s1)
+			var srcPodIPv6 string
+			for _, ip := range endpointIPs {
+				srcPodIPv6 = ip
+				break
+			}
 
 			// Fetch dstPod (testDS@k8s2)
 			dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "server", "zgroup=testDS", k8s1IP, true, 0)
@@ -506,24 +517,38 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ExpectWithOffset(1, err).Should(BeNil(), "Failure to retrieve host of pod %s", dstPod)
 			// Sanity check
 			ExpectWithOffset(1, dstHost.String()).Should(Equal(k8s2IP))
+			// Fetch dstPod IPv6
+			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
+			ExpectWithOffset(1, err).Should(BeNil(), "Unable to fetch cilium pod on k8s2")
+			endpointIPs = kubectl.CiliumEndpointIPv6(ciliumPodK8s2, "-l k8s:zgroup=testDS")
+			// Sanity check
+			ExpectWithOffset(1, len(endpointIPs)).Should(Equal(1), "BUG: more than one DS server on %s", ciliumPodK8s2)
+			var dstPodIPv6 string
+			for _, ip := range endpointIPs {
+				dstPodIPv6 = ip
+				break
+			}
 
-			cmd := fmt.Sprintf("tcpdump -i %s --immediate-mode -n 'host %s and host %s' -c 1", interNodeDev, srcPodIP, dstPodIP)
+			checkNoLeak := func(srcPod, srcIP, dstIP string) {
+				cmd := fmt.Sprintf("tcpdump -i %s --immediate-mode -n 'host %s and host %s' -c 1", interNodeDev, srcIP, dstIP)
+				res1, cancel1, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s1NodeName, cmd)
+				ExpectWithOffset(2, err).Should(BeNil(), "Cannot exec tcpdump in bg")
+				res2, cancel2, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s2NodeName, cmd)
+				ExpectWithOffset(2, err).Should(BeNil(), "Cannot exec tcpdump in bg")
 
-			res1, cancel1, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s1NodeName, cmd)
-			ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec tcpdump in bg")
+				// HTTP connectivity test (pod2pod)
+				kubectl.ExecPodCmd(randomNamespace, srcPod,
+					helpers.CurlFail("http://%s/", net.JoinHostPort(dstIP, "80"))).ExpectSuccess("Failed to curl dst pod")
 
-			res2, cancel2, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s2NodeName, cmd)
-			ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec tcpdump in bg")
+				// Check that no unencrypted pod2pod traffic was captured on the direct routing device
+				cancel1()
+				cancel2()
+				ExpectWithOffset(2, res1.CombineOutput().String()).Should(Not(ContainSubstring("1 packet captured")))
+				ExpectWithOffset(2, res2.CombineOutput().String()).Should(Not(ContainSubstring("1 packet captured")))
+			}
 
-			// HTTP connectivity test (pod2pod)
-			kubectl.ExecPodCmd(randomNamespace, srcPod,
-				helpers.CurlFail("http://%s:80/", dstPodIP)).ExpectSuccess("Failed to curl dst pod")
-
-			// Check that no unencrypted pod2pod traffic was captured on the direct routing device
-			cancel1()
-			cancel2()
-			ExpectWithOffset(1, res1.CombineOutput().String()).Should(Not(ContainSubstring("1 packet captured")))
-			ExpectWithOffset(1, res2.CombineOutput().String()).Should(Not(ContainSubstring("1 packet captured")))
+			checkNoLeak(srcPod, srcPodIP.String(), dstPodIP.String())
+			checkNoLeak(srcPod, srcPodIPv6, dstPodIPv6)
 
 			// Check that the src pod can reach the remote host
 			kubectl.ExecPodCmd(randomNamespace, srcPod, helpers.Ping(k8s2IP)).
