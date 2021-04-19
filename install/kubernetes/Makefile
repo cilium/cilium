@@ -14,14 +14,6 @@ MIN_K8S_MAJOR := 1
 MIN_K8S_MINOR := 16
 MIN_K8S_VERSION := "v$(MIN_K8S_MAJOR).$(MIN_K8S_MINOR).0"
 
-MIN_K8S_OPTIONS := \
-    --set Capabilities.KubeVersion.Version=$(MIN_K8S_VERSION) \
-    --set Capabilities.KubeVersion.Major=$(MIN_K8S_MAJOR) \
-    --set Capabilities.KubeVersion.Minor=$(MIN_K8S_MINOR)
-
-QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
-QUICK_HUBBLE_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-hubble-install.yaml"
-EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
 CHART_FILE := "$(CILIUM_CHARTS)/Chart.yaml"
@@ -32,26 +24,6 @@ LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
 DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
-QUICK_OPTIONS := \
-    $(MIN_K8S_OPTIONS) \
-    --set operator.replicas=1
-QUICK_HUBBLE_OPTIONS := \
-    $(MIN_K8S_OPTIONS) \
-    --set agent=false \
-    --set operator.enabled=false \
-    --set hubble.tls.auto.enabled=true \
-    --set hubble.tls.auto.method="cronJob" \
-    --set hubble.relay.enabled=true \
-    --set hubble.ui.enabled=true
-EXPERIMENTAL_OPTIONS := \
-    $(MIN_K8S_OPTIONS) \
-    --set hubble.tls.auto.enabled=true \
-    --set hubble.tls.auto.method="cronJob" \
-    --set hubble.metrics.enabled="{dns,drop,tcp,flow,icmp,http}" \
-    --set hubble.relay.enabled=true \
-    --set hubble.ui.enabled=true \
-    --set localRedirectPolicy=true \
-    --set operator.replicas=1
 
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--workdir /src/install/kubernetes \
@@ -66,16 +38,7 @@ HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
 LOGO_PATH := Documentation/images/logo-solo.svg
 
-all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) $(QUICK_HUBBLE_INSTALL) docs
-
-$(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
-
-$(QUICK_HUBBLE_INSTALL) quick-hubble-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_HUBBLE_OPTIONS) > $(QUICK_HUBBLE_INSTALL)
-
-$(EXPERIMENTAL_INSTALL) experimental-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
+all: update-versions docs
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
@@ -130,9 +93,6 @@ update-versions:
 lint:
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
 
-clean:
-	$(RM) $(QUICK_INSTALL) $(QUICK_HUBBLE_INSTALL) $(EXPERIMENTAL_INSTALL)
-
 docs:
 	$(QUIET)$(HELM_DOCS)
 
@@ -146,4 +106,4 @@ check-docker-images:
          CERTGEN_VERSION=$(CERTGEN_VERSION) \
          ../../contrib/release/check-docker-images.sh "v$(VERSION)"
 
-.PHONY: all check-docker-images clean docs experimental-install lint quick-install update-versions
+.PHONY: all check-docker-images clean docs lint update-versions
