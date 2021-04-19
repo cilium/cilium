@@ -65,8 +65,8 @@ Deploy Cilium release via Helm:
 
 .. include:: aws-create-nodegroup.rst
 .. include:: k8s-install-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
+
+.. include:: next-steps.rst
 
 ENI Subnet tags
 ===============

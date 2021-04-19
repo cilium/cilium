@@ -9,6 +9,7 @@ Routing
 #######
 
 .. _arch_overlay:
+.. _encapsulation:
 
 Encapsulation
 =============

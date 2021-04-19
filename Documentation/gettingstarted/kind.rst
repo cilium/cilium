@@ -60,19 +60,7 @@ Then, install Cilium release via Helm:
    to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
 
 .. include:: k8s-install-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
-
-Next steps
-==========
-
-Now that you have a Kubernetes cluster with Cilium up and running, you can take
-a couple of next steps to explore various capabilities:
-
-* :ref:`gs_http`
-* :ref:`gs_dns`
-* :ref:`gs_cassandra`
-* :ref:`gs_kafka`
+.. include:: next-steps.rst
 
 Troubleshooting
 ===============

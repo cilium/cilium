@@ -129,8 +129,7 @@ Deploy Cilium release via Helm:
 
 .. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
+.. include:: next-steps.rst
 
 .. _azure_limitations:
 

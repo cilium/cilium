@@ -55,44 +55,16 @@ Deploy Cilium
            helm install cilium |CHART_RELEASE| \\
               --namespace $CILIUM_NAMESPACE
 
-    .. group-tab:: ``quick-install.yaml``
+    .. group-tab:: Cilium CLI
 
-        Install Cilium via the provided ``quick-install.yaml``:
+        .. include:: install-cli.rst
 
-        .. note::
+        Install Cilium by running:
 
-          ``quick-install.yaml`` is a pre-rendered Cilium chart template. The
-          template is generated using `helm template <https://helm.sh/docs/helm/helm_template/>`_
-          command with default configuration parameters without any customization.
+        .. code-block:: shell-session
 
-        .. parsed-literal::
-
-            kubectl apply -f |SCM_WEB|/install/kubernetes/quick-install.yaml
-
-
-    .. group-tab:: ``experimental-install.yaml``
-
-        Install Cilium via the provided ``experimental-install.yaml``:
-
-        .. warning::
-
-          ``experimental-install.yaml`` is a pre-rendered Cilium chart template with
-          experimental features enabled. These features may include unreleased or beta
-          features that are not considered production-ready. While it provides a convenient
-          way to try out experimental features, It should only be used in testing environments.
-
-        .. parsed-literal::
-
-            kubectl apply -f |SCM_WEB|/install/kubernetes/experimental-install.yaml
+            cilium install
 
 .. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
-.. include:: hubble-enable.rst
-
-Now that you have a Kubernetes cluster with Cilium up and running, you can take
-a couple of next steps to explore various capabilities:
-
-* :ref:`gs_http`
-* :ref:`gs_dns`
-* :ref:`gs_cassandra`
-* :ref:`gs_kafka`
+.. include:: next-steps.rst

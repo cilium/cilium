@@ -13,16 +13,16 @@
 
    Setup Helm repository:
 
-    .. code:: bash
+   .. code:: bash
 
-        helm repo add cilium https://helm.cilium.io/
+      helm repo add cilium https://helm.cilium.io/
 
 .. only:: not stable
 
    Download the Cilium release tarball and change to the kubernetes install directory:
 
-    .. parsed-literal::
+   .. parsed-literal::
 
-        curl -LO |SCM_ARCHIVE_LINK|
-        tar xzf |SCM_ARCHIVE_FILENAME|
-        cd |SCM_ARCHIVE_NAME|/install/kubernetes
+      curl -LO |SCM_ARCHIVE_LINK|
+      tar xzf |SCM_ARCHIVE_FILENAME|
+      cd |SCM_ARCHIVE_NAME|/install/kubernetes

@@ -26,7 +26,6 @@ configure Cilium to use an external kvstore such as etcd. If you are unsure
 whether you need to use a kvstore at all, the following is a list of reasons
 when to use a kvstore:
 
- * If you want to use the :ref:`Cluster Mesh` functionality.
  * If you are running in an environment with more than 250 nodes, 5k pods, or
    if you observe a high overhead in state propagation caused by Kubernetes
    events.
@@ -93,20 +92,5 @@ of http for the etcd endpoint URLs:
       --set "etcd.endpoints[1]=https://etcd-endpoint2:2379" \\
       --set "etcd.endpoints[2]=https://etcd-endpoint3:2379"
 
-Validate the Installation
-=========================
-
-Verify that Cilium pods were started on each of your worker nodes
-
-.. code:: bash
-
-    kubectl --namespace kube-system get ds cilium
-    NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
-    cilium          4         4         4         <none>          3m2s
-
-    kubectl -n kube-system get deployments cilium-operator
-    NAME              READY   UP-TO-DATE   AVAILABLE   AGE
-    cilium-operator   2/2     2            2           2m6s
-
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
+.. include:: k8s-install-validate.rst
+.. include:: next-steps.rst

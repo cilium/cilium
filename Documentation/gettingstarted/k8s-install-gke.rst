@@ -101,6 +101,4 @@ to the cluster. The NodeInit DaemonSet will perform the following actions:
 
 .. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-gke-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
-
+.. include:: next-steps.rst
