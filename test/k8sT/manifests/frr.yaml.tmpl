@@ -111,7 +111,7 @@ spec:
   - name: frr
     securityContext:
       privileged: true
-    image: frrouting/frr:frr-7.5.1
+    image: docker.io/frrouting/frr:v7.5.1
     imagePullPolicy: IfNotPresent
     volumeMounts:
     - mountPath: /etc/frr
