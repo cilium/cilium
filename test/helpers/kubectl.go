@@ -1140,7 +1140,7 @@ func (kub *Kubectl) DeleteResource(resource, resourceName string) *CmdRes {
 // Delete deletes the Kubernetes manifest at path filepath.
 func (kub *Kubectl) Delete(filePath string) *CmdRes {
 	kub.Logger().Debugf("deleting %s", filePath)
-	return kub.ExecShort(
+	return kub.Exec(
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
