@@ -98,7 +98,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 	}
 
 	BeforeAll(func() {
-		if !helpers.RunsOnNetNextOr419Kernel() {
+		if !helpers.RunsOn419OrLaterKernel() {
 			return
 		}
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -178,14 +178,14 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 	})
 
 	AfterFailed(func() {
-		if !helpers.RunsOnNetNextOr419Kernel() {
+		if !helpers.RunsOn419OrLaterKernel() {
 			return
 		}
 		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
-		if !helpers.RunsOnNetNextOr419Kernel() {
+		if !helpers.RunsOn419OrLaterKernel() {
 			return
 		}
 
@@ -239,7 +239,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 	}
 
 	SkipContextIf(
-		func() bool { return helpers.DoesNotRunOnNetNextOr419Kernel() },
+		func() bool { return helpers.DoesNotRunOn419OrLaterKernel() },
 		"DirectRouting", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{
@@ -285,7 +285,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 	)
 
 	SkipContextIf(
-		func() bool { return helpers.DoesNotRunOnNetNextOr419Kernel() },
+		func() bool { return helpers.DoesNotRunOn419OrLaterKernel() },
 		"VxLANMode", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{
