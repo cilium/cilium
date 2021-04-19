@@ -62,57 +62,38 @@ listed as "cilium-ipsec-keys".
 Enable Encryption in Cilium
 ===========================
 
-.. include:: k8s-install-download-release.rst
+.. tabs::
 
-Deploy Cilium release via Helm with the following options to enable encryption:
+    .. group-tab:: Cilium CLI
 
-.. parsed-literal::
+       If you are deploying Cilium with the Cilium CLI, pass the following
+       options:
 
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set encryption.enabled=true \\
-      --set encryption.nodeEncryption=false
+       .. code-block:: shell-session
 
-``encryption.enabled`` enables encryption of the traffic between Cilium-managed pods and
-``encryption.nodeEncryption`` controls whether host traffic is encrypted.
-These options can be provided along with other options, such as when deploying
-to GKE, with VXLAN tunneling:
+          cilium install --encryption
 
-.. parsed-literal::
+    .. group-tab:: Helm
 
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set nodeinit.enabled=true \\
-      --set nodeinit.reconfigureKubelet=true \\
-      --set nodeinit.removeCbrBridge=true \\
-      --set cni.binPath=/home/kubernetes/bin \\
-      --set tunnel=vxlan \\
-      --set encryption.enabled=true \\
-      --set encryption.nodeEncryption=false
+       If you are deploying Cilium with Helm by following
+       :ref:`k8s_install_helm`, pass the following options:
 
-On GKE, Cilium can also be deployed with direct routing instead of tunneling.
-This requires us to enable the GKE integration and specify the native routing
-CIDR. As a bonus, node encryption (for transparently encrypting node-to-node
-traffic) can be enabled as well. See :ref:`node_to_node_encryption` below.
+       .. parsed-literal::
 
-.. note::
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set encryption.enabled=true \\
+             --set encryption.nodeEncryption=false
 
-    This example builds on the steps outlined in :ref:`k8s_install_gke`.
+       ``encryption.enabled`` enables encryption of the traffic between Cilium-managed pods and
+       ``encryption.nodeEncryption`` controls whether host traffic is encrypted.
 
-.. parsed-literal::
+.. attention::
 
-    export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
-    helm install cilium |CHART_RELEASE| \\
-      --namespace cilium \\
-      --set nodeinit.enabled=true \\
-      --set nodeinit.reconfigureKubelet=true \\
-      --set nodeinit.removeCbrBridge=true \\
-      --set cni.binPath=/home/kubernetes/bin \\
-      --set gke.enabled=true \\
-      --set ipam.mode=kubernetes \\
-      --set nativeRoutingCIDR=$NATIVE_CIDR \\
-      --set encryption.enabled=true \\
-      --set encryption.nodeEncryption=true
+   When using Cilium in any direct routing configuration, ensure that the
+   native routing CIDR is set properly. This is done using
+   ``--native-routing-cidr=CIDR`` with the CLI or ``--set
+   nativeRoutingCIDR=CIDR`` with Helm.
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
@@ -126,9 +107,19 @@ link is chosen by inspecting the routing tables. This will work in many cases,
 but depending on routing rules, users may need to specify the encryption
 interface as follows:
 
-.. code:: bash
+.. tabs::
 
-    --set encryption.interface=ethX
+    .. group-tab:: Cilium CLI
+
+       .. code-block:: shell-session
+
+          cilium install --encryption --config encryption-interface=ethX
+
+    .. group-tab:: Helm
+
+       .. code-block:: shell-session
+
+           --set encryption.interface=ethX
 
 .. _node_to_node_encryption:
 
@@ -137,12 +128,20 @@ Node to node encryption
 
 In order to enable node-to-node encryption, add:
 
-.. code:: bash
+.. tabs::
 
-    [...]
-    --set encryption.enabled=true \
-    --set encryption.nodeEncryption=true \
-    --set tunnel=disabled
+    .. group-tab:: Cilium CLI
+
+       .. code-block:: shell-session
+
+          cilium install --encryption --node-encryption
+
+    .. group-tab:: Helm
+
+       .. code-block:: shell-session
+
+           --set encryption.enabled=true \
+           --set encryption.nodeEncryption=true \
 
 .. note::
 

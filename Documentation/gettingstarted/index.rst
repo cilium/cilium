@@ -24,6 +24,7 @@ Installation
    :glob:
 
    k8s-install-default
+   k8s-install-helm
    k8s-install-advanced
 
 Observability
@@ -62,7 +63,6 @@ Advanced Networking
    :maxdepth: 1
    :glob:
 
-   aws-eni
    alibabacloud-eni
    kube-router
    bird

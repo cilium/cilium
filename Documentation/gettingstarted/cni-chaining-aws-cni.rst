@@ -31,7 +31,7 @@ load-balancing, and encryption.
 Setup Cluster on AWS
 ====================
 
-Follow the instructions in the :ref:`k8s_install_eks` guide to set up an EKS
+Follow the instructions in the :ref:`k8s_install_quick` guide to set up an EKS
 cluster or use any other method of your preference to set up a Kubernetes
 cluster.
 

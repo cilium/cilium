@@ -74,6 +74,62 @@ Configuration
   additional information how to install and run Prometheus including the
   Grafana dashboard.
 
+Custom ENI Configuration
+========================
+
+Custom ENI configuration can be defined with a custom CNI configuration
+``ConfigMap``:
+
+Create a CNI configuration
+--------------------------
+
+Create a ``cni-config.yaml`` file based on the template below. Fill in the
+``subnet-tags`` field, assuming that the subnets in AWS have the tags applied
+to them:
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: cni-configuration
+     namespace: kube-system
+   data:
+     cni-config: |-
+       {
+         "cniVersion":"0.3.1",
+         "name":"cilium",
+         "plugins": [
+           {
+             "cniVersion":"0.3.1",
+             "type":"cilium-cni",
+             "eni": {
+               "subnet-tags":{
+                 "foo":"true"
+               }
+             }
+           }
+         ]
+       }
+
+Deploy the ``ConfigMap``:
+
+.. code-block:: shell-session
+
+   kubectl apply -f cni-config.yaml
+
+Configure Cilium with subnet-tags-filter
+----------------------------------------
+
+Using the instructions above to deploy Cilium, specify the following additional
+arguments to Helm:
+
+.. code-block:: shell-session
+
+   --set cni.customConf=true \
+   --set cni.configMap=cni-configuration \
+   --set eni.subnetTagsFilter="foo=true"
+
 ENI Allocation Parameters
 =========================
 

@@ -23,9 +23,6 @@ Advanced Installation
    :maxdepth: 1
    :glob:
 
-   k8s-install-eks
-   k8s-install-gke
-   k8s-install-aks
    k8s-install-external-etcd
    k8s-install-openshift-okd
    k3s

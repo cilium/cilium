@@ -4,6 +4,7 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _k8s_install_quick:
 .. _k8s_quick_install:
 .. _k8s_install_standard:
 
@@ -114,26 +115,13 @@ of the options below:
 
     .. group-tab:: Generic
 
-       Cilium can be installed into any Kubernetes cluster. Please see the
-       other tabs for distribution/platform specific instructions. This version
-       describes the generic requirements and steps.
+       These are the generic instructions on how to install Cilium into any
+       Kubernetes cluster. The installer will attempt to automatically pick the
+       best configuration options for you. Please see the other tabs for
+       distribution/platform specific instructions which also list the ideal
+       default configuration for particular platforms.
 
-       **Default Configuration:**
-
-       =============== =============== ==============
-       Datapath        IPAM            Datastore
-       =============== =============== ==============
-       Encapsulation   Cluster Pool    Kubernetes CRD
-       =============== =============== ==============
-
-       **Requirements:**
-      
-       * Kubernetes must be configured to use CNI (see `Network Plugin Requirements <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#network-plugin-requirements>`_)
-       * Linux kernel >= 4.9.17
-
-       .. tip::
-
-          See :ref:`admin_system_reqs` for more details on the system requirements.
+       .. include:: requirements-generic.rst
 
        **Install Cilium**
 
@@ -143,20 +131,9 @@ of the options below:
 
           cilium install
 
-    .. group-tab:: GKE
+    .. group-tab:: GCP/GKE
 
-       **Default Configuration:**
-
-       =============== =================== ==============
-       Datapath        IPAM                Datastore
-       =============== =================== ==============
-       Direct Routing  Kubernetes PodCIDR  Kubernetes CRD
-       =============== =================== ==============
-
-       **Requirements:**
-
-       * No special requirements. The Cilium installer will automatically
-         reconfigure your GKE cluster to use CNI mode.
+       .. include:: requirements-gke.rst
 
        **Install Cilium:**
 
@@ -166,27 +143,9 @@ of the options below:
 
            cilium install
 
-    .. group-tab:: AKS
+    .. group-tab:: Azure/AKS
 
-       **Default Configuration:**
-
-       =============== =================== ==============
-       Datapath        IPAM                Datastore
-       =============== =================== ==============
-       Direct Routing  Azure IPAM          Kubernetes CRD
-       =============== =================== ==============
-
-       .. tip::
-
-          If you want to chain Cilium on top of the Azure CNI, refer to the
-          guide :ref:`chaining_azure`.
-
-       **Requirements:**
-
-       * The AKS cluster must be created with ``--network-plugin azure`` for
-         compatibility with Cilium. The Azure network plugin will be replaced
-         with Cilium by the installer.
-
+       .. include:: requirements-aks.rst
 
        **Install Cilium:**
 
@@ -196,27 +155,9 @@ of the options below:
 
            cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
 
-    .. group-tab:: EKS
+    .. group-tab:: AWS/EKS
 
-       **Default Configuration:**
-
-       ===================== =================== ==============
-       Datapath              IPAM                Datastore
-       ===================== =================== ==============
-       Direct Routing (ENI)  Azure IPAM          Kubernetes CRD
-       ===================== =================== ==============
-
-       .. tip::
-
-          If you want to chain Cilium on top of the AWS CNI, refer to the guide
-          :ref:`chaining_aws_cni`.
-
-
-       **Requirements:**
-
-       * It is recommended to create an EKS cluster without any nodes, install
-         Cilium, and then scale up the number of nodes with Cilium already
-         deployed.
+       .. include:: requirements-eks.rst
 
        **Install Cilium:**
 
@@ -232,55 +173,17 @@ of the options below:
 
     .. group-tab:: OpenShift
 
-       **Default Configuration:**
-
-       =============== =============== ==============
-       Datapath        IPAM            Datastore
-       =============== =============== ==============
-       Encapsulation   Cluster Pool    Kubernetes CRD
-       =============== =============== ==============
-
-       **Requirements:**
-
-       * OpenShift 4.x
+       .. include:: requirements-openshift.rst
 
        **Install Cilium:**
 
-       Cilium is a `Certified OpenShift CNI Plugin
-       <https://access.redhat.com/articles/5436171>`_ and is best installed
-       when an OpenShift cluster is created using the OpenShift installer.
-       Please refer to :ref:`k8s_install_openshift_okd` for more information.
+       Cilium is a `Certified OpenShift CNI Plugin <https://access.redhat.com/articles/5436171>`_
+       and is best installed when an OpenShift cluster is created using the OpenShift
+       installer. Please refer to :ref:`k8s_install_openshift_okd` for more information.
 
     .. group-tab:: RKE
 
-       **Default Configuration:**
-
-       =============== =============== ==============
-       Datapath        IPAM            Datastore
-       =============== =============== ==============
-       Encapsulation   Cluster Pool    Kubernetes CRD
-       =============== =============== ==============
-
-       **Requirements:**
-
-       * Follow the `RKE Installation Guide <https://rancher.com/docs/rke/latest/en/installation/>`_
-         with the below change:
-
-         From:
-
-         .. code-block:: yaml
-
-            network:
-              options:
-                flannel_backend_type: "vxlan"
-              plugin: "canal"
-
-         To:
-
-         .. code-block:: yaml
-
-            network:
-              plugin: none
+       .. include:: requirements-rke.rst
 
        **Install Cilium:**
 
@@ -292,22 +195,7 @@ of the options below:
 
     .. group-tab:: k3s
 
-       **Default Configuration:**
-
-       =============== =============== ==============
-       Datapath        IPAM            Datastore
-       =============== =============== ==============
-       Encapsulation   Cluster Pool    Kubernetes CRD
-       =============== =============== ==============
-
-       **Requirements:**
-
-       * Install your k3s cluster as you would normally would but pass in
-         ``--flannel-backend=none`` so you can install Cilium on top:
-
-         .. code-block:: shell-session
-
-             curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none' sh -
+       .. include:: requirements-k3s.rst
       
        **Install Cilium:**
 
