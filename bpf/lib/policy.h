@@ -295,12 +295,4 @@ static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_POLICY, 0);
 }
 #endif /* SOCKMAP */
-#else
-static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
-{
-}
-
-static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
-{
-}
 #endif
