@@ -1630,7 +1630,9 @@ func runDaemon() {
 		}
 	}
 
-	if !d.endpointManager.HostEndpointExists() {
+	if d.endpointManager.HostEndpointExists() {
+		d.endpointManager.InitHostEndpointLabels(d.ctx)
+	} else {
 		log.Info("Creating host endpoint")
 		if err := d.endpointManager.AddHostEndpoint(d.ctx, d, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName()); err != nil {

@@ -342,6 +342,9 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 			// We need to know about active local redirect policy services
 			// before BPF LB datapath is synced.
 			k8sAPIGroupCiliumLocalRedirectPolicyV2,
+			// We need to know the node labels to populate the host endpoint
+			// labels.
+			k8sAPIGroupNodeV1Core,
 		)
 		// CiliumEndpoint is used to synchronize the ipcache, wait for
 		// it unless it is disabled

@@ -635,6 +635,13 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 	return nil
 }
 
+// InitHostEndpointLabels initializes the host endpoint's labels with the
+// node's known labels.
+func (mgr *EndpointManager) InitHostEndpointLabels(ctx context.Context) {
+	ep := mgr.GetHostEndpoint()
+	ep.InitWithNodeLabels(ctx, launchTime)
+}
+
 // WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
 // this function is called to be at a given policy revision.
 // New endpoints appearing while waiting are ignored.
