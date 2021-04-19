@@ -16,7 +16,6 @@ package endpointmanager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -29,15 +28,12 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/prometheus/client_golang/prometheus"
@@ -503,21 +499,7 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 		return err
 	}
 
-	epLabels := labels.Labels{}
-	epLabels.MergeLabels(labels.LabelHost)
-
-	// Initialize with known node labels.
-	newLabels := labels.Map2Labels(node.GetLabels(), labels.LabelSourceK8s)
-	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
-	epLabels.MergeLabels(newIdtyLabels)
-
-	// Give the endpoint a security identity
-	newCtx, cancel := context.WithTimeout(ctx, launchTime)
-	defer cancel()
-	ep.UpdateLabels(newCtx, epLabels, epLabels, true)
-	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
-		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
-	}
+	ep.InitWithNodeLabels(ctx, launchTime)
 
 	return nil
 }
