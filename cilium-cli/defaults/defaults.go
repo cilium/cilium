@@ -50,6 +50,8 @@ const (
 	RelayImage                = "quay.io/cilium/hubble-relay"
 	RelayListenHost           = ""
 	RelayPort                 = 4245
+	RelayServicePlaintextPort = 80
+	RelayServiceTLSPort       = 443
 	RelayServerSecretName     = "hubble-relay-server-certs"
 	RelayServerSecretCertName = "tls.crt"
 	RelayServerSecretKeyName  = "tls.key"
