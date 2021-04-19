@@ -231,13 +231,11 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesPeer = true
 		if option.Config.EnableIPv4 {
 			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME); err != nil {
-				log.WithError(err).Warn("Disabling HostServicesPeer feature.")
 				option.Config.EnableHostServicesPeer = false
 			}
 		}
 		if option.Config.EnableIPv6 {
 			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME); err != nil {
-				log.WithError(err).Warn("Disabling HostServicesPeer feature.")
 				option.Config.EnableHostServicesPeer = false
 			}
 		}
