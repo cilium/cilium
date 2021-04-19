@@ -508,6 +508,16 @@ func DoesNotRunOnNetNextKernel() bool {
 	return !RunsOnNetNextKernel()
 }
 
+// RunsOn54Kernel checks whether a test case is running on the 5.4 kernel.
+func RunsOn54Kernel() bool {
+	return os.Getenv("KERNEL") == "54"
+}
+
+// DoesNotRunOn54Kernel is the complement function of RunsOn54Kernel.
+func DoesNotRunOn54Kernel() bool {
+	return !RunsOn54Kernel()
+}
+
 // RunsOn419Kernel checks whether a test case is running on the 4.19 kernel.
 func RunsOn419Kernel() bool {
 	return os.Getenv("KERNEL") == "419"
@@ -522,10 +532,10 @@ func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
 }
 
-// RunsOn419OrLaterKernel checks whether a test case is running on the bpf-next
-// or 4.19.x (x > 57) kernels.
+// RunsOn419OrLaterKernel checks whether a test case is running on the bpf-next,
+// 4.19.x (x > 57), or 5.4 kernels.
 func RunsOn419OrLaterKernel() bool {
-	return RunsOnNetNextKernel() || RunsOn419Kernel()
+	return RunsOnNetNextKernel() || RunsOn419Kernel() || RunsOn54Kernel()
 }
 
 // DoesNotRunOn419OrLaterKernel is the complement function of
