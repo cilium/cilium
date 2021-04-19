@@ -6,14 +6,12 @@
 
 .. _host_firewall:
 
-********************
-Host Firewall (beta)
-********************
+*************
+Host Firewall
+*************
 
 This document serves as an introduction to Cilium's host firewall, to enforce
 security policies for Kubernetes nodes.
-
-.. include:: ../beta.rst
 
 Enable the Host Firewall in Cilium
 ==================================
