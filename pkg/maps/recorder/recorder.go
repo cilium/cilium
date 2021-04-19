@@ -52,7 +52,6 @@ type RecorderKey interface {
 	bpf.MapKey
 	ToHost() RecorderKey
 	Dump(sb *strings.Builder)
-	Map() *bpf.Map
 }
 
 type RecorderEntry interface {
