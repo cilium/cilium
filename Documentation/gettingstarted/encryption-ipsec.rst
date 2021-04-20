@@ -4,11 +4,11 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _encryption:
+.. _encryption_ipsec:
 
-************************************
-Transparent Encryption
-************************************
+****************************
+IPsec Transparent Encryption
+****************************
 
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
