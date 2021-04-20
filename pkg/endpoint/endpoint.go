@@ -480,9 +480,6 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 // CreateHostEndpoint creates the endpoint corresponding to the host.
 func CreateHostEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
 	ifName := option.Config.HostDevice
-	if option.Config.IsFlannelMasterDeviceSet() {
-		ifName = option.Config.FlannelMasterDevice
-	}
 
 	mac, err := link.GetHardwareAddr(ifName)
 	if err != nil {
@@ -2229,11 +2226,6 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		errs = append(errs, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
 	cancel()
-
-	if option.Config.IsFlannelMasterDeviceSet() &&
-		option.Config.FlannelUninstallOnExit {
-		e.DeleteBPFProgramLocked()
-	}
 
 	return errs
 }

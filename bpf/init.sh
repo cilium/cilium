@@ -20,7 +20,7 @@ IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
 TUNNEL_MODE=$6
-# Only set if MODE = "direct", "ipvlan", "flannel"
+# Only set if MODE = "direct", "ipvlan"
 NATIVE_DEVS=$7
 HOST_DEV1=$8
 HOST_DEV2=$9
@@ -167,46 +167,39 @@ function setup_proxy_rules()
 		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
 	fi
 
-	# flannel might not have an IPv6 address
-	case "${MODE}" in
-		"flannel")
-			;;
-		*)
-			if [ "$IP6_HOST" != "<nil>" ]; then
-				if [ -n "$(ip -6 rule list)" ]; then
-					if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
-						ip -6 rule add $to_proxy_rulespec
-					fi
-					if [ "$ENDPOINT_ROUTES" = "true" ]; then
-						if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
-							ip -6 rule delete $from_ingress_rulespec
-						fi
-					else
-						if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
-							ip -6 rule add $from_ingress_rulespec
-						fi
-					fi
-				fi
-
-				IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
-				if [ -n "$IP6_LLADDR" ]; then
-					# Traffic to the host proxy is local
-					ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
-					# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-					if [ "$ENDPOINT_ROUTES" = "true" ]; then
-						ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
-						ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
-					else
-						ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-						ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-					fi
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		if [ -n "$(ip -6 rule list)" ]; then
+			if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
+				ip -6 rule add $to_proxy_rulespec
+			fi
+			if [ "$ENDPOINT_ROUTES" = "true" ]; then
+				if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
+					ip -6 rule delete $from_ingress_rulespec
 				fi
 			else
-				ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
-				ip -6 rule del $from_ingress_rulespec 2> /dev/null || true
+				if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
+					ip -6 rule add $from_ingress_rulespec
+				fi
 			fi
-			;;
-	esac
+		fi
+
+		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
+		if [ -n "$IP6_LLADDR" ]; then
+			# Traffic to the host proxy is local
+			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
+			# Traffic from ingress proxy goes to Cilium address space via the cilium host device
+			if [ "$ENDPOINT_ROUTES" = "true" ]; then
+				ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
+				ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
+			else
+				ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+				ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+			fi
+		fi
+	else
+		ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
+		ip -6 rule del $from_ingress_rulespec 2> /dev/null || true
+	fi
 }
 
 function mac2array()
@@ -362,21 +355,14 @@ case "${MODE}" in
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 esac
 
-# Address management
-case "${MODE}" in
-	"flannel")
-		;;
-	*)
-		# If the host does not have an IPv6 address assigned, assign our generated host
-		# IP to make the host accessible to endpoints
-		if [ "$IP6_HOST" != "<nil>" ]; then
-			[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
-		fi
-		if [ "$IP4_HOST" != "<nil>" ]; then
-			[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
-		fi
-        ;;
-esac
+	# If the host does not have an IPv6 address assigned, assign our generated host
+	# IP to make the host accessible to endpoints
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
+	fi
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
+	fi
 
 if [ "$PROXY_RULE" = "true" ]; then
 # Decrease priority of the rule to identify local addresses

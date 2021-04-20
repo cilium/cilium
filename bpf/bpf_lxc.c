@@ -397,17 +397,7 @@ ct_recreate6:
 
 #ifdef ENABLE_ROUTING
 to_host:
-	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
-	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
-		if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
-			union macaddr host_mac = HOST_IFINDEX_MAC;
-
-			ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac.addr,
-				      (__u8 *)&host_mac.addr, METRIC_EGRESS);
-			if (ret != CTX_ACT_OK)
-				return ret;
-		}
-
+	if (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
 				  HOST_IFINDEX, reason, monitor);
 		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
@@ -858,17 +848,7 @@ skip_egress_gateway:
 
 #ifdef ENABLE_ROUTING
 to_host:
-	if (is_defined(HOST_REDIRECT_TO_INGRESS) ||
-	    (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID)) {
-		if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
-			union macaddr host_mac = HOST_IFINDEX_MAC;
-
-			ret = ipv4_l3(ctx, l3_off, (__u8 *)&router_mac.addr,
-				      (__u8 *)&host_mac.addr, ip4);
-			if (ret != CTX_ACT_OK)
-				return ret;
-		}
-
+	if (is_defined(ENABLE_HOST_FIREWALL) && *dstID == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
 				  HOST_IFINDEX, reason, monitor);
 		return redirect(HOST_IFINDEX, BPF_F_INGRESS);

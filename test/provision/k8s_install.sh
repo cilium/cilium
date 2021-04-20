@@ -20,7 +20,6 @@ IP=$2
 K8S_VERSION=$3
 IPv6=$4
 CONTAINER_RUNTIME=$5
-CNI_INTEGRATION=$6
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
@@ -40,11 +39,6 @@ export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
 export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/${K8S_VERSION}/coredns_deployment.yaml"
 if [ ! -f "${COREDNS_DEPLOYMENT}" ]; then
     export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
-fi
-
-if [ "${CNI_INTEGRATION}" == "flannel" ]; then
-    export KUBEADM_POD_CIDR="10.244.0.0/16"
-    export KUBEADM_V1BETA2_POD_CIDR="10.244.0.0/16,fd02::/112"
 fi
 
 source ${PROVISIONSRC}/helpers.bash

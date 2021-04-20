@@ -474,18 +474,6 @@ externalIPs:
   # -- Enable ExternalIPs service support.
   enabled: false
 
-# flannel is the flannel specific configuration
-flannel:
-  # enabled enables the flannel integration
-  enabled: false
-
-  # masterDevice is the name of the flannel bridge
-  masterDevice: cni0
-
-  # uninstallOnExt enables uninstallation of Cilium BPF programs on flannel
-  # managed pods when the Cilium pod is terminated
-  uninstallOnExit: false
-
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 

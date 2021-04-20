@@ -180,7 +180,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Encapsulation", func() {
 		BeforeEach(func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
 			SkipIfIntegration(helpers.CIIntegrationGKE)
 		})
 
@@ -312,7 +311,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("AutoDirectNodeRoutes", func() {
 		BeforeEach(func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
 			SkipIfIntegration(helpers.CIIntegrationGKE)
 		})
 
@@ -656,7 +654,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Transparent encryption DirectRouting", func() {
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
 			SkipIfIntegration(helpers.CIIntegrationGKE)
 
 			privateIface, err := kubectl.GetPrivateIface()
@@ -679,7 +676,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		// loading on the native device, the source identity of packet on the
 		// destination node is resolved to WORLD and policy enforcement fails.
 		XIt("Check connectivity with transparent encryption and direct routing with bpf_host", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
 			SkipIfIntegration(helpers.CIIntegrationGKE)
 
 			privateIface, err := kubectl.GetPrivateIface()
@@ -703,9 +699,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
-			// Flannel always disables IPv6, this test is a no-op in that case.
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-
 			deploymentManager.DeployCilium(map[string]string{
 				"ipv4.enabled": "true",
 				"ipv6.enabled": "false",

@@ -337,6 +337,8 @@ Annotations:
   groups configuration of the ``eth0`` interface, pods may be associated with a
   different security group all of a sudden. In order to stay with Cilium's
   current behavior, set the value to ``1`` in the ``CiliumNode`` resource.
+* The legacy flannel integration has been deprecated. If you want to chain on
+  top of flannel, use the standard chaining method.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -381,6 +383,8 @@ New Options
   Kubernetes environment or in a chained CNI setup.
 * ``allocator-list-timeout``: This option configures the timeout value for listing
   allocator state before exiting (default 3m0s).
+* With the deprecation of the legacy flannel integration, the options
+  ``flannel-master-device`` and ``flannel-uninstall-on-exit`` have been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -609,12 +613,6 @@ Full list of updated Helm values:
 | global.etcd.ssl                              | etcd.ssl                                   |
 +----------------------------------------------+--------------------------------------------+
 | global.externalIPs.enabled                   | externalIPs.enabled                        |
-+----------------------------------------------+--------------------------------------------+
-| global.flannel.enabled                       | flannel.enabled                            |
-+----------------------------------------------+--------------------------------------------+
-| global.flannel.masterDevice                  | flannel.masterDevice                       |
-+----------------------------------------------+--------------------------------------------+
-| global.flannel.uninstallOnExit               | flannel.uninstallOnExit                    |
 +----------------------------------------------+--------------------------------------------+
 | global.fragmentTracking                      | fragmentTracking                           |
 +----------------------------------------------+--------------------------------------------+

@@ -2,20 +2,11 @@
 
 set -e
 
-# Backwards compatibility
-if [ -n "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
-	CILIUM_CNI_CHAINING_MODE="flannel"
-fi
-
 HOST_PREFIX=${HOST_PREFIX:-/host}
 
 case "$CILIUM_CNI_CHAINING_MODE" in
 "flannel")
-	until ip link show "${CILIUM_FLANNEL_MASTER_DEVICE}" &>/dev/null ; do
-		echo "Waiting for ${CILIUM_FLANNEL_MASTER_DEVICE} to be initialized"
-		sleep 1s
-	done
-	CNI_CONF_NAME=${CNI_CONF_NAME:-04-flannel-cilium-cni.conflist}
+	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
 	;;
 "generic-veth")
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
@@ -125,7 +116,7 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 	cat > "${CNI_CONF_NAME}" <<EOF
 {
   "cniVersion": "0.3.1",
-  "name": "cbr0",
+  "name": "flannel",
   "plugins": [
     {
       "type": "flannel",

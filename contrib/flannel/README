@@ -1,4 +1,0 @@
-To test flannel in development VM:
- 1. apply the diff that is in this directory
- 2. Start the development VMs `NWORKERS=1 K8S=1 contrib/vagrant/start.sh`
- 3. Once VMs are both up and running apply the flannel k8s descriptor `kubectl create -f examples/kubernetes/addons/flannel/flannel.yaml`

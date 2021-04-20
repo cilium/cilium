@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
@@ -738,16 +737,6 @@ func init() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
-	flags.String(option.FlannelMasterDevice, "",
-		"Installs a BPF program to allow for policy enforcement in the given network interface. "+
-			"Allows to run Cilium on top of other CNI plugins that provide networking, "+
-			"e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
-	option.BindEnv(option.FlannelMasterDevice)
-
-	flags.Bool(option.FlannelUninstallOnExit, false, fmt.Sprintf("When used along the %s "+
-		"flag, it cleans up all BPF programs installed when Cilium agent is terminated.", option.FlannelMasterDevice))
-	option.BindEnv(option.FlannelUninstallOnExit)
-
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
@@ -1250,16 +1239,6 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.Tunnel == "" {
 			option.Config.Tunnel = option.TunnelVXLAN
 		}
-		if option.Config.IsFlannelMasterDeviceSet() {
-			if option.Config.Tunnel != option.TunnelDisabled {
-				log.Warnf("Running Cilium in flannel mode requires tunnel mode be '%s'. Changing tunnel mode to: %s", option.TunnelDisabled, option.TunnelDisabled)
-				option.Config.Tunnel = option.TunnelDisabled
-			}
-			if option.Config.EnableIPv6 {
-				log.Warn("Running Cilium in flannel mode requires IPv6 mode be 'false'. Disabling IPv6 mode")
-				option.Config.EnableIPv6 = false
-			}
-		}
 	case datapathOption.DatapathModeIpvlan:
 		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
@@ -1523,20 +1502,6 @@ func runDaemon() {
 
 	log.Info("Initializing daemon")
 
-	// Since flannel doesn't create the cni0 interface until the first container
-	// is initialized we need to wait until it is initialized so we can attach
-	// the BPF program to it. If Cilium is running as a Kubernetes DaemonSet,
-	// there is also a script waiting for the interface to be created.
-	if option.Config.IsFlannelMasterDeviceSet() {
-		err := waitForHostDeviceWhenReady(option.Config.FlannelMasterDevice)
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Interface: option.Config.FlannelMasterDevice,
-			}).Error("unable to check for host device")
-			return
-		}
-	}
-
 	option.Config.RunMonitorAgent = true
 
 	if err := enableIPForwarding(); err != nil {
@@ -1601,14 +1566,6 @@ func runDaemon() {
 		log.WithError(err).Fatal("postinit failed")
 	}
 
-	if option.Config.IsFlannelMasterDeviceSet() && option.Config.FlannelUninstallOnExit {
-		cleanup.DeferTerminationCleanupFunction(cleaner.cleanUPWg, cleaner.cleanUPSig, func() {
-			d.compilationMutex.Lock()
-			loader.RemoveTCFilters(option.FlannelMasterDevice, netlink.HANDLE_MIN_EGRESS)
-			d.compilationMutex.Unlock()
-		})
-	}
-
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
 	gc.Enable(option.Config.EnableIPv4, option.Config.EnableIPv6,
@@ -1636,18 +1593,6 @@ func runDaemon() {
 		if err := d.endpointManager.AddHostEndpoint(d.ctx, d, d.l7Proxy, d.identityAllocator,
 			"Create host endpoint", nodeTypes.GetName()); err != nil {
 			log.WithError(err).Fatal("Unable to create host endpoint")
-		}
-	}
-
-	if option.Config.IsFlannelMasterDeviceSet() {
-		if option.Config.EnableEndpointHealthChecking {
-			log.Warn("Running Cilium in flannel mode doesn't support endpoint connectivity health checking. Disabling endpoint connectivity health check.")
-			option.Config.EnableEndpointHealthChecking = false
-		}
-
-		err := node.SetInternalIPv4From(option.Config.FlannelMasterDevice)
-		if err != nil {
-			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
 		}
 	}
 

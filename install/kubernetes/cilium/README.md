@@ -166,9 +166,6 @@ contributors across the globe, there is almost always someone available to help.
 | extraEnv | object | `{}` | Additional agent container environment variables |
 | extraHostPathMounts | list | `[]` | Additional agent hostPath mounts |
 | extraInitContainers | list | `[]` | Additional InitContainers to initialize the pod |
-| flannel.enabled | bool | `false` |  |
-| flannel.masterDevice | string | `"cni0"` |  |
-| flannel.uninstallOnExit | bool | `false` |  |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
 | healthChecking | bool | `true` |  |
 | healthPort | int | `9876` | TCP port for the agent health API. This is not the port for cilium-health. |

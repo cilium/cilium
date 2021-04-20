@@ -221,9 +221,7 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 
 			// The restored router IP is not part of the allocation range.
 			// This indicates that the allocation range has changed.
-			if !option.Config.IsFlannelMasterDeviceSet() {
-				deleteHostDevice()
-			}
+			deleteHostDevice()
 
 			// force re-allocation of the router IP
 			routerIP = nil

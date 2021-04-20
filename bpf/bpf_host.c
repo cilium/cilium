@@ -533,12 +533,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		 * the local ip stack.
 		 */
 		if (ep->flags & ENDPOINT_F_HOST)
-#ifdef HOST_REDIRECT_TO_INGRESS
-			/* This is required for L7 proxy to send packets to the host. */
-			return redirect(HOST_IFINDEX, BPF_F_INGRESS);
-#else
 			return CTX_ACT_OK;
-#endif
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
 					   METRIC_INGRESS, from_host);
@@ -577,10 +572,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	}
 #endif
 
-#ifdef HOST_REDIRECT_TO_INGRESS
-	return redirect(HOST_IFINDEX, BPF_F_INGRESS);
-#else
-
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
@@ -608,7 +599,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	}
 #endif
 	return CTX_ACT_OK;
-#endif
 }
 
 static __always_inline int
@@ -829,21 +819,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		int trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
-#ifdef HOST_REDIRECT_TO_INGRESS
-		if (proto == bpf_htons(ETH_P_ARP)) {
-			union macaddr mac = HOST_IFINDEX_MAC;
-			union macaddr smac;
-			__be32 sip;
-			__be32 tip;
-
-			/* Pass any unknown ARP requests to the Linux stack */
-			if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
-				return CTX_ACT_OK;
-
-			return arp_respond(ctx, &mac, tip, &smac, sip,
-					   BPF_F_INGRESS);
-		}
-#endif
 		from_proxy = inherit_identity_from_host(ctx, &identity);
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
@@ -955,7 +930,7 @@ int from_netdev(struct __ctx_buff *ctx)
 
 /*
  * from-host is attached as a tc egress filter to the node's 'cilium_host'
- * interface, or to the primary Flannel device if present.
+ * interface if present.
  */
 __section("from-host")
 int from_host(struct __ctx_buff *ctx)
@@ -1068,7 +1043,7 @@ out:
 
 /*
  * to-host is attached as a tc ingress filter to both the 'cilium_host' and
- * 'cilium_net' devices, or to the primary Flannel device if present.
+ * 'cilium_net' devices if present.
  */
 __section("to-host")
 int to_host(struct __ctx_buff *ctx)

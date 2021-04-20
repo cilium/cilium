@@ -595,9 +595,6 @@ is_l3; })`))
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
 	fmt.Fprint(w, cfg.GetOptions().GetFmtList())
-	if option.Config.IsFlannelMasterDeviceSet() {
-		fmt.Fprint(w, "#define HOST_REDIRECT_TO_INGRESS 1\n")
-	}
 
 	// In case the Linux kernel doesn't support LPM map type, pass the set
 	// of prefix length for the datapath to lookup the map.
@@ -754,9 +751,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		}
 
 		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
-		if option.Config.IsFlannelMasterDeviceSet() {
-			fmt.Fprint(fw, "#define HOST_REDIRECT_TO_INGRESS 1\n")
-		}
 	}
 
 	if e.ConntrackLocalLocked() {

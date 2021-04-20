@@ -363,19 +363,6 @@ data:
   auto-create-cilium-node-resource: "true"
 {{- end }}
 
-{{- if .Values.flannel.enabled }}
-  # Interface to be used when running Cilium on top of a CNI plugin.
-  # For flannel, use "cni0"
-  flannel-master-device: {{ .Values.flannel.masterDevice }}
-
-  # When running Cilium with policy enforcement enabled on top of a CNI plugin
-  # the BPF programs will be installed on the network interface specified in
-  # 'flannel-master-device' and on all network interfaces belonging to
-  # a container. When the Cilium DaemonSet is removed, the BPF programs will
-  # be kept in the interfaces unless this option is set to "true".
-  flannel-uninstall-on-exit: "{{ .Values.flannel.uninstallOnExit}}"
-{{- end }}
-
 {{- if hasKey .Values "l7Proxy" }}
   # Enables L7 proxy for L7 policy enforcement and visibility
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}

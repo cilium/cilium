@@ -494,9 +494,6 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 	if !option.Config.EnableHostLegacyRouting {
 		msg := ""
 		switch {
-		// If we chain CNIs then all bets are off.
-		case option.Config.IsFlannelMasterDeviceSet():
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.FlannelMasterDevice)
 		// Needs host stack for packet handling.
 		case option.Config.EnableIPSec:
 			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)

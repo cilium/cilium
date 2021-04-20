@@ -346,8 +346,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			devices = append(devices, link)
 		}
 		args[initArgDevices] = strings.Join(option.Config.Devices, ";")
-	} else if option.Config.IsFlannelMasterDeviceSet() {
-		args[initArgDevices] = option.Config.FlannelMasterDevice
 	} else {
 		args[initArgDevices] = "<nil>"
 	}
@@ -355,8 +353,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	var mode baseDeviceMode
 	args[initArgTunnelMode] = "<nil>"
 	switch {
-	case option.Config.IsFlannelMasterDeviceSet():
-		mode = flannelMode
 	case option.Config.Tunnel != option.TunnelDisabled:
 		mode = tunnelMode
 		args[initArgTunnelMode] = option.Config.Tunnel

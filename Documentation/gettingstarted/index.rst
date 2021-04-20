@@ -66,7 +66,6 @@ Advanced Networking
    alibabacloud-eni
    kube-router
    bird
-   flannel-integration
    ipvlan
    encryption
    host-services
