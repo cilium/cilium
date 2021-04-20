@@ -4,9 +4,9 @@ on:
   issue_comment:
     types:
       - created
-  push:
-    branches:
-      - master
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 3,9,15,21 * * *'
   ### FOR TESTING PURPOSES
   # pull_request:
   #  types:
