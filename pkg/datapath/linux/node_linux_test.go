@@ -18,8 +18,10 @@ package linux
 
 import (
 	"context"
+	"crypto/rand"
 	"net"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -1091,6 +1093,86 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 	}
 	c.Assert(found, check.Equals, false)
+
+	// Create multiple goroutines which call insertNeighbor and check whether
+	// MAC changes of veth1 are properly handled. This is a basic randomized
+	// testing of insertNeighbor() fine-grained locking.
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+	time.Sleep(100 * time.Millisecond)
+
+	rndHWAddr := func() net.HardwareAddr {
+		mac := make([]byte, 6)
+		_, err := rand.Read(mac)
+		c.Assert(err, check.IsNil)
+		mac[0] = (mac[0] | 2) & 0xfe
+		return net.HardwareAddr(mac)
+	}
+	neighRefCount := func(nextHopStr string) int {
+		linuxNodeHandler.neighLock.Lock()
+		defer linuxNodeHandler.neighLock.Unlock()
+		return linuxNodeHandler.neighNextHopRefCount[nextHopStr]
+	}
+	neighHwAddr := func(nextHopStr string) string {
+		linuxNodeHandler.neighLock.Lock()
+		defer linuxNodeHandler.neighLock.Unlock()
+		if neigh, found := linuxNodeHandler.neighByNextHop[nextHopStr]; found {
+			return neigh.HardwareAddr.String()
+		}
+		return ""
+	}
+
+	done := make(chan struct{})
+	count := 30
+	var wg sync.WaitGroup
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		go func() {
+			defer wg.Done()
+			ticker := time.NewTicker(100 * time.Millisecond)
+			for {
+				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1, true)
+				select {
+				case <-ticker.C:
+				case <-done:
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 10; i++ {
+		mac := rndHWAddr()
+		// Change MAC
+		netns0.Do(func(ns.NetNS) error {
+			veth1, err := netlink.LinkByName("veth1")
+			c.Assert(err, check.IsNil)
+			err = netlink.LinkSetHardwareAddr(veth1, mac)
+			c.Assert(err, check.IsNil)
+			return nil
+		})
+		// Check that MAC has been changed in the neigh table
+		time.Sleep(500 * time.Millisecond)
+		neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+		c.Assert(err, check.IsNil)
+		found = false
+		for _, n := range neighs {
+			if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+				c.Assert(n.HardwareAddr.String(), check.Equals, mac.String())
+				c.Assert(neighHwAddr(ip1.String()), check.Equals, mac.String())
+				c.Assert(neighRefCount(ip1.String()), check.Equals, 1)
+				found = true
+				break
+			}
+		}
+		c.Assert(found, check.Equals, true)
+
+	}
+	// Cleanup
+	close(done)
+	wg.Wait()
+	err = linuxNodeHandler.NodeDelete(nodev1)
+	c.Assert(err, check.IsNil)
+	time.Sleep(100 * time.Millisecond) // deleteNeighbor is invoked async
 
 	// Setup routine for the 2. test
 	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
