@@ -68,7 +68,7 @@ Advanced Networking
    bird
    flannel-integration
    ipvlan
-   encryption-ipsec
+   encryption
    host-services
    kubeproxy-free
    bandwidth-manager

@@ -1186,7 +1186,7 @@ working, take a look at `this KEP
 Limitations
 ###########
 
-    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
+    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`gsg_encryption`.
     * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
       which uses eBPF cgroup hooks to implement the service translation. The getpeername(2)
       hook address translation in eBPF is only available for v5.8 kernels. It is known to
