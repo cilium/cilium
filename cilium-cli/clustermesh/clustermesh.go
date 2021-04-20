@@ -492,16 +492,20 @@ func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
 	}
 
 	clusterID := cm.Data[configNameClusterID]
-	if clusterID == "" || clusterID == "0" {
+	if clusterID == "" {
 		clusterID = "0"
 	}
 	k.clusterID = clusterID
 
 	clusterName := cm.Data[configNameClusterName]
-	if clusterName == "" || clusterName == "default" {
+	if clusterName == "" {
 		clusterName = "default"
 	}
 	k.clusterName = clusterName
+
+	if clusterID == "0" || clusterName == "default" {
+		k.Log("⚠️  Cluster not configured for clustermesh, use '--cluster-id' and '--cluster-name' with 'cilium install'. External workloads may still be configured.")
+	}
 
 	return nil
 }
@@ -1125,10 +1129,10 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 }
 
 func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) {
-	var (
-		err error
-		s   = &Status{}
-	)
+	err := k.GetClusterConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
 		Namespace: k.params.Namespace,
@@ -1142,6 +1146,7 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
 	defer cancel()
 
+	s := &Status{}
 	s.AccessInformation, err = k.statusAccessInformation(ctx, log)
 	if err != nil {
 		return nil, err
@@ -1175,17 +1180,14 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	s.Connectivity, err = k.statusConnectivity(ctx, log)
 
 	if log && s.Connectivity != nil {
-		if len(s.Connectivity.Clusters) == 0 {
-			k.Log("⚠️  Cluster not configured for clustermesh, use '--cluster-id' and '--cluster-name' with 'cilium install'. External workloads may still be configured.")
-			return s, nil
-		} else if s.Connectivity.NotReady > 0 {
+		if s.Connectivity.NotReady > 0 {
 			k.Log("⚠️  %d/%d nodes are not connected to all clusters [min:%d / avg:%.1f / max:%d]",
 				s.Connectivity.NotReady,
 				s.Connectivity.Total,
 				s.Connectivity.Connected.Min,
 				s.Connectivity.Connected.Avg,
 				s.Connectivity.Connected.Max)
-		} else {
+		} else if len(s.Connectivity.Clusters) > 0 {
 			k.Log("✅ All %d nodes are connected to all clusters [min:%d / avg:%.1f / max:%d]",
 				s.Connectivity.Total,
 				s.Connectivity.Connected.Min,
