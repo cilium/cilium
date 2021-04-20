@@ -43,9 +43,8 @@ assignees: ''
     `make -C install/kubernetes/ check-docker-images`
 - [ ] Get the image digests from the build process and make a commit and PR with
       these digests.
-  - [ ] Run `contrib/release/pull-docker-manifests.sh` to fetch the image
-        digests, use the URL of the GitHub run here.
-  - [ ] Create a commit and push as a new PR.
+  - [ ] Run `contrib/release/post-release.sh` to fetch the image
+        digests and submit a PR to update these, use the URL of the GitHub run here.
   - [ ] Merge PR
 - [ ] Update helm charts
   - [ ] Pull latest branch locally into the cilium repository.
@@ -59,7 +58,7 @@ assignees: ''
 - [ ] Check draft release from [releases] page
   - [ ] Update the text at the top with 2-3 highlights of the release
   - [ ] Copy the text from `digest-vX.Y.Z.txt` (previously generated with
-        `contrib/release/pull-docker-manifests.sh`) to the end of the release.
+        `contrib/release/post-release.sh`) to the end of the release.
   - [ ] Publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
 - [ ] Update Grafana dashboards (only for vX.Y.0)
