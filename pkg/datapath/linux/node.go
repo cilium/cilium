@@ -629,7 +629,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
-func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextHopIPv4 net.IP, err error) {
+func getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextHopIPv4 net.IP, err error) {
 	// Figure out whether nodeIPv4 is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGet(nodeIPv4)
 	if err != nil {
@@ -668,9 +668,6 @@ func (n *linuxNodeHandler) getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextH
 // this case it does not bail out early if the ARP entry already exists, and
 // sends the ARP request anyway.
 func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
-	n.neighLock.Lock()
-	defer n.neighLock.Unlock()
-
 	newNodeIP := newNode.GetNodeIP(false).To4()
 	nextHopIPv4 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv4, newNodeIP)
@@ -680,15 +677,18 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		logfields.Interface: n.neighDiscoveryLink.Attrs().Name,
 	})
 
-	srcIPv4, nextHopIPv4, err := n.getSrcAndNextHopIPv4(nextHopIPv4)
+	srcIPv4, nextHopIPv4, err := getSrcAndNextHopIPv4(nextHopIPv4)
 	if err != nil {
 		scopedLog.WithError(err).Info("Unable to determine source and nexthop IP addr")
 		return
 	}
+	nextHopStr := nextHopIPv4.String()
 
 	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
 
-	nextHopStr := nextHopIPv4.String()
+	n.neighLock.Lock()
+	defer n.neighLock.Unlock()
+
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
 		if existingNextHopStr == nextHopStr {
 			// We already know about the nextHop of the given newNode. Can happen
@@ -704,6 +704,9 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 			// nextHop has changed and nobody else is using it, so remove the old one.
 			neigh, found := n.neighByNextHop[existingNextHopStr]
 			if found {
+				// Note that we don't move the removal via netlink which might
+				// block from the hot path (e.g. with defer), as this case can
+				// happen very rarely.
 				if err := netlink.NeighDel(neigh); err != nil {
 					scopedLog.WithFields(logrus.Fields{
 						logfields.IPAddr:       neigh.IP,
@@ -744,12 +747,10 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		}
 
 		if option.Config.NodePortHairpin {
-			defer func() {
-				// Remove nextHopIPv4 entry in the neigh BPF map. Otherwise,
-				// we risk to silently blackhole packets instead of emitting
-				// DROP_NO_FIB if the netlink.NeighSet() below fails.
-				neighborsmap.NeighRetire(nextHopIPv4)
-			}()
+			// Remove nextHopIPv4 entry in the neigh BPF map. Otherwise,
+			// we risk to silently blackhole packets instead of emitting
+			// DROP_NO_FIB if the netlink.NeighSet() below fails.
+			defer neighborsmap.NeighRetire(nextHopIPv4)
 		}
 
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
