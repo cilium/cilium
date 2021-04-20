@@ -13,7 +13,7 @@ env:
   zone: us-west2-a
 
 jobs:
-  installation-and-connectivitiy:
+  installation-and-connectivity:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

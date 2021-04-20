@@ -15,7 +15,7 @@ env:
   LOG_TIME: 30m
 
 jobs:
-  installation-and-connectivitiy:
+  installation-and-connectivity:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
