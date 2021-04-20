@@ -1,5 +1,5 @@
 image: cilium
 
 # cilium-digest
-digest: ""
+digest: "sha256:ba7d3256138fed70f772d35202454f44f3255ad1b0ccf6916ae5a5360fa3a524"
 useDigest: false
