@@ -1,5 +1,55 @@
 # Changelog
 
+## v1.8.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Adds a Getting Started Guide for Rancher Kubernetes Engine (Backport PR #15400, Upstream PR #15323, @seanmwinn)
+* Added a new daemon option `--tofqdns-idle-connection-grace-period`. (Backport PR #15530, Upstream PR #15458, @jrajahalme)
+* helm: the hubble-ui image now honor global.registry by default. If you were previously using global.registry without overriding global.hubble.ui.image.repository, you should either override hubble.ui.image.repository or expect the hubble-ui image to be pulled from global.registry. (#15360, @kaworu)
+* node-neigh: Query once netlink for neigh discovery device (Backport PR #15537, Upstream PR #15431, @brb)
+
+**Bugfixes:**
+* eni: Assign primary IP to support multiple VPC CIDRs (Backport PR #15624, Upstream PR #15453, @gandro)
+* Envoy is updated to release 1.17.2 (#15739, @jrajahalme)
+* Fix a bug that was causing Azure IPAM to not work when ApplicationSecurityGroups were attached to IPConfigurations of a NIC. (Backport PR #15329, Upstream PR #15194, @AnishShah)
+* Fix an issue where packets are dropped when a pod connects to itself via a service clusterIP. (Backport PR #15440, Upstream PR #15321, @aditighag)
+* ipam: Fix ENI routing for secondary CIDRs (Backport PR #15329, Upstream PR #15303, @gandro)
+* node: Fix CIDR comparison when updating routes (Backport PR #15329, Upstream PR #15263, @brb)
+* Remap gops to fixed port to avoid port collision with proxy. (#15634, @tklauser)
+
+**CI Changes:**
+* test: ensure kubectl version is available for test run (Backport PR #15750, Upstream PR #15748, @nebril)
+* test: make RunsOnNetNextKernel() helper work with KERNEL="net-next" (Backport PR #15530, Upstream PR #15395, @qmonnet)
+
+**Misc Changes:**
+* [1.8] contrib: Skip image digests during release prep (#15290, @joestringer)
+* Bugtool: add taskset (Backport PR #15400, Upstream PR #14568, @youssefazrak)
+* bugtool: dump iptables-legacy and iptables-nft (Backport PR #15400, Upstream PR #15363, @h3llix)
+* Bugtool: route tables are dynamically dumped (Backport PR #15400, Upstream PR #14488, @youssefazrak)
+* build(deps): bump actions/download-artifact from 4a7a711286f30c025902c28b541c10e147a9b843 to 2.0.9 (#15670, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from e448a9b857ee2131e752b06002bf0e093c65e571 to 2.2.3 (#15653, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 154c24e1f33dbb5865a021c99f1318cfebf27b32 to 1.1.2 (#15641, @dependabot[bot])
+* build(deps): bump helm/kind-action from v1.0.0-rc.1 to v1.1.0 (#15341, @dependabot[bot])
+* build(deps): bump pygments from 2.4.2 to 2.7.4 in /Documentation (Backport PR #15530, Upstream PR #15495, @dependabot[bot])
+* build(deps): update docker/build-push-action requirement to e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f (#15687, @dependabot[bot])
+* contrib: fix remote overriding (Backport PR #15400, Upstream PR #15328, @kaworu)
+* docs: Fix commands for IPSec key rotations (Backport PR #15530, Upstream PR #15481, @pchaigno)
+* docs: Hide "Edit on GitHub" buttons (Backport PR #15592, Upstream PR #15579, @joestringer)
+* docs: Update DNS proxy timeout value (Backport PR #15592, Upstream PR #15581, @aditighag)
+* Documentation: fix key rotation command in encryption guide (Backport PR #15400, Upstream PR #15365, @mauriciovasquezbernal)
+* Improve release scripts (Backport PR #15530, Upstream PR #15294, @joestringer)
+* install: Update generated helm YAMLs to use digests (#15308, @joestringer)
+* k8s: update k8s libraries to 1.18.17 (#15526, @aanm)
+* k8s: update k8s libraries to 1.18.18 (#15754, @aanm)
+* Make encryption+chaining limitations clearer (Backport PR #15624, Upstream PR #15598, @joestringer)
+* node-neigh: Reduce arping related log msg's level (Backport PR #15624, Upstream PR #15261, @brb)
+
+**Other Changes:**
+* install: Update image digests for v1.8.8 (#15307, @joestringer)
+
 ## v1.8.8
 
 Summary of Changes
