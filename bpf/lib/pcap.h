@@ -121,25 +121,25 @@ struct capture_rule {
 
 /* 5-tuple wildcard key / mask. */
 struct capture4_wcard {
-	__be32 daddr;   /* masking: prefix */
 	__be32 saddr;   /* masking: prefix */
-	__be16 dport;   /* masking: 0 or 0xffff */
+	__be32 daddr;   /* masking: prefix */
 	__be16 sport;   /* masking: 0 or 0xffff */
+	__be16 dport;   /* masking: 0 or 0xffff */
 	__u8   nexthdr; /* masking: 0 or 0xff */
-	__u8   dmask;   /* prefix len: daddr */
 	__u8   smask;   /* prefix len: saddr */
+	__u8   dmask;   /* prefix len: daddr */
 	__u8   flags;   /* reserved: 0 */
 };
 
 /* 5-tuple wildcard key / mask. */
 struct capture6_wcard {
-	union v6addr daddr; /* masking: prefix */
 	union v6addr saddr; /* masking: prefix */
-	__be16 dport;       /* masking: 0 or 0xffff */
+	union v6addr daddr; /* masking: prefix */
 	__be16 sport;       /* masking: 0 or 0xffff */
+	__be16 dport;       /* masking: 0 or 0xffff */
 	__u8   nexthdr;     /* masking: 0 or 0xff */
-	__u8   dmask;       /* prefix len: daddr */
 	__u8   smask;       /* prefix len: saddr */
+	__u8   dmask;       /* prefix len: daddr */
 	__u8   flags;       /* reserved: 0 */
 };
 
@@ -220,7 +220,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 	struct capture_rule *match;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int i, ret;
+	int i;
 	const int size = sizeof(prefix_masks) /
 			 sizeof(prefix_masks[0]);
 
@@ -233,9 +233,11 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 	okey.smask = 32;
 	okey.nexthdr = ip4->protocol;
 
-	ret = extract_l4_port(ctx, okey.nexthdr, ETH_HLEN + ipv4_hdrlen(ip4),
-			      0, &okey.dport, ip4);
-	if (IS_ERR(ret))
+	if (ip4->protocol != IPPROTO_TCP &&
+	    ip4->protocol != IPPROTO_UDP)
+		return NULL;
+	if (ctx_load_bytes(ctx, ETH_HLEN + ipv4_hdrlen(ip4),
+			   &okey.sport, 4) < 0)
 		return NULL;
 
 	okey.flags = 0;
@@ -356,10 +358,11 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 	ret = ipv6_hdrlen(ctx, l3_off, &okey.nexthdr);
 	if (ret < 0)
 		return NULL;
-
-	ret = extract_l4_port(ctx, okey.nexthdr, l3_off + ret,
-			      0, &okey.dport, NULL);
-	if (IS_ERR(ret))
+	if (okey.nexthdr != IPPROTO_TCP &&
+	    okey.nexthdr != IPPROTO_UDP)
+		return NULL;
+	if (ctx_load_bytes(ctx, l3_off + ret,
+			   &okey.sport, 4) < 0)
 		return NULL;
 
 	okey.flags = 0;
