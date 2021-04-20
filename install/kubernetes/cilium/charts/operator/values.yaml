@@ -1,7 +1,7 @@
 image: operator
 synchronizeK8sNodes: true
 # operator-digest
-digest: ""
+digest: "sha256:88d68932abf6b29ff88c48e5cb4f143a57e78d213ced383427f988a87d771a0d"
 useDigest: false
 
 # Number of replicas to run for cilium operator deployment.
