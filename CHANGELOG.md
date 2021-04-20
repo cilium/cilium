@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.7.16
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix possible deadlock when querying network interfaces for arping (#15430, @brb)
+* Envoy is updated to release 1.17.2 (#15740, @jrajahalme)
+* Fix channel panic from ipcache kvstore reconnect (Backport PR #15767, Upstream PR #15668, @jomenxiao)
+* vendor: Bump vishvananda/netlink dependency (#15408, @tgraf)
+
+**CI Changes:**
+* test: ensure kubectl version is available for test run (Backport PR #15751, Upstream PR #15748, @nebril)
+
+**Misc Changes:**
+* [1.7] contrib: Skip image digests during release prep (#15289, @joestringer)
+* [v1.7]  Bump cilium-runtime image dependency (#15720, @joestringer)
+* backporting: Update instructions for backporting workflow (Backport PR #15767, Upstream PR #15118, @aditighag)
+* bugtool: dump iptables-legacy and iptables-nft (Backport PR #15401, Upstream PR #15363, @h3llix)
+* Bugtool: route tables are dynamically dumped (Backport PR #15401, Upstream PR #14488, @youssefazrak)
+* build(deps): bump actions/download-artifact from 4a7a711286f30c025902c28b541c10e147a9b843 to 2.0.9 (#15652, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from e448a9b857ee2131e752b06002bf0e093c65e571 to 2.2.3 (#15643, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 154c24e1f33dbb5865a021c99f1318cfebf27b32 to 1.1.2 (#15671, @dependabot[bot])
+* build(deps): bump pygments from 2.4.2 to 2.7.4 in /Documentation (Backport PR #15529, Upstream PR #15495, @dependabot[bot])
+* build(deps): update docker/build-push-action requirement to e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f (#15686, @dependabot[bot])
+* contrib: fix remote overriding (Backport PR #15401, Upstream PR #15328, @kaworu)
+* docs: Fix commands for IPSec key rotations (Backport PR #15529, Upstream PR #15481, @pchaigno)
+* docs: Hide "Edit on GitHub" buttons (Backport PR #15612, Upstream PR #15579, @joestringer)
+* Documentation: fix key rotation command in encryption guide (Backport PR #15401, Upstream PR #15365, @mauriciovasquezbernal)
+* Improve release scripts (Backport PR #15529, Upstream PR #15294, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.7.15 (#15293, @joestringer)
+
 ## v1.7.15
 
 Summary of Changes
