@@ -370,7 +370,9 @@ func (r *Recorder) queueDelDatapathFilter(ri *RecInfo, i int) {
 	// queues strictly only ever contain entries that need change.
 	for i, e := range r.queue.add {
 		if hashTuple(e) == hash {
-			r.queue.add = queuePurge(r.queue.add, i)
+			if r.queue.ri.CapLen == ri.CapLen {
+				r.queue.add = queuePurge(r.queue.add, i)
+			}
 			return
 		}
 	}
