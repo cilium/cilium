@@ -60,17 +60,36 @@ func listMasks(cmd *cobra.Command, args []string) {
 }
 
 func printRecorderMaskList(w *tabwriter.Writer, maskList []*models.RecorderMask) {
+	maskList4 := []*models.RecorderMask{}
+	maskList6 := []*models.RecorderMask{}
 	fmt.Fprintln(w, "Users\tPriority   \tWildcard Masks\t")
 	for _, mask := range maskList {
 		if mask.Status == nil || mask.Status.Realized == nil {
 			fmt.Fprint(os.Stderr, "error parsing recorder: empty state")
 			continue
 		}
+		if len(mask.Status.Realized.SrcPrefixMask) == 8 {
+			maskList4 = append(maskList4, mask)
+		} else {
+			maskList6 = append(maskList6, mask)
+		}
 	}
-	sort.Slice(maskList, func(i, j int) bool {
-		return maskList[i].Status.Realized.Priority > maskList[j].Status.Realized.Priority
+	sort.Slice(maskList4, func(i, j int) bool {
+		return maskList4[i].Status.Realized.Priority > maskList4[j].Status.Realized.Priority
 	})
-	for _, mask := range maskList {
+	sort.Slice(maskList6, func(i, j int) bool {
+		return maskList6[i].Status.Realized.Priority > maskList6[j].Status.Realized.Priority
+	})
+	for _, mask := range maskList6 {
+		spec := mask.Status.Realized
+		str := fmt.Sprintf("%d\t%d\t%s:%s\t->\t%s:%s\t%s",
+			spec.Users, spec.Priority,
+			spec.SrcPrefixMask, spec.SrcPortMask,
+			spec.DstPrefixMask, spec.DstPortMask,
+			spec.ProtocolMask)
+		fmt.Fprintln(w, str)
+	}
+	for _, mask := range maskList4 {
 		spec := mask.Status.Realized
 		str := fmt.Sprintf("%d\t%d\t%s:%s\t->\t%s:%s\t%s",
 			spec.Users, spec.Priority,
