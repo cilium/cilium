@@ -21,6 +21,7 @@ import (
 	"net"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -1031,6 +1032,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	// related neigh entry.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
+	time.Sleep(100 * time.Millisecond) // insertNeighbor is invoked async
 
 	// Check whether an arp entry for nodev1 IP addr (=veth1) was added
 	neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
@@ -1077,6 +1079,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	// Remove nodev1, and check whether the arp entry was removed
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	c.Assert(err, check.IsNil)
+	time.Sleep(100 * time.Millisecond) // deleteNeighbor is invoked async
 
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
@@ -1240,6 +1243,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node3IP}},
 	}
 	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+	time.Sleep(100 * time.Millisecond) // insertNeighbor is invoked async
 
 	nextHop := net.ParseIP("9.9.9.250")
 	// Check that both node{2,3} are via nextHop (gw)
@@ -1269,9 +1273,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 
 	// However, removing node3 should remove the neigh entry for nextHop
 	c.Assert(linuxNodeHandler.NodeDelete(nodev3), check.IsNil)
+	time.Sleep(100 * time.Millisecond) // deleteNeighbor is invoked async
+
+	found = false
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
-	found = false
 	for _, n := range neighs {
 		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
 			found = true
