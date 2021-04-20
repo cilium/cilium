@@ -46,7 +46,7 @@ func (t *PodToService) Run(ctx context.Context, c check.TestContext) {
 			}
 		}
 
-		testConnetivityToServiceDefinition(ctx, c, t, client, serviceDestinations)
+		testConnectivityToServiceDefinition(ctx, c, t, client, serviceDestinations)
 	}
 
 }
@@ -78,7 +78,7 @@ func (t *PodToNodePort) Run(ctx context.Context, c check.TestContext) {
 			}
 		}
 
-		testConnetivityToServiceDefinition(ctx, c, t, client, serviceDestinations)
+		testConnectivityToServiceDefinition(ctx, c, t, client, serviceDestinations)
 	}
 }
 
@@ -111,7 +111,7 @@ func (t *PodToLocalNodePort) Run(ctx context.Context, c check.TestContext) {
 			}
 		}
 
-		testConnetivityToServiceDefinition(ctx, c, t, client, serviceDestinations)
+		testConnectivityToServiceDefinition(ctx, c, t, client, serviceDestinations)
 	}
 }
 
@@ -123,7 +123,7 @@ type serviceDefinition struct {
 
 type serviceDefinitionMap map[string]serviceDefinition
 
-func testConnetivityToServiceDefinition(ctx context.Context, c check.TestContext, t check.ConnectivityTest, client check.PodContext, def serviceDefinitionMap) {
+func testConnectivityToServiceDefinition(ctx context.Context, c check.TestContext, t check.ConnectivityTest, client check.PodContext, def serviceDefinitionMap) {
 	for peer, definition := range def {
 		destination := net.JoinHostPort(peer, strconv.Itoa(definition.port))
 		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{
