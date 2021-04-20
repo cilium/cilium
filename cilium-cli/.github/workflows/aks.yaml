@@ -12,7 +12,7 @@ env:
   clusterName: cilium-cli-ci-${{ github.run_number }}
 
 jobs:
-  installation-and-connectivitiy:
+  installation-and-connectivity:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
