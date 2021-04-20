@@ -744,6 +744,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		}
 	}
 out_send:
+	cilium_capture_out(ctx);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -1054,7 +1055,10 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
 	edt_set_aggregate(ctx, 0);
+	cilium_capture_out(ctx);
+
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
@@ -1723,6 +1727,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		}
 	}
 out_send:
+	cilium_capture_out(ctx);
 	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -2046,7 +2051,10 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb4(ctx, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
 	edt_set_aggregate(ctx, 0);
+	cilium_capture_out(ctx);
+
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
