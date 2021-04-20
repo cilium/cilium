@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
@@ -668,13 +669,23 @@ func getSrcAndNextHopIPv4(nodeIPv4 net.IP) (srcIPv4, nextHopIPv4 net.IP, err err
 // this case it does not bail out early if the ARP entry already exists, and
 // sends the ARP request anyway.
 func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) {
+	var link netlink.Link
+	n.neighLock.Lock()
+	if n.neighDiscoveryLink == nil || reflect.ValueOf(n.neighDiscoveryLink).IsNil() {
+		n.neighLock.Unlock()
+		// Nothing to do - the discovery link was not set yet
+		return
+	}
+	link = n.neighDiscoveryLink
+	n.neighLock.Unlock()
+
 	newNodeIP := newNode.GetNodeIP(false).To4()
 	nextHopIPv4 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv4, newNodeIP)
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.LogSubsys: "node-neigh-debug",
-		logfields.Interface: n.neighDiscoveryLink.Attrs().Name,
+		logfields.Interface: link.Attrs().Name,
 	})
 
 	srcIPv4, nextHopIPv4, err := getSrcAndNextHopIPv4(nextHopIPv4)
@@ -687,7 +698,12 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
 
 	n.neighLock.Lock()
-	defer n.neighLock.Unlock()
+	locked := true
+	defer func() {
+		if locked {
+			n.neighLock.Unlock()
+		}
+	}()
 
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
 		if existingNextHopStr == nextHopStr {
@@ -729,16 +745,25 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
 
+	n.neighLock.Unlock() // to allow concurrent arpings below
+	locked = false
+
 	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
+	var hwAddr net.HardwareAddr
 	if nextHopIsNew || refresh {
-		hwAddr, err := arp.PingOverLink(n.neighDiscoveryLink, srcIPv4, nextHopIPv4)
+		hwAddr, err = arp.PingOverLink(link, srcIPv4, nextHopIPv4)
 		if err != nil {
 			scopedLog.WithError(err).Info("arping failed")
 			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
 			return
 		}
 		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
+	}
 
+	n.neighLock.Lock()
+	locked = true
+
+	if hwAddr != nil {
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
 			// Nothing to update, return early to avoid calling to netlink. This
 			// is based on the assumption that n.neighByNextHop gets populated
@@ -756,7 +781,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
 		neigh := netlink.Neigh{
-			LinkIndex:    n.neighDiscoveryLink.Attrs().Index,
+			LinkIndex:    link.Attrs().Index,
 			IP:           nextHopIPv4,
 			HardwareAddr: hwAddr,
 			State:        netlink.NUD_PERMANENT,
@@ -1351,7 +1376,11 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				return fmt.Errorf("cannot find link by name %s for neigh discovery: %w",
 					ifaceName, err)
 			}
+			// neighDiscoveryLink can be accessed by a concurrent insertNeighbor
+			// goroutine.
+			n.neighLock.Lock()
 			n.neighDiscoveryLink = link
+			n.neighLock.Unlock()
 		}
 	}
 
