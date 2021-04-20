@@ -938,7 +938,7 @@ func init() {
 	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
 	option.BindEnv(option.HubbleExportFileCompress)
 
-	flags.Bool(option.EnableHubbleRecorderAPI, false, "Enable the Hubble recorder API")
+	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
 	option.BindEnv(option.EnableHubbleRecorderAPI)
 
 	flags.String(option.HubbleRecorderStoragePath, defaults.HubbleRecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
