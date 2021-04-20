@@ -835,7 +835,7 @@ func (m *IptablesManager) GetProxyPort(name string) uint16 {
 		prog = "ip6tables"
 	}
 
-	res, err := runProgCombinedOutput(prog, []string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain}, false)
+	res, err := runProgCombinedOutput(prog, []string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain}, true)
 	if err != nil {
 		return 0
 	}
