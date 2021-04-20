@@ -73,9 +73,9 @@ jobs:
         run: |
           cilium uninstall --wait
 
-      - name: Install Cilium with Encryption
+      - name: Install Cilium with IPsec Encryption
         run: |
-          cilium install --encryption --kube-proxy-replacement=probe
+          cilium install --encryption=ipsec --kube-proxy-replacement=probe
 
       - name: Enable Relay
         run: |

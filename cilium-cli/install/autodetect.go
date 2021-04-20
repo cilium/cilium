@@ -167,5 +167,15 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		return fmt.Errorf("invalid cluster name")
 	}
 
+	switch k.params.Encryption {
+	case encryptionDisabled,
+		encryptionIPsec,
+		encryptionWireguard:
+		// nothing to do for valid values
+	default:
+		k.Log("❌ Invalid encryption mode: %q", k.params.Encryption)
+		return fmt.Errorf("invalid encryption mode")
+	}
+
 	return nil
 }

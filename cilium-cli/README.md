@@ -329,9 +329,9 @@ Connect Clusters
 
 ### Encryption
 
-Install a Cilium in a cluster and enable encryption
+Install a Cilium in a cluster and enable encryption with IPsec
 
-    cilium install --encryption
+    cilium install --encryption=ipsec
     🔮 Auto-detected Kubernetes kind: kind
     ✨ Running "kind" validation checks
     ✅ Detected kind version "0.9.0"
