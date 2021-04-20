@@ -85,5 +85,5 @@ assignees: ''
 [kops]: https://github.com/kubernetes/kops/
 [kubespray]: https://github.com/kubernetes-sigs/kubespray/
 [cilium helm release tool]: https://github.com/cilium/charts/blob/master/prepare_artifacts.sh
-[Quick Instsall]: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default.html
+[Quick Install]: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default.html
 [cilium-runtime images]: https://quay.io/repository/cilium/cilium-runtime
