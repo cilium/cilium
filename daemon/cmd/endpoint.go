@@ -309,17 +309,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	if epTemplate.DatapathConfiguration == nil {
 		dpConfig := endpoint.NewDatapathConfiguration()
 		epTemplate.DatapathConfiguration = &dpConfig
+	}
+	if option.Config.EnableEndpointRoutes {
+		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
+		epTemplate.DatapathConfiguration.RequireEgressProg = true
+		disabled := false
+		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	} else {
-		if option.Config.EnableEndpointRoutes {
-			epTemplate.DatapathConfiguration.InstallEndpointRoute = true
-			epTemplate.DatapathConfiguration.RequireEgressProg = true
-			disabled := false
-			epTemplate.DatapathConfiguration.RequireRouting = &disabled
-		} else {
-			epTemplate.DatapathConfiguration.InstallEndpointRoute = false
-			epTemplate.DatapathConfiguration.RequireEgressProg = false
-			epTemplate.DatapathConfiguration.RequireRouting = nil
-		}
+		epTemplate.DatapathConfiguration.InstallEndpointRoute = false
+		epTemplate.DatapathConfiguration.RequireEgressProg = false
+		epTemplate.DatapathConfiguration.RequireRouting = nil
 	}
 
 	log.WithFields(logrus.Fields{
