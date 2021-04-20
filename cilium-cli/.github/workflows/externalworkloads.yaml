@@ -72,13 +72,10 @@ jobs:
       - name: Install cilium on external workload
         run: |
           cilium clustermesh vm install install-external-workload.sh
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "hostname"
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "~/install-external-workload.sh"
-          sleep 10s
+          sleep 5s
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
-          kubectl get cew --all-namespaces -o wide
-          kubectl get cep --all-namespaces -o wide
 
       - name: Verify cluster DNS on external workload
         run: |
