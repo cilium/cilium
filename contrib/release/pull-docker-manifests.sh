@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2020 Authors of Cilium
+# Copyright 2021 Authors of Cilium
 
 DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source "${DIR}/lib/common.sh"
@@ -32,7 +32,7 @@ handle_args() {
         common::exit 0
     fi
 
-    if ! echo "$2" | grep -q "[0-9]\+\.[0-9]\+\.[0-9]\+"; then
+    if [ -n "$2" ] && ! echo "$2" | grep -q "[0-9]\+\.[0-9]\+\.[0-9]\+"; then
         usage 2>&1
         common::exit 1 "Invalid VERSION ARG \"$2\"; Expected X.Y.Z"
     fi
@@ -85,6 +85,7 @@ main() {
     >&2 echo "Generating manifest text for release notes"
     >&2 echo ""
     image_digest_output=$(get_digest_output "${username}" "${run_url_id}" "${version}" image-digest-output.txt)
+    echo > "${PWD}/digest-${version}.txt"
     cat "${image_digest_output}" >> "${PWD}/digest-${version}.txt"
     >&2 echo "Image digests available at ${PWD}/digest-${version}.txt"
 }
