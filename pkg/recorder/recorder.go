@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -87,6 +88,7 @@ type Recorder struct {
 	recMask map[string]*RecMask
 	queue   recQueue
 	ctx     context.Context
+	owner   datapath.BaseProgramOwner
 }
 
 // NewRecorder initializes the main recorder infrastructure once upon agent
@@ -94,7 +96,7 @@ type Recorder struct {
 // down into the BPF datapath. Given we currently do not support restore
 // functionality, it also flushes prior existing recorder objects from the
 // BPF maps.
-func NewRecorder(ctx context.Context) (*Recorder, error) {
+func NewRecorder(ctx context.Context, owner datapath.BaseProgramOwner) (*Recorder, error) {
 	rec := &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -102,7 +104,8 @@ func NewRecorder(ctx context.Context) (*Recorder, error) {
 			add: []*RecorderTuple{},
 			del: []*RecorderTuple{},
 		},
-		ctx: ctx,
+		ctx:   ctx,
+		owner: owner,
 	}
 	if option.Config.EnableRecorder {
 		maps := []*bpf.Map{}
@@ -256,7 +259,7 @@ func (r *Recorder) triggerDatapathRegenerate() error {
 			extraCArgs = append(extraCArgs, masks6)
 		}
 	}
-	err := l.ReinitializeXDP(r.ctx, extraCArgs)
+	err := l.ReinitializeXDP(r.ctx, r.owner, extraCArgs)
 	if err != nil {
 		log.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
 			masks4, masks6)
