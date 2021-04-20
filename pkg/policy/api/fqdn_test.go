@@ -28,7 +28,9 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		{MatchName: "get-cilium.io."},
 		{MatchName: "foo.cilium.io."},
 		{MatchName: "cilium.io"},
+		{MatchName: "_cilium.io"},
 		{MatchPattern: "*.cilium.io"},
+		{MatchPattern: "*._cilium.io"},
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
 	} {
@@ -54,7 +56,9 @@ func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
 		{MatchName: "get-cilium.io."},
 		{MatchName: "foo.cilium.io."},
 		{MatchName: "cilium.io"},
+		{MatchName: "_cilium.io"},
 		{MatchPattern: "*.cilium.io"},
+		{MatchPattern: "*._cilium.io"},
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
 	} {
