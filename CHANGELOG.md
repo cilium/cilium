@@ -1,5 +1,79 @@
 # Changelog
 
+## v1.9.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Added a new daemon option `--tofqdns-idle-connection-grace-period`. (Backport PR #15531, Upstream PR #15458, @jrajahalme)
+* Adds a Getting Started Guide for Rancher Kubernetes Engine (Backport PR #15399, Upstream PR #15323, @seanmwinn)
+* doc: Document minimal version of AWS CNI in chaining mode (Backport PR #15331, Upstream PR #15304, @tgraf)
+* k8s: update k8s libraries to 1.19.10 (#15753, @aanm)
+* node-neigh: Query once netlink for neigh discovery device (Backport PR #15536, Upstream PR #15431, @brb)
+* VM support has been updated to make use of the new `cilium` cluster CLI tool. (Backport PR #15531, Upstream PR #15320, @jrajahalme)
+
+**Bugfixes:**
+* Add labels to scrape cilium agent and operator metrics (Backport PR #15588, Upstream PR #14747, @lyveng)
+* cilium: encryption, auto-discover interface and subnet (Backport PR #15601, Upstream PR #15357, @jrfastab)
+* cilium: Fix EKS encryption panic and reinit path and add workflows test (Backport PR #15726, Upstream PR #15669, @jrfastab)
+* ctmap: do not call InitMapInfo() in init() (Backport PR #15673, Upstream PR #15590, @kkourt)
+* eni: Assign primary IP to support multiple VPC CIDRs (Backport PR #15627, Upstream PR #15453, @gandro)
+* Envoy is updated to release 1.17.2 (#15738, @jrajahalme)
+* Fix a bug that was causing Azure IPAM to not work when ApplicationSecurityGroups were attached to IPConfigurations of a NIC. (Backport PR #15331, Upstream PR #15194, @AnishShah)
+* Fix a bug that was causing Azure IPAM with multiple pod subnets to not work. (Backport PR #15331, Upstream PR #15182, @AnishShah)
+* Fix bug where `enable-endpoint-routes` change required all pods to restart to take effect (Backport PR #15399, Upstream PR #15228, @pchaigno)
+* Fix bug where any non-leader Operator in HA mode would crash updating CRDs (Backport PR #15588, Upstream PR #15544, @christarazi)
+* Fix ethtool issues (Backport PR #15673, Upstream PR #15622, @tklauser)
+* ipam: Fix ENI routing for secondary CIDRs (Backport PR #15331, Upstream PR #15303, @gandro)
+* node: Fix CIDR comparison when updating routes (Backport PR #15331, Upstream PR #15263, @brb)
+
+**CI Changes:**
+* bpf: Extend datapath options for K8sVerifier test (Backport PR #15673, Upstream PR #15540, @pchaigno)
+* test: ensure kubectl version is available for test run (Backport PR #15752, Upstream PR #15748, @nebril)
+* test: make RunsOnNetNextKernel() helper work with KERNEL="net-next" (Backport PR #15531, Upstream PR #15395, @qmonnet)
+
+**Misc Changes:**
+* [1.9] contrib: Skip image digests during release prep (#15291, @joestringer)
+* Add Cluster Health metrics (Backport PR #15531, Upstream PR #15380, @h3llix)
+* Bugtool: add taskset (Backport PR #15399, Upstream PR #14568, @youssefazrak)
+* bugtool: dump iptables-legacy and iptables-nft (Backport PR #15399, Upstream PR #15363, @h3llix)
+* Bugtool: route tables are dynamically dumped (Backport PR #15399, Upstream PR #14488, @youssefazrak)
+* build(deps): bump actions/cache from v2 to v2.1.4 (#15413, @dependabot[bot])
+* build(deps): bump actions/cache from v2.1.4 to v2.1.5 (#15672, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 4a7a711286f30c025902c28b541c10e147a9b843 to 2.0.9 (#15704, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 154c24e1f33dbb5865a021c99f1318cfebf27b32 to 1.1.2 (#15654, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from v2 to v2.5.2 (#15554, @dependabot[bot])
+* build(deps): bump helm/kind-action from v1.0.0 to v1.1.0 (#15342, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from v1.1.1 to v1.2.2 (#15685, @dependabot[bot])
+* build(deps): bump pygments from 2.4.2 to 2.7.4 in /Documentation (Backport PR #15531, Upstream PR #15495, @dependabot[bot])
+* build(deps): update actions/upload-artifact requirement to ee69f02b3dfdecd58bb31b4d133da38ba6fe3700 (#15642, @dependabot[bot])
+* build(deps): update docker/build-push-action requirement to e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f (#15741, @dependabot[bot])
+* contrib: fix remote overriding (Backport PR #15399, Upstream PR #15328, @kaworu)
+* docs: De-duplicate k8s integration section (Backport PR #15531, Upstream PR #15454, @joestringer)
+* docs: Fix commands for IPSec key rotations (Backport PR #15531, Upstream PR #15481, @pchaigno)
+* docs: fix the Cilium namespace in GKE (Backport PR #15531, Upstream PR #15463, @kaworu)
+* docs: Hide "Edit on GitHub" buttons (Backport PR #15588, Upstream PR #15579, @joestringer)
+* docs: Update DNS proxy timeout value (Backport PR #15588, Upstream PR #15581, @aditighag)
+* docs: update k3s installation instructions (Backport PR #15588, Upstream PR #15503, @aanm)
+* Documentation: fix key rotation command in encryption guide (Backport PR #15399, Upstream PR #15365, @mauriciovasquezbernal)
+* Fix BPF_JMP_MAP_ID on tail call toy example. (Backport PR #15588, Upstream PR #15576, @yiannisy)
+* Improve release scripts (Backport PR #15531, Upstream PR #15294, @joestringer)
+* install/kubernetes: Fix incorrect commands for digest generation (Backport PR #15312, Upstream PR #15311, @christarazi)
+* ipam: Fix empty interface number in Azure (Backport PR #15597, Upstream PR #15533, @christarazi)
+* ipsec: Fix routing CIDR iteration on EKS (Backport PR #15726, Upstream PR #15645, @gandro)
+* k8s: update k8s libraries to 1.19.9 (#15527, @aanm)
+* Kata: Mention incompatibility with host-reachable services or strict KPR in documentation (Backport PR #15673, Upstream PR #15589, @qmonnet)
+* Make encryption+chaining limitations clearer (Backport PR #15627, Upstream PR #15598, @joestringer)
+* mtu: Switch to v/netlink for querying netdevs (Backport PR #15673, Upstream PR #15260, @brb)
+* node-neigh: Reduce arping related log msg's level (Backport PR #15627, Upstream PR #15261, @brb)
+* Partial revert "vendor: Bump netlink to include timeouts" (#15351, @joestringer)
+* Update Go to 1.15.11 (#15570, @tklauser)
+* v1.9: Update Go to 1.15.10 (#15347, @tklauser)
+* v1.9: Update Go to 1.15.9 (#15316, @tklauser)
+* vendor: Update sigs.k8s.io/structured-merge-diff/v4 (Backport PR #15531, Upstream PR #14752, @christarazi)
+* install: Update image digests for v1.9.5 (#15310, @christarazi)
+
 ## v1.9.5
 
 Summary of Changes
