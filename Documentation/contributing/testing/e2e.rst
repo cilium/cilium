@@ -470,7 +470,7 @@ This mode expects:
 - A populated K8S_VERSION environment variable set to the version of the cluster
 
 - If appropriate, set the ``CNI_INTEGRATION`` environment variable set to one
-  of ``flannel``, ``gke``, ``eks``, ``eks-chaining``, ``microk8s`` or ``minikube``. This selects
+  of ``gke``, ``eks``, ``eks-chaining``, ``microk8s`` or ``minikube``. This selects
   matching configuration overrides for cilium.
   Leaving this unset for non-matching integrations is also correct.
 

@@ -75,7 +75,6 @@ type NodeDiscovery struct {
 
 func enableLocalNodeRoute() bool {
 	return option.Config.EnableLocalNodeRoute &&
-		!option.Config.IsFlannelMasterDeviceSet() &&
 		option.Config.IPAM != ipamOption.IPAMENI &&
 		option.Config.IPAM != ipamOption.IPAMAzure &&
 		option.Config.IPAM != ipamOption.IPAMAlibabaCloud

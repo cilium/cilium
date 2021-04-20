@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("K8sConformance", func() {
 	SkipContextIf(func() bool {
-		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel
+		return helpers.RunsWithKubeProxyReplacement()
 	}, "Portmap Chaining", func() {
 		var (
 			kubectl                         *helpers.Kubectl

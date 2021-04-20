@@ -79,8 +79,6 @@ var _ = Describe("K8sHealthTest", func() {
 		}
 
 		It("Checks status between nodes", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-
 			cilium1, cilium1IP := getCilium(helpers.K8s1)
 			cilium2, cilium2IP := getCilium(helpers.K8s2)
 

@@ -58,10 +58,6 @@ const (
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout = 7 * time.Minute
 
-	// CIIntegrationFlannel contains the constant to be used when flannel is
-	// used in the CI.
-	CIIntegrationFlannel = "flannel"
-
 	// CIIntegrationEKSChaining contains the constants to be used when running tests on EKS with aws-cni in chaining mode.
 	CIIntegrationEKSChaining = "eks-chaining"
 
@@ -125,12 +121,6 @@ var (
 		"ipam.operator.clusterPoolIPv6PodCIDR": "fd02::/112",
 	}
 
-	flannelHelmOverrides = map[string]string{
-		"flannel.enabled": "true",
-		"ipv6.enabled":    "false",
-		"tunnel":          "disabled",
-	}
-
 	eksChainingHelmOverrides = map[string]string{
 		"k8s.requireIPv4PodCIDR": "false",
 		"cni.chainingMode":       "aws-cni",
@@ -191,7 +181,6 @@ var (
 	// specific CI environment integrations.
 	// The key must be a string consisting of lower case characters.
 	helmOverrides = map[string]map[string]string{
-		CIIntegrationFlannel:     flannelHelmOverrides,
 		CIIntegrationEKSChaining: eksChainingHelmOverrides,
 		CIIntegrationEKS:         eksHelmOverrides,
 		CIIntegrationGKE:         gkeHelmOverrides,
@@ -2571,7 +2560,6 @@ func (kub *Kubectl) convertOptionsToLegacyOptions(options map[string]string) map
 		"enableCnpStatusUpdates":        "config.enableCnpStatusUpdates",
 		"etcd.leaseTTL":                 "global.etcd.leaseTTL",
 		"externalIPs.enabled":           "global.externalIPs.enabled",
-		"flannel.enabled":               "global.flannel.enabled",
 		"gke.enabled":                   "global.gke.enabled",
 		"hostFirewall":                  "global.hostFirewall",
 		"hostPort.enabled":              "global.hostPort.enabled",
@@ -3740,14 +3728,12 @@ func (kub *Kubectl) validateCilium() error {
 		return nil
 	})
 
-	if GetCurrentIntegration() != CIIntegrationFlannel {
-		g.Go(func() error {
-			if err := kub.ciliumHealthPreFlightCheck(); err != nil {
-				return fmt.Errorf("connectivity health is failing: %s", err)
-			}
-			return nil
-		})
-	}
+	g.Go(func() error {
+		if err := kub.ciliumHealthPreFlightCheck(); err != nil {
+			return fmt.Errorf("connectivity health is failing: %s", err)
+		}
+		return nil
+	})
 
 	g.Go(func() error {
 		err := kub.fillServiceCache()

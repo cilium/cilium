@@ -384,16 +384,6 @@ const (
 	// Version prints the version information
 	Version = "version"
 
-	// FlannelMasterDevice installs a BPF program to allow for policy
-	// enforcement in the given network interface. Allows to run Cilium on top
-	// of other CNI plugins that provide networking, e.g. flannel, where for
-	// flannel, this value should be set with 'cni0'. [EXPERIMENTAL]")
-	FlannelMasterDevice = "flannel-master-device"
-
-	// FlannelUninstallOnExit should be used along the flannel-master-device flag,
-	// it cleans up all BPF programs installed when Cilium agent is terminated.
-	FlannelUninstallOnExit = "flannel-uninstall-on-exit"
-
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
@@ -1495,14 +1485,6 @@ type DaemonConfig struct {
 	// HostDevice will be device used by Cilium to connect to the outside world.
 	HostDevice string
 
-	// FlannelMasterDevice installs a BPF program in the given interface
-	// to allow for policy enforcement mode on top of flannel.
-	FlannelMasterDevice string
-
-	// FlannelUninstallOnExit removes the BPF programs that were installed by
-	// Cilium on all interfaces created by the flannel.
-	FlannelUninstallOnExit bool
-
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
@@ -2098,11 +2080,6 @@ func (c *DaemonConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
 }
 
-// IsFlannelMasterDeviceSet returns if the flannel master device is set.
-func (c *DaemonConfig) IsFlannelMasterDeviceSet() bool {
-	return len(c.FlannelMasterDevice) != 0
-}
-
 // EndpointStatusIsEnabled returns true if a particular EndpointStatus* feature
 // is enabled
 func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
@@ -2401,7 +2378,7 @@ func (c *DaemonConfig) Populate() {
 	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
-	c.HostDevice = getHostDevice()
+	c.HostDevice = defaults.HostDevice
 	c.HTTPIdleTimeout = viper.GetInt(HTTPIdleTimeout)
 	c.HTTPMaxGRPCTimeout = viper.GetInt(HTTPMaxGRPCTimeout)
 	c.HTTPRequestTimeout = viper.GetInt(HTTPRequestTimeout)
@@ -2462,8 +2439,6 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
-	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
-	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
 	c.PProf = viper.GetBool(PProf)
 	c.PProfPort = viper.GetInt(PProfPort)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
@@ -3084,14 +3059,6 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 		return paramDefault
 	}
 	return intParam
-}
-
-func getHostDevice() string {
-	hostDevice := viper.GetString(FlannelMasterDevice)
-	if hostDevice == "" {
-		return defaults.HostDevice
-	}
-	return hostDevice
 }
 
 // InitConfig reads in config file and ENV variables if set.

@@ -68,8 +68,6 @@ var _ = Describe("K8sUpdates", func() {
 			return
 		}
 
-		SkipIfIntegration(helpers.CIIntegrationFlannel)
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
@@ -159,8 +157,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			oldImageVersion, helpers.GetCurrentK8SEnv()))
 		return func() {}, func() {}
 	}
-
-	SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
 	app1Service := "app1-service"

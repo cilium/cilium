@@ -12,7 +12,6 @@ pipeline {
         K8S_VERSION="1.21"
         KERNEL="419"
         SERVER_BOX = "cilium/ubuntu-4-19"
-        CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
 
     options {

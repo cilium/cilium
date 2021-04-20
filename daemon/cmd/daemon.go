@@ -421,14 +421,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	bootstrapStats.daemonInit.End(true)
 
-	// Delete BPF programs on exit if running in tandem with Flannel.
-	if option.Config.FlannelUninstallOnExit {
-		cleaner.cleanupFuncs.Add(func() {
-			for _, ep := range d.endpointManager.GetEndpoints() {
-				ep.DeleteBPFProgramLocked()
-			}
-		})
-	}
 	// Stop all endpoints (its goroutines) on exit.
 	cleaner.cleanupFuncs.Add(func() {
 		log.Info("Waiting for all endpoints' go routines to be stopped.")

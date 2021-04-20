@@ -183,13 +183,6 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 		}
 	}
 
-	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationFlannel:
-		By("Installing Flannel")
-		vm.ApplyDefault(vm.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
-	default:
-	}
-
 	err := vm.CiliumPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 	ExpectCiliumOperatorReady(vm)

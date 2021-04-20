@@ -32,10 +32,9 @@ import (
 type baseDeviceMode string
 
 const (
-	flannelMode = baseDeviceMode("flannel")
-	ipvlanMode  = baseDeviceMode("ipvlan")
-	directMode  = baseDeviceMode("direct")
-	tunnelMode  = baseDeviceMode("tunnel")
+	ipvlanMode = baseDeviceMode("ipvlan")
+	directMode = baseDeviceMode("direct")
+	tunnelMode = baseDeviceMode("tunnel")
 
 	libbpfFixupMsg = "struct bpf_elf_map fixup performed due to size mismatch!"
 )
@@ -206,15 +205,6 @@ func setupDev(link netlink.Link) error {
 	return nil
 }
 
-func setupDevs(links ...netlink.Link) error {
-	for _, link := range links {
-		if err := setupDev(link); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func setupVethPair(name, peerName string) error {
 	// Create the veth pair if it doesn't exist.
 	if _, err := netlink.LinkByName(name); err != nil {
@@ -287,16 +277,10 @@ func setupIpvlan(name string, nativeLink netlink.Link) (*netlink.IPVlan, error) 
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-// In flannel mode, it sets up the native interface used by flannel.
 // In ipvlan mode, it creates the cilium_host ipvlan with the native device as a
 // parent.
 func setupBaseDevice(nativeDevs []netlink.Link, mode baseDeviceMode, mtu int) (netlink.Link, netlink.Link, error) {
 	switch mode {
-	case flannelMode:
-		if err := setupDevs(nativeDevs...); err != nil {
-			return nil, nil, err
-		}
-		return nativeDevs[0], nativeDevs[0], nil
 	case ipvlanMode:
 		ipvlan, err := setupIpvlan(defaults.HostDevice, nativeDevs[0])
 		if err != nil {
