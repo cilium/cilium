@@ -1417,13 +1417,9 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 
 	refreshComplete := make(chan struct{})
 	go n.refreshNeighbor(ctx, &nodeToRefresh, refreshComplete)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-refreshComplete:
-			return
-		}
+	select {
+	case <-ctx.Done():
+	case <-refreshComplete:
 	}
 }
 
