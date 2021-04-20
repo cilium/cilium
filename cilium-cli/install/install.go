@@ -59,6 +59,12 @@ const (
 	ipamAzure       = "azure"
 )
 
+const (
+	encryptionDisabled  = "disabled"
+	encryptionIPsec     = "ipsec"
+	encryptionWireguard = "wireguard"
+)
+
 var ciliumClusterRole = &rbacv1.ClusterRole{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: defaults.AgentClusterRoleName,
@@ -642,7 +648,7 @@ func (k *K8sInstaller) generateAgentDaemonSet() *appsv1.DaemonSet {
 	auxVolumes := []corev1.Volume{}
 	auxVolumeMounts := []corev1.VolumeMount{}
 
-	if k.params.Encryption {
+	if k.params.Encryption == encryptionIPsec {
 		auxVolumes = append(auxVolumes, corev1.Volume{
 			Name: "cilium-ipsec-secrets",
 			VolumeSource: corev1.VolumeSource{
@@ -1039,7 +1045,7 @@ type InstallParameters struct {
 	KubeProxyReplacement string
 	Azure                AzureParameters
 	RestartUnmanagedPods bool
-	Encryption           bool
+	Encryption           string
 	NodeEncryption       bool
 	ConfigOverwrites     []string
 	configOverwrites     map[string]string
@@ -1302,12 +1308,24 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["gke-node-init-script"] = nodeInitStartupScriptGKE
 	}
 
-	if k.params.Encryption {
+	switch k.params.Encryption {
+	case encryptionIPsec:
 		m.Data["enable-ipsec"] = "true"
 		m.Data["ipsec-key-file"] = "/etc/ipsec/keys"
 
 		if k.params.NodeEncryption {
 			m.Data["encrypt-node"] = "true"
+		}
+	case encryptionWireguard:
+		m.Data["enable-wireguard"] = "true"
+		// TODO(gandro): Future versions of Cilium will remove the following
+		// two limitations, we will need to have set the config map values
+		// based on the installed Cilium version
+		m.Data["enable-l7-proxy"] = "false"
+		k.Log("ℹ️  L7 proxy disabled due to Wireguard encryption")
+
+		if k.params.NodeEncryption {
+			k.Log("⚠️️  Wireguard does not support node encryption yet")
 		}
 	}
 
@@ -1519,7 +1537,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		return err
 	}
 
-	if k.params.Encryption {
+	if k.params.Encryption == encryptionIPsec {
 		if err := k.createEncryptionSecret(ctx); err != nil {
 			return err
 		}
