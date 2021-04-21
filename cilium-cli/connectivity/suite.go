@@ -49,6 +49,7 @@ func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
 		&tests.PodToLocalNodePort{},
 		&tests.PodToWorld{},
 		&tests.PodToHost{},
+		&tests.PodToExternalWorkload{},
 
 		// Then test with an allow-all policy
 		(&check.PolicyContext{}).WithPolicy(allowAllPolicyYAML),
@@ -59,6 +60,7 @@ func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
 		&tests.PodToLocalNodePort{Variant: "-allow-all"},
 		&tests.PodToWorld{Variant: "-allow-all"},
 		&tests.PodToHost{Variant: "-allow-all"},
+		&tests.PodToExternalWorkload{Variant: "-allow-all"},
 		// By itself this should fail, but allow-all policy is in effect so this succeeds
 		(&tests.PodToPod{Variant: "-client-egress-only-dns-with-allow-all"}).WithPolicy(clientEgressOnlyDNSPolicyYAML),
 		(&check.PolicyContext{}).WithPolicy(""), // delete all applied policies
