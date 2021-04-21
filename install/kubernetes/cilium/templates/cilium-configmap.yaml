@@ -422,22 +422,21 @@ data:
   enable-ip-masq-agent: "true"
 {{- end }}
 
-{{- if hasKey .Values "wireguard" }}
-{{- if .Values.wireguard.enabled }}
-  enable-wireguard: {{ .Values.wireguard.enabled | quote }}
-{{- end }}
-{{- end }}
-
 {{- if .Values.encryption.enabled }}
+  {{- if eq .Values.encryption.type "ipsec" }}
   enable-ipsec: {{ .Values.encryption.enabled | quote }}
   ipsec-key-file: {{ .Values.encryption.mountPath }}/{{ .Values.encryption.keyFile }}
-{{- if hasKey .Values.encryption "interface" }}
+    {{- if hasKey .Values.encryption "interface" }}
   encrypt-interface: {{ .Values.encryption.interface }}
-{{- end }}
-{{- if .Values.encryption.nodeEncryption }}
+    {{- end }}
+    {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+    {{- end }}
+  {{- else if eq .Values.encryption.type "wireguard" }}
+  enable-wireguard: {{ .Values.encryption.enabled | quote }}
+  {{- end }}
 {{- end }}
-{{- end }}
+
 {{- if hasKey .Values "datapathMode" }}
 {{- if eq .Values.datapathMode "ipvlan" }}
   datapath-mode: ipvlan

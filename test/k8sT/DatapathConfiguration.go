@@ -563,7 +563,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":               "disabled",
 				"autoDirectNodeRoutes": "true",
-				"wireguard.enabled":    "true",
+				"encryption.enabled":   "true",
+				"encryption.type":      "wireguard",
 				"l7Proxy":              "false",
 			}, DeployCiliumOptionsAndDNS)
 
@@ -574,9 +575,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Pod2pod is encrypted in tunneling mode", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":            "vxlan",
-				"wireguard.enabled": "true",
-				"l7Proxy":           "false",
+				"tunnel":             "vxlan",
+				"encryption.enabled": "true",
+				"encryption.type":    "wireguard",
+				"l7Proxy":            "false",
 			}, DeployCiliumOptionsAndDNS)
 
 			testWireguard("cilium_vxlan")

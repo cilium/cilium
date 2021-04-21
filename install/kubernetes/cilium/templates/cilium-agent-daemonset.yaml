@@ -326,7 +326,7 @@ spec:
           readOnly: true
         - mountPath: /run/xtables.lock
           name: xtables-lock
-{{- if .Values.encryption.enabled }}
+{{- if and ( .Values.encryption.enabled ) ( eq .Values.encryption.type "ipsec" ) }}
         - mountPath: {{ .Values.encryption.mountPath }}
           name: cilium-ipsec-secrets
 {{- end }}
@@ -542,7 +542,7 @@ spec:
             path: ip-masq-agent
         name: ip-masq-agent
 {{- end }}
-{{- if .Values.encryption.enabled }}
+{{- if and ( .Values.encryption.enabled ) ( eq .Values.encryption.type "ipsec" ) }}
       - name: cilium-ipsec-secrets
         secret:
           secretName: {{ .Values.encryption.secretName }}
