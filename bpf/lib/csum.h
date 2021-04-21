@@ -57,7 +57,7 @@ static __always_inline void csum_l4_offset_and_flags(__u8 nexthdr,
  * @arg to	To value or a csum diff
  * @arg flags	Additional flags to be passed to l4_csum_replace()
  */
-static __always_inline int csum_l4_replace(struct __ctx_buff *ctx, int l4_off,
+static __always_inline int csum_l4_replace(struct __ctx_buff *ctx, __u64 l4_off,
 					   const struct csum_offset *csum,
 					   __be32 from, __be32 to, int flags)
 {

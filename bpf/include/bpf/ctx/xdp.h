@@ -262,7 +262,7 @@ ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 	return XDP_TX;
 }
 
-static __always_inline __maybe_unused __u32
+static __always_inline __maybe_unused __u64
 ctx_full_len(const struct xdp_md *ctx)
 {
 	/* No non-linear section in XDP. */

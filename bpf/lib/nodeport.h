@@ -442,8 +442,8 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	const __s32 orig_dgram = 64, off = ETH_HLEN;
 	const __u32 l3_max = sizeof(*ip6) + orig_dgram;
 	__be16 type = bpf_htons(ETH_P_IPV6);
-	__s32 len_new = off + sizeof(*ip6) + orig_dgram;
-	__s32 len_old = ctx_full_len(ctx);
+	__u64 len_new = off + sizeof(*ip6) + orig_dgram;
+	__u64 len_old = ctx_full_len(ctx);
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
 	__wsum wsum;
