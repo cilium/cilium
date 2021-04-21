@@ -923,6 +923,11 @@ enableIPv4Masquerade: true
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
 
+# -- Enables egress gateway (beta) to redirect and SNAT the traffic that
+# leaves the cluster.
+egressGateway:
+  enabled: false
+
 # -- Specify the CIDR for native routing (ie to avoid IP masquerade for).
 # This value corresponds to the configured cluster-cidr.
 # nativeRoutingCIDR:

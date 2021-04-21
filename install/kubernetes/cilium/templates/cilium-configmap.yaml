@@ -676,6 +676,10 @@ data:
   disable-cnp-status-updates: "true"
 {{- end }}
 
+{{- if .Values.egressGateway.enabled }}
+  enable-egress-gateway: "true"
+{{- end }}
+
 {{- if .Values.enableK8sEventHandover }}
   enable-k8s-event-handover: "true"
 {{- end }}
