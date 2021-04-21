@@ -31,6 +31,9 @@ const (
 	// NodeName is a human readable name for the node
 	NodeName = "nodeName"
 
+	// Endpoint is the endpoint name (e.g. wireguard)
+	Endpoint = "endpoint"
+
 	// EndpointID is the numeric endpoint identifier
 	EndpointID = "endpointID"
 
@@ -181,6 +184,9 @@ const (
 
 	// CIDR is a IPv4/IPv4 subnet/CIDR
 	CIDR = "cidr"
+
+	// IPAddrs is a lsit of IP addrs
+	IPAddrs = "ipAddrs"
 
 	// MTU is the maximum transmission unit of one interface
 	MTU = "mtu"
