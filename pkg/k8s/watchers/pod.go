@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,6 +85,10 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 						} else {
 							metrics.EventLagK8s.Set(timeSinceEpCreated.Round(time.Second).Seconds())
 						}
+					} else {
+						// If the ep is nil then we reset to zero, otherwise
+						// the previous value set is kept forever.
+						metrics.EventLagK8s.Set(0)
 					}
 					err := k.addK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
