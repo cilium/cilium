@@ -205,7 +205,23 @@ Update cilium-builder and cilium-runtime images
 
    .. code-block:: shell-session
 
-       $ git commit -s images/ -m "update cilium-{runtime,builder}"
+       $ git commit -s -a -m "update cilium-{runtime,builder}"
+
+#. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`_
+   to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`_.
+   Note that at this step cilium-builder build failure is expected since we have yet to update the runtime digest.
+
+#. Wait for cilium-runtime build to complete. Only after the image is available run:
+
+   .. code-block:: shell-session
+
+       $ make -C images/ update-runtime-image update-builder-image
+
+#. Commit your changes and re-push to the PR in cilium/cilium.
+
+   .. code-block:: shell-session
+
+       $ git commit --amend -s -a
 
 #. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`_
    to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`_.
@@ -220,22 +236,7 @@ Update cilium-builder and cilium-runtime images
 
    .. code-block:: shell-session
 
-       $ git commit --amend -s images/
-
-#. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`_
-   to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`_.
-
-#. Wait for the build to complete. Only after the image is available run:
-
-   .. code-block:: shell-session
-
-       $ make -C images/ update-runtime-image update-builder-image
-
-#. Commit your changes and re-push to the PR in cilium/cilium.
-
-   .. code-block:: shell-session
-
-       $ git commit --amend -s images/
+       $ git commit --amend -s -a
 
 #. Update the versions of the images that are pulled into the CI VMs.
 
