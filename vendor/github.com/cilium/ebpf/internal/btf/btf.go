@@ -53,7 +53,7 @@ type btfHeader struct {
 
 // LoadSpecFromReader reads BTF sections from an ELF.
 //
-// Returns a nil Spec and no error if no BTF was present.
+// Returns ErrNotFound if the reader contains no BTF.
 func LoadSpecFromReader(rd io.ReaderAt) (*Spec, error) {
 	file, err := internal.NewSafeELFFile(rd)
 	if err != nil {
@@ -67,7 +67,7 @@ func LoadSpecFromReader(rd io.ReaderAt) (*Spec, error) {
 	}
 
 	if btfSection == nil {
-		return nil, nil
+		return nil, fmt.Errorf("btf: %w", ErrNotFound)
 	}
 
 	symbols, err := file.Symbols()
@@ -673,6 +673,14 @@ func ProgramLineInfos(s *Program) (recordSize uint32, bytes []byte, err error) {
 func ProgramRelocations(s *Program, target *Spec) (map[uint64]Relocation, error) {
 	if len(s.coreRelos) == 0 {
 		return nil, nil
+	}
+
+	if target == nil {
+		var err error
+		target, err = LoadKernelSpec()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return coreRelocate(s.spec, target, s.coreRelos)
