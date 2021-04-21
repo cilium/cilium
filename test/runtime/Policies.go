@@ -1895,7 +1895,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Verifying that trace says that %q can reach %q", httpd2Label, httpd1Label)
 
-		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP`, httpd2Label, httpd1Label))
+		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP --dport 0/ANY`, httpd2Label, httpd1Label))
 		Expect(res.Stdout()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
 
 		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -1960,13 +1960,13 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Verifying verbose trace for expected output using security identities")
 		res = vm.Exec(fmt.Sprintf(
-			`cilium policy trace --src-identity %d --dst-identity %d`,
+			`cilium policy trace --src-identity %d --dst-identity %d --dport 0/ANY`,
 			httpd2SecurityIdentity, httpd1SecurityIdentity))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
 		By("Verifying verbose trace for expected output using endpoint IDs")
 		res = vm.Exec(fmt.Sprintf(
-			`cilium policy trace --src-endpoint %s --dst-endpoint %s`,
+			`cilium policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`,
 			httpd2EndpointID, httpd1EndpointID))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
@@ -2001,7 +2001,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 		By("Checking that policy trace returns allowed verdict without any policies imported")
-		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
+		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`, httpd2EndpointID, httpd1EndpointID))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 	})
 })

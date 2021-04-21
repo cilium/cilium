@@ -46,7 +46,7 @@ var srcEndpoint, dstEndpoint, srcK8sPod, dstK8sPod, srcK8sYaml, dstK8sYaml strin
 
 // policyTraceCmd represents the policy_trace command
 var policyTraceCmd = &cobra.Command{
-	Use:   "trace ( -s <label context> | --src-identity <security identity> | --src-endpoint <endpoint ID> | --src-k8s-pod <namespace:pod-name> | --src-k8s-yaml <path to YAML file> ) ( -d <label context> | --dst-identity <security identity> | --dst-endpoint <endpoint ID> | --dst-k8s-pod <namespace:pod-name> | --dst-k8s-yaml <path to YAML file>) [--dport <port>[/<protocol>]",
+	Use:   "trace ( -s <label context> | --src-identity <security identity> | --src-endpoint <endpoint ID> | --src-k8s-pod <namespace:pod-name> | --src-k8s-yaml <path to YAML file> ) ( -d <label context> | --dst-identity <security identity> | --dst-endpoint <endpoint ID> | --dst-k8s-pod <namespace:pod-name> | --dst-k8s-yaml <path to YAML file>) --dport <port>[/<protocol>]",
 	Short: "Trace a policy decision",
 	Long: `Verifies if the source is allowed to consume
 destination. Source / destination can be provided as endpoint ID, security ID, Kubernetes Pod, YAML file, set of LABELs. LABEL is represented as
@@ -78,7 +78,9 @@ If multiple sources and / or destinations are provided, each source is tested wh
 			dstSlices = append(dstSlices, dst)
 		}
 
-		if len(dports) > 0 {
+		if len(dports) == 0 {
+			Usagef(cmd, "Missing destination port/proto")
+		} else {
 			dPorts, err = parseL4PortsSlice(dports)
 			if err != nil {
 				Fatalf("Invalid destination port: %s", err)

@@ -287,7 +287,7 @@ var _ = SkipDescribeIf(func() bool {
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -313,7 +313,7 @@ var _ = SkipDescribeIf(func() bool {
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -422,7 +422,7 @@ var _ = SkipDescribeIf(func() bool {
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -448,7 +448,7 @@ var _ = SkipDescribeIf(func() bool {
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -624,7 +624,7 @@ var _ = SkipDescribeIf(func() bool {
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -657,7 +657,7 @@ var _ = SkipDescribeIf(func() bool {
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
