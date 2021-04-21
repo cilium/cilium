@@ -656,7 +656,7 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		return 0;
 
 	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
-	return map_array_get_16(backend_ids, index, LB_MAGLEV_LUT_SIZE);
+	return map_array_get_16(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 1);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
@@ -1183,7 +1183,7 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		return 0;
 
 	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
-	return map_array_get_16(backend_ids, index, LB_MAGLEV_LUT_SIZE);
+	return map_array_get_16(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 1);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
