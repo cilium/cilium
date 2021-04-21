@@ -3,6 +3,7 @@ package ebpf
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"reflect"
 	"strings"
@@ -269,11 +270,21 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 	}, nil
 }
 
-type btfHandleCache map[*btf.Spec]*btf.Handle
+type handleCache struct {
+	btfHandles map[*btf.Spec]*btf.Handle
+	btfSpecs   map[io.ReaderAt]*btf.Spec
+}
 
-func (btfs btfHandleCache) load(spec *btf.Spec) (*btf.Handle, error) {
-	if btfs[spec] != nil {
-		return btfs[spec], nil
+func newHandleCache() *handleCache {
+	return &handleCache{
+		btfHandles: make(map[*btf.Spec]*btf.Handle),
+		btfSpecs:   make(map[io.ReaderAt]*btf.Spec),
+	}
+}
+
+func (hc handleCache) btfHandle(spec *btf.Spec) (*btf.Handle, error) {
+	if hc.btfHandles[spec] != nil {
+		return hc.btfHandles[spec], nil
 	}
 
 	handle, err := btf.NewHandle(spec)
@@ -281,14 +292,30 @@ func (btfs btfHandleCache) load(spec *btf.Spec) (*btf.Handle, error) {
 		return nil, err
 	}
 
-	btfs[spec] = handle
+	hc.btfHandles[spec] = handle
 	return handle, nil
 }
 
-func (btfs btfHandleCache) close() {
-	for _, handle := range btfs {
+func (hc handleCache) btfSpec(rd io.ReaderAt) (*btf.Spec, error) {
+	if hc.btfSpecs[rd] != nil {
+		return hc.btfSpecs[rd], nil
+	}
+
+	spec, err := btf.LoadSpecFromReader(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	hc.btfSpecs[rd] = spec
+	return spec, nil
+}
+
+func (hc handleCache) close() {
+	for _, handle := range hc.btfHandles {
 		handle.Close()
 	}
+	hc.btfHandles = nil
+	hc.btfSpecs = nil
 }
 
 func lazyLoadCollection(coll *CollectionSpec, opts *CollectionOptions) (
@@ -300,12 +327,12 @@ func lazyLoadCollection(coll *CollectionSpec, opts *CollectionOptions) (
 	var (
 		maps             = make(map[string]*Map)
 		progs            = make(map[string]*Program)
-		btfs             = make(btfHandleCache)
+		handles          = newHandleCache()
 		skipMapsAndProgs = false
 	)
 
 	cleanup = func() {
-		btfs.close()
+		handles.close()
 
 		if skipMapsAndProgs {
 			return
@@ -335,7 +362,7 @@ func lazyLoadCollection(coll *CollectionSpec, opts *CollectionOptions) (
 			return nil, fmt.Errorf("missing map %s", mapName)
 		}
 
-		m, err := newMapWithOptions(mapSpec, opts.Maps, btfs)
+		m, err := newMapWithOptions(mapSpec, opts.Maps, handles)
 		if err != nil {
 			return nil, fmt.Errorf("map %s: %w", mapName, err)
 		}
@@ -384,7 +411,7 @@ func lazyLoadCollection(coll *CollectionSpec, opts *CollectionOptions) (
 			}
 		}
 
-		prog, err := newProgramWithOptions(progSpec, opts.Programs, btfs)
+		prog, err := newProgramWithOptions(progSpec, opts.Programs, handles)
 		if err != nil {
 			return nil, fmt.Errorf("program %s: %w", progName, err)
 		}
