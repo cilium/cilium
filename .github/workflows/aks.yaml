@@ -6,7 +6,7 @@ on:
       - created
   # Run every 6 hours
   schedule:
-    - cron:  '0 0,6,12,18 * * *'
+    - cron:  '0 0/6 * * *'
   ### FOR TESTING PURPOSES
   # pull_request:
   #  types:
