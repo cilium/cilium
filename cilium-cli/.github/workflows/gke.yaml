@@ -20,19 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16.2
-
-      - name: Set up Go for root
-        run: |
-          sudo ln -sf `which go` `sudo which go` || true
-          sudo go version
-
-      - name: Build and install cilium CLI binary
-        run: sudo make install
-
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@master
         with:
@@ -48,38 +35,63 @@ jobs:
         run: |
           gcloud container clusters create ${{ env.clusterName }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
 
+      - name: Set job vars
+        id: vars
+        run: |
+          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
+
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+            IS_PR=true
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+          echo ::set-output name=sha::${SHA}
+
       - name: Get Credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName}} --zone ${{ env.zone }}
 
-      - name: Install cilium
+      - name: Create gcloud-free kubeconfig and load it in configmap
         run: |
-          cilium install --cluster-name ${{ env.clusterName }} --restart-unmanaged-pods=false --config monitor-aggregation=none
+          .github/get-kubeconfig.sh
+          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
 
-      - name: Enable Relay
+      - name: Load test script in configmap
         run: |
-          cilium hubble enable
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file .github/in-cluster-test-script.sh
 
-      - name: Status
+      - name: Create cilium-cli job
         run: |
-          cilium status --wait
+          helm install .github/cilium-cli-test-job-chart --generate-name \
+          --set tag=${{ steps.vars.outputs.sha }} \
+          --set cluster_name=${{ env.clusterName }} \
+          --set cluster_cidr=${{ steps.vars.outputs.cluster_cidr }}
 
-      - name: Relay Port Forward
+      - name: Wait for job
         run: |
-          cilium hubble port-forward&
-          sleep 5s
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
 
-      - name: Connectivity Test
-        run: |
-          cilium connectivity test
-
-      - name: Cleanup
+      - name: Post-test information gathering
         if: ${{ always() }}
         run: |
-          cilium status
+          kubectl logs -n kube-system job/cilium-cli
+          kubectl exec -n kube-system job/cilium-cli -- cilium status
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
+
+      - name: Clean up GKE
+        if: ${{ always() }}
+        run: |
           gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }}
 
       - name: Upload Artifacts
