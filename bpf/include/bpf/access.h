@@ -22,7 +22,7 @@ map_array_get_16(const __u16 *array, __u32 index, const __u32 limit)
 	 * always valid.
 	 */
 	asm volatile("%[index] <<= 1\n\t"
-		     "if %[index] >= %[limit] goto +1\n\t"
+		     "if %[index] > %[limit] goto +1\n\t"
 		     "%[array] += %[index]\n\t"
 		     "%[datum] = *(u16 *)(%[array] + 0)\n\t"
 		     : [datum]"=r"(datum)
