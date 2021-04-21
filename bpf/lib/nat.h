@@ -512,8 +512,8 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	__u32 off;
 	bool icmp_echoreply = false;
+	__u64 off;
 	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
