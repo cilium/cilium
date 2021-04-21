@@ -32,11 +32,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__ | 2021-03-10 | ``docker.io/cilium/cilium:v1.9.5``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.5>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__ |
+| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__ | 2021-04-20 | ``docker.io/cilium/cilium:v1.9.6``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.6>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2021-03-10 | ``docker.io/cilium/cilium:v1.8.8``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.8>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
+| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2021-04-20 | ``docker.io/cilium/cilium:v1.8.9``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.9>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2021-03-09 | ``docker.io/cilium/cilium:v1.7.15``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.15>`__ | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
+| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2021-04-20 | ``docker.io/cilium/cilium:v1.7.16``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.16>`__ | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 
 Functionality Overview
