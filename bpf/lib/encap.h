@@ -63,10 +63,11 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *which;
-	__u32 off, noff;
 	__u8 nexthdr;
 	__u16 proto;
 	__be32 sum;
+	__u32 noff;
+	__u64 off;
 	int ret;
 
 	validate_ethertype(ctx, &proto);

@@ -68,7 +68,7 @@ ctx_adjust_troom(struct __sk_buff *ctx, const __s32 len_diff)
 	return skb_change_tail(ctx, ctx->len + len_diff, 0);
 }
 
-static __always_inline __maybe_unused __u32
+static __always_inline __maybe_unused __u64
 ctx_full_len(const struct __sk_buff *ctx)
 {
 	return ctx->len;
