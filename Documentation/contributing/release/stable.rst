@@ -97,16 +97,24 @@ Reference steps for the template
        ``x.y.z`` For more information about how ReadTheDocs does versioning, you can
        read their `Versions Documentation <https://docs.readthedocs.io/en/latest/versions.html>`_.
 
-#. Wait for DockerHub to prepare all docker images.
+#. Approve the release from the `Release Image build UI <https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22>`_.
+
+#. Once the release images are pushed, pull the image digests and prepare a PR with the official release image digests:
+
+   ::
+
+      contrib/release/post-release.sh <URL of workflow run from the release link above>
+
+   This will leave a file with the format ``digest-vX.Y.Z.txt`` in the local
+   directory which can be used to prepare the release in the next step.
 
 #. `Publish a GitHub release <https://github.com/cilium/cilium/releases/>`_:
 
    Following the steps above, the release draft will already be prepared.
    Preview the description and then publish the release.
 
-   #. Use ``contrib/release/pull-docker-manifests.sh`` to fetch the official
-      docker manifests for the release and add these into the Github release
-      announcement.
+   #. Copy the official docker manifests for the release from the previous step
+      into the end of the Github release announcement.
 
 #. Prepare Helm changes for the release using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`_
    and push the changes into that repository (not the main cilium repository):
