@@ -40,7 +40,6 @@ jobs:
               ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
             SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
             OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
-            IS_PR=true
           else
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
@@ -59,10 +58,8 @@ jobs:
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
-          echo ::set-output name=is_pr::${IS_PR}
 
-      - name: Set PR status check to pending
-        if: ${{ steps.vars.outputs.is_pr }}
+      - name: Set commit status to pending
         uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -196,8 +193,8 @@ jobs:
           path: cilium-sysdump-out.zip
           retention-days: 5
 
-      - name: Set PR status check to success
-        if: ${{ steps.vars.outputs.is_pr && success() }}
+      - name: Set commit status to success
+        if: ${{ success() }}
         uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -207,8 +204,8 @@ jobs:
           state: success
           target_url: ${{ env.check_url }}
 
-      - name: Set PR status check to failure
-        if: ${{ steps.vars.outputs.is_pr && failure() }}
+      - name: Set commit status to failure
+        if: ${{ failure() }}
         uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
@@ -218,8 +215,8 @@ jobs:
           state: failure
           target_url: ${{ env.check_url }}
 
-      - name: Set PR status check to cancelled
-        if: ${{ steps.vars.outputs.is_pr && cancelled() }}
+      - name: Set commit status to cancelled
+        if: ${{ cancelled() }}
         uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
