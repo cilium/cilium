@@ -35,10 +35,7 @@ assignees: ''
   - Pull latest branch locally and run `contrib/release/tag-release.sh`
 - [ ] Ask a maintainer to approve the build in the following links (keep the URL
       of the GitHub run to be used later):
-  - [Cilium v1.10](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22)
-  - [Cilium v1.9](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.9%22)
-  - [Cilium v1.8](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.8%22)
-  - [Cilium v1.7](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build+v1.7%22)
+  - [Cilium Image Release builds](https://github.com/cilium/cilium/actions?query=workflow:%22Image+Release+Build%22)
   - Check if all docker images are available before announcing the release
     `make -C install/kubernetes/ check-docker-images`
 - [ ] Get the image digests from the build process and make a commit and PR with
@@ -53,8 +50,6 @@ assignees: ''
         branch and push these changes into the helm repository. Make sure the
         generated helm charts point to the commit that contains the image
         digests.
-- [ ] Run sanity check of Helm install using connectivity-check script.
-      Suggested approach: Follow the full [Quick Install]
 - [ ] Check draft release from [releases] page
   - [ ] Update the text at the top with 2-3 highlights of the release
   - [ ] Copy the text from `digest-vX.Y.Z.txt` (previously generated with
@@ -68,7 +63,6 @@ assignees: ''
 ## Post-release
 
 - [ ] Prepare post-release changes to master branch using `contrib/release/bump-readme.sh`
-- [ ] Update the `stable` tags for each Cilium image (`contrib/release/bump-docker-stable.sh`)
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
   - [ ] [kubespray]
