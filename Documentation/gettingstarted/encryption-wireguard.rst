@@ -74,7 +74,7 @@ each Cilium agent instance.
     - eBPF-based host routing
     - Support for older kernels via user-mode Wireguard
 
-   The current status of these limitations is tracked in `#15462 <https://github.com/cilium/cilium/issues/15462>`_.
+   The current status of these limitations is tracked in :gh-issue:`15462`.
 
 
 Validate the Setup

@@ -46,13 +46,13 @@ For more information, see the official `NetworkPolicy documentation
 
 Known missing features for Kubernetes Network Policy:
 
-+-------------------------------+----------------------------------------------+
-| Feature                       | Tracking Issue                               |
-+===============================+==============================================+
-| ``ipBlock`` set with a pod IP | https://github.com/cilium/cilium/issues/9209 |
-+-------------------------------+----------------------------------------------+
-| SCTP                          | https://github.com/cilium/cilium/issues/5719 |
-+-------------------------------+----------------------------------------------+
++-------------------------------+------------------+
+| Feature                       | Tracking Issue   |
++===============================+==================+
+| ``ipBlock`` set with a pod IP | :gh-issue:`9209` |
++-------------------------------+------------------+
+| SCTP                          | :gh-issue:`5719` |
++-------------------------------+------------------+
 
 .. _CiliumNetworkPolicy:
 

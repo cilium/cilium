@@ -1212,8 +1212,7 @@ Limitations
       objects if support is available and ignores ``Endpoints`` in those cases. Kubernetes 1.19
       release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
       resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
-      to work. For a more detailed discussion see
-      `#12438 <https://github.com/cilium/cilium/issues/12438>`__.
+      to work. For a more detailed discussion see :gh-issue:`12438`.
     * As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`__,
       Cilium's eBPF kube-proxy replacement disallow access of a ClusterIP service
       from outside a cluster.

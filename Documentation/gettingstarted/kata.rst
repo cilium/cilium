@@ -85,7 +85,7 @@ Deploy Cilium release via Helm:
    Both features rely on socket-based load-balancing, which is not possible
    given that Kata containers are virtual machines running with their own
    kernel. For kube-proxy replacement, this limitation is tracked with
-   `GitHub issue 15437 <https://github.com/cilium/cilium/issues/15437>`_.
+   :gh-issue:`15437`.
 
 .. include:: k8s-install-validate.rst
 

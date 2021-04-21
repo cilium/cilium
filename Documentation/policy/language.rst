@@ -348,8 +348,8 @@ all
     world and whitelists all communication.
 
 .. versionadded:: future
-   Allowing users to `define custom entities <https://github.com/cilium/cilium/issues/3553>`_
-   is on the roadmap but has not been implemented yet.
+   Allowing users to define custom entities is on the roadmap but has not been
+   implemented yet (see :gh-issue:`3553`).
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~

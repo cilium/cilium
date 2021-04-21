@@ -42,8 +42,7 @@ At this point, the Cilium-managed nodes are ready to enforce network policies.
     ``--set ipam.mode=kubernetes --set endpointRoutes.enabled=false --set
     tunnel=disabled``.
 
-    See also `GitHub issue #13121
-    <https://github.com/cilium/cilium/issues/13121>`_.
+    See also :gh-issue:`13121`.
 
 
 Attach a Label to the Node

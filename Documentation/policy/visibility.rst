@@ -96,4 +96,4 @@ Limitations
   these protocols, you must create a network policy that allows all of the
   traffic at L7, either by following :ref:`l7_policy`
   (:ref:`Kafka <kafka_policy>`) or the :ref:`envoy` proxylib extensions guide.
-  This limitation is tracked by `GH-14072 <https://github.com/cilium/cilium/issues/14072>`_.
+  This limitation is tracked by :gh-issue:`14072`.

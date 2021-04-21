@@ -522,8 +522,9 @@ cluster.
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Not all tests can succeed on EKS. Many do, however and may be useful. This `GH issue
-<https://github.com/cilium/cilium/issues/9678#issuecomment-749350425>`_ contains a list of tests that are still failing.
+Not all tests can succeed on EKS. Many do, however and may be useful.
+:gh-issue:`9678#issuecomment-749350425` contains a list of tests that are still
+failing.
 
 1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
 cluster.
