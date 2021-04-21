@@ -17,7 +17,7 @@ env:
 jobs:
   installation-and-connectivity:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -84,6 +84,10 @@ jobs:
       - name: Ping clustermesh-apiserver from external workload
         run: |
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
+
+      - name: Connectivity test
+        run: |
+          cilium connectivity test
 
       - name: Cleanup
         if: ${{ always() }}
