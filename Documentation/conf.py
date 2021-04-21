@@ -104,11 +104,12 @@ else:
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + current_release
+github_repo = 'https://github.com/cilium/cilium/'
 archive_filename = archive_name + '.tar.gz'
-archive_link = 'https://github.com/cilium/cilium/archive/' + archive_filename
+archive_link = github_repo + 'archive/' + archive_filename
 archive_name = 'cilium-' + archive_name.strip('v')
-project_link = 'https://github.com/cilium/cilium/projects?query=is:open+' + next_release
-backport_format = 'https://github.com/cilium/cilium/pulls?q=is:open+is:pr+label:%s/' + current_release
+project_link = github_repo + 'projects?query=is:open+' + next_release
+backport_format = github_repo + 'pulls?q=is:open+is:pr+label:%s/' + current_release
 
 # Store variables in the epilogue so they are globally available.
 rst_epilog = """
