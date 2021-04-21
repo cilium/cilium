@@ -359,6 +359,12 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		Peers:        []wgtypes.PeerConfig{peer},
 	}
 
+	log.WithFields(logrus.Fields{
+		logfields.Endpoint: p.endpoint,
+		logfields.PubKey:   p.pubKey,
+		logfields.IPAddrs:  p.allowedIPs,
+	}).Debug("Updating peer config")
+
 	return a.wgClient.ConfigureDevice(types.IfaceName, cfg)
 }
 
@@ -426,18 +432,15 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipnet
 	}
 
 	if updatedPeer != nil {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Modification: modType,
-			logfields.IPAddr:       ipnet.String(),
-			logfields.OldNode:      oldHostIP,
-			logfields.NewNode:      newHostIP,
-			logfields.PubKey:       updatedPeer.pubKey,
-		})
-		scopedLog.Debug("Updating Wireguard peer allowedIPs")
 		if err := a.updatePeerByConfig(updatedPeer); err != nil {
-			scopedLog.
-				WithError(err).
-				Errorf("Failed to update Wireguard peer after ipcache update")
+			log.WithFields(logrus.Fields{
+				logfields.Modification: modType,
+				logfields.IPAddr:       ipnet.String(),
+				logfields.OldNode:      oldHostIP,
+				logfields.NewNode:      newHostIP,
+				logfields.PubKey:       updatedPeer.pubKey,
+			}).WithError(err).
+				Error("Failed to update Wireguard peer after ipcache update")
 		}
 	}
 }
