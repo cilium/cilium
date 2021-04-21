@@ -202,7 +202,7 @@ func (a *Agent) RestoreFinished() error {
 
 	a.restoredPubKeys = nil
 
-	log.Info("Finished restore")
+	log.Debug("Finished restore")
 
 	return nil
 }
@@ -221,7 +221,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	if prev := a.peerByNodeName[nodeName]; prev != nil {
 		// Handle pubKey change
 		if prev.pubKey.String() != pubKeyHex {
-			log.WithField(logfields.NodeName, nodeName).Info("Pubkey has changed")
+			log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
 			// pubKeys differ, so delete old peer
 			if err := a.deletePeerByPubKey(prev.pubKey); err != nil {
 				return err
@@ -288,7 +288,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		logfields.PubKey:   pubKeyHex,
 		logfields.NodeIPv4: nodeIPv4,
 		logfields.NodeIPv6: nodeIPv6,
-	}).Info("Updating peer")
+	}).Debug("Updating peer")
 
 	if err := a.updatePeerByConfig(peer); err != nil {
 		return err
@@ -330,7 +330,7 @@ func (a *Agent) DeletePeer(nodeName string) error {
 }
 
 func (a *Agent) deletePeerByPubKey(pubKey wgtypes.Key) error {
-	log.WithField(logfields.PubKey, pubKey).Info("Removing peer")
+	log.WithField(logfields.PubKey, pubKey).Debug("Removing peer")
 
 	peerCfg := wgtypes.PeerConfig{
 		PublicKey: pubKey,
