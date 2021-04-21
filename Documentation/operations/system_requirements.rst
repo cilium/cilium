@@ -90,9 +90,9 @@ RancherOS_                 >= 1.5.5
           GitHub issue or by creating a pull request that updates this guide.
 
 .. note:: Systemd 245 and above (``systemctl --version``) overrides ``rp_filter`` setting
-          of Cilium network interfaces. This introduces connectivity issues (see
-          `GH-10645 <https://github.com/cilium/cilium/issues/10645>`_ for details). To
-          avoid that, configure ``rp_filter`` in systemd using the following commands:
+          of Cilium network interfaces. This introduces connectivity issues
+          (see :gh-issue:`10645` for details). To avoid that, configure
+          ``rp_filter`` in systemd using the following commands:
 
           .. code:: bash
 

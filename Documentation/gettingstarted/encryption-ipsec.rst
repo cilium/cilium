@@ -22,8 +22,7 @@ This is a intended behavior as it doesn't provide any benefits because the
 raw traffic on the node can be seen.
 
 Transparent encryption is not currently supported when chaining Cilium on top
-of other CNI plugins. For more information, see
-`GitHub issue #15596 <https://github.com/cilium/cilium/issues/15596>`_.
+of other CNI plugins. For more information, see :gh-issue:`15596`.
 
 Generate & import the PSK
 =========================
@@ -148,7 +147,7 @@ In order to enable node-to-node encryption, add:
     Node to node encryption feature is tested and supported with direct routing
     modes. Using with encapsulation/tunneling is not currently tested or supported.
 
-    Support with tunneling mode is tracked at `#13663 <https://github.com/cilium/cilium/issues/13663>`_.
+    Support with tunneling mode is tracked with :gh-issue:`13663`.
 
 Validate the Setup
 ==================

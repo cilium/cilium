@@ -16,8 +16,8 @@ workloads in unattended, resource-constrained, remote locations or inside IoT
 appliances.
 
 This guide assumes installation on amd64 architecture. Cilium is presently
-supported on amd64 architecture with `ARM support planned <https://github.com/cilium/cilium/issues/9898>`_
-for a future release.
+supported on amd64 architecture with ARM support planned for a future release
+(See :gh-issue:`9898`).
 
 Install a Master Node
 =====================
