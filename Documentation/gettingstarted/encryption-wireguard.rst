@@ -55,7 +55,8 @@ Wireguard module on older kernels).
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
              --set l7Proxy=false \\
-             --set wireguard.enabled=true
+             --set encryption.enabled=true \\
+             --set encryption.type=wireguard
 
 Wireguard may also be enabled manually by setting setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
