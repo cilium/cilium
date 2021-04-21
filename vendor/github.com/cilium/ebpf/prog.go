@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,12 @@ type ProgramOptions struct {
 	// Controls the output buffer size for the verifier. Defaults to
 	// DefaultVerifierLogSize.
 	LogSize int
+	// An ELF containing the target BTF for this program. It is used both to
+	// find the correct function to trace and to apply CO-RE relocations.
+	// This is useful in environments where the kernel BTF is not available
+	// (containers) or where it is in a non-standard location. Defaults to
+	// use the kernel BTF from a well-known location.
+	TargetBTF io.ReaderAt
 }
 
 // ProgramSpec defines a Program.
@@ -125,13 +132,13 @@ func NewProgram(spec *ProgramSpec) (*Program, error) {
 // Loading a program for the first time will perform
 // feature detection by loading small, temporary programs.
 func NewProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, error) {
-	btfs := make(btfHandleCache)
-	defer btfs.close()
+	handles := newHandleCache()
+	defer handles.close()
 
-	return newProgramWithOptions(spec, opts, btfs)
+	return newProgramWithOptions(spec, opts, handles)
 }
 
-func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, btfs btfHandleCache) (*Program, error) {
+func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, handles *handleCache) (*Program, error) {
 	if len(spec.Instructions) == 0 {
 		return nil, errors.New("Instructions cannot be empty")
 	}
@@ -186,15 +193,23 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, btfs btfHandl
 		attr.progName = newBPFObjName(spec.Name)
 	}
 
+	var targetBTF *btf.Spec
+	if opts.TargetBTF != nil {
+		targetBTF, err = handles.btfSpec(opts.TargetBTF)
+		if err != nil {
+			return nil, fmt.Errorf("load target BTF: %w", err)
+		}
+	}
+
 	var btfDisabled bool
 	if spec.BTF != nil {
-		if relos, err := btf.ProgramRelocations(spec.BTF, nil); err != nil {
-			return nil, fmt.Errorf("CO-RE relocations: %s", err)
+		if relos, err := btf.ProgramRelocations(spec.BTF, targetBTF); err != nil {
+			return nil, fmt.Errorf("CO-RE relocations: %w", err)
 		} else if len(relos) > 0 {
 			return nil, fmt.Errorf("applying CO-RE relocations: %w", ErrNotSupported)
 		}
 
-		handle, err := btfs.load(btf.ProgramSpec(spec.BTF))
+		handle, err := handles.btfHandle(btf.ProgramSpec(spec.BTF))
 		btfDisabled = errors.Is(err, btf.ErrNotSupported)
 		if err != nil && !btfDisabled {
 			return nil, fmt.Errorf("load BTF: %w", err)
@@ -222,7 +237,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, btfs btfHandl
 	}
 
 	if spec.AttachTo != "" {
-		target, err := resolveBTFType(spec.AttachTo, spec.Type, spec.AttachType)
+		target, err := resolveBTFType(targetBTF, spec.AttachTo, spec.Type, spec.AttachType)
 		if err != nil {
 			return nil, err
 		}
@@ -664,52 +679,45 @@ func (p *Program) ID() (ProgramID, error) {
 	return ProgramID(info.id), nil
 }
 
-func findKernelType(name string, typ btf.Type) error {
-	kernel, err := btf.LoadKernelSpec()
-	if err != nil {
-		return fmt.Errorf("can't load kernel spec: %w", err)
-	}
-
-	return kernel.FindType(name, typ)
-}
-
-func resolveBTFType(name string, progType ProgramType, attachType AttachType) (btf.Type, error) {
+func resolveBTFType(kernel *btf.Spec, name string, progType ProgramType, attachType AttachType) (btf.Type, error) {
 	type match struct {
 		p ProgramType
 		a AttachType
 	}
 
-	target := match{progType, attachType}
-	switch target {
+	var target btf.Type
+	var typeName, featureName string
+	switch (match{progType, attachType}) {
 	case match{LSM, AttachLSMMac}:
-		var target btf.Func
-		err := findKernelType("bpf_lsm_"+name, &target)
-		if errors.Is(err, btf.ErrNotFound) {
-			return nil, &internal.UnsupportedFeatureError{
-				Name: name + " LSM hook",
-			}
-		}
-		if err != nil {
-			return nil, fmt.Errorf("resolve BTF for LSM hook %s: %w", name, err)
-		}
-
-		return &target, nil
+		target = new(btf.Func)
+		typeName = "bpf_lsm_" + name
+		featureName = name + " LSM hook"
 
 	case match{Tracing, AttachTraceIter}:
-		var target btf.Func
-		err := findKernelType("bpf_iter_"+name, &target)
-		if errors.Is(err, btf.ErrNotFound) {
-			return nil, &internal.UnsupportedFeatureError{
-				Name: name + " iterator",
-			}
-		}
-		if err != nil {
-			return nil, fmt.Errorf("resolve BTF for iterator %s: %w", name, err)
-		}
-
-		return &target, nil
+		target = new(btf.Func)
+		typeName = "bpf_iter_" + name
+		featureName = name + " iterator"
 
 	default:
 		return nil, nil
 	}
+
+	if kernel == nil {
+		var err error
+		kernel, err = btf.LoadKernelSpec()
+		if err != nil {
+			return nil, fmt.Errorf("load kernel spec: %w", err)
+		}
+	}
+
+	err := kernel.FindType(typeName, target)
+	if errors.Is(err, btf.ErrNotFound) {
+		return nil, &internal.UnsupportedFeatureError{
+			Name: featureName,
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve BTF for %s: %w", featureName, err)
+	}
+	return target, nil
 }

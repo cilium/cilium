@@ -71,14 +71,6 @@ func (k coreReloKind) String() string {
 }
 
 func coreRelocate(local, target *Spec, coreRelos bpfCoreRelos) (map[uint64]Relocation, error) {
-	if target == nil {
-		var err error
-		target, err = loadKernelSpec()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if local.byteOrder != target.byteOrder {
 		return nil, fmt.Errorf("can't relocate %s against %s", local.byteOrder, target.byteOrder)
 	}
