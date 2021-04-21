@@ -488,7 +488,7 @@ func deleteEndpoint(obj interface{}) {
 }
 
 func synchronizeCiliumEndpoints() {
-	_, ciliumNodeInformer := informer.NewInformer(
+	_, ciliumEndpointsInformer := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
 			"ciliumendpoints", k8sv1.NamespaceAll, fields.Everything()),
 		&ciliumv2.CiliumEndpoint{},
@@ -510,7 +510,7 @@ func synchronizeCiliumEndpoints() {
 		k8s.ConvertToCiliumEndpoint,
 	)
 
-	go ciliumNodeInformer.Run(wait.NeverStop)
+	go ciliumEndpointsInformer.Run(wait.NeverStop)
 }
 
 func runServer(cmd *cobra.Command) {
