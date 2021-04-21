@@ -62,7 +62,7 @@ ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 	return redirect(ifindex, flags);
 }
 
-static __always_inline __maybe_unused __u32
+static __always_inline __maybe_unused __u64
 ctx_full_len(const struct __sk_buff *ctx)
 {
 	return ctx->len;

@@ -521,7 +521,7 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	__u32 off;
+	__u64 off;
 	bool icmp = false, icmp_echoreply = false;
 	int ret;
 
