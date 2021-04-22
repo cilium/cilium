@@ -192,6 +192,8 @@ type k8sConnectivityImplementation interface {
 	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
 	ClusterName() (name string)
 
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
+
 	k8sPolicyImplementation
 }
 
