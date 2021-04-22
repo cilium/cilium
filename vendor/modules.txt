@@ -268,10 +268,6 @@ github.com/form3tech-oss/jwt-go
 # github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
 ## explicit
 github.com/fsnotify/fsnotify
-# github.com/go-bindata/go-bindata/v3 v3.1.3
-## explicit
-github.com/go-bindata/go-bindata/v3
-github.com/go-bindata/go-bindata/v3/go-bindata
 # github.com/go-kit/kit v0.10.0
 github.com/go-kit/kit/log
 # github.com/go-logfmt/logfmt v0.5.0
@@ -439,9 +435,6 @@ github.com/json-iterator/go
 # github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
 ## explicit
 github.com/kevinburke/ssh_config
-# github.com/kisielk/errcheck v1.5.0
-github.com/kisielk/errcheck
-github.com/kisielk/errcheck/errcheck
 # github.com/kr/pretty v0.2.1
 ## explicit
 github.com/kr/pretty
