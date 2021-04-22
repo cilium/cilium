@@ -76,8 +76,8 @@ setup for the Vagrantfile in the root of the Cilium tree depends on a number of
 environment variables and network setup that are managed via
 ``contrib/vagrant/start.sh``.
 
-Using the provided Vagrantfile
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Option 1 - Using the Provided Vagrantfiles (Recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To bring up a Vagrant VM with Cilium plus dependencies installed, run:
 
@@ -127,8 +127,8 @@ The box is currently available for the following providers:
 
 * virtualbox
 
-Options
-^^^^^^^
+Configuration Options
+---------------------
 
 The following environment variables can be set to customize the VMs
 brought up by vagrant:
@@ -203,7 +203,7 @@ If you have any issue with the provided vagrant box
 build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
 
 Launch CI VMs
-^^^^^^^^^^^^^
+-------------
 
 The ``test`` directory also contains a ``Vagrantfile`` that can be
 used to bring up the CI VM images that will cache a Vagrant box
@@ -242,8 +242,8 @@ the local CI k8s nodes.
 The runtime VM uses the same cached box as the k8s nodes, but does not start
 K8s, but runs Cilium as a systemd service.
 
-Manual Installation
-^^^^^^^^^^^^^^^^^^^
+Option 2 - Manual Installation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Alternatively you can import the vagrant box ``cilium/ubuntu``
 directly and manually install Cilium:
