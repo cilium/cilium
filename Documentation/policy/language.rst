@@ -1119,21 +1119,21 @@ If multiple allow and deny policies are applied to the same pod, the following
 table represents the expected enforcement for that Pod:
 
 +--------------------------------------------------------------------------------------------+
-| **Ingress Policies Deployed to Server Pod (Yes / No)**                                     |
+| **Set of Ingress Policies Deployed to Server Pod**                                         |
 +---------------------+-----------------------+---------+---------+--------+--------+--------+
-|                     | Layer 7 (HTTP)        | Yes     | Yes     | Yes    | Yes    | No     |
+|                     | Layer 7 (HTTP)        | ✓       | ✓       | ✓      | ✓      |        |
 |                     +-----------------------+---------+---------+--------+--------+--------+
-|                     | Layer 4 (80/TCP)      | Yes     | Yes     | Yes    | Yes    | No     |
+|                     | Layer 4 (80/TCP)      | ✓       | ✓       | ✓      | ✓      |        |
 | **Allow Policies**  +-----------------------+---------+---------+--------+--------+--------+
-|                     | Layer 4 (81/TCP)      | Yes     | Yes     | Yes    | Yes    | No     |
+|                     | Layer 4 (81/TCP)      | ✓       | ✓       | ✓      | ✓      |        |
 |                     +-----------------------+---------+---------+--------+--------+--------+
-|                     | Layer 3 (Pod: Client) | Yes     | Yes     | Yes    | Yes    | No     |
+|                     | Layer 3 (Pod: Client) | ✓       | ✓       | ✓      | ✓      |        |
 +---------------------+-----------------------+---------+---------+--------+--------+--------+
-|                     | Layer 4 (80/TCP)      | No      | Yes     | No     | Yes    | Yes    |
+|                     | Layer 4 (80/TCP)      |         | ✓       |        | ✓      | ✓      |
 | **Deny Policies**   +-----------------------+---------+---------+--------+--------+--------+
-|                     | Layer 3 (Pod: Client) | No      | No      | Yes    | Yes    | No     |
+|                     | Layer 3 (Pod: Client) |         |         | ✓      | ✓      |        |
 +---------------------+-----------------------+---------+---------+--------+--------+--------+
-| **Traffic connection (Allowed / Denied)**                                                  |
+| **Result for Traffic Connections (Allowed / Denied)**                                      |
 +---------------------+-----------------------+---------+---------+--------+--------+--------+
 |                     | curl server:81        | Allowed | Allowed | Denied | Denied | Denied |
 |                     +-----------------------+---------+---------+--------+--------+--------+
