@@ -67,7 +67,7 @@ And set ``networkType: Cilium``:
 
 .. code:: bash
 
-   sed -i 's/networkType:\ OVNKubernetes/networkType:\ Cilium/' "${CLUSTER_NAME}/install-config.yaml"
+   sed -i 's/networkType:\ .*/networkType:\ Cilium/' "${CLUSTER_NAME}/install-config.yaml"
 
 Resulting configuration will look like this:
 
