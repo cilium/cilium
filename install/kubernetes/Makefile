@@ -89,16 +89,19 @@ update-versions:
 		branch="$$cilium_version";											\
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		pull_policy="IfNotPresent";											\
+		use_digest="true";													\
 		if echo "$(VERSION)" | grep -q $(LATEST_VERSION_REGEX); then							\
 			cilium_version="latest";										\
 			branch="master";											\
 			hubble_version="latest";										\
 			pull_policy="Always";											\
+			use_digest="false";											\
 		elif echo "$(VERSION)" | grep -q $(DEV_VERSION_REGEX); then							\
 			cilium_version="v$(subst -dev,,$(VERSION))";								\
 			branch="$$cilium_version";										\
 			hubble_version="$(HUBBLE_UI_VERSION)";									\
 			pull_policy="Always";											\
+			use_digest="false";											\
 		fi;														\
 		sed -i 's;icon:.*;icon: $(LOGO_BASE_URL)/cilium@'$$branch'/$(LOGO_PATH);' $(CHART_FILE);			\
 		# image.tag operator.image.tag preflight.image.tag hubble.relay.image.tag;					\
@@ -116,6 +119,7 @@ update-versions:
 		# certgen.image.tag												\
 		sed -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
 		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);  					\
+		sed -i 's/useDigest:.*/useDigest: '$$use_digest'/' $(CILIUM_VALUES);  							\
 		# image digests;													\
 		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $(CILIUM_VALUES); 				\
 		sed -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $(CILIUM_VALUES);			\
