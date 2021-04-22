@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/sirupsen/logrus"
@@ -116,29 +118,29 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 }
 
 var (
-	//go:embed crds/ciliumnetworkpolicies.yaml
+	//go:embed crds/v2/ciliumnetworkpolicies.yaml
 	crdsCiliumnetworkpolicies []byte
 
-	//go:embed crds/ciliumclusterwidenetworkpolicies.yaml
+	//go:embed crds/v2/ciliumclusterwidenetworkpolicies.yaml
 	crdsCiliumclusterwidenetworkpolicies []byte
 
-	//go:embed crds/ciliumendpoints.yaml
+	//go:embed crds/v2/ciliumendpoints.yaml
 	crdsCiliumendpoints []byte
 
-	//go:embed crds/ciliumidentities.yaml
+	//go:embed crds/v2/ciliumidentities.yaml
 	crdsCiliumidentities []byte
 
-	//go:embed crds/ciliumnodes.yaml
+	//go:embed crds/v2/ciliumnodes.yaml
 	crdsCiliumnodes []byte
 
-	//go:embed crds/ciliumexternalworkloads.yaml
+	//go:embed crds/v2/ciliumexternalworkloads.yaml
 	crdsCiliumexternalworkloads []byte
 
-	//go:embed crds/ciliumlocalredirectpolicies.yaml
+	//go:embed crds/v2/ciliumlocalredirectpolicies.yaml
 	crdsCiliumlocalredirectpolicies []byte
 
-	//go:embed crds/ciliumegressnatpolicies.yaml
-	crdsCiliumegressnatpolicies []byte
+	//go:embed crds/v2alpha1/ciliumegressnatpolicies.yaml
+	crdsv2Alpha1Ciliumegressnatpolicies []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -169,7 +171,7 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 	case CLRPCRDName:
 		crdBytes = crdsCiliumlocalredirectpolicies
 	case CENPCRDName:
-		crdBytes = crdsCiliumegressnatpolicies
+		crdBytes = crdsv2Alpha1Ciliumegressnatpolicies
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -513,4 +515,17 @@ func (p defaultPoll) Poll(
 	conditionFn func() (bool, error),
 ) error {
 	return wait.Poll(interval, duration, conditionFn)
+}
+
+// RegisterCRDs registers all CRDs with the K8s apiserver.
+func RegisterCRDs() error {
+	if option.Config.SkipCRDCreation {
+		return nil
+	}
+
+	if err := CreateCustomResourceDefinitions(k8s.APIExtClient()); err != nil {
+		return fmt.Errorf("Unable to create custom resource definition: %s", err)
+	}
+
+	return nil
 }

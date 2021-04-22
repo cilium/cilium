@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -266,18 +265,5 @@ func WaitForNodeInformation() error {
 
 	// Annotate addresses will occur later since the user might
 	// want to specify them manually
-	return nil
-}
-
-// RegisterCRDs registers all CRDs with the K8s apiserver.
-func RegisterCRDs() error {
-	if option.Config.SkipCRDCreation {
-		return nil
-	}
-
-	if err := cilium_v2_client.CreateCustomResourceDefinitions(APIExtClient()); err != nil {
-		return fmt.Errorf("Unable to create custom resource definition: %s", err)
-	}
-
 	return nil
 }

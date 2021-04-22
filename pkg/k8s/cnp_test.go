@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package k8s
+package k8s_test
 
 import (
 	"context"
@@ -28,8 +28,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
+	. "github.com/cilium/cilium/pkg/k8s"
+	ciliumClient "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
@@ -53,6 +54,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// logging field definitions
+const (
+	// subsysK8s is the value for logfields.LogSubsys
+	subsysK8s = "k8s"
+)
+
+var (
+	// log is the k8s package logger object.
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+)
+
 type K8sIntegrationSuite struct{}
 
 var _ = Suite(&K8sIntegrationSuite{})
@@ -72,7 +84,7 @@ func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 		c.Assert(err, IsNil)
 		apiextensionsclientset, err := apiextensionsclient.NewForConfig(restConfig)
 		c.Assert(err, IsNil)
-		err = cilium_v2_client.CreateCustomResourceDefinitions(apiextensionsclientset)
+		err = ciliumClient.CreateCustomResourceDefinitions(apiextensionsclientset)
 		c.Assert(err, IsNil)
 
 		client, err := clientset.NewForConfig(restConfig)
@@ -331,7 +343,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	}
 
 	cnpns := wantedCNPS.Nodes["k8s1"]
-	err = updateContext.updateViaAPIServer(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
+	err = updateContext.UpdateViaAPIServer(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
 	c.Assert(err, IsNil)
 
 	if integrationTest {
@@ -345,7 +357,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	}
 
 	cnpns = wantedCNPS.Nodes["k8s2"]
-	err = updateContext.updateViaAPIServer(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
+	err = updateContext.UpdateViaAPIServer(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
 	c.Assert(err, IsNil)
 
 	if integrationTest {
@@ -379,7 +391,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	}
 
 	cnpns = wantedCNPS.Nodes["k8s1"]
-	err = updateContext.updateViaAPIServer(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
+	err = updateContext.UpdateViaAPIServer(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
 	c.Assert(err, IsNil)
 
 	if integrationTest {
@@ -603,7 +615,7 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 					CiliumNPClient: ciliumNPClients[i],
 					NodeName:       "k8s" + strconv.Itoa(i),
 				}
-				err := updateContext.updateViaAPIServer(cnp, true, true, nil, uint64(i), nil)
+				err := updateContext.UpdateViaAPIServer(cnp, true, true, nil, uint64(i), nil)
 				c.Assert(err, IsNil)
 				wg.Done()
 			}
