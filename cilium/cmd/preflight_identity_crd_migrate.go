@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/k8s"
+	ciliumClient "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -202,7 +203,7 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 	}
 
 	// Update CRDs to ensure ciliumIdentity is present
-	k8s.RegisterCRDs()
+	ciliumClient.RegisterCRDs()
 
 	// Create a CRD Backend
 	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{

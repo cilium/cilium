@@ -14,7 +14,7 @@ find . -not -path "./vendor/*" -not -path "./_build/*" -iname "*zz_generated.dee
 find . -not -path "./vendor/*" -not -path "./_build/*" -iname "*zz_generated.deepequal.go" -exec rm  {} \;
 
 # Generate all files
-make generate-k8s-api manifests go-bindata
+make generate-k8s-api manifests
 
 # Check for diff
 diff="$(git diff)"

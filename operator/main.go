@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -273,7 +274,7 @@ func runOperator() {
 
 	// Register the CRDs after validating that we are running on a supported
 	// version of K8s.
-	if err := k8s.RegisterCRDs(); err != nil {
+	if err := client.RegisterCRDs(); err != nil {
 		log.WithError(err).Fatal("Unable to register CRDs")
 	}
 
