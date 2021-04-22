@@ -15,11 +15,14 @@
 package k8s
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -226,6 +229,62 @@ func (c *Client) DeletePodCollection(ctx context.Context, namespace string, opts
 
 func (c *Client) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
 	return c.Clientset.CoreV1().Pods(namespace).List(ctx, options)
+}
+
+func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *rest.Request {
+	return c.Clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
+}
+
+// separator for locating the start of the next log message. Sometimes
+// logs may span multiple lines, locate the timestamp, log level and
+// msg that always start a new log message
+var logSplitter = regexp.MustCompile(`\r?\n[^ ]+ level=[[:alpha:]]+ msg=`)
+
+func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error) {
+	opts := &corev1.PodLogOptions{
+		Container:  "cilium-agent",
+		Timestamps: true,
+		SinceTime:  &metav1.Time{Time: since},
+	}
+	req := c.PodLogs(namespace, pod, opts)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error getting cilium-agent logs for %s/%s: %w", namespace, pod, err)
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	scanner := bufio.NewScanner(podLogs)
+	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		// find the full log line separator
+		loc := logSplitter.FindIndex(data)
+		if loc != nil {
+			// Locate '\n', advance just past it
+			nl := loc[0] + bytes.IndexByte(data[loc[0]:loc[1]], '\n') + 1
+			return nl, data[:nl], nil
+		} else if atEOF {
+			// EOF, return all we have
+			return len(data), data, nil
+		} else {
+			// Nothing to return
+			return 0, nil, nil
+		}
+	})
+
+	for scanner.Scan() {
+		if filter != nil && !filter.Match(scanner.Bytes()) {
+			continue
+		}
+		buf.Write(scanner.Bytes())
+	}
+	err = scanner.Err()
+	if err != nil {
+		err = fmt.Errorf("error reading cilium-agent logs for %s/%s: %w", namespace, pod, err)
+	}
+	return buf.String(), err
 }
 
 func (c *Client) ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error) {
