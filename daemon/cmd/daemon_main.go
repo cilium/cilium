@@ -220,6 +220,9 @@ func init() {
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(option.AnnotateK8sNode)
 
+	flags.Duration(option.ARPPingRefreshPeriod, 5*time.Minute, "Period for remote node ARP entry refresh (set 0 to disable)")
+	option.BindEnv(option.ARPPingRefreshPeriod)
+
 	flags.Bool(option.BlacklistConflictingRoutes, false, "Don't blacklist IP allocations conflicting with local non-cilium routes")
 	flags.MarkDeprecated(option.BlacklistConflictingRoutes, "This flag is no longer available and will be removed in the v1.10")
 	option.BindEnv(option.BlacklistConflictingRoutes)
@@ -1550,7 +1553,7 @@ func runDaemon() {
 	}
 
 	// Start periodical arping to refresh neighbor table
-	if d.datapath.Node().NodeNeighDiscoveryEnabled() {
+	if d.datapath.Node().NodeNeighDiscoveryEnabled() && option.Config.ARPPingRefreshPeriod != 0 {
 		d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
 	}
 

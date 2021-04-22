@@ -87,6 +87,9 @@ const (
 	// the daemon, which can also be disbled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
+	// ARPPingRefreshPeriod is the ARP entries refresher period
+	ARPPingRefreshPeriod = "arping-refresh-period"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -2061,6 +2064,9 @@ type DaemonConfig struct {
 	// store rules and routes under ENI and Azure IPAM modes, if false.
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat bool
+
+	// ARPPingRefreshPeriod is the ARP entries refresher period.
+	ARPPingRefreshPeriod time.Duration
 }
 
 var (
@@ -2459,6 +2465,7 @@ func (c *DaemonConfig) Populate() {
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
+	c.ARPPingRefreshPeriod = viper.GetDuration(ARPPingRefreshPeriod)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.BPFRoot = viper.GetString(BPFRoot)
