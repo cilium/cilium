@@ -920,6 +920,42 @@ func (d *Daemon) startStatusCollector() {
 				}
 			},
 		},
+		{
+			Name: "encryption",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				switch {
+				case option.Config.EnableIPSec:
+					return &models.EncryptionStatus{
+						Mode: models.EncryptionStatusModeIPsec,
+					}, nil
+				case option.Config.EnableWireguard:
+					var msg string
+					status, err := d.datapath.WireguardAgent().Status(false)
+					if err != nil {
+						msg = err.Error()
+					}
+					return &models.EncryptionStatus{
+						Mode:      models.EncryptionStatusModeWireguard,
+						Msg:       msg,
+						Wireguard: status,
+					}, nil
+				default:
+					return &models.EncryptionStatus{
+						Mode: models.EncryptionStatusModeDisabled,
+					}, nil
+				}
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.EncryptionStatus); ok {
+						d.statusResponse.Encryption = s
+					}
+				}
+			},
+		},
 	}
 
 	if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
