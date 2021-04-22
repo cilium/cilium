@@ -698,25 +698,10 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
 
 	n.neighLock.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			n.neighLock.Unlock()
-		}
-	}()
 
+	nextHopIsNew := false
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
-		if existingNextHopStr == nextHopStr {
-			// We already know about the nextHop of the given newNode. Can happen
-			// when insertNeighbor is called by NodeUpdate multiple times for
-			// the same node.
-			if !refresh {
-				// In the case of refresh, don't return early, as we want to
-				// update the related neigh entry even if the nextHop is the same
-				// (e.g. to detect the GW MAC addr change).
-				return
-			}
-		} else if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+		if existingNextHopStr != nextHopStr && n.neighNextHopRefCount.Delete(existingNextHopStr) {
 			// nextHop has changed and nobody else is using it, so remove the old one.
 			neigh, found := n.neighByNextHop[existingNextHopStr]
 			if found {
@@ -736,17 +721,17 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 				}
 			}
 		}
+	} else {
+		// nextHop for the given node was previously not found, so let's
+		// increment ref counter.  This can happen upon regular NodeUpdate event
+		// or by the periodic ARP refresher which got executed before
+		// NodeUpdate().
+		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
 
 	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
 
-	nextHopIsNew := false
-	if !refresh {
-		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
-	}
-
 	n.neighLock.Unlock() // to allow concurrent arpings below
-	locked = false
 
 	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
 	var hwAddr net.HardwareAddr
@@ -761,7 +746,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 
 	n.neighLock.Lock()
-	locked = true
+	defer n.neighLock.Unlock()
 
 	if hwAddr != nil {
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
@@ -817,6 +802,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
 
 	if n.neighNextHopRefCount.Delete(nextHopStr) {
+
 		neigh, found := n.neighByNextHop[nextHopStr]
 		delete(n.neighByNextHop, nextHopStr)
 
