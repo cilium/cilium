@@ -221,6 +221,9 @@ func init() {
 	flags.Bool(option.BlacklistConflictingRoutes, defaults.BlacklistConflictingRoutes, "Don't blacklist IP allocations conflicting with local non-cilium routes")
 	option.BindEnv(option.BlacklistConflictingRoutes)
 
+	flags.Duration(option.ARPPingRefreshPeriod, 5*time.Minute, "Period for remote node ARP entry refresh (set 0 to disable)")
+	option.BindEnv(option.ARPPingRefreshPeriod)
+
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(option.AutoCreateCiliumNodeResource)
 
@@ -1477,7 +1480,7 @@ func runDaemon() {
 	}
 
 	// Start periodical arping to refresh neighbor table
-	if d.datapath.Node().NodeNeighDiscoveryEnabled() {
+	if d.datapath.Node().NodeNeighDiscoveryEnabled() && option.Config.ARPPingRefreshPeriod != 0 {
 		d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
 	}
 
