@@ -1167,7 +1167,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 #endif
 
 	ep = __lookup_ip4_endpoint(ip4->saddr);
-	if (ep && !(ep->flags & ENDPOINT_F_HOST)) {
+	/* if saddr == cilium_host IP, treats it the same as pods and SNAT it. */
+	if (ep && (!(ep->flags & ENDPOINT_F_HOST) || ip4->saddr == IPV4_GATEWAY)) {
 		struct remote_endpoint_info *info;
 		*from_endpoint = true;
 
