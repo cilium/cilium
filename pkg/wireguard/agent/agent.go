@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -448,6 +450,50 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipnet
 // OnIPIdentityCacheGC implements ipcache.IPIdentityMappingListener
 func (a *Agent) OnIPIdentityCacheGC() {
 	// ignored
+}
+
+// Status returns the state of the Wireguard tunnel managed by this instance.
+// If withPeers is true, then the details about each connected peer are
+// are populated as well.
+func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
+	a.Lock()
+	dev, err := a.wgClient.Device(types.IfaceName)
+	a.Unlock()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get device: %w", err)
+	}
+
+	var peers []*models.WireguardPeer
+	if withPeers {
+		peers = make([]*models.WireguardPeer, 0, len(dev.Peers))
+		for _, p := range dev.Peers {
+			allowedIPs := make([]string, 0, len(p.AllowedIPs))
+			for _, ip := range p.AllowedIPs {
+				allowedIPs = append(allowedIPs, ip.String())
+			}
+
+			peer := &models.WireguardPeer{
+				PublicKey:         p.PublicKey.String(),
+				Endpoint:          p.Endpoint.String(),
+				LastHandshakeTime: strfmt.DateTime(p.LastHandshakeTime),
+				AllowedIps:        allowedIPs,
+			}
+			peers = append(peers, peer)
+		}
+	}
+
+	status := &models.WireguardStatus{
+		Interfaces: []*models.WireguardInterface{{
+			Name:       dev.Name,
+			ListenPort: int64(dev.ListenPort),
+			PublicKey:  dev.PublicKey.String(),
+			PeerCount:  int64(len(dev.Peers)),
+			Peers:      peers,
+		}},
+	}
+
+	return status, nil
 }
 
 // peerConfig represents the kernel state of each Wireguard peer.
