@@ -22,6 +22,7 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/debug"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -66,6 +67,13 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 	}
 
 	dr.ServiceList = getServiceList(d.svc)
+
+	dr.Encryption = &models.DebugInfoEncryption{}
+	if option.Config.EnableWireguard {
+		if wgStatus, err := d.datapath.WireguardAgent().Status(true); err == nil {
+			dr.Encryption.Wireguard = wgStatus
+		}
+	}
 
 	return restapi.NewGetDebuginfoOK().WithPayload(&dr)
 }
