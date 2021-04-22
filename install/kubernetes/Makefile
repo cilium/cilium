@@ -26,7 +26,7 @@ EXPERIMENTAL_OPTIONS := \
     --set global.hubble.relay.enabled=true \
     --set global.hubble.ui.enabled=true
 
-USE_DIGESTS ?= true
+USE_DIGESTS ?= $(shell if grep -q '""' Makefile.digests; then echo "false"; else echo "true"; fi)
 ifeq ($(USE_DIGESTS),false)
 DIGEST_OPTS :=
 else
@@ -64,6 +64,7 @@ update-versions:
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $$chart;		\
 		fi; done
 	$(QUIET)for chart in $(shell find -type f -name values.yaml); do								\
+		sed -i 's/useDigest:.*/useDigest: 'false'/' $(CILIUM_VALUES);								\
 		sed -i '/# cilium-digest.*/{!b;n;s/digest.*/digest: "'$(CILIUM_DIGEST)'"/}' $$chart; 					\
 		sed -i '/# hubble-relay-digest.*/{!b;n;s/digest.*/digest: "'$(HUBBLE_RELAY_DIGEST)'"/}' $$chart;			\
 		sed -i '/# operator-aws-digest.*/{!b;n;s/awsDigest.*/awsDigest: "'$(OPERATOR_AWS_DIGEST)'"/}' $$chart; 			\
