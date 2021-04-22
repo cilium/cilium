@@ -67,6 +67,12 @@ spec:
         command:
         - /usr/bin/cilium-etcd-operator
         env:
+        {{- if and (.Values.k8sServiceHost) (.Values.k8sServicePort) }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: "{{ .Values.k8sServicePort }}"
+        - name: KUBERNETES_SERVICE_HOST
+          value: {{ .Values.k8sServiceHost }}
+        {{- end }}
         - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
           value: "{{ .Values.etcd.clusterDomain }}"
         - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
