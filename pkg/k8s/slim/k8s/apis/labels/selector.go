@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -877,6 +878,15 @@ func parse(selector string) (internalSelector, error) {
 }
 
 func validateLabelKey(k string, path *field.Path) *field.Error {
+	if strings.HasPrefix(k, "spiffe.//") {
+		// replace '.' by ':' after 'spiffe
+		spiffeID := k[:6] + ":" + k[7:]
+		if _, err := spiffeid.FromString(spiffeID); err != nil {
+			errs := []string{err.Error()}
+			return field.Invalid(path, k, strings.Join(errs, "; "))
+		}
+		return nil
+	}
 	if errs := validation.IsQualifiedName(k); len(errs) != 0 {
 		return field.Invalid(path, k, strings.Join(errs, "; "))
 	}
