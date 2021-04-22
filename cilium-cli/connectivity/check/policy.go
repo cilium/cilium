@@ -16,13 +16,16 @@ package check
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -134,14 +137,35 @@ func (pc *PolicyContext) Name() string {
 
 // Run applies the policy, use no policy to delete all policies
 func (pc *PolicyContext) Run(ctx context.Context, c TestContext) {
+	if pc.err != nil {
+		c.Log("❌ policy parsing failed with error: %s", pc.err)
+		c.Report(TestResult{
+			Name:     pc.Name(),
+			Failures: 1,
+			Warnings: 0,
+		})
+		return
+	}
 	if pc.runner != nil {
-		policyFailures, cleanup := pc.ApplyPolicy(ctx, c)
-		c.(*K8sConnectivityCheck).policyFailures = policyFailures
+		failures, cleanup := pc.ApplyPolicy(ctx, c)
+		c.(*K8sConnectivityCheck).policyFailures = failures
 		defer cleanup()
 
+		if failures > 0 {
+			c.Log("❌ policy apply failed")
+			c.Report(TestResult{
+				Name:     pc.Name(),
+				Failures: 1,
+				Warnings: 0,
+			})
+			return
+		}
 		pc.runner.Run(ctx, c)
 	} else {
 		failures := c.ApplyCNPs(ctx, len(pc.CNPs) == 0, pc.CNPs)
+		if failures > 0 {
+			c.Log("❌ policy apply failed")
+		}
 		c.Report(TestResult{
 			Name:     pc.Name(),
 			Failures: failures,
@@ -202,7 +226,7 @@ func ParsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err e
 		if strings.TrimSpace(yaml) == "" {
 			continue
 		}
-		obj, groupVersionKind, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(yaml), nil, nil)
+		obj, groupVersionKind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("resource decode error (%s) in: %s", err, yaml)
 		}
@@ -221,12 +245,18 @@ func ParsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err e
 }
 
 // DeleteCNP deletes a CNP
-func (k *K8sConnectivityCheck) DeleteCNP(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy) {
+func (k *K8sConnectivityCheck) DeleteCNP(ctx context.Context, cnp *ciliumv2.CiliumNetworkPolicy) bool {
 	name := cnp.Namespace + "/" + cnp.Name
-	if err := k.deleteCNP(ctx, cnp); err != nil {
+	if _, ok := k.policies[name]; !ok {
+		k.Log("❌ [%s] policy was not applied, not deleting", name)
+		return false
+	}
+	var err error
+	if err = k.deleteCNP(ctx, cnp); err != nil {
 		k.Log("❌ [%s] policy delete failed: %s", name, err)
 	}
 	delete(k.policies, name)
+	return err == nil
 }
 
 // DeleteCNPs deletes a set of CNPs
@@ -235,6 +265,8 @@ func (k *K8sConnectivityCheck) DeleteCNPs(ctx context.Context, cnps []*ciliumv2.
 	if len(cnps) == 0 {
 		return
 	}
+
+	startTime := time.Now()
 
 	// Get current policy revisions in all Cilium pods
 	revisions, err := k.GetCiliumPolicyRevisions(ctx)
@@ -247,14 +279,20 @@ func (k *K8sConnectivityCheck) DeleteCNPs(ctx context.Context, cnps []*ciliumv2.
 		}
 	}
 
+	deleted := 0
 	for _, cnp := range cnps {
-		k.DeleteCNP(ctx, cnp)
+		if k.DeleteCNP(ctx, cnp) {
+			deleted++
+		}
 	}
 
 	// Wait for policies to be deleted on all Cilium nodes
-	err = k.WaitCiliumPolicyRevisions(ctx, revisions)
-	if err != nil {
-		k.Log("❌ policies are not deleted in all Cilium nodes in time")
+	if deleted > 0 {
+		err = k.WaitCiliumPolicyRevisions(ctx, revisions)
+		if err != nil {
+			k.Log("❌ policies are not deleted in all Cilium nodes in time")
+			k.CiliumLogs(ctx, startTime.Add(-1*time.Second), nil)
+		}
 	}
 }
 
@@ -317,10 +355,28 @@ func (k *K8sConnectivityCheck) WaitCiliumPolicyRevisions(ctx context.Context, re
 	return err
 }
 
+// CiliumLogs logs the logs of all the Cilium agents since 'startTime' applying 'filter'
+func (k *K8sConnectivityCheck) CiliumLogs(ctx context.Context, startTime time.Time, filter *regexp.Regexp) {
+	pods, err := k.clients.src.ListPods(ctx, k.ciliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	if err != nil {
+		k.Log("❌ error listing Cilium pods: %w", err)
+		return
+	}
+	for _, pod := range pods.Items {
+		log, err := k.clients.src.CiliumLogs(ctx, pod.Namespace, pod.Name, startTime, filter)
+		if err != nil {
+			k.Log("❌ error reading Cilium logs: %w", err)
+		} else {
+			k.Log("ℹ️  Cilium agent %s/%s logs since %s:\n%s", pod.Namespace, pod.Name, startTime.String(), log)
+		}
+	}
+}
+
 // ApplyCNPs applies policies and returns the number of failures
 func (k *K8sConnectivityCheck) ApplyCNPs(ctx context.Context, deletePrevious bool, cnps []*ciliumv2.CiliumNetworkPolicy) int {
 	wait := false
 	failures := 0
+	startTime := time.Now()
 
 	// bail out if nothing to do (nothing to delete and nothing to add):
 	if (!deletePrevious || deletePrevious && len(k.policies) == 0) && len(cnps) == 0 {
@@ -354,6 +410,14 @@ func (k *K8sConnectivityCheck) ApplyCNPs(ctx context.Context, deletePrevious boo
 	for _, cnp := range cnps {
 		name := cnp.Namespace + "/" + cnp.Name
 		k.Header("🔌 [%s] Applying CiliumNetworkPolicy...", name)
+		if k.params.Verbose {
+			jsn, err := json.MarshalIndent(cnp, "   ", "   ")
+			if err != nil {
+				k.Log("❌ Formating CNP failed: %w", err)
+			} else {
+				k.Log("%s", string(jsn))
+			}
+		}
 		k8sCNP, err := k.updateOrCreateCNP(ctx, cnp)
 		if err != nil {
 			k.Log("❌ policy apply failed: %s", err)
@@ -370,6 +434,7 @@ func (k *K8sConnectivityCheck) ApplyCNPs(ctx context.Context, deletePrevious boo
 		err = k.WaitCiliumPolicyRevisions(ctx, revisions)
 		if err != nil {
 			k.Log("❌ policy is not applied in all Cilium nodes in time")
+			k.CiliumLogs(ctx, startTime.Add(-1*time.Second), nil)
 			failures++
 			wait = false
 		}
