@@ -87,7 +87,7 @@ const (
 	ConnectivityCheckNamespace = "cilium-test"
 
 	ConfigMapName = "cilium-config"
-	Version       = "v1.9.5"
+	Version       = "v1.9.6"
 
 	TunnelType = "vxlan"
 
