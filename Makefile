@@ -29,7 +29,7 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 TESTPKGS_EVAL += "test/helpers/logutils"
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
-K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' '))
+K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/pkg/k8s/apis/cilium.io/v2/client/crds $(ROOT_DIR)/pkg/k8s/apis/cilium.io/v2alpha1/client/crds | grep -v .gitignore | tr "\n" ' '))
 K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
 
 SWAGGER_VERSION := v0.25.0
@@ -306,14 +306,14 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	$(eval TMPDIR := $(shell mktemp -d))
 	cd "./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen" && \
 	go run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2;$(PWD)/pkg/k8s/apis/cilium.io/v2alpha1" output:crd:artifacts:config="$(TMPDIR)";
-	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./examples/crds/ciliumnetworkpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./examples/crds/ciliumclusterwidenetworkpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./examples/crds/ciliumendpoints.yaml
-	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./examples/crds/ciliumidentities.yaml
-	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./examples/crds/ciliumnodes.yaml
-	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./examples/crds/ciliumexternalworkloads.yaml
-	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./examples/crds/ciliumlocalredirectpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumegressnatpolicies.yaml ./examples/crds/ciliumegressnatpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumnetworkpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumclusterwidenetworkpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumendpoints.yaml
+	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumidentities.yaml
+	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumnodes.yaml
+	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumexternalworkloads.yaml
+	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumlocalredirectpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumegressnatpolicies.yaml ./pkg/k8s/apis/cilium.io/v2/client/crds/ciliumegressnatpolicies.yaml
 	rm -rf $(TMPDIR)
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.

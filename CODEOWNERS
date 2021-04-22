@@ -129,7 +129,7 @@ Makefile* @cilium/build
 /Documentation/yaml.config @cilium/docs-structure
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs-structure
-/examples/crds/ @cilium/kubernetes
+/pkg/k8s/apis/cilium.io/v2/client/crds/ @cilium/kubernetes
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci-structure
