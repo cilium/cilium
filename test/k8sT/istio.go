@@ -29,8 +29,10 @@ import (
 // This tests the Istio integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
+// The 5.4 CI job is intended to catch BPF complexity regressions and as such
+// doesn't need to execute this test suite.
 var _ = SkipContextIf(func() bool {
-	return helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19"
+	return helpers.RunsOn54Kernel() || (helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19")
 }, "K8sIstioTest", func() {
 
 	var (
