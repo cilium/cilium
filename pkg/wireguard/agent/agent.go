@@ -111,6 +111,11 @@ func (a *Agent) Init() error {
 	link := &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: types.IfaceName}}
 	err := netlink.LinkAdd(link)
 	if err != nil && !errors.Is(err, unix.EEXIST) {
+		if errors.Is(err, unix.EOPNOTSUPP) {
+			return fmt.Errorf("wireguard not supported by the Linux kernel (netlink: %w). "+
+				"Please upgrade your kernel or manually install the kernel module: "+
+				"https://www.wireguard.com/install/", err)
+		}
 		return err
 	}
 
