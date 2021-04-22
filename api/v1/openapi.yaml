@@ -1486,6 +1486,12 @@ definitions:
         type: object
         additionalProperties:
           type: string
+      encryption:
+        type: object
+        properties:
+          wireguard:
+            description: Status of the Wireguard agent
+            "$ref": "#/definitions/WireguardStatus"
   IPAMResponse:
     description: IPAM configuration of an endpoint
     type: object
@@ -1740,6 +1746,9 @@ definitions:
       bpf-maps:
         description: Status of BPF maps
         "$ref": "#/definitions/BPFMapStatus"
+      encryption:
+        description: Status of transparent encryption
+        "$ref": "#/definitions/EncryptionStatus"
   Status:
     description: Status of an individual component
     type: object
@@ -3013,3 +3022,82 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Port"
+  EncryptionStatus:
+    description: |-
+      Status of transparent encryption
+
+      +k8s:deepcopy-gen=true
+    properties:
+      mode:
+        type: string
+        enum:
+          - Disabled
+          - IPsec
+          - Wireguard
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+      wireguard:
+        description: Status of the Wireguard agent
+        "$ref": "#/definitions/WireguardStatus"
+  WireguardStatus:
+    description: |-
+      Status of the Wireguard agent
+
+      +k8s:deepcopy-gen=true
+    properties:
+      interfaces:
+        description: Wireguard interfaces managed by this Cilium instance
+        type: array
+        items:
+          "$ref": "#/definitions/WireguardInterface"
+  WireguardInterface:
+    description: |-
+      Status of a Wireguard interface
+
+      +k8s:deepcopy-gen=true
+    properties:
+      name:
+        description: Name of the interface
+        type: string
+      public-key:
+        description: Public key of this interface
+        type: string
+      listen-port:
+        description: Port on which the Wireguard endpoint is exposed
+        type: integer
+      peer-count:
+        description: Number of peers configured on this interface
+        type: integer
+      peers:
+        description: Optional list of wireguard peers
+        type: array
+        items:
+          "$ref": "#/definitions/WireguardPeer"
+  WireguardPeer:
+    description: |-
+      Status of a Wireguard peer
+
+      +k8s:deepcopy-gen=true
+    properties:
+      public-key:
+        description: Public key of this peer
+        type: string
+      endpoint:
+        description: Endpoint on which we are connected to this peer
+        type: string
+      last-handshake-time:
+        description: Timestamp of the last handshake with this peer
+        type: string
+        format: date-time
+      transfer-tx:
+        description: Number of sent bytes
+        type: integer
+      transfer-rx:
+        description: Number of received bytes
+        type: integer
+      allowed-ips:
+        description: List of IPs which may be routed through this peer
+        type: array
+        items:
+          type: string
