@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,53 +11,74 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package metadata
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"net/http"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 )
 
-func getMetadata(name string) (string, error) {
-	resp, err := http.Get("http://169.254.169.254/latest/meta-data/" + name)
+func newClient() (*imds.Client, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		return "", fmt.Errorf("unable to retrieve instance-id from metadata server: %s", err)
+		return nil, err
 	}
 
-	defer resp.Body.Close()
-	instanceID, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("unable to read response body: %s", err)
-	}
-
-	return string(instanceID), nil
+	return imds.NewFromConfig(cfg), nil
 }
 
-// GetInstanceMetadata returns the instance ID and type
+func getMetadata(client *imds.Client, path string) (string, error) {
+	res, err := client.GetMetadata(context.TODO(), &imds.GetMetadataInput{
+		Path: path,
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve AWS metadata %s: %w", path, err)
+	}
+
+	defer res.Content.Close()
+	value, err := io.ReadAll(res.Content)
+	if err != nil {
+		return "", fmt.Errorf("unable to read response content for AWS metadata %q: %w", path, err)
+	}
+
+	return string(value), err
+}
+
+// GetInstanceMetadata returns required AWS metadatas
 func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID string, err error) {
-	instanceID, err = getMetadata("instance-id")
+	client, err := newClient()
 	if err != nil {
 		return
 	}
 
-	instanceType, err = getMetadata("instance-type")
+	instanceID, err = getMetadata(client, "instance-id")
 	if err != nil {
 		return
 	}
 
-	eth0MAC, err := getMetadata("mac")
+	instanceType, err = getMetadata(client, "instance-type")
 	if err != nil {
 		return
 	}
 
+	eth0MAC, err := getMetadata(client, "mac")
+	if err != nil {
+		return
+	}
 	vpcIDPath := fmt.Sprintf("network/interfaces/macs/%s/vpc-id", eth0MAC)
-	vpcID, err = getMetadata(vpcIDPath)
+	vpcID, err = getMetadata(client, vpcIDPath)
 	if err != nil {
 		return
 	}
 
-	availabilityZone, err = getMetadata("placement/availability-zone")
+	availabilityZone, err = getMetadata(client, "placement/availability-zone")
+	if err != nil {
+		return
+	}
+
 	return
 }
