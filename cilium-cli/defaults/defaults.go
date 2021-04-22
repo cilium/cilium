@@ -97,7 +97,7 @@ const (
 	FlowWaitTimeout   = 10 * time.Second
 	FlowRetryInterval = 500 * time.Millisecond
 
-	PolicyWaitTimeout = 30 * time.Second
+	PolicyWaitTimeout = 15 * time.Second
 
 	ConfigMapKeyMonitorAggregation      = "monitor-aggregation"
 	ConfigMapValueMonitorAggregatonNone = "none"
