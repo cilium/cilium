@@ -1,10 +1,10 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 check_cmd() {
-    for cmd in $@ ; do
-        if !(command -v $cmd >/dev/null) ; then
+    for cmd in "$@" ; do
+        if ! (command -v "$cmd" >/dev/null) ; then
             echo "Error: $cmd not found."
             exit 1
         fi
@@ -25,12 +25,12 @@ usage() {
     echo -e ""
     echo -e "examples:"
     echo -e "\tdownload boxes ubuntu and ubuntu-next from vagrant_box_defaults.rb:"
-    echo -e "\t\$ add-vagrant-boxes.sh \$HOME/go/src/github.com/cilium/cilium/vagrant_box_defaults.rb"
+    echo -e "\t\$ add_vagrant_box.sh \$HOME/go/src/github.com/cilium/cilium/vagrant_box_defaults.rb"
     echo -e "\tdownload latest version for ubuntu-dev and ubuntu-next:"
-    echo -e "\t\$ add-vagrant-boxes.sh -l -b ubuntu-dev -b ubuntu-next"
+    echo -e "\t\$ add_vagrant_box.sh -l -b ubuntu-dev -b ubuntu-next"
     echo -e "\tsame as above, downloading into /tmp/foo and using aria2c:"
-    echo -e "\t\$ add-vagrant-boxes.sh -al -d /tmp/foo -b ubuntu-dev -b ubuntu-next"
-    exit $1
+    echo -e "\t\$ add_vagrant_box.sh -al -d /tmp/foo -b ubuntu-dev -b ubuntu-next"
+    exit 1
 }
 
 boxes="ubuntu ubuntu-dev"
@@ -69,6 +69,9 @@ while getopts "ab:hld:" opt; do
         custom_types=1
         boxes="$boxes $OPTARG"
         ;;
+    *)
+        echo -e "invalid option: $opt"
+        exit 1
     esac
 done
 shift $((OPTIND-1))
@@ -90,7 +93,7 @@ check_defaults_version() {
     version=$(sed -n '/'$1'"$/{n;s/.*"\(.*\)"$/\1/p;q}' "$path")
     found=1
 
-    vagrant box list | grep "$box " | grep $version || found=0
+    vagrant box list | grep "$box " | grep "$version" || found=0
     if [[ $found -eq 1 ]]; then
         echo -e "$box:\tfound version $version used in $path, no need to preload"
         version=0
@@ -104,7 +107,7 @@ check_latest_version() {
 
     current_version=$(vagrant box list | awk '/'$box' /{sub(/)/,"",$3);if($3>v){v=$3}} END{if(v)print v;else print "0"}')
 
-    if (($current_version >= $latest_version)) ; then
+    if ((current_version >= latest_version)) ; then
         echo -e "$box:\tlocal version $current_version >= remote version $latest_version, no need to preload"
         version=0
     else
@@ -117,9 +120,9 @@ mkdir -p "$outdir"
 
 for box in $boxes; do
     if [[ latest -eq 1 ]] ; then
-        check_latest_version $box
+        check_latest_version "$box"
     else
-        check_defaults_version $box
+        check_defaults_version "$box"
     fi
     if [[ version -eq 0 ]] ; then
         continue
@@ -152,7 +155,7 @@ for box in $boxes; do
             ret=$?
         fi
         if [[ $ret -eq 0 ]]; then
-            pushd $outdir
+            pushd "$outdir"
             vagrant box add metadata.json
             ret=$?
             popd
@@ -166,13 +169,13 @@ for box in $boxes; do
             url="https://vagrantcloud.com/cilium/boxes/$box/versions/$version/providers/virtualbox.box"
             $aria2c -d "$outdir" -o package.box "$url"
             vagrant box add "cilium/$box" "$outdir/package.box"
-            mkdir -p $box_dir$box
+            mkdir -p "$box_dir$box"
             if [[ ! -f $box_dir$box/metadata_url ]] ; then
-                printf "https://vagrantcloud.com/cilium/$box" > $box_dir$box/metadata_url
+                echo -n "https://vagrantcloud.com/cilium/$box" > "$box_dir$box/metadata_url"
             fi
-            mv $box_dir$box/{0,$version}
+            mv "$box_dir$box/0" "$box_dir$box/$version"
         else
-            vagrant box add cilium/$box --box-version $version
+            vagrant box add "cilium/$box" --box-version "$version"
         fi
     fi
 
