@@ -21,6 +21,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -1152,7 +1153,8 @@ type Parameters struct {
 	Hubble                bool
 	HubbleServer          string
 	MultiCluster          string
-	Tests                 []string
+	RunTests              []*regexp.Regexp
+	SkipTests             []*regexp.Regexp
 	PostTestSleepDuration time.Duration
 	FlowValidation        string
 	AllFlows              bool
@@ -1183,37 +1185,20 @@ func (p Parameters) validate() error {
 }
 
 func (p Parameters) testEnabled(test string) bool {
-	if len(p.Tests) == 0 {
-		return true
-	}
-
-	numAllow := 0
-	numDeny := 0
-
-	for _, p := range p.Tests {
-		result := true
-		if p[0] == '!' {
-			numDeny++
-			p = p[1:]
-			result = false
-		} else {
-			numAllow++
-		}
-
-		if strings.HasPrefix(test, p) {
-			return result
+	// Skip 'test' if any SkipTest matches
+	for _, re := range p.SkipTests {
+		if re.MatchString(test) {
+			return false
 		}
 	}
-
-	if numDeny == 0 {
-		return false
+	// Run 'test' if any RunTest matches
+	for _, re := range p.RunTests {
+		if re.MatchString(test) {
+			return true
+		}
 	}
-
-	if numAllow > 0 {
-		return false
-	}
-
-	return true
+	// Else run if tests are not limited
+	return len(p.RunTests) == 0
 }
 
 func (k *K8sConnectivityCheck) deleteDeployments(ctx context.Context, client k8sConnectivityImplementation) error {

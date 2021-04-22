@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"regexp"
 
 	"github.com/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium-cli/connectivity/check"
@@ -40,6 +41,7 @@ func newCmdConnectivity() *cobra.Command {
 var params = check.Parameters{
 	Writer: os.Stdout,
 }
+var tests []string
 
 func newCmdConnectivityCheck() *cobra.Command {
 	cmd := &cobra.Command{
@@ -47,6 +49,13 @@ func newCmdConnectivityCheck() *cobra.Command {
 		Short: "Validate connectivity in cluster",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, test := range tests {
+				if test[0] == '!' {
+					params.SkipTests = append(params.SkipTests, regexp.MustCompile(test[1:]))
+				} else {
+					params.RunTests = append(params.RunTests, regexp.MustCompile(test))
+				}
+			}
 			cc, err := check.NewK8sConnectivityCheck(k8sClient, params)
 			if err != nil {
 				return err
@@ -57,7 +66,6 @@ func newCmdConnectivityCheck() *cobra.Command {
 			return nil
 		},
 	}
-
 	cmd.Flags().BoolVar(&params.SingleNode, "single-node", false, "Limit to tests able to run on a single node")
 	cmd.Flags().BoolVar(&params.PrintFlows, "print-flows", false, "Print flow logs for each test")
 	cmd.Flags().DurationVar(&params.PostTestSleepDuration, "post-test-sleep", 0, "Wait time after each test before next test starts")
@@ -68,7 +76,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity test in")
 	cmd.Flags().StringVar(&params.MultiCluster, "multi-cluster", "", "Test across clusters to given context")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-	cmd.Flags().StringSliceVar(&params.Tests, "test", []string{}, "Run tests that start with one of the given prefixes, skip tests by starting the prefix with '!'")
+	cmd.Flags().StringSliceVar(&tests, "test", []string{}, "Run tests that match one of the given regular expressions, skip tests by starting the expression with '!'")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
 	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show additional diagnostic messages")
