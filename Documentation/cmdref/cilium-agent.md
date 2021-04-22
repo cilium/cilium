@@ -18,6 +18,7 @@ cilium-agent [flags]
       --allow-localhost string                               Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
       --annotate-k8s-node                                    Annotate Kubernetes node (default true)
       --api-rate-limit map                                   API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2) (default map[])
+      --arping-refresh-period duration                       Period for remote node ARP entry refresh (set 0 to disable) (default 5m0s)
       --auto-create-cilium-node-resource                     Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                              Enable automatic L2 routing between nodes
       --bgp-announce-lb-ip                                   Announces service IPs of type LoadBalancer via BGP
