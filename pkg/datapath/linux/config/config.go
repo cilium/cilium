@@ -34,6 +34,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -462,10 +463,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 			}
 		}
+		// If we are using IPAMENI always use IP_POOLS datapath, the pod subnets
+		// will be auto-discovered later at runtime.
+		if (option.Config.IPAM == ipamOption.IPAMENI) ||
+			option.Config.IsPodSubnetsDefined() {
+			cDefinesMap["IP_POOLS"] = "1"
+		}
 	}
-	if option.Config.IsPodSubnetsDefined() {
-		cDefinesMap["IP_POOLS"] = "1"
-	}
+
 	if option.Config.EnableNodePort {
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
