@@ -413,6 +413,10 @@ Deprecated Options
   been deprecated in favor of ``enable-ipv4-masquerade`` and is planned to
   be removed in 1.11. For 1.10 release this option will have the same effect as
   ``enable-ipv4-masquerade`` where both options must not be used simultaneously.
+* Helm options ``encryption.keyFile``, ``encryption.mountPath``,
+  ``encryption.secretName`` and ``encryption.interface`` are now deprecated in
+  favor of ``encryption.ipsec.keyFile``, ``encryption.ipsec.mountPath``,
+  ``encryption.ipsec.secretName`` and ``encryption.ipsec.interface``.
 
 .. _1.9_upgrade_notes:
 

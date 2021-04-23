@@ -118,7 +118,7 @@ interface as follows:
 
        .. code-block:: shell-session
 
-           --set encryption.interface=ethX
+           --set encryption.ipsec.interface=ethX
 
 .. _node_to_node_encryption:
 
@@ -217,7 +217,7 @@ Troubleshooting
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
 
    * If there is a warning message similar to ``Device eth0 does not exist``,
-     use ``--set encryption.interface=ethX`` to set the encryption
+     use ``--set encryption.ipsec.interface=ethX`` to set the encryption
      interface.
 
  * Run a ``bash`` in a Cilium and validate the following:
