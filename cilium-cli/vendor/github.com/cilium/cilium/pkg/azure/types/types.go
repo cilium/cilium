@@ -119,10 +119,10 @@ type AzureInterface struct {
 	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
 	// would no longer be required.
 
-	// GatewayIP is the interface subnet's default route
+	// GatewayIP is the interface's subnet's default route
 	//
 	// +optional
-	GatewayIP string `json:"-"`
+	GatewayIP string `json:"GatewayIP"`
 
 	// VMSSName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
