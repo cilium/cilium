@@ -198,17 +198,6 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 			}
 			option.Config.EncryptInterface = interfaces
 		}
-
-		// For the ENI ipam mode on EKS, this will be the interface that
-		// the router (cilium_host) IP is associated to.
-		if len(option.Config.IPv4PodSubnets) == 0 {
-			if info := node.GetRouterInfo(); info != nil {
-				for _, c := range info.GetIPv4CIDRs() {
-					cidr := c // create a copy to be able to take a reference
-					option.Config.IPv4PodSubnets = append(option.Config.IPv4PodSubnets, &cidr)
-				}
-			}
-		}
 	}
 
 	// No interfaces is valid in tunnel disabled case
