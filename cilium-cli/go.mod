@@ -21,7 +21,7 @@ replace (
 )
 
 require (
-	github.com/cilium/cilium v1.9.5
+	github.com/cilium/cilium v1.9.6
 	github.com/cilium/hubble v0.7.1
 	github.com/cloudflare/cfssl v1.5.0
 	github.com/go-logr/logr v0.3.0 // indirect
@@ -36,7 +36,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	honnef.co/go/tools v0.1.2
-	k8s.io/api v0.19.8
-	k8s.io/apimachinery v0.19.8
-	k8s.io/client-go v0.19.8
+	k8s.io/api v0.19.10
+	k8s.io/apimachinery v0.19.10
+	k8s.io/client-go v0.19.10
 )
