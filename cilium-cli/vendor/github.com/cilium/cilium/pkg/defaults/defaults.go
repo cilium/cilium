@@ -119,6 +119,11 @@ const (
 	// expired DNS lookups with still-active connections
 	ToFQDNsMaxDeferredConnectionDeletes = 10000
 
+	// ToFQDNsIdleConnectionGracePeriod Time during which idle but
+	// previously active connections with expired DNS lookups are
+	// still considered alive
+	ToFQDNsIdleConnectionGracePeriod = 0 * time.Second
+
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
 	// The file is not re-read after agent start.

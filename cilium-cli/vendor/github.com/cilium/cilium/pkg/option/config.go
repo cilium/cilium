@@ -405,6 +405,10 @@ const (
 	// retain for expired DNS lookups with still-active connections"
 	ToFQDNsMaxDeferredConnectionDeletes = "tofqdns-max-deferred-connection-deletes"
 
+	// ToFQDNsIdleConnectionGracePeriod defines the connection idle time during which
+	// previously active connections with expired DNS lookups are still considered alive
+	ToFQDNsIdleConnectionGracePeriod = "tofqdns-idle-connection-grace-period"
+
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
 	// The file is not re-read after agent start.
@@ -923,6 +927,7 @@ var HelpFlagSections = []FlagsSection{
 			FQDNProxyResponseMaxDelay,
 			ToFQDNsEnableDNSCompression,
 			ToFQDNsMaxDeferredConnectionDeletes,
+			ToFQDNsIdleConnectionGracePeriod,
 		},
 	},
 	{
@@ -1351,7 +1356,7 @@ type DaemonConfig struct {
 	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
 	HostV4Addr          net.IP     // Host v4 address of the snooping device
 	HostV6Addr          net.IP     // Host v6 address of the snooping device
-	EncryptInterface    string     // Set with name of network facing interface to encrypt
+	EncryptInterface    []string   // Set of network facing interface to encrypt over
 	EncryptNode         bool       // Set to true for encrypting node IP traffic
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
@@ -1655,6 +1660,11 @@ type DaemonConfig struct {
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
 	// expired DNS lookups with still-active connections
 	ToFQDNsMaxDeferredConnectionDeletes int
+
+	// ToFQDNsIdleConnectionGracePeriod Time during which idle but
+	// previously active connections with expired DNS lookups are
+	// still considered alive
+	ToFQDNsIdleConnectionGracePeriod time.Duration
 
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
@@ -2500,7 +2510,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
 	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = viper.GetBool(EnableLocalRedirectPolicy)
-	c.EncryptInterface = viper.GetString(EncryptInterface)
+	c.EncryptInterface = viper.GetStringSlice(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
