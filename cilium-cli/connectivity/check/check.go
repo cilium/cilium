@@ -699,7 +699,7 @@ func (t *TestRun) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequir
 			egress = &filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Middle: []filters.FlowRequirement{
-					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK", SkipOnAggregation: true},
 				},
 				// Either side may FIN first
 				Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
