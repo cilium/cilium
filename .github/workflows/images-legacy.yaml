@@ -24,16 +24,16 @@ jobs:
             dockerfile: ./images/operator/Dockerfile
 
           - name: operator-aws
-            dockerfile: ./images/operator-aws/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: operator-azure
-            dockerfile: ./images/operator-azure/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: operator-alibabacloud
-            dockerfile: ./images/operator-alibabacloud/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: operator-generic
-            dockerfile: ./images/operator-generic/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
@@ -82,6 +82,8 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -99,6 +101,7 @@ jobs:
             BASE_IMAGE=quay.io/cilium/cilium-runtime:ed80679d06b551d2856ca1cd5733b71e7430adb2@sha256:05da74b6aef0c77a0bfdd646e4b559c803960526acba1e134d5edb674a7bd9fb
             LOCKDEBUG=1
             RACE=1
+            OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -122,6 +125,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
         if: ${{ github.event_name == 'pull_request_target' }}
@@ -145,6 +150,7 @@ jobs:
             BASE_IMAGE=quay.io/cilium/cilium-runtime:ed80679d06b551d2856ca1cd5733b71e7430adb2@sha256:05da74b6aef0c77a0bfdd646e4b559c803960526acba1e134d5edb674a7bd9fb
             LOCKDEBUG=1
             RACE=1
+            OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
         if: ${{ github.event_name == 'pull_request_target' }}
