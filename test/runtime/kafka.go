@@ -187,6 +187,7 @@ var _ = Describe("RuntimeKafka", func() {
 		res = consumer(disallowTopic, MaxMessages)
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 
+		monitorRes.WaitUntilMatch("verdict Denied offsetfetch topic disallowTopic => 29")
 		monitorRes.ExpectContains("verdict Denied offsetfetch topic disallowTopic => 29")
 	})
 
@@ -220,6 +221,7 @@ var _ = Describe("RuntimeKafka", func() {
 		err = res.WaitUntilMatch("{disallowTopic=TOPIC_AUTHORIZATION_FAILED}")
 		Expect(err).To(BeNil(), "Traffic in disallowTopic is allowed")
 
+		monitorRes.WaitUntilMatch("verdict Denied metadata topic disallowTopic => 29")
 		monitorRes.ExpectContains("verdict Denied metadata topic disallowTopic => 29")
 	})
 })
