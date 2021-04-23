@@ -86,6 +86,7 @@ $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
 		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4) .
 ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
 	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
@@ -117,8 +118,8 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/cl
 # docker-operator-images.
 # We eat the ending of "operator" in to the stem ('%') to allow this pattern
 # to build also 'docker-operator-image', where the stem would be empty otherwise.
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/opera%/Dockerfile,opera%,$(DOCKER_IMAGE_TAG)))
-$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/opera%/Dockerfile,cilium-opera%,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG)))
 
 #
 # docker-*-all targets are mainly used from the CI

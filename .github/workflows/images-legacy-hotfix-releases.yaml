@@ -20,16 +20,16 @@ jobs:
             dockerfile: ./images/operator/Dockerfile
 
           - name: operator-aws
-            dockerfile: ./images/operator-aws/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: operator-azure
-            dockerfile: ./images/operator-azure/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: operator-alibabacloud
-            dockerfile: ./images/operator-alibabacloud/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: operator-generic
-            dockerfile: ./images/operator-generic/Dockerfile
+            dockerfile: ./images/operator/Dockerfile
 
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
@@ -79,6 +79,8 @@ jobs:
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Image Release Digest
         shell: bash
