@@ -315,7 +315,11 @@ spec:
         - mountPath: /run/xtables.lock
           name: xtables-lock
 {{- if and ( .Values.encryption.enabled ) ( eq .Values.encryption.type "ipsec" ) }}
+  {{- if .Values.encryption.ipsec.mountPath }}
+        - mountPath: {{ .Values.encryption.ipsec.mountPath }}
+  {{- else }}
         - mountPath: {{ .Values.encryption.mountPath }}
+  {{- end }}
           name: cilium-ipsec-secrets
 {{- end }}
 {{- if .Values.kubeConfigPath }}
@@ -533,7 +537,11 @@ spec:
 {{- if and ( .Values.encryption.enabled ) ( eq .Values.encryption.type "ipsec" ) }}
       - name: cilium-ipsec-secrets
         secret:
+  {{- if .Values.encryption.ipsec.secretName }}
+          secretName: {{ .Values.encryption.ipsec.secretName }}
+  {{- else }}
           secretName: {{ .Values.encryption.secretName }}
+  {{- end }}
 {{- end }}
 {{- if .Values.cni.configMap }}
       - name: cni-configuration

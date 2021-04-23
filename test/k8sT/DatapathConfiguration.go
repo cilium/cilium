@@ -661,13 +661,13 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":               "disabled",
-				"autoDirectNodeRoutes": "true",
-				"encryption.enabled":   "true",
-				"encryption.interface": privateIface,
-				"devices":              "",
-				"hostFirewall":         "false",
-				"kubeProxyReplacement": "disabled",
+				"tunnel":                     "disabled",
+				"autoDirectNodeRoutes":       "true",
+				"encryption.enabled":         "true",
+				"encryption.ipsec.interface": privateIface,
+				"devices":                    "",
+				"hostFirewall":               "false",
+				"kubeProxyReplacement":       "disabled",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
@@ -686,12 +686,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":               "disabled",
-				"autoDirectNodeRoutes": "true",
-				"encryption.enabled":   "true",
-				"encryption.interface": privateIface,
-				"devices":              devices,
-				"hostFirewall":         "false",
+				"tunnel":                     "disabled",
+				"autoDirectNodeRoutes":       "true",
+				"encryption.enabled":         "true",
+				"encryption.ipsec.interface": privateIface,
+				"devices":                    devices,
+				"hostFirewall":               "false",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})

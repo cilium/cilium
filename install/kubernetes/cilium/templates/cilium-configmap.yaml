@@ -412,10 +412,18 @@ data:
 {{- if .Values.encryption.enabled }}
   {{- if eq .Values.encryption.type "ipsec" }}
   enable-ipsec: {{ .Values.encryption.enabled | quote }}
+
+    {{- if and .Values.encryption.ipsec.mountPath .Values.encryption.ipsec.keyFile }}
+  ipsec-key-file: {{ .Values.encryption.ipsec.mountPath }}/{{ .Values.encryption.ipsec.keyFile }}
+    {{- else }}
   ipsec-key-file: {{ .Values.encryption.mountPath }}/{{ .Values.encryption.keyFile }}
-    {{- if hasKey .Values.encryption "interface" }}
+    {{- end }}
+    {{- if .Values.encryption.ipsec.interface }}
+  encrypt-interface: {{ .Values.encryption.ipsec.interface }}
+    {{- else if .Values.encryption.interface }}
   encrypt-interface: {{ .Values.encryption.interface }}
     {{- end }}
+
     {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
     {{- end }}
