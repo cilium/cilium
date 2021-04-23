@@ -185,7 +185,11 @@ struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
 };
 #endif
 
-#define REV_NAT_F_TUPLE_SADDR 1
+#define REV_NAT_F_TUPLE_SADDR	1
+#ifndef DSR_XLATE_MODE
+# define DSR_XLATE_MODE		0
+# define DSR_XLATE_FRONTEND	1
+#endif
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
 #else
@@ -290,6 +294,11 @@ bool lb6_svc_has_src_range_check(const struct lb6_service *svc __maybe_unused)
 #else
 	return false;
 #endif /* ENABLE_SRC_RANGE_CHECK */
+}
+
+static __always_inline bool lb_skip_l4_dnat(void)
+{
+	return DSR_XLATE_MODE == DSR_XLATE_FRONTEND;
 }
 
 static __always_inline
@@ -909,7 +918,8 @@ update_state:
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
+	return lb_skip_l4_dnat() ? CTX_ACT_OK :
+	       lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, backend, skip_l3_xlate);
 drop_no_service:
 	tuple->flags = flags;
@@ -1489,7 +1499,8 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
-	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
+	return lb_skip_l4_dnat() ? CTX_ACT_OK :
+	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
