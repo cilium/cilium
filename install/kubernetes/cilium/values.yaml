@@ -464,7 +464,6 @@ endpointHealthChecking:
 # -- Enable endpoint status
 endpointStatus:
   enabled: false
-  status: policy
 
 endpointRoutes:
   # -- Enable use of per endpoint routes instead of routing via
