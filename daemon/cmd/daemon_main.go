@@ -588,6 +588,9 @@ func init() {
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\")")
 	option.BindEnv(option.LoadBalancerDSRDispatch)
 
+	flags.String(option.LoadBalancerDSRL4Xlate, option.DSRL4XlateFrontend, "BPF load balancing DSR L4 DNAT method for IPIP (\"frontend\", \"backend\")")
+	option.BindEnv(option.LoadBalancerDSRL4Xlate)
+
 	flags.String(option.LoadBalancerRSSv4CIDR, "", "BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP")
 	option.BindEnv(option.LoadBalancerRSSv4CIDR)
 

@@ -110,6 +110,12 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateFrontend &&
+			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateBackend {
+			log.Fatalf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
+		}
+
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
