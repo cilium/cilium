@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cilium-cli
+  namespace: kube-system
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - args:
+        - "sh"
+        - "/root/test/in-cluster-test-script.sh"
+        image: quay.io/cilium/cilium-cli-ci:{{ .Values.tag }}
+        imagePullPolicy: Always
+        name: test
+        volumeMounts:
+          - name: kubeconfig
+            mountPath: /root/.kube
+          - name: test-script
+            mountPath: /root/test
+        env:
+          - name: KUBECONFIG
+            value: /root/.kube/config
+          - name: CLUSTER_NAME
+            value: {{ .Values.cluster_name }}
+          - name: CLUSTER_CIDR
+            value: {{ .Values.cluster_cidr }}
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      priority: 0
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+      volumes:
+      - name: kubeconfig
+        configMap:
+          name: cilium-cli-kubeconfig
+          items:
+          - key: kubeconfig
+            path: config
+      - name: test-script
+        configMap:
+          name: cilium-cli-test-script
