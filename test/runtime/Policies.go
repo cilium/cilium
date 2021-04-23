@@ -1580,10 +1580,9 @@ var _ = Describe("RuntimePolicies", func() {
 					"No ingress traffic to endpoint")
 
 				By("Testing cilium monitor output")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("local EP ID %s, remote ID host, proto 1, ingress, action audit", endpointID),
-					"No ingress policy log record",
-				)
+				auditVerdict := fmt.Sprintf("local EP ID %s, remote ID host, proto 1, ingress, action audit", endpointID)
+				monitorRes.WaitUntilMatch(auditVerdict)
+				monitorRes.ExpectContains(auditVerdict, "No ingress policy log record")
 
 				By("Testing cilium endpoint list output")
 				res = vm.Exec("cilium endpoint list")
@@ -1621,10 +1620,9 @@ var _ = Describe("RuntimePolicies", func() {
 					"Default policy verdict on egress failed")
 
 				By("Testing cilium monitor output")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("ID %s, remote ID host, proto 1, egress, action audit", endpointID),
-					"No egress policy log record",
-				)
+				auditVerdict := fmt.Sprintf("ID %s, remote ID host, proto 1, egress, action audit", endpointID)
+				monitorRes.WaitUntilMatch(auditVerdict)
+				monitorRes.ExpectContains(auditVerdict, "No egress policy log record")
 
 				By("Testing cilium endpoint list output")
 				res := vm.Exec("cilium endpoint list")
