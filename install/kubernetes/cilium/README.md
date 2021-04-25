@@ -134,9 +134,8 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.secretName | string | `"cilium-ipsec-keys"` | Deprecated in favor of encryption.ipsec.secretName. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec. |
 | encryption.type | string | `"ipsec"` | Encryption method. Can be either ipsec or wireguard. |
 | endpointHealthChecking.enabled | bool | `true` |  |
-| endpointStatus.enabled | bool | `false` | Enable endpoint status |
-| endpointStatus.status | string | `policy` | Endpoint status. Can be policy, health, controllers, logs or state |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
+| endpointStatus | object | `{"enabled":false,"status":""}` | Enable endpoint status |
 | eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI |
 | eni.ec2APIEndpoint | string | `""` | EC2 API endpoint to usee |
 | eni.enabled | bool | `false` | Enable Elastic Network Interface (ENI) integration. |
