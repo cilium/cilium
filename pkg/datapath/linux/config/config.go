@@ -324,20 +324,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
 
-	if len(option.Config.EncryptInterface) > 0 {
-		// When FIB lookup is not supported (older kernels)  we need to
-		// pick an interface so pick first interface in list. Then we pick
-		// an IPv4 address to use by selecting link IPAddr. In case with
-		// kernel support, the kernel datapath will use the FIB lookup helper
-		// and this define is ignored.
-		link, err := netlink.LinkByName(option.Config.EncryptInterface[0])
-		if err == nil {
-			cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
+	if iface := option.Config.EncryptInterface; len(iface) != 0 {
+		a := byteorder.HostSliceToNetwork(node.GetIPv4(), reflect.Uint32).(uint32)
+		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 
-			addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		if len(iface) != 0 {
+			link, err := netlink.LinkByName(iface[0])
 			if err == nil {
-				a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
-				cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
+				cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 			}
 		}
 	}
