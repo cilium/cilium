@@ -314,6 +314,7 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./examples/crds/ciliumexternalworkloads.yaml
 	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./examples/crds/ciliumlocalredirectpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumegressnatpolicies.yaml ./examples/crds/ciliumegressnatpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumendpointbatches.yaml ./examples/crds/ciliumendpointbatches.yaml
 	rm -rf $(TMPDIR)
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.

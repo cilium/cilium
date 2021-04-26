@@ -69,5 +69,6 @@ const (
 	// NoTrack is the annotation name used to store the port and protocol
 	// that we should bypass kernel conntrack for a given pod. This applies for
 	// both TCP and UDP connection. Current use case is NodeLocalDNS.
-	NoTrack = Prefix + ".no-track-port"
+	NoTrack    = Prefix + ".no-track-port"
+	IdentityID = Prefix + ".identity-id"
 )

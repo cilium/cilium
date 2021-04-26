@@ -26,6 +26,8 @@ type Interface interface {
 	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
 	CiliumEndpoints() CiliumEndpointInformer
+	// CiliumEndpointBatches returns a CiliumEndpointBatchInformer.
+	CiliumEndpointBatches() CiliumEndpointBatchInformer
 	// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
 	CiliumExternalWorkloads() CiliumExternalWorkloadInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
@@ -57,6 +59,11 @@ func (v *version) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPol
 // CiliumEndpoints returns a CiliumEndpointInformer.
 func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumEndpointBatches returns a CiliumEndpointBatchInformer.
+func (v *version) CiliumEndpointBatches() CiliumEndpointBatchInformer {
+	return &ciliumEndpointBatchInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.

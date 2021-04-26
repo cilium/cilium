@@ -458,3 +458,52 @@ func (n *CiliumNode) InstanceID() (instanceID string) {
 	}
 	return
 }
+
+// EndpointStatus is the status of a Cilium endpoint.
+type CoreCiliumEndpoint struct {
+	// Name CEP object name
+	Name string `json:"name,omitempty"`
+	// Namespace CEP object namespace
+	Namespace string `json:"namespace,omitempty"`
+	// IdentityID is the numeric identity of the endpoint
+	IdentityID int64 `json:"id,omitempty"`
+	// Networking is the networking properties of the endpoint.
+	//
+	// +kubebuilder:validation:Optional
+	Networking *EndpointNetworking `json:"networking,omitempty"`
+	// Encryption is the encryption configuration of the node
+	//
+	// +kubebuilder:validation:Optional
+	Encryption EncryptionSpec    `json:"encryption,omitempty"`
+	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:singular="ciliumendpointbatch",path="ciliumendpointbatches",scope="Cluster"
+// +kubebuilder:storageversion
+
+// CiliumEndpointBatch is the status of a group of Core ciliumendpoints.
+type CiliumEndpointBatch struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	// Endpoints is a list of CEPs that this batch holds
+	Endpoints []CoreCiliumEndpoint `json:"endpoints"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=false
+// +deepequal-gen=false
+
+// CiliumEndpointBatchList is a list of CiliumEndpointBatch objects.
+type CiliumEndpointBatchList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumEndpointBatch.
+	Items []CiliumEndpointBatch `json:"items"`
+}

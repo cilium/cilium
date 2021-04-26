@@ -61,6 +61,9 @@ const (
 
 	// CLRPCRDName is the full name of the CLRP CRD.
 	CLRPCRDName = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CEBCRDName is the full name of the CEB CRD.
+	CEBCRDName = k8sconstv2.CEBKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 )
 
 var (
@@ -103,6 +106,10 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return createCLRPCRD(clientset)
 	})
 
+	g.Go(func() error {
+		return createCEBCRD(clientset)
+	})
+
 	return g.Wait()
 }
 
@@ -133,6 +140,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes, err = examplesCrdsCiliumexternalworkloadsYamlBytes()
 	case CLRPCRDName:
 		crdBytes, err = examplesCrdsCiliumlocalredirectpoliciesYamlBytes()
+	case CEBCRDName:
+		crdBytes, err = examplesCrdsCiliumendpointbatchesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -235,6 +244,17 @@ func createCLRPCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		CLRPCRDName,
 		constructV1CRD(k8sconstv2.CLRPName, cLrpCRD),
+		newDefaultPoller(),
+	)
+}
+
+func createCEBCRD(clientset apiextensionsclient.Interface) error {
+	cEbCRD := GetPregeneratedCRD(CEBCRDName)
+
+	return createUpdateCRD(
+		clientset,
+		CEBCRDName,
+		constructV1CRD(k8sconstv2.CEBName, cEbCRD),
 		newDefaultPoller(),
 	)
 }

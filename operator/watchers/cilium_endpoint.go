@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"sync"
 
+	eb "github.com/cilium/cilium/operator/pkg/endpointbatch"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_cli "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -49,7 +50,8 @@ var (
 	// with k8s.
 	CiliumEndpointsSynced = make(chan struct{})
 	// once is used to make sure CiliumEndpointsInit is only setup once.
-	once sync.Once
+	once    sync.Once
+	cepList = make(map[string][]string)
 )
 
 // identityIndexFunc index identities by ID.
@@ -162,4 +164,48 @@ func HasCE(ns, name string) (*cilium_api_v2.CiliumEndpoint, bool, error) {
 	}
 	cep := item.(*cilium_api_v2.CiliumEndpoint)
 	return cep, exists, nil
+}
+
+func CepInit(client cilium_cli.CiliumV2Interface, stopCh <-chan struct{}) {
+
+	_, cepController := informer.NewInformer(
+		cache.NewListWatchFromClient(client.RESTClient(),
+			cilium_api_v2.CEPPluralName, v1.NamespaceAll, fields.Everything()),
+		&cilium_api_v2.CiliumEndpoint{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				cep := obj.(*cilium_api_v2.CiliumEndpoint)
+				endpointUpdated(client, cep)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldCEP := oldObj.(*cilium_api_v2.CiliumEndpoint); oldCEP != nil {
+					if newCEP := newObj.(*cilium_api_v2.CiliumEndpoint); newCEP != nil {
+						if oldCEP.DeepEqual(newCEP) {
+							return
+						}
+						endpointUpdated(client, newCEP)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				cep := obj.(*cilium_api_v2.CiliumEndpoint)
+				endpointDeleted(cep)
+			},
+		},
+		nil,
+	)
+	go cepController.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, cepController.HasSynced)
+}
+func endpointUpdated(client cilium_cli.CiliumV2Interface, cep *cilium_api_v2.CiliumEndpoint) {
+	// Enqueue the new/updated cep in ceb
+	log.Debugf("Endpoint-update called for cep:%s\n", cep.GetName())
+	eb.BatchCepIntoCeb(client, eb.ConvertCeptoCoreCep(cep))
+}
+
+func endpointDeleted(cep *cilium_api_v2.CiliumEndpoint) {
+	// Requeue the new/updated cep in ceb
+	log.Debugf("remove Endpoint cep:%s\n", cep.GetName())
+	eb.RemoveCepFromCeb(eb.ConvertCeptoCoreCep(cep))
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	eb "github.com/cilium/cilium/operator/pkg/endpointbatch"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -47,6 +48,7 @@ func enableCiliumEndpointSyncGC(once bool) {
 		scopedLog      = log.WithField("controller", controllerName)
 		gcInterval     time.Duration
 		stopCh         = make(chan struct{})
+		neverStopCh    = make(chan struct{})
 	)
 
 	ciliumClient := ciliumK8sClient.CiliumV2()
@@ -68,6 +70,11 @@ func enableCiliumEndpointSyncGC(once bool) {
 		watchers.PodsInit(k8s.WatcherClient(), stopCh)
 	}
 	<-k8sCiliumNodesCacheSynced
+
+	// Sync CiliumEndpointbatches to local cache and remove stale entries
+	// present in local ceb cache.
+	eb.CiliumEndpointBatchSyncLocal(ciliumClient)
+	go watchers.CepInit(ciliumClient, neverStopCh)
 
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,

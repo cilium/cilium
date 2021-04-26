@@ -28,6 +28,10 @@ type CiliumEndpointListerExpansion interface{}
 // CiliumEndpointNamespaceLister.
 type CiliumEndpointNamespaceListerExpansion interface{}
 
+// CiliumEndpointBatchListerExpansion allows custom methods to be added to
+// CiliumEndpointBatchLister.
+type CiliumEndpointBatchListerExpansion interface{}
+
 // CiliumExternalWorkloadListerExpansion allows custom methods to be added to
 // CiliumExternalWorkloadLister.
 type CiliumExternalWorkloadListerExpansion interface{}

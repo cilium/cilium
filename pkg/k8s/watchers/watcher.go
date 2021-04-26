@@ -66,6 +66,7 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
+	k8sAPIGroupCiliumEndpointBatchV2            = "cilium/v2::CiliumEndpointBatch"
 
 	metricCNP            = "CiliumNetworkPolicy"
 	metricCCNP           = "CiliumClusterwideNetworkPolicy"
@@ -396,11 +397,12 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	// cilium endpoints
 	// Don't watch for CiliumEndpoints to avoid populating ipcache with dangling
 	// CiliumEndpoints.
-	if !option.Config.DisableCiliumEndpointCRD {
-		asyncControllers.Add(1)
-		go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
-	}
-
+	/*
+		if !option.Config.DisableCiliumEndpointCRD {
+			asyncControllers.Add(1)
+			go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+		}
+	*/
 	// cilium local redirect policies
 	if option.Config.EnableLocalRedirectPolicy {
 		k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
@@ -417,6 +419,8 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	asyncControllers.Add(1)
 	go k.namespacesInit(k8s.WatcherClient(), asyncControllers)
 
+	// Controller for CEB
+	go k.ciliumEndpointBatchInit(ciliumNPClient)
 	asyncControllers.Wait()
 	close(k.controllersStarted)
 

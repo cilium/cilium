@@ -150,6 +150,20 @@ const (
 
 	// CENPName is the full name of Cilium Egress NAT Policy
 	CENPName = CENPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium Endpoint Batch (CEB)
+
+	// CEBSingularName is the singular name of Cilium Endpoint Batch
+	CEBSingularName = "ciliumendpointbatch"
+
+	// CEBPluralName is the plural name of Cilium Endpoint Batch
+	CEBPluralName = "ciliumendpointbatches"
+
+	// CEBKindDefinition is the kind name of Cilium Endpoint Batch
+	CEBKindDefinition = "CiliumEndpointBatch"
+
+	// CEBName is the full name of Cilium Endpoint Batch
+	CEBName = CEBPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -207,6 +221,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumIdentityList{},
 		&CiliumLocalRedirectPolicy{},
 		&CiliumLocalRedirectPolicyList{},
+		&CiliumEndpointBatch{},
+		&CiliumEndpointBatchList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
