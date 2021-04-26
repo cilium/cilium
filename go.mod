@@ -43,7 +43,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gopacket v1.1.19
-	github.com/google/gops v0.3.17
+	github.com/google/gops v0.3.18
 	github.com/google/renameio v1.0.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0

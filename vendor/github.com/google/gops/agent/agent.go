@@ -59,7 +59,7 @@ type Options struct {
 	ShutdownCleanup bool
 
 	// ReuseSocketAddrAndPort determines whether the SO_REUSEADDR and
-	// SO_REUSEADDR socket options should be set on the listening socket of
+	// SO_REUSEPORT socket options should be set on the listening socket of
 	// the agent. This option is only effective on unix-like OSes and if
 	// Addr is set to a fixed host:port.
 	// Optional.
