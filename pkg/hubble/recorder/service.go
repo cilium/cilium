@@ -124,7 +124,7 @@ func (s *Service) Record(stream recorderpb.Recorder_RecordServer) error {
 	}
 
 	err = stream.Send(&recorderpb.RecordResponse{
-		NodeName: nodeTypes.GetName(),
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
 		Time:     timestamppb.Now(),
 		ResponseType: &recorderpb.RecordResponse_Stopped{
 			Stopped: resp,
@@ -144,7 +144,7 @@ func createPcapFile(basedir, prefix string) (f *os.File, filePath string, err er
 	for {
 		startTime := time.Now().Unix()
 		random := rand.Uint32()
-		nodeName := nodeTypes.GetName()
+		nodeName := nodeTypes.GetAbsoluteNodeName()
 		name := fmt.Sprintf("%s_%d_%d_%s.pcap", prefix, startTime, random, nodeName)
 		filePath = path.Join(basedir, name)
 		f, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
@@ -313,7 +313,7 @@ func (s *Service) watchRecording(ctx context.Context, h *sink.Handle, stream rec
 	for {
 		stats := h.Stats()
 		err := stream.Send(&recorderpb.RecordResponse{
-			NodeName: nodeTypes.GetName(),
+			NodeName: nodeTypes.GetAbsoluteNodeName(),
 			Time:     timestamppb.Now(),
 			ResponseType: &recorderpb.RecordResponse_Running{
 				Running: &recorderpb.RecordingRunningResponse{
