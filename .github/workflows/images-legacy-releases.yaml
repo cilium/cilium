@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@2a4b53665e15ce7d7049afb11ff1f70ff1610609
+        uses: docker/setup-buildx-action@012185ccbeb554a7f5f987bea0f1a73519b3cdf5
 
       - name: Login to DockerHub
         uses: docker/login-action@f3364599c6aa293cdc2b8391b1b56d0c30e45c8a
