@@ -34,7 +34,14 @@ get_stable_branches(){
 
 get_stable_tags_for_minor(){
    minor_ver="${1}"
-   git ls-remote --tags ${remote} v\* | awk '{ print $2 }' | grep "${minor_ver}" | grep -v '\^' | grep -v '\-' | sed 's+refs/tags/++' | sort -V
+   git ls-remote --tags ${remote} v\* \
+       | awk '{ print $2 }' \
+       | grep "${minor_ver}" \
+       | grep -v '\^' \
+       | grep -v '\-' \
+       | sed 's+refs/tags/++' \
+       | sort -V \
+   || echo ""
 }
 
 get_rc_tags_for_minor(){
