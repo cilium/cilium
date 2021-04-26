@@ -136,7 +136,8 @@ if [[ "$#" -ne 1 ]]; then
   exit 1
 fi
 
-release_version="${1}"
+release_ersion="$(echo $1 | sed 's/^v//')"
+release_version="v$release_ersion"
 
 create_file ${release_version} "${dst_file}"
 
