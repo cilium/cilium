@@ -31,6 +31,17 @@ updates:
     directory: /
     schedule:
       interval: daily
+    target-branch: "v1.10"
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
     target-branch: "v1.9"
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
@@ -43,17 +54,6 @@ updates:
     schedule:
       interval: daily
     target-branch: "v1.8"
-    open-pull-requests-limit: 1
-    rebase-strategy: "disabled"
-    labels:
-    - kind/enhancement
-    - release-note/misc
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: daily
-    target-branch: "v1.7"
     open-pull-requests-limit: 1
     rebase-strategy: "disabled"
     labels:

@@ -1,6 +1,16 @@
-project: "https://github.com/cilium/cilium/projects/131"
+project: "https://github.com/cilium/cilium/projects/155"
 column: "In progress"
 move-to-projects-for-labels-xored:
+  v1.10:
+    needs-backport/1.10:
+      project: "https://github.com/cilium/cilium/projects/154"
+      column: "Needs backport from master"
+    backport-pending/1.10:
+      project: "https://github.com/cilium/cilium/projects/154"
+      column: "Backport pending to v1.10"
+    backport-done/1.10:
+      project: "https://github.com/cilium/cilium/projects/154"
+      column: "Backport done to v1.10"
   v1.9:
     needs-backport/1.9:
       project: "https://github.com/cilium/cilium/projects/153"
@@ -21,16 +31,6 @@ move-to-projects-for-labels-xored:
     backport-done/1.8:
       project: "https://github.com/cilium/cilium/projects/152"
       column: "Backport done to v1.8"
-  v1.7:
-    needs-backport/1.7:
-      project: "https://github.com/cilium/cilium/projects/151"
-      column: "Needs backport from master"
-    backport-pending/1.7:
-      project: "https://github.com/cilium/cilium/projects/151"
-      column: "Backport pending to v1.7"
-    backport-done/1.7:
-      project: "https://github.com/cilium/cilium/projects/151"
-      column: "Backport done to v1.7"
 require-msgs-in-commit:
   - msg: "Signed-off-by"
     helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
