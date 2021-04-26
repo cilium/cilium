@@ -305,7 +305,7 @@ nextEvent:
 		case *flowpb.LostEvent:
 			resp = &observerpb.GetFlowsResponse{
 				Time:     e.Timestamp,
-				NodeName: nodeTypes.GetName(),
+				NodeName: nodeTypes.GetAbsoluteNodeName(),
 				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
 					LostEvents: ev,
 				},
@@ -383,7 +383,7 @@ func (s *LocalObserverServer) GetAgentEvents(
 			eventsReader.eventCount++
 			resp := &observerpb.GetAgentEventsResponse{
 				Time:       e.Timestamp,
-				NodeName:   nodeTypes.GetName(),
+				NodeName:   nodeTypes.GetAbsoluteNodeName(),
 				AgentEvent: ev,
 			}
 			err = server.Send(resp)
@@ -444,7 +444,7 @@ func (s *LocalObserverServer) GetDebugEvents(
 			eventsReader.eventCount++
 			resp := &observerpb.GetDebugEventsResponse{
 				Time:       e.Timestamp,
-				NodeName:   nodeTypes.GetName(),
+				NodeName:   nodeTypes.GetAbsoluteNodeName(),
 				DebugEvent: ev,
 			}
 			err = server.Send(resp)

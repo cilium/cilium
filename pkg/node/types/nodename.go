@@ -17,8 +17,10 @@ package types
 import (
 	"os"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	k8sConsts "github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -40,6 +42,18 @@ func SetName(name string) {
 // resort is hardcoded to "localhost".
 func GetName() string {
 	return nodeName
+}
+
+// GetAbsoluteNodeName returns the absolute node name combined of both
+// (prefixed)cluster name and the local node name in case of
+// clustered environments otherwise returns the name of the local node.
+func GetAbsoluteNodeName() string {
+	if option.Config.ClusterName != "" &&
+		option.Config.ClusterName != defaults.ClusterName {
+		return option.Config.ClusterName + "/" + nodeName
+	} else {
+		return nodeName
+	}
 }
 
 func init() {

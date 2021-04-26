@@ -136,7 +136,7 @@ func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsRespons
 	}
 
 	return &observerpb.GetFlowsResponse{
-		NodeName: nodeTypes.GetName(),
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
 		Time:     timestamppb.New(time.Now()),
 		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
 			NodeStatus: &relaypb.NodeStatusEvent{
@@ -150,7 +150,7 @@ func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsRespons
 
 func nodeStatusEvent(state relaypb.NodeState, nodeNames ...string) *observerpb.GetFlowsResponse {
 	return &observerpb.GetFlowsResponse{
-		NodeName: nodeTypes.GetName(),
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
 		Time:     timestamppb.New(time.Now()),
 		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
 			NodeStatus: &relaypb.NodeStatusEvent{

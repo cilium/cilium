@@ -51,7 +51,7 @@ func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 func (c *consumer) sendNumLostEvents() {
 	numEventsLostNotification := &observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourceEventsQueue,
 			NumLostEvents: c.numEventsLost,
@@ -90,7 +90,7 @@ func (c *consumer) sendEvent(event *observerTypes.MonitorEvent) {
 func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
 	c.sendEvent(&observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.AgentEvent{
 			Type:    typ,
 			Message: message,
@@ -102,7 +102,7 @@ func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
 func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
 	c.sendEvent(&observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.PerfEvent{
 			Data: data,
 			CPU:  cpu,
@@ -114,7 +114,7 @@ func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
 func (c *consumer) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
 	c.sendEvent(&observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourcePerfRingBuffer,
 			NumLostEvents: numLostEvents,
