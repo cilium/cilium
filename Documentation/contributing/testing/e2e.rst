@@ -503,9 +503,6 @@ cluster.
 2- Invoke the tests from ``cilium/test`` with options set as explained in
 `Running End-To-End Tests In Other Environments via kubeconfig`_
 
-.. note:: GKE clusters may have namespaces stuck at the ``Terminating`` state,
-          causing Ginkgo tests to fail. If so, you'll see them in ``kubectl get ns``,
-          and can get rid of them by running ``cilium/test/gke/clean-cluster.sh``.
 
 ::
 
