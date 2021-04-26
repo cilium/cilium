@@ -453,11 +453,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
 
-	if iface := option.Config.EncryptInterface; len(iface) != 0 {
+	if option.Config.EnableIPSec {
 		a := byteorder.HostSliceToNetwork(node.GetIPv4(), reflect.Uint32).(uint32)
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
-
-		if len(iface) != 0 {
+		if iface := option.Config.EncryptInterface; len(iface) != 0 {
 			link, err := netlink.LinkByName(iface[0])
 			if err == nil {
 				cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)

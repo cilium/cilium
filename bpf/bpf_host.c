@@ -701,7 +701,13 @@ do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 		      int *encrypt_iface __maybe_unused)
 {
 	int ret = 0;
-#ifdef BPF_HAVE_FIB_LOOKUP
+	/* Only do FIB lookup if both the BPF helper is supported and we know
+	 * the egress ineterface. If we don't have an egress interface,
+	 * typically in an environment with many egress devs than we have
+	 * to let the stack decide how to egress the packet. EKS is the
+	 * example of an environment with multiple egress interfaces.
+	 */
+#if defined(BPF_HAVE_FIB_LOOKUP) && defined(ENCRYPT_IFACE)
 	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
 	int err;
@@ -756,7 +762,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 {
 	int encrypt_iface = 0;
 	int ret = 0;
-#if defined(ENCRYPT_IFACE)
+#if defined(ENCRYPT_IFACE) && defined(BPF_HAVE_FIB_LOOKUP)
 	encrypt_iface = ENCRYPT_IFACE;
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
@@ -768,8 +774,16 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_meta(ctx);
+#ifdef BPF_HAVE_FIB_LOOKUP
+	/* Redirect only works if we have a fib lookup to set the MAC
+	 * addresses. Otherwise let the stack do the routing and fib
+	 * Note, without FIB lookup implemented the packet may have
+	 * incorrect dmac leaving bpf_host so will need to mark as
+	 * PACKET_HOST or otherwise fixup MAC addresses.
+	 */
 	if (encrypt_iface)
 		return redirect(encrypt_iface, 0);
+#endif
 	return CTX_ACT_OK;
 }
 
