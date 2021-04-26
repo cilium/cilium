@@ -176,7 +176,7 @@ jobs:
 
     steps:
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@25f0500ff22e406f7191a2a8ba8cda16901ca018
+        uses: docker/setup-qemu-action@c308fdd69d26ed66f4506ebd74b180abe5362145
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@2a4b53665e15ce7d7049afb11ff1f70ff1610609
