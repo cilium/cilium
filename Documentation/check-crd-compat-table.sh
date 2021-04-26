@@ -66,6 +66,7 @@ create_file(){
       stable_branches="$(filter_out_oldest ${stable_branches} ${release_version})"
   fi
   for stable_branch in ${stable_branches}; do
+      >&2 echo -n "Checking stable branch ${stable_branch} schema version... "
       rc_tags=$(get_rc_tags_for_minor "${stable_branch}")
       stable_tags=$(get_stable_tags_for_minor "${stable_branch}")
       for tag in ${rc_tags} ${stable_tags}; do
@@ -74,11 +75,13 @@ create_file(){
           echo   "+-----------------+----------------+" >> "${dst_file}"
       done
       schema_version=$(get_schema_of_branch "${stable_branch}")
+      >&2 echo "${schema_version}"
       printf "| %-15s | %-14s |\n" ${stable_branch} ${schema_version} >> "${dst_file}"
       echo   "+-----------------+----------------+" >> "${dst_file}"
   done
 
   schema_version=$(get_schema_of_branch "master")
+  >&2 echo "Checking latest branch schema version... ${schema_version}"
   printf "| %-15s | %-14s |\n" "latest / master" ${schema_version} >> "${dst_file}"
   echo   "+-----------------+----------------+" >> "${dst_file}"
 }
@@ -144,6 +147,7 @@ create_file ${release_version} "${dst_file}"
 last_cilium_release=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $2 }')
 last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $4 }')
 current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | head -n 1 | awk '{ print $4 }')
+>&2 echo "Cilium ${last_cilium_release} schema: ${last_release_version}; Current: ${current_release_version}"
 
 # Cilium v1.9 or earlier used examples/crds, this dir was moved in v1.10.
 crd_path="examples/crds"
@@ -156,9 +160,9 @@ if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_
   semverParseInto ${last_release_version} last_major last_minor last_patch ignore
   expected_version="${last_major}.${last_minor}.$(( ${last_patch} + 1 ))"
   if [[ "${current_release_version}" != "${expected_version}" ]]; then
-    echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
-    echo "git checkout ${remote}/${release_version} && \\"
-    echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
+    >&2 echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
+    >&2 echo "git checkout ${remote}/${release_version} && \\"
+    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
     exit 1
   fi
 fi
