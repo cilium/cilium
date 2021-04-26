@@ -10,14 +10,14 @@ if [ ! -f "${script_dir}/cluster-uri"  ]; then
     exit 1
 fi
 
-
 cluster_uri="$(cat "${script_dir}/cluster-uri")"
 cluster_name=${cluster_uri##*/}
 
-gcloud container clusters delete --quiet --zone ${region} "${cluster_uri}"
 
 export KUBECONFIG="${script_dir}/resize-kubeconfig"
 gcloud container clusters get-credentials --project "${project}" --region "europe-west4" management-cluster-0
+
+# Reset Flux-managed CRDs to defaults
 kubectl delete containerclusters.container.cnrm.cloud.google.com -n test-clusters "${cluster_name}"
 kubectl delete containernodepools.container.cnrm.cloud.google.com -n test-clusters "${cluster_name}"
 
