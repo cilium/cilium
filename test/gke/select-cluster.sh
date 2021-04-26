@@ -27,6 +27,20 @@ while [ $locked -ne 0 ]; do
 		continue
 	fi
 
+	echo "checking whether cluster ${cluster_uri} is running"
+	status=$(gcloud container clusters describe --project "${project}" --format="value(status)" "${cluster_uri}" --region="${region}")
+	if [[ "$status" != "RUNNING"  ]] ; then
+		echo "cluster status is $status , trying out another cluster"
+		continue
+	fi
+
+	echo "checking whether cluster ${cluster_uri} has a running operation"
+	operations=$(gcloud container operations list --project "${project}" --filter="status=RUNNING AND targetLink=${cluster_uri}" --format="value(name)")
+	if [ "${operations}" ] ; then
+		echo "cluster has an ongoing operation, trying out another cluster"
+		continue
+	fi
+
 
 	echo "checking whether cluster ${cluster_uri} has node pools"
 	node_pools=($(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --format="value(name)"))
