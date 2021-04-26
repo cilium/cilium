@@ -49,6 +49,10 @@ get_rc_tags_for_minor(){
    git ls-remote --tags ${remote} v\* | awk '{ print $2 }' | grep "${minor_ver}" | grep -v '\^' | grep '\-' | sed 's+refs/tags/++' | sort -V
 }
 
+filter_out_oldest() {
+    echo "${@}" | cut -d' ' -f2- -
+}
+
 create_file(){
   release_version="${1}"
   dst_file="${2}"
@@ -59,7 +63,7 @@ create_file(){
   echo   "+-----------------+----------------+" >> "${dst_file}"
   stable_branches=$(get_stable_branches)
   if [[ ${stable_branches} != *"${release_version}"* ]]; then
-    stable_branches="${stable_branches} ${release_version}"
+      stable_branches="$(filter_out_oldest ${stable_branches} ${release_version})"
   fi
   for stable_branch in ${stable_branches}; do
       rc_tags=$(get_rc_tags_for_minor "${stable_branch}")
