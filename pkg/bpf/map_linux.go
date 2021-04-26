@@ -982,7 +982,8 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 
 	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
 	if option.Config.MetricsConfig.BPFMapOps {
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
+		//TODO(sayboras): Remove deprecated label in 1.10
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
 	}
 	return err
 }
@@ -1070,7 +1071,8 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case Insert:
 			err := UpdateElement(m.fd, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
 			if option.Config.MetricsConfig.BPFMapOps {
-				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+				//TODO(sayboras): Remove deprecated label in 1.10
+				metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
 			if err == nil {
 				e.DesiredAction = OK
@@ -1085,7 +1087,8 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case Delete:
 			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
 			if option.Config.MetricsConfig.BPFMapOps {
-				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
+				//TODO(sayboras): Remove deprecated label in 1.10
+				metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 			}
 			if err == 0 || err == unix.ENOENT {
 				delete(m.cache, k)
