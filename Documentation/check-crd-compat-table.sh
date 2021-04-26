@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-remote="origin"
 dst_file="${dir}/concepts/kubernetes/compatibility-table.rst"
+
+. "${dir}/../contrib/backporting/common.sh"
+remote="$(get_remote)"
 
 set -o nounset
 set -o pipefail
