@@ -1086,6 +1086,15 @@ int to_host(struct __ctx_buff *ctx)
 		traced = true;
 	}
 
+#ifdef ENABLE_IPSEC
+	/* Encryption stack needs this when IPSec headers are
+	 * rewritten without FIB helper because we do not yet
+	 * know correct MAC address which will cause the stack
+	 * to mark as PACKET_OTHERHOST and drop.
+	 */
+	ctx_change_type(ctx, PACKET_HOST);
+#endif
+
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, srcID, 0, 0,
 				  CILIUM_IFINDEX, ret, 0);
