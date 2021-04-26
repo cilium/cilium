@@ -25,7 +25,7 @@ get_line_of_schema_version(){
 
 get_schema_of_branch(){
    stable_branch="${1}"
-   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//'
+   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//' | uniq
 }
 
 get_stable_branches(){
