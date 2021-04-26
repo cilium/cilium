@@ -141,10 +141,18 @@ release_version="v$release_ersion"
 
 create_file ${release_version} "${dst_file}"
 
+last_cilium_release=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $2 }')
 last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $4 }')
 current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | head -n 1 | awk '{ print $4 }')
 
-if [[ ! $(semverEQ "${current_release_version}" "${last_release_version}")  ]]; then
+# Cilium v1.9 or earlier used examples/crds, this dir was moved in v1.10.
+crd_path="examples/crds"
+if [[ -L $crd_path && -d $crd_path ]]; then
+    crd_path="pkg/k8s/apis/cilium.io/client/crds"
+fi
+
+if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_path \
+    && semverEQ "${current_release_version}" "${last_release_version}"; then
   semverParseInto ${last_release_version} last_major last_minor last_patch ignore
   expected_version="${last_major}.${last_minor}.$(( ${last_patch} + 1 ))"
   if [[ "${current_release_version}" != "${expected_version}" ]]; then
