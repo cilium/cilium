@@ -3,7 +3,7 @@
 
 include Makefile.digests ../../Makefile.defs
 
-HUBBLE_PROXY_VERSION := "v1.18.2"
+HUBBLE_PROXY_VERSION := "v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7"
 HUBBLE_UI_VERSION := "v0.7.3"
 MANAGED_ETCD_VERSION := "v2.0.7"
 ETCD_VERSION := "v3.4.13"
