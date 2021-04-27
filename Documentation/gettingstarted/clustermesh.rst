@@ -322,20 +322,8 @@ Kubernetes service with identical name and namespace in each cluster and adding
 the annotation ``io.cilium/global-service: "true"``` to declare it global.
 Cilium will automatically perform load-balancing to pods in both clusters.
 
-.. code-block:: yaml
-
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: rebel-base
-     annotations:
-       io.cilium/global-service: "true"
-   spec:
-     type: ClusterIP
-     ports:
-     - port: 80
-     selector:
-       name: rebel-base
+.. literalinclude:: ../../examples/kubernetes/clustermesh/global-service-example/rebel-base-global-shared.yaml
+  :language: YAML
 
 Load-balancing only to a remote cluster
 #######################################
