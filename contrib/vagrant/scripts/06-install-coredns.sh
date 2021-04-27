@@ -18,7 +18,7 @@ svc_file="${deployments_dir}/coredns-svc.yaml"
 controller_file="${deployments_dir}/coredns-controller.yaml"
 sa_file="${deployments_dir}/coredns-sa.yaml"
 
-sed "s/\$DNS_SERVER_IP/${cluster_dns_ip}/" "${svc_file}.sed" > "${svc_file}"
+sed "s/\$DNS_SERVER_IPV6/${cluster_dns_ipv6}/;s/\$DNS_SERVER_IP/${cluster_dns_ip}/" "${svc_file}.sed" > "${svc_file}"
 
 sed -e "s/\$DNS_DOMAIN/cluster.local/" \
     "${cm_file}.sed" > "${cm_file}"
