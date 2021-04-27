@@ -56,6 +56,21 @@ func ciliumIPv6Backends(kubectl *helpers.Kubectl, label string, port string) (ba
 	return backends
 }
 
+func generateBackendNames(podIPs map[string]string) []string {
+	names := []string{}
+	for name := range podIPs {
+		names = append(names, name)
+	}
+	return names
+}
+
+func generateBackends(podIPs map[string]string, port string) []string {
+	backends := []string{}
+	for _, ip := range podIPs {
+		backends = append(backends, net.JoinHostPort(ip, port))
+	}
+	return backends
+}
 
 func generateBackendWeights(len int, weight uint) []uint {
 	result := make([]uint, len)
@@ -65,7 +80,7 @@ func generateBackendWeights(len int, weight uint) []uint {
 	return result
 }
 
-func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, backendWeights []uint,svcType, trafficPolicy string) {
+func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backends []string, backendWeights []uint, svcType, trafficPolicy string) {
 	ciliumPods, err := kubectl.GetCiliumPods()
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 	for _, pod := range ciliumPods {
@@ -1315,4 +1330,54 @@ func testDSR(kubectl *helpers.Kubectl, ni *nodesInfo, sourcePortForCTGCtest int)
 	_ = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 	res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
 	res.ExpectFail("NAT entry was not evicted")
+}
+
+func testMaglevWeight(kubectl *helpers.Kubectl, ni *nodesInfo, nodePort int32, podNames []string, index int) {
+	var (
+		count = 10
+	)
+
+	// Flush CT tables so that any entry with src port 6{0,1,2}000
+	// from previous tests with --node-port-algorithm=random
+	// won't interfere the backend selection.
+	for _, label := range []string{helpers.K8s1, helpers.K8s2} {
+		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+		ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
+		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+	}
+
+	podSelectCounts := map[string]int{}
+	for _, pod := range podNames {
+		podSelectCounts[pod] = 0
+	}
+	for _, port := range []int{60000, 61000, 62000} {
+		dstPod := ""
+
+		// Send requests from the same IP and port to different nodes, and check
+		// that the same backend is selected
+
+		for _, host := range []string{ni.k8s1IP} {
+			url := getHTTPLink(host, nodePort)
+			cmd := helpers.CurlFail("--local-port %d %s", port, url) + " | grep 'Hostpod name is in the hostnamename:' " //
+
+			By("Making %d HTTP requests from %s:%d to %q", count, ni.outsideNodeName, port, url)
+
+			for i := 1; i <= count; i++ {
+				res := kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, cmd)
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"Cannot connect to service %q (%d/%d)", url, i, count)
+				pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
+				if dstPod == "" {
+					dstPod = pod
+					podSelectCounts[pod] = 1
+				} else {
+					ExpectWithOffset(1, dstPod).To(Equal(pod))
+					podSelectCounts[pod] += 1
+				}
+			}
+		}
+	}
+
+	PodNotSelected := podNames[index]
+	ExpectWithOffset(1, podSelectCounts[PodNotSelected]).To(Equal(0))
 }

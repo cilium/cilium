@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -672,7 +673,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				// reachable from outside the cluster.
 				ciliumAddServiceOnNode(kubectl, helpers.K8s1, 31082, net.JoinHostPort(ni.primaryK8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
 					httpBackends, httpBackendWeights, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(kubectl,helpers.K8s2, 31082, net.JoinHostPort(ni.primaryK8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
+				ciliumAddServiceOnNode(kubectl, helpers.K8s2, 31082, net.JoinHostPort(ni.primaryK8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
 					httpBackends, httpBackendWeights, "NodePort", "Cluster")
 
 				tftpBackends := ciliumIPv6Backends(kubectl, "-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
@@ -982,22 +983,22 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							httpBackendWeights := generateBackendWeights(len(httpBackends), 125)
 							zeroWeightBackendIndex = len(httpBackendWeights) - 1
 							httpBackendWeights[zeroWeightBackendIndex] = 0
-							ciliumAddService(10080, net.JoinHostPort(k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
+							ciliumAddService(kubectl, 10080, net.JoinHostPort(ni.k8s1IP, strconv.Itoa(nodePort)), httpBackends, httpBackendWeights, "NodePort", "Cluster")
 						})
 
 						AfterAll(func() {
 							kubectl.Delete(echoYAML)
-							ciliumDelService(10080)
+							ciliumDelService(kubectl, 10080)
 						})
 
 						It("Tests NodePort", func() {
-							testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
+							testNodePort(kubectl, ni, true, false, helpers.ExistNodeWithoutCilium(), 0)
 						})
 
 						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
 							"Tests Maglev backend selection with zero weight", func() {
 								backendNames := generateBackendNames(podIPs)
-								testMaglevWeight(int32(nodePort), backendNames, zeroWeightBackendIndex)
+								testMaglevWeight(kubectl, ni, int32(nodePort), backendNames, zeroWeightBackendIndex)
 							})
 					})
 

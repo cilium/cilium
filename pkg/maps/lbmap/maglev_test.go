@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -90,11 +91,14 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	lbm := New(true, option.Config.MaglevTableSize)
+
+	backends := make(map[string]*maglev.BackendPoint, 1)
+	backends["backend-1"] = &maglev.BackendPoint{ID: 1}
 	params := &UpsertServiceParams{
 		ID:        1,
 		IP:        net.ParseIP("1.1.1.1"),
 		Port:      8080,
-		Backends:  map[string]uint16{"backend-1": 1},
+		Backends:  backends,
 		Type:      loadbalancer.SVCTypeNodePort,
 		UseMaglev: true,
 	}

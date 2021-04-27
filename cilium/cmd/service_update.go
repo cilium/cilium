@@ -81,6 +81,13 @@ func boolToInt(set bool) int {
 	return 0
 }
 
+func enableBackendWeights(spec *models.ServiceSpec) bool {
+	if spec.Flags.Type == models.ServiceSpecFlagsTypeNodePort {
+		return true
+	}
+	return false
+}
+
 func updateService(cmd *cobra.Command, args []string) {
 	id := int64(idU)
 	fa, faIP := parseFrontendAddress(frontend)
@@ -139,19 +146,30 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if len(backendWeights) == 0 {
+	// backend weights are only for NodePort nw traffic
+	if enableBackendWeights(spec) && len(backendWeights) == 0 {
 		Fatalf("Cannot update service %d: empty backend weight", id)
 	}
 
+	if enableBackendWeights(spec) && len(backendWeights) != len(backends) {
+		Fatalf("Cannot update service %d: error backend weight length", id)
+	}
+
 	spec.BackendAddresses = nil
+	spec.BackendWeights = nil
 	for i, backend := range backends {
 		beAddr, err := net.ResolveTCPAddr("tcp", backend)
 		if err != nil {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
+		var backendWeight uint
+		if enableBackendWeights(spec) {
+			backendWeight = backendWeights[i]
+		}
+
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint32(backendWeights[i]))
+		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint32(backendWeight))
 
 		if be.IsIPv6() && faIP.To4() != nil {
 			Fatalf("Address mismatch between frontend and backend %s", backend)

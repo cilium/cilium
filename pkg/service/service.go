@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/sirupsen/logrus"
 )
 
@@ -112,11 +113,20 @@ func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool
 	}
 }
 
+// issue: when update by cmd: cilium service update, the maglev hash will not work
+// useMaglev return a result about maglev's applicability for cilim-agent and cilium command line
 func (svc *svcInfo) useMaglev() bool {
-	return option.Config.NodePortAlg == option.NodePortAlgMaglev &&
-		((svc.svcType == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
-			svc.svcType == lb.SVCTypeExternalIPs ||
-			svc.svcType == lb.SVCTypeLoadBalancer)
+	if components.IsCiliumAgent() {
+		return option.Config.NodePortAlg == option.NodePortAlgMaglev &&
+			((svc.svcType == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
+				svc.svcType == lb.SVCTypeExternalIPs ||
+				svc.svcType == lb.SVCTypeLoadBalancer)
+	}
+
+	// the branch used by cilium cmd
+	return ((svc.svcType == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
+		svc.svcType == lb.SVCTypeExternalIPs ||
+		svc.svcType == lb.SVCTypeLoadBalancer)
 }
 
 // Service is a service handler. Its main responsibility is to reflect
@@ -936,18 +946,18 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend)
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
-				backends[i].Weight = backend.Weight
+				// backends[i].Weight = backend.Weight
 				newBackends = append(newBackends, backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = &backends[i]
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
-				backends[i].Weight = s.backendByHash[hash].Weight
+				// backends[i].Weight = s.backendByHash[hash].Weight
 			}
 			svc.backendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
-			backends[i].Weight = b.Weight
+			// backends[i].Weight = b.Weight
 		}
 	}
 

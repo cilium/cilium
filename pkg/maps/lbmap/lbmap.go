@@ -90,6 +90,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if p.UseMaglev && len(p.Backends) != 0 {
+		lbmap.maglevBackendIDsBuffer = make([]uint16, lbmap.maglevTableSize)
 		maglev.GetLookupTable(p.Backends, lbmap.maglevTableSize, lbmap.maglevBackendIDsBuffer)
 		if err := updateMaglevTable(p.IPv6, p.ID, lbmap.maglevBackendIDsBuffer); err != nil {
 			return err
