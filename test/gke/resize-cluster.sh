@@ -41,7 +41,7 @@ while [ $resize_wait_retries -lt 20 ]; do
 		break
 	fi
 	sleep 15
-	((resize_wait_retries++))
+	((resize_wait_retries++)) || true
 done
 
 exit $scaled
