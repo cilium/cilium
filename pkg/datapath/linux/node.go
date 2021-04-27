@@ -719,7 +719,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 						logfields.LinkIndex:    neigh.LinkIndex,
 					}).WithError(err).Info("Unable to remove neighbor entry")
 				}
-				delete(n.neighByNextHop, nextHopStr)
+				delete(n.neighByNextHop, existingNextHopStr)
 				delete(n.neighLastPingByNextHop, existingNextHopStr)
 				if option.Config.NodePortHairpin {
 					neighborsmap.NeighRetire(net.ParseIP(existingNextHopStr))
