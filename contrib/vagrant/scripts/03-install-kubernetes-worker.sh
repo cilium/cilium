@@ -333,7 +333,7 @@ ExecStartPre=/bin/bash -c ' \\
 ExecStart=/usr/bin/kubelet \\
   --client-ca-file=/var/lib/kubelet/ca-k8s.pem \\
   --cloud-provider= \\
-  --cluster-dns=${cluster_dns_ip} \\
+  --cluster-dns=${cluster_dns_ip},${cluster_dns_ipv6} \\
   --cluster-domain=cluster.local \\
   --container-runtime=${container_runtime_kubelet} \\
   ${container_runtime_endpoint} \\
