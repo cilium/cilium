@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -735,7 +736,8 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	if nextHopIsNew || refresh {
 		hwAddr, err = arp.PingOverLink(link, srcIPv4, nextHopIPv4)
 		if err != nil {
-			scopedLog.WithError(err).Info("arping failed")
+			scopedLog.WithError(err).Debug("arping failed")
+			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
 			return
 		}
 		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
