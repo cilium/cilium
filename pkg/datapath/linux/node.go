@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
@@ -51,30 +52,32 @@ const (
 )
 
 type linuxNodeHandler struct {
-	mutex                lock.Mutex
-	isInitialized        bool
-	nodeConfig           datapath.LocalNodeConfiguration
-	nodeAddressing       datapath.NodeAddressing
-	datapathConfig       DatapathConfiguration
-	nodes                map[nodeTypes.Identity]*nodeTypes.Node
-	enableNeighDiscovery bool
-	neighLock            lock.Mutex // protects neigh* fields below
-	neighDiscoveryLink   netlink.Link
-	neighNextHopByNode   map[nodeTypes.Identity]string // val = string(net.IP)
-	neighNextHopRefCount counter.StringCounter
-	neighByNextHop       map[string]*netlink.Neigh // key = string(net.IP)
+	mutex                  lock.Mutex
+	isInitialized          bool
+	nodeConfig             datapath.LocalNodeConfiguration
+	nodeAddressing         datapath.NodeAddressing
+	datapathConfig         DatapathConfiguration
+	nodes                  map[nodeTypes.Identity]*nodeTypes.Node
+	enableNeighDiscovery   bool
+	neighLock              lock.Mutex // protects neigh* fields below
+	neighDiscoveryLink     netlink.Link
+	neighNextHopByNode     map[nodeTypes.Identity]string // val = string(net.IP)
+	neighNextHopRefCount   counter.StringCounter
+	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
+	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
 func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) datapath.NodeHandler {
 	return &linuxNodeHandler{
-		nodeAddressing:       nodeAddressing,
-		datapathConfig:       datapathConfig,
-		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
-		neighNextHopByNode:   map[nodeTypes.Identity]string{},
-		neighNextHopRefCount: counter.StringCounter{},
-		neighByNextHop:       map[string]*netlink.Neigh{},
+		nodeAddressing:         nodeAddressing,
+		datapathConfig:         datapathConfig,
+		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
+		neighNextHopByNode:     map[nodeTypes.Identity]string{},
+		neighNextHopRefCount:   counter.StringCounter{},
+		neighByNextHop:         map[string]*netlink.Neigh{},
+		neighLastPingByNextHop: map[string]time.Time{},
 	}
 }
 
@@ -692,7 +695,6 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		return
 	}
 	nextHopStr := nextHopIPv4.String()
-
 	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
 
 	n.neighLock.Lock()
@@ -714,6 +716,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 					}).WithError(err).Info("Unable to remove neighbor entry")
 				}
 				delete(n.neighByNextHop, nextHopStr)
+				delete(n.neighLastPingByNextHop, existingNextHopStr)
 				if option.Config.NodePortHairpin {
 					neighborsmap.NeighRetire(net.ParseIP(existingNextHopStr))
 				}
@@ -728,6 +731,18 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 
 	n.neighNextHopByNode[newNode.Identity()] = nextHopStr
+
+	if refresh {
+		if lastPing, found := n.neighLastPingByNextHop[nextHopStr]; found &&
+			time.Now().Sub(lastPing) < option.Config.ARPPingRefreshPeriod {
+
+			n.neighLock.Unlock()
+			// Last ping was issued less than option.Config.ARPPingRefreshPeriod
+			// ago, so skip it (e.g. to avoid ddos'ing the same GW if nodes are
+			// L3 connected)
+			return
+		}
+	}
 
 	n.neighLock.Unlock() // to allow concurrent arpings below
 
@@ -744,6 +759,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 
 	n.neighLock.Lock()
+	n.neighLastPingByNextHop[nextHopStr] = time.Now()
 	defer n.neighLock.Unlock()
 
 	if hwAddr != nil {
@@ -803,6 +819,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 
 		neigh, found := n.neighByNextHop[nextHopStr]
 		delete(n.neighByNextHop, nextHopStr)
+		delete(n.neighLastPingByNextHop, nextHopStr)
 
 		if found {
 			if err := netlink.NeighDel(neigh); err != nil {
