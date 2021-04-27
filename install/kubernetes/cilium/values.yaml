@@ -763,7 +763,7 @@ hubble:
       # -- Hubble-ui ingress proxy image.
       image:
         repository: docker.io/envoyproxy/envoy
-        tag: v1.18.2
+        tag: v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
