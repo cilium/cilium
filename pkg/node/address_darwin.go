@@ -33,7 +33,3 @@ func firstGlobalV6Addr(intf string, preferredIP net.IP, preferPublic bool) (net.
 func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	return net.IP{}, net.IP{}
 }
-
-func SetInternalIPv4From(_ string) error {
-	return nil
-}
