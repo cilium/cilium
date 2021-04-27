@@ -836,6 +836,7 @@ udp
 ui
 uid
 uint
+unencrypted
 uninline
 uninstall
 uninstallOnExit
