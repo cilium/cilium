@@ -34,10 +34,9 @@ get_stable_branches(){
 
 get_stable_tags_for_minor(){
    minor_ver="${1}"
-   git ls-remote --tags ${remote} v\* \
+   git ls-remote --refs --tags ${remote} v\* \
        | awk '{ print $2 }' \
        | grep "${minor_ver}" \
-       | grep -v '\^' \
        | grep -v '\-' \
        | sed 's+refs/tags/++' \
        | sort -V \
@@ -46,7 +45,11 @@ get_stable_tags_for_minor(){
 
 get_rc_tags_for_minor(){
    minor_ver="${1}"
-   git ls-remote --tags ${remote} v\* | awk '{ print $2 }' | grep "${minor_ver}" | grep -v '\^' | grep '\-' | sed 's+refs/tags/++' | sort -V
+   git ls-remote --refs --tags ${remote} v\* \
+       | awk '{ print $2 }' \
+       | grep "${minor_ver}.*\-" \
+       | sed 's+refs/tags/++' \
+       | sort -V
 }
 
 filter_out_oldest() {
@@ -144,16 +147,13 @@ release_version="v$release_ersion"
 
 create_file ${release_version} "${dst_file}"
 
-last_cilium_release=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $2 }')
-last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $4 }')
-current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | head -n 1 | awk '{ print $4 }')
+last_cilium_release=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | awk 'NR == 1 { print $2 }')
+last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | awk 'NR == 1 { print $4 }')
+current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | awk 'NR == 1 { print $4 }')
 >&2 echo "Cilium ${last_cilium_release} schema: ${last_release_version}; Current: ${current_release_version}"
 
 # Cilium v1.9 or earlier used examples/crds, this dir was moved in v1.10.
-crd_path="examples/crds"
-if [[ -L $crd_path && -d $crd_path ]]; then
-    crd_path="pkg/k8s/apis/cilium.io/client/crds"
-fi
+crd_path="$(realpath --relative-to . "examples/crds")"
 
 if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_path \
     && semverEQ "${current_release_version}" "${last_release_version}"; then
