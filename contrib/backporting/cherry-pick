@@ -15,8 +15,7 @@ trap cleanup EXIT
 
 cherry_pick () {
   CID=$1
-  BRANCHES=`git branch -q -r --contains $CID $REM/master 2> /dev/null`
-  if ! echo ${BRANCHES} | grep -q ".*$REM/master.*"; then
+  if ! commit_in_upstream "$CID" "master"; then
     echo "Commit $CID not in $REM/master!"
     exit 1
   fi
