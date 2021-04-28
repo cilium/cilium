@@ -211,7 +211,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			continue
 		}
 
-		availableOnENI := math.IntMax(limits.IPv4-len(e.Addresses), 0)
+		// The limits include the primary IP, so we need to take it into account
+		// when computing the amount of available addresses on the ENI.
+		availableOnENI := math.IntMax(limits.IPv4-len(e.Addresses)-1, 0)
 		if availableOnENI <= 0 {
 			continue
 		} else {
@@ -551,8 +553,11 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 		return 0
 	}
 
+	// limits.IPv4 contains the primary IP which is not available for allocation
+	maxPerInterface := math.IntMax(limits.IPv4-1, 0)
+
 	// Return the maximum amount of IP addresses allocatable on the instance
-	return (limits.Adapters - firstInterfaceIndex) * limits.IPv4
+	return (limits.Adapters - firstInterfaceIndex) * maxPerInterface
 }
 
 var adviseOperatorFlagOnce sync.Once
@@ -609,5 +614,8 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 		return 0
 	}
 
-	return math.IntMin(minimum, (limits.Adapters-index)*limits.IPv4)
+	// limits.IPv4 contains the primary IP which is not available for allocation
+	maxPerInterface := math.IntMax(limits.IPv4-1, 0)
+
+	return math.IntMin(minimum, (limits.Adapters-index)*maxPerInterface)
 }
