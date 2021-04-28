@@ -109,6 +109,12 @@ const (
 
 	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
 	LabelValueOutcomeFail = "fail"
+
+	// LabelValueOutcomeAlive is used as outcome of alive identity entries
+	LabelValueOutcomeAlive = "alive"
+
+	// LabelValueOutcomeDeleted is used as outcome of deleted identity entries
+	LabelValueOutcomeDeleted = "deleted"
 )
 
 func registerMetrics() []prometheus.Collector {

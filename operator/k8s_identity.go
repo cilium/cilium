@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/operator/identity"
+	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
@@ -64,6 +65,12 @@ func deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) error {
 
 var identityHeartbeat *identity.IdentityHeartbeatStore
 
+// counters for GC failed/successful runs
+var (
+	failedRuns     = 0
+	successfulRuns = 0
+)
+
 // identityGCIteration is a single iteration of a garbage collection. It will
 // delete identities that have not had its heartbeat lifesign updated since
 // option.Config.IdentityHeartbeatTimeout
@@ -80,8 +87,12 @@ func identityGCIteration(ctx context.Context) {
 		return
 	}
 
+	identityStoreList := identityStore.List()
+	totalEntries := len(identityStoreList)
+	deletedEntries := 0
+
 	timeNow := time.Now()
-	for _, identityObject := range identityStore.List() {
+	for _, identityObject := range identityStoreList {
 		identity, ok := identityObject.(*v2.CiliumIdentity)
 		if !ok {
 			log.WithField(logfields.Object, identityObject).
@@ -107,8 +118,23 @@ func identityGCIteration(ctx context.Context) {
 				if ctx.Err() != nil {
 					break
 				}
+			} else {
+				deletedEntries++
 			}
 		}
+	}
+
+	if operatorOption.Config.EnableMetrics {
+		if ctx.Err() == nil {
+			successfulRuns++
+			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(successfulRuns))
+		} else {
+			failedRuns++
+			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(failedRuns))
+		}
+		aliveEntries := totalEntries - deletedEntries
+		metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(aliveEntries))
+		metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(deletedEntries))
 	}
 
 	identityHeartbeat.GC()
