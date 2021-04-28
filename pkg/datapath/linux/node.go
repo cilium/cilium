@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	cerr "github.com/cilium/cilium/pkg/errors"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
@@ -448,17 +449,24 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	return nil
 }
 
-func upsertIPsecDebugLog(msg string, loc, rem *net.IPNet, spi uint8) {
-	log.WithFields(logrus.Fields{
+func upsertIPsecLogFields(msg string, loc, rem *net.IPNet, spi uint8) logrus.Fields {
+	return logrus.Fields{
 		logfields.Reason: msg,
 		"local-ip":       loc,
 		"remote-ip":      rem,
 		"spi":            spi,
-	}).Debug("IPsec enable succeeded")
+	}
+}
+
+func upsertIPsecDebugLog(msg string, loc, rem *net.IPNet, spi uint8) {
+	log.WithFields(upsertIPsecLogFields(msg, loc, rem, spi)).Debug("IPsec enable succeeded")
 }
 
 func enrichUpsertIPSecError(err error, msg string, loc, rem *net.IPNet, spi uint8) error {
-	return fmt.Errorf("%v (reason: %s, local-ip: %s, remote-ip: %s, spi: %d)", err, msg, loc.String(), rem.String(), spi)
+	return &cerr.ErrorWithLogFields{
+		Err:       err,
+		LogFields: upsertIPsecLogFields(msg, loc, rem, spi),
+	}
 }
 
 // getDefaultEncryptionInterface() is needed to find the interface used when
@@ -977,7 +985,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() && !n.nodeConfig.EncryptNode {
 		if err := n.enableIPsec(newNode); err != nil {
-			log.WithError(err).
+			cerr.EnrichLogger(log, err).
 				WithField(logfields.NodeName, newNode.Name).
 				Warning("Failed to update IPSec configuration")
 		}
@@ -990,9 +998,9 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
 		if err := n.encryptNode(newNode); err != nil {
-			log.WithError(err).
+			cerr.EnrichLogger(log, err).
 				WithField(logfields.NodeName, newNode.Name).
-				Warning("Failed to update IPsec configuration")
+				Warning("Failed to update IPSec configuration")
 		}
 	}
 
@@ -1004,7 +1012,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		}
 		if n.subnetEncryption() {
 			if err := n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets); err != nil {
-				log.WithError(err).
+				cerr.EnrichLogger(log, err).
 					WithField(logfields.NodeName, newNode.Name).
 					Warning("Failed to update IPSec configuration")
 			}
