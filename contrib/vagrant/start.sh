@@ -319,15 +319,18 @@ function write_cilium_cfg() {
     cilium_options+=" --enable-ipv6-ndp"
     cilium_options+=" --ipv6-mcast-device enp0s8"
 
+    cilium_options+=" ${TUNNEL_MODE_STRING}"
+
     if [ -n "${K8S}" ]; then
+        cilium_kvstore_options="--kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
         cilium_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
-        cilium_options+=" --kvstore etcd"
-        cilium_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
+        cilium_options_with_kvstore="${cilium_options} ${cilium_kvstore_options}"
+        cilium_options+=" --identity-allocation-mode=crd --enable-k8s-event-handover=false"
         cilium_operator_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
-        cilium_operator_options+=" --kvstore etcd"
-        cilium_operator_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
         cilium_operator_options+=" --cluster-pool-ipv4-cidr=10.${master_ipv4_suffix}.0.0/16"
         cilium_operator_options+=" --cluster-pool-ipv6-cidr=fd00::/104"
+        cilium_operator_options_with_kvstore="${cilium_operator_options} ${cilium_kvstore_options}"
+        cilium_operator_options+=" --identity-allocation-mode=crd"
     else
         if [[ "${IPV4}" -eq "1" ]]; then
             cilium_options+=" --kvstore-opt consul.address=${MASTER_IPV4}:8500"
@@ -340,12 +343,14 @@ function write_cilium_cfg() {
         cilium_operator_options+=" --kvstore consul"
     fi
 
-    cilium_options+=" ${TUNNEL_MODE_STRING}"
-
 cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\${K8S}" ]; then
     echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+    echo '# Cilium configuration with kvstore.' >> /etc/sysconfig/cilium
+    echo 'CILIUM_OPTS="${cilium_options_with_kvstore}"' >> /etc/sysconfig/cilium
+    echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options_with_kvstore}"' >> /etc/sysconfig/cilium
+    echo '# Cilium configuration without kvstore.' >> /etc/sysconfig/cilium
 fi
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options}"' >> /etc/sysconfig/cilium
