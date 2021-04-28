@@ -82,8 +82,8 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: latest
-  pullPolicy: Always
+  tag: v1.10.0-rc1
+  pullPolicy: IfNotPresent
   # cilium-digest
   digest: ""
   useDigest: false
@@ -534,7 +534,7 @@ certgen:
   image:
     repository: quay.io/cilium/certgen
     tag: v0.1.4
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
@@ -645,11 +645,11 @@ hubble:
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
-      tag: latest
+      tag: v1.10.0-rc1
        # hubble-relay-digest
       digest: ""
       useDigest: false
-      pullPolicy: Always
+      pullPolicy: IfNotPresent
 
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -731,8 +731,8 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         repository: quay.io/cilium/hubble-ui-backend
-        tag: latest
-        pullPolicy: Always
+        tag: v0.7.7@sha256:11d06121c86549c0c8684571ffed4ff3d4c4417f551728f4fad6d05525c47e9d
+        pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -747,8 +747,8 @@ hubble:
       # -- Hubble-ui frontend image.
       image:
         repository: quay.io/cilium/hubble-ui
-        tag: latest
-        pullPolicy: Always
+        tag: v0.7.7@sha256:f20b6b3074a431ecd2730cf19afad2562664cf98baecf32b4cbe2a09f04ad8fa
+        pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -764,7 +764,7 @@ hubble:
       image:
         repository: docker.io/envoyproxy/envoy
         tag: v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7
-        pullPolicy: Always
+        pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -1071,7 +1071,7 @@ etcd:
   image:
     repository: quay.io/cilium/cilium-etcd-operator
     tag: v2.0.7
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   # -- cilium-etcd-operator priorityClassName
   #
@@ -1179,7 +1179,7 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: latest
+    tag: v1.10.0-rc1
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -1189,7 +1189,7 @@ operator:
     # operator-alibabacloud-digest
     alibabacloudDigest: ""
     useDigest: false
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
     suffix: ""
 
   # -- Number of replicas to run for the cilium-operator deployment
@@ -1314,7 +1314,7 @@ nodeinit:
   image:
     repository: quay.io/cilium/startup-script
     tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   priorityClassName: ""
 
@@ -1391,11 +1391,11 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: latest
+    tag: v1.10.0-rc1
     # cilium-digest
     digest: ""
     useDigest: false
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   priorityClassName: ""
 
@@ -1498,18 +1498,18 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: latest
+      tag: v1.10.0-rc1
       # clustermesh-apiserver-digest
       digest: ""
       useDigest: false
-      pullPolicy: Always
+      pullPolicy: IfNotPresent
 
     etcd:
       # -- Clustermesh API server etcd image.
       image:
         repository: quay.io/coreos/etcd
         tag: v3.4.13
-        pullPolicy: Always
+        pullPolicy: IfNotPresent
 
     service:
       type: NodePort
