@@ -56,6 +56,7 @@ Freescale
 Fsnotify
 GCE
 Gartrell
+Gbit
 Geneve
 GiB
 Github
@@ -98,6 +99,7 @@ Lookup
 Lund
 Lx
 Maglev
+Mainboard
 Majkowski
 Marek
 MaskSize
@@ -496,6 +498,7 @@ jenkins
 jeq
 jge
 jgt
+jitter
 jle
 jlt
 jne
@@ -651,6 +654,7 @@ openSUSE
 openapi
 openssl
 operatorPrometheus
+optimisations
 optimizations
 orchestrator
 org
