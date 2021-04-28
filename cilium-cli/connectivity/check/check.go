@@ -938,6 +938,9 @@ type ConnectivityTest interface {
 	// Name must return the name of the test
 	Name() string
 
+	// PolicyOnly returns true if there is policy setup but no traffic scenario with this test
+	PolicyOnly() bool
+
 	// Run is called to run the connectivity test
 	Run(ctx context.Context, c TestContext)
 }
@@ -1761,11 +1764,9 @@ func (k *K8sConnectivityCheck) Run(ctx context.Context, tests ...ConnectivityTes
 	}
 
 	for _, test := range tests {
-		if !k.params.testEnabled(test.Name()) {
-			continue
+		if test.PolicyOnly() || k.params.testEnabled(test.Name()) {
+			test.Run(ctx, k)
 		}
-
-		test.Run(ctx, k)
 	}
 
 	k.Header("📋 Test Report")

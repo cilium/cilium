@@ -116,12 +116,18 @@ type PolicyContext struct {
 	err        error
 	CNPs       []*ciliumv2.CiliumNetworkPolicy
 	expectFunc GetExpectations
+	policyOnly bool
 }
 
 // WithPolicyRunner sets the test runner to use and stores the policy for the tests
 func (pc *PolicyContext) WithPolicyRunner(runner ConnectivityTest, yaml string) ConnectivityTest {
 	pc.runner = runner
 	return pc.WithPolicy(yaml)
+}
+
+// PolicyOnly returns true if there is no traffic scenario with this PolicyContext
+func (pc *PolicyContext) PolicyOnly() bool {
+	return pc.policyOnly
 }
 
 // Name returns the absolute name of the policy
@@ -176,6 +182,8 @@ func (pc *PolicyContext) Run(ctx context.Context, c TestContext) {
 
 // WithPolicy sets the policy to use during tests
 func (pc *PolicyContext) WithPolicy(yaml string) ConnectivityTest {
+	// Set policyOnly flag if runner is not set
+	pc.policyOnly = pc.runner == nil
 	pc.ParsePolicy(yaml)
 	return pc
 }
