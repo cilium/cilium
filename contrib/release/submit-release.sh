@@ -9,7 +9,7 @@ source $DIR/../backporting/common.sh
 REMOTE="$(get_remote)"
 BRANCH="${1:-""}"
 if [ "$BRANCH" = "" ]; then
-    BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\.[0-9]\).*/\1/')
+    BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')
 fi
 BRANCH=$(echo "$BRANCH" | sed 's/^v//')
 
