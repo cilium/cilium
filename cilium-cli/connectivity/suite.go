@@ -37,6 +37,9 @@ var (
 
 	//go:embed manifests/client-egress-to-fqdns-google.yaml
 	clientEgressToFQDNsGooglePolicyYAML string
+
+	//go:embed manifests/echo-ingress-from-other-client.yaml
+	echoIngressFromOtherClientPolicyYAML string
 )
 
 func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
@@ -73,6 +76,19 @@ func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
 					return check.ResultOK, check.ResultOK
 				} else {
 					return check.ResultOK, check.ResultDrop
+				}
+			}),
+
+		// This policy allows ingress to echo from client2 only
+		(&tests.PodToPod{Variant: "-echo-ingress-from-other-client"}).
+			WithPolicy(echoIngressFromOtherClientPolicyYAML).
+			WithExpectations(func(t *check.TestRun) (egress, ingress check.Result) {
+				if t.Dst.HasLabel("kind", "echo") && !t.Src.HasLabel("other", "client") {
+					// TCP handshake fails both in egress and ingress when
+					// L3(/L4) policy drops at either location.
+					return check.ResultDrop, check.ResultDrop
+				} else {
+					return check.ResultOK, check.ResultOK
 				}
 			}),
 
