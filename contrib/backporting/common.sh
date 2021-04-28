@@ -50,3 +50,11 @@ require_linux() {
       exit 1
   fi
 }
+
+commit_in_upstream() {
+    local commit="$1"
+    local branch="$2"
+    local remote="$(get_remote)"
+    local branches="$(git branch -q -r --contains $commit $remote/$branch 2> /dev/null)"
+    echo "$branches" | grep -q ".*$remote/$branch"
+}
