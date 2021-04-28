@@ -55,7 +55,7 @@ main() {
     local ersion version branch user_remote
     ersion="$(echo ${2:-$(cat VERSION)} | sed 's/^v//')"
     version="v${ersion}"
-    branch=$(echo $version | sed 's/.*v\([0-9]\.[0-9]\).*/\1/')
+    branch=$(echo $version | sed 's/.*v\([0-9]\+\.[0-9]\+\).*/\1/')
     user_remote=$(get_user_remote ${3:-})
 
     git checkout -b pr/$version-digests $version
