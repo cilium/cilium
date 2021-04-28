@@ -19,7 +19,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-alpine_version=3.13.1
+alpine_version=3.13.5
 
 image="${1:-docker.io/library/alpine:${alpine_version}}"
 
