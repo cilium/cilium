@@ -1239,13 +1239,13 @@ func (k *K8sConnectivityCheck) deploymentList() (srcList []string, dstList []str
 }
 
 type deploymentClients struct {
-	dstInOtherCluster bool
-	src               k8sConnectivityImplementation
-	dst               k8sConnectivityImplementation
+	src k8sConnectivityImplementation
+	dst k8sConnectivityImplementation
 }
 
+// clients return a slice of unique k8s clients to use
 func (d *deploymentClients) clients() []k8sConnectivityImplementation {
-	if d.dstInOtherCluster {
+	if d.src != d.dst {
 		return []k8sConnectivityImplementation{d.src, d.dst}
 	}
 	return []k8sConnectivityImplementation{d.src}
@@ -1323,7 +1323,6 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 		}
 
 		c.dst = dst
-		c.dstInOtherCluster = true
 
 		if a, _ := k.logAggregationMode(ctx, c.dst); a != defaults.ConfigMapValueMonitorAggregatonNone {
 			k.flowAggregation = true
