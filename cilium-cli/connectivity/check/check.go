@@ -799,8 +799,14 @@ func (t *TestRun) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequi
 		}
 	case TCP:
 		if t.expectedIngress.Drop {
-			// Ingress drops not supported yet
-			t.Failure("Unimplemented expected TCP ingress result %s", t.expectedIngress.String())
+			ingress = &filters.FlowSetRequirement{
+				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
+				Except: []filters.FlowRequirement{
+					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
+				},
+			}
 		} else {
 			ingress = &filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
@@ -988,6 +994,7 @@ type K8sConnectivityCheck struct {
 	hubbleClient       observer.ObserverClient
 	params             Parameters
 	clients            *deploymentClients
+	ciliumPods         map[string]PodContext
 	echoPods           map[string]PodContext
 	clientPods         map[string]PodContext
 	echoServices       map[string]ServiceContext
@@ -1583,6 +1590,21 @@ func (k *K8sConnectivityCheck) validateDeployment(ctx context.Context) error {
 	}
 	if err := k.waitForDeploymentsReady(ctx, k.clients.dst, dstDeployments); err != nil {
 		return err
+	}
+
+	k.ciliumPods = map[string]PodContext{}
+	for _, client := range k.clients.clients() {
+		ciliumPods, err := client.ListPods(ctx, k.ciliumNamespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+		if err != nil {
+			return fmt.Errorf("unable to list Cilium pods: %s", err)
+		}
+		for _, ciliumPod := range ciliumPods.Items {
+			// TODO: Can Cilium pod names collide across clusters?
+			k.ciliumPods[ciliumPod.Name] = PodContext{
+				K8sClient: client,
+				Pod:       ciliumPod.DeepCopy(),
+			}
+		}
 	}
 
 	clientPods, err := k.client.ListPods(ctx, k.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
