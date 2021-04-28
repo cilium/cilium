@@ -1,7 +1,6 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
-                                        
 AdamKorcz                               adam@adalogics.com
 Adam Wolfe Gordon                       awg@digitalocean.com
 Aditi Ghag                              aditi@cilium.io
@@ -23,6 +22,7 @@ Andrzej Mamak                           nqaegg@gmail.com
 Anish Shah                              anishshah@google.com
 Anit Gandhi                             anitgandhi@gmail.com
 Ankur Kothiwal                          ankur.kothiwal@accuknox.com
+Anthony Rabbito                         hello@anthonyrabbito.com
 Archana Shinde                          archana.m.shinde@intel.com
 Arika Chen                              eaglesora@gmail.com
 Arthur Chiao                            arthurchiao@hotmail.com
@@ -37,6 +37,7 @@ Bingshen Wang                           bingshen.wbs@alibaba-inc.com
 Bingwu Yang                             detailyang@gmail.com
 Blazek, Ondrej                          ondrej.blazek@firma.seznam.cz
 Bob Bouteillier                         bob.bouteillier@datadoghq.com
+Bokang Li                               libokang.dev@gmail.com
 Bolun Zhao                              blzhao@google.com
 Boran Car                               boran.car@gmail.com
 Brian Topping                           brian@coglative.com
@@ -154,15 +155,16 @@ Kornilios Kourtis                       kornilios@isovalent.com
 Laurent Bernaille                       laurent.bernaille@datadoghq.com
 Lehner Florian                          dev@der-flo.net
 Liang Zhou                              zhoul110@chinatelecom.cn
-Libo Kang                               libokang.dev@gmail.com
 Lior Rozen                              liorr@tailorbrands.com
 Liu Qun                                 qunliu@zyhx-group.com
 Livingstone S E                         livingstone.s.e@gmail.com
 Li Yi                                   denverdino@gmail.com
+Lorenzo Fundaró                         lorenzofundaro@gmail.com
 Maciej Fijalkowski                      maciej.fijalkowski@intel.com
 Maciej Kwiek                            maciej@isovalent.com
 Maciej Skrocki                          maciejskrocki@google.com
 Madhu Challa                            madhu@cilium.io
+Mahadev Panchal                         mahadev.panchal@accuknox.com
 MaiReo                                  sawako.saki@gmail.com
 Maksym Lushpenko                        iviakciivi@gmail.com
 Manali Bhutiyani                        manali@covalent.io
@@ -245,12 +247,12 @@ Sergey Generalov                        sergey@isovalent.com
 Sergey Monakhov                         monakhov@puzl.ee
 Shantanu Deshpande                      shantanud106@gmail.com
 Simon Pasquier                          spasquier@mirantis.com
+Smaine Kahlouch                         smainklh@gmail.com
 Stephen Martin                          lockwood@opperline.com
 Steven Ceuppens                         steven.ceuppens@icloud.com
 Steven Normore                          snormore@digitalocean.com
 Stevo Slavić                            sslavic@gmail.com
 Strukov Anton                           anstrukov@luxoft.com
-Subreptivus                             Subreptivus@gmail.com
 Swaminathan Vasudevan                   svasudevan@suse.com
 Taeung Song                             treeze.taeung@gmail.com
 Tam Mach                                sayboras@yahoo.com
@@ -271,7 +273,7 @@ Tony Lambiris                           tony@criticalstack.com
 Tony Lu                                 tonylu@linux.alibaba.com
 Travis Glenn Hansen                     travisghansen@yahoo.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
-trevor tao                              trevor.tao@arm.com
+Trevor Tao                              trevor.tao@arm.com
 Umesh Keerthy B S                       umesh.freelance@gmail.com
 Vadim Ponomarev                         velizarx@gmail.com
 Valas Valancius                         valas@google.com
@@ -293,6 +295,7 @@ Yosh de Vos                             yosh@elzorro.nl
 Youssef Azrak                           yazrak.tech@gmail.com
 Yuan Liu                                liuyuan@google.com
 Yurii Dzobak                            yurii.dzobak@lotusflare.com
+Yurii Komar                             Subreptivus@gmail.com
 Yves Blusseau                           yves.blusseau@acoss.fr
 Zang Li                                 zangli@google.com
 Zhiyuan Hou                             zhiyuan2048@linux.alibaba.com
