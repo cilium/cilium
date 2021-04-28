@@ -166,6 +166,9 @@ func (e *API) rateLimit() {
 	}
 }
 
+// CreateNetworkInterface mocks the interface creation. As with the upstream
+// EC2 API, the number of IP addresses in toAllocate are the number of
+// secondary IPs, a primary IP is always allocated.
 func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
 	e.delaySim.Delay(CreateNetworkInterface)
@@ -182,7 +185,8 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		return "", nil, fmt.Errorf("subnet %s not found", subnetID)
 	}
 
-	if int(toAllocate) > subnet.AvailableAddresses {
+	numAddresses := int(toAllocate) + 1 // include primary IP
+	if numAddresses > subnet.AvailableAddresses {
 		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnetID)
 	}
 
@@ -196,6 +200,12 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		SecurityGroups: groups,
 	}
 
+	primaryIP, err := e.allocator.AllocateNext()
+	if err != nil {
+		panic("Unable to allocate primary IP from allocator")
+	}
+	eni.IP = primaryIP.String()
+
 	for i := int32(0); i < toAllocate; i++ {
 		ip, err := e.allocator.AllocateNext()
 		if err != nil {
@@ -203,8 +213,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 		}
 		eni.Addresses = append(eni.Addresses, ip.String())
 	}
-
-	subnet.AvailableAddresses -= int(toAllocate)
+	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
 	return eniID, eni.DeepCopy(), nil
