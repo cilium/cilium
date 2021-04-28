@@ -1,6 +1,7 @@
 Alexei Starovoitov <alexei.starovoitov@gmail.com>
 André Martins <andre@cilium.io>
 Andrew Sy Kim <kim.andrewsy@gmail.com>
+Anthony Rabbito <hello@anthonyrabbito.com>
 Arika Chen <eaglesora@gmail.com>
 Arthur Chiao <arthurchiao@hotmail.com>
 Arthur Evstifeev <aevstifeev@gitlab.com>
@@ -10,19 +11,26 @@ Ashwin Paranjpe <ashwin@covalent.io>
 Ashwin Paranjpe <ashwinp.work@gmail.com>
 Bingwu Yang <detailyang@gmail.com>
 Bob Bouteillier <bob.bouteillier@datadoghq.com>
+Changyu Wang <changyuwang@tencent.com>
 Charles-Henri Guérin <charles-henri.guerin@zenika.com>
 Christine Chen <christine.chen@datadoghq.com>
 Christopher Biscardi <chris@christopherbiscardi.com>
 Craig Box <craig.box@gmail.com>
 Dan Wendlandt <dan@isovalent.com>
 Daniel Qian <qsj.daniel@gmail.com>
+Darren Mackintosh <unixdaddy@gmail.com>
 Darshan Chaudhary <deathbullet@gmail.com>
+Dawn <lx1960753013@gmail.com>
 Devarshi Sathiya <devarshisathiya5@gmail.com>
 El-Fadel Bonfoh <elfadel@accuknox.com> <bonfohelfadel@gmail.com>
+Fankaixi Li <fankaixi.li@bytedance.com>
 Florian Koch <f0@users.noreply.github.com>
 François Joulaud <francois.joulaud@radiofrance.com> <48206448+joulaud@users.noreply.github.com>
+Gaurav Genani <h3llix.pvt@gmail.com>
 Gaurav Yadav <gaurav.dev.iiitm@gmail.com>
 George Kontridze <gkontridze@plaid.com>
+Gowtham Sundara <gowtham.sundara@rapyuta-robotics.com>
+huangxuesen <huangxuesen@kuaishou.com>
 Hui Kong <hui.kong@qunar.com> <konghui@live.cn>
 Ian Vernon <ian@cilium.io> <vagrant@k8s1>
 Ifeanyi Ubah <ify1992@yahoo.com>
@@ -33,12 +41,18 @@ Jerry J. Muzsik <jerrymuzsik@icloud.com>
 Jomen Xiao <jomenxiao@gmail.com>
 Jonathan Davies <jpds@protonmail.com>
 Joshua Roppo <joshroppo@gmail.com>
+Jun Chen <answer1991.chen@gmail.com>
 Junli Ou <oujunli306@gmail.com>
+Kaito Ii <kaitoii1111@gmail.com>
 Karl Heins <karlheins@northwesternmutual.com>
+Libo Kang <libokang.dev@gmail.com>
 Lior Rozen <liorr@tailorbrands.com> <liorrozen@users.noreply.github.com>
 Liu Qun <qunliu@zyhx-group.com>
+Livingstone S E <livingstone.s.e@gmail.com>
 Madhu Challa <challa@gmail.com>
+Mahadev Panchal <mahadev.panchal@accuknox.com>
 Mandar U Jog <mjog@google.com> <mandarjog@gmail.com>
+Marc Stulz <m@footek.ch>
 Matthew Gumport <me@gum.pt>
 Michael Kashin <mmkashin@gmail.com>
 Michael Vorburger <vorburger@redhat.com>
@@ -46,15 +60,23 @@ Neela Jacques <neela@isovalent.com> <68304471+Neelajacques@users.noreply.github.
 Peiqi Shi <uestc.shi@gmail.com>
 Philippe Lafoucrière <philippe.lafoucriere@gmail.com>
 Pierre-Yves Aillet <pyaillet@gmail.com> <pyaillet@users.noreply.github.com>
+Raphael Campos <raphael@accuknox.com>
+Rei Shimizu <Shikugawa@gmail.com>
 Roman Ptitcyn <romanspb@yahoo.com>
+Salvatore Mazzarino <salvatore@accuknox.com> <dev@mazzarino.cz>
+Sami Yessou <fnzv@users.noreply.github.com>
 Sander Timmerman <stimmerman@schubergphilis.com>
 Sean Winn <sean@isovalent.com> <seanmwinn@hotmail.com>
 Sergey Generalov <sergey@isovalent.com> <sergey@genbit.ru>
 Tam Mach <sayboras@yahoo.com>
 Thomas Graf <thomas@cilium.io>
+Tomoki Sugiura <cheztomo513@gmail.com>
 Tony Lu <tonylu@linux.alibaba.com>
+Vance Li <liyannois@gmail.com>
+Vlad Ungureanu <vladu@palantir.com> <ungureanuvladvictor@gmail.com>
 Wayne Haber <whaber@gitlab.com> <41373231+whaber@users.noreply.github.com>
 Weilong Cui <cuiwl@google.com>
+Yiannis Yiakoumis <yiannis@selfienetworks.com>
 Youssef Azrak <yazrak.tech@gmail.com>
 Yurii Dzobak <yurii.dzobak@lotusflare.com>
 Yves Blusseau <yves.blusseau@acoss.fr>
