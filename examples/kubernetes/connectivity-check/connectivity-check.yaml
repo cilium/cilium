@@ -23,7 +23,7 @@ spec:
           value: "8080"
         ports:
         - containerPort: 8080
-        image: docker.io/cilium/json-mock:1.2
+        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -80,7 +80,7 @@ spec:
         ports:
         - containerPort: 8080
           hostPort: 40000
-        image: docker.io/cilium/json-mock:1.2
+        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -135,7 +135,7 @@ spec:
         - name: PORT
           value: "41000"
         ports: []
-        image: docker.io/cilium/json-mock:1.2
+        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -197,7 +197,7 @@ spec:
       containers:
       - name: pod-to-a-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -253,7 +253,7 @@ spec:
       containers:
       - name: pod-to-external-1111-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -309,7 +309,7 @@ spec:
       containers:
       - name: pod-to-a-denied-cnp-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -355,7 +355,7 @@ spec:
       containers:
       - name: pod-to-a-allowed-cnp-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -411,7 +411,7 @@ spec:
       containers:
       - name: pod-to-external-fqdn-allow-google-cnp-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -467,7 +467,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-clusterip-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -533,7 +533,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-headless-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -599,7 +599,7 @@ spec:
       containers:
       - name: host-to-b-multi-node-clusterip-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -666,7 +666,7 @@ spec:
       containers:
       - name: host-to-b-multi-node-headless-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -733,7 +733,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-nodeport-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -799,7 +799,7 @@ spec:
       containers:
       - name: pod-to-b-intra-node-nodeport-container
         ports: []
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
