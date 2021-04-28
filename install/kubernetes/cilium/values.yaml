@@ -85,8 +85,8 @@ image:
   tag: v1.10.0-rc1
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: ""
-  useDigest: false
+  digest: "sha256:bdec5db5b9651c208a326f8d3b1d6a1caf5d943989ea2fdb68b24802dd17b134"
+  useDigest: true
 
 # -- Pod affinity for cilium-agent.
 affinity:
@@ -647,8 +647,8 @@ hubble:
       repository: quay.io/cilium/hubble-relay
       tag: v1.10.0-rc1
        # hubble-relay-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:9e1120dd272bf5ebce5f7b2002ac7ae9a2854d9b7a799e0548312432c9c28b8d"
+      useDigest: true
       pullPolicy: IfNotPresent
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1181,14 +1181,14 @@ operator:
     repository: quay.io/cilium/operator
     tag: v1.10.0-rc1
     # operator-generic-digest
-    genericDigest: ""
+    genericDigest: "sha256:3b46c6fc9dc085d395136ca9cf8af1d0f653184c797e0ad7038e103abfbffacd"
     # operator-azure-digest
-    azureDigest: ""
+    azureDigest: "sha256:2cd08484744f49ca86d3dd367ef4b63c3b9dfcd26a96072479f599e0f2a51d6b"
     # operator-aws-digest
-    awsDigest: ""
+    awsDigest: "sha256:301195fe8e5587353632f61e2ad53a037ae35816cf2c119406021883ebfcccbd"
     # operator-alibabacloud-digest
-    alibabacloudDigest: ""
-    useDigest: false
+    alibabacloudDigest: "sha256:c31d79a2b8f5225632199a81c829270cb33f1f2e752fea30c8846d3a44dd07d7"
+    useDigest: true
     pullPolicy: IfNotPresent
     suffix: ""
 
@@ -1393,8 +1393,8 @@ preflight:
     repository: quay.io/cilium/cilium
     tag: v1.10.0-rc1
     # cilium-digest
-    digest: ""
-    useDigest: false
+    digest: "sha256:bdec5db5b9651c208a326f8d3b1d6a1caf5d943989ea2fdb68b24802dd17b134"
+    useDigest: true
     pullPolicy: IfNotPresent
 
   priorityClassName: ""
@@ -1500,8 +1500,8 @@ clustermesh:
       repository: quay.io/cilium/clustermesh-apiserver
       tag: v1.10.0-rc1
       # clustermesh-apiserver-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:1a9b2488b13b43d6917b674dc17d86586fc3c8b37d787dbfe0c587275b22a12b"
+      useDigest: true
       pullPolicy: IfNotPresent
 
     etcd:
