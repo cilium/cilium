@@ -1271,6 +1271,10 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 		k.flowAggregation = true
 	}
 
+	if k.params.MultiCluster != "" && k.params.SingleNode {
+		return nil, fmt.Errorf("single-node test can not be enabled with multi-cluster test")
+	}
+
 	// In single-cluster environment, automatically detect a single-node
 	// environment so we can skip deploying tests which depend on multiple
 	// nodes.
@@ -1309,7 +1313,7 @@ func (k *K8sConnectivityCheck) initClients(ctx context.Context) (*deploymentClie
 			k.Log("ℹ️  Single node environment detected, enabling single node connectivity test")
 			k.params.SingleNode = true
 		}
-	} else {
+	} else if k.params.MultiCluster != "" {
 		dst, err := k8s.NewClient(k.params.MultiCluster, "")
 		if err != nil {
 			return nil, fmt.Errorf("unable to create Kubernetes client for remote cluster %q: %w", k.params.MultiCluster, err)
