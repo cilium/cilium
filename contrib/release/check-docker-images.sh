@@ -16,7 +16,7 @@ internal_dependencies=(
   "cilium-etcd-operator:${MANAGED_ETCD_VERSION}" \
   "startup-script:${NODEINIT_VERSION}"
   "hubble-ui:${HUBBLE_UI_VERSION}" \
-  "hubble-ui-backend:${HUBBLE_UI_VERSION}" \
+  "hubble-ui-backend:${HUBBLE_UI_BACKEND_VERSION}" \
 )
 
 cilium_images=(\
