@@ -56,7 +56,6 @@ The documentation is divided into the following sections:
    configuration/index
    policy/index
    operations/metrics
-   operations/scalability/index
    operations/performance/index
    operations/troubleshooting
 
