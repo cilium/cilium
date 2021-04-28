@@ -100,31 +100,34 @@ func (k *K8sHubble) generateHubbleUIConfigMap() *corev1.ConfigMap {
       filter_chains:
         - filters:
             - name: envoy.filters.network.http_connection_manager
-              config:
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 codec_type: auto
                 stat_prefix: ingress_http
                 route_config:
                   name: local_route
                   virtual_hosts:
                     - name: local_service
-                      domains: ['*']
+                      domains: ["*"]
                       routes:
                         - match:
-                            prefix: '/api/'
+                            prefix: "/api/"
                           route:
                             cluster: backend
-                            max_grpc_timeout: 0s
-                            prefix_rewrite: '/'
+                            prefix_rewrite: "/"
+							timeout: 0s
+                            max_stream_duration:
+                              grpc_timeout_header_max: 0s
                         - match:
-                            prefix: '/'
+                            prefix: "/"
                           route:
                             cluster: frontend
                       cors:
                         allow_origin_string_match:
-                          - prefix: '*'
+                          - prefix: "*"
                         allow_methods: GET, PUT, DELETE, POST, OPTIONS
                         allow_headers: keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout
-                        max_age: '1728000'
+                        max_age: "1728000"
                         expose_headers: grpc-status,grpc-message
                 http_filters:
                   - name: envoy.filters.http.grpc_web
@@ -135,19 +138,30 @@ func (k *K8sHubble) generateHubbleUIConfigMap() *corev1.ConfigMap {
       connect_timeout: 0.25s
       type: strict_dns
       lb_policy: round_robin
-      hosts:
-        - socket_address:
-            address: 127.0.0.1
-            port_value: 8080
+      load_assignment:
+        cluster_name: frontend
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 8080
     - name: backend
       connect_timeout: 0.25s
       type: logical_dns
       lb_policy: round_robin
       http2_protocol_options: {}
-      hosts:
-        - socket_address:
-            address: 127.0.0.1
-            port_value: 8090`,
+      load_assignment:
+        cluster_name: backend
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 8090
+`,
 		},
 	}
 }
@@ -210,7 +224,7 @@ func (k *K8sHubble) generateHubbleUIDeployment() *appsv1.Deployment {
 						},
 						{
 							Name:            "proxy",
-							Image:           "docker.io/envoyproxy/envoy:v1.14.5",
+							Image:           "docker.io/envoyproxy/envoy:v1.18.2@sha256:e8b37c1d75787dd1e712ff389b0d37337dc8a174a63bed9c34ba73359dc67da7",
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Command:         []string{"envoy"},
 							Args:            []string{"-c", "/etc/envoy.yaml", "-l", "info"},
