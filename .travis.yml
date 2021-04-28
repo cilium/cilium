@@ -16,14 +16,14 @@ jobs:
       if: type != pull_request
       env:
         - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:9b7ac75b22eb6ca26d6542e7dd1b92666cf17c33@sha256:2d5891ea3e3f5b5a1f8dc6e48de3d078daa9f67446a66ddc9833211be6846475
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:8fe001a11f25ad9e6676c19b0431f83c893fbab4@sha256:921ab4bf310f562ce7d4aea1f5c2bc8651f273f1a93b36c71b9cb9954869ef68
         - LOCKDEBUG=1
     - arch: arm64-graviton2
       name: "arm64-graviton2-race"
       if: type != pull_request
       env:
         - RACE=1
-        - BASE_IMAGE=quay.io/cilium/cilium-runtime:9b7ac75b22eb6ca26d6542e7dd1b92666cf17c33@sha256:2d5891ea3e3f5b5a1f8dc6e48de3d078daa9f67446a66ddc9833211be6846475
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:8fe001a11f25ad9e6676c19b0431f83c893fbab4@sha256:921ab4bf310f562ce7d4aea1f5c2bc8651f273f1a93b36c71b9cb9954869ef68
         - LOCKDEBUG=1
       virt: vm
       group: edge
