@@ -581,6 +581,19 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			testWireguard("cilium_vxlan")
 		})
+
+		It("Pod2pod is encrypted in tunneling mode with per-endpoint routes", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"tunnel":                 "vxlan",
+				"endpointRoutes.enabled": "true",
+				"encryption.enabled":     "true",
+				"encryption.type":        "wireguard",
+				"l7Proxy":                "false",
+			}, DeployCiliumOptionsAndDNS)
+
+			testWireguard("cilium_vxlan")
+		})
+
 	})
 
 	Context("Sockops performance", func() {
