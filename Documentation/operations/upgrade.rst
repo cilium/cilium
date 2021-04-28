@@ -193,9 +193,7 @@ version which was installed in this cluster. Valid options are:
    `1.9_helm_options` to determine the 1.9 equivalent options for options you
    previously specified when initially installing Cilium.
 
-   For example, an 1.8 installation with the following options:
-
-   .. code-block:: txt
+   For example, an 1.8 installation with the following options::
 
       --namespace=kube-system \\
       --set global.k8sServiceHost=API_SERVER_IP \\
@@ -204,9 +202,7 @@ version which was installed in this cluster. Valid options are:
       --set global.kubeProxyReplacement=strict
 
 
-   Can be upgraded using the options below:
-
-   .. code-block:: txt
+   Can be upgraded using the options below::
 
       --namespace=kube-system \\
       --set upgradeCompatibility=1.8 \\
