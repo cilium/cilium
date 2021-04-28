@@ -314,9 +314,9 @@ every week. The following steps describe how to perform those duties. Please
 submit changes to these steps if you have found a better way to perform each
 duty.
 
-* `People on Janitor hat this week <https://github.com/orgs/cilium/teams/janitors/members>`_
-* `People on Triage hat this week <https://github.com/orgs/cilium/teams/triage/members>`_
-* `People on Backport hat this week <https://github.com/orgs/cilium/teams/backporter/members>`_
+* `People in a Janitor hat this week <https://github.com/orgs/cilium/teams/janitors/members>`_
+* `People in a Triage hat this week <https://github.com/orgs/cilium/teams/triage/members>`_
+* `People in a Backport hat this week <https://github.com/orgs/cilium/teams/backporter/members>`_
 
 Pull request review process for Janitors team
 ---------------------------------------------
