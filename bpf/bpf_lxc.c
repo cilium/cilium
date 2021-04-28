@@ -155,6 +155,15 @@ skip_service_lookup:
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
+	/* When an endpoint connects to itself via service clusterIP, we need
+	 * to skip the policy enforcement. If we didn't, the user would have to
+	 * define policy rules to allow pods to talk to themselves. We still
+	 * want to execute the conntrack logic so that replies can be correctly
+	 * matched.
+	 */
+	if (hairpin_flow)
+		goto skip_policy_enforcement;
+
 	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
@@ -171,15 +180,6 @@ skip_service_lookup:
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   orig_dip.p4, *dstID);
 	}
-
-	/* When an endpoint connects to itself via service clusterIP, we need
-	 * to skip the policy enforcement. If we didn't, the user would have to
-	 * define policy rules to allow pods to talk to themselves. We still
-	 * want to execute the conntrack logic so that replies can be correctly
-	 * matched.
-	 */
-	if (hairpin_flow)
-		goto skip_policy_enforcement;
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
@@ -547,6 +547,15 @@ skip_service_lookup:
 		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
 
+	/* When an endpoint connects to itself via service clusterIP, we need
+	 * to skip the policy enforcement. If we didn't, the user would have to
+	 * define policy rules to allow pods to talk to themselves. We still
+	 * want to execute the conntrack logic so that replies can be correctly
+	 * matched.
+	 */
+	if (hairpin_flow)
+		goto skip_policy_enforcement;
+
 	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
@@ -563,15 +572,6 @@ skip_service_lookup:
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   orig_dip, *dstID);
 	}
-
-	/* When an endpoint connects to itself via service clusterIP, we need
-	 * to skip the policy enforcement. If we didn't, the user would have to
-	 * define policy rules to allow pods to talk to themselves. We still
-	 * want to execute the conntrack logic so that replies can be correctly
-	 * matched.
-	 */
-	if (hairpin_flow)
-		goto skip_policy_enforcement;
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
