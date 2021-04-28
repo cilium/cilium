@@ -57,8 +57,16 @@ main() {
         common::exit 1 "Generate release notes via contrib/release/start-release.sh"
     fi
 
+    git fetch $REMOTE
+
+    local commit="$(git rev-parse HEAD)"
+    BRANCH="$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')"
     echo "Current HEAD is:"
-    git log --oneline -1 $(git rev-parse HEAD)
+    git log --oneline -1 "$commit"
+    if ! commit_in_upstream "$commit" "$BRANCH"; then
+        common::exit 1 "Commit $commit not in $REMOTE/$BRANCH!"
+    fi
+
     echo "Create git tags for $version with this commit"
     if ! common::askyorn ; then
         common::exit 0 "Aborting release preparation."
