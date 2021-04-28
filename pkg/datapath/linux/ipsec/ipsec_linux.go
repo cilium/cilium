@@ -604,3 +604,8 @@ func DeleteIPsecEncryptRoute() {
 		}
 	}
 }
+
+func DeleteIPSecXfrmSpi(spi uint8) {
+	time.Sleep(linux_defaults.IPsecKeyDeleteDelay)
+	ipsecDeleteXfrmSpi(spi)
+}

@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -34,6 +35,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -923,6 +925,25 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
 		oldKey = oldNode.EncryptionKey
+	}
+
+	if !n.nodeConfig.EnableIPSec {
+		bpfIPCacheList := make(map[string][]string)
+		if err := ipcache.IPCache.Dump(bpfIPCacheList); err != nil {
+			log.WithError(err)
+		}
+
+		foundKey := false
+		for _, entry := range bpfIPCacheList {
+			entrySpi, _ := strconv.ParseUint(entry[1], 10, 8)
+			if uint8(entrySpi) == oldKey {
+				foundKey = true
+				break
+			}
+		}
+		if !foundKey {
+			go ipsec.DeleteIPSecXfrmSpi(oldKey)
+		}
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() && !n.nodeConfig.EncryptNode {
