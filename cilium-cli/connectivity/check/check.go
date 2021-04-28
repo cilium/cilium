@@ -1395,7 +1395,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 			Name:   echoSameNodeDeploymentName,
 			Kind:   kindEchoName,
 			Port:   8080,
-			Image:  "quay.io/cilium/json-mock:1.2",
+			Image:  defaults.ConnectivityCheckJSONMockImage,
 			Labels: map[string]string{"other": "echo"},
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
@@ -1427,7 +1427,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 			Name:    ClientDeploymentName,
 			Kind:    kindClientName,
 			Port:    8080,
-			Image:   "quay.io/cilium/alpine-curl:1.1",
+			Image:   defaults.ConnectivityCheckAlpineCurlImage,
 			Command: []string{"/bin/ash", "-c", "sleep 10000000"},
 		})
 		_, err = k.clients.src.CreateDeployment(ctx, k.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
@@ -1444,7 +1444,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 			Name:    Client2DeploymentName,
 			Kind:    kindClientName,
 			Port:    8080,
-			Image:   "quay.io/cilium/alpine-curl:1.1",
+			Image:   defaults.ConnectivityCheckAlpineCurlImage,
 			Command: []string{"/bin/ash", "-c", "sleep 10000000"},
 			Labels:  map[string]string{"other": "client"},
 		})
@@ -1478,7 +1478,7 @@ func (k *K8sConnectivityCheck) deploy(ctx context.Context) error {
 				Name:  echoOtherNodeDeploymentName,
 				Kind:  kindEchoName,
 				Port:  8080,
-				Image: "quay.io/cilium/json-mock:1.2",
+				Image: defaults.ConnectivityCheckJSONMockImage,
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
