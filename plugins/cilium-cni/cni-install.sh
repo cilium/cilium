@@ -170,7 +170,10 @@ EOF
     {
       "name": "aws-cni",
       "type": "aws-cni",
-      "vethPrefix": "eni"
+      "vethPrefix": "eni",
+      "mtu": "9001",
+      "pluginLogFile": "/var/log/aws-routed-eni/plugin.log",
+      "pluginLogLevel": "DEBUG"
     },
     {
       "type": "portmap",
