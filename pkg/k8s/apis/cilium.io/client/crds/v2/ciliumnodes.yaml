@@ -431,8 +431,8 @@ spec:
                         \n More details: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html"
                       properties:
                         addresses:
-                          description: Addresses is the list of all IPs associated
-                            with the ENI, including all secondary addresses
+                          description: Addresses is the list of all secondary IPs
+                            associated with the ENI
                           items:
                             type: string
                           type: array
