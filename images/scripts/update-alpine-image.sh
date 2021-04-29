@@ -19,7 +19,9 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-alpine_version=3.13.5
+# Do not upgrade to alpine 3.13 as its nslookup tool returns 1, instead of 0
+# for domain name lookups.
+alpine_version=3.12.7
 
 image="${1:-docker.io/library/alpine:${alpine_version}}"
 
