@@ -319,7 +319,7 @@ spec:
       containers:
       - name: pod-to-a-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -375,7 +375,7 @@ spec:
       containers:
       - name: pod-to-external-1111-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -431,7 +431,7 @@ spec:
       containers:
       - name: pod-to-a-denied-cnp-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -477,7 +477,7 @@ spec:
       containers:
       - name: pod-to-a-allowed-cnp-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -533,7 +533,7 @@ spec:
       containers:
       - name: pod-to-external-fqdn-allow-google-cnp-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -589,7 +589,7 @@ spec:
       containers:
       - name: pod-to-a-intra-node-proxy-egress-policy-allow-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -619,7 +619,7 @@ spec:
             - echo-a:8080/public
       - name: pod-to-a-intra-node-proxy-egress-policy-reject-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -668,7 +668,7 @@ spec:
       containers:
       - name: pod-to-a-multi-node-proxy-egress-policy-allow-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -698,7 +698,7 @@ spec:
             - echo-a:8080/public
       - name: pod-to-a-multi-node-proxy-egress-policy-reject-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -747,7 +747,7 @@ spec:
       containers:
       - name: pod-to-c-intra-node-proxy-ingress-policy-allow-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -777,7 +777,7 @@ spec:
             - echo-c:8080/public
       - name: pod-to-c-intra-node-proxy-ingress-policy-reject-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -826,7 +826,7 @@ spec:
       containers:
       - name: pod-to-c-multi-node-proxy-ingress-policy-allow-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -856,7 +856,7 @@ spec:
             - echo-c:8080/public
       - name: pod-to-c-multi-node-proxy-ingress-policy-reject-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -905,7 +905,7 @@ spec:
       containers:
       - name: pod-to-c-intra-node-proxy-to-proxy-policy-allow-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -935,7 +935,7 @@ spec:
             - echo-c:8080/public
       - name: pod-to-c-intra-node-proxy-to-proxy-policy-reject-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -984,7 +984,7 @@ spec:
       containers:
       - name: pod-to-c-multi-node-proxy-to-proxy-policy-allow-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1014,7 +1014,7 @@ spec:
             - echo-c:8080/public
       - name: pod-to-c-multi-node-proxy-to-proxy-policy-reject-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1063,7 +1063,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-clusterip-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1129,7 +1129,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-headless-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1195,7 +1195,7 @@ spec:
       containers:
       - name: host-to-b-multi-node-clusterip-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1262,7 +1262,7 @@ spec:
       containers:
       - name: host-to-b-multi-node-headless-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1329,7 +1329,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-hostport-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1395,7 +1395,7 @@ spec:
       containers:
       - name: pod-to-b-intra-node-hostport-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1461,7 +1461,7 @@ spec:
       containers:
       - name: pod-to-b-multi-node-nodeport-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -1527,7 +1527,7 @@ spec:
       containers:
       - name: pod-to-b-intra-node-nodeport-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.2.0@sha256:bf2f87bb761821bf57b792d45edfd3a46cf5cca4c57da3fa3fc2abcb13b89dd3
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash

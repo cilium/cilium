@@ -20,7 +20,9 @@ root_dir="$(git rev-parse --show-toplevel)"
 cd "${root_dir}"
 
 go_version=1.16.3
-go_version_alpine=${go_version}-alpine3.13
+# Do not upgrade to alpine 3.13 as its nslookup tool returns 1, instead of 0
+# for domain name lookups.
+go_version_alpine=${go_version}-alpine3.12
 
 image="${1:-docker.io/library/golang:${go_version}}"
 image_digest="$("${script_dir}/get-image-digest.sh" "${image}")"
