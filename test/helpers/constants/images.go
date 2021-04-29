@@ -39,7 +39,7 @@ const (
 	BusyboxImage = "docker.io/library/busybox:1.31.1"
 
 	// AlpineCurlImage is the image used for invoking curl with a small base image.
-	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.8"
+	AlpineCurlImage = "quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76"
 
 	// MemcachedImage is the image used to test memcached in the runtime tests.
 	MemcacheDImage = "docker.io/library/memcached:1.6.6-alpine"
@@ -48,7 +48,9 @@ const (
 	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.2"
 
 	// AlpineImage is used during the memcached tests as the text client.
-	AlpineImage = "docker.io/library/alpine:3.13.1@sha256:08d6ca16c60fe7490c03d10dc339d9fd8ea67c6466dea8d558526b1330a85930"
+	// Do not upgrade to alpine 3.13 as its nslookup tool returns 1, instead of 0
+	// for domain name lookups.
+	AlpineImage = "docker.io/library/alpine:3.12.7@sha256:36553b10a4947067b9fbb7d532951066293a68eae893beba1d9235f7d11a20ad"
 
 	// CassandraImage is the image used for testing of the cassandra proxy
 	// functionality in Cilium.
