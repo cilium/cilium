@@ -15,6 +15,7 @@
 package ebpf
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -70,13 +71,43 @@ func (m *Map) OpenOrCreate() error {
 	mapType := bpf.GetMapType(bpf.MapType(m.spec.Type))
 	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(mapType)
 
+	path := bpf.MapPath(m.spec.Name)
+
 	newMap, err := ciliumebpf.NewMapWithOptions(m.spec, opts)
 	if err != nil {
-		return fmt.Errorf("unable to create map: %w", err)
+		if !errors.Is(err, ciliumebpf.ErrMapIncompatible) {
+			return fmt.Errorf("unable to create map: %w", err)
+		}
+
+		// There already exists a pinned map but it has a different
+		// configuration (e.g different type, k/v size or flags).
+		// Try to delete and recreate it.
+
+		log.WithField("map", m.spec.Name).
+			WithError(err).Warn("Removing map to allow for property upgrade (expect map data loss)")
+
+		oldMap, err := ciliumebpf.LoadPinnedMap(path, &opts.LoadPinOptions)
+		if err != nil {
+			return fmt.Errorf("cannot load pinned map %s: %w", m.spec.Name, err)
+		}
+		defer func() {
+			if err := oldMap.Close(); err != nil {
+				log.WithField("map", m.spec.Name).Warnf("Cannot close map: %v", err)
+			}
+		}()
+
+		if err = oldMap.Unpin(); err != nil {
+			return fmt.Errorf("cannot unpin map %s: %w", m.spec.Name, err)
+		}
+
+		newMap, err = ciliumebpf.NewMapWithOptions(m.spec, opts)
+		if err != nil {
+			return fmt.Errorf("unable to create map: %w", err)
+		}
 	}
 
 	m.Map = newMap
-	m.path = bpf.MapPath(m.spec.Name)
+	m.path = path
 
 	registerMap(m)
 	return nil
