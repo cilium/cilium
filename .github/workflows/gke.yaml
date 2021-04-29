@@ -14,7 +14,7 @@ on:
   ###
 
 env:
-  clusterName: cilium-cli-ci-${{ github.run_id }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   zone: us-west2-a
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -85,7 +85,7 @@ jobs:
       - name: Create GKE cluster
         run: |
           gcloud container clusters create ${{ env.clusterName }} \
-            --labels "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \

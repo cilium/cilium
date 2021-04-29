@@ -14,7 +14,7 @@ on:
   ###
 
 env:
-  name: cilium-cli-ci-${{ github.run_id }}
+  name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -92,7 +92,7 @@ jobs:
           az group create \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
-            --tags "owner=${{ steps.vars.outputs.owner }}"
+            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
           az aks create \
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \

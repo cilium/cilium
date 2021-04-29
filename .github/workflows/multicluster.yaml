@@ -14,8 +14,8 @@ on:
   ###
 
 env:
-  clusterName1: cilium-cli-ci-${{ github.run_id }}-multicluster-1
-  clusterName2: cilium-cli-ci-${{ github.run_id }}-multicluster-2
+  clusterName1: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-multicluster-1
+  clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-multicluster-2
   zone: us-west2-a
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -85,7 +85,7 @@ jobs:
       - name: Create GKE cluster 1
         run: |
           gcloud container clusters create ${{ env.clusterName1 }} \
-            --labels "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \
@@ -97,7 +97,7 @@ jobs:
       - name: Create GKE cluster 2
         run: |
           gcloud container clusters create ${{ env.clusterName2 }} \
-            --labels "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \
