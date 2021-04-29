@@ -92,13 +92,17 @@ var (
 	defaultHelmOptions = map[string]string{
 		"image.repository":              "k8s1:5000/cilium/cilium-dev",
 		"image.tag":                     "latest",
+		"image.useDigest":               "false",
 		"preflight.image.repository":    "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
 		"preflight.image.tag":           "latest",
+		"preflight.image.useDigest":     "false",
 		"operator.image.repository":     "k8s1:5000/cilium/operator",
 		"operator.image.tag":            "latest",
 		"operator.image.suffix":         "",
+		"operator.image.useDigest":      "false",
 		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
 		"hubble.relay.image.tag":        "latest",
+		"hubble.relay.image.useDigest":  "false",
 		"debug.enabled":                 "true",
 		"k8s.requireIPv4PodCIDR":        "true",
 		"pprof.enabled":                 "true",
