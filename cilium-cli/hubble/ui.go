@@ -33,7 +33,7 @@ import (
 var (
 	hubbleUIReplicas   = int32(1)
 	hubbleUIPortIntstr = intstr.FromInt(8081)
-	hubbleUIUser       = int64(10001)
+	hubbleUIUser       = int64(1001)
 )
 
 var hubbleUIClusterRole = &rbacv1.ClusterRole{
