@@ -100,7 +100,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: "{{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}@{{ if .Values.clustermesh.apiserver.image.useDigest }}@{{ .Values.clustermesh.apiserver.image.digest }}{{ end }}"
+        image: "{{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}{{ if .Values.clustermesh.apiserver.image.useDigest }}@{{ .Values.clustermesh.apiserver.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
           - /usr/bin/clustermesh-apiserver
