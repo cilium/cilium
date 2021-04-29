@@ -8,9 +8,9 @@ on:
   schedule:
     - cron:  '0 0/6 * * *'
   ### FOR TESTING PURPOSES
-  # pull_request:
-  #  types:
-  #    - "labeled"
+  pull_request:
+   types:
+     - "labeled"
   ###
 
 env:
