@@ -251,18 +251,22 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML    string
-			echoSVCYAML string
+			demoYAML       string
+			echoSVCYAML    string
+			echoPolicyYAML string
 		)
 
 		BeforeAll(func() {
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+			echoPolicyYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-policy.yaml")
 
 			res := kubectl.ApplyDefault(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
 			res = kubectl.ApplyDefault(echoSVCYAML)
 			res.ExpectSuccess("unable to apply %s", echoSVCYAML)
+			res = kubectl.ApplyDefault(echoPolicyYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoPolicyYAML)
 
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
@@ -277,6 +281,7 @@ var _ = Describe("K8sServicesTest", func() {
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
 			_ = kubectl.Delete(echoSVCYAML)
+			_ = kubectl.Delete(echoPolicyYAML)
 		})
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Checks service on same node", func() {
