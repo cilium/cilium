@@ -312,16 +312,20 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			echoSVCYAML          string
 			echoSVCYAMLV6        string
 			echoSVCYAMLDualStack string
+			echoPolicyYAML       string
 		)
 
 		BeforeAll(func() {
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+			echoPolicyYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-policy.yaml")
 
 			res := kubectl.ApplyDefault(demoYAML)
 			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", demoYAML)
 			res = kubectl.ApplyDefault(echoSVCYAML)
 			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoSVCYAML)
+			res = kubectl.ApplyDefault(echoPolicyYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", echoPolicyYAML)
 
 			if helpers.DualStackSupported() {
 				demoYAMLV6 = helpers.ManifestGet(kubectl.BasePath(), "demo_v6.yaml")
@@ -353,6 +357,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
 			_ = kubectl.Delete(echoSVCYAML)
+			_ = kubectl.Delete(echoPolicyYAML)
 			if helpers.DualStackSupported() {
 				_ = kubectl.Delete(demoYAMLV6)
 				_ = kubectl.Delete(echoSVCYAMLV6)
