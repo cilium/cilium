@@ -14,7 +14,7 @@ on:
   ###
 
 env:
-  clusterName: cilium-cli-ci-${{ github.run_id }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -88,7 +88,7 @@ jobs:
         run: |
           eksctl create cluster \
             --name ${{ env.clusterName }} \
-            --tags "usage=pr,owner=${{ steps.vars.outputs.owner }}" \
+            --tags "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --without-nodegroup
 
       - name: Wait for images to be available
