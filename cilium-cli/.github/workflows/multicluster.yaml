@@ -16,7 +16,7 @@ env:
 jobs:
   installation-and-connectivity:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -52,7 +52,7 @@ jobs:
 
       - name: Install cilium in cluster1
         run: |
-          cilium install --cluster-name ${{ env.clusterName1 }} --cluster-id 1 --kube-proxy-replacement disabled --config monitor-aggregation=none
+          cilium install --cluster-name ${{ env.clusterName1 }} --cluster-id 1 --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan
           cilium hubble enable
 
       - name: Enable ClusterMesh cluster1
@@ -66,8 +66,10 @@ jobs:
 
       - name: Install cilium in cluster2
         run: |
-          cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --kube-proxy-replacement disabled --config monitor-aggregation=none
-          cilium hubble enable
+          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
+          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
+          cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan --context $CONTEXT2 --inherit-ca $CONTEXT1
+          cilium hubble enable --relay=false
 
       - name: Enable ClusterMesh cluster2
         run: |
