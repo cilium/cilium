@@ -67,7 +67,7 @@ jobs:
 
       - name: Install Cilium CLI
         run: |
-          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.4/cilium-linux-amd64.tar.gz
+          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.6/cilium-linux-amd64.tar.gz
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz
 
@@ -166,7 +166,7 @@ jobs:
       - name: Install Cilium with encryption
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption
+            --encryption=ipsec
 
       - name: Enable Relay
         run: |
@@ -199,7 +199,7 @@ jobs:
       - name: Install Cilium with encryption and tunnel datapath
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption \
+            --encryption=ipsec \
             --datapath-mode=tunnel
 
       - name: Enable Relay
