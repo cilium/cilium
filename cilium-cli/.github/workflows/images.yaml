@@ -45,6 +45,20 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
+      # master branch pushes
+      - name: CI Build ${{ matrix.name }}
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_ci_master
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+
       - name: CI Image Releases digests
         if: ${{ github.event_name != 'pull_request_target' }}
         shell: bash
