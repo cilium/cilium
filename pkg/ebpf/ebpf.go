@@ -20,5 +20,5 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ebpf")
 )
