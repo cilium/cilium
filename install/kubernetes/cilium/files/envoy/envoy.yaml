@@ -23,6 +23,7 @@ static_resources:
                           route:
                             cluster: backend
                             prefix_rewrite: "/"
+                            timeout: 0s
                             max_stream_duration:
                               grpc_timeout_header_max: 0s
                         - match:
