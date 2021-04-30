@@ -157,8 +157,8 @@ Validate the Setup
 ==================
 
 Run a ``bash`` shell in one of the Cilium pods with
-``kubectl -n kube-system exec -ti <cilium pod> -- bash`` and execute the
-following commands:
+``kubectl -n kube-system exec -ti ds/cilium -- bash`` and execute the following
+commands:
 
 1. Install tcpdump
 
