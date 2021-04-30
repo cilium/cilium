@@ -78,6 +78,11 @@ type Parameters struct {
 	UI               bool
 	UIPortForward    int
 	Writer           io.Writer
+	Context          string // Only for 'kubectl' pass-through commands
+}
+
+func (p *Parameters) Log(format string, a ...interface{}) {
+	fmt.Fprintf(p.Writer, format+"\n", a...)
 }
 
 func NewK8sHubble(client k8sHubbleImplementation, p Parameters) *K8sHubble {
