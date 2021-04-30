@@ -105,8 +105,7 @@ func newCmdPortForwardCommand() *cobra.Command {
 		Short: "Forward the relay port to the local machine",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			h := hubble.NewK8sHubble(k8sClient, params)
-			if err := h.PortForwardCommand(context.Background()); err != nil {
+			if err := params.PortForwardCommand(context.Background()); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil
@@ -114,7 +113,7 @@ func newCmdPortForwardCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringVar(&params.Context, "context", "", "Kubernetes configuration context")
 	cmd.Flags().IntVar(&params.PortForward, "port-forward", 4245, "Local port to forward to")
 
 	return cmd
@@ -129,8 +128,7 @@ func newCmdUI() *cobra.Command {
 		Use:   "ui",
 		Short: "Open the Hubble UI",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			h := hubble.NewK8sHubble(k8sClient, params)
-			if err := h.UIPortForwardCommand(context.Background()); err != nil {
+			if err := params.UIPortForwardCommand(context.Background()); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil
@@ -138,7 +136,7 @@ func newCmdUI() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
-	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().StringVar(&params.Context, "context", "", "Kubernetes configuration context")
 	cmd.Flags().IntVar(&params.UIPortForward, "port-forward", 12000, "Local port to use for the port forward")
 
 	return cmd

@@ -313,30 +313,34 @@ func (k *K8sHubble) enableUI(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sHubble) UIPortForwardCommand(ctx context.Context) error {
+func (p *Parameters) UIPortForwardCommand(ctx context.Context) error {
 	cmd := "kubectl"
 	args := []string{
 		"port-forward",
-		"-n", k.params.Namespace,
+		"-n", p.Namespace,
 		"svc/hubble-ui",
 		"--address", "0.0.0.0",
 		"--address", "::",
-		fmt.Sprintf("%d:80", k.params.UIPortForward)}
+		fmt.Sprintf("%d:80", p.UIPortForward)}
+
+	if p.Context != "" {
+		args = append([]string{"--context", p.Context}, args...)
+	}
 
 	c := exec.Command(cmd, args...)
-	c.Stdout = k.params.Writer
-	c.Stderr = k.params.Writer
+	c.Stdout = p.Writer
+	c.Stderr = p.Writer
 
 	go func() {
 		time.Sleep(5 * time.Second)
-		url := fmt.Sprintf("http://localhost:%d", k.params.UIPortForward)
+		url := fmt.Sprintf("http://localhost:%d", p.UIPortForward)
 
 		c := exec.Command("open", url)
-		c.Stdout = k.params.Writer
-		c.Stderr = k.params.Writer
+		c.Stdout = p.Writer
+		c.Stderr = p.Writer
 		if err := c.Run(); err != nil {
-			k.Log("⚠️  Unable to execute command %s %v: %s", cmd, args, err)
-			k.Log("ℹ️  Opening the following URL in your browser:" + url)
+			p.Log("⚠️  Unable to execute command %s %v: %s", cmd, args, err)
+			p.Log("ℹ️  Opening the following URL in your browser:" + url)
 		}
 	}()
 
