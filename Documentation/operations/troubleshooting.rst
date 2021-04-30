@@ -321,7 +321,7 @@ and various network policy combinations.
 To run the connectivity tests create an isolated test namespace called
 ``cilium-test`` to deploy the tests with.
 
-.. code:: bash
+.. parsed-literal::
 
    kubectl create ns cilium-test
    kubectl apply --namespace=cilium-test -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
