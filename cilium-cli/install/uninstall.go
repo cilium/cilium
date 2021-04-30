@@ -20,6 +20,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
 
@@ -29,9 +30,10 @@ import (
 var retryInterval = 2 * time.Second
 
 type UninstallParameters struct {
-	Namespace string
-	Writer    io.Writer
-	Wait      bool
+	Namespace     string
+	TestNamespace string
+	Writer        io.Writer
+	Wait          bool
 }
 
 type K8sUninstaller struct {
@@ -56,6 +58,9 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		return err
 	}
 
+	k.Log("🔥 Deleting cilium-test namespace...")
+	k.client.DeleteNamespace(ctx, k.params.TestNamespace, metav1.DeleteOptions{})
+
 	k.Log("🔥 Deleting Service accounts...")
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.AgentServiceAccountName, metav1.DeleteOptions{})
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.OperatorServiceAccountName, metav1.DeleteOptions{})
@@ -70,6 +75,11 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.DeleteOptions{})
 	k.Log("🔥 Deleting operator Deployment...")
 	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{})
+
+	clustermesh.NewK8sClusterMesh(k.client, clustermesh.Parameters{
+		Namespace: k.params.Namespace,
+		Writer:    k.params.Writer,
+	}).Disable(ctx)
 
 	k.Log("🔥 Deleting certificates...")
 	k.uninstallCerts(ctx)

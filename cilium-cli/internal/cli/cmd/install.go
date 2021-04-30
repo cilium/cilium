@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium-cli/install"
 
@@ -94,9 +95,7 @@ func newCmdUninstall() *cobra.Command {
 				Namespace: params.Namespace,
 				Writer:    params.Writer,
 			})
-			if err := h.Disable(context.Background()); err != nil {
-				fatalf("Unable to disable Hubble:  %s", err)
-			}
+			h.Disable(context.Background())
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
 			if err := uninstaller.Uninstall(context.Background()); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
@@ -106,6 +105,7 @@ func newCmdUninstall() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace to uninstall Cilium from")
+	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to uninstall Cilium tests from")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for uninstallation to have completed")
 

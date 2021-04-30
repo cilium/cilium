@@ -956,8 +956,15 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 }
 
 type k8sInstallerImplementation interface {
+	ClusterName() string
+	ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error)
+	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
+	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
+	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
+	ListCiliumExternalWorkloads(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error)
 	CreateServiceAccount(ctx context.Context, namespace string, account *corev1.ServiceAccount, opts metav1.CreateOptions) (*corev1.ServiceAccount, error)
 	DeleteServiceAccount(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
+	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
 	CreateConfigMap(ctx context.Context, namespace string, config *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error)
 	DeleteConfigMap(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateClusterRole(ctx context.Context, config *rbacv1.ClusterRole, opts metav1.CreateOptions) (*rbacv1.ClusterRole, error)
@@ -968,6 +975,7 @@ type k8sInstallerImplementation interface {
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
 	DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
+	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -984,6 +992,7 @@ type k8sInstallerImplementation interface {
 	CreateSecret(ctx context.Context, namespace string, secret *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error)
+	PatchSecret(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.Secret, error)
 	CreateResourceQuota(ctx context.Context, namespace string, r *corev1.ResourceQuota, opts metav1.CreateOptions) (*corev1.ResourceQuota, error)
 	DeleteResourceQuota(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	AutodetectFlavor(ctx context.Context) (k8s.Flavor, error)
