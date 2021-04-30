@@ -58,7 +58,7 @@ type accountInfo struct {
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	if k.params.Azure.TenantID == "" {
 		k.Log("🚀 Creating service principal for Cilium operator...")
-		args := []string{"ad", "sp", "create-for-rbac", "--name", "cilium-operator"}
+		args := []string{"ad", "sp", "create-for-rbac"}
 		cmd := azCommand(args...)
 		bytes, err := cmd.Output()
 		if err != nil {
