@@ -21,6 +21,10 @@ in the Kubernetes ``CiliumNode`` custom resource object. Each node's public key
 is then used by other nodes to decrypt and encrypt traffic from and to
 Cilium-managed endpoints running on that node.
 
+Packets destined to the same node they were sent out of are not encrypted.
+This is an intended behavior as it would not provide any benefits because the
+raw traffic on the node can be seen.
+
 The Wireguard tunnel endpoint is exposed on UDP port ``51871`` on each node. If
 you run Cilium in an environment that requires firewall rules to enable
 connectivity, you will have to ensure that all Cilium cluster nodes can reach
@@ -81,8 +85,9 @@ each Cilium agent instance.
 Validate the Setup
 ==================
 
-Run a ``bash`` shell in one of the Cilium pods with ``kubectl -n <k8s namespace>
-exec -ti ds/cilium -- bash`` and execute the following commands:
+Run a ``bash`` shell in one of the Cilium pods with
+``kubectl -n kube-system exec -ti ds/cilium -- bash`` and execute the following
+commands:
 
 1. Install tcpdump
 

@@ -18,7 +18,7 @@ Kubernetes secrets to distribute keys. Alternatively, keys may be manually
 distributed, but that is not shown here.
 
 Packets destined to the same node they were sent out of are not encrypted.
-This is a intended behavior as it doesn't provide any benefits because the
+This is an intended behavior as it would not provide any benefits because the
 raw traffic on the node can be seen.
 
 Transparent encryption is not currently supported when chaining Cilium on top
@@ -41,9 +41,9 @@ value is an IPSec configuration in the following format:
     ``Secret`` resources need to be deployed in the same namespace as Cilium!
     In our example, we use ``kube-system``.
 
-In the example below we use GMC-128-AES, but
-any of the supported Linux algorithms may be used. To generate, use the
-following:
+In the example below, GMC-128-AES is used. However, any of the algorithms
+supported by Linux may be used. To generate the secret, you may use the
+following command:
 
 .. parsed-literal::
 
@@ -82,10 +82,13 @@ Enable Encryption in Cilium
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
              --set encryption.enabled=true \\
-             --set encryption.nodeEncryption=false
+             --set encryption.nodeEncryption=false \\
+             --set encryption.type=ipsec
 
        ``encryption.enabled`` enables encryption of the traffic between Cilium-managed pods and
        ``encryption.nodeEncryption`` controls whether host traffic is encrypted.
+       ``encryption.type`` specifies the encryption method and can be omitted
+       as it defaults to ``ipsec``.
 
 .. attention::
 
@@ -152,8 +155,9 @@ In order to enable node-to-node encryption, add:
 Validate the Setup
 ==================
 
-Run a ``bash`` shell in one of the Cilium pods with ``kubectl -n <k8s namespace>
-exec -ti <cilium pod> -- bash`` and execute the following commands:
+Run a ``bash`` shell in one of the Cilium pods with
+``kubectl -n kube-system exec -ti <cilium pod> -- bash`` and execute the
+following commands:
 
 1. Install tcpdump
 
@@ -162,7 +166,8 @@ exec -ti <cilium pod> -- bash`` and execute the following commands:
     apt-get update
     apt-get -y install tcpdump
 
-2. Check that traffic is encrypted:
+2. Check that traffic is encrypted. In the example below, this can be verified
+   by the fact that packets carry the IP Encapsulating Security Payload (ESP):
 
 .. code:: bash
 
@@ -180,7 +185,7 @@ exec -ti <cilium pod> -- bash`` and execute the following commands:
 Key Rotation
 ============
 
-To replace cilium-ipsec-keys secret with a new keys,
+To replace cilium-ipsec-keys secret with a new key:
 
 .. code-block:: shell-session
 
