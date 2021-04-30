@@ -98,8 +98,11 @@ func InitBandwidthManager() {
 		{"net.core.netdev_max_backlog", "1000"},
 		{"net.core.somaxconn", "4096"},
 		{"net.core.default_qdisc", "fq"},
-		{"net.ipv4.tcp_congestion_control", "bbr"},
 		{"net.ipv4.tcp_max_syn_backlog", "4096"},
+		// Temporary disable setting bbr for now until we have a
+		// kernel fix for pacing out of Pods as described in #15324.
+		// Then, kernels with the fix can use bbr, and others cubic.
+		{"net.ipv4.tcp_congestion_control", "cubic"},
 	}
 	for _, s := range baseSettings {
 		log.WithFields(logrus.Fields{
