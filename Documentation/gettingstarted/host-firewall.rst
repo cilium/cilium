@@ -22,7 +22,7 @@ Enable the Host Firewall in Cilium
 
 Deploy Cilium release via Helm:
 
-.. parsed-literal ::
+.. parsed-literal::
 
     helm install cilium |CHART_RELEASE|        \\
       --namespace kube-system                  \\
@@ -101,7 +101,7 @@ the outside of the cluster, except if those pods are host-networking pods.
 
 To apply this policy, run:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
     $ kubectl create -f \ |SCM_WEB|\/examples/policies/host/demo-host-policy.yaml
     ciliumclusterwidenetworkpolicy.cilium.io/demo-host-policy created
