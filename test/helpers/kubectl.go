@@ -1772,7 +1772,7 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 	defer cancel()
 
 	cmd := fmt.Sprintf("dig +short %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-	results, err := kub.ExecInPods(ctx, LogGathererNamespace, logGathererSelector(true), cmd)
+	results, err := kub.ExecInPods(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
 	if err != nil {
 		return err
 	}
