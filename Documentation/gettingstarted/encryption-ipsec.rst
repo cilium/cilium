@@ -204,10 +204,11 @@ which key is used by each endpoint and will use the correct key if either side
 has not yet been updated. In this way encryption will work as new keys are
 rolled out.
 
-The KEYID environment variable in the above example stores the current key ID
-used by Cilium. The key variable is a uint8 with value between 0-16 and should
-be monotonically increasing every re-key with a rollover from 16 to 0. The
-Cilium agent will default to KEYID of zero if its not specified in the secret.
+The ``KEYID`` environment variable in the above example stores the current key
+ID used by Cilium. The key variable is a uint8 with value between 0-16 and
+should be monotonically increasing every re-key with a rollover from 16 to 0.
+The Cilium agent will default to ``KEYID`` of zero if its not specified in the
+secret.
 
 Troubleshooting
 ===============
@@ -229,7 +230,7 @@ Troubleshooting
      use ``--set encryption.ipsec.interface=ethX`` to set the encryption
      interface.
 
- * Run a ``bash`` in a Cilium and validate the following:
+ * Run a ``bash`` in a Cilium Pod and validate the following:
 
    * Routing rules matching on fwmark:
 
