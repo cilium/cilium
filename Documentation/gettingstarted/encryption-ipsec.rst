@@ -197,7 +197,8 @@ To replace cilium-ipsec-keys secret with a new key:
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
     kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
-Then restart Cilium agents to transition to the new key. During transition the
+Then restart Cilium agents to transition to the new key with
+``kubectl delete pod -n kube-system -l k8s-app=cilium``. During transition the
 new and old keys will be in use. The Cilium agent keeps per endpoint data on
 which key is used by each endpoint and will use the correct key if either side
 has not yet been updated. In this way encryption will work as new keys are
