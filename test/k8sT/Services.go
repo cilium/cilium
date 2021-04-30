@@ -160,6 +160,16 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		}
 	}
 
+	ciliumHasServiceIP := func(pod, vip string) bool {
+		service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
+		vip4 := fmt.Sprintf(" %s:", vip)
+		if strings.Contains(service.Stdout(), vip4) {
+			return true
+		}
+		vip6 := fmt.Sprintf(" [%s]:", vip)
+		return strings.Contains(service.Stdout(), vip6)
+	}
+
 	newlineRegexp := regexp.MustCompile(`\n[ \t\n]*`)
 	trimNewlines := func(script string) string {
 		return newlineRegexp.ReplaceAllLiteralString(script, " ")
@@ -313,8 +323,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 			for _, pod := range ciliumPods {
-				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
-				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
+				Expect(ciliumHasServiceIP(pod, clusterIP)).Should(BeTrue(),
+					"ClusterIP is not present in the cilium service list")
 			}
 			// Send requests from "app2" pod which runs on the same node as
 			// "app1" pods
@@ -397,10 +407,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			Eventually(func() int {
 				validPods := 0
 				for _, pod := range ciliumPods {
-					serviceRes := kubectl.CiliumExecMustSucceed(
-						context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
-
-					if !strings.Contains(serviceRes.Stdout(), clusterIP) {
+					if !ciliumHasServiceIP(pod, clusterIP) {
 						validPods++
 					}
 				}
@@ -422,10 +429,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			Eventually(func() int {
 				validPods := 0
 				for _, pod := range ciliumPods {
-					serviceRes := kubectl.CiliumExecMustSucceed(
-						context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
-
-					if strings.Contains(serviceRes.Stdout(), clusterIP) {
+					if ciliumHasServiceIP(pod, clusterIP) {
 						validPods++
 					}
 				}
@@ -494,7 +498,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 			for _, pod := range ciliumPods {
-				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep %s", svcIP), "Cannot retrieve services on cilium pod")
+				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep \" %s:\"", svcIP), "Cannot retrieve services on cilium pod")
 				service.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list")
 			}
 
@@ -578,7 +582,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 			for _, pod := range ciliumPods {
-				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep %s", svcIP), "Cannot retrieve services on cilium pod")
+				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep \" %s:\"", svcIP), "Cannot retrieve services on cilium pod")
 				service.ExpectContains("ClusterIP", "Original service is not present in the cilium service list")
 			}
 
