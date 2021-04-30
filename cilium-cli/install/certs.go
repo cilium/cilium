@@ -67,12 +67,18 @@ func (k *K8sInstaller) createHubbleServerCertificate(ctx context.Context) error 
 	return nil
 }
 
-func (k *K8sUninstaller) uninstallCerts(ctx context.Context) error {
-	if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.HubbleServerSecretName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("unable to delete secret %s/%s: %w", k.params.Namespace, defaults.HubbleServerSecretName, err)
+func (k *K8sUninstaller) uninstallCerts(ctx context.Context) (err error) {
+	if err = k.client.DeleteSecret(ctx, k.params.Namespace, defaults.HubbleServerSecretName, metav1.DeleteOptions{}); err != nil {
+		err = fmt.Errorf("unable to delete secret %s/%s: %w", k.params.Namespace, defaults.HubbleServerSecretName, err)
+	}
+	if err2 := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.DeleteOptions{}); err2 != nil {
+		err2 = fmt.Errorf("unable to delete CA secret %s/%s: %w", k.params.Namespace, defaults.CASecretName, err2)
+		if err == nil {
+			err = err2
+		}
 	}
 
-	return nil
+	return err
 }
 
 func (k *K8sInstaller) installCerts(ctx context.Context) error {
