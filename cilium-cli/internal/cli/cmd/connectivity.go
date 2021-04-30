@@ -80,6 +80,7 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
 	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show additional diagnostic messages")
+	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 
 	return cmd
 }
