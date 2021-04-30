@@ -70,7 +70,7 @@ Enable Encryption in Cilium
 
        .. code-block:: shell-session
 
-          cilium install --encryption
+          cilium install --encryption ipsec
 
     .. group-tab:: Helm
 
@@ -115,7 +115,7 @@ interface as follows:
 
        .. code-block:: shell-session
 
-          cilium install --encryption --config encryption-interface=ethX
+          cilium install --encryption ipsec --config encryption-interface=ethX
 
     .. group-tab:: Helm
 
@@ -136,7 +136,7 @@ In order to enable node-to-node encryption, add:
 
        .. code-block:: shell-session
 
-          cilium install --encryption --node-encryption
+          cilium install --encryption ipsec --node-encryption
 
     .. group-tab:: Helm
 
