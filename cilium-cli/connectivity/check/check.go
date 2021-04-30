@@ -1172,6 +1172,7 @@ type Parameters struct {
 	AllFlows              bool
 	Writer                io.Writer
 	Verbose               bool
+	PauseOnFail           bool
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
@@ -1759,6 +1760,11 @@ func (k *K8sConnectivityCheck) Report(r TestResult) {
 		r.Failures++
 	}
 	k.results[r.Name] = r
+
+	if r.Failures > 0 && k.params.PauseOnFail {
+		fmt.Println("Pausing after test failure, press the Enter key to continue:")
+		fmt.Scanln()
+	}
 }
 
 func (k *K8sConnectivityCheck) Run(ctx context.Context, tests ...ConnectivityTest) error {
