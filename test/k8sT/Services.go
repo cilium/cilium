@@ -2233,7 +2233,14 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		// Run on net-next and 4.19 but not on old versions, because of
 		// LRU requirement.
 		SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "Supports IPv4 fragments", func() {
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
+			options := map[string]string{}
+			// On GKE we need to disable endpoint routes as fragment tracking
+			// isn't compatible with that options. See #15958.
+			if helpers.RunsOnGKE() {
+				options["gke.enabled"] = "false"
+				options["tunnel"] = "disabled"
+			}
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 			testIPv4FragmentSupport()
 		})
 	})
