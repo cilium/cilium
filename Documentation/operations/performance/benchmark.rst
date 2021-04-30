@@ -208,9 +208,10 @@ are expected.
 
 .. note::
 
-   The results for the Calico eBPF datapath have been very unstable in this
-   test. We are not sure why. The network packet flow was not steady. We invite
-   the Calico team to work with us to investigate this and then re-test.
+   We have not been able to measure stable results for the Calico eBPF
+   datapath.  We are not sure why. The network packet flow was never steady. We
+   have thus not included the result. We invite the Calico team to work with us
+   to investigate this and then re-test.
 
 The following graph shows the total CPU consumption across the entire system
 while running the benchmark:
