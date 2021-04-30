@@ -396,19 +396,23 @@ func (k *K8sHubble) createRelayClientCertificate(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sHubble) PortForwardCommand(ctx context.Context) error {
+func (p *Parameters) PortForwardCommand(ctx context.Context) error {
 	cmd := "kubectl"
 	args := []string{
 		"port-forward",
-		"-n", k.params.Namespace,
+		"-n", p.Namespace,
 		"svc/hubble-relay",
 		"--address", "0.0.0.0",
 		"--address", "::",
-		fmt.Sprintf("%d:%d", k.params.PortForward, defaults.RelayServicePlaintextPort)}
+		fmt.Sprintf("%d:%d", p.PortForward, defaults.RelayServicePlaintextPort)}
+
+	if p.Context != "" {
+		args = append([]string{"--context", p.Context}, args...)
+	}
 
 	c := exec.Command(cmd, args...)
-	c.Stdout = k.params.Writer
-	c.Stderr = k.params.Writer
+	c.Stdout = p.Writer
+	c.Stderr = p.Writer
 
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("unable to execute command %s %v: %s", cmd, args, err)
