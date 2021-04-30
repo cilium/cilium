@@ -47,7 +47,7 @@ Wireguard module on older kernels).
 
        .. code-block:: shell-session
 
-          cilium install --config enable-wireguard=true --config enable-l7-proxy=false
+          cilium install --encryption wireguard
 
     .. group-tab:: Helm
 
