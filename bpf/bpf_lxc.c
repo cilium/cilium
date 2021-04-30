@@ -844,7 +844,6 @@ int handle_xgress(struct __ctx_buff *ctx)
 	int ret;
 
 	bpf_clear_meta(ctx);
-	edt_set_aggregate(ctx, LXC_ID);
 
 	send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0,
 			  TRACE_PAYLOAD_LEN);
@@ -857,6 +856,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		edt_set_aggregate(ctx, LXC_ID);
 		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 					is_defined(DEBUG)),
 				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
@@ -864,6 +864,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		edt_set_aggregate(ctx, LXC_ID);
 		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 					is_defined(DEBUG)),
 				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
