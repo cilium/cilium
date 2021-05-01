@@ -26,7 +26,7 @@ In this guide we will learn about:
 - Using patterns (or wildcards) to whitelist a subset of DNS domains
 - Combining DNS, port and L7 rules for restricting access to external service  
 
-In line with our Star Wars theme examples, we will use a simple scenario where the empire's ``mediabot`` pods need access to Twitter for managing the empire's tweets. The pods shouldn't have access to any other external service.
+In line with our Star Wars theme examples, we will use a simple scenario where the Empire's ``mediabot`` pods need access to Twitter for managing the Empire's tweets. The pods shouldn't have access to any other external service.
 
 .. parsed-literal::
 
@@ -46,7 +46,7 @@ The following Cilium network policy allows ``mediabot`` pods to only access ``ap
 Let's take a closer look at the policy: 
 
 * The first egress section uses ``toFQDNs: matchName`` specification to allow egress to ``api.twitter.com``. The destination DNS should match exactly the name specified in the rule. The ``endpointSelector`` allows only pods with labels ``class: mediabot, org:empire`` to have the egress access.
-* The second egress section allows ``mediabot`` pods to access ``kube-dns`` service. Note that ``rules: dns`` instructs Cilium to inspect and allow DNS lookups matching specified patterns. In this case, inspect and allow all DNS queries.  
+* The second egress section (``toEndpoints``) allows ``mediabot`` pods to access ``kube-dns`` service. Note that ``rules: dns`` instructs Cilium to inspect and allow DNS lookups matching specified patterns. In this case, inspect and allow all DNS queries.  
  
 Note that with this policy the ``mediabot`` doesn't have access to any internal cluster service other than ``kube-dns``. Refer to :ref:`Network Policy` to learn more about policies for controlling access to internal cluster services.
 

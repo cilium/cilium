@@ -21,9 +21,9 @@ in the Kubernetes ``CiliumNode`` custom resource object. Each node's public key
 is then used by other nodes to decrypt and encrypt traffic from and to
 Cilium-managed endpoints running on that node.
 
-Packets destined to the same node they were sent out of are not encrypted.
-This is an intended behavior as it would not provide any benefits because the
-raw traffic on the node can be seen.
+Packets are not encrypted when they are destined to the same node from which
+they were sent. This behavior is intended. Encryption would provide no benefits
+in that case, given that the raw traffic can be observed on the node anyway.
 
 The Wireguard tunnel endpoint is exposed on UDP port ``51871`` on each node. If
 you run Cilium in an environment that requires firewall rules to enable
