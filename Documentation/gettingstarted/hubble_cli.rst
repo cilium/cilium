@@ -25,15 +25,10 @@ across the globe, there is almost always someone available to help.
    unsure, run ``cilium status`` and validate that Cilium and Hubble are up and
    running.
 
+.. note::
 
-Generate some network traffic
-=============================
-
-In order to generate some network traffic, run the connectivity test:
-
-.. code-block:: shell-session
-
-   while true; do cilium connectivity test; done 
+    This guide uses examples based on the Demo App. If you would like to run them,
+    deploy the Demo App first. Please refer to :ref:`gs_http` for more details.
 
 Inspecting the cluster's network traffic with Hubble Relay
 ==========================================================
