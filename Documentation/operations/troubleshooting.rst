@@ -930,9 +930,10 @@ Identifies the Cilium pod that is managing a particular pod in a namespace:
 .. code:: bash
 
     $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-get-cilium-pod.sh
-    $ ./k8s-get-cilium-pod.sh luke-pod default
+    $ bash ./k8s-get-cilium-pod.sh luke-pod default
     cilium-zmjj9
-
+    cilium-node-init-v7r9p
+    cilium-operator-f576f7977-s5gpq
 
 Execute a command in all Kubernetes Cilium pods
 -----------------------------------------------

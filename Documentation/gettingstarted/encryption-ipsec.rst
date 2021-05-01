@@ -17,14 +17,14 @@ as Cilium-managed host traffic, will be encrypted using IPsec. This guide uses
 Kubernetes secrets to distribute keys. Alternatively, keys may be manually
 distributed, but that is not shown here.
 
-Packets destined to the same node they were sent out of are not encrypted.
-This is an intended behavior as it would not provide any benefits because the
-raw traffic on the node can be seen.
+Packets are not encrypted when they are destined to the same node from which
+they were sent. This behavior is intended. Encryption would provide no benefits
+in that case, given that the raw traffic can be observed on the node anyway.
 
 Transparent encryption is not currently supported when chaining Cilium on top
 of other CNI plugins. For more information, see :gh-issue:`15596`.
 
-Generate & import the PSK
+Generate & Import the PSK
 =========================
 
 First, create a Kubernetes secret for the IPsec configuration to be stored. The
@@ -32,9 +32,9 @@ example below demonstrates generation of the necessary IPsec configuration
 which will be distributed as a Kubernetes secret called ``cilium-ipsec-keys``.
 A Kubernetes secret should consist of one key-value pair where the key is the
 name of the file to be mounted as a volume in cilium-agent pods, and the
-value is an IPSec configuration in the following format:
+value is an IPSec configuration in the following format::
 
-``key-id encryption-algorithms PSK-in-hex-format key-size``
+    key-id encryption-algorithms PSK-in-hex-format key-size
 
 .. note::
 
@@ -45,15 +45,16 @@ In the example below, GMC-128-AES is used. However, any of the algorithms
 supported by Linux may be used. To generate the secret, you may use the
 following command:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    $ kubectl create -n kube-system secret generic cilium-ipsec-keys \\
-        --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128"
+    $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
+        --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
-The secret can be seen with ``kubectl -n kube-system get secret`` and will be
-listed as "cilium-ipsec-keys".
+The secret can be seen with ``kubectl -n kube-system get secrets`` and will be
+listed as ``cilium-ipsec-keys``.
 
-.. parsed-literal::
+.. code-block:: shell-session
+
     $ kubectl -n kube-system get secrets cilium-ipsec-keys
     NAME                TYPE     DATA   AGE
     cilium-ipsec-keys   Opaque   1      176m
@@ -171,7 +172,7 @@ following commands:
    In the example below, ``eth0`` is the interface used for pod-to-pod
    communication. Replace this interface with ``cilium_vxlan`` if tunneling is enabled.
 
-.. code:: bash
+.. code-block:: shell-session
 
     tcpdump -n -i eth0 esp
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -215,7 +216,7 @@ Troubleshooting
 
  * Make sure that the Cilium pods have kvstore connectivity:
 
-   .. code:: bash
+   .. code-block:: shell-session
 
       cilium status
       KVStore:                Ok   etcd: 1/1 connected: http://127.0.0.1:31079 - 3.3.2 (Leader)
@@ -240,7 +241,7 @@ Troubleshooting
 
    * Content of routing tables
 
-     .. code:: shell-session
+     .. code-block:: shell-session
 
         $ ip route list table 200
         local 10.60.0.0/24 dev cilium_vxlan proto 50 scope host
@@ -249,7 +250,7 @@ Troubleshooting
      In case of IPAM ENI mode, check if routing rules exist for the the IP
      address of ``cilium_host`` interface..
 
-     .. code:: shell-session
+     .. code-block:: shell-session
 
          $ ip addr show cilium_host
          5: cilium_host@cilium_net: <BROADCAST,MULTICAST,NOARP,UP,LOWER_UP> mtu 9001 qdisc noqueue state UP group default qlen 1000
