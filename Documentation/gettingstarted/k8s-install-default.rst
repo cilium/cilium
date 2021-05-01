@@ -107,9 +107,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 Install Cilium
 ==============
 
-You can install Cilium on any Kubernetes cluster. If you already have a
-Kubernetes cluster, skip this step. If you want to create a cluster, pick one
-of the options below:
+You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
 .. tabs::
 
