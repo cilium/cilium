@@ -78,25 +78,9 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 		return derivativeCNP, fmt.Errorf("cannot parse CNP: %v", err)
 	}
 
-	derivativeCNP.Specs = make(api.Rules, len(rules))
-	for i, rule := range rules {
-		if rule.RequiresDerivative() {
-			derivativeCNP.Specs[i] = denyEgressRule()
-		}
-	}
+	derivativeCNP.Specs, err = createAPIRules(ctx, rules)
 
-	for i, rule := range rules {
-		if !rule.RequiresDerivative() {
-			derivativeCNP.Specs[i] = rule
-			continue
-		}
-		newRule, err := rule.CreateDerivative(ctx)
-		if err != nil {
-			return derivativeCNP, err
-		}
-		derivativeCNP.Specs[i] = newRule
-	}
-	return derivativeCNP, nil
+	return derivativeCNP, err
 }
 
 // createDerivativeCCNP will return a new CCNP based on the given rule.
@@ -143,25 +127,31 @@ func createDerivativeCCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolic
 		return derivativeCCNP, fmt.Errorf("cannot parse CCNP: %v", err)
 	}
 
-	derivativeCCNP.Specs = make(api.Rules, len(rules))
+	derivativeCCNP.Specs, err = createAPIRules(ctx, rules)
+
+	return derivativeCCNP, err
+}
+
+func createAPIRules(ctx context.Context, rules api.Rules) (api.Rules, error) {
+	specRules := make(api.Rules, len(rules))
 	for i, rule := range rules {
 		if rule.RequiresDerivative() {
-			derivativeCCNP.Specs[i] = denyEgressRule()
+			specRules[i] = denyEgressRule()
 		}
 	}
 
 	for i, rule := range rules {
 		if !rule.RequiresDerivative() {
-			derivativeCCNP.Specs[i] = rule
+			specRules[i] = rule
 			continue
 		}
 		newRule, err := rule.CreateDerivative(ctx)
 		if err != nil {
-			return derivativeCCNP, err
+			return specRules, err
 		}
-		derivativeCCNP.Specs[i] = newRule
+		specRules[i] = newRule
 	}
-	return derivativeCCNP, nil
+	return specRules, nil
 }
 
 func denyEgressRule() *api.Rule {
