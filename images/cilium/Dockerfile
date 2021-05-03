@@ -82,8 +82,12 @@ LABEL maintainer="maintainer@cilium.io"
 RUN groupadd -f cilium \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 COPY --from=cilium-envoy / /
+# When used within the Cilium container, Hubble CLI should target the
+# local unix domain socket instead of Hubble Relay.
+ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
 COPY --from=hubble /out/${TARGETOS}/${TARGETARCH}/bin/hubble /usr/bin/hubble
 COPY --from=hubble /out/linux/bash_completion /etc/bash_completion.d/hubble
+
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
 WORKDIR /home/cilium
 
