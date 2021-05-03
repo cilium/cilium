@@ -77,7 +77,7 @@ spec:
       - name: echo-c-host-container
         env:
         - name: PORT
-          value: "41001"
+          value: "41002"
         ports: []
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
@@ -92,7 +92,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41001
+            - localhost:41002
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -104,7 +104,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41001
+            - localhost:41002
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -1217,7 +1217,7 @@ spec:
       - name: echo-c-host-container
         env:
         - name: PORT
-          value: "41001"
+          value: "41002"
         ports: []
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
@@ -1232,7 +1232,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41001
+            - localhost:41002
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -1244,7 +1244,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost:41001
+            - localhost:41002
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
