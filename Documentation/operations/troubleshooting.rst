@@ -152,14 +152,14 @@ Ensure Hubble is running correctly
 ----------------------------------
 
 To ensure the Hubble client can connect to the Hubble server running inside
-Cilium, you may use the ``hubble status`` command:
+Cilium, you may use the ``hubble status`` command from within a Cilium pod:
 
 .. code-block:: shell-session
 
    $ hubble status
    Healthcheck (via unix:///var/run/cilium/hubble.sock): Ok
-   Max Flows: 4096
-   Current Flows: 2542 (62.06%)
+   Current/Max Flows: 4095/4095 (100.00%)
+   Flows/s: 164.21
 
 ``cilium-agent`` must be running with the ``--enable-hubble`` option (default) in order
 for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
@@ -172,7 +172,7 @@ following output in ``cilium status``:
 
    $ cilium status
    ...
-   Hubble:   Ok   Current/Max Flows: 2542/4096 (62.06%), Flows/s: 164.21   Metrics: Disabled
+   Hubble:   Ok   Current/Max Flows: 4095/4095 (100.00%), Flows/s: 164.21   Metrics: Disabled
    ...
 
 .. note::
@@ -193,19 +193,18 @@ in the last three minutes:
 .. code-block:: shell-session
 
    $ kubectl exec -n kube-system cilium-77lk6 -- hubble observe --since 3m --pod default/tiefighter
-   Jun  2 11:14:46.041   default/tiefighter:38314                  kube-system/coredns-66bff467f8-ktk8c:53   to-endpoint   FORWARDED   UDP
-   Jun  2 11:14:46.041   kube-system/coredns-66bff467f8-ktk8c:53   default/tiefighter:38314                  to-endpoint   FORWARDED   UDP
-   Jun  2 11:14:46.041   default/tiefighter:38314                  kube-system/coredns-66bff467f8-ktk8c:53   to-endpoint   FORWARDED   UDP
-   Jun  2 11:14:46.042   kube-system/coredns-66bff467f8-ktk8c:53   default/tiefighter:38314                  to-endpoint   FORWARDED   UDP
-   Jun  2 11:14:46.042   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     L3-L4         FORWARDED   TCP Flags: SYN
-   Jun  2 11:14:46.042   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: SYN
-   Jun  2 11:14:46.042   default/deathstar-5b7489bc84-9bftc:80     default/tiefighter:57746                  to-endpoint   FORWARDED   TCP Flags: SYN, ACK
-   Jun  2 11:14:46.042   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK
-   Jun  2 11:14:46.043   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK, PSH
-   Jun  2 11:14:46.043   default/deathstar-5b7489bc84-9bftc:80     default/tiefighter:57746                  to-endpoint   FORWARDED   TCP Flags: ACK, PSH
-   Jun  2 11:14:46.043   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK, FIN
-   Jun  2 11:14:46.048   default/deathstar-5b7489bc84-9bftc:80     default/tiefighter:57746                  to-endpoint   FORWARDED   TCP Flags: ACK, FIN
-   Jun  2 11:14:46.048   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK
+   May  4 12:47:08.811: default/tiefighter:53875 -> kube-system/coredns-74ff55c5b-66f4n:53 to-endpoint FORWARDED (UDP)
+   May  4 12:47:08.811: default/tiefighter:53875 -> kube-system/coredns-74ff55c5b-66f4n:53 to-endpoint FORWARDED (UDP)
+   May  4 12:47:08.811: default/tiefighter:53875 <- kube-system/coredns-74ff55c5b-66f4n:53 to-endpoint FORWARDED (UDP)
+   May  4 12:47:08.811: default/tiefighter:53875 <- kube-system/coredns-74ff55c5b-66f4n:53 to-endpoint FORWARDED (UDP)
+   May  4 12:47:08.811: default/tiefighter:50214 <> default/deathstar-c74d84667-cx5kp:80 to-overlay FORWARDED (TCP Flags: SYN)
+   May  4 12:47:08.812: default/tiefighter:50214 <- default/deathstar-c74d84667-cx5kp:80 to-endpoint FORWARDED (TCP Flags: SYN, ACK)
+   May  4 12:47:08.812: default/tiefighter:50214 <> default/deathstar-c74d84667-cx5kp:80 to-overlay FORWARDED (TCP Flags: ACK)
+   May  4 12:47:08.812: default/tiefighter:50214 <> default/deathstar-c74d84667-cx5kp:80 to-overlay FORWARDED (TCP Flags: ACK, PSH)
+   May  4 12:47:08.812: default/tiefighter:50214 <- default/deathstar-c74d84667-cx5kp:80 to-endpoint FORWARDED (TCP Flags: ACK, PSH)
+   May  4 12:47:08.812: default/tiefighter:50214 <> default/deathstar-c74d84667-cx5kp:80 to-overlay FORWARDED (TCP Flags: ACK, FIN)
+   May  4 12:47:08.812: default/tiefighter:50214 <- default/deathstar-c74d84667-cx5kp:80 to-endpoint FORWARDED (TCP Flags: ACK, FIN)
+   May  4 12:47:08.812: default/tiefighter:50214 <> default/deathstar-c74d84667-cx5kp:80 to-overlay FORWARDED (TCP Flags: ACK)
 
 You may also use ``-o json`` to obtain more detailed information about each
 flow event.
@@ -277,25 +276,16 @@ command:
 
 .. code:: bash
 
-   hubble status --server localhost:4245
+   hubble status
 
 This command should return an output similar to the following:
 
 .. code-block:: shell-session
 
    Healthcheck (via localhost:4245): Ok
-   Max Flows: 16384
-   Current Flows: 16384 (100.00%)
-
-For convenience, you may set and export the ``HUBBLE_SERVER`` environment
-variable:
-
-.. code:: bash
-
-   export HUBBLE_SERVER=localhost:4245
-
-This will allow you to use ``hubble status`` and ``hubble observe`` commands
-without having to specify the server address via the ``--server`` flag.
+   Current/Max Flows: 16380/16380 (100.00%)
+   Flows/s: 46.19
+   Connected Nodes: 4/4
 
 As Hubble Relay shares the same API as individual Hubble instances, you may
 follow the `Observing flows with Hubble`_ section keeping in mind that
