@@ -245,8 +245,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			helpers.CiliumDockerNetwork,
 			fmt.Sprintf("--dns=%s -l app=test", DNSServerIP))
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	AfterAll(func() {
@@ -856,8 +855,7 @@ INITSYSTEM=SYSTEMD`
 			vm.SetUpCiliumWithOptions(config)
 
 			ExpectCiliumReady(vm)
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 		})
 
 		BeforeEach(func() {

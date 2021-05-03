@@ -99,8 +99,7 @@ var _ = Describe("RuntimeCassandra", func() {
 		ExpectCiliumReady(vm)
 
 		containers("create")
-		epsReady := vm.WaitEndpointsReady()
-		Expect(epsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		err := waitForCassandraServer()
 		Expect(err).To(BeNil(), "Cassandra Server failed to come up")

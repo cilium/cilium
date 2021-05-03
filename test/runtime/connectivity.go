@@ -423,8 +423,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 					Expect(err).To(BeNil(), "Cannot set ConnTrackLocal=%q for endpoint %q",
 						conntrackLocalOptionMode, endpointToConfigure)
 				}
-				areEndpointsReady := vm.WaitEndpointsReady()
-				Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+				Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 				clientServerConnectivity()
 			}
 
@@ -472,8 +471,7 @@ var restartChaosTest = func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL4Json), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Cannot install L4 policy")
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		By("Starting background connection from app2 to httpd1 container")
 		ctx, cancel := context.WithCancel(context.Background())

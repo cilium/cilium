@@ -115,8 +115,7 @@ var _ = Describe("RuntimeKafka", func() {
 		status.ExpectSuccess()
 
 		containers("create")
-		epsReady := vm.WaitEndpointsReady()
-		Expect(epsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		err := waitForKafkaBroker(client, createTopicCmd(topicTest))
 		Expect(err).To(BeNil(), "Kafka broker failed to come up")
