@@ -9,6 +9,7 @@
 
 #include "common.h"
 #include "../helpers_skb.h"
+#include "../builtins.h"
 
 #ifndef TC_ACT_OK
 # define TC_ACT_OK		0
@@ -55,6 +56,37 @@
  */
 #define get_hash(ctx)		ctx->hash
 #define get_hash_recalc(ctx)	get_hash(ctx)
+
+#if !defined(__non_bpf_context) && defined(__bpf__)
+#define __CTX_OFF_MAX			0xff
+static __always_inline __maybe_unused int
+skb_load_bytes(const struct __sk_buff *skb, __u64 off, void *to, const __u64 len)
+{
+	void *from;
+	int ret;
+	/* LLVM tends to generate code that verifier doesn't understand,
+	 * so force it the way we want it in order to open up a range
+	 * on the reg.
+	 */
+	asm volatile("r1 = *(u32 *)(%[skb] +76)\n\t"
+		     "r2 = *(u32 *)(%[skb] +80)\n\t"
+		     "%[off] &= %[offmax]\n\t"
+		     "r1 += %[off]\n\t"
+		     "%[from] = r1\n\t"
+		     "r1 += %[len]\n\t"
+		     "if r1 > r2 goto +2\n\t"
+		     "%[ret] = 0\n\t"
+		     "goto +1\n\t"
+		     "%[ret] = %[errno]\n\t"
+		     : [ret]"=r"(ret), [from]"=r"(from)
+		     : [skb]"r"(skb), [off]"r"(off), [len]"ri"(len),
+		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
+		     : "r1", "r2");
+	if (!ret)
+		memcpy(to, from, len);
+	return ret;
+}
+#endif
 
 static __always_inline __maybe_unused int
 ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
