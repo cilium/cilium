@@ -35,7 +35,8 @@ Additionally enabling feature requires ``enable-bpf-masquerade=true`` and
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
-      --set enableEgressGateway=true \\
+      --namespace kube-system \\
+      --set egressGateway.enabled=true \\
       --set bpf.masquerade=true \\
       --set kubeProxyReplacement=strict
 
@@ -97,7 +98,7 @@ will contain something like the following:
 
     $ tail /var/log/nginx/access.log
     [...]
-    192.168.33.11 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "Wget/1.19.4 (linux-gnu)"
+    192.168.33.11 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
 
 In the previous example, the client pod is running on the node ``192.168.33.11``, so the result makes sense.
 This is the default Kubernetes behavior without egress NAT.
@@ -140,5 +141,5 @@ following shows that the request is coming from ``192.168.33.100`` now, instead 
 
     $ tail /var/log/nginx/access.log
     [...]
-    192.168.33.100 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "Wget/1.19.4 (linux-gnu)"
+    192.168.33.100 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
 
