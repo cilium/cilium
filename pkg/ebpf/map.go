@@ -17,6 +17,8 @@ package ebpf
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -72,6 +74,20 @@ func (m *Map) OpenOrCreate() error {
 	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(mapType)
 
 	path := bpf.MapPath(m.spec.Name)
+
+	if m.spec.Pinning == ciliumebpf.PinByName {
+		mapDir := filepath.Dir(path)
+
+		if _, err := os.Stat(mapDir); os.IsNotExist(err) {
+			if err = os.MkdirAll(mapDir, 0755); err != nil {
+				return &os.PathError{
+					Op:   "Unable create map base directory",
+					Path: path,
+					Err:  err,
+				}
+			}
+		}
+	}
 
 	newMap, err := ciliumebpf.NewMapWithOptions(m.spec, opts)
 	if err != nil {
