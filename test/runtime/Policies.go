@@ -511,6 +511,8 @@ var _ = Describe("RuntimePolicies", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3DependentL7EgressJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "unable to import %s", policiesL3DependentL7EgressJSON)
 
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
+
 		endpointIDS, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
 
@@ -1903,6 +1905,8 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP`, httpd2Label, httpd1Label))
 		Expect(res.Stdout()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		endpointIDS, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
