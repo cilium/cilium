@@ -14,6 +14,22 @@ spec:
       labels:
         name: "egress-ip-assign"
     spec:
+      affinity:
+        # the following pod affinity ensures that the "egress-ip-assign" pod
+        # runs on the same node as the mediabot pod
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: class
+                    operator: In
+                    values:
+                      - mediabot
+                  - key: org
+                    operator: In
+                    values:
+                      - empire
+              topologyKey: "kubernetes.io/hostname"
       hostNetwork: true
       containers:
       - name: egress-ip
