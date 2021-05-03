@@ -97,7 +97,7 @@ func UpdateDerivativeCNPIfNeeded(newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *
 		controllerManager.UpdateController(fmt.Sprintf("delete-derivative-cnp-%s", oldCNP.ObjectMeta.Name),
 			controller.ControllerParams{
 				DoFunc: func(ctx context.Context) error {
-					return DeleteDerivativeCNP(oldCNP)
+					return DeleteDerivativeCNP(ctx, oldCNP)
 				},
 			})
 		return false
@@ -131,7 +131,7 @@ func UpdateDerivativeCCNPIfNeeded(newCCNP *cilium_v2.CiliumNetworkPolicy, oldCCN
 		controllerManager.UpdateController(fmt.Sprintf("delete-derivative-ccnp-%s", oldCCNP.ObjectMeta.Name),
 			controller.ControllerParams{
 				DoFunc: func(ctx context.Context) error {
-					return DeleteDerivativeCCNP(oldCCNP)
+					return DeleteDerivativeCCNP(ctx, oldCCNP)
 				},
 			})
 		return false
@@ -158,7 +158,7 @@ func DeleteDerivativeFromCache(cnp *cilium_v2.CiliumNetworkPolicy) {
 
 // DeleteDerivativeCNP if the given policy has a derivative constraint,the
 // given CNP will be deleted from store and the cache.
-func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
+func DeleteDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -170,7 +170,7 @@ func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	}
 
 	err := k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).DeleteCollection(
-		context.TODO(),
+		ctx,
 		v1.DeleteOptions{},
 		v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", parentCNP, cnp.ObjectMeta.UID)})
 
@@ -184,7 +184,7 @@ func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 
 // DeleteDerivativeCCNP if the given policy has a derivative constraint, the
 // given CCNP will be deleted from store and the cache.
-func DeleteDerivativeCCNP(ccnp *cilium_v2.CiliumNetworkPolicy) error {
+func DeleteDerivativeCCNP(ctx context.Context, ccnp *cilium_v2.CiliumNetworkPolicy) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumClusterwideNetworkPolicyName: ccnp.ObjectMeta.Name,
 	})
@@ -195,7 +195,7 @@ func DeleteDerivativeCCNP(ccnp *cilium_v2.CiliumNetworkPolicy) error {
 	}
 
 	err := k8s.CiliumClient().CiliumV2().CiliumClusterwideNetworkPolicies().DeleteCollection(
-		context.TODO(),
+		ctx,
 		v1.DeleteOptions{},
 		v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", parentCNP, ccnp.ObjectMeta.UID)})
 	if err != nil {
