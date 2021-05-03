@@ -101,8 +101,7 @@ var _ = XDescribe("RuntimeMemcache", func() {
 		ExpectCiliumReady(vm)
 
 		containers("create")
-		epsReady := vm.WaitEndpointsReady()
-		Expect(epsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	AfterEach(func() {

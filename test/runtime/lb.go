@@ -69,8 +69,7 @@ var _ = Describe("RuntimeLB", func() {
 		for k, v := range images {
 			vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
 		}
-		epStatus := vm.WaitEndpointsReady()
-		Expect(epStatus).Should(BeTrue())
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoint are not ready after timeout")
 	}
 
 	deleteContainers := func() {
@@ -229,8 +228,7 @@ var _ = Describe("RuntimeLB", func() {
 		})
 
 		testServicesWithPolicies := func(svcPort int) {
-			ready := vm.WaitEndpointsReady()
-			Expect(ready).To(BeTrue())
+			Expect(vm.WaitEndpointsReady()).To(BeTrue(), "Endpoint are not ready after timeout")
 
 			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
 			Expect(err).Should(BeNil())
