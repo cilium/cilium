@@ -49,6 +49,7 @@ type epInfoCache struct {
 	requireARPPassthrough                  bool
 	requireEgressProg                      bool
 	requireRouting                         bool
+	requireDHCPMessages                    bool
 	requireEndpointRoute                   bool
 	policyVerdictLogFilter                 uint32
 	cidr4PrefixLengths, cidr6PrefixLengths []int
@@ -84,6 +85,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		requireARPPassthrough:  e.RequireARPPassthrough(),
 		requireEgressProg:      e.RequireEgressProg(),
 		requireRouting:         e.RequireRouting(),
+		requireDHCPMessages:    e.RequireDHCPMessages(),
 		requireEndpointRoute:   e.RequireEndpointRoute(),
 		policyVerdictLogFilter: e.GetPolicyVerdictLogFilter(),
 		cidr4PrefixLengths:     cidr4,
@@ -188,6 +190,11 @@ func (ep *epInfoCache) RequireEgressProg() bool {
 // enabled, when disabled, routing is delegated to Linux routing
 func (ep *epInfoCache) RequireRouting() bool {
 	return ep.requireRouting
+}
+
+// RequireDHCPMessages returns true if the endpoint requires dhcp to be allowed
+func (ep *epInfoCache) RequireDHCPMessages() bool {
+	return ep.requireDHCPMessages
 }
 
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route

@@ -36,6 +36,9 @@ type EndpointDatapathConfiguration struct {
 	// Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.
 	//
 	RequireRouting *bool `json:"require-routing,omitempty"`
+
+	// Endpoint requires dhcp messages to be allowed
+	RequireDHCPMessages bool `json:"require-dhcp-messages,omitempty"`
 }
 
 // Validate validates this endpoint datapath configuration

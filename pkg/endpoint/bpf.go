@@ -1474,6 +1474,11 @@ func (e *Endpoint) RequireRouting() (required bool) {
 	return
 }
 
+// RequireDHCPMessages returns true if the endpoint requires dhcp to be allowed
+func (e *Endpoint) RequireDHCPMessages() bool {
+	return e.DatapathConfiguration.RequireDHCPMessages
+}
+
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route
 func (e *Endpoint) RequireEndpointRoute() bool {
 	return e.DatapathConfiguration.InstallEndpointRoute

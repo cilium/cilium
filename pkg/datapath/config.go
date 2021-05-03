@@ -82,6 +82,10 @@ type CompileTimeConfiguration interface {
 	// be enabled, when disabled, routing is delegated to Linux routing
 	RequireRouting() bool
 
+	// RequireDHCPMessages returns true if the endpoint requires DHCP messages
+	// to be allowed as a valid source IP (0.0.0.0).
+	RequireDHCPMessages() bool
+
 	// RequireEndpointRoute returns true if the endpoint wishes to have a
 	// per endpoint route installed in the host's routing table to point to
 	// the endpoint's interface

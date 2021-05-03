@@ -544,13 +544,23 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	tuple.nexthdr = ip4->protocol;
 
-	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+	if (unlikely(!is_valid_lxc_src_ipv4(ip4))) {
+#ifndef ENABLE_DHCP_MESSAGES
 		return DROP_INVALID_SIP;
+#else
+		l4_off = l3_off + ipv4_hdrlen(ip4);
+		if (!is_valid_dhcpv4_message(ctx, l4_off, ip4))
+			return DROP_INVALID_SIP;
 
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+#endif
+	} else {
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
 
-	l4_off = l3_off + ipv4_hdrlen(ip4);
+		l4_off = l3_off + ipv4_hdrlen(ip4);
+	}
 
 #ifndef ENABLE_HOST_SERVICES_FULL
 	{

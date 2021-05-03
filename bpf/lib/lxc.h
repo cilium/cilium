@@ -16,6 +16,10 @@
 #include "proxy.h"
 
 #define TEMPLATE_LXC_ID 0xffff
+#define DHCP_CLIENT_ADDRESS 0x00000000
+#define DHCP_SERVER_ADDRESS 0xffffffff
+#define DHCP_CLIENT_PORT 17408 // is 68 in little endian
+#define DHCP_SERVER_PORT 17152 // is 67 in little endian
 
 #ifndef DISABLE_SIP_VERIFICATION
 static __always_inline
@@ -55,6 +59,32 @@ int is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
 	return 1;
 }
 #endif
+
+/**
+ * is_valid_dhcpv4_message validates whether packet is a valid
+ * dhcp discover message
+ * 0.0.0.0:68 -> 255.255.255.255:67
+ */
+static __always_inline
+int is_valid_dhcpv4_message(struct __ctx_buff *ctx, int l4_off, struct iphdr *ip4)
+{
+	int ret;
+	__be16 sport = 0;
+	__be16 dport = 0;
+
+	ret = l4_load_port(ctx, l4_off + UDP_SPORT_OFF, &sport);
+	if (IS_ERR(ret))
+		return ret;
+	ret = l4_load_port(ctx, l4_off + UDP_DPORT_OFF, &dport);
+	if (IS_ERR(ret))
+		return ret;
+
+	if (ip4->saddr == DHCP_CLIENT_ADDRESS && ip4->daddr == DHCP_SERVER_ADDRESS &&
+	sport == DHCP_CLIENT_PORT && dport == DHCP_SERVER_PORT)
+		return 1;
+
+	return 0;
+}
 
 /**
  * ctx_redirect_to_proxy_hairpin redirects to the proxy by hairpining the
