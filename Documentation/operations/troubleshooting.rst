@@ -148,6 +148,38 @@ Observing Flows with Hubble
 Hubble is a built-in observability tool which allows you to inspect recent flow
 events on all endpoints managed by Cilium.
 
+Ensure Hubble is running correctly
+----------------------------------
+
+To ensure the Hubble client can connect to the Hubble server running inside
+Cilium, you may use the ``hubble status`` command:
+
+.. code-block:: shell-session
+
+   $ hubble status
+   Healthcheck (via unix:///var/run/cilium/hubble.sock): Ok
+   Max Flows: 4096
+   Current Flows: 2542 (62.06%)
+
+``cilium-agent`` must be running with the ``--enable-hubble`` option (default) in order
+for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
+to set the ``hubble.enabled=true`` value.
+
+To check if Hubble is enabled in your deployment, you may look for the
+following output in ``cilium status``:
+
+.. code-block:: shell-session
+
+   $ cilium status
+   ...
+   Hubble:   Ok   Current/Max Flows: 2542/4096 (62.06%), Flows/s: 164.21   Metrics: Disabled
+   ...
+
+.. note::
+   Pods need to be managed by Cilium in order to be observable by Hubble.
+   See how to :ref:`ensure a pod is managed by Cilium<ensure_managed_pod>`
+   for more details.
+
 Observing flows of a specific pod
 ---------------------------------
 
@@ -213,38 +245,6 @@ more details about how to troubleshoot policy related drops.
    **Hubble Relay**  allows you to query multiple Hubble instances
    simultaneously without having to first manually target a specific node.  See
    `Observing flows with Hubble Relay`_ for more information.
-
-Ensure Hubble is running correctly
-----------------------------------
-
-To ensure the Hubble client can connect to the Hubble server running inside
-Cilium, you may use the ``hubble status`` command:
-
-.. code-block:: shell-session
-
-   $ hubble status
-   Healthcheck (via unix:///var/run/cilium/hubble.sock): Ok
-   Max Flows: 4096
-   Current Flows: 2542 (62.06%)
-
-``cilium-agent`` must be running with the ``--enable-hubble`` option (default) in order
-for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
-to set the ``hubble.enabled=true`` value.
-
-To check if Hubble is enabled in your deployment, you may look for the
-following output in ``cilium status``:
-
-.. code-block:: shell-session
-
-   $ cilium status
-   ...
-   Hubble:   Ok   Current/Max Flows: 2542/4096 (62.06%), Flows/s: 164.21   Metrics: Disabled
-   ...
-
-.. note::
-   Pods need to be managed by Cilium in order to be observable by Hubble.
-   See how to :ref:`ensure a pod is managed by Cilium<ensure_managed_pod>`
-   for more details.
 
 Observing flows with Hubble Relay
 =================================
