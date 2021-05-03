@@ -7,7 +7,7 @@
 Weekly Community Meeting
 ========================
 
-The Cilium contributors gather every Monday at 8am PDT, 17:00 CEST, for a
+The Cilium contributors gather every Wednesday at 8am PDT, 17:00 CEST, for a
 one-hour Zoom call open to everyone. During that time, we discuss:
 
 - the statuses of the next releases for each supported Cilium release
