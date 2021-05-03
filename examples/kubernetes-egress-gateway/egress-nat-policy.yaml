@@ -14,6 +14,6 @@ spec:
     # namespaceSelector:
     #  matchLabels:
     #    ns: default
-  destinationCidrs:
+  destinationCIDRs:
   - 192.168.33.13/32
-  egressSourceIp: "192.168.33.100"
+  egressSourceIP: "192.168.33.100"
