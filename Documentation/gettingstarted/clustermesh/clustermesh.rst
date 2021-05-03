@@ -153,7 +153,6 @@ then this will also wait for the LoadBalancer to be assigned an IP.
       - 10.168.0.89:2379
     ✅ Service "clustermesh-apiserver" of type "LoadBalancer" found
     🔌 Cluster Connections:
-    - cilium-cli-ci-multicluster-2-168: 0/0 configured, 0/0 connected
     🔀 Global services: [ min:0 / avg:0.0 / max:0 ]
 
 
