@@ -33,15 +33,8 @@ across the globe, there is almost always someone available to help.
 Inspecting the cluster's network traffic with Hubble Relay
 ==========================================================
 
-In order to avoid passing ``--server`` argument to every command, you may
-export the following environment variable:
-
-.. code-block:: shell-session
-
-   export HUBBLE_SERVER=localhost:4245
-
-Let's now issue some requests to emulate some traffic again. This first request
-is allowed by the policy.
+Let's issue some requests to emulate some traffic again. This first request is
+allowed by the policy.
 
 .. code-block:: shell-session
 
@@ -70,10 +63,10 @@ traffic on the application layer (L7, HTTP) to the ``deathstar`` pod:
 .. code-block:: shell-session
 
     hubble observe --pod deathstar --protocol http
-    TIMESTAMP             SOURCE                                  DESTINATION                             TYPE            VERDICT     SUMMARY
-    Jun 18 13:52:23.843   default/tiefighter:52568                default/deathstar-5b7489bc84-8wvng:80   http-request    FORWARDED   HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing
-    Jun 18 13:52:23.844   default/deathstar-5b7489bc84-8wvng:80   default/tiefighter:52568                http-response   FORWARDED   HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing)
-    Jun 18 13:52:31.019   default/tiefighter:52628                default/deathstar-5b7489bc84-8wvng:80   http-request    DROPPED     HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port
+    May  4 13:23:40.501: default/tiefighter:42690 -> default/deathstar-c74d84667-cx5kp:80 http-request FORWARDED (HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing)
+    May  4 13:23:40.502: default/tiefighter:42690 <- default/deathstar-c74d84667-cx5kp:80 http-response FORWARDED (HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing))
+    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port)
+
 
 
 The following command shows all traffic to the ``deathstar`` pod that has been
@@ -82,11 +75,10 @@ dropped:
 .. code-block:: shell-session
 
     hubble observe --pod deathstar --verdict DROPPED
-    TIMESTAMP             SOURCE                     DESTINATION                             TYPE            VERDICT   SUMMARY
-    Jun 18 13:52:31.019   default/tiefighter:52628   default/deathstar-5b7489bc84-8wvng:80   http-request    DROPPED   HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port
-    Jun 18 13:52:38.321   default/xwing:34138        default/deathstar-5b7489bc84-v4s7d:80   Policy denied   DROPPED   TCP Flags: SYN
-    Jun 18 13:52:38.321   default/xwing:34138        default/deathstar-5b7489bc84-v4s7d:80   Policy denied   DROPPED   TCP Flags: SYN
-    Jun 18 13:52:39.327   default/xwing:34138        default/deathstar-5b7489bc84-v4s7d:80   Policy denied   DROPPED   TCP Flags: SYN
+    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port)
+    May  4 13:23:47.852: default/xwing:42818 <> default/deathstar-c74d84667-cx5kp:80 Policy denied DROPPED (TCP Flags: SYN)
+    May  4 13:23:47.852: default/xwing:42818 <> default/deathstar-c74d84667-cx5kp:80 Policy denied DROPPED (TCP Flags: SYN)
+    May  4 13:23:48.854: default/xwing:42818 <> default/deathstar-c74d84667-cx5kp:80 Policy denied DROPPED (TCP Flags: SYN)
 
 Feel free to further inspect the traffic. To get help for the ``observe``
 command, use ``hubble help observe``.

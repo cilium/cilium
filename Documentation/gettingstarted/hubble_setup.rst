@@ -119,18 +119,26 @@ Now you can validate that you can access the Hubble API via the installed CLI:
 
 .. code:: shell-session
 
-    hubble status --server localhost:4245
-    Handling connection for 4245
+    hubble status
     Healthcheck (via localhost:4245): Ok
     Current/Max Flows: 11917/12288 (96.98%)
     Flows/s: 11.74
     Connected Nodes: 3/3
 
-You can now query the flow API and look for flows
+You can also query the flow API and look for flows:
 
 .. code:: bash
 
-   hubble --server localhost:4245 observe
+   hubble observe
+
+.. note::
+
+   If you port forward to a port other than ``4245``, make sure to use the
+   ``--server`` flag or ``HUBBLE_SERVER`` environment variable to set the
+   Hubble server address (default: ``localhost:4245``). For more information,
+   check out Hubble CLI's help message by running ``hubble help status`` or
+   ``hubble help observe`` as well as ``hubble config`` for  configuring Hubble
+   CLI.
 
 Next Steps
 ==========
