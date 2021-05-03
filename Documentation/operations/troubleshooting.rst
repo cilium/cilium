@@ -249,30 +249,21 @@ Observing flows with Hubble Relay
 =================================
 
 Hubble Relay is a service which allows to query multiple Hubble instances
-simultaneously and aggregate the results. The Hubble service needs to be exposed
-on TCP port ``4244`` to allow Hubble Relay to connect to individual instances.
-This can be done via Helm values or option ``--hubble-listen-address :4244`` on
-cilium-agent.
+simultaneously and aggregate the results. See :ref:`hubble_setup` to enable
+Hubble Relay if it is not yet enabled and install the Hubble CLI on your local
+machine.
 
-Hubble Relay can be deployed using Helm by setting
-``hubble.relay.enabled=true``. This will deploy Hubble Relay with one
-replica by default. Once the Hubble Relay pod is running, you may access the
-service by port-forwarding it:
+You may access the Hubble Relay service by port-forwarding it locally:
 
 .. code:: bash
 
    kubectl -n kube-system port-forward service/hubble-relay --address 0.0.0.0 --address :: 4245:80
 
 This will forward the Hubble Relay service port (``80``) to your local machine
-on port ``4245`` on all of it's IP addresses. The next step consists of
-downloading the latest binary release of Hubble CLI from the
-`GitHub release page <https://github.com/cilium/hubble/releases>`_. Make sure to
-download the tarball for your platform, verify the checksum and extract the
-``hubble`` binary from the tarball. Optionally, add the binary to your
-``$PATH`` if using Linux or MacOS or your ``%PATH%`` if using Windows.
+on port ``4245`` on all of it's IP addresses.
 
-You can verify that Hubble Relay can be reached by running the following
-command:
+You can verify that Hubble Relay can be reached by using the Hubble CLI and
+running the following command from your local machine:
 
 .. code:: bash
 
@@ -286,6 +277,13 @@ This command should return an output similar to the following:
    Current/Max Flows: 16380/16380 (100.00%)
    Flows/s: 46.19
    Connected Nodes: 4/4
+
+You may see details about nodes that Hubble Relay is connected to by running
+the following command:
+
+.. code-block:: bash
+
+   hubble list nodes
 
 As Hubble Relay shares the same API as individual Hubble instances, you may
 follow the `Observing flows with Hubble`_ section keeping in mind that
