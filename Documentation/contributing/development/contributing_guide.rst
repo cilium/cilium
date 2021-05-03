@@ -475,6 +475,35 @@ Follow the :ref:`backport_process` guide to know how to perform this task.
 
 .. _dev_coo:
 
+Coordination
+++++++++++++
+
+In general, coordinating in the #launchpad Slack channel with the other hat
+owner for the week is encouraged. It can reduce your workload and it will avoid
+backporting conflicts such as opening a PR with the same backports. Such
+discussions will typically revolve around which branches to tackle and which
+day of the week.
+
+An example interaction in #launchpad:
+
+::
+
+    Starting backport round for v1.7 and v1.8 now
+    cc @other-hat-wearer
+
+The other hat owner can then handle v1.9 and v1.10 backports the next day, for
+example.
+
+If there are many backports to be done, then splitting up the rounds can be
+beneficial. Typically, backporters opt to start a round in the beginning of the
+week and then another near the end of the week.
+
+By the start / end of the week, if there are other backport PRs that haven't
+been merged, then please coordinate with the previous / next backporter to
+check what the status is and establish who will work on getting the backports
+into the tree (for instance by investigating CI failures and addressing review
+feedback). There's leeway to negotiate depending on who has time available.
+
 Developer's Certificate of Origin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
