@@ -86,8 +86,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		initContainer = "initContainer"
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
@@ -253,8 +252,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status := vm.PolicyDelAll()
 		status.ExpectSuccess()
-
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
@@ -276,8 +274,7 @@ var _ = Describe("RuntimePolicies", func() {
 		By("Disabling all the policies. All should work")
 
 		vm.PolicyDelAll().ExpectSuccess("cannot delete the policy")
-
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
 			connectivityTest(allRequests, app, helpers.Httpd1, true)
@@ -323,7 +320,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		By("Uninstalling policy")
 		vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		By("Canceling background connections from app2 to httpd1")
 		cancel()
@@ -376,8 +373,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status := vm.PolicyDelAll()
 		status.ExpectSuccess()
-
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
@@ -426,7 +422,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status = vm.PolicyDelAll()
 		status.ExpectSuccess()
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
@@ -969,8 +965,7 @@ var _ = Describe("RuntimePolicies", func() {
 			_, err := vm.PolicyRenderAndImport(policy)
 			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			checkEgressToWorld()
 		}
@@ -1120,8 +1115,7 @@ var _ = Describe("RuntimePolicies", func() {
 			_, err := vm.PolicyRenderAndImport(policy)
 			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 		}
 
 		// curlWithRetry retries the curl, to make sure that allowed curls don't
@@ -1744,8 +1738,7 @@ var _ = Describe("RuntimePolicies", func() {
 			vm.ContainerCreate(newContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
 
 			By("Waiting for newly added endpoint to be ready")
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			// All endpoints should be able to connect to this container on port
 			// 80, but should not be able to ping because ICMP does not use
@@ -1772,8 +1765,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	BeforeEach(func() {
