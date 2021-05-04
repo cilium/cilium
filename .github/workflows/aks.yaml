@@ -172,7 +172,7 @@ jobs:
           cilium connectivity test
 
       - name: Post-test information gathering
-        if: ${{ always() }}
+        if: ${{ failure() }}
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
@@ -186,7 +186,7 @@ jobs:
           az group delete --name ${{ env.name }} --yes
 
       - name: Upload artifacts
-        if: ${{ always() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip

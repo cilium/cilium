@@ -184,7 +184,7 @@ jobs:
             --test '!pod-to-local-nodeport'
 
       - name: Post-test information gathering
-        if: ${{ always() }}
+        if: ${{ failure() }}
         run: |
           cilium status --context ${{ steps.contexts.outputs.context1 }}
           cilium clustermesh status --context ${{ steps.contexts.outputs.context1 }}
@@ -203,7 +203,7 @@ jobs:
         shell: bash {0}
 
       - name: Upload artifacts
-        if: ${{ always() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip
