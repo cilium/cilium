@@ -52,8 +52,9 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cilium hubble enable
+          cilium hubble enable --ui
 
+          # This will fail if Hubble UI cannot come up
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
       - name: Status
