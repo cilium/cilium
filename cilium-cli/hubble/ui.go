@@ -115,7 +115,7 @@ func (k *K8sHubble) generateHubbleUIConfigMap() *corev1.ConfigMap {
                           route:
                             cluster: backend
                             prefix_rewrite: "/"
-							timeout: 0s
+                            timeout: 0s
                             max_stream_duration:
                               grpc_timeout_header_max: 0s
                         - match:
