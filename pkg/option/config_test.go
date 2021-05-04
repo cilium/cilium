@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -983,4 +983,40 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (s *OptionSuite) Test_backupFiles(c *C) {
+	tempDir := c.MkDir()
+	fileNames := []string{"test.json", "test-1.json", "test-2.json"}
+
+	backupFiles(tempDir, fileNames)
+	files, err := os.ReadDir(tempDir)
+	c.Assert(err, IsNil)
+	// No files should have been created
+	c.Assert(len(files), Equals, 0)
+
+	_, err = os.Create(filepath.Join(tempDir, "test.json"))
+	c.Assert(err, IsNil)
+
+	backupFiles(tempDir, fileNames)
+	files, err = os.ReadDir(tempDir)
+	c.Assert(err, IsNil)
+	c.Assert(len(files), Equals, 1)
+	c.Assert(files[0].Name(), Equals, "test-1.json")
+
+	backupFiles(tempDir, fileNames)
+	files, err = os.ReadDir(tempDir)
+	c.Assert(err, IsNil)
+	c.Assert(len(files), Equals, 1)
+	c.Assert(files[0].Name(), Equals, "test-2.json")
+
+	_, err = os.Create(filepath.Join(tempDir, "test.json"))
+	c.Assert(err, IsNil)
+
+	backupFiles(tempDir, fileNames)
+	files, err = os.ReadDir(tempDir)
+	c.Assert(err, IsNil)
+	c.Assert(len(files), Equals, 2)
+	c.Assert(files[0].Name(), Equals, "test-1.json")
+	c.Assert(files[1].Name(), Equals, "test-2.json")
 }
