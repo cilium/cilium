@@ -140,4 +140,8 @@ type NodeHandler interface {
 
 	// NodeNeighborRefresh is called to refresh node neighbor table
 	NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node)
+
+	// NodeCleanNeighbors cleans all neighbor entries for the direct routing device
+	// and the encrypt interface.
+	NodeCleanNeighbors()
 }
