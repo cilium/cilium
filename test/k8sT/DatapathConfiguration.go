@@ -527,6 +527,24 @@ var _ = Describe("K8sDatapathConfig", func() {
 				break
 			}
 
+			// Due to IPCache update delays, it can take up to a few seconds
+			// before both nodes have added the new pod IPs to their allowedIPs
+			// list, which can cause flakes in CI. Therefore wait for the
+			// IPs to be present on both nodes before performing the test
+			waitForAllowedIP := func(ciliumPod, ip string) {
+				jsonpath := fmt.Sprintf(`{.encryption.wireguard.interfaces[*].peers[*].allowed-ips[?(@=='%s')]}`, ip)
+				ciliumCmd := fmt.Sprintf(`cilium debuginfo --output jsonpath="%s"`, jsonpath)
+				expected := fmt.Sprintf("jsonpath=%s", ip)
+				err := kubectl.CiliumExecUntilMatch(ciliumPod, ciliumCmd, expected)
+				Expect(err).To(BeNil(), "ip %q not in allowedIPs of pod %q", ip, ciliumPod)
+			}
+
+			waitForAllowedIP(ciliumPodK8s1, fmt.Sprintf("%s/32", dstPodIP))
+			waitForAllowedIP(ciliumPodK8s1, fmt.Sprintf("%s/128", dstPodIPv6))
+
+			waitForAllowedIP(ciliumPodK8s2, fmt.Sprintf("%s/32", srcPodIP))
+			waitForAllowedIP(ciliumPodK8s2, fmt.Sprintf("%s/128", srcPodIPv6))
+
 			checkNoLeak := func(srcPod, srcIP, dstIP string) {
 				cmd := fmt.Sprintf("tcpdump -i %s --immediate-mode -n 'host %s and host %s' -c 1", interNodeDev, srcIP, dstIP)
 				res1, cancel1, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s1NodeName, cmd)
