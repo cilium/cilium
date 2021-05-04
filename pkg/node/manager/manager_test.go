@@ -147,6 +147,10 @@ func (n *signalNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTy
 	return
 }
 
+func (n *signalNodeHandler) NodeCleanNeighbors() {
+	return
+}
+
 func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp := newSignalNodeHandler()
 	dp.EnableNodeAddEvent = true

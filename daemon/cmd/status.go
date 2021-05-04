@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -492,6 +492,11 @@ func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
 }
 
 func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
+	// no-op
+	return
+}
+
+func (c *clusterNodesClient) NodeCleanNeighbors() {
 	// no-op
 	return
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,6 +127,11 @@ func (h handler) NodeNeighDiscoveryEnabled() bool {
 // NodeNeighborRefresh implements
 // datapath.NodeHandler.NodeNeighborRefresh. It is a no-op.
 func (h handler) NodeNeighborRefresh(_ context.Context, _ types.Node) {
+	// no-op
+	return
+}
+
+func (h handler) NodeCleanNeighbors() {
 	// no-op
 	return
 }
