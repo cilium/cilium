@@ -1482,6 +1482,11 @@ func runDaemon() {
 		d.SendNotification(monitorAPI.AgentNotifyStart, repr)
 	}
 
+	// clean up all arp PERM entries that might have previously set by
+	// a Cilium instance
+	if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
+		d.datapath.Node().NodeCleanNeighbors()
+	}
 	// Start periodical arping to refresh neighbor table
 	if d.datapath.Node().NodeNeighDiscoveryEnabled() && option.Config.ARPPingRefreshPeriod != 0 {
 		d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
