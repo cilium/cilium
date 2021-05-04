@@ -122,10 +122,31 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv4), Equals, true)
 	c.Assert(containsIP(k8s1.allowedIPs, pod2IPv6), Equals, true)
 
-	// Test that IPCache updates are blocked by a concurrent UpdatePeer
-	ipCache.RLock()
-	ipCacheUpdated := make(chan struct{})
+	// Tests that IPCache updates are blocked by a concurrent UpdatePeer.
+	// We test this by issuing an UpdatePeer request while holding
+	// the agent lock (meaning the UpdatePeer call will first take the IPCache
+	// lock and then wait for the agent lock to become available),
+	// then issuing an IPCache update (which will be blocked because
+	// UpdatePeer already holds the IPCache lock), and then releasing the
+	// agent lock to allow both operations to proceed.
+	wgAgent.Lock()
+
+	agentUpdated := make(chan struct{})
+	agentUpdatePending := make(chan struct{})
 	go func() {
+		close(agentUpdatePending)
+		err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+		c.Assert(err, IsNil)
+		close(agentUpdated)
+	}()
+
+	// wait for the above go routine to be scheduled
+	<-agentUpdatePending
+
+	ipCacheUpdated := make(chan struct{})
+	ipCacheUpdatePending := make(chan struct{})
+	go func() {
+		close(ipCacheUpdatePending)
 		// Insert pod3
 		ipCache.Upsert(pod3IPv4Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 3, Source: source.Kubernetes})
 		ipCache.Upsert(pod3IPv6Str, k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 3, Source: source.Kubernetes})
@@ -138,10 +159,24 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 		close(ipCacheUpdated)
 	}()
 
-	err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
-	c.Assert(err, IsNil)
+	// wait for the above go routine to be scheduled
+	<-ipCacheUpdatePending
 
-	ipCache.RUnlock()
+	// At this point we know both go routines have been scheduled. We assume
+	// that they are now both blocked by checking they haven't closed the
+	// channel yet. Thus once release the lock we expect them to make progress
+	select {
+	case <-agentUpdated:
+		c.Fatal("agent update not blocked by agent lock")
+	case <-ipCacheUpdated:
+		c.Fatal("ipcache update not blocked by agent lock")
+	default:
+	}
+
+	wgAgent.Unlock()
+
+	// Ensure that both operations succeeded without a deadlock
+	<-agentUpdated
 	<-ipCacheUpdated
 
 	k8s1 = wgAgent.peerByNodeName[k8s1NodeName]
