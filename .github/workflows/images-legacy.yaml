@@ -8,7 +8,7 @@ on:
       - reopened
   push:
     branches:
-      - master
+      - v1.10
 
 jobs:
   build-and-push-prs:
@@ -69,18 +69,18 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
-      # master branch pushes
+      # v1.10 branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
-        id: docker_build_ci_master
+        id: docker_build_ci_v1_10
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:v1.10
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -88,14 +88,14 @@ jobs:
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
-        id: docker_build_ci_master_detect_race_condition
+        id: docker_build_ci_v1_10_detect_race_condition
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:v1.10-race
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           build-args: |
             BASE_IMAGE=quay.io/cilium/cilium-runtime:9b7ac75b22eb6ca26d6542e7dd1b92666cf17c33@sha256:2d5891ea3e3f5b5a1f8dc6e48de3d078daa9f67446a66ddc9833211be6846475
@@ -108,10 +108,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:v1.10@${{ steps.docker_build_ci_v1_10.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:v1.10-race@${{ steps.docker_build_ci_v1_10_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_v1_10.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_v1_10_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
@@ -208,18 +208,18 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
-      # master branch pushes
+      # v1.10 branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
-        id: docker_build_ci_master
+        id: docker_build_ci_v1_10
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:v1.10
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: CI Image Releases digests
@@ -227,8 +227,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:v1.10@${{ steps.docker_build_ci_v1_10.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_v1_10.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
