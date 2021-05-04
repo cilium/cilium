@@ -118,9 +118,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	} else {
 		// Debug mode takes priority; if not in debug, check what log level user
 		// has set and set the endpoint's log to log at that level.
-		if lvl, ok := logging.GetLogLevelFromConfig(); ok {
-			baseLogger.SetLevel(lvl)
-		}
+		baseLogger.SetLevel(logging.DefaultLogger.Level)
 	}
 
 	// When adding new fields, make sure they are abstracted by a setter

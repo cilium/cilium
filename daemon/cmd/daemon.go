@@ -930,7 +930,9 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
-		logging.ConfigureLogLevel(d.DebugEnabled())
+		if d.DebugEnabled() {
+			logging.SetLogLevelToDebug()
+		}
 		// Reflect log level change to proxies
 		proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
 	}

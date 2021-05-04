@@ -48,14 +48,12 @@ const (
 	LogFormatText LogFormat = "text"
 	LogFormatJSON LogFormat = "json"
 
-	// DefaultLogLevelStr is the string representation of DefaultLogLevel. It
-	// is used to allow for injection of the logging level via go's ldflags in
-	// unit tests, as only injection with strings via ldflags is allowed.
-	DefaultLogLevelStr string = "info"
-
 	// DefaultLogFormat is the string representation of the default logrus.Formatter
 	// we want to use (possible values: text or json)
 	DefaultLogFormat LogFormat = LogFormatText
+
+	// DefaultLogLevel is the default log level we want to use for our logrus.Formatter
+	DefaultLogLevel logrus.Level = logrus.InfoLevel
 )
 
 var (
@@ -122,18 +120,6 @@ var (
 		logrus.DebugLevel: syslog.LOG_DEBUG,
 		logrus.TraceLevel: syslog.LOG_DEBUG,
 	}
-
-	// LevelStringToLogrusLevel maps string representations of logrus.Level into
-	// their corresponding logrus.Level.
-	LevelStringToLogrusLevel = map[string]logrus.Level{
-		"panic":   logrus.PanicLevel,
-		"error":   logrus.ErrorLevel,
-		"warning": logrus.WarnLevel,
-		"info":    logrus.InfoLevel,
-		"debug":   logrus.DebugLevel,
-	}
-
-	logOptions = LogOptions{}
 )
 
 func init() {
@@ -167,78 +153,80 @@ func init() {
 type LogOptions map[string]string
 
 // InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
-func InitializeDefaultLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.Formatter = GetFormatter(DefaultLogFormat)
-	logger.SetLevel(LevelStringToLogrusLevel[DefaultLogLevelStr])
-	return logger
-}
-
-// GetLogLevelFromConfig returns the log level provided via global
-// configuration. If the logging level is invalid, ok will be false.
-func GetLogLevelFromConfig() (logrus.Level, bool) {
-	return logOptions.GetLogLevel()
+func InitializeDefaultLogger() (logger *logrus.Logger) {
+	logger = logrus.New()
+	logger.SetFormatter(GetFormatter(DefaultLogFormat))
+	logger.SetLevel(DefaultLogLevel)
+	return
 }
 
 // GetLogLevel returns the log level specified in the provided LogOptions. If
-// it is not set in the options, ok will be false.
-func (o LogOptions) GetLogLevel() (level logrus.Level, ok bool) {
-	level, ok = LevelStringToLogrusLevel[strings.ToLower(o[LevelOpt])]
+// it is not set in the options, it will return the default level.
+func (o LogOptions) GetLogLevel() (level logrus.Level) {
+	levelOpt, ok := o[LevelOpt]
+	if !ok {
+		return DefaultLogLevel
+	}
+
+	var err error
+	if level, err = logrus.ParseLevel(levelOpt); err != nil {
+		logrus.WithError(err).Warning("Ignoring user-configured log level")
+		return DefaultLogLevel
+	}
+
 	return
 }
 
 // GetLogFormat returns the log format specified in the provided LogOptions. If
-// it is not set in the options or is invalid, ok will be false.
+// it is not set in the options or is invalid, it will return the default format.
 func (o LogOptions) GetLogFormat() LogFormat {
 	formatOpt, ok := o[FormatOpt]
 	if !ok {
 		return DefaultLogFormat
 	}
 
+	formatOpt = strings.ToLower(formatOpt)
 	re := regexp.MustCompile(`^(text|json)$`)
 	if !re.MatchString(formatOpt) {
-		logrus.Errorf("incorrect log format configured '%s', expected 'text' or 'json', defaulting to '%s'", formatOpt, DefaultLogFormat)
+		logrus.WithError(
+			fmt.Errorf("incorrect log format configured '%s', expected 'text' or 'json'", formatOpt),
+		).Warning("Ignoring user-configured log format")
 		return DefaultLogFormat
 	}
 
 	return LogFormat(formatOpt)
 }
 
-// configureLogLevelFromOptions returns the log level based off of the value of
-// LevelOpt in o, or the default log level if the value in the map is invalid or
-// not set.
-func (o LogOptions) configureLogLevelFromOptions() logrus.Level {
-	var level logrus.Level
-	if levelOpt, ok := o[LevelOpt]; ok {
-		if convertedLevel, ok := o.GetLogLevel(); ok {
-			level = convertedLevel
-		} else {
-			// Invalid configuration provided, go with default.
-			DefaultLogger.WithField(logfields.LogSubsys, "logging").Warningf("invalid logging level provided: %s; setting to %s", levelOpt, DefaultLogLevelStr)
-			o[LevelOpt] = DefaultLogLevelStr
-			level = LevelStringToLogrusLevel[DefaultLogLevelStr]
-		}
-	} else {
-		// No logging option provided, default to DefaultLogLevelStr.
-		o[LevelOpt] = DefaultLogLevelStr
-		level = LevelStringToLogrusLevel[DefaultLogLevelStr]
-	}
-	return level
+// SetLogLevel updates the DefaultLogger with a new logrus.Level
+func SetLogLevel(logLevel logrus.Level) {
+	DefaultLogger.SetLevel(logLevel)
 }
 
-// configureLogLevelFromOptions sets the log level of the DefaultLogger based
-// off of the value of LevelOpt in logOpts. If LevelOpt is not set in logOpts,
-// it defaults to DefaultLogLevelStr.
-func setLogLevelFromOptions(logOpts LogOptions) {
-	DefaultLogger.SetLevel(logOpts.configureLogLevelFromOptions())
+// SetDefaultLogLevel updates the DefaultLogger with the DefaultLogLevel
+func SetDefaultLogLevel() {
+	DefaultLogger.SetLevel(DefaultLogLevel)
+}
+
+// SetLogLevelToDebug updates the DefaultLogger with the logrus.DebugLevel
+func SetLogLevelToDebug() {
+	DefaultLogger.SetLevel(logrus.DebugLevel)
+}
+
+// SetLogFormat updates the DefaultLogger with a new LogFormat
+func SetLogFormat(logFormat LogFormat) {
+	DefaultLogger.SetFormatter(GetFormatter(logFormat))
+}
+
+// SetLogLevel updates the DefaultLogger with the DefaultLogFormat
+func SetDefaultLogFormat() {
+	DefaultLogger.SetFormatter(GetFormatter(DefaultLogFormat))
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures
 // each logger with the provided logOpts.
 func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) error {
-	if logFormat := logOpts.GetLogFormat(); logFormat != DefaultLogFormat {
-		DefaultLogger.Formatter = GetFormatter(logFormat)
-	}
+	// Updating the default log format
+	SetLogFormat(logOpts.GetLogFormat())
 
 	// Set default logger to output to stdout if no loggers are provided.
 	if len(loggers) == 0 {
@@ -246,7 +234,12 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 		logrus.SetOutput(os.Stdout)
 	}
 
-	ConfigureLogLevel(debug)
+	// Updating the default log level, overriding the log options if the debug arg is being set
+	if debug {
+		SetLogLevelToDebug()
+	} else {
+		SetLogLevel(logOpts.GetLogLevel())
+	}
 
 	// always suppress the default logger so libraries don't print things
 	logrus.SetLevel(logrus.PanicLevel)
@@ -275,28 +268,6 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	return nil
 }
 
-// SetLogLevel sets the log level on DefaultLogger. This logger is, by
-// convention, the base logger for package specific ones thus setting the level
-// here impacts the default logging behaviour.
-// This function is thread-safe when logging, reading DefaultLogger.LevelOpt is
-// not protected this way, however.
-func SetLogLevel(level logrus.Level) {
-	DefaultLogger.SetLevel(level)
-}
-
-// ConfigureLogLevel configures the logging level of the global logger. If
-// debugging is not enabled, it will set the logging level based off of the
-// logging options configured at bootstrap. Debug being enabled takes precedence
-// over the configuration in the logging options.
-// It is thread-safe.
-func ConfigureLogLevel(debug bool) {
-	if debug {
-		SetLogLevel(logrus.DebugLevel)
-	} else {
-		setLogLevelFromOptions(logOptions)
-	}
-}
-
 // setupSyslog sets up and configures syslog with the provided options in
 // logOpts. If some options are not provided, sensible defaults are used.
 func setupSyslog(logOpts LogOptions, tag string, debug bool) {
@@ -309,13 +280,13 @@ func setupSyslog(logOpts LogOptions, tag string, debug bool) {
 		}
 	}
 
-	//Validate provided log level.
+	// Validate provided log level.
 	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
 		DefaultLogger.Fatal(err)
 	}
 
-	DefaultLogger.SetLevel(level)
+	SetLogLevel(level)
 
 	network := ""
 	address := ""
