@@ -13,7 +13,8 @@ Installation on OpenShift OKD
 OpenShift Requirements
 ======================
 
-1. Choose preferred cloud provider. This guide was tested in AWS, Azure & GCP.
+1. Choose preferred cloud provider. This guide was tested in AWS, Azure, and GCP
+   from a Linux host.
 
 2. Read `OpenShift documentation <https://docs.okd.io/latest/welcome/index.html>`_ to find out about provider-specific prerequisites.
 
@@ -21,16 +22,17 @@ OpenShift Requirements
 
 .. note::
 
-   It's highly recommended to read the docs, unless you have installed
-   OpenShift in the past. Here are a few notes that you may find useful.
+   It is highly recommended to read the OpenShift documentation, unless you have
+   installed OpenShift in the past. Here are a few notes that you may find
+   useful.
 
-   - with the AWS provider ``openshift-install`` will not work properly
-     when MFA credentials are stored in ``~/.aws/credentials``, traditional credentials are required
-   - with the Azure provider ``openshift-install`` will prompt for
+   - With the AWS provider ``openshift-install`` will not work properly
+     when MFA credentials are stored in ``~/.aws/credentials``, traditional credentials are required.
+   - With the Azure provider ``openshift-install`` will prompt for
      credentials and store them in ``~/.azure/osServicePrincipal.json``, it
      doesn't simply pickup ``az login`` credentials. It's recommended to
-     setup a dedicated service principal and use it
-   - with the GCP provider ``openshift-install`` will only work with a service
+     setup a dedicated service principal and use it.
+   - With the GCP provider ``openshift-install`` will only work with a service
      account key, which has to be set using ``GOOGLE_CREDENTIALS``
      environment variable (e.g. ``GOOGLE_CREDENTIALS=service-account.json``).
      Follow `Openshift Installer documentation <https://github.com/openshift/installer/blob/master/docs/user/gcp/iam.md>`_
@@ -39,9 +41,9 @@ OpenShift Requirements
 Create an OpenShift OKD Cluster
 ===============================
 
-First, set cluster name:
+First, set the cluster name:
 
-.. code:: bash
+.. code-block:: shell-session
 
    CLUSTER_NAME="cluster-1"
 
@@ -65,11 +67,11 @@ Now, create configuration files:
 
 And set ``networkType: Cilium``:
 
-.. code:: bash
+.. code-block:: shell-session
 
-   sed -i 's/networkType:\ .*/networkType:\ Cilium/' "${CLUSTER_NAME}/install-config.yaml"
+   sed -i "s/networkType: .*/networkType: Cilium/" "${CLUSTER_NAME}/install-config.yaml"
 
-Resulting configuration will look like this:
+The resulting configuration will look like this:
 
 .. code:: yaml
 
@@ -108,19 +110,19 @@ Resulting configuration will look like this:
      ssh-rsa <REDACTED>
 
 You may wish to make a few changes, e.g. increase the number of nodes. If you do change any of the CIDRs,
-you will need to make sure that Helm values used below reflect those changes. Namely - ``clusterNetwork``
-should match ``clusterPoolIPv4PodCIDR`` & ``clusterPoolIPv4MaskSize``. Also make sure that the ``clusterNetwork``
+you will need to make sure that Helm values used below reflect those changes. Namely ``clusterNetwork``
+should match ``clusterPoolIPv4PodCIDR`` and ``clusterPoolIPv4MaskSize``. Also make sure that the ``clusterNetwork``
 does not conflict with ``machineNetwork`` (which represents the VPC CIDR in AWS).
 
 Next, generate OpenShift manifests:
 
-.. code:: bash
+.. code-block:: shell-session
 
    openshift-install create manifests --dir "${CLUSTER_NAME}"
 
 Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to ``${CLUSTER_NAME}/manifests``:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
    cilium_olm_rev="master"
    cilium_version="\ |release|\ "
@@ -132,18 +134,19 @@ Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to `
 
    rm -rf -- /tmp/cilium-olm.tgz "/tmp/cilium-olm-${cilium_olm_rev}"
 
-.. note::
+At this stage manifest directory contains all that is needed to install Cilium.
+To get a list of the Cilium manifests, run:
 
-   At this stage manifest directory contains all that is needed to install Cilium.
-   To get a list of the Cilium manifests, run ``ls ${CLUSTER_NAME}/manifests/cluster-network-*-cilium-*``.
+.. code-block:: shell-session
 
-.. note::
+   ls ${CLUSTER_NAME}/manifests/cluster-network-*-cilium-*
 
-   If you wish to set any custom Helm values, you can do it by editing ``${CLUSTER_NAME}/manifests/cluster-network-07-cilium-ciliumconfig.yaml``.
+You can set any custom Helm values by editing ``${CLUSTER_NAME}/manifests/cluster-network-07-cilium-ciliumconfig.yaml``.
 
-   It's also possible to update Helm values once the cluster is running by changing ``CiliumConfig`` object,
-   e.g. with  ``kubectl edit ciliumconfig -n cilium cilium``. You may need to restart Cilium agent pods for
-   certain options to take effect.
+It is also possible to update Helm values once the cluster is running by
+changing the ``CiliumConfig`` object, e.g. with ``kubectl edit ciliumconfig -n
+cilium cilium``. You may need to restart the Cilium agent pods for certain
+options to take effect.
 
 .. note::
 
@@ -167,24 +170,30 @@ Create the cluster:
 .. code-block:: shell-session
 
    $ openshift-install create cluster --dir "${CLUSTER_NAME}"
-   WARNING   Discarding the Bootstrap Ignition Config that was provided in the target directory because its dependencies are dirty and it needs to be regenerated
    INFO Consuming OpenShift Install (Manifests) from target directory
    INFO Consuming Master Machines from target directory
    INFO Consuming Worker Machines from target directory
-   INFO Consuming Bootstrap Ignition Config from target directory
-   INFO Consuming Common Manifests from target directory
    INFO Consuming Openshift Manifests from target directory
-   INFO Credentials loaded from default AWS environment variables
+   INFO Consuming Common Manifests from target directory
+   INFO Credentials loaded from the "default" profile in file "/home/twp/.aws/credentials"
    INFO Creating infrastructure resources...
-   INFO Waiting up to 20m0s for the Kubernetes API at https://api.cluster-1.openshift-test-1.cilium.rocks:6443...
-   INFO API v1.18.3 up
-   INFO Waiting up to 40m0s for bootstrapping to complete...
+   INFO Waiting up to 20m0s for the Kubernetes API at https://api.cluster-name.ilya-openshift-test-1.cilium.rocks:6443...
+   INFO API v1.20.0-1058+7d0a2b269a2741-dirty up
+   INFO Waiting up to 30m0s for bootstrapping to complete...
+   INFO Destroying the bootstrap resources...
+   INFO Waiting up to 40m0s for the cluster at https://api.cluster-name.ilya-openshift-test-1.cilium.rocks:6443 to initialize...
+   INFO Waiting up to 10m0s for the openshift-console route to be created...
+   INFO Install complete!
+   INFO To access the cluster as the system:admin user when using 'oc', run 'export KUBECONFIG=/home/twp/okd/cluster-name/auth/kubeconfig'
+   INFO Access the OpenShift web-console here: https://console-openshift-console.apps.cluster-name.ilya-openshift-test-1.cilium.rocks
+   INFO Login to the console with user: "kubeadmin", and password: "<REDACTED>"
+   INFO Time elapsed: 32m9s
 
-Next, firewall configuration must be updated to allow `Cilium
-ports <https://docs.cilium.io/en/v1.8/install/system_requirements/#firewall-rules>`_.
-Please note that ``openshift-install`` doesn't support custom firewall
-rules, so you will need to use one of the following scripts if you are
-using AWS or GCP. Azure does not need additional configuration.
+Next, the firewall configuration must be updated to allow `Cilium ports
+<https://docs.cilium.io/en/v1.8/install/system_requirements/#firewall-rules>`_.
+``openshift-install`` does not support custom firewall rules, so you will need to
+use one of the following scripts if you are using AWS or GCP. Azure does not
+need additional configuration.
 
 .. warning::
 
@@ -197,11 +206,11 @@ using AWS or GCP. Azure does not need additional configuration.
 
    .. tab:: AWS: enable Cilium ports
 
-      This script depends on ``jq`` & AWS CLI (``aws``). Make sure to run
+      This script depends on ``jq`` and the AWS CLI (``aws``). Make sure to run
       it inside of the same working directory where ``${CLUSTER_NAME}``
       directory is present.
 
-      .. code:: bash
+      .. code-block:: shell-session
 
          infraID="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.infraID')"
          aws_region="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.aws.region')"
@@ -224,11 +233,11 @@ using AWS or GCP. Azure does not need additional configuration.
 
    .. tab:: GCP: enable Cilium ports
 
-      This script depends on ``jq`` & Google Cloud SDK (``gcloud``). Make sure
-      to run it inside of the same working directory where ``${CLUSTER_NAME}``
-      directory is present.
+      This script depends on ``jq`` and the Google Cloud SDK (``gcloud``). Make
+      sure to run it inside of the same working directory where
+      ``${CLUSTER_NAME}`` directory is present.
 
-      .. code:: bash
+      .. code-block:: shell-session
 
          infraID="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.infraID')"
          gcp_projectID="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.gcp.projectID')"
@@ -241,12 +250,16 @@ using AWS or GCP. Azure does not need additional configuration.
             --target-tags="${infraID}-worker,${infraID}-master" \
               "${infraID}-cilium"
 
+   .. tab:: Azure: enable Cilium ports
+
+      No additional configuration is needed.
+
 Accessing the cluster
 ---------------------
 
 To access the cluster you will need to use ``kubeconfig`` file from the ``${CLUSTER_NAME}/auth`` directory:
 
-.. code:: bash
+.. code-block:: shell-session
 
    export KUBECONFIG="${CLUSTER_NAME}/auth/kubeconfig"
 
@@ -257,9 +270,9 @@ In order for Cilium connectivity test pods to run on OpenShift, a simple custom 
 object is required. It will to allow ``hostPort``/``hostNetwork`` that some of the connectivity test pods rely on,
 it sets only ``allowHostPorts`` and ``allowHostNetwork`` without any other privileges.
 
-.. code:: bash
+.. code-block:: shell-session
 
-   kubectl apply -f - << EOF
+   kubectl apply -f - <<EOF
    apiVersion: security.openshift.io/v1
    kind: SecurityContextConstraints
    metadata:
@@ -291,14 +304,21 @@ it sets only ``allowHostPorts`` and ``allowHostNetwork`` without any other privi
 Cleanup after connectivity test
 -------------------------------
 
-Remove ``cilium-test`` namespace:
+Remove the ``cilium-test`` namespace:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl delete ns cilium-test
 
-Remove ``SecurityContextConstraints``:
+Remove the ``SecurityContextConstraints``:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl delete scc cilium-test
+
+Delete the cluster
+------------------
+
+.. code-block:: shell-session
+
+   openshift-install destroy cluster --dir="${CLUSTER_NAME}"
