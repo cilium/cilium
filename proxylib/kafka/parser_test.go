@@ -26,14 +26,12 @@ import (
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
 
-	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
-	// logrus.SetLevel(logrus.DebugLevel)
-	logging.SetLogLevel(logrus.DebugLevel)
+	logging.SetLogLevelToDebug()
 	// flowdebug.Enable()
 	TestingT(t)
 }

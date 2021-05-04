@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	v "github.com/cilium/cilium/pkg/version"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -49,17 +48,17 @@ func New() *cobra.Command {
 	// loading the configuration file since on configuration file read failure
 	// we will emit a debug log entry.
 	if vp.GetBool("debug") {
-		logging.SetLogLevel(logrus.DebugLevel)
+		logging.SetLogLevelToDebug()
 	}
+
 	if err := vp.ReadInConfig(); err != nil {
 		logger.WithError(err).Debugf("Failed to read config from file '%s'", configFilePath)
 	}
+
 	// Check for the debug flag again now that the configuration file may has
 	// been loaded, as it might have changed.
 	if vp.GetBool("debug") {
-		logging.SetLogLevel(logrus.DebugLevel)
-	} else {
-		logging.SetLogLevel(logrus.InfoLevel)
+		logging.SetLogLevelToDebug()
 	}
 
 	rootCmd.AddCommand(

@@ -77,7 +77,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
-	logging.ConfigureLogLevel(true) // Use 'true' for debugging
+	logging.SetLogLevelToDebug()
 	flowdebug.Enable()
 
 	stateLogDir, err := os.MkdirTemp("", "envoy_go_test")

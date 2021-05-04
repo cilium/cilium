@@ -225,7 +225,6 @@ func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
 }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
-	logging.ConfigureLogLevel(false) // Use 'true' for debugging
 	rules := api.Rules{
 		{
 			EndpointSelector: api.NewESFromLabels(lblBar),
@@ -418,7 +417,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 }
 
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
-	logging.ConfigureLogLevel(false) // Use 'true' for debugging
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
@@ -503,7 +501,6 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 // short-circuiting the HTTP rules (i.e., the network policy sent to
 // envoy does not even have the HTTP rules).
 func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
-	logging.ConfigureLogLevel(false) // Use 'true' for debugging
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
@@ -579,8 +576,8 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 }
 
 func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
-	logging.ConfigureLogLevel(true) // Use 'true' for debugging
-	defer logging.ConfigureLogLevel(false)
+	logging.SetLogLevelToDebug()
+	defer logging.SetDefaultLogLevel()
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
