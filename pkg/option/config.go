@@ -16,6 +16,7 @@ package option
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -1156,6 +1157,7 @@ type IpvlanConfig struct {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
+	CreationTime        time.Time
 	BpfDir              string     // BPF template files directory
 	LibDir              string     // Cilium library files directory
 	RunDir              string     // Cilium runtime directory
@@ -1415,7 +1417,7 @@ type DaemonConfig struct {
 	EnvoyLog                      string
 	DisableEnvoyVersionCheck      bool
 	FixedIdentityMapping          map[string]string
-	FixedIdentityMappingValidator func(val string) (string, error)
+	FixedIdentityMappingValidator func(val string) (string, error) `json:"-"`
 	IPv4Range                     string
 	IPv6Range                     string
 	IPv4ServiceRange              string
@@ -1960,6 +1962,7 @@ type DaemonConfig struct {
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
+		CreationTime:                 time.Now(),
 		Opts:                         NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                      &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:         defaults.IPv6ClusterAllocCIDR,
@@ -3077,6 +3080,58 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 		c.EnableHostServicesTCP &&
 		c.EnableHostServicesUDP &&
 		c.EnableSessionAffinity
+}
+
+// StoreInFile stores the configuration in a the given directory under the file
+// name 'daemon-config.json'. If this file already exists, it is renamed to
+// 'daemon-config-1.json', if 'daemon-config-1.json' also exists,
+// 'daemon-config-1.json' is renamed to 'daemon-config-2.json'
+func (c *DaemonConfig) StoreInFile(dir string) error {
+	backupFileNames := []string{
+		"agent-runtime-config.json",
+		"agent-runtime-config-1.json",
+		"agent-runtime-config-2.json",
+	}
+	backupFiles(dir, backupFileNames)
+	f, err := os.Create(backupFileNames[0])
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	e := json.NewEncoder(f)
+	e.SetIndent("", " ")
+	return e.Encode(c)
+}
+
+// StoreViperInFile stores viper's configuration in a the given directory under
+// the file name 'viper-config.yaml'. If this file already exists, it is renamed
+// to 'viper-config-1.yaml', if 'viper-config-1.yaml' also exists,
+// 'viper-config-1.yaml' is renamed to 'viper-config-2.yaml'
+func StoreViperInFile(dir string) error {
+	backupFileNames := []string{
+		"viper-agent-config.yaml",
+		"viper-agent-config-1.yaml",
+		"viper-agent-config-2.yaml",
+	}
+	backupFiles(dir, backupFileNames)
+	return viper.WriteConfigAs(backupFileNames[0])
+}
+
+func backupFiles(dir string, backupFilenames []string) {
+	for i := len(backupFilenames) - 1; i > 0; i-- {
+		newFileName := filepath.Join(dir, backupFilenames[i-1])
+		oldestFilename := filepath.Join(dir, backupFilenames[i])
+		if _, err := os.Stat(newFileName); os.IsNotExist(err) {
+			continue
+		}
+		err := os.Rename(newFileName, oldestFilename)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"old-name": oldestFilename,
+				"new-name": newFileName,
+			}).Error("Unable to rename configuration files")
+		}
+	}
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
