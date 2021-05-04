@@ -1516,6 +1516,16 @@ func runDaemon() {
 	bootstrapStats.updateMetrics()
 	d.launchHubble()
 
+	err = option.Config.StoreInFile(option.Config.StateDir)
+	if err != nil {
+		log.WithError(err).Error("Unable to store Cilium's configuration")
+	}
+
+	err = option.StoreViperInFile(option.Config.StateDir)
+	if err != nil {
+		log.WithError(err).Error("Unable to store Viper's configuration")
+	}
+
 	select {
 	case err := <-metricsErrs:
 		if err != nil {
