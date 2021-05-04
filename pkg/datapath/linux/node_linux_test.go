@@ -957,6 +957,12 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	prevStateDir := option.Config.StateDir
+	defer func() { option.Config.StateDir = prevStateDir }()
+
+	tmpDir := c.MkDir()
+	option.Config.StateDir = tmpDir
+
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
 	//
@@ -1403,6 +1409,39 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 	}
 	c.Assert(found, check.Equals, false)
+
+	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+	time.Sleep(100 * time.Millisecond) // insertNeighbor is invoked async
+
+	nextHop = net.ParseIP("9.9.9.250")
+	// Check that both node{2,3} are via nextHop (gw)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+			found = true
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, true)
+
+	// We have stored the devices in NodeConfigurationChanged
+	linuxNodeHandler.NodeCleanNeighbors()
+
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
+			found = true
+		} else if n.IP.Equal(node2IP) || n.IP.Equal(node3IP) {
+			c.ExpectFailure("node{2,3} should not be in the same L2")
+		}
+	}
+	c.Assert(found, check.Equals, false)
+
 }
 
 func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config datapath.LocalNodeConfiguration) {
