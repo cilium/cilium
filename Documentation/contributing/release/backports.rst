@@ -76,10 +76,11 @@ process for backporting these PRs:
 One-time Setup
 ~~~~~~~~~~~~~~
 
-#. The scripts referred to below need to be run on Linux, they do not
-   work on macOS. You can use the cilium dev VM for this, but you need
-   to configure git to have your name and email address to be used in
-   the commit messages:
+#. The scripts referred to below need to be run on Linux, they do not work on
+   macOS. It is recommended to use the dev VM (``contrib/vagrant/start.sh``),
+   as it will have all the correct versions of dependencies / libraries. Once
+   you have a machine ready, you need to configure git to have your name and
+   email address to be used in the commit messages:
 
    .. code-block:: bash
 
