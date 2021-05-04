@@ -83,7 +83,7 @@ spec:
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
 {{- end }}
-{{- with .Values.tolerations }}
+{{- with .Values.etcd.tolerations }}
       tolerations:
       {{- toYaml . | trim | nindent 6 }}
 {{- end }}
