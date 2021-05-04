@@ -112,11 +112,11 @@ One-time Setup
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | jq                                                           | Yes       | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
-   | python3                                                      | No        | `Python Downloads <https://www.python.org/downloads/>`_ |
+   | python3                                                      | Yes       | `Python Downloads <https://www.python.org/downloads/>`_ |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
-   | `PyGithub <https://pypi.org/project/PyGithub/>`_             | No        | ``pip3 install PyGithub``                               |
+   | `PyGithub <https://pypi.org/project/PyGithub/>`_             | Yes       | ``pip3 install PyGithub``                               |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
-   | `Github hub CLI (>= 2.8.3) <https://github.com/github/hub>`_ | No        | N/A (OS-specific)                                       |
+   | `Github hub CLI (>= 2.8.3) <https://github.com/github/hub>`_ | Yes       | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
 
    Verify your machine is correctly configured by running
