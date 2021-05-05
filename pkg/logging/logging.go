@@ -246,6 +246,8 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 		logrus.SetOutput(os.Stdout)
 	}
 
+	// Ensure that ConfigureLogLevel will be able to correctly set the level
+	logOptions = logOpts
 	ConfigureLogLevel(debug)
 
 	// always suppress the default logger so libraries don't print things
