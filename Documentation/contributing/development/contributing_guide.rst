@@ -14,29 +14,31 @@ Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Make sure you have a `GitHub account <https://github.com/join>`_
-#. Clone the cilium repository into your ``GOPATH``.
+#. Fork the Cilium repository to your GitHub user or organization.
+#. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork into your ``GOPATH``, and setup the base repository as ``upstream`` remote:
 
    ::
 
-      mkdir -p $GOPATH/src/github.com/cilium
-      cd $GOPATH/src/github.com/cilium
-      git clone https://github.com/cilium/cilium.git
+      mkdir -p "${GOPATH}/src/github.com/cilium"
+      cd "${GOPATH}/src/github.com/cilium"
+      git clone https://github.com/${YOUR_GITHUB_USERNAME_OR_ORG}/cilium.git
       cd cilium
+      git remote add upstream https://github.com/cilium/cilium.git
 
 #. Set up your :ref:`dev_env`.
 #. Check the GitHub issues for `good tasks to get started
    <https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Agood-first-issue>`_.
+#. Follow the steps in :ref:`making_changes` to start contributing :)
 
 .. _submit_pr:
 
 Submitting a pull request
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Contributions must be submitted in the form of pull requests against the github
-repository at: https://github.com/cilium/cilium.
+Contributions must be submitted in the form of pull requests against the
+upstream GitHub repository at https://github.com/cilium/cilium.
 
-#. Fork the Cilium repository to your own personal GitHub space or request
-   access to a Cilium developer account on Slack
+#. Fork the Cilium repository.
 #. Push your changes to the topic branch in your fork of the repository.
 #. Submit a pull request on https://github.com/cilium/cilium.
 
