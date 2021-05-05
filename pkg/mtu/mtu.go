@@ -14,7 +14,9 @@
 
 package mtu
 
-import "net"
+import (
+	"net"
+)
 
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
@@ -60,6 +62,17 @@ const (
 	// size for GCM(AES*) in RFC4106. Users may input other lengths via
 	// key secrets.
 	EncryptionDefaultAuthKeyLength = 16
+
+	// WireguardOverhead is an approximation for the overhead of wireguard
+	// encapsulation.
+	//
+	// https://github.com/torvalds/linux/blob/v5.12/drivers/net/wireguard/device.c#L262:
+	//      MESSAGE_MINIMUM_LENGTH:    32B
+	//      Outer IPv4 or IPv6 header: 40B
+	//      Outer UDP header:           8B
+	//                                 ---
+	//      Total extra bytes:         80B
+	WireguardOverhead = 80
 )
 
 // Configuration is an MTU configuration as returned by NewConfiguration
@@ -90,15 +103,16 @@ type Configuration struct {
 	// overhead, if any, but assumes packets are already encrypted.
 	postEncryptMTU int
 
-	encapEnabled   bool
-	encryptEnabled bool
+	encapEnabled     bool
+	encryptEnabled   bool
+	wireguardEnabled bool
 }
 
 // NewConfiguration returns a new MTU configuration. The MTU can be manually
 // specified, otherwise it will be automatically detected. if encapEnabled is
 // true, the MTU is adjusted to account for encapsulation overhead for all
 // routes involved in node to node communication.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, mtu int, mtuDetectIP net.IP) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, mtu int, mtuDetectIP net.IP) Configuration {
 	encryptOverhead := 0
 
 	if mtu == 0 {
@@ -122,12 +136,13 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 	}
 
 	conf := Configuration{
-		standardMTU:    mtu,
-		tunnelMTU:      mtu - (TunnelOverhead + encryptOverhead),
-		postEncryptMTU: mtu - TunnelOverhead,
-		preEncryptMTU:  mtu - encryptOverhead,
-		encapEnabled:   encapEnabled,
-		encryptEnabled: encryptEnabled,
+		standardMTU:      mtu,
+		tunnelMTU:        mtu - (TunnelOverhead + encryptOverhead),
+		postEncryptMTU:   mtu - TunnelOverhead,
+		preEncryptMTU:    mtu - encryptOverhead,
+		encapEnabled:     encapEnabled,
+		encryptEnabled:   encryptEnabled,
+		wireguardEnabled: wireguardEnabled,
 	}
 
 	if conf.tunnelMTU < 0 {
@@ -155,6 +170,10 @@ func (c *Configuration) GetRoutePostEncryptMTU() int {
 // tunneling mode and/or with encryption enabled, this will have tunnel and
 // encryption overhead accounted for.
 func (c *Configuration) GetRouteMTU() int {
+	if c.wireguardEnabled {
+		return c.GetDeviceMTU() - WireguardOverhead
+	}
+
 	if !c.encapEnabled && !c.encryptEnabled {
 		return c.GetDeviceMTU()
 	}
