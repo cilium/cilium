@@ -381,11 +381,24 @@ httpd servers) and tests various simple network policies with
 them. These containers should be automatically removed when the test
 finishes.
 
+.. _making_changes:
+
 Making Changes
 ~~~~~~~~~~~~~~
 
-#. Create a topic branch: ``git checkout -b myBranch master``
-#. Make the changes you want
+#. Make sure the ``master`` branch of your fork is up-to-date:
+
+   ::
+
+      git fetch upstream master:master
+
+#. Create a PR branch with a descriptive name, branching from ``master``:
+
+   ::
+
+      git switch -c pr/changes-to-something master
+
+#. Make the changes you want.
 #. Separate the changes into logical commits.
 
    #. Describe the changes in the commit messages. Focus on answering the
