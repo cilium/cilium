@@ -578,13 +578,39 @@ Debugging
 
 Datapath code
 ^^^^^^^^^^^^^
-
 The tool ``cilium monitor`` can also be used to retrieve debugging information
-from the eBPF based datapath. Debugging messages are sent if either the
-``cilium-agent`` itself or the respective endpoint is in debug mode. The debug
-mode of the agent can be enabled by starting ``cilium-agent`` with the option
-``--debug`` enabled or by running ``cilium config debug=true`` for an already
-running agent. Debugging of an individual endpoint can be enabled by running
+from the eBPF based datapath. To enable all log messages:
+
+- Start the ``cilium-agent`` with ``--debug-verbose=datapath``, or
+- Run ``cilium config debug=true debugLB=true`` from an already running agent.
+
+These options enable logging functions in the datapath: ``cilium_dbg()``,
+``cilium_dbg_lb()`` and ``printk()``.
+
+.. note::
+
+   The ``printk()`` logging function is used by the developer to debug the datapath outside of the ``cilium
+   monitor``.  In this case, ``bpftool prog tracelog`` can be used to retrieve
+   debugging information from the eBPF based datapath. Both ``cilium_dbg()`` and
+   ``printk()`` functions are available from the ``bpf/lib/dbg.h`` header file.
+   
+The image below shows the options that could be used as startup options by
+``cilium-agent`` (see upper blue box) or could be changed at runtime by running
+``cilium config <option(s)>`` for an already running agent (see lower blue box).
+Along with each option, there is one or more logging function associated with it:
+``cilium_dbg()`` and ``printk()``, for ``DEBUG`` and ``cilium_dbg_lb()`` for
+``DEBUG_LB``. 
+
+.. image:: _static/cilium-debug-datapath-options.svg 
+  :align: center
+  :alt: Cilium debug datapath options
+
+.. note::
+
+   If you need to enable the ``LB_DEBUG`` for an already running agent by running
+   ``cilium config debugLB=true``, you must pass the option ``debug=true`` along.
+
+Debugging of an individual endpoint can be enabled by running
 ``cilium endpoint config ID debug=true``. Running ``cilium monitor -v`` will
 print the normal form of monitor output along with debug messages:
 
