@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -113,7 +114,27 @@ func UpdateElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct ui
 	}
 
 	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to update element for map with file descriptor %d: %s", fd, err)
+
+		var errMsg = ""
+
+		switch err {
+		case syscall.E2BIG:
+			errMsg = "map is full. If it is LB map, please increase the number of entries with the flag \"bpf-lb-max-entries\". THIS WILL INTERFERE ALL EXISTING CONNECTIONS"
+		case syscall.EINVAL:
+			errMsg = "Invalid arguments, please check map args"
+		case syscall.EPERM:
+			errMsg = "Cannot access the bpf map, operation not permitted"
+		case syscall.ENOMEM:
+			errMsg = "Out of memory"
+		case syscall.EEXIST:
+			errMsg = "Cannot add element to bpf map, please chech the key of the element"
+		case syscall.ENOENT:
+			errMsg = "Cannot add/update element to bpf map, the element already exist"
+		default:
+			errMsg = "Unknow error"
+		}
+
+		return fmt.Errorf("Unable to update element for map with file descriptor %d: %s", fd, errMsg) // Here !!
 	}
 
 	return nil
