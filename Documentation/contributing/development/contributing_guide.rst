@@ -74,15 +74,10 @@ requirements have been met:
 
         Signed-off-by: Joe Stringer <joe@cilium.io>
 
-   .. note:
+   .. note::
 
        Make sure to include a blank line in between commit title and commit
        description.
-
-   .. note:
-
-       Passing the ``-s`` option to ``git commit`` will add the
-       ``Signed-of-by:`` line to your commit message automatically.
 
 #. If any of the commits fixes a particular commit already in the tree, that
    commit is referenced in the commit message of the bugfix. This ensures that
@@ -96,7 +91,7 @@ requirements have been met:
 
       Signed-off-by: André Martins <andre@cilium.io>
 
-   .. note:
+   .. note::
 
       The proper format for the ``Fixes:`` tag referring to commits is to use
       the first 12 characters of the git SHA followed by the full commit title
@@ -112,6 +107,11 @@ requirements have been met:
       $ git commit
 
 #. All commits are signed off. See the section :ref:`dev_coo`.
+
+   .. note::
+
+       Passing the ``-s`` option to ``git commit`` will add the
+       ``Signed-off-by:`` line to your commit message automatically.
 
 #. Document any user-facing or breaking changes in ``Documentation/install/upgrade.rst``.
 
@@ -187,7 +187,7 @@ requirements have been met:
    | ``area/*`` (Optional)        | Code area this PR covers                                                  |
    +------------------------------+---------------------------------------------------------------------------+
 
-   .. note:
+   .. note::
 
       If you do not have permissions to set labels on your pull request. Leave
       a comment and a core team member will add the labels for you. Most
