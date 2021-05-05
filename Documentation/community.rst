@@ -79,7 +79,7 @@ and meeting links.
 ====================== ===================================== ============= ================================================================================
 SIG                    Meeting                               Slack         Description
 ====================== ===================================== ============= ================================================================================
-Datapath               Wednesdays, 08:00 PT                  #sig-datapath Owner of all eBPF- and Linux-kernel-related datapath code.
+Datapath               Thursdays, 08:00 PT                   #sig-datapath Owner of all eBPF- and Linux-kernel-related datapath code.
 Documentation          None                                  #sig-docs     All documentation related discussions
 Envoy                  On demand                             #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
 Hubble                 During community meeting              #sig-hubble   Owner of all Hubble-related code: Server, UI, CLI and Relay.
