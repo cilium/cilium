@@ -407,6 +407,11 @@ Making Changes
    #. If any description is required to understand your code changes, then
       those instructions should be code comments instead of statements in the
       commit description.
+
+   .. note::
+
+      For submitting PRs, all commits need be to signed off (``git commit -s``). See the section :ref:`dev_coo`.
+
 #. Make sure your changes meet the following criteria:
 
    #. New code is covered by :ref:`unit_testing`.
@@ -415,6 +420,7 @@ Making Changes
       new code.
    #. Follow-up commits are squashed together nicely. Commits should separate
       logical chunks of code and not represent a chronological list of changes.
+
 #. Run ``git diff --check`` to catch obvious white space violations
 #. Run ``make`` to build your changes. This will also run ``make lint`` and error out
    on any golang linting errors. The rules are configured in ``.golangci.yaml``
