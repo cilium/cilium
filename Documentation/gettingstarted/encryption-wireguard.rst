@@ -30,6 +30,13 @@ you run Cilium in an environment that requires firewall rules to enable
 connectivity, you will have to ensure that all Cilium cluster nodes can reach
 each other via that port.
 
+.. note::
+
+   When running in the tunneling mode (i.e. with VXLAN or Geneve), pod to pod
+   traffic will be sent only over the Wireguard tunnel which means that the
+   packets will bypass the other tunnel, and thus they will be encapsulated
+   only once.
+
 Enable Wireguard in Cilium
 ==========================
 
