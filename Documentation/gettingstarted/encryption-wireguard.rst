@@ -66,22 +66,6 @@ Wireguard may also be enabled manually by setting setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
 each Cilium agent instance.
 
-.. note::
-
-    Wireguard support in Cilium currently lacks the following features,
-    which may be resolved in upcoming Cilium releases:
-
-    - Host-level encryption. Only traffic between two Cilium-managed endpoints
-      (i.e. pod to pod traffic) is encrypted. Traffic between a Cilium-managed
-      pod and a remote host, or traffic between two hosts running the Cilium
-      agent will currently not be encrypted.
-    - L7 policy enforcement and visibility
-    - eBPF-based host routing
-    - Support for older kernels via user-mode Wireguard
-
-   The current status of these limitations is tracked in :gh-issue:`15462`.
-
-
 Validate the Setup
 ==================
 
@@ -115,3 +99,19 @@ commands:
     15:05:24.645752 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [F.], seq 81, ack 2422, win 502, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
     15:05:24.646431 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [F.], seq 2422, ack 82, win 502, options [nop,nop,TS val 4004186141 ecr 648097393], length 0
     15:05:24.646484 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 2423, win 502, options [nop,nop,TS val 648097394 ecr 4004186141], length 0
+
+Limitations
+===========
+
+Wireguard support in Cilium currently lacks the following features,
+which may be resolved in upcoming Cilium releases:
+
+ - Host-level encryption. Only traffic between two Cilium-managed endpoints
+   (i.e. pod to pod traffic) is encrypted. Traffic between a Cilium-managed
+   pod and a remote host, or traffic between two hosts running the Cilium
+   agent will currently not be encrypted.
+ - L7 policy enforcement and visibility
+ - eBPF-based host routing
+ - Support for older kernels via user-mode Wireguard
+
+The current status of these limitations is tracked in :gh-issue:`15462`.
