@@ -17,16 +17,18 @@ eBPF Host-Routing
 
 Even when network routing is performed by Cilium using eBPF, by default network
 packets still traverse some parts of the regular network stack of the node.
-This default ensures that all packets still traverse through all of
-the iptables hooks in case you depend on them. However, they add significant
-overhead. For exact numbers, see :ref:`benchmark_throughput` and compare the
-results for "Cilium" and "Cilium (legacy host-routing)".
+This ensures that all packets still traverse through all of the iptables hooks
+in case you depend on them. However, they add significant overhead. For exact
+numbers from our test environment, see :ref:`benchmark_throughput` and compare
+the results for "Cilium" and "Cilium (legacy host-routing)".
 
 We introduced `eBPF-based host-routing <https://cilium.io/blog/2020/11/10/cilium-19#veth>`_
-in Cilium 1.9 to fully bypass iptables. This option is automatically enabled
-if your kernel supports it. To validate whether your installation is running
-with eBPF host-routing, run ``cilium status`` in any of the Cilium pods and
-look for the line reporting the status for "Host routing".
+in Cilium 1.9 to fully bypass iptables and the upper host stack, and to achieve
+a faster network namespace switch compared to regular veth device operation.
+This option is automatically enabled if your kernel supports it. To validate
+whether your installation is running with eBPF host-routing, run ``cilium status``
+in any of the Cilium pods and look for the line reporting the status for
+"Host Routing" which should state "BPF".
 
 **Requirements:**
 
@@ -38,12 +40,11 @@ look for the line reporting the status for "Host routing".
 Bypass iptables Connection Tracking
 ===================================
 
-Even when routing is performed by Cilium using eBPF host-routing, network
-packets still traverse the regular network stack in the network namespace
-of the container and iptables can again add significant cost. This traversal
-cost can be minimized by disabling the connection tracking requirement
-for packets forwarded by Cilium, thus bypassing the iptables connection
-tracker.
+For the case when eBPF Host-Routing cannot be used and thus network packets
+still need to traverse the regular network stack in the host namespace,
+iptables can add a significant cost. This traversal cost can be minimized
+by disabling the connection tracking requirement for all Pod traffic, thus
+bypassing the iptables connection tracker.
 
 **Requirements:**
 
@@ -215,7 +216,8 @@ tuned network-* profiles
 
 The `tuned <https://tuned-project.org/>`_ project offers various profiles to
 optimize for deterministic performance at the cost of increased power consumption,
-that is, ``network-latency`` and ``network-throughput``, for example:
+that is, ``network-latency`` and ``network-throughput``, for example. To enable
+the former, run:
 
 .. code-block:: shell-session
 
@@ -245,6 +247,15 @@ performance:
 
    killall irqbalance
 
-We highly recommend to pin the NIC interrupts to specific CPUs. See `this script
-<https://github.com/borkmann/netperf_scripts/blob/master/set_irq_affinity>`_
-for details and pointers on how to achieve this.
+We highly recommend to pin the NIC interrupts to specific CPUs in order to
+allow for maximum workload isolation!
+
+See `this script <https://github.com/borkmann/netperf_scripts/blob/master/set_irq_affinity>`_
+for details and initial pointers on how to achieve this. Note that pinning the
+queues can potentially vary in setup between different drivers.
+
+We generally also recommend to check various documentation and performance tuning
+guides from NIC vendors on this matter such as from
+`Mellanox <https://community.mellanox.com/s/article/performance-tuning-for-mellanox-adapters>`_,
+`Intel <https://www.intel.com/content/www/us/en/support/articles/000005811/network-and-i-o/ethernet-products.html>`_
+or others for more information.
