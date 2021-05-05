@@ -14,4 +14,5 @@ FROM docker.io/library/busybox:stable-glibc@sha256:95262195a281b3756e734b3996132
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium-cli/cilium /usr/local/bin/cilium
 RUN ["wget", "-P", "/usr/local/bin", "https://dl.k8s.io/release/v1.21.0/bin/linux/amd64/kubectl"]
+RUN ["chmod", "+x", "/usr/local/bin/kubectl"]
 ENTRYPOINT []
