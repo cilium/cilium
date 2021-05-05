@@ -801,7 +801,7 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 			log.WithFields(logrus.Fields{
 				logfields.DNSName: name,
 				logfields.IPAddr:  zombie.IP,
-			}).Warn("FQDN has multiple IPs. One IP has an expired TTL.")
+			}).Debug("FQDN has multiple IPs. One IP has an expired TTL.")
 			return true
 		}
 	}
