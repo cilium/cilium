@@ -22,18 +22,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16.4
-
-      - name: Set up Go for root
+      - name: Set job vars
+        id: vars
         run: |
-          sudo ln -sf `which go` `sudo which go` || true
-          sudo go version
-
-      - name: Build and install cilium CLI binary
-        run: sudo make install
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+            IS_PR=true
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+          echo ::set-output name=sha::${SHA}
 
       - name: Install eksctl
         run: |
@@ -52,38 +56,58 @@ jobs:
         run: |
           ./eksctl create cluster --name ${{ env.clusterName }} --without-nodegroup
 
-      - name: Install cilium
+      - name: Create kubeconfig and load it in configmap
         run: |
-          cilium install --cluster-name ${{ env.clusterName }} --wait=false --config monitor-aggregation=None
+          .github/get-kubeconfig.sh
+          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
+
+      - name: Load cilium install script in configmap
+        run: |
+          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-script-eks-install.sh
+
+      - name: Create cilium-cli install job
+        run: |
+          helm install .github/cilium-cli-test-job-chart --generate-name \
+          --set tag=${{ steps.vars.outputs.sha }} \
+          --set cluster_name=${{ env.clusterName }} \
+          --set job_name=cilium-cli-install \
+          --set test_script_cm=cilium-cli-test-script-install
 
       - name: Add nodegroup
         run: |
           ./eksctl create nodegroup --cluster ${{ env.clusterName }} --nodes 2 --node-private-networking --spot --managed
 
-      - name: Enable Relay
+      - name: Load cilium cli script in configmap
         run: |
-          cilium hubble enable
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-script-eks.sh
 
-      - name: Status
+      - name: Create cilium-cli test job
         run: |
-          cilium status --wait
+          helm install .github/cilium-cli-test-job-chart --generate-name \
+          --set tag=${{ steps.vars.outputs.sha }} \
+          --set cluster_name=${{ env.clusterName }}
 
-      - name: Relay Port Forward
+      - name: Wait for install job
         run: |
-          cilium hubble port-forward&
-          sleep 5s
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
 
-      - name: Connectivity Test
+      - name: Post-test installation logs
+        if: ${{ always() }}
         run: |
-          cilium connectivity test --test '!/pod-to-local-nodeport' --all-flows
+          kubectl logs -n kube-system job/cilium-cli-install
+
+      - name: Post-test information gathering
+        if: ${{ always() }}
+        run: |
+          kubectl logs -n kube-system job/cilium-cli
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
 
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          cilium status
-          kubectl get pods --all-namespaces -o wide
-          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-          python cilium-sysdump.zip --output cilium-sysdump-out
           ./eksctl delete cluster --name ${{ env.clusterName }}
         shell: bash {0}
 

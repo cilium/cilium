@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: cilium-cli
+  name: {{ .Values.job_name }}
   namespace: kube-system
 spec:
   backoffLimit: 0
@@ -45,4 +45,4 @@ spec:
             path: config
       - name: test-script
         configMap:
-          name: cilium-cli-test-script
+          name: {{ .Values.test_script_cm }}
