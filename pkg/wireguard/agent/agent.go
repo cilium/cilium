@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -107,7 +108,7 @@ func (a *Agent) Close() error {
 }
 
 // Init is called after we have obtained a local Wireguard IP
-func (a *Agent) Init() error {
+func (a *Agent) Init(mtuConfig mtu.Configuration) error {
 	link := &netlink.Wireguard{LinkAttrs: netlink.LinkAttrs{Name: types.IfaceName}}
 	err := netlink.LinkAdd(link)
 	if err != nil && !errors.Is(err, unix.EEXIST) {
@@ -131,6 +132,11 @@ func (a *Agent) Init() error {
 		ReplacePeers: false,
 	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
+		return err
+	}
+
+	linkMTU := mtuConfig.GetDeviceMTU() - mtu.WireguardOverhead
+	if err := netlink.LinkSetMTU(link, linkMTU); err != nil {
 		return err
 	}
 

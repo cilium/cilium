@@ -31,7 +31,7 @@ import (
 var (
 	nh = linuxNodeHandler{
 		nodeConfig: datapath.LocalNodeConfiguration{
-			MtuConfig: mtu.NewConfiguration(0, false, false, 100, net.IP("1.1.1.1")),
+			MtuConfig: mtu.NewConfiguration(0, false, false, false, 100, net.IP("1.1.1.1")),
 		},
 		nodeAddressing: fake.NewNodeAddressing(),
 		datapathConfig: DatapathConfiguration{

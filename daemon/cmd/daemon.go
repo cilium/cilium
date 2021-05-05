@@ -334,7 +334,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		externalIP = node.GetIPv6()
 	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
-	mtuConfig = mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU, externalIP)
+	mtuConfig = mtu.NewConfiguration(
+		authKeySize,
+		option.Config.EnableIPSec,
+		option.Config.Tunnel != option.TunnelDisabled,
+		option.Config.EnableWireguard,
+		configuredMTU,
+		externalIP,
+	)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipcache.IPIdentityCache, option.Config)
 	if err != nil {
@@ -554,7 +561,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 
 	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
-		if err := wgAgent.Init(); err != nil {
+		if err := wgAgent.Init(mtuConfig); err != nil {
 			log.WithError(err).Fatal("Failed to initialize wireguard agent")
 		}
 	}
