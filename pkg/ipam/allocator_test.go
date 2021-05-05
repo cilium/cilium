@@ -33,7 +33,7 @@ func (o *ownerMock) K8sEventReceived(scope string, action string, valid, equal b
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool)      {}
 func (o *ownerMock) UpdateCiliumNodeResource()                                       {}
 
-var mtuMock = mtu.NewConfiguration(0, false, false, 1500, nil)
+var mtuMock = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
