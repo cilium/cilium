@@ -73,18 +73,28 @@ Run a ``bash`` shell in one of the Cilium pods with
 ``kubectl -n kube-system exec -ti ds/cilium -- bash`` and execute the following
 commands:
 
-1. Install tcpdump
+1. Check that Wireguard has been enabled (number of peers should correspond to
+   a number of nodes subtracted by one):
 
-.. code:: shell-session
+.. code-block:: shell-session
+
+   cilium status | grep Encryption
+
+   Encryption: Wireguard [cilium_wg0 (Pubkey: <..>, Port: 51871, Peers: 2)]
+
+2. Install tcpdump
+
+.. code-block:: shell-session
 
     apt-get update
     apt-get -y install tcpdump
 
-2. Check that traffic is sent via the ``cilium_wg0`` tunnel device:
+3. Check that traffic is sent via the ``cilium_wg0`` tunnel device:
 
 .. code-block:: shell-session
 
-    $ tcpdump -n -i cilium_wg0
+    tcpdump -n -i cilium_wg0
+
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
     listening on cilium_wg0, link-type RAW (Raw IP), capture size 262144 bytes
     15:05:24.643427 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [S], seq 476474887, win 64860, options [mss 1410,sackOK,TS val 648097391 ecr 0,nop,wscale 7], length 0
@@ -99,6 +109,74 @@ commands:
     15:05:24.645752 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [F.], seq 81, ack 2422, win 502, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
     15:05:24.646431 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [F.], seq 2422, ack 82, win 502, options [nop,nop,TS val 4004186141 ecr 648097393], length 0
     15:05:24.646484 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 2423, win 502, options [nop,nop,TS val 648097394 ecr 4004186141], length 0
+
+Troubleshooting
+===============
+
+When troubleshooting dropped or unencrypted packets between pods, the following
+commands can be helpful:
+
+.. code-block:: shell-session
+
+   # From node A:
+   cilium debuginfo --output json | jq .encryption
+   {
+     "wireguard": {
+       "interfaces": [
+         {
+           "listen-port": 51871,
+           "name": "cilium_wg0",
+           "peer-count": 1,
+           "peers": [
+             {
+               "allowed-ips": [
+                 "10.154.1.107/32",
+                 "10.154.1.195/32"
+               ],
+               "endpoint": "192.168.34.12:51871",
+               "last-handshake-time": "2021-05-05T12:31:24.418Z",
+               "public-key": "RcYfs/GEkcnnv6moK5A1pKnd+YYUue21jO9I08Bv0zo="
+             }
+           ],
+           "public-key": "DrAc2EloK45yqAcjhxerQKwoYUbLDjyrWgt9UXImbEY="
+         }
+       ]
+     }
+   }
+   # From node B:
+   cilium debuginfo --output json | jq .encryption
+   {
+     "wireguard": {
+       "interfaces": [
+         {
+           "listen-port": 51871,
+           "name": "cilium_wg0",
+           "peer-count": 1,
+           "peers": [
+             {
+               "allowed-ips": [
+                 "10.154.2.103/32",
+                 "10.154.2.142/32"
+               ],
+               "endpoint": "192.168.34.11:51871",
+               "last-handshake-time": "2021-05-05T12:31:24.631Z",
+               "public-key": "DrAc2EloK45yqAcjhxerQKwoYUbLDjyrWgt9UXImbEY="
+             }
+           ],
+           "public-key": "RcYfs/GEkcnnv6moK5A1pKnd+YYUue21jO9I08Bv0zo="
+         }
+       ]
+     }
+   }
+
+For pod to pod packets to be successfully encrypted and decrypted, the following
+must hold:
+
+ - Wireguard public key of a remote node in the ``peers[*].public-key`` section
+   matches the actual public key of the remote node (``public-key`` retrieved via
+   the same command on the remote node).
+ - ``peers[*].allowed-ips`` should contain a list of pod IP addresses running
+   on the remote.
 
 Limitations
 ===========
