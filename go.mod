@@ -4,10 +4,10 @@ go 1.15
 
 // direct dependencies
 require (
-	github.com/Azure/azure-sdk-for-go v44.2.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.2
-	github.com/Azure/go-autorest/autorest/adal v0.9.0
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.0
+	github.com/Azure/azure-sdk-for-go v54.0.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.17
+	github.com/Azure/go-autorest/autorest/adal v0.9.11
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.7
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
@@ -74,7 +74,7 @@ require (
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
 	go.uber.org/goleak v1.0.0
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750
