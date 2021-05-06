@@ -15,6 +15,7 @@
 package lbmap
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
@@ -117,8 +119,15 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		svcVal.SetRevNat(int(p.ID))
 		svcKey.SetBackendSlot(slot)
 		if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
-			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
-				svcKey, svcVal, err)
+			if errors.Is(err, unix.E2BIG) {
+				return fmt.Errorf("Unable to update service entry %+v => %+v: "+
+					"Unable to update element for LB bpf map: "+
+					"You can resize it with the flag \"--%s\". "+
+					"The resizing might break existing connections to services",
+					svcKey, svcVal, option.LBMapEntriesName)
+			}
+
+			return fmt.Errorf("Unable to update service entry %+v => %+v: %w", svcKey, svcVal, err)
 		}
 		slot++
 	}

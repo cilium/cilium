@@ -921,7 +921,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 		return err
 	}
 
-	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	err = UpdateElement(m.fd, m.name, key.GetKeyPtr(), value.GetValuePtr(), 0)
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
@@ -1162,7 +1162,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		switch e.DesiredAction {
 		case OK:
 		case Insert:
-			err := UpdateElement(m.fd, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
+			err := UpdateElement(m.fd, m.name, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
 			if option.Config.MetricsConfig.BPFMapOps {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
