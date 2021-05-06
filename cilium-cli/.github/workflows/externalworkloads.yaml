@@ -24,19 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16.4
-
-      - name: Set up Go for root
-        run: |
-          sudo ln -sf `which go` `sudo which go` || true
-          sudo go version
-
-      - name: Build and install cilium CLI binary
-        run: sudo make install
-
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@master
         with:
@@ -53,27 +40,59 @@ jobs:
           gcloud container clusters create ${{ env.clusterName }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
           gcloud container clusters get-credentials ${{ env.clusterName}} --zone ${{ env.zone }}
 
+      - name: Set job vars
+        id: vars
+        run: |
+          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+            IS_PR=true
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+          echo ::set-output name=sha::${SHA}
+
       - name: Create GCP VM
         run: |
           gcloud compute instances create ${{ env.vmName }} --image-project ubuntu-os-cloud --image-family ubuntu-2010 --machine-type n1-standard-4 --zone ${{ env.zone }} --metadata hostname=${{ env.vmName }} --metadata-from-file startup-script=${{ env.vmStartupScript }}
 
-      - name: Install cilium in cluster
+      - name: Create gcloud-free kubeconfig and load it in configmap
         run: |
-          cilium install --cluster-name ${{ env.clusterName }} --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan
+          .github/get-kubeconfig.sh
+          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
 
-      - name: Enable ClusterMesh
+      - name: Load cilium install script in configmap
         run: |
-          cilium clustermesh enable
-          cilium clustermesh status --wait --wait-duration 5m
+          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/external-workloads-install.sh
 
-      - name: Add external workload
+      - name: Create cilium-cli install job
         run: |
-          cilium clustermesh vm create ${{ env.vmName }} -n default --ipv4-alloc-cidr 10.192.1.0/30
-          cilium clustermesh vm status
+          helm install .github/cilium-cli-test-job-chart --generate-name \
+          --set tag=${{ steps.vars.outputs.sha }} \
+          --set cluster_name=${{ env.clusterName }} \
+          --set job_name=cilium-cli-install \
+          --set test_script_cm=cilium-cli-test-script-install \
+          --set vm_name=${{ env.vmName }} \
+          --set cluster_cidr=${{ steps.vars.outputs.cluster_cidr }}
+
+      - name: Wait for install job
+        run: |
+          kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=10m
+
+      - name: Copy vm install script from cilium-cli-install pod
+        run: |
+          kubectl -n kube-system get configmap install-external-workload-script -o go-template='{{ .data.script }}' > install-external-workload.sh
+          chmod +x install-external-workload.sh
 
       - name: Install cilium on external workload
         run: |
-          cilium clustermesh vm install install-external-workload.sh
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "~/install-external-workload.sh"
           sleep 5s
@@ -87,21 +106,42 @@ jobs:
         run: |
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
-      - name: Connectivity test
+      - name: Load cilium test script in configmap
         run: |
-          cilium connectivity test --all-flows
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/external-workloads.sh
 
-      - name: Cleanup
+      - name: Create cilium-cli test job
+        run: |
+          helm install .github/cilium-cli-test-job-chart --generate-name \
+          --set tag=${{ steps.vars.outputs.sha }} \
+          --set job_name=cilium-cli \
+          --set test_script_cm=cilium-cli-test-script \
+
+      - name: Wait for test job
+        run: |
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
+
+      - name: Post-test installation logs
         if: ${{ always() }}
         run: |
-          cilium status
-          cilium clustermesh status
-          cilium clustermesh vm status
+          kubectl logs -n kube-system job/cilium-cli-install
+
+      - name: Post-test information gathering
+        if: ${{ always() }}
+        run: |
+          kubectl logs -n kube-system job/cilium-cli
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium"
           kubectl get pods --all-namespaces -o wide
           kubectl get cew --all-namespaces -o wide
           kubectl get cep --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
           gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }} --async
           gcloud compute instances delete --quiet ${{ env.vmName }} --zone ${{ env.zone }}
         shell: bash {0}
