@@ -50,7 +50,7 @@ func (a *ApiSuite) TestRateLimit(c *check.C) {
 	}()
 
 	metricsAPI := mock.NewMockMetrics()
-	client, err := NewClient("", "dummy-subscription", "dummy-resource-group", "", metricsAPI, 10.0, 4, true)
+	client, err := NewClient("AZUREPUBLICCLOUD", "dummy-subscription", "dummy-resource-group", "", metricsAPI, 10.0, 4, true)
 	c.Assert(err, check.IsNil)
 	c.Assert(client, check.Not(check.IsNil))
 
