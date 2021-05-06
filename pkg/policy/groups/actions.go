@@ -17,7 +17,6 @@ package groups
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -27,13 +26,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	// maxNumberOfAttempts Number of times that try to retrieve a information from a cloud provider.
-	maxNumberOfAttempts = 5
-	// SleepDuration time that sleep in case that can't retrieve information from a cloud provider.
-	sleepDuration = 5 * time.Second
 )
 
 var (
@@ -225,33 +217,25 @@ func addDerivativePolicy(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 		})
 	}
 
-	// The maxNumberOfAttempts is to not hit the limits of cloud providers API.
-	// Also, the derivativeErr is never returned, if not the controller will
-	// hit this function and the cloud providers limit will be raised. This
-	// will cause a disaster, due all other policies will hit the limit as
-	// well.
 	// If the createDerivativeCNP() fails, a new all block rule will be inserted and
 	// the derivative status in the parent policy  will be updated with the
 	// error.
-	for numAttempts := 0; numAttempts <= maxNumberOfAttempts; numAttempts++ {
-		if clusterScoped {
-			derivativeCCNP, derivativeErr = createDerivativeCCNP(ctx, cnp)
-			derivativePolicy = derivativeCCNP
-		} else {
-			derivativeCNP, derivativeErr = createDerivativeCNP(ctx, cnp)
-			derivativePolicy = derivativeCNP
-		}
+	if clusterScoped {
+		derivativeCCNP, derivativeErr = createDerivativeCCNP(ctx, cnp)
+		derivativePolicy = derivativeCCNP
+	} else {
+		derivativeCNP, derivativeErr = createDerivativeCNP(ctx, cnp)
+		derivativePolicy = derivativeCNP
+	}
 
-		if derivativeErr == nil {
-			break
-		}
+	if derivativeErr != nil {
 		metrics.PolicyImportErrorsTotal.Inc()
 		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
 		statusErr := updateDerivativeStatus(cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
 		if statusErr != nil {
 			scopedLog.WithError(statusErr).Error("Cannot update status for derivative policy")
 		}
-		time.Sleep(sleepDuration)
+		return derivativeErr
 	}
 
 	groupsCNPCache.UpdateCNP(cnp)
