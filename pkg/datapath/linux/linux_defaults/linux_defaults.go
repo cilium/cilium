@@ -44,6 +44,15 @@ const (
 	// RouteMarkMask is the mask required for the route mark value
 	RouteMarkMask = 0xF00
 
+	// RouteMarkToProxy is the default route mark to use to indicate
+	// datapath needs to send the packet to the proxy.
+	//
+	// Specifically, this is used in the L7 ingress policy tunneling case
+	// where after decryption, the packet is rerouted back into
+	// `cilium_host` with said mark to indicate the destination as the
+	// proxy.
+	RouteMarkToProxy = MagicMarkIsToProxy
+
 	// MarkMultinodeNodeport is used for AWS ENI to mark traffic from
 	// another node, so that it gets routed back through the relevant
 	// interface.
