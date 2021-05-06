@@ -63,7 +63,7 @@ jobs:
 
       - name: Load cilium install script in configmap
         run: |
-          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-script-eks-tunnel-install.sh
+          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks-tunnel-install.sh
 
       - name: Create cilium-cli install job
         run: |
@@ -79,7 +79,7 @@ jobs:
 
       - name: Load cilium cli script in configmap
         run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-script-eks-tunnel.sh
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks-tunnel.sh
 
       - name: Create cilium-cli test job
         run: |
