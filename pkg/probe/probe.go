@@ -77,7 +77,7 @@ func HaveFullLPM() bool {
 		if err != nil {
 			return
 		}
-		err = bpf.UpdateElement(m.GetFd(), unsafe.Pointer(&probeKey{}),
+		err = bpf.UpdateElement(m.GetFd(), m.Name(), unsafe.Pointer(&probeKey{}),
 			unsafe.Pointer(&probeValue{}), bpf.BPF_ANY)
 		if err != nil {
 			return

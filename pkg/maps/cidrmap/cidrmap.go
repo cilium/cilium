@@ -91,7 +91,7 @@ func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 		return err
 	}
 	log.WithField(logfields.Path, cm.path).Debugf("Inserting CIDR entry %s", cidr.String())
-	return bpf.UpdateElement(cm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
+	return bpf.UpdateElement(cm.Fd, cm.path, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
 // DeleteCIDR deletes an entry from 'cm' with key 'cidr'.
