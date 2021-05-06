@@ -26,6 +26,8 @@ spec:
             value: {{ .Values.cluster_name }}
           - name: CLUSTER_CIDR
             value: {{ .Values.cluster_cidr }}
+          - name: VM_NAME
+            value: {{ .Values.vm_name }}
       dnsPolicy: ClusterFirst
       enableServiceLinks: true
       priority: 0
