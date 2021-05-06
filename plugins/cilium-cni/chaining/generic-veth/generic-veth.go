@@ -59,10 +59,10 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		}
 	}()
 	var (
-		hostMac, vethHostName, vethLXCMac, vethIP string
-		vethHostIdx, peerIndex                    int
-		peer                                      netlink.Link
-		netNs                                     ns.NetNS
+		hostMac, vethHostName, vethLXCMac, vethIP, vethIPv6 string
+		vethHostIdx, peerIndex                              int
+		peer                                                netlink.Link
+		netNs                                               ns.NetNS
 	)
 
 	netNs, err = ns.GetNS(pluginCtx.Args.Netns)
@@ -107,6 +107,15 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			}
 
 			vethIP = addrs[0].IPNet.IP.String()
+
+			addrsv6, err := netlink.AddrList(link, netlink.FAMILY_V6)
+			if err == nil && len(addrsv6) > 0 {
+				vethIPv6 = addrsv6[0].IPNet.IP.String()
+			} else if err != nil {
+				pluginCtx.Logger.WithError(err).WithFields(logrus.Fields{
+					logfields.Interface: link.Attrs().Name}).Warn("No valid IPv6 address found")
+			}
+
 			return nil
 		}
 
@@ -144,6 +153,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	ep := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: vethIP,
+			IPV6: vethIPv6,
 		},
 		ContainerID:       pluginCtx.Args.ContainerID,
 		State:             models.EndpointStateWaitingForIdentity,
