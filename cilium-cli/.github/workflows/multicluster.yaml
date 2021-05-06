@@ -49,6 +49,7 @@ jobs:
         run: |
           gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
           gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
+          echo "CONTEXT1=$(kubectl config get-contexts -o name | grep ${{ env.clusterName1 }})" >> $GITHUB_ENV
 
       - name: Install cilium in cluster1
         run: |
@@ -63,11 +64,10 @@ jobs:
         run: |
           gcloud container clusters create ${{ env.clusterName2 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
           gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
+          echo "CONTEXT2=$(kubectl config get-contexts -o name | grep ${{ env.clusterName2 }})" >> $GITHUB_ENV
 
       - name: Install cilium in cluster2
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
-          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
           cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan --context $CONTEXT2 --inherit-ca $CONTEXT1
           cilium hubble enable --relay=false
 
@@ -77,47 +77,36 @@ jobs:
 
       - name: Wait for ClusterMesh to be enabled cluster1
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT1 clustermesh status --wait
 
       - name: Wait for ClusterMesh to be enabled cluster2
         run: |
-          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT2 clustermesh status --wait
 
       - name: Connect clusters
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
-          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT1 clustermesh connect --destination-context $CONTEXT2
 
       - name: Wait for ClusterMesh to be connected cluster1
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT1 clustermesh status --wait --wait-duration 5m
 
       - name: Wait for ClusterMesh to be connected cluster2
         run: |
-          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT2 clustermesh status --wait --wait-duration 5m
 
       - name: Relay Port Forward
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
           cilium hubble port-forward --context $CONTEXT1&
           sleep 5s
 
       - name: Connectivity test
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
-          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT1 connectivity test --multi-cluster $CONTEXT2 --test '!pod-to-nodeport' --test '!pod-to-local-nodeport'
 
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          CONTEXT1=$(kubectl config view | grep ${{ env.clusterName1 }} | head -1 | awk '{print $2}')
-          CONTEXT2=$(kubectl config view | grep ${{ env.clusterName2 }} | head -1 | awk '{print $2}')
           cilium --context $CONTEXT1 status
           cilium --context $CONTEXT1 clustermesh status
           cilium --context $CONTEXT2 status
