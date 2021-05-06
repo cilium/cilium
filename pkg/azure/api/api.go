@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-11-01/network"
@@ -39,11 +40,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-const (
-	userAgent = "cilium"
+var (
+	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
+	userAgent = fmt.Sprintf("cilium/%s", version.Version)
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
 
 // Client represents an Azure API client
 type Client struct {
@@ -63,27 +63,19 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-func constructAuthorizer(cloudName, userAssignedIdentityID string) (autorest.Authorizer, error) {
+func constructAuthorizer(env azure.Environment, userAssignedIdentityID string) (autorest.Authorizer, error) {
 	if userAssignedIdentityID != "" {
-		env, err := azure.EnvironmentFromName(cloudName)
-		if err != nil {
-			return nil, err
-		}
-		msiEndpoint, err := adal.GetMSIVMEndpoint()
+		spToken, err := adal.NewServicePrincipalTokenFromManagedIdentity(env.ServiceManagementEndpoint, &adal.ManagedIdentityOptions{
+			ClientID: userAssignedIdentityID,
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		spToken, err := adal.NewServicePrincipalTokenFromMSIWithUserAssignedID(msiEndpoint,
-			env.ServiceManagementEndpoint,
-			userAssignedIdentityID)
-		if err != nil {
-			return nil, err
-		}
 		return autorest.NewBearerAuthorizer(spToken), nil
 	} else {
 		// Authorizer based on file first and then environment variables
-		authorizer, err := auth.NewAuthorizerFromFile(compute.DefaultBaseURI)
+		authorizer, err := auth.NewAuthorizerFromFile(env.ResourceManagerEndpoint)
 		if err == nil {
 			return authorizer, nil
 		}
@@ -93,18 +85,23 @@ func constructAuthorizer(cloudName, userAssignedIdentityID string) (autorest.Aut
 
 // NewClient returns a new Azure client
 func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
+	azureEnv, err := azure.EnvironmentFromName(cloudName)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &Client{
 		resourceGroup:   resourceGroup,
-		interfaces:      network.NewInterfacesClient(subscriptionID),
-		virtualnetworks: network.NewVirtualNetworksClient(subscriptionID),
-		vmss:            compute.NewVirtualMachineScaleSetVMsClient(subscriptionID),
-		vmscalesets:     compute.NewVirtualMachineScaleSetsClient(subscriptionID),
+		interfaces:      network.NewInterfacesClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
+		virtualnetworks: network.NewVirtualNetworksClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
+		vmss:            compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
+		vmscalesets:     compute.NewVirtualMachineScaleSetsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		metricsAPI:      metrics,
 		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
 		usePrimary:      usePrimary,
 	}
 
-	authorizer, err := constructAuthorizer(cloudName, userAssignedIdentityID)
+	authorizer, err := constructAuthorizer(azureEnv, userAssignedIdentityID)
 	if err != nil {
 		return nil, err
 	}
