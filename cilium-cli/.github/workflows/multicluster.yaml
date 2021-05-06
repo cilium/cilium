@@ -47,13 +47,13 @@ jobs:
 
       - name: Create GKE cluster1
         run: |
-          gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
+          gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
           gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
           echo "CONTEXT1=$(kubectl config get-contexts -o name | grep ${{ env.clusterName1 }})" >> $GITHUB_ENV
 
       - name: Install cilium in cluster1
         run: |
-          cilium install --cluster-name ${{ env.clusterName1 }} --cluster-id 1 --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan
+          cilium install --cluster-name ${{ env.clusterName1 }} --cluster-id 1 --restart-unmanaged-pods=false --config monitor-aggregation=none --native-routing-cidr=10.0.0.0/9
           cilium hubble enable
 
       - name: Enable ClusterMesh cluster1
@@ -62,13 +62,24 @@ jobs:
 
       - name: Create GKE cluster2
         run: |
-          gcloud container clusters create ${{ env.clusterName2 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
+          gcloud container clusters create ${{ env.clusterName2 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
           gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
           echo "CONTEXT2=$(kubectl config get-contexts -o name | grep ${{ env.clusterName2 }})" >> $GITHUB_ENV
 
+      - name: Allow cross-cluster traffic
+        run: |
+          TAG1=$(gcloud compute firewall-rules list --filter="name~^gke-${{ env.clusterName1 }}-[0-9a-z]*-all$" --format="value(name)")
+          TAG2=$(gcloud compute firewall-rules list --filter="name~^gke-${{ env.clusterName2 }}-[0-9a-z]*-all$" --format="value(name)")
+          GCP_FW_RULE=cilium-cli-ci-multicluster-${{ github.run_number }}-rule
+          gcloud compute firewall-rules describe $TAG1
+          gcloud compute firewall-rules describe $TAG2
+          gcloud compute firewall-rules create $GCP_FW_RULE --allow tcp,udp,icmp,sctp,esp,ah --priority=999 --source-ranges=10.0.0.0/9 --target-tags=${TAG1/-all/-node},${TAG2/-all/-node}
+          gcloud compute firewall-rules describe $GCP_FW_RULE
+          echo "GCP_FW_RULE=$GCP_FW_RULE" >> $GITHUB_ENV
+
       - name: Install cilium in cluster2
         run: |
-          cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan --context $CONTEXT2 --inherit-ca $CONTEXT1
+          cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --restart-unmanaged-pods=false --config monitor-aggregation=none --native-routing-cidr=10.0.0.0/9 --context $CONTEXT2 --inherit-ca $CONTEXT1
           cilium hubble enable --relay=false
 
       - name: Enable ClusterMesh cluster2
@@ -114,6 +125,7 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
+          gcloud compute firewall-rules delete --quiet $GCP_FW_RULE
           gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }}
           gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }}
         shell: bash {0}
