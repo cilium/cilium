@@ -68,7 +68,7 @@ jobs:
 
       - name: Load test script in configmap
         run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file .github/in-cluster-test-script.sh
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/gke.sh
 
       - name: Create cilium-cli job
         run: |

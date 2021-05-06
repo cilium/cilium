@@ -63,7 +63,7 @@ jobs:
 
       - name: Load cilium install script in configmap
         run: |
-          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-script-eks-install.sh
+          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks-install.sh
 
       - name: Create cilium-cli install job
         run: |
@@ -79,7 +79,7 @@ jobs:
 
       - name: Load cilium cli script in configmap
         run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-script-eks.sh
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks.sh
 
       - name: Create cilium-cli test job
         run: |
@@ -87,7 +87,7 @@ jobs:
           --set tag=${{ steps.vars.outputs.sha }} \
           --set cluster_name=${{ env.clusterName }}
 
-      - name: Wait for install job
+      - name: Wait for test job
         run: |
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
 
