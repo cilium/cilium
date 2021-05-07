@@ -14,6 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Run checkpatch.pl
         uses: docker://quay.io/cilium/cilium-checkpatch:cc7e6b5811f46d7b040dedfe2f6b0010c2c51a12@sha256:9160b6ca58eb99a3ed5d567a494b2e2001325ebad32029c5bd17a8ae4df01044
@@ -22,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - uses: docker://cilium/coccicheck:2.0
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
@@ -48,6 +51,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Build all BPF datapath permutations
         env:

@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - name: Add namespace object
         run: |
           cat <<EOT > cilium.yaml

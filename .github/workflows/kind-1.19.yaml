@@ -42,6 +42,8 @@ jobs:
 
       - name: Checkout king config
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
 
       - name: Create kind cluster
         uses: helm/kind-action@7a937c0fb648064a83b8b9354151e5e543d9fcec

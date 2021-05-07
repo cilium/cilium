@@ -23,6 +23,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v2
       with:
+        persist-credentials: false
         fetch-depth: 1
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1
