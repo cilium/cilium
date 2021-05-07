@@ -44,8 +44,6 @@ var _ = Describe("K8sBandwidthTest", func() {
 	AfterAll(func() {
 		_ = kubectl.Delete(demoYAML)
 		ExpectAllPodsTerminated(kubectl)
-
-		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
@@ -85,6 +83,10 @@ var _ = Describe("K8sBandwidthTest", func() {
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 			backgroundCancel()
+		})
+
+		AfterAll(func() {
+			UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		})
 
 		waitForTestPods := func() {
