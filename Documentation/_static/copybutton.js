@@ -27,6 +27,7 @@ function addCopyButtonToCodeCells() {
     setTimeout(addCopyButtonToCodeCells, 1000);
     return;
   }
+  const promptRegExp = /^\s*(\$|#)\s/;
   var codeCells = document.querySelectorAll(".rst-content pre");
   codeCells.forEach(function(codeCell, index) {
     var wrapper = document.createElement("div");
@@ -36,7 +37,8 @@ function addCopyButtonToCodeCells() {
     var id = codeCellId(index);
     codeCell.setAttribute("id", id);
     function clipboardButton(id) {
-      var linesCount = codeCell.textContent.trim().split("\n").length;
+      var lines = codeCell.textContent.trim().split("\n");
+      var linesCount = lines.length;
       var buttonHtml = [];
       buttonHtml.push('<div class="copybutton-wrapper">');
       buttonHtml.push(
@@ -50,6 +52,37 @@ function addCopyButtonToCodeCells() {
       buttonHtml.push(linesCount > 1 ? "Copy First Line" : "Copy Line");
       buttonHtml.push("</a>");
       if (linesCount > 1) {
+        /*
+         * Add a button to print commands for literal and code blocks that may
+         * have prompt symbols to distinguish the commands from their output.
+         *
+         * Add it to:
+         * - "code-block" with language "shell-session", with a parent of class
+         *   ".highlight-shell-session"
+         * - Literal blocks ("::"), with a parent of class ".highlight-default"
+         * - Parsed literal blocks, with a parent of class ".literal-block"
+         *
+         * Do not add it to a "code-block" with a language other than
+         * "shell-session".
+         */
+        if (codeCell.closest(".highlight-shell-session") ||
+            codeCell.closest(".highlight-default") ||
+            codeCell.closest("literal-block")) {
+          for (const l of lines) {
+            /* Additionally, only add button if we find at least one command */
+            if (promptRegExp.test(l)) {
+              buttonHtml.push(
+                '<a class="copybutton" data-clipboard-mode="commands"  data-clipboard-target="#' +
+                  id +
+                  '">'
+              );
+              buttonHtml.push("Copy Commands");
+              buttonHtml.push("</a>");
+              break;
+            }
+          }
+        }
+
         buttonHtml.push(
           '<a class="copybutton" data-clipboard-mode="all"  data-clipboard-target="#' +
             id +
@@ -75,6 +108,24 @@ function addCopyButtonToCodeCells() {
           .trim()
           .replace(/^\$/, "")
           .trim();
+      } else if (mode === "commands") {
+        /*
+         * Copy lines with "commands": each line starting with a prompt symbol
+         * ($ or #), plus the continuation lines, for commands ending with a
+         * backslash.
+         */
+        var cmds = "";
+        var continuation = false;
+        var lines = code.textContent.split("\n");
+        for (const l of lines) {
+          if (promptRegExp.test(l) || continuation) {
+            /* Keep line but remove prompt */
+            cmds += l.replace(promptRegExp, "") + "\n";
+            /* Expect a continuation line if command ends with a backslash */
+            continuation = /\\\s*$/.test(l);
+          }
+        }
+        return cmds;
       } else {
         return code.textContent;
       }
