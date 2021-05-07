@@ -318,7 +318,7 @@ var ciliumCLICommands = map[string]string{
 	"cilium status --all-controllers":       "status.txt",
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 
-	"hubble observe --since 4h -o json": "hubble_observe.txt",
+	"hubble observe --since 4h -o jsonpb": "hubble_observe.json",
 }
 
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
@@ -333,7 +333,7 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium policy get":               "policy_get.txt",
 	"cilium status --all-controllers": "status.txt",
 
-	"hubble observe --since 4h -o json": "hubble_observe.txt",
+	"hubble observe --since 4h -o jsonpb": "hubble_observe.json",
 }
 
 // ciliumKubCLICommandsKVStore contains commands related to querying the kvstore.
