@@ -686,8 +686,6 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
 	}
 
-	fmt.Fprint(fw, defineUint32("HOST_EP_ID", uint32(node.GetEndpointID())))
-
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
 
 	secID := e.GetIdentityLocked().Uint32()
@@ -753,6 +751,8 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 			fmt.Fprintf(fw, "#define DISABLE_LOOPBACK_LB 1\n")
 		}
 	}
+
+	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(node.GetEndpointID()))
 
 	if !e.HasIpvlanDataPath() {
 		if e.RequireARPPassthrough() {

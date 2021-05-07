@@ -28,7 +28,7 @@ tail_call_static(const struct __ctx_buff *ctx, const void *map,
 		     "r2 = %[map]\n\t"
 		     "r3 = %[slot]\n\t"
 		     "call 12\n\t"
-		     :: [ctx]"r"(ctx), [map]"r"(map), [slot]"ri"(slot)
+		     :: [ctx]"r"(ctx), [map]"r"(map), [slot]"i"(slot)
 		     : "r0", "r1", "r2", "r3", "r4", "r5");
 }
 
