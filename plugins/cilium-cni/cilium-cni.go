@@ -41,8 +41,10 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/flannel"
+	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/pod-link"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
+	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/terway"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 	"github.com/cilium/ebpf"
 

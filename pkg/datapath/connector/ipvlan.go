@@ -30,10 +30,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func getEntryProgInstructions(fd int) asm.Instructions {
+func getEntryProgInstructions(fd int, index int32) asm.Instructions {
 	return asm.Instructions{
 		asm.LoadMapPtr(asm.R2, fd),
-		asm.Mov.Imm(asm.R3, 0),
+		asm.Mov.Imm(asm.R3, index),
 		asm.FnTailCall.Call(),
 		asm.Mov.Imm(asm.R0, 0),
 		asm.Return(),
@@ -97,7 +97,7 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.M
 
 		prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
 			Type:         ebpf.SchedCLS,
-			Instructions: getEntryProgInstructions(m.FD()),
+			Instructions: getEntryProgInstructions(m.FD(), 0),
 			License:      "ASL2",
 		})
 		if err != nil {
