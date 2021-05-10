@@ -109,7 +109,7 @@ func (c *TimeoutConfig) Validate() error {
 		return fmt.Errorf("Timeout too short (must be at least 5 seconds): %v", c.Timeout)
 	}
 	if c.Ticker == 0 {
-		c.Ticker = 5 * time.Second
+		c.Ticker = 1 * time.Second
 	} else if c.Ticker < time.Second {
 		return fmt.Errorf("Timeout config Ticker interval too short (must be at least 1 second): %v", c.Ticker)
 	}
