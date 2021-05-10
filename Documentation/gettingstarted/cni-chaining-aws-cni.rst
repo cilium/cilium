@@ -6,42 +6,43 @@
 
 .. _chaining_aws_cni:
 
-*******
-AWS-CNI
-*******
+******************
+AWS VPC CNI plugin
+******************
 
-This guide explains how to set up Cilium in combination with aws-cni. In this
-hybrid mode, the aws-cni plugin is responsible for setting up the virtual
-network devices as well as address allocation (IPAM) via ENI. After the initial
-networking is setup, the Cilium CNI plugin is called to attach eBPF programs to
-the network devices set up by aws-cni to enforce network policies, perform
-load-balancing, and encryption.
+This guide explains how to set up Cilium in combination with the AWS VPC CNI
+plugin. In this hybrid mode, the AWS VPC CNI plugin is responsible for setting
+up the virtual network devices as well as for IP address management (IPAM) via
+ENIs. After the initial networking is setup for a given pod, the Cilium CNI
+plugin is called to attach eBPF programs to the network devices set up by the
+AWS VPC CNI plugin in order to enforce network policies, perform load-balancing
+and provide encryption.
 
 .. include:: cni-chaining-limitations.rst
 
 .. important::
 
-   Due to a bug in certain version of the AWS CNI, please ensure that you are
-   running the AWS CNI `1.7.9 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.7.9>`_
-   or newer to guarantee compatibility with Cilium.
+   Please ensure that you are running version `1.7.9 <https://github.com/aws/amazon-vpc-cni-k8s/releases/tag/v1.7.9>`_
+   or newer of the AWS VPC CNI plugin to guarantee compatibility with Cilium.
+   The official upgrade instructions can be found `here <https://docs.aws.amazon.com/eks/latest/userguide/cni-upgrades.html>`_.
 
 .. image:: aws-cni-architecture.png
 
 
-Setup Cluster on AWS
-====================
+Setting up a cluster on AWS
+===========================
 
 Follow the instructions in the :ref:`k8s_install_quick` guide to set up an EKS
-cluster or use any other method of your preference to set up a Kubernetes
-cluster.
+cluster, or use any other method of your preference to set up a Kubernetes
+cluster on AWS.
 
-Ensure that the `aws-vpc-cni-k8s <https://github.com/aws/amazon-vpc-cni-k8s>`__
-plugin is installed. If you have set up an EKS cluster, this is automatically
-done.
+Ensure that the `aws-vpc-cni-k8s <https://github.com/aws/amazon-vpc-cni-k8s>`_
+plugin is installed — which will already be the case if you have created an EKS
+cluster. Also, ensure the version of the plugin is up-to-date as per the above.
 
 .. include:: k8s-install-download-release.rst
 
-Deploy Cilium release via Helm:
+Deploy Cilium via Helm:
 
 .. parsed-literal::
 
@@ -50,25 +51,96 @@ Deploy Cilium release via Helm:
      --set cni.chainingMode=aws-cni \\
      --set enableIPv4Masquerade=false \\
      --set tunnel=disabled \\
-     --set nodeinit.enabled=true
+     --set nodeinit.enabled=true \\
+     --set endpointRoutes.enabled=true
 
-This will enable chaining with the aws-cni plugin. It will also disable
-tunneling. Tunneling is not required as ENI IP addresses can be directly routed
-in your VPC. You can also disable masquerading for the same reason.
+This will enable chaining with the AWS VPC CNI plugin. It will also disable
+tunneling, as it's not required since ENI IP addresses can be directly routed
+in the VPC. For the same reason, masquerading can be disabled as well.
 
 Restart existing pods
 =====================
 
-The new CNI chaining configuration will *not* apply to any pod that is already
-running in the cluster. Existing pods will be reachable and Cilium will
-load-balance to them but policy enforcement will not apply to them and
-load-balancing is not performed for traffic originating from existing pods.
-You must restart these pods in order to invoke the chaining configuration on
-them.
+The new CNI chaining configuration *will not* apply to any pod that is already
+running in the cluster. Existing pods will be reachable, and Cilium will
+load-balance *to* them, but not *from* them. Policy enforcement will also not
+be applied. For these reasons, you must restart these pods so that the chaining
+configuration can be applied to them.
 
-If you are unsure if a pod is managed by Cilium or not, run ``kubectl get cep``
-in the respective namespace and see if the pod is listed.
+The following command can be used to check which pods need to be restarted:
+
+.. code-block:: bash
+
+   for ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}'); do
+        ceps=$(kubectl -n "${ns}" get cep \
+            -o jsonpath='{.items[*].metadata.name}')
+        pods=$(kubectl -n "${ns}" get pod \
+            -o custom-columns=NAME:.metadata.name,NETWORK:.spec.hostNetwork \
+            | grep -E '\s(<none>|false)' | awk '{print $1}' | tr '\n' ' ')
+        ncep=$(echo "${pods} ${ceps}" | tr ' ' '\n' | sort | uniq -u | paste -s -d ' ' -)
+        for pod in $(echo $ncep); do
+          echo "${ns}/${pod}";
+        done
+   done
 
 .. include:: k8s-install-validate.rst
+
+Advanced
+========
+
+Enabling security groups for pods (EKS)
+---------------------------------------
+
+Cilium can be used alongside the `security groups for pods <https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html>`_
+feature of EKS in supported clusters when running in chaining mode. Follow the
+instructions below to enable this feature:
+
+.. important::
+
+   The following guide requires `jq <https://stedolan.github.io/jq/>`_ and the
+   `AWS CLI <https://aws.amazon.com/cli/>`_ to be installed and configured.
+
+Make sure that the ``AmazonEKSVPCResourceController`` managed policy is attached
+to the IAM role associated with the EKS cluster:
+
+.. code-block:: shell-session
+
+   export EKS_CLUSTER_NAME="my-eks-cluster" # Change accordingly
+   export EKS_CLUSTER_ROLE_NAME=$(aws eks describe-cluster \
+        --name "${EKS_CLUSTER_NAME}" \
+        | jq -r '.cluster.roleArn' | awk -F/ '{print $NF}')
+   aws iam attach-role-policy \
+        --policy-arn arn:aws:iam::aws:policy/AmazonEKSVPCResourceController \
+        --role-name "${EKS_CLUSTER_ROLE_NAME}"
+
+Then, and as mentioned above, make sure that the version of the AWS VPC CNI
+plugin running in the cluster is up-to-date:
+
+.. code-block:: shell-session
+
+   kubectl -n kube-system get ds/aws-node \
+     -o jsonpath='{.spec.template.spec.containers[0].image}'
+   602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon-k8s-cni:v1.7.10
+
+Next, patch the ``kube-system/aws-node`` DaemonSet in order to enable security
+groups for pods:
+
+.. code-block:: shell-session
+
+   kubectl -n kube-system patch ds aws-node \
+     -p '{"spec":{"template":{"spec":{"initContainers":[{"env":[{"name":"DISABLE_TCP_EARLY_DEMUX","value":"true"}],"name":"aws-vpc-cni-init"}],"containers":[{"env":[{"name":"ENABLE_POD_ENI","value":"true"}],"name":"aws-node"}]}}}}'
+   kubectl -n kube-system rollout status ds aws-node
+
+After the rollout is complete, all nodes in the cluster should have the ``vps.amazonaws.com/has-trunk-attached`` label set to ``true``:
+
+.. code-block:: shell-session
+
+   kubectl get nodes -L vpc.amazonaws.com/has-trunk-attached
+   NAME                                            STATUS   ROLES    AGE   VERSION              HAS-TRUNK-ATTACHED
+   ip-192-168-111-169.eu-west-2.compute.internal   Ready    <none>   22m   v1.19.6-eks-49a6c0   true
+   ip-192-168-129-175.eu-west-2.compute.internal   Ready    <none>   22m   v1.19.6-eks-49a6c0   true
+
+From this moment everything should be in place. For details on how to actually
+associate security groups to pods, please refer to the `official documentation <https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html>`_.
 
 .. include:: next-steps.rst
