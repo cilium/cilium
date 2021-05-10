@@ -73,11 +73,11 @@ throughput is achieved:
 
 .. image:: images/bench_tcp_stream_1_stream.png
 
-When running in the fastest datapath option, Cilium can outperform even the
-node-to-node baseline despite performing additional work (forwarding into the
-network namespace of the container, policy enforcement, ...). This is because
-Cilium is capable of bypassing the iptables layer of the node which is still
-traversed for the node to node baseline.
+We can see that eBPF-based solutions can outperform even the node-to-node
+baseline on modern kernels despite performing additional work (forwarding
+into the network namespace of the container, policy enforcement, ...). This is
+because eBPF is capable of bypassing the iptables layer of the node which is
+still traversed for the node to node baseline.
 
 The following graph shows the total CPU consumption across the entire system
 while running the benchmark, normalized to a 50Gbit throughput:
@@ -131,8 +131,8 @@ one request is counted:
 
 .. image:: images/bench_tcp_rr_1_process.png
 
-Cilium achieves almost the same request/response rate as the baseline while only
-consuming marginally more CPU resources:
+eBPF on modern kernels can achieve almost the same request/response rate as the
+baseline while only consuming marginally more CPU resources:
 
 .. image:: images/bench_tcp_rr_1_process_cpu.png
 
