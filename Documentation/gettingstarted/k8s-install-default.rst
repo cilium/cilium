@@ -225,64 +225,6 @@ pods are failing to be deployed.
    was deployed and the installer has automatically restarted them to ensure
    all pods get networking provided by Cilium.
 
-Validate Installation
-=====================
-
-Check the Status
-----------------
-
-To validate the installation, run the ``cilium status`` command:
-
-.. code-block:: shell-session
-
-    cilium status
-        /¯¯\
-     /¯¯\__/¯¯\    Cilium:         OK
-     \__/¯¯\__/    Operator:       OK
-     /¯¯\__/¯¯\    Hubble:         disabled
-     \__/¯¯\__/    ClusterMesh:    disabled
-        \__/
-
-    DaemonSet         cilium                   Desired: 3, Ready: 3/3, Available: 3/3
-    Deployment        cilium-operator          Desired: 1, Ready: 1/1, Available: 1/1
-    Containers:       cilium                   Running: 3
-                      cilium-operator          Running: 1
-    Image versions    cilium                   quay.io/cilium/cilium:v1.9.4: 3
-                      cilium-operator          quay.io/cilium/operator-generic:v1.9.4: 1
-
-Run the Connectivity Test
--------------------------
-
-Run the ``cilium connectivity test`` to validate that your cluster has proper
-network connectivity:
-
-.. code-block:: shell-session
-
-    cilium connectivity test
-    ✨ [gke_cilium-dev_us-west2-a_32287] Creating namespace for connectivity check...
-    [...]
-
-    ---------------------------------------------------------------------------------------------------------------------
-    🔌 [pod-to-pod] Testing cilium-test/client-77bd7f48dd-5zwkw -> cilium-test/echo-other-node-86774f89b9-xjmkn...
-    ---------------------------------------------------------------------------------------------------------------------
-    ✅ [pod-to-pod] cilium-test/client-77bd7f48dd-5zwkw (10.0.2.188) -> cilium-test/echo-other-node-86774f89b9-xjmkn (10.0.1.125)
-
-    ---------------------------------------------------------------------------------------------------------------------
-    🔌 [pod-to-pod] Testing cilium-test/client-77bd7f48dd-5zwkw -> cilium-test/echo-same-node-f789dd8f7-th9f7...
-    ---------------------------------------------------------------------------------------------------------------------
-    ✅ [pod-to-pod] cilium-test/client-77bd7f48dd-5zwkw (10.0.2.188) -> cilium-test/echo-same-node-f789dd8f7-th9f7 (10.0.2.223)
-
-    ---------------------------------------------------------------------------------------------------------------------
-    🔌 [pod-to-service] Testing cilium-test/client-77bd7f48dd-5zwkw -> echo-other-node:8080 (ClusterIP)...
-    ---------------------------------------------------------------------------------------------------------------------
-    ✅ [pod-to-service] cilium-test/client-77bd7f48dd-5zwkw (10.0.2.188) -> echo-other-node:8080 (ClusterIP) (echo-other-node:8080)
-    [...]
-    ---------------------------------------------------------------------------------------------------------------------
-    📋 Test Report
-    ---------------------------------------------------------------------------------------------------------------------
-    ✅ 9/9 tests successful (0 warnings)
-
-
-Congratulations! You have a fully functional Kubernetes cluster with Cilium. 🎉
+.. include:: k8s-install-validate.rst
 
 .. include:: next-steps.rst

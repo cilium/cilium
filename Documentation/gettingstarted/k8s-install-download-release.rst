@@ -6,7 +6,7 @@
 
 .. note::
 
-   First, make sure you have Helm 3 `installed <https://helm.sh/docs/intro/install/>`_.
+   Make sure you have Helm 3 `installed <https://helm.sh/docs/intro/install/>`_.
    Helm 2 is `no longer supported <https://helm.sh/blog/helm-v2-deprecation-timeline/>`_.
 
 .. only:: stable
