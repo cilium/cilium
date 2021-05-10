@@ -47,6 +47,10 @@ func (p *IPSecSuitePrivileged) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (p *IPSecSuitePrivileged) TearDownTest(c *C) {
+	DeleteXfrm()
+}
+
 func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
 	_, _, err := LoadIPSecKeysFile(path)
 	c.Assert(os.IsNotExist(err), Equals, true)
