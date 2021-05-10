@@ -3,7 +3,7 @@
 package wgh
 
 // Pull the latest wireguard.h from GitHub for code generation.
-//go:generate wget https://raw.githubusercontent.com/WireGuard/WireGuard/master/src/uapi/wireguard.h
+//go:generate wget https://raw.githubusercontent.com/torvalds/linux/master/include/uapi/linux/wireguard.h
 
 // Generate Go source from C constants.
 //go:generate c-for-go -out ../ -nocgo wgh.yml

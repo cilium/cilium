@@ -4,8 +4,6 @@ set -x
 
 # !! This script is meant for use in CI build use only !!
 
-BINDIR=/home/build/go/bin
-
 KERNEL=$(uname -s)
 
 # Use doas in place of sudo for OpenBSD.
@@ -15,13 +13,6 @@ if [ "${KERNEL}" == "OpenBSD" ]; then
 fi
 
 if [ "${KERNEL}" == "Linux" ]; then
-    # Set up the WireGuard kernel module on Linux.
-    sudo apt --allow-unauthenticated -y update
-    sudo apt -y install software-properties-common
-    sudo add-apt-repository -y ppa:wireguard/wireguard
-    sudo apt --allow-unauthenticated -y update
-    sudo apt --allow-unauthenticated -y install linux-headers-$(uname -r) wireguard-dkms wireguard-tools
-
     # Configure a WireGuard interface.
     sudo ip link add wg0 type wireguard
     sudo ip link set up wg0
@@ -39,7 +30,6 @@ else
     go build -o wireguard-go
 fi
 
-mkdir -p ${BINDIR}
-${SUDO} mv ./wireguard-go ${BINDIR}/wireguard-go
+${SUDO} mv ./wireguard-go /usr/local/bin/wireguard-go
 cd ..
 ${SUDO} rm -rf ./wireguard-go

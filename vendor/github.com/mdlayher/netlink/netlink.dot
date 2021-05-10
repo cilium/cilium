@@ -30,6 +30,7 @@ digraph {
             "github.com/axatrax/l2tp" [URL="https://github.com/axatrax/l2tp"]
             "github.com/digitalocean/go-openvswitch" [URL="https://github.com/digitalocean/go-openvswitch"]
             "github.com/mdlayher/devlink" [URL="https://github.com/mdlayher/devlink"]
+            "github.com/mdlayher/ethtool" [URL="https://github.com/mdlayher/ethtool"]
             "github.com/mdlayher/quota" [URL="https://github.com/mdlayher/quota"]
             "github.com/mdlayher/taskstats" [URL="https://github.com/mdlayher/taskstats"]
             "github.com/mdlayher/wifi" [URL="https://github.com/mdlayher/wifi"]

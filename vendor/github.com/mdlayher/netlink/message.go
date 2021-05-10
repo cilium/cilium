@@ -3,6 +3,7 @@ package netlink
 import (
 	"errors"
 	"fmt"
+	"unsafe"
 
 	"github.com/mdlayher/netlink/nlenc"
 )
@@ -81,6 +82,16 @@ const (
 
 	// Append indicates request adds to the end of the object list.
 	Append HeaderFlags = 0x800
+
+	// Flags for extended acknowledgements.
+
+	// Capped indicates the size of a request was capped in an extended
+	// acknowledgement.
+	Capped HeaderFlags = 0x100
+
+	// AcknowledgeTLVs indicates the presence of netlink extended
+	// acknowledgement TLVs in a response.
+	AcknowledgeTLVs HeaderFlags = 0x200
 )
 
 // String returns the string representation of a HeaderFlags.
@@ -240,31 +251,97 @@ func checkMessage(m Message) error {
 	// OpError in order to maintain the appropriate contract with callers of
 	// this package.
 
-	const success = 0
-
-	// Per libnl documentation, only messages that indicate type error can
+	// The libnl documentation indicates that type error can
 	// contain error codes:
 	// https://www.infradead.org/~tgr/libnl/doc/core.html#core_errmsg.
 	//
-	// However, at one point, this package checked both done and error for
-	// error codes.  Because there was no issue associated with the change,
-	// it is unknown whether this change was correct or not.  If you run into
-	// a problem with your application because of this change, please file
-	// an issue.
-	if m.Header.Type != Error {
+	// However, rtnetlink at least seems to also allow errors to occur at the
+	// end of a multipart message with done/multi and an error number.
+	var hasHeader bool
+	switch {
+	case m.Header.Type == Error:
+		// Error code followed by nlmsghdr/ext ack attributes.
+		hasHeader = true
+	case m.Header.Type == Done && m.Header.Flags&Multi != 0:
+		// If no data, there must be no error number so just  exit early. Some
+		// of the unit tests hard-coded this but I don't actually know if this
+		// case occurs in the wild.
+		if len(m.Data) == 0 {
+			return nil
+		}
+
+		// Done|Multi potentially followed by ext ack attributes.
+	default:
+		// Neither, nothing to do.
 		return nil
 	}
 
-	if len(m.Data) < 4 {
+	// Errno occupies 4 bytes.
+	const endErrno = 4
+	if len(m.Data) < endErrno {
 		return newOpError("receive", errShortErrorMessage)
 	}
 
-	if c := nlenc.Int32(m.Data[0:4]); c != success {
+	c := nlenc.Int32(m.Data[:endErrno])
+	if c == 0 {
+		// 0 indicates no error.
+		return nil
+	}
+
+	oerr := &OpError{
+		Op: "receive",
 		// Error code is a negative integer, convert it into an OS-specific raw
 		// system call error, but do not wrap with os.NewSyscallError to signify
 		// that this error was produced by a netlink message; not a system call.
-		return newOpError("receive", newError(-1*int(c)))
+		Err: newError(-1 * int(c)),
 	}
 
-	return nil
+	// TODO(mdlayher): investigate the Capped flag.
+
+	if m.Header.Flags&AcknowledgeTLVs == 0 {
+		// No extended acknowledgement.
+		return oerr
+	}
+
+	// Flags indicate an extended acknowledgement. The type/flags combination
+	// checked above determines the offset where the TLVs occur.
+	var off int
+	if hasHeader {
+		// There is an nlmsghdr preceding the TLVs.
+		if len(m.Data) < endErrno+nlmsgHeaderLen {
+			return newOpError("receive", errShortErrorMessage)
+		}
+
+		// The TLVs should be at the offset indicated by the nlmsghdr.length,
+		// plus the offset where the header began. But make sure the calculated
+		// offset is still in-bounds.
+		h := *(*Header)(unsafe.Pointer(&m.Data[endErrno : endErrno+nlmsgHeaderLen][0]))
+		off = endErrno + int(h.Length)
+
+		if len(m.Data) < off {
+			return newOpError("receive", errShortErrorMessage)
+		}
+	} else {
+		// There is no nlmsghdr preceding the TLVs, parse them directly.
+		off = endErrno
+	}
+
+	ad, err := NewAttributeDecoder(m.Data[off:])
+	if err != nil {
+		// Malformed TLVs, just return the OpError with the info we have.
+		return oerr
+	}
+
+	for ad.Next() {
+		switch ad.Type() {
+		case 1: // unix.NLMSGERR_ATTR_MSG
+			oerr.Message = ad.String()
+		case 2: // unix.NLMSGERR_ATTR_OFFS
+			oerr.Offset = int(ad.Uint32())
+		}
+	}
+
+	// Explicitly ignore ad.Err: malformed TLVs, just return the OpError with
+	// the info we have.
+	return oerr
 }

@@ -194,7 +194,10 @@ func tryDial(device string, pid uint32, privileges windows.Tokenprivileges) (net
 		return nil, err
 	}
 
-	return winpipe.DialPipe(device, nil, localSystem)
+	pipeCfg := &winpipe.DialConfig{
+		ExpectedOwner: localSystem,
+	}
+	return winpipe.Dial(device, nil, pipeCfg)
 }
 
 // find is the default implementation of Client.find.
