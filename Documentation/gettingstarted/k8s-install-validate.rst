@@ -1,24 +1,30 @@
 Validate the Installation
 =========================
 
-You can monitor as Cilium and all required components are being installed:
+.. include:: install-cli.rst
 
-.. parsed-literal::
+To validate that Cilium has been properly installed, you can run
 
-    kubectl -n kube-system get pods --watch
-    NAME                                    READY   STATUS              RESTARTS   AGE
-    cilium-operator-cb4578bc5-q52qk         0/1     Pending             0          8s
-    cilium-s8w5m                            0/1     PodInitializing     0          7s
-    coredns-86c58d9df4-4g7dd                0/1     ContainerCreating   0          8m57s
-    coredns-86c58d9df4-4l6b2                0/1     ContainerCreating   0          8m57s
+.. code-block:: shell-session
 
-It may take a couple of minutes for all components to come up:
+   cilium status --wait
 
-.. parsed-literal::
+The output should be similar to the following one:
 
-    cilium-operator-cb4578bc5-q52qk         1/1     Running   0          4m13s
-    cilium-s8w5m                            1/1     Running   0          4m12s
-    coredns-86c58d9df4-4g7dd                1/1     Running   0          13m
-    coredns-86c58d9df4-4l6b2                1/1     Running   0          13m
+::
+
+      /¯¯\
+   /¯¯\__/¯¯\    Cilium:         OK
+   \__/¯¯\__/    Operator:       OK
+   /¯¯\__/¯¯\    Hubble:         disabled
+   \__/¯¯\__/    ClusterMesh:    disabled
+      \__/
+
+   DaemonSet         cilium             Desired: 2, Ready: 2/2, Available: 2/2
+   Deployment        cilium-operator    Desired: 2, Ready: 2/2, Available: 2/2
+   Containers:       cilium-operator    Running: 2
+                     cilium             Running: 2
+   Image versions    cilium             quay.io/cilium/cilium:v1.9.5: 2
+                     cilium-operator    quay.io/cilium/operator-generic:v1.9.5: 2
 
 .. include:: k8s-install-connectivity-test.rst
