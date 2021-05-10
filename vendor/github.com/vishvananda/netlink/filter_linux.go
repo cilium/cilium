@@ -169,7 +169,6 @@ func (h *Handle) FilterReplace(filter Filter) error {
 }
 
 func (h *Handle) filterModify(filter Filter, flags int) error {
-	native = nl.NativeEndian()
 	req := h.newNetlinkRequest(unix.RTM_NEWTFILTER, flags|unix.NLM_F_ACK)
 	base := filter.Attrs()
 	msg := &nl.TcMsg{
@@ -632,7 +631,6 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 }
 
 func parseU32Data(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
-	native = nl.NativeEndian()
 	u32 := filter.(*U32)
 	detailed := false
 	for _, datum := range data {
@@ -678,7 +676,6 @@ func parseU32Data(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) 
 }
 
 func parseFwData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
-	native = nl.NativeEndian()
 	fw := filter.(*Fw)
 	detailed := true
 	for _, datum := range data {
@@ -707,7 +704,6 @@ func parseFwData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
 }
 
 func parseBpfData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
-	native = nl.NativeEndian()
 	bpf := filter.(*BpfFilter)
 	detailed := true
 	for _, datum := range data {
@@ -733,7 +729,6 @@ func parseBpfData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) 
 }
 
 func parseMatchAllData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) {
-	native = nl.NativeEndian()
 	matchall := filter.(*MatchAll)
 	detailed := true
 	for _, datum := range data {
@@ -801,14 +796,12 @@ func CalcRtable(rate *nl.TcRateSpec, rtab []uint32, cellLog int, mtu uint32, lin
 
 func DeserializeRtab(b []byte) [256]uint32 {
 	var rtab [256]uint32
-	native := nl.NativeEndian()
 	r := bytes.NewReader(b)
 	_ = binary.Read(r, native, &rtab)
 	return rtab
 }
 
 func SerializeRtab(rtab [256]uint32) []byte {
-	native := nl.NativeEndian()
 	var w bytes.Buffer
 	_ = binary.Write(&w, native, rtab)
 	return w.Bytes()
