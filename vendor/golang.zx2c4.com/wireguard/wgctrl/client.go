@@ -1,6 +1,7 @@
 package wgctrl
 
 import (
+	"errors"
 	"os"
 
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
@@ -58,14 +59,14 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 // Device retrieves a WireGuard device by its interface name.
 //
 // If the device specified by name does not exist or is not a WireGuard device,
-// an error is returned which can be checked using os.IsNotExist.
+// an error is returned which can be checked using `errors.Is(err, os.ErrNotExist)`.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	for _, wgc := range c.cs {
 		d, err := wgc.Device(name)
 		switch {
 		case err == nil:
 			return d, nil
-		case os.IsNotExist(err):
+		case errors.Is(err, os.ErrNotExist):
 			continue
 		default:
 			return nil, err
@@ -82,14 +83,14 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 // configuring a device.
 //
 // If the device specified by name does not exist or is not a WireGuard device,
-// an error is returned which can be checked using os.IsNotExist.
+// an error is returned which can be checked using `errors.Is(err, os.ErrNotExist)`.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	for _, wgc := range c.cs {
 		err := wgc.ConfigureDevice(name, cfg)
 		switch {
 		case err == nil:
 			return nil
-		case os.IsNotExist(err):
+		case errors.Is(err, os.ErrNotExist):
 			continue
 		default:
 			return err

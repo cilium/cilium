@@ -3,11 +3,10 @@
 package netlink
 
 import (
-	"errors"
 	"math"
 	"os"
 	"runtime"
-	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -18,34 +17,15 @@ import (
 
 var _ Socket = &conn{}
 
-var _ deadlineSetter = &conn{}
-
 // A conn is the Linux implementation of a netlink sockets connection.
 //
 // All conn methods must wrap system call errors with os.NewSyscallError to
 // enable more intelligible error messages in OpError.
 type conn struct {
-	s  socket
-	sa *unix.SockaddrNetlink
+	s *socket
 }
 
-// A socket is an interface over socket system calls.
-type socket interface {
-	Bind(sa unix.Sockaddr) error
-	Close() error
-	FD() int
-	File() *os.File
-	Getsockname() (unix.Sockaddr, error)
-	Recvmsg(p, oob []byte, flags int) (n int, oobn int, recvflags int, from unix.Sockaddr, err error)
-	Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error
-	SetDeadline(t time.Time) error
-	SetReadDeadline(t time.Time) error
-	SetWriteDeadline(t time.Time) error
-	SetSockoptSockFprog(level, opt int, fprog *unix.SockFprog) error
-	SetSockoptInt(level, opt, value int) error
-}
-
-// dial is the entry point for Dial.  dial opens a netlink socket using
+// dial is the entry point for Dial. dial opens a netlink socket using
 // system calls, and returns its PID.
 func dial(family int, config *Config) (*conn, uint32, error) {
 	// Prepare sysSocket's internal loop and create the socket.
@@ -57,21 +37,45 @@ func dial(family int, config *Config) (*conn, uint32, error) {
 		config = &Config{}
 	}
 
-	sock, err := newSysSocket(config)
-	if err != nil {
-		return nil, 0, err
+	// The caller has indicated it wants the netlink socket to be created
+	// inside another network namespace.
+	if config.NetNS != 0 {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		// Retrieve and store the calling OS thread's network namespace so
+		// the thread can be reassigned to it after creating a socket in another
+		// network namespace.
+		threadNS, err := threadNetNS()
+		if err != nil {
+			return nil, 0, err
+		}
+		// Always close the netns handle created above.
+		defer threadNS.Close()
+
+		// Assign the current OS thread the goroutine is locked to to the given
+		// network namespace.
+		if err := threadNS.Set(config.NetNS); err != nil {
+			return nil, 0, err
+		}
+
+		// Thread's namespace has been successfully set. Return the thread
+		// back to its original namespace after attempting to create the
+		// netlink socket.
+		defer threadNS.Restore()
 	}
 
-	if err := sock.Socket(family); err != nil {
+	// Socket will establish the internal state of the socket structure.
+	s, err := newSocket(family)
+	if err != nil {
 		return nil, 0, os.NewSyscallError("socket", err)
 	}
 
-	return bind(sock, config)
+	return newConn(s, config)
 }
 
-// bind binds a connection to netlink using the input socket, which may be
-// a system call implementation or a mocked one for tests.
-func bind(s socket, config *Config) (*conn, uint32, error) {
+// newConn binds a connection to netlink using the input socket.
+func newConn(s *socket, config *Config) (*conn, uint32, error) {
 	if config == nil {
 		config = &Config{}
 	}
@@ -95,12 +99,9 @@ func bind(s socket, config *Config) (*conn, uint32, error) {
 		return nil, 0, os.NewSyscallError("getsockname", err)
 	}
 
-	pid := sa.(*unix.SockaddrNetlink).Pid
-
 	return &conn{
-		s:  s,
-		sa: addr,
-	}, pid, nil
+		s: s,
+	}, sa.(*unix.SockaddrNetlink).Pid, nil
 }
 
 // SendMessages serializes multiple Messages and sends them to netlink.
@@ -115,11 +116,8 @@ func (c *conn) SendMessages(messages []Message) error {
 		buf = append(buf, b...)
 	}
 
-	addr := &unix.SockaddrNetlink{
-		Family: unix.AF_NETLINK,
-	}
-
-	return os.NewSyscallError("sendmsg", c.s.Sendmsg(buf, nil, addr, 0))
+	sa := &unix.SockaddrNetlink{Family: unix.AF_NETLINK}
+	return os.NewSyscallError("sendmsg", c.s.Sendmsg(buf, nil, sa, 0))
 }
 
 // Send sends a single Message to netlink.
@@ -129,11 +127,8 @@ func (c *conn) Send(m Message) error {
 		return err
 	}
 
-	addr := &unix.SockaddrNetlink{
-		Family: unix.AF_NETLINK,
-	}
-
-	return os.NewSyscallError("sendmsg", c.s.Sendmsg(b, nil, addr, 0))
+	sa := &unix.SockaddrNetlink{Family: unix.AF_NETLINK}
+	return os.NewSyscallError("sendmsg", c.s.Sendmsg(b, nil, sa, 0))
 }
 
 // Receive receives one or more Messages from netlink.
@@ -164,9 +159,7 @@ func (c *conn) Receive() ([]Message, error) {
 		return nil, os.NewSyscallError("recvmsg", err)
 	}
 
-	n = nlmsgAlign(n)
-
-	raw, err := syscall.ParseNetlinkMessage(b[:n])
+	raw, err := syscall.ParseNetlinkMessage(b[:nlmsgAlign(n)])
 	if err != nil {
 		return nil, err
 	}
@@ -189,16 +182,6 @@ func (c *conn) Close() error {
 	return os.NewSyscallError("close", c.s.Close())
 }
 
-// FD retrieves the file descriptor of the Conn.
-func (c *conn) FD() int {
-	return c.s.FD()
-}
-
-// File retrieves the *os.File associated with the Conn.
-func (c *conn) File() *os.File {
-	return c.s.File()
-}
-
 // JoinGroup joins a multicast group by ID.
 func (c *conn) JoinGroup(group uint32) error {
 	return os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
@@ -219,6 +202,12 @@ func (c *conn) LeaveGroup(group uint32) error {
 
 // SetBPF attaches an assembled BPF program to a conn.
 func (c *conn) SetBPF(filter []bpf.RawInstruction) error {
+	// We can't point to the first instruction in the array if no instructions
+	// are present.
+	if len(filter) == 0 {
+		return os.NewSyscallError("setsockopt", unix.EINVAL)
+	}
+
 	prog := unix.SockFprog{
 		Len:    uint16(len(filter)),
 		Filter: (*unix.SockFilter)(unsafe.Pointer(&filter[0])),
@@ -261,37 +250,51 @@ func (c *conn) SetOption(option ConnOption, enable bool) error {
 	))
 }
 
-func (c *conn) SetDeadline(t time.Time) error {
-	return c.s.SetDeadline(t)
-}
-
-func (c *conn) SetReadDeadline(t time.Time) error {
-	return c.s.SetReadDeadline(t)
-}
-
-func (c *conn) SetWriteDeadline(t time.Time) error {
-	return c.s.SetWriteDeadline(t)
-}
+func (c *conn) SetDeadline(t time.Time) error      { return c.s.SetDeadline(t) }
+func (c *conn) SetReadDeadline(t time.Time) error  { return c.s.SetReadDeadline(t) }
+func (c *conn) SetWriteDeadline(t time.Time) error { return c.s.SetWriteDeadline(t) }
 
 // SetReadBuffer sets the size of the operating system's receive buffer
 // associated with the Conn.
 func (c *conn) SetReadBuffer(bytes int) error {
-	return os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
+	// First try SO_RCVBUFFORCE. Given necessary permissions this syscall
+	// ignores limits. Fall back to the non-force version.
+	err := os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
 		unix.SOL_SOCKET,
-		unix.SO_RCVBUF,
+		unix.SO_RCVBUFFORCE,
 		bytes,
 	))
+	if err != nil {
+		err = os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
+			unix.SOL_SOCKET,
+			unix.SO_RCVBUF,
+			bytes,
+		))
+	}
+	return err
 }
 
 // SetReadBuffer sets the size of the operating system's transmit buffer
 // associated with the Conn.
 func (c *conn) SetWriteBuffer(bytes int) error {
-	return os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
+	// First try SO_SNDBUFFORCE. Given necessary permissions this syscall
+	// ignores limits. Fall back to the non-force version.
+	err := os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
 		unix.SOL_SOCKET,
-		unix.SO_SNDBUF,
+		unix.SO_SNDBUFFORCE,
 		bytes,
 	))
+	if err != nil {
+		err = os.NewSyscallError("setsockopt", c.s.SetSockoptInt(
+			unix.SOL_SOCKET,
+			unix.SO_SNDBUF,
+			bytes,
+		))
+	}
+	return err
 }
+
+func (c *conn) SyscallConn() (syscall.RawConn, error) { return c.s.SyscallConn() }
 
 // linuxOption converts a ConnOption to its Linux value.
 func linuxOption(o ConnOption) (int, bool) {
@@ -308,6 +311,8 @@ func linuxOption(o ConnOption) (int, bool) {
 		return unix.NETLINK_CAP_ACK, true
 	case ExtendedAcknowledge:
 		return unix.NETLINK_EXT_ACK, true
+	case GetStrictCheck:
+		return unix.NETLINK_GET_STRICT_CHK, true
 	default:
 		return 0, false
 	}
@@ -326,163 +331,111 @@ func newError(errno int) error {
 	return syscall.Errno(errno)
 }
 
-var _ socket = &sysSocket{}
+// A socket wraps system call operations.
+type socket struct {
+	// Atomics must come first.
+	closed uint32
 
-// A sysSocket is a socket which uses system calls for socket operations.
-type sysSocket struct {
-	mu     sync.RWMutex
-	fd     *os.File
-	closed bool
-	g      *lockedNetNSGoroutine
-}
-
-// newSysSocket creates a sysSocket that optionally locks its internal goroutine
-// to a single thread.
-func newSysSocket(config *Config) (*sysSocket, error) {
-	// Determine network namespaces using the threadNetNS function.
-	g, err := newLockedNetNSGoroutine(config.NetNS, threadNetNS, !config.DisableNSLockThread)
-	if err != nil {
-		return nil, err
-	}
-	return &sysSocket{
-		g: g,
-	}, nil
-}
-
-// do runs f in a worker goroutine which can be locked to one thread.
-func (s *sysSocket) do(f func()) error {
-	// All operations handled by this function are assumed to only
-	// read from s.done.
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.closed {
-		return syscall.EBADF
-	}
-
-	s.g.run(f)
-	return nil
+	fd *os.File
+	rc syscall.RawConn
 }
 
 // read executes f, a read function, against the associated file descriptor.
-func (s *sysSocket) read(f func(fd int) bool) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.closed {
+func (s *socket) read(f func(fd int) bool) error {
+	if atomic.LoadUint32(&s.closed) != 0 {
 		return syscall.EBADF
 	}
 
-	var err error
-	s.g.run(func() {
-		err = fdread(s.fd, f)
+	return s.rc.Read(func(sysfd uintptr) bool {
+		return f(int(sysfd))
 	})
-	return err
 }
 
 // write executes f, a write function, against the associated file descriptor.
-func (s *sysSocket) write(f func(fd int) bool) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.closed {
+func (s *socket) write(f func(fd int) bool) error {
+	if atomic.LoadUint32(&s.closed) != 0 {
 		return syscall.EBADF
 	}
 
-	var err error
-	s.g.run(func() {
-		err = fdwrite(s.fd, f)
+	return s.rc.Write(func(sysfd uintptr) bool {
+		return f(int(sysfd))
 	})
-	return err
 }
 
 // control executes f, a control function, against the associated file descriptor.
-func (s *sysSocket) control(f func(fd int)) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.closed {
+func (s *socket) control(f func(fd int)) error {
+	if atomic.LoadUint32(&s.closed) != 0 {
 		return syscall.EBADF
 	}
 
-	var err error
-	s.g.run(func() {
-		err = fdcontrol(s.fd, f)
+	return s.rc.Control(func(sysfd uintptr) {
+		f(int(sysfd))
 	})
-	return err
 }
 
-func (s *sysSocket) Socket(family int) error {
-	var (
-		fd  int
-		err error
-	)
+func (s *socket) SyscallConn() (syscall.RawConn, error) {
+	if atomic.LoadUint32(&s.closed) != 0 {
+		return nil, syscall.EBADF
+	}
 
-	doErr := s.do(func() {
-		// Mirror what the standard library does when creating file
-		// descriptors: avoid racing a fork/exec with the creation
-		// of new file descriptors, so that child processes do not
-		// inherit netlink socket file descriptors unexpectedly.
-		//
-		// On Linux, SOCK_CLOEXEC was introduced in 2.6.27. OTOH,
-		// Go supports Linux 2.6.23 and above. If we get EINVAL on
-		// the first try, it may be that we are running on a kernel
-		// older than 2.6.27. In that case, take syscall.ForkLock
-		// and try again without SOCK_CLOEXEC.
-		//
-		// SOCK_NONBLOCK was also added in 2.6.27, but we don't
-		// use SOCK_NONBLOCK here for now, not until we remove support
-		// for Go 1.11, since we still support the old blocking file
-		// descriptor behavior.
-		//
-		// For a more thorough explanation, see similar work in the
-		// Go tree: func sysSocket in net/sock_cloexec.go, as well
-		// as the detailed comment in syscall/exec_unix.go.
-		//
-		// TODO(acln): update this to mirror net.sysSocket completely:
-		// use SOCK_NONBLOCK as well, and remove the separate
-		// setBlockingMode step once Go 1.11 support is removed and
-		// we switch to using entirely non-blocking file descriptors.
+	return s.rc, nil
+}
+
+func newSocket(family int) (*socket, error) {
+	// Mirror what the standard library does when creating file
+	// descriptors: avoid racing a fork/exec with the creation
+	// of new file descriptors, so that child processes do not
+	// inherit netlink socket file descriptors unexpectedly.
+	//
+	// On Linux, SOCK_CLOEXEC was introduced in 2.6.27. OTOH,
+	// Go supports Linux 2.6.23 and above. If we get EINVAL on
+	// the first try, it may be that we are running on a kernel
+	// older than 2.6.27. In that case, take syscall.ForkLock
+	// and try again without SOCK_CLOEXEC.
+	//
+	// For a more thorough explanation, see similar work in the
+	// Go tree: func sysSocket in net/sock_cloexec.go, as well
+	// as the detailed comment in syscall/exec_unix.go.
+	fd, err := unix.Socket(
+		unix.AF_NETLINK,
+		unix.SOCK_RAW|unix.SOCK_NONBLOCK|unix.SOCK_CLOEXEC,
+		family,
+	)
+	if err == unix.EINVAL {
+		syscall.ForkLock.RLock()
 		fd, err = unix.Socket(
 			unix.AF_NETLINK,
-			unix.SOCK_RAW|unix.SOCK_CLOEXEC,
+			unix.SOCK_RAW,
 			family,
 		)
-		if err == unix.EINVAL {
-			syscall.ForkLock.RLock()
-			fd, err = unix.Socket(
-				unix.AF_NETLINK,
-				unix.SOCK_RAW,
-				family,
-			)
-			if err == nil {
-				unix.CloseOnExec(fd)
-			}
-			syscall.ForkLock.RUnlock()
+		if err == nil {
+			unix.CloseOnExec(fd)
 		}
-	})
-	if doErr != nil {
-		return doErr
-	}
-	if err != nil {
-		return err
+		syscall.ForkLock.RUnlock()
+
+		if err := unix.SetNonblock(fd, true); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := setBlockingMode(fd); err != nil {
-		return err
-	}
-
-	// When using Go 1.12+, the setBlockingMode call we just did puts the
-	// file descriptor into non-blocking mode. In that case, os.NewFile
-	// registers the file descriptor with the runtime poller, which is
-	// then used for all subsequent operations.
+	// os.NewFile registers the file descriptor with the runtime poller, which
+	// is then used for most subsequent operations except those that require
+	// raw I/O via SyscallConn.
 	//
 	// See also: https://golang.org/pkg/os/#NewFile
-	s.fd = os.NewFile(uintptr(fd), "netlink")
-	return nil
+	f := os.NewFile(uintptr(fd), "netlink")
+	rc, err := f.SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+
+	return &socket{
+		fd: f,
+		rc: rc,
+	}, nil
 }
 
-func (s *sysSocket) Bind(sa unix.Sockaddr) error {
+func (s *socket) Bind(sa unix.Sockaddr) error {
 	var err error
 	doErr := s.control(func(fd int) {
 		err = unix.Bind(fd, sa)
@@ -494,30 +447,22 @@ func (s *sysSocket) Bind(sa unix.Sockaddr) error {
 	return err
 }
 
-func (s *sysSocket) Close() error {
-	// Be sure to acquire a write lock because we need to stop any other
-	// goroutines from sending system call requests after close.
-	// Any invocation of do() after this write lock unlocks is guaranteed
-	// to find s.done being true.
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *socket) Close() error {
+	// The caller has expressed an intent to close the socket, so immediately
+	// increment s.closed to force further calls to result in EBADF before also
+	// closing the file descriptor to unblock any outstanding operations.
+	//
+	// Because other operations simply check for s.closed != 0, we will permit
+	// double Close, which would increment s.closed beyond 1.
+	if atomic.AddUint32(&s.closed, 1) != 1 {
+		// Multiple Close calls.
+		return nil
+	}
 
-	// Close the socket from the main thread, this operation has no risk
-	// of routing data to the wrong socket.
-	err := s.fd.Close()
-	s.closed = true
-
-	// Stop the associated goroutine and wait for it to return.
-	s.g.stop()
-
-	return err
+	return s.fd.Close()
 }
 
-func (s *sysSocket) FD() int { return int(s.fd.Fd()) }
-
-func (s *sysSocket) File() *os.File { return s.fd }
-
-func (s *sysSocket) Getsockname() (unix.Sockaddr, error) {
+func (s *socket) Getsockname() (unix.Sockaddr, error) {
 	var (
 		sa  unix.Sockaddr
 		err error
@@ -533,7 +478,7 @@ func (s *sysSocket) Getsockname() (unix.Sockaddr, error) {
 	return sa, err
 }
 
-func (s *sysSocket) Recvmsg(p, oob []byte, flags int) (int, int, int, unix.Sockaddr, error) {
+func (s *socket) Recvmsg(p, oob []byte, flags int) (int, int, int, unix.Sockaddr, error) {
 	var (
 		n, oobn, recvflags int
 		from               unix.Sockaddr
@@ -553,7 +498,7 @@ func (s *sysSocket) Recvmsg(p, oob []byte, flags int) (int, int, int, unix.Socka
 	return n, oobn, recvflags, from, err
 }
 
-func (s *sysSocket) Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error {
+func (s *socket) Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error {
 	var err error
 	doErr := s.write(func(fd int) bool {
 		err = unix.Sendmsg(fd, p, oob, to, flags)
@@ -568,19 +513,11 @@ func (s *sysSocket) Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error {
 	return err
 }
 
-func (s *sysSocket) SetDeadline(t time.Time) error {
-	return s.fd.SetDeadline(t)
-}
+func (s *socket) SetDeadline(t time.Time) error      { return s.fd.SetDeadline(t) }
+func (s *socket) SetReadDeadline(t time.Time) error  { return s.fd.SetReadDeadline(t) }
+func (s *socket) SetWriteDeadline(t time.Time) error { return s.fd.SetWriteDeadline(t) }
 
-func (s *sysSocket) SetReadDeadline(t time.Time) error {
-	return s.fd.SetReadDeadline(t)
-}
-
-func (s *sysSocket) SetWriteDeadline(t time.Time) error {
-	return s.fd.SetWriteDeadline(t)
-}
-
-func (s *sysSocket) SetSockoptInt(level, opt, value int) error {
+func (s *socket) SetSockoptInt(level, opt, value int) error {
 	// Value must be in range of a C integer.
 	if value < math.MinInt32 || value > math.MaxInt32 {
 		return unix.EINVAL
@@ -597,7 +534,7 @@ func (s *sysSocket) SetSockoptInt(level, opt, value int) error {
 	return err
 }
 
-func (s *sysSocket) SetSockoptSockFprog(level, opt int, fprog *unix.SockFprog) error {
+func (s *socket) SetSockoptSockFprog(level, opt int, fprog *unix.SockFprog) error {
 	var err error
 	doErr := s.control(func(fd int) {
 		err = unix.SetsockoptSockFprog(fd, level, opt, fprog)
@@ -629,144 +566,4 @@ func ready(err error) bool {
 		// Ready whether there was error or no error.
 		return true
 	}
-}
-
-// lockedNetNSGoroutine is a worker goroutine locked to an operating system
-// thread, optionally configured to run in a non-default network namespace.
-type lockedNetNSGoroutine struct {
-	wg    sync.WaitGroup
-	doneC chan struct{}
-	funcC chan func()
-}
-
-// newLockedNetNSGoroutine creates a lockedNetNSGoroutine that will enter the
-// specified network namespace netNS (by file descriptor), and will use the
-// getNS function to produce netNS handles.
-func newLockedNetNSGoroutine(netNS int, getNS func() (*netNS, error), lockThread bool) (*lockedNetNSGoroutine, error) {
-	// Any bare syscall errors (e.g. setns) should be wrapped with
-	// os.NewSyscallError for the remainder of this function.
-
-	// If the caller has instructed us to not lock OS thread but also attempts
-	// to set a namespace, return an error.
-	if !lockThread && netNS != 0 {
-		return nil, errors.New("netlink Conn attempted to set a namespace with OS thread locking disabled")
-	}
-
-	callerNS, err := getNS()
-	if err != nil {
-		return nil, err
-	}
-	defer callerNS.Close()
-
-	g := &lockedNetNSGoroutine{
-		doneC: make(chan struct{}),
-		funcC: make(chan func()),
-	}
-
-	errC := make(chan error)
-	g.wg.Add(1)
-
-	go func() {
-		// It is important to lock this goroutine to its OS thread for the duration
-		// of the netlink socket being used, or else the kernel may end up routing
-		// messages to the wrong places.
-		// See: http://lists.infradead.org/pipermail/libnl/2017-February/002293.html.
-		//
-		//
-		// In addition, the OS thread must also remain locked because we attempt
-		// to manipulate the network namespace of the thread within this goroutine.
-		//
-		// The intent is to never unlock the OS thread, so that the thread
-		// will terminate when the goroutine exits starting in Go 1.10:
-		// https://go-review.googlesource.com/c/go/+/46038.
-		//
-		// However, due to recent instability and a potential bad interaction
-		// with the Go runtime for threads which are not unlocked, we have
-		// elected to temporarily unlock the thread when the goroutine terminates:
-		// https://github.com/golang/go/issues/25128#issuecomment-410764489.
-		//
-		// Locking the thread is not implemented if the caller explicitly asks
-		// for an unlocked thread.
-
-		// Only lock the tread, if the lockThread is set.
-		if lockThread {
-			runtime.LockOSThread()
-			defer runtime.UnlockOSThread()
-		}
-
-		defer g.wg.Done()
-
-		// Get the current namespace of the thread the goroutine is locked to.
-		threadNS, err := getNS()
-		if err != nil {
-			errC <- err
-			return
-		}
-		defer threadNS.Close()
-
-		// Attempt to set the network namespace of the current thread to either:
-		// - the namespace referred to by the provided file descriptor from config
-		// - the calling thread's namespace
-		//
-		// See the rules specified in the Config.NetNS documentation.
-		explicitNS := true
-		if netNS == 0 {
-			explicitNS = false
-			netNS = int(callerNS.FD())
-		}
-
-		// Only return an error if the network namespace was explicitly
-		// configured; implicit configuration by zero value should be ignored.
-		err = threadNS.Set(netNS)
-		switch {
-		case err != nil && explicitNS:
-			errC <- err
-			return
-		case err == nil:
-			// If the thread's namespace has been successfully manipulated,
-			// make sure we change it back when the goroutine returns.
-			defer threadNS.Restore()
-		default:
-			// We couldn't successfully set the namespace, but the caller didn't
-			// explicitly ask for it to be set either. Continue.
-		}
-
-		// Signal to caller that initialization was successful.
-		errC <- nil
-
-		for {
-			select {
-			case <-g.doneC:
-				return
-			case f := <-g.funcC:
-				f()
-			}
-		}
-	}()
-
-	// Wait for the goroutine to return err or nil.
-	if err := <-errC; err != nil {
-		return nil, err
-	}
-
-	return g, nil
-}
-
-// stop signals the goroutine to stop and blocks until it does.
-//
-// It is invalid to call run concurrently with stop. It is also invalid to
-// call run after stop has returned.
-func (g *lockedNetNSGoroutine) stop() {
-	close(g.doneC)
-	g.wg.Wait()
-}
-
-// run runs f on the worker goroutine.
-func (g *lockedNetNSGoroutine) run(f func()) {
-	done := make(chan struct{})
-	g.funcC <- func() {
-		defer close(done)
-		f()
-	}
-	<-done
 }

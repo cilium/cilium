@@ -430,6 +430,8 @@ github.com/jeremywohl/flatten
 github.com/jmespath/go-jmespath
 # github.com/josharian/intern v1.0.0
 github.com/josharian/intern
+# github.com/josharian/native v0.0.0-20200817173448-b6b71def0850
+github.com/josharian/native
 # github.com/json-iterator/go v1.1.10
 github.com/json-iterator/go
 # github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
@@ -463,7 +465,7 @@ github.com/mdlayher/ethernet
 github.com/mdlayher/genetlink
 # github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567
 github.com/mdlayher/ndp
-# github.com/mdlayher/netlink v1.1.0
+# github.com/mdlayher/netlink v1.4.0
 github.com/mdlayher/netlink
 github.com/mdlayher/netlink/nlenc
 # github.com/mdlayher/raw v0.0.0-20191009151244-50f2db8cc065
@@ -682,7 +684,7 @@ go.universe.tf/metallb/pkg/controller
 go.universe.tf/metallb/pkg/k8s/types
 go.universe.tf/metallb/pkg/layer2
 go.universe.tf/metallb/pkg/speaker
-# golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+# golang.org/x/crypto v0.0.0-20210503195802-e9a32991a82e
 ## explicit
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/chacha20
@@ -702,7 +704,7 @@ golang.org/x/lint/golint
 # golang.org/x/mod v0.3.1-0.20200828183125-ce943fd02449
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
+# golang.org/x/net v0.0.0-20210504132125-bbd867fde50d
 ## explicit
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -731,7 +733,7 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20210314195730-07df6a141424
+# golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6
 ## explicit
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -741,7 +743,7 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
 golang.org/x/term
-# golang.org/x/text v0.3.5
+# golang.org/x/text v0.3.6
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -804,9 +806,9 @@ golang.org/x/tools/internal/typesinternal
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# golang.zx2c4.com/wireguard v0.0.20200121
+# golang.zx2c4.com/wireguard v0.0.0-20210427022245-097af6e1351b
 golang.zx2c4.com/wireguard/ipc/winpipe
-# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
+# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210506160403-92e472f520a5
 ## explicit
 golang.zx2c4.com/wireguard/wgctrl
 golang.zx2c4.com/wireguard/wgctrl/internal/wginternal

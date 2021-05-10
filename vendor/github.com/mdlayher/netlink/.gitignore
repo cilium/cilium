@@ -1,2 +1,3 @@
-cmd/nlstress/nlstress
 netlink.test
+netlink-fuzz.zip
+testdata/
