@@ -1,4 +1,4 @@
-# netlink [![builds.sr.ht status](https://builds.sr.ht/~mdlayher/netlink.svg)](https://builds.sr.ht/~mdlayher/netlink?) [![GoDoc](https://godoc.org/github.com/mdlayher/netlink?status.svg)](https://godoc.org/github.com/mdlayher/netlink) [![Go Report Card](https://goreportcard.com/badge/github.com/mdlayher/netlink)](https://goreportcard.com/report/github.com/mdlayher/netlink)
+# netlink [![Test Status](https://github.com/mdlayher/netlink/workflows/Linux%20Test/badge.svg)](https://github.com/mdlayher/netlink/actions) [![Go Reference](https://pkg.go.dev/badge/github.com/mdlayher/netlink.svg)](https://pkg.go.dev/github.com/mdlayher/netlink)  [![Go Report Card](https://goreportcard.com/badge/github.com/mdlayher/netlink)](https://goreportcard.com/report/github.com/mdlayher/netlink)
 
 Package `netlink` provides low-level access to Linux netlink sockets.
 MIT Licensed.
@@ -19,9 +19,9 @@ This package has a stable v1 API and any future breaking changes will prompt
 the release of a new major version. Features and bug fixes will continue to
 occur in the v1.x.x series.
 
-The general policy of this package is to only support the latest, stable version
-of Go. Compatibility shims may be added for prior versions of Go on an as-needed
-basis. If you would like to raise a concern, please [file an issue](https://github.com/mdlayher/netlink/issues/new).
+In order to reduce the maintenance burden, this package is only supported on
+Go 1.12+. Older versions of Go lack critical features and APIs which are
+necessary for this package to function correctly.
 
 **If you depend on this package in your applications, please use Go modules.**
 

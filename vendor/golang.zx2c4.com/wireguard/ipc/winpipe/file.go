@@ -3,55 +3,22 @@
 /* SPDX-License-Identifier: MIT
  *
  * Copyright (C) 2005 Microsoft
- * Copyright (C) 2017-2019 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
  */
+
 package winpipe
 
 import (
-	"errors"
 	"io"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
-
-//sys cancelIoEx(file windows.Handle, o *windows.Overlapped) (err error) = CancelIoEx
-//sys createIoCompletionPort(file windows.Handle, port windows.Handle, key uintptr, threadCount uint32) (newport windows.Handle, err error) = CreateIoCompletionPort
-//sys getQueuedCompletionStatus(port windows.Handle, bytes *uint32, key *uintptr, o **ioOperation, timeout uint32) (err error) = GetQueuedCompletionStatus
-//sys setFileCompletionNotificationModes(h windows.Handle, flags uint8) (err error) = SetFileCompletionNotificationModes
-//sys wsaGetOverlappedResult(h windows.Handle, o *windows.Overlapped, bytes *uint32, wait bool, flags *uint32) (err error) = ws2_32.WSAGetOverlappedResult
-
-type atomicBool int32
-
-func (b *atomicBool) isSet() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
-func (b *atomicBool) setFalse()   { atomic.StoreInt32((*int32)(b), 0) }
-func (b *atomicBool) setTrue()    { atomic.StoreInt32((*int32)(b), 1) }
-func (b *atomicBool) swap(new bool) bool {
-	var newInt int32
-	if new {
-		newInt = 1
-	}
-	return atomic.SwapInt32((*int32)(b), newInt) == 1
-}
-
-const (
-	cFILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 1
-	cFILE_SKIP_SET_EVENT_ON_HANDLE        = 2
-)
-
-var (
-	ErrFileClosed = errors.New("file has already been closed")
-	ErrTimeout    = &timeoutError{}
-)
-
-type timeoutError struct{}
-
-func (e *timeoutError) Error() string   { return "i/o timeout" }
-func (e *timeoutError) Timeout() bool   { return true }
-func (e *timeoutError) Temporary() bool { return true }
 
 type timeoutChan chan struct{}
 
@@ -71,7 +38,7 @@ type ioOperation struct {
 }
 
 func initIo() {
-	h, err := createIoCompletionPort(windows.InvalidHandle, 0, 0, 0xffffffff)
+	h, err := windows.CreateIoCompletionPort(windows.InvalidHandle, 0, 0, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -79,13 +46,13 @@ func initIo() {
 	go ioCompletionProcessor(h)
 }
 
-// win32File implements Reader, Writer, and Closer on a Win32 handle without blocking in a syscall.
+// file implements Reader, Writer, and Closer on a Win32 handle without blocking in a syscall.
 // It takes ownership of this handle and will close it if it is garbage collected.
-type win32File struct {
+type file struct {
 	handle        windows.Handle
 	wg            sync.WaitGroup
 	wgLock        sync.RWMutex
-	closing       atomicBool
+	closing       uint32 // used as atomic boolean
 	socket        bool
 	readDeadline  deadlineHandler
 	writeDeadline deadlineHandler
@@ -96,18 +63,18 @@ type deadlineHandler struct {
 	channel     timeoutChan
 	channelLock sync.RWMutex
 	timer       *time.Timer
-	timedout    atomicBool
+	timedout    uint32 // used as atomic boolean
 }
 
-// makeWin32File makes a new win32File from an existing file handle
-func makeWin32File(h windows.Handle) (*win32File, error) {
-	f := &win32File{handle: h}
+// makeFile makes a new file from an existing file handle
+func makeFile(h windows.Handle) (*file, error) {
+	f := &file{handle: h}
 	ioInitOnce.Do(initIo)
-	_, err := createIoCompletionPort(h, ioCompletionPort, 0, 0xffffffff)
+	_, err := windows.CreateIoCompletionPort(h, ioCompletionPort, 0, 0)
 	if err != nil {
 		return nil, err
 	}
-	err = setFileCompletionNotificationModes(h, cFILE_SKIP_COMPLETION_PORT_ON_SUCCESS|cFILE_SKIP_SET_EVENT_ON_HANDLE)
+	err = windows.SetFileCompletionNotificationModes(h, windows.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS|windows.FILE_SKIP_SET_EVENT_ON_HANDLE)
 	if err != nil {
 		return nil, err
 	}
@@ -116,18 +83,14 @@ func makeWin32File(h windows.Handle) (*win32File, error) {
 	return f, nil
 }
 
-func MakeOpenFile(h windows.Handle) (io.ReadWriteCloser, error) {
-	return makeWin32File(h)
-}
-
 // closeHandle closes the resources associated with a Win32 handle
-func (f *win32File) closeHandle() {
+func (f *file) closeHandle() {
 	f.wgLock.Lock()
 	// Atomically set that we are closing, releasing the resources only once.
-	if !f.closing.swap(true) {
+	if atomic.SwapUint32(&f.closing, 1) == 0 {
 		f.wgLock.Unlock()
 		// cancel all IO and wait for it to complete
-		cancelIoEx(f.handle, nil)
+		windows.CancelIoEx(f.handle, nil)
 		f.wg.Wait()
 		// at this point, no new IO can start
 		windows.Close(f.handle)
@@ -137,19 +100,19 @@ func (f *win32File) closeHandle() {
 	}
 }
 
-// Close closes a win32File.
-func (f *win32File) Close() error {
+// Close closes a file.
+func (f *file) Close() error {
 	f.closeHandle()
 	return nil
 }
 
 // prepareIo prepares for a new IO operation.
 // The caller must call f.wg.Done() when the IO is finished, prior to Close() returning.
-func (f *win32File) prepareIo() (*ioOperation, error) {
+func (f *file) prepareIo() (*ioOperation, error) {
 	f.wgLock.RLock()
-	if f.closing.isSet() {
+	if atomic.LoadUint32(&f.closing) == 1 {
 		f.wgLock.RUnlock()
-		return nil, ErrFileClosed
+		return nil, os.ErrClosed
 	}
 	f.wg.Add(1)
 	f.wgLock.RUnlock()
@@ -164,7 +127,7 @@ func ioCompletionProcessor(h windows.Handle) {
 		var bytes uint32
 		var key uintptr
 		var op *ioOperation
-		err := getQueuedCompletionStatus(h, &bytes, &key, &op, windows.INFINITE)
+		err := windows.GetQueuedCompletionStatus(h, &bytes, &key, (**windows.Overlapped)(unsafe.Pointer(&op)), windows.INFINITE)
 		if op == nil {
 			panic(err)
 		}
@@ -174,13 +137,13 @@ func ioCompletionProcessor(h windows.Handle) {
 
 // asyncIo processes the return value from ReadFile or WriteFile, blocking until
 // the operation has actually completed.
-func (f *win32File) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, err error) (int, error) {
+func (f *file) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, err error) (int, error) {
 	if err != windows.ERROR_IO_PENDING {
 		return int(bytes), err
 	}
 
-	if f.closing.isSet() {
-		cancelIoEx(f.handle, &c.o)
+	if atomic.LoadUint32(&f.closing) == 1 {
+		windows.CancelIoEx(f.handle, &c.o)
 	}
 
 	var timeout timeoutChan
@@ -195,20 +158,20 @@ func (f *win32File) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, er
 	case r = <-c.ch:
 		err = r.err
 		if err == windows.ERROR_OPERATION_ABORTED {
-			if f.closing.isSet() {
-				err = ErrFileClosed
+			if atomic.LoadUint32(&f.closing) == 1 {
+				err = os.ErrClosed
 			}
 		} else if err != nil && f.socket {
 			// err is from Win32. Query the overlapped structure to get the winsock error.
 			var bytes, flags uint32
-			err = wsaGetOverlappedResult(f.handle, &c.o, &bytes, false, &flags)
+			err = windows.WSAGetOverlappedResult(f.handle, &c.o, &bytes, false, &flags)
 		}
 	case <-timeout:
-		cancelIoEx(f.handle, &c.o)
+		windows.CancelIoEx(f.handle, &c.o)
 		r = <-c.ch
 		err = r.err
 		if err == windows.ERROR_OPERATION_ABORTED {
-			err = ErrTimeout
+			err = os.ErrDeadlineExceeded
 		}
 	}
 
@@ -220,15 +183,15 @@ func (f *win32File) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, er
 }
 
 // Read reads from a file handle.
-func (f *win32File) Read(b []byte) (int, error) {
+func (f *file) Read(b []byte) (int, error) {
 	c, err := f.prepareIo()
 	if err != nil {
 		return 0, err
 	}
 	defer f.wg.Done()
 
-	if f.readDeadline.timedout.isSet() {
-		return 0, ErrTimeout
+	if atomic.LoadUint32(&f.readDeadline.timedout) == 1 {
+		return 0, os.ErrDeadlineExceeded
 	}
 
 	var bytes uint32
@@ -247,15 +210,15 @@ func (f *win32File) Read(b []byte) (int, error) {
 }
 
 // Write writes to a file handle.
-func (f *win32File) Write(b []byte) (int, error) {
+func (f *file) Write(b []byte) (int, error) {
 	c, err := f.prepareIo()
 	if err != nil {
 		return 0, err
 	}
 	defer f.wg.Done()
 
-	if f.writeDeadline.timedout.isSet() {
-		return 0, ErrTimeout
+	if atomic.LoadUint32(&f.writeDeadline.timedout) == 1 {
+		return 0, os.ErrDeadlineExceeded
 	}
 
 	var bytes uint32
@@ -265,19 +228,19 @@ func (f *win32File) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func (f *win32File) SetReadDeadline(deadline time.Time) error {
+func (f *file) SetReadDeadline(deadline time.Time) error {
 	return f.readDeadline.set(deadline)
 }
 
-func (f *win32File) SetWriteDeadline(deadline time.Time) error {
+func (f *file) SetWriteDeadline(deadline time.Time) error {
 	return f.writeDeadline.set(deadline)
 }
 
-func (f *win32File) Flush() error {
+func (f *file) Flush() error {
 	return windows.FlushFileBuffers(f.handle)
 }
 
-func (f *win32File) Fd() uintptr {
+func (f *file) Fd() uintptr {
 	return uintptr(f.handle)
 }
 
@@ -291,7 +254,7 @@ func (d *deadlineHandler) set(deadline time.Time) error {
 		}
 		d.timer = nil
 	}
-	d.timedout.setFalse()
+	atomic.StoreUint32(&d.timedout, 0)
 
 	select {
 	case <-d.channel:
@@ -306,7 +269,7 @@ func (d *deadlineHandler) set(deadline time.Time) error {
 	}
 
 	timeoutIO := func() {
-		d.timedout.setTrue()
+		atomic.StoreUint32(&d.timedout, 1)
 		close(d.channel)
 	}
 

@@ -3,6 +3,7 @@
 package wglinux
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"syscall"
@@ -43,10 +44,7 @@ func initClient(c *genetlink.Conn) (*Client, bool, error) {
 	if err != nil {
 		_ = c.Close()
 
-		//lint:ignore SA1019 maintain compatibility with old versions of Go
-		// by using netlink.IsNotExist for now. We can switch to errors.Is at
-		// a later time.
-		if netlink.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			// The generic netlink interface is not available.
 			return nil, false, nil
 		}
@@ -157,8 +155,8 @@ func (c *Client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 		return msgs, nil
 	}
 
-	// We don't want to expose netlink errors directly to callers, so unpack
-	// the error for use with os.IsNotExist and similar.
+	// We don't want to expose netlink errors directly to callers so unpack to
+	// something more generic.
 	oerr, ok := err.(*netlink.OpError)
 	if !ok {
 		// Expect all errors to conform to netlink.OpError.
@@ -167,7 +165,7 @@ func (c *Client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 
 	switch oerr.Err {
 	// Convert "no such device" and "not a wireguard device" to an error
-	// compatible with os.IsNotExist for easy checking.
+	// compatible with os.ErrNotExist for easy checking.
 	case unix.ENODEV, unix.ENOTSUP:
 		return nil, os.ErrNotExist
 	default:
