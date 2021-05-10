@@ -616,7 +616,7 @@ github.com/subosito/gotenv
 github.com/tklauser/go-sysconf
 # github.com/tklauser/numcpus v0.2.1
 github.com/tklauser/numcpus
-# github.com/vishvananda/netlink v1.1.1-0.20210324230033-66fce01bfa0e
+# github.com/vishvananda/netlink v1.1.1-0.20210510164352-d17758a128bf
 ## explicit
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl

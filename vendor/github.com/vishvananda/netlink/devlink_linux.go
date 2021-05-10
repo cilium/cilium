@@ -1,11 +1,11 @@
 package netlink
 
 import (
-	"syscall"
-
 	"fmt"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
+	"net"
+	"syscall"
 )
 
 // DevlinkDevEswitchAttr represents device's eswitch attributes
@@ -27,6 +27,20 @@ type DevlinkDevice struct {
 	Attrs      DevlinkDevAttrs
 }
 
+// DevlinkPortFn represents port function and its attributes
+type DevlinkPortFn struct {
+	HwAddr  net.HardwareAddr
+	State   uint8
+	OpState uint8
+}
+
+// DevlinkPortFnSetAttrs represents attributes to set
+type DevlinkPortFnSetAttrs struct {
+	FnAttrs     DevlinkPortFn
+	HwAddrValid bool
+	StateValid  bool
+}
+
 // DevlinkPort represents port and its attributes
 type DevlinkPort struct {
 	BusName        string
@@ -37,6 +51,17 @@ type DevlinkPort struct {
 	NetdevIfIndex  uint32
 	RdmaDeviceName string
 	PortFlavour    uint16
+	Fn             *DevlinkPortFn
+}
+
+type DevLinkPortAddAttrs struct {
+	Controller      uint32
+	SfNumber        uint32
+	PortIndex       uint32
+	PfNumber        uint16
+	SfNumberValid   bool
+	PortIndexValid  bool
+	ControllerValid bool
 }
 
 func parseDevLinkDeviceList(msgs [][]byte) ([]*DevlinkDevice, error) {
@@ -302,6 +327,18 @@ func (port *DevlinkPort) parseAttributes(attrs []syscall.NetlinkRouteAttr) error
 			port.RdmaDeviceName = string(a.Value)
 		case nl.DEVLINK_ATTR_PORT_FLAVOUR:
 			port.PortFlavour = native.Uint16(a.Value)
+		case nl.DEVLINK_ATTR_PORT_FUNCTION:
+			port.Fn = &DevlinkPortFn{}
+			for nested := range nl.ParseAttributes(a.Value) {
+				switch nested.Type {
+				case nl.DEVLINK_PORT_FUNCTION_ATTR_HW_ADDR:
+					port.Fn.HwAddr = nested.Value[:]
+				case nl.DEVLINK_PORT_FN_ATTR_STATE:
+					port.Fn.State = uint8(nested.Value[0])
+				case nl.DEVLINK_PORT_FN_ATTR_OPSTATE:
+					port.Fn.OpState = uint8(nested.Value[0])
+				}
+			}
 		}
 	}
 	return nil
@@ -390,4 +427,86 @@ func (h *Handle) DevLinkGetPortByIndex(Bus string, Device string, PortIndex uint
 // otherwise returns an error code.
 func DevLinkGetPortByIndex(Bus string, Device string, PortIndex uint32) (*DevlinkPort, error) {
 	return pkgHandle.DevLinkGetPortByIndex(Bus, Device, PortIndex)
+}
+
+// DevLinkPortAdd adds a devlink port and returns a port on success
+// otherwise returns nil port and an error code.
+func (h *Handle) DevLinkPortAdd(Bus string, Device string, Flavour uint16, Attrs DevLinkPortAddAttrs) (*DevlinkPort, error) {
+	_, req, err := h.createCmdReq(nl.DEVLINK_CMD_PORT_NEW, Bus, Device)
+	if err != nil {
+		return nil, err
+	}
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_FLAVOUR, nl.Uint16Attr(Flavour)))
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_PCI_PF_NUMBER, nl.Uint16Attr(Attrs.PfNumber)))
+	if Flavour == nl.DEVLINK_PORT_FLAVOUR_PCI_SF && Attrs.SfNumberValid {
+		req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_PCI_SF_NUMBER, nl.Uint32Attr(Attrs.SfNumber)))
+	}
+	if Attrs.PortIndexValid {
+		req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_INDEX, nl.Uint32Attr(Attrs.PortIndex)))
+	}
+	if Attrs.ControllerValid {
+		req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_CONTROLLER_NUMBER, nl.Uint32Attr(Attrs.Controller)))
+	}
+	respmsg, err := req.Execute(unix.NETLINK_GENERIC, 0)
+	if err != nil {
+		return nil, err
+	}
+	port, err := parseDevlinkPortMsg(respmsg)
+	return port, err
+}
+
+// DevLinkPortAdd adds a devlink port and returns a port on success
+// otherwise returns nil port and an error code.
+func DevLinkPortAdd(Bus string, Device string, Flavour uint16, Attrs DevLinkPortAddAttrs) (*DevlinkPort, error) {
+	return pkgHandle.DevLinkPortAdd(Bus, Device, Flavour, Attrs)
+}
+
+// DevLinkPortDel deletes a devlink port and returns success or error code.
+func (h *Handle) DevLinkPortDel(Bus string, Device string, PortIndex uint32) error {
+	_, req, err := h.createCmdReq(nl.DEVLINK_CMD_PORT_DEL, Bus, Device)
+	if err != nil {
+		return err
+	}
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_INDEX, nl.Uint32Attr(PortIndex)))
+	_, err = req.Execute(unix.NETLINK_GENERIC, 0)
+	return err
+}
+
+// DevLinkPortDel deletes a devlink port and returns success or error code.
+func DevLinkPortDel(Bus string, Device string, PortIndex uint32) error {
+	return pkgHandle.DevLinkPortDel(Bus, Device, PortIndex)
+}
+
+// DevlinkPortFnSet sets one or more port function attributes specified by the attribute mask.
+// It returns 0 on success or error code.
+func (h *Handle) DevlinkPortFnSet(Bus string, Device string, PortIndex uint32, FnAttrs DevlinkPortFnSetAttrs) error {
+	_, req, err := h.createCmdReq(nl.DEVLINK_CMD_PORT_SET, Bus, Device)
+	if err != nil {
+		return err
+	}
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_INDEX, nl.Uint32Attr(PortIndex)))
+
+	fnAttr := nl.NewRtAttr(nl.DEVLINK_ATTR_PORT_FUNCTION|unix.NLA_F_NESTED, nil)
+
+	if FnAttrs.HwAddrValid == true {
+		fnAttr.AddRtAttr(nl.DEVLINK_PORT_FUNCTION_ATTR_HW_ADDR, []byte(FnAttrs.FnAttrs.HwAddr))
+	}
+
+	if FnAttrs.StateValid == true {
+		fnAttr.AddRtAttr(nl.DEVLINK_PORT_FN_ATTR_STATE, nl.Uint8Attr(FnAttrs.FnAttrs.State))
+	}
+	req.AddData(fnAttr)
+
+	_, err = req.Execute(unix.NETLINK_GENERIC, 0)
+	return err
+}
+
+// DevlinkPortFnSet sets one or more port function attributes specified by the attribute mask.
+// It returns 0 on success or error code.
+func DevlinkPortFnSet(Bus string, Device string, PortIndex uint32, FnAttrs DevlinkPortFnSetAttrs) error {
+	return pkgHandle.DevlinkPortFnSet(Bus, Device, PortIndex, FnAttrs)
 }

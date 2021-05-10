@@ -346,21 +346,32 @@ type CustomConntrackFilter interface {
 }
 
 type ConntrackFilter struct {
-	ipFilter    map[ConntrackFilterType]net.IP
+	ipNetFilter map[ConntrackFilterType]*net.IPNet
 	portFilter  map[ConntrackFilterType]uint16
 	protoFilter uint8
 }
 
-// AddIP adds an IP to the conntrack filter
-func (f *ConntrackFilter) AddIP(tp ConntrackFilterType, ip net.IP) error {
-	if f.ipFilter == nil {
-		f.ipFilter = make(map[ConntrackFilterType]net.IP)
+// AddIPNet adds a IP subnet to the conntrack filter
+func (f *ConntrackFilter) AddIPNet(tp ConntrackFilterType, ipNet *net.IPNet) error {
+	if ipNet == nil {
+		return fmt.Errorf("Filter attribute empty")
 	}
-	if _, ok := f.ipFilter[tp]; ok {
+	if f.ipNetFilter == nil {
+		f.ipNetFilter = make(map[ConntrackFilterType]*net.IPNet)
+	}
+	if _, ok := f.ipNetFilter[tp]; ok {
 		return errors.New("Filter attribute already present")
 	}
-	f.ipFilter[tp] = ip
+	f.ipNetFilter[tp] = ipNet
 	return nil
+}
+
+// AddIP adds an IP to the conntrack filter
+func (f *ConntrackFilter) AddIP(tp ConntrackFilterType, ip net.IP) error {
+	if ip == nil {
+		return fmt.Errorf("Filter attribute empty")
+	}
+	return f.AddIPNet(tp, NewIPNet(ip))
 }
 
 // AddPort adds a Port to the conntrack filter if the Layer 4 protocol allows it
@@ -394,7 +405,7 @@ func (f *ConntrackFilter) AddProtocol(proto uint8) error {
 // MatchConntrackFlow applies the filter to the flow and returns true if the flow matches the filter
 // false otherwise
 func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
-	if len(f.ipFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 {
+	if len(f.ipNetFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 {
 		// empty filter always not match
 		return false
 	}
@@ -408,30 +419,30 @@ func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
 	match := true
 
 	// IP conntrack filter
-	if len(f.ipFilter) > 0 {
+	if len(f.ipNetFilter) > 0 {
 		// -orig-src ip   Source address from original direction
-		if elem, found := f.ipFilter[ConntrackOrigSrcIP]; found {
-			match = match && elem.Equal(flow.Forward.SrcIP)
+		if elem, found := f.ipNetFilter[ConntrackOrigSrcIP]; found {
+			match = match && elem.Contains(flow.Forward.SrcIP)
 		}
 
 		// -orig-dst ip   Destination address from original direction
-		if elem, found := f.ipFilter[ConntrackOrigDstIP]; match && found {
-			match = match && elem.Equal(flow.Forward.DstIP)
+		if elem, found := f.ipNetFilter[ConntrackOrigDstIP]; match && found {
+			match = match && elem.Contains(flow.Forward.DstIP)
 		}
 
 		// -src-nat ip    Source NAT ip
-		if elem, found := f.ipFilter[ConntrackReplySrcIP]; match && found {
-			match = match && elem.Equal(flow.Reverse.SrcIP)
+		if elem, found := f.ipNetFilter[ConntrackReplySrcIP]; match && found {
+			match = match && elem.Contains(flow.Reverse.SrcIP)
 		}
 
 		// -dst-nat ip    Destination NAT ip
-		if elem, found := f.ipFilter[ConntrackReplyDstIP]; match && found {
-			match = match && elem.Equal(flow.Reverse.DstIP)
+		if elem, found := f.ipNetFilter[ConntrackReplyDstIP]; match && found {
+			match = match && elem.Contains(flow.Reverse.DstIP)
 		}
 
 		// Match source or destination reply IP
-		if elem, found := f.ipFilter[ConntrackReplyAnyIP]; match && found {
-			match = match && (elem.Equal(flow.Reverse.SrcIP) || elem.Equal(flow.Reverse.DstIP))
+		if elem, found := f.ipNetFilter[ConntrackReplyAnyIP]; match && found {
+			match = match && (elem.Contains(flow.Reverse.SrcIP) || elem.Contains(flow.Reverse.DstIP))
 		}
 	}
 
