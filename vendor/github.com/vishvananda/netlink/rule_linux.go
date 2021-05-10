@@ -97,8 +97,6 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 		req.AddData(rtAttrs[i])
 	}
 
-	native := nl.NativeEndian()
-
 	if rule.Priority >= 0 {
 		b := make([]byte, 4)
 		native.PutUint32(b, uint32(rule.Priority))
@@ -199,7 +197,6 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 		return nil, err
 	}
 
-	native := nl.NativeEndian()
 	var res = make([]Rule, 0)
 	for i := range msgs {
 		msg := nl.DeserializeRtMsg(msgs[i])

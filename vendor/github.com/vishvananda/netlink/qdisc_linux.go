@@ -468,7 +468,6 @@ func parsePrioData(qdisc Qdisc, value []byte) error {
 }
 
 func parseHtbData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
-	native = nl.NativeEndian()
 	htb := qdisc.(*Htb)
 	for _, datum := range data {
 		switch datum.Attr.Type {
@@ -488,7 +487,6 @@ func parseHtbData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
 }
 
 func parseFqCodelData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
-	native = nl.NativeEndian()
 	fqCodel := qdisc.(*FqCodel)
 	for _, datum := range data {
 
@@ -518,13 +516,11 @@ func parseFqCodelData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
 
 func parseHfscData(qdisc Qdisc, data []byte) error {
 	Hfsc := qdisc.(*Hfsc)
-	native = nl.NativeEndian()
 	Hfsc.Defcls = native.Uint16(data)
 	return nil
 }
 
 func parseFqData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
-	native = nl.NativeEndian()
 	fq := qdisc.(*Fq)
 	for _, datum := range data {
 		switch datum.Attr.Type {
@@ -589,7 +585,6 @@ func parseNetemData(qdisc Qdisc, value []byte) error {
 }
 
 func parseTbfData(qdisc Qdisc, data []syscall.NetlinkRouteAttr) error {
-	native = nl.NativeEndian()
 	tbf := qdisc.(*Tbf)
 	for _, datum := range data {
 		switch datum.Attr.Type {
