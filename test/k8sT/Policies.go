@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -162,41 +163,63 @@ var _ = SkipDescribeIf(func() bool {
 		)
 
 		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
-			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
-				By("HTTP connectivity to 1.1.1.1")
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
+			var wg sync.WaitGroup
+			for _, appPod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("HTTP connectivity to 1.1.1.1")
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
 
-				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
-					"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
+					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
+						"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
+				}(appPod)
 
-				By("ICMP connectivity to 8.8.8.8")
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.Ping("8.8.8.8"))
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("ICMP connectivity to 8.8.8.8")
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						helpers.Ping("8.8.8.8"))
 
-				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
-					"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
+					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
+						"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
+				}(appPod)
 
-				By("DNS lookup of kubernetes.default.svc.cluster.local")
-				// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("DNS lookup of kubernetes.default.svc.cluster.local")
+					// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
 
-				// kube-dns is always whitelisted so this should always work
-				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
-					"DNS connectivity of kubernetes.default.svc.cluster.local from pod %q", pod)
+					// kube-dns is always whitelisted so this should always work
+					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
+						"DNS connectivity of kubernetes.default.svc.cluster.local from pod %q", pod)
+				}(appPod)
 
-				By("HTTP connectivity from pod to pod")
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("HTTP connectivity from pod to pod")
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 
-				ExpectWithOffset(1, res).To(getMatcher(expectClusterSuccess),
-					"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
+					ExpectWithOffset(1, res).To(getMatcher(expectClusterSuccess),
+						"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
+				}(appPod)
 			}
+			wg.Wait()
 		}
 
 		BeforeAll(func() {
@@ -1639,31 +1662,53 @@ var _ = SkipDescribeIf(func() bool {
 			}
 
 			validateConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool) {
-				By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
-				res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-					helpers.CurlFail(k8s1PodIP))
-				ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
-					"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
+					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+						helpers.CurlFail(k8s1PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
+						"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
+				}()
 
-				By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
-				res = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-					helpers.CurlFail(k8s2PodIP))
-				ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
-					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
+					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+						helpers.CurlFail(k8s2PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
+						"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
+				}()
 
-				By("Checking ingress connectivity from k8s1 pod to k8s2 pod")
-				res = kubectl.ExecPodCmd(testNamespace, k8s1PodName, helpers.CurlFail(k8s2PodIP))
-				ExpectWithOffset(1, res).To(getMatcher(expectPodSuccess),
-					"HTTP ingress connectivity to pod %q from pod %q", k8s2PodIP, k8s1PodIP)
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 pod to k8s2 pod")
+					res := kubectl.ExecPodCmd(testNamespace, k8s1PodName, helpers.CurlFail(k8s2PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectPodSuccess),
+						"HTTP ingress connectivity to pod %q from pod %q", k8s2PodIP, k8s1PodIP)
+				}()
 
-				By("Checking ingress connectivity from world to k8s1 pod")
 				if helpers.ExistNodeWithoutCilium() {
-					By("Adding a static route to %s on the %s node (outside)", k8s1PodIP, outsideNodeName)
-					res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
-					Expect(res).To(getMatcher(true))
+					wg.Add(1)
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						By("Checking ingress connectivity from world to k8s1 pod")
+						By("Adding a static route to %s on the %s node (outside)", k8s1PodIP, outsideNodeName)
+						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
+						Expect(res).To(getMatcher(true))
 
-					testCurlFromOutside(k8s1PodIP, outsideNodeName, expectWorldSuccess)
+						testCurlFromOutside(k8s1PodIP, outsideNodeName, expectWorldSuccess)
+					}()
 				}
+				wg.Wait()
 			}
 
 			installDefaultDenyIngressPolicy := func() {
