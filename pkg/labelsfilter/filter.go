@@ -206,6 +206,8 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 		"!controller-revision-hash",     // ignore controller-revision-hash
 		"!annotation.*",                 // ignore all annotation labels
 		"!etcd_node",                    // ignore etcd_node label
+
+		"!io.cilium.k8s.namespace.labels.fluxcd.io/sync-gc-mark", // ignore hash from flux
 	}
 
 	for _, e := range expressions {
