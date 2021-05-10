@@ -767,10 +767,10 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}
 
 	n.neighLock.Lock()
-	n.neighLastPingByNextHop[nextHopStr] = time.Now()
 	defer n.neighLock.Unlock()
 
 	if hwAddr != nil {
+		n.neighLastPingByNextHop[nextHopStr] = time.Now()
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
 			// Nothing to update, return early to avoid calling to netlink. This
 			// is based on the assumption that n.neighByNextHop gets populated
@@ -824,7 +824,6 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	defer func() { delete(n.neighNextHopByNode, oldNode.Identity()) }()
 
 	if n.neighNextHopRefCount.Delete(nextHopStr) {
-
 		neigh, found := n.neighByNextHop[nextHopStr]
 		delete(n.neighByNextHop, nextHopStr)
 		delete(n.neighLastPingByNextHop, nextHopStr)
