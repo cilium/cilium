@@ -85,7 +85,7 @@ func (b *CmdStreamBuffer) Filter(filter string) (*FilterBuffer, error) {
 
 	err := json.Unmarshal(b.Bytes(), &data)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse JSON from command %q", b.Cmd())
+		return nil, fmt.Errorf("could not parse JSON from command %q\n%w\n%s", b.Cmd(), err, b.Bytes())
 	}
 	parser := jsonpath.New("").AllowMissingKeys(true)
 	parser.Parse(filter)
