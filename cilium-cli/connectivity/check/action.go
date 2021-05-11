@@ -89,18 +89,13 @@ func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer) *Action
 }
 
 func (a *Action) String() string {
+	sn := a.test.scenarioName(a.scenario)
 	p := a.Peers()
 	if p != "" {
-		return fmt.Sprintf("%s/%s: %s",
-			a.scenario.Name(), a.Name(), p)
+		return fmt.Sprintf("%s/%s: %s", sn, a.name, p)
 	}
 
-	return fmt.Sprintf("%s/%s", a.scenario.Name(), a.Name())
-}
-
-// Name returns the name given to the Action.
-func (a *Action) Name() string {
-	return a.name
+	return fmt.Sprintf("%s/%s", sn, a.name)
 }
 
 // Peers returns the name and addr:port of the peers involved in the Action.
@@ -127,7 +122,7 @@ func (a *Action) Destination() TestPeer {
 //
 // This method is to be called from a Scenario implementation.
 func (a *Action) Run(f func(*Action)) {
-	a.Log("[.] Action", a)
+	a.Logf("[.] Action [%s]", a)
 
 	// Execute the given test function.
 	// Might call Fatal().
