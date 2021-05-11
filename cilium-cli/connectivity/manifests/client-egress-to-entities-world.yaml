@@ -1,0 +1,24 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-egress-to-entities-world
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
