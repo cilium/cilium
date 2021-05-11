@@ -166,9 +166,20 @@ var (
 func GetBPFCPU() string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
+			manager := probes.NewProbeManager()
 			// We can probe the availability of BPF instructions indirectly
-			// based on what kernel helpers are available since both were
-			// added in the same release, that is, 4.14.
+			// based on what kernel helpers are available when both were
+			// added in the same release.
+			// We want to enable v3 only on kernels 5.10+ where we have
+			// tested it and need it to work around complexity issues.
+			if h := manager.GetHelpers("sched_cls"); h != nil {
+				if _, ok := h["bpf_redirect_neigh"]; ok {
+					nameBPFCPU = "v3"
+					return
+				}
+			}
+			// We want to enable v2 on all kernels that support it, that is,
+			// kernels 4.14+.
 			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
 				if _, ok := h["bpf_redirect_map"]; ok {
 					nameBPFCPU = "v2"
