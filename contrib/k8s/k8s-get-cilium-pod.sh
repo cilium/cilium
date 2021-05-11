@@ -22,4 +22,6 @@ then
 	exit 1
 fi
 
-kubectl get pods -n kube-system -owide | grep cilium | grep `kubectl get pods $1 -owide -n $2 | awk '{print $7}' | tail -n1` | awk '{print $1}'
+K8S_NAMESPACE="${K8S_NAMESPACE:-kube-system}"
+
+kubectl get pods -n "${K8S_NAMESPACE}" -owide | grep cilium | grep `kubectl get pods $1 -owide -n $2 | awk '{print $7}' | tail -n1` | awk '{print $1}'
