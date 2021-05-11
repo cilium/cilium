@@ -985,6 +985,13 @@ const (
 
 // Envoy option names
 const (
+	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
+	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
+	// redirecting for paths that contain escaped slashes. These are necessary to keep path based
+	// access control functional, and should not interfere with normal operation. Set this to
+	// false only with caution.
+	HTTPNormalizePath = "http-normalize-path"
+
 	// HTTP403Message specifies the response body for 403 responses, defaults to "Access denied"
 	HTTP403Message = "http-403-msg"
 
@@ -1310,6 +1317,13 @@ type DaemonConfig struct {
 	// UseSingleClusterRoute specifies whether to use a single cluster route
 	// instead of per-node routes.
 	UseSingleClusterRoute bool
+
+	// HTTPNormalizePath switches on Envoy HTTP path normalization options, which currently
+	// includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and
+	// redirecting for paths that contain escaped slashes. These are necessary to keep path based
+	// access control functional, and should not interfere with normal operation. Set this to
+	// false only with caution.
+	HTTPNormalizePath bool
 
 	// HTTP403Message is the error message to return when a HTTP 403 is returned
 	// by the proxy, if L7 policy is configured.
@@ -2413,6 +2427,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
 	c.HostDevice = defaults.HostDevice
+	c.HTTPNormalizePath = viper.GetBool(HTTPNormalizePath)
 	c.HTTPIdleTimeout = viper.GetInt(HTTPIdleTimeout)
 	c.HTTPMaxGRPCTimeout = viper.GetInt(HTTPMaxGRPCTimeout)
 	c.HTTPRequestTimeout = viper.GetInt(HTTPRequestTimeout)

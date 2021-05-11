@@ -343,10 +343,13 @@ var _ = SkipDescribeIf(func() bool {
 				namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
+			// Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'.
+			// Note that 'hhtpd' performs slash merging and serves '/public' when '//public' is requested.
+			// Policy enforcement will block this if path normalization is not done prior as policy only allows '/public'.
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectSuccess("Cannot connect from %q to 'http://%s/public'",
+				helpers.CurlFail("http://%s//public", clusterIP))
+			res.ExpectSuccess("Cannot connect from %q to 'http://%s//public'",
 				appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(

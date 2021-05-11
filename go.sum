@@ -174,8 +174,8 @@ github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyR
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/metallb v0.1.1-0.20210402175553-310946fff4b4 h1:JtrlYNE6tSnHrfQpz2QH3DtbeA1uxMsM30hPZpaw0ew=
 github.com/cilium/metallb v0.1.1-0.20210402175553-310946fff4b4/go.mod h1:HTQ4n8ZdoOg8+j+txkXsFVKmHHc2PaXirzW5d4Sw7Qw=
-github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09 h1:tumqMHANCuRoQX93Ph94xdhEpUlP/KhPEDznJIokH/4=
-github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
+github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32 h1:8imv/jHGU2g796+N6VEwSZcU8H6MQ0z33VTNeFeKMpQ=
+github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
 github.com/clbanning/x2j v0.0.0-20191024224557-825249438eec/go.mod h1:jMjuTZXRI4dUb/I5gc9Hdhagfvm9+RyrPryS/auMzxE=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
