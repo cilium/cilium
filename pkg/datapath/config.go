@@ -92,6 +92,10 @@ type CompileTimeConfiguration interface {
 
 	// IsHost returns true if the endpoint is the host endpoint.
 	IsHost() bool
+
+	// DisableSIPVerification returns true if the endpoint wishes to skip
+	// source IP verification
+	DisableSIPVerification() bool
 }
 
 // EndpointConfiguration provides datapath implementations a clean interface

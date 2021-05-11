@@ -1479,6 +1479,12 @@ func (e *Endpoint) RequireEndpointRoute() bool {
 	return e.DatapathConfiguration.InstallEndpointRoute
 }
 
+// DisableSIPVerification returns true if the endpoint wants to skip
+// srcIP verification
+func (e *Endpoint) DisableSIPVerification() bool {
+	return e.DatapathConfiguration.DisableSipVerification
+}
+
 // GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter that would control
 // the creation of policy verdict logs. Value of VerdictLogFilter needs to be
 // consistent with how it is used in policy_verdict_filter_allow() in bpf/lib/policy_log.h
