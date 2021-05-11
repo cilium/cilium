@@ -40,6 +40,9 @@ var (
 
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
+
+	//go:embed manifests/client-egress-to-entities-world.yaml
+	clientEgressToEntitiesWorldPolicyYAML string
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -129,6 +132,19 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 		return check.ResultDNSOKRequestDrop, check.ResultNone
 	})
+
+	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
+	ct.NewTest("to-entities-world").
+		WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
+		WithScenarios(
+			tests.PodToWorld(""),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Port() == 80 {
+				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultNone
+		})
 
 	// Dummy tests for debugging the testing harness.
 	// ct.NewTest("dummy-1").WithScenarios(tests.Dummy("dummy-scenario-1"))
