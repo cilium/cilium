@@ -92,7 +92,6 @@ type FlowRequirementResults struct {
 	FirstMatch         int
 	LastMatch          int
 	Matched            MatchMap
-	Log                []string
 	Failures           int
 	NeedMoreFlows      bool
 	LastMatchTimestamp time.Time

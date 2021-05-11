@@ -192,14 +192,16 @@ func (a *Action) shouldSucceed() bool {
 
 func (a *Action) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
 	if f == nil {
-		a.test.Logf("📄 No flows recorded for pod %s", pod)
+		a.Logf("📄 No flows recorded for pod %s", pod)
 		return
 	}
 
-	a.test.Logf("📄 Flow logs of pod %s:", pod)
+	a.Logf("📄 Flow logs for pod %s:", pod)
 	printer := hubprinter.New(hubprinter.Compact(), hubprinter.WithIPTranslation())
 	defer printer.Close()
+
 	for index, flow := range *f {
+		// TODO(timo): What is this for?
 		if !a.test.ctx.AllFlows() && r.FirstMatch > 0 && r.FirstMatch > index {
 			continue
 		}
@@ -229,13 +231,13 @@ func (a *Action) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
 
 		//nolint:staticcheck // Summary is deprecated but there is no real alternative yet
 		//lint:ignore SA1019 Summary is deprecated but there is no real alternative yet
-		a.test.Logf("%s%s: %s -> %s %s %s (%s)", flowPrefix, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
+		a.Logf("%s %s: %s -> %s %s %s (%s)", flowPrefix, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
 	}
+
+	a.Log()
 }
 
 func (a *Action) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod string, req *filters.FlowSetRequirement) (r FlowRequirementResults) {
-	var goodLog []string
-
 	r.Matched = MatchMap{}
 
 	match := func(expect bool, f filters.FlowRequirement) (int, bool, *flow.Flow) {
@@ -246,18 +248,12 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod
 		}
 
 		if match != expect {
-			// Unless we show all flows, good flows are only shown on failure
-			if !a.test.ctx.AllFlows() {
-				r.Log = append(r.Log, goodLog...)
-				goodLog = []string{}
-			}
-
 			msgSuffix := "not found"
 			if !expect {
 				msgSuffix = "found"
 			}
 
-			r.Log = append(r.Log, fmt.Sprintf("❌ %s %s %s for pod %s", f.Msg, f.Filter.String(), msgSuffix, pod))
+			a.Failf("%s %s %s", f.Msg, f.Filter.String(), msgSuffix)
 			r.Failures++
 		} else {
 			msgSuffix := "found"
@@ -265,17 +261,13 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod
 				msgSuffix = "not found"
 			}
 
-			entry := "✅ " + fmt.Sprintf("%s %s for pod %s", f.Msg, msgSuffix, pod)
-			// Either show all flows or collect them so we can attach on failure
-			if a.test.ctx.AllFlows() {
-				r.Log = append(r.Log, entry)
-			} else {
-				goodLog = append(goodLog, entry)
-			}
+			a.Logf("✅ %s %s", f.Msg, msgSuffix)
 		}
 
 		return index, expect, flow
 	}
+
+	a.Logf("📄 Matching flows for pod %s:", pod)
 
 	if index, match, _ := match(true, req.First); !match {
 		r.NeedMoreFlows = true
@@ -551,18 +543,16 @@ retry:
 	}
 
 	if r.Failures == 0 {
-		a.test.Logf("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d, nlog: %d)", pod, r.FirstMatch, r.LastMatch, len(r.Matched), len(r.Log))
+		a.Logf("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d)", pod, r.FirstMatch, r.LastMatch, len(r.Matched))
 	} else {
-		a.test.Logf("❌ Flow validation failed for pod %s: %d failures (first: %d, last: %d, matched: %d, nlog: %d)", pod, r.Failures, r.FirstMatch, r.LastMatch, len(r.Matched), len(r.Log))
-	}
-
-	for _, p := range r.Log {
-		a.test.ctx.Log(p)
+		a.Failf("Flow validation failed for pod %s: %d failures (first: %d, last: %d, matched: %d)", pod, r.Failures, r.FirstMatch, r.LastMatch, len(r.Matched))
 	}
 
 	if r.Failures > 0 {
 		a.failed = true
 	}
+
+	a.Log()
 }
 
 func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (*flowsSet, error) {
