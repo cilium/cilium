@@ -69,20 +69,22 @@ func (p Parameters) validate() error {
 	return nil
 }
 
+// testEnabled returns true if the given test is allowed to run.
 func (p Parameters) testEnabled(test string) bool {
-	// Skip 'test' if any SkipTest matches
+	// Skip 'test' if any SkipTest matches.
 	for _, re := range p.SkipTests {
 		if re.MatchString(test) {
 			return false
 		}
 	}
-	// Run 'test' if any RunTest matches
+	// Run 'test' if any RunTest matches.
 	for _, re := range p.RunTests {
 		if re.MatchString(test) {
 			return true
 		}
 	}
-	// Else run if tests are not limited
+
+	// Enable test if there are no filters.
 	return len(p.RunTests) == 0
 }
 
