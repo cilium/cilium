@@ -95,6 +95,17 @@ func (ct *ConnectivityTest) skippedTests() []*Test {
 	return out
 }
 
+// skippedScenarios returns a list of Scenarios that were marked as skipped.
+func (ct *ConnectivityTest) skippedScenarios() []Scenario {
+	var out []Scenario
+
+	for _, t := range ct.tests {
+		out = append(out, t.scenariosSkipped...)
+	}
+
+	return out
+}
+
 // failedTests returns a list of Tests that encountered a failure.
 func (ct *ConnectivityTest) failedTests() []*Test {
 	var out []*Test
@@ -226,12 +237,6 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 			return context.Canceled
 		}
 
-		// Mark tests as skipped when the user requested so.
-		if !ct.params.testEnabled(t.Name()) {
-			ct.Skip(t)
-			continue
-		}
-
 		done := make(chan bool)
 
 		go func() {
@@ -263,8 +268,8 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 	return ct.report()
 }
 
-// Skip marks the Test as skipped.
-func (ct *ConnectivityTest) Skip(t *Test) {
+// skip marks the Test as skipped.
+func (ct *ConnectivityTest) skip(t *Test) {
 	ct.Log()
 	ct.Logf("[=] Skipping Test [%s]", t.Name())
 	t.skipped = true
@@ -273,12 +278,14 @@ func (ct *ConnectivityTest) Skip(t *Test) {
 func (ct *ConnectivityTest) report() error {
 	total := ct.tests
 	actions := ct.actions()
-	skipped := ct.skippedTests()
+	skippedTests := ct.skippedTests()
+	skippedScenarios := ct.skippedScenarios()
 	failed := ct.failedTests()
 
 	nt := len(total)
 	na := len(actions)
-	ns := len(skipped)
+	nst := len(skippedTests)
+	nss := len(skippedScenarios)
 	nf := len(failed)
 	nw := ct.warnings()
 
@@ -288,7 +295,7 @@ func (ct *ConnectivityTest) report() error {
 		// There are failed tests, fetch all failed actions.
 		fa := len(ct.failedActions())
 
-		ct.Failf("%d/%d tests failed (%d/%d actions), %d warnings, %d tests skipped:", nf, nt-ns, fa, na, nw, ns)
+		ct.Failf("%d/%d tests failed (%d/%d actions), %d warnings, %d tests skipped, %d scenarios skipped:", nf, nt-nst, fa, na, nw, nst, nss)
 
 		// List all failed actions by test.
 		for _, t := range failed {
@@ -301,7 +308,7 @@ func (ct *ConnectivityTest) report() error {
 		return fmt.Errorf("%d tests failed", nf)
 	}
 
-	ct.Headerf("✅ All %d tests (%d actions) successful, %d warnings, %d tests skipped.", nt-ns, na, nw, ns)
+	ct.Headerf("✅ All %d tests (%d actions) successful, %d warnings, %d tests skipped, %d scenarios skipped.", nt-nst, na, nw, nst, nss)
 
 	return nil
 }

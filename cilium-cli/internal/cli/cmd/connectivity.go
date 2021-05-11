@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 
 	"github.com/cilium/cilium-cli/connectivity"
@@ -53,8 +54,8 @@ func newCmdConnectivityTest() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			for _, test := range tests {
-				if test[0] == '!' {
-					params.SkipTests = append(params.SkipTests, regexp.MustCompile(test[1:]))
+				if strings.HasPrefix(test, "!") {
+					params.SkipTests = append(params.SkipTests, regexp.MustCompile(strings.TrimPrefix(test, "!")))
 				} else {
 					params.RunTests = append(params.RunTests, regexp.MustCompile(test))
 				}

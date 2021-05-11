@@ -44,6 +44,10 @@ type Test struct {
 	// Scenarios registered to this test.
 	scenarios map[Scenario][]*Action
 
+	// Scenarios marked as skipped during execution.
+	// Needs to be stored as a list, these are implemented in another package.
+	scenariosSkipped []Scenario
+
 	// Policies active during this test.
 	cnps map[string]*ciliumv2.CiliumNetworkPolicy
 
@@ -72,6 +76,13 @@ func (t *Test) Name() string {
 	return t.name
 }
 
+// ScenarioName returns the Test name and Scenario name concatenated in
+// a standard way. Scenario names are not unique, as they can occur multiple
+// times in the same Test.
+func (t *Test) scenarioName(s Scenario) string {
+	return fmt.Sprintf("%s/%s", t.Name(), s.Name())
+}
+
 // Context returns the enclosing context of the Test.
 func (t *Test) Context() *ConnectivityTest {
 	return t.ctx
@@ -87,6 +98,26 @@ func (t *Test) setup(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// skip adds Scenario s to the Test's list of skipped Scenarios.
+// This list is kept for reporting purposes.
+func (t *Test) skip(s Scenario) {
+	t.scenariosSkipped = append(t.scenariosSkipped, s)
+	t.Logf("[-] Skipping Scenario [%s]", t.scenarioName(s))
+}
+
+// willRun returns false if all of the Test's Scenarios will be skipped.
+func (t *Test) willRun() bool {
+	var sc int
+
+	for s := range t.scenarios {
+		if !t.Context().params.testEnabled(t.scenarioName(s)) {
+			sc++
+		}
+	}
+
+	return sc != len(t.scenarios)
 }
 
 // finalize runs all the Test's registered finalizers.
@@ -126,6 +157,16 @@ func (t *Test) Run(ctx context.Context) error {
 		t.flushWarnings()
 	}()
 
+	if len(t.scenarios) == 0 {
+		t.Warn("Test has no Scenarios")
+	}
+
+	// Skip the Test if all of its Scenarios are skipped.
+	if !t.willRun() {
+		t.Context().skip(t)
+		return nil
+	}
+
 	// Store start time of the Test.
 	t.startTime = time.Now()
 
@@ -141,7 +182,14 @@ func (t *Test) Run(ctx context.Context) error {
 			return context.Canceled
 		}
 
-		t.Logf("[-] Scenario [%s]", s.Name())
+		sn := t.scenarioName(s)
+
+		if !t.Context().params.testEnabled(sn) {
+			t.skip(s)
+			continue
+		}
+
+		t.Logf("[-] Scenario [%s]", sn)
 
 		s.Run(ctx, t)
 	}
