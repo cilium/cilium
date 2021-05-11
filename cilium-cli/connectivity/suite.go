@@ -130,5 +130,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		return check.ResultDNSOKRequestDrop, check.ResultNone
 	})
 
+	// Dummy tests for debugging the testing harness.
+	// ct.NewTest("dummy-1").WithScenarios(tests.Dummy("dummy-scenario-1"))
+	// ct.NewTest("dummy-2").WithScenarios(tests.Dummy("dummy-scenario-2"))
+
 	return ct.Run(ctx)
 }
