@@ -265,6 +265,12 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		},
 	}
 
+	if option.Config.HTTPNormalizePath {
+		hcmConfig.NormalizePath = &wrappers.BoolValue{Value: true}
+		hcmConfig.MergeSlashes = true
+		hcmConfig.PathWithEscapedSlashesAction = envoy_config_http.HttpConnectionManager_UNESCAPE_AND_REDIRECT
+	}
+
 	// Idle timeout can only be specified if non-zero
 	if idleTimeout > 0 {
 		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[1].GetRoute().IdleTimeout = &duration.Duration{Seconds: idleTimeout}
