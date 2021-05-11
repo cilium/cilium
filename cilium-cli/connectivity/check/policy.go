@@ -47,12 +47,12 @@ func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[P
 
 // waitCiliumPolicyRevisions waits for the Cilium policy revisions to be bumped
 // TODO: Improve error returns here, currently not possible for the caller to reliably detect timeout.
-func (ct *ConnectivityTest) waitCiliumPolicyRevisions(ctx context.Context, revisions map[Pod]int) error {
+func (t *Test) waitCiliumPolicyRevisions(ctx context.Context, revisions map[Pod]int) error {
 	var err error
 	for pod, oldRevision := range revisions {
 		err = waitCiliumPolicyRevision(ctx, pod, oldRevision+1, defaults.PolicyWaitTimeout)
 		if err == nil {
-			ct.Debugf("Pod %s/%s revision > %d", pod.K8sClient.ClusterName(), pod.Name(), oldRevision)
+			t.Debugf("Pod %s/%s revision > %d", pod.K8sClient.ClusterName(), pod.Name(), oldRevision)
 			delete(revisions, pod)
 		}
 	}
@@ -255,7 +255,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	}
 
 	for pod, revision := range revisions {
-		t.Debugf("Pod %s's current policy revision %d", pod.Name, revision)
+		t.Debugf("Pod %s's current policy revision %d", pod.Name(), revision)
 	}
 
 	// Apply all given CiliumNetworkPolicies.
@@ -289,7 +289,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	// were modified on the API server.
 	if mod {
 		t.Debug("Policy difference detected, waiting for Cilium agents to increment policy revisions..")
-		if err := t.Context().waitCiliumPolicyRevisions(ctx, revisions); err != nil {
+		if err := t.waitCiliumPolicyRevisions(ctx, revisions); err != nil {
 			return fmt.Errorf("policies were not applied on all Cilium nodes in time: %s", err)
 		}
 	}
@@ -325,7 +325,7 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 	}
 
 	// Wait for policies to be deleted on all Cilium nodes.
-	if err := t.Context().waitCiliumPolicyRevisions(ctx, revs); err != nil {
+	if err := t.waitCiliumPolicyRevisions(ctx, revs); err != nil {
 		return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
 	}
 
