@@ -17,7 +17,9 @@ package cmd
 import (
 	"context"
 	"os"
+	"os/signal"
 	"regexp"
+	"syscall"
 
 	"github.com/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium-cli/connectivity/check"
@@ -33,7 +35,7 @@ func newCmdConnectivity() *cobra.Command {
 		Long:  ``,
 	}
 
-	cmd.AddCommand(newCmdConnectivityCheck())
+	cmd.AddCommand(newCmdConnectivityTest())
 
 	return cmd
 }
@@ -43,12 +45,13 @@ var params = check.Parameters{
 }
 var tests []string
 
-func newCmdConnectivityCheck() *cobra.Command {
+func newCmdConnectivityTest() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Validate connectivity in cluster",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+
 			for _, test := range tests {
 				if test[0] == '!' {
 					params.SkipTests = append(params.SkipTests, regexp.MustCompile(test[1:]))
@@ -56,12 +59,26 @@ func newCmdConnectivityCheck() *cobra.Command {
 					params.RunTests = append(params.RunTests, regexp.MustCompile(test))
 				}
 			}
-			cc, err := check.NewK8sConnectivityCheck(k8sClient, params)
+
+			// Instantiate the test harness.
+			cc, err := check.NewConnectivityTest(k8sClient, params)
+
 			if err != nil {
 				return err
 			}
-			if err := connectivity.Run(context.Background(), cc); err != nil {
-				fatalf("Connectivity test failed:  %s", err)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			s := make(chan os.Signal)
+			signal.Notify(s, os.Interrupt, syscall.SIGTERM)
+
+			go func() {
+				<-s
+				cc.Log("Interrupt received, cancelling tests...")
+				cancel()
+			}()
+
+			if err := connectivity.Run(ctx, cc); err != nil {
+				fatalf("Connectivity test failed: %s", err)
 			}
 			return nil
 		},
@@ -79,7 +96,8 @@ func newCmdConnectivityCheck() *cobra.Command {
 	cmd.Flags().StringSliceVar(&tests, "test", []string{}, "Run tests that match one of the given regular expressions, skip tests by starting the expression with '!'")
 	cmd.Flags().StringVar(&params.FlowValidation, "flow-validation", check.FlowValidationModeWarning, "Enable Hubble flow validation { disabled | warning | strict }")
 	cmd.Flags().BoolVar(&params.AllFlows, "all-flows", false, "Print all flows during flow validation")
-	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show additional diagnostic messages")
+	cmd.Flags().BoolVarP(&params.Verbose, "verbose", "v", false, "Show informational messages")
+	cmd.Flags().BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 
 	return cmd

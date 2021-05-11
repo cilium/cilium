@@ -16,66 +16,79 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-type PodToWorld struct {
-	check.PolicyContext
-	Variant string
+// PodToWorld sends multiple HTTP(S) requests to google.com
+// from random client Pods.
+func PodToWorld(name string) check.Scenario {
+	return &podToWorld{
+		name: name,
+	}
 }
 
-func (t *PodToWorld) WithPolicy(yaml string) check.ConnectivityTest {
-	return t.WithPolicyRunner(t, yaml)
+// podToWorld implements a Scenario.
+type podToWorld struct {
+	name string
 }
 
-func (t *PodToWorld) Name() string {
-	return "pod-to-world" + t.Variant
+func (s *podToWorld) Name() string {
+	tn := "pod-to-world"
+	if s.name == "" {
+		return tn
+	}
+	return fmt.Sprintf("%s:%s", tn, s.name)
 }
 
-func (t *PodToWorld) Run(ctx context.Context, c check.TestContext) {
-	fqdn := "google.com"
+func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
+	ghttp := check.HTTPEndpoint("google-http", "http://google.com")
+	ghttps := check.HTTPEndpoint("google-https", "https://google.com")
+	wwwghttp := check.HTTPEndpoint("www-google-http", "http://www.google.com")
 
-	// With https
-	if client := c.RandomClientPod(); client != nil {
-		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn}, 443)
-		cmd := curlCommand("https://" + fqdn)
-		stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-		run.LogResult(cmd, err, stdout, stderr)
-		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-			DNSRequired: true,
-			RSTAllowed:  true,
+	// With https, over port 443.
+	if client := t.Context().RandomClientPod(); client != nil {
+		cmd := curl(ghttps)
+
+		t.NewAction(s, "https-to-google", client, ghttps).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, cmd)
+
+			egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+				DNSRequired: true,
+				RSTAllowed:  true,
+			})
+			a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
 		})
-		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
-		run.End()
 	}
 
-	// With http
-	if client := c.RandomClientPod(); client != nil {
-		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn}, 80)
-		cmd := curlCommand("http://" + fqdn)
-		stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-		run.LogResult(cmd, err, stdout, stderr)
-		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-			DNSRequired: true,
-			RSTAllowed:  true,
+	// With http, over port 80.
+	if client := t.Context().RandomClientPod(); client != nil {
+		cmd := curl(ghttp)
+
+		t.NewAction(s, "http-to-google", client, ghttp).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, cmd)
+
+			egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+				DNSRequired: true,
+				RSTAllowed:  true,
+			})
+			a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
 		})
-		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
-		run.End()
 	}
 
-	// With http to www.google.com
-	fqdn2 := "www.google.com"
-	if client := c.RandomClientPod(); client != nil {
-		run := check.NewTestRun(t, c, client, check.NetworkEndpointContext{Peer: fqdn2}, 80)
-		cmd := curlCommand("http://" + fqdn2)
-		stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-		run.LogResult(cmd, err, stdout, stderr)
-		egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-			DNSRequired: true,
-			RSTAllowed:  true,
+	// With http to www.google.com.
+	if client := t.Context().RandomClientPod(); client != nil {
+		cmd := curl(wwwghttp)
+
+		t.NewAction(s, "http-to-www-google", client, wwwghttp).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, cmd)
+
+			egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+				DNSRequired: true,
+				RSTAllowed:  true,
+			})
+			a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
 		})
-		run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
-		run.End()
 	}
 }
