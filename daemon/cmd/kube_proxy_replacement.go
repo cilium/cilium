@@ -365,6 +365,11 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("%s requires the agent to run with %s=%s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		}
+
+		if !option.Config.EnableBPFMasquerade {
+			log.Fatalf("%s requires the agent to run with %s.",
+				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
+		}
 	}
 
 	return
