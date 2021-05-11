@@ -1,0 +1,22 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fqdn"
+spec:
+  endpointSelector:
+    matchLabels:
+      org: empire
+      class: mediabot
+  egress:
+  - toFQDNs:
+    - matchName: "api.twitter.com"  
+  - toEndpoints:
+    - matchLabels:
+        "k8s:io.kubernetes.pod.namespace": openshift-dns
+    toPorts:
+    - ports:
+      - port: "5353"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
