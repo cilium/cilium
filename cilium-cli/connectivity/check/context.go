@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	hubprinter "github.com/cilium/hubble/pkg/printer"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
@@ -336,22 +335,6 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (ct *ConnectivityTest) Print(pod string, f *flowsSet) {
-	if f == nil {
-		ct.Log("📄 No flows recorded for pod", pod)
-		return
-	}
-
-	ct.Log("📄 Flow logs for pod", pod)
-	printer := hubprinter.New(hubprinter.Compact(), hubprinter.WithIPTranslation())
-	defer printer.Close()
-	for _, flow := range *f {
-		if err := printer.WriteProtoFlow(flow); err != nil {
-			ct.Log("Unable to print flow", err)
-		}
-	}
 }
 
 func (ct *ConnectivityTest) logAggregationMode(ctx context.Context, client *k8s.Client) (string, error) {
