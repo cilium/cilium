@@ -36,9 +36,10 @@ function get_cilium_pods {
 }
 
 K8S_NAMESPACE="${K8S_NAMESPACE:-kube-system}"
+CONTAINER="${CONTAINER:-cilium-agent}"
 
 while read -r p; do
-	kubectl -n "${K8S_NAMESPACE}" exec -ti "${p}" -- "${@}" &
+	kubectl -n "${K8S_NAMESPACE}" exec -c "${CONTAINER}" "${p}" -- "${@}" &
 done <<< "$(get_cilium_pods)"
 
 wait

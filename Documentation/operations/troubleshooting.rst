@@ -55,7 +55,7 @@ context of that pod:
 
 .. code-block:: shell-session
 
-   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium status
+   $ kubectl -n kube-system exec cilium-2hq5z -- cilium status
    KVStore:                Ok   etcd: 1/1 connected: http://demo-etcd-lab--a.etcd.tgraf.test1.lab.corp.isovalent.link:2379 - 3.2.5 (Leader)
    ContainerRuntime:       Ok   docker daemon: OK
    Kubernetes:             Ok   OK
@@ -73,7 +73,7 @@ of all nodes in the cluster:
 
 .. code:: bash
 
-   curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
+   curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-cilium-exec.sh
    chmod +x ./k8s-cilium-exec.sh
 
 ... and run ``cilium status`` on all nodes:
@@ -473,7 +473,9 @@ Cilium:
 
 .. code-block:: shell-session
 
-   $ ./contrib/k8s/k8s-unmanaged.sh
+   $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-unmanaged.sh
+   $ chmod +x k8s-unmanaged.sh
+   $ ./k8s-unmanaged.sh
    kube-system/cilium-hqpk7
    kube-system/kube-addon-manager-minikube
    kube-system/kube-dns-54cccfbdf8-zmv2c
@@ -929,8 +931,9 @@ Identifies the Cilium pod that is managing a particular pod in a namespace:
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-get-cilium-pod.sh
-    $ bash ./k8s-get-cilium-pod.sh luke-pod default
+    $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-get-cilium-pod.sh
+    $ chmod +x k8s-get-cilium-pod.sh
+    $ ./k8s-get-cilium-pod.sh luke-pod default
     cilium-zmjj9
     cilium-node-init-v7r9p
     cilium-operator-f576f7977-s5gpq
@@ -948,7 +951,8 @@ Run a command within all Cilium pods of a cluster
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
+    $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-cilium-exec.sh
+    $ chmod +x k8s-cilium-exec.sh
     $ ./k8s-cilium-exec.sh uptime
      10:15:16 up 6 days,  7:37,  0 users,  load average: 0.00, 0.02, 0.00
      10:15:16 up 6 days,  7:32,  0 users,  load average: 0.00, 0.03, 0.04
@@ -970,7 +974,8 @@ were started before Cilium was deployed.
 
 .. code-block:: shell-session
 
-   $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-unmanaged.sh
+   $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-unmanaged.sh
+   $ chmod +x k8s-unmanaged.sh
    $ ./k8s-unmanaged.sh
    kube-system/cilium-hqpk7
    kube-system/kube-addon-manager-minikube
