@@ -10,6 +10,8 @@
 Egress Gateway (beta)
 **********************
 
+.. include:: ../beta.rst
+
 The egress gateway allows users to redirect egress pod traffic through
 specific, gateway nodes. Packets are masqueraded to the gateway node IP.
 
@@ -17,32 +19,44 @@ This document explains how to enable the egress gateway and configure
 egress NAT policies to route and SNAT the egress traffic for a specific
 workload.
 
-.. include:: ../beta.rst
+.. note::
 
-Configure Cilium
-================
+   This guide assumes that Cilium has been correctly installed in your
+   Kubernetes cluster. Please see :ref:`k8s_quick_install` for more
+   information. If unsure, run ``cilium status`` and validate that Cilium is up
+   and running.
 
-.. include:: k8s-install-download-release.rst
+Enable Egress Gateway
+=====================
 
-The feature is disabled by default. Enable the feature by setting the
-``enableEgressGateway`` value to ``true``.
+The feature is disabled by default. Enable the feature:
 
-Additionally enabling feature requires ``enable-bpf-masquerade=true`` and
-``kube-proxy-replacement=strict``. It cannot be enabled with either of these
-2 options set as ``enable-bpf-masquerade=false`` or
-``kube-proxy-replacement=disabled``.
+.. tabs::
 
-.. parsed-literal::
+    .. group-tab:: Helm
 
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set egressGateway.enabled=true \\
-      --set bpf.masquerade=true \\
-      --set kubeProxyReplacement=strict
+        If you installed Cilium via ``helm install``, you may enable
+        the Egress gateway feature with the following command:
 
-Optionally, Egress Gateway support can be enabled by setting
-``enable-egress-gateway`` to ``true`` in ConfigMap ``cilium-config``, or
-running ``cilium-agent`` with option ``--enable-egress-gateway``.
+        .. parsed-literal::
+
+           helm upgrade cilium |CHART_RELEASE| \\
+              --namespace kube-system \\
+              --reuse-values \\
+              --set egressGateway.enabled=true \\
+              --set bpf.masquerade=true \\
+              --set kubeProxyReplacement=strict
+
+    .. group-tab:: ConfigMap
+
+       Egress Gateway support can be enabled by setting the following options
+       in the ``cilium-config`` ConfigMap:
+
+       .. code-block:: shell-session
+
+          enable-egress-gateway: true
+          enable-bpf-masquerade: true
+          kube-proxy-replacement: strict
 
 Create an External Service (Optional)
 =====================================
