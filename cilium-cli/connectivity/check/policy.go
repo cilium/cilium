@@ -16,19 +16,124 @@ package check
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// getCiliumPolicyRevisions returns the current policy revisions of all Cilium pods
+func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[Pod]int, error) {
+	revisions := make(map[Pod]int)
+	for _, cp := range ct.ciliumPods {
+		revision, err := getCiliumPolicyRevision(ctx, cp)
+		if err != nil {
+			return revisions, err
+		}
+		revisions[cp] = revision
+	}
+	return revisions, nil
+}
+
+// waitCiliumPolicyRevisions waits for the Cilium policy revisions to be bumped
+// TODO: Improve error returns here, currently not possible for the caller to reliably detect timeout.
+func (ct *ConnectivityTest) waitCiliumPolicyRevisions(ctx context.Context, revisions map[Pod]int) error {
+	var err error
+	for pod, oldRevision := range revisions {
+		err = waitCiliumPolicyRevision(ctx, pod, oldRevision+1, defaults.PolicyWaitTimeout)
+		if err == nil {
+			ct.Debugf("Pod %s/%s revision > %d", pod.K8sClient.ClusterName(), pod.Name(), oldRevision)
+			delete(revisions, pod)
+		}
+	}
+	if len(revisions) == 0 {
+		return nil
+	}
+	return err
+}
+
+// getCiliumPolicyRevision returns the current policy revision of a Cilium pod.
+func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
+	stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		"cilium-agent", []string{"cilium", "policy", "get", "-o", "jsonpath='{.revision}'"})
+	if err != nil {
+		return 0, err
+	}
+	revision, err := strconv.Atoi(strings.Trim(stdout.String(), "'\n"))
+	if err != nil {
+		return 0, fmt.Errorf("revision '%s' is not valid: %w", stdout.String(), err)
+	}
+	return revision, nil
+}
+
+// waitCiliumPolicyRevision waits for a Cilium pod to reach a given policy revision.
+func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout time.Duration) error {
+	timeoutStr := strconv.Itoa(int(timeout.Seconds()))
+	_, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		"cilium-agent", []string{"cilium", "policy", "wait", strconv.Itoa(rev), "--max-wait-time", timeoutStr})
+	return err
+}
+
+func updateOrCreateCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) (bool, error) {
+	mod := false
+
+	if kcnp, err := client.GetCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.GetOptions{}); err == nil {
+		// Check if the local CNP's Spec or Specs differ from the remote version.
+		//TODO(timo): What about label changes? Do they trigger a Cilium agent policy revision?
+		if !kcnp.Spec.DeepEqual(cnp.Spec) ||
+			!kcnp.Specs.DeepEqual(&cnp.Specs) {
+			mod = true
+		}
+
+		kcnp.ObjectMeta.Labels = cnp.ObjectMeta.Labels
+		kcnp.Spec = cnp.Spec
+		kcnp.Specs = cnp.Specs
+		kcnp.Status = ciliumv2.CiliumNetworkPolicyStatus{}
+
+		_, err = client.UpdateCiliumNetworkPolicy(ctx, kcnp, metav1.UpdateOptions{})
+		return mod, err
+	}
+
+	// Creating, so a resource will definitely be modified.
+	mod = true
+	_, err := client.CreateCiliumNetworkPolicy(ctx, cnp, metav1.CreateOptions{})
+	return mod, err
+}
+
+// deleteCNP deletes a CiliumNetworkPolicy from the cluster.
+func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) error {
+	if err := client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), cnp.Namespace, cnp.Name, err)
+	}
+
+	return nil
+}
+
+var (
+	// Expect a successful command, don't match any packets.
+	ResultNone = Result{None: true}
+
+	// Expect a successful command and a matching flow.
+	ResultOK = Result{}
+
+	// Expect a successful command, only generating DNS traffic.
+	ResultDNSOK = Result{DNSProxy: true}
+
+	// Expect a failed command, generating DNS traffic and a dropped flow.
+	ResultDNSOKRequestDrop = Result{DNSProxy: true, Drop: true}
+
+	// Expect a dropped flow and a failed command.
+	ResultDrop = Result{Drop: true}
 )
 
 type HTTP struct {
@@ -53,14 +158,6 @@ type Result struct {
 	// HTTPStatus is true when a HTTP status code in response is to be expected
 	HTTP HTTP
 }
-
-var (
-	ResultOK      = Result{}
-	ResultDNSOK   = Result{DNSProxy: true}
-	ResultNone    = Result{None: true}
-	ResultDrop    = Result{Drop: true}
-	ResultDNSDrop = Result{Drop: true, DNSProxy: true}
-)
 
 func (r Result) String() string {
 	if r.None {
@@ -94,389 +191,186 @@ func (r Result) String() string {
 	return ret
 }
 
-type GetExpectations func(t *TestRun) (egress, ingress Result)
-
-type Policy interface {
-	// WithPolicy attaches a policy YAML with to a test case
-	WithPolicy(yaml string) ConnectivityTest
-
-	// WithExpectations attaches a function that returns test case expected policy enforcement results
-	WithExpectations(f GetExpectations) ConnectivityTest
-
-	// getExpectations is for internal use only
-	getExpectations(t *TestRun) (egress, ingress Result)
-}
-
-// PolicyContext implements ConnectivityTest interface so that
-// policies can be applied between tests and policy apply failures can
-// be reported like any other test results.
-type PolicyContext struct {
-	runner     ConnectivityTest
-	err        error
-	CNPs       []*ciliumv2.CiliumNetworkPolicy
-	expectFunc GetExpectations
-	policyOnly bool
-}
-
-// WithPolicyRunner sets the test runner to use and stores the policy for the tests
-func (pc *PolicyContext) WithPolicyRunner(runner ConnectivityTest, yaml string) ConnectivityTest {
-	pc.runner = runner
-	return pc.WithPolicy(yaml)
-}
-
-// PolicyOnly returns true if there is no traffic scenario with this PolicyContext
-func (pc *PolicyContext) PolicyOnly() bool {
-	return pc.policyOnly
-}
-
-// Name returns the absolute name of the policy
-func (pc *PolicyContext) Name() string {
-	if pc.runner != nil {
-		return pc.runner.Name()
-	}
-	if len(pc.CNPs) == 0 {
-		return fmt.Sprintf("PolicyContext %p", pc)
-	}
-	return fmt.Sprintf("%s/%s", pc.CNPs[0].Namespace, pc.CNPs[0].Name)
-}
-
-// Run applies the policy, use no policy to delete all policies
-func (pc *PolicyContext) Run(ctx context.Context, c TestContext) {
-	if pc.err != nil {
-		c.Log("❌ policy parsing failed with error: %s", pc.err)
-		c.Report(TestResult{
-			Name:     pc.Name(),
-			Failures: 1,
-			Warnings: 0,
-		})
-		return
-	}
-	if pc.runner != nil {
-		failures, cleanup := pc.ApplyPolicy(ctx, c)
-		c.(*K8sConnectivityCheck).policyFailures = failures
-		defer cleanup()
-
-		if failures > 0 {
-			c.Log("❌ policy apply failed")
-			c.Report(TestResult{
-				Name:     pc.Name(),
-				Failures: 1,
-				Warnings: 0,
-			})
-			return
-		}
-		pc.runner.Run(ctx, c)
-	} else {
-		failures := c.ApplyCNPs(ctx, true, pc.CNPs)
-		if failures > 0 {
-			c.Log("❌ policy apply failed")
-		}
-		c.Report(TestResult{
-			Name:     pc.Name(),
-			Failures: failures,
-			Warnings: 0,
-		})
-	}
-}
-
-// WithPolicy sets the policy to use during tests
-func (pc *PolicyContext) WithPolicy(yaml string) ConnectivityTest {
-	// Set policyOnly flag if runner is not set
-	pc.policyOnly = pc.runner == nil
-	pc.ParsePolicy(yaml)
-	return pc
-}
+type ExpectationsFunc func(a *Action) (egress, ingress Result)
 
 // WithExpectations sets the getExpectations test result function to use during tests
-func (pc *PolicyContext) WithExpectations(f GetExpectations) ConnectivityTest {
-	pc.expectFunc = f
-	return pc
+func (t *Test) WithExpectations(f ExpectationsFunc) *Test {
+	if t.expectFunc == nil {
+		t.expectFunc = f
+		return t
+	}
+
+	t.Fatalf("test %s already has an expectation set", t.name)
+
+	return nil
 }
 
-// getExpectations returns the expected results for a specific test case
-func (pc *PolicyContext) getExpectations(t *TestRun) (egress, ingress Result) {
-	// Default to success
-	if pc.expectFunc == nil {
+// getExpectations returns the expected results for a specific Action.
+func (t *Test) expectations(a *Action) (egress, ingress Result) {
+	// Default to success.
+	if t.expectFunc == nil {
 		return ResultOK, ResultOK
 	}
 
-	egress, ingress = pc.expectFunc(t)
-	if egress.Drop || ingress.Drop {
-		t.Waiting("The following command is expected to fail")
+	egress, ingress = t.expectFunc(a)
+	if egress.Drop {
+		t.Debugf("Expecting egress drops for Action %s: %v", a.name, egress)
+	}
+	if ingress.Drop {
+		t.Debugf("Expecting ingress drops for Action %s: %v", a.name, ingress)
 	}
 
 	return egress, ingress
 }
 
-func (pc *PolicyContext) ParsePolicy(policy string) {
-	pc.CNPs, pc.err = ParsePolicyYAML(policy)
-}
+// addCNPs adds one or more CiliumNetworkPolicy resources to the Test.
+func (t *Test) addCNPs(cnps ...*ciliumv2.CiliumNetworkPolicy) error {
+	for _, p := range cnps {
+		if p == nil {
+			return errors.New("cannot add nil CiliumNetworkPolicy to test")
+		}
+		if p.Name == "" {
+			return fmt.Errorf("adding CiliumNetworkPolicy with empty name to test: %v", p)
+		}
+		if _, ok := t.cnps[p.Name]; ok {
+			return fmt.Errorf("CiliumNetworkPolicy with name %s already in test scope", p.Name)
+		}
 
-// ApplyPolicy returns the number of failures and a cancel function that deletes the applied policies
-func (pc *PolicyContext) ApplyPolicy(ctx context.Context, c TestContext) (failures int, cancel func()) {
-	if pc.err != nil {
-		return 1, func() {}
+		t.cnps[p.Name] = p
 	}
 
-	return c.ApplyCNPs(ctx, false, pc.CNPs), func() {
-		c.DeleteCNPs(ctx, pc.CNPs)
+	return nil
+}
+
+// applyPolicies applies all the Test's registered network policies.
+func (t *Test) applyPolicies(ctx context.Context) error {
+	if len(t.cnps) == 0 {
+		return nil
+	}
+
+	// Get current policy revisions in all Cilium pods.
+	revisions, err := t.Context().getCiliumPolicyRevisions(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get policy revisions for Cilium pods: %w", err)
+	}
+
+	for pod, revision := range revisions {
+		t.Debugf("Pod %s's current policy revision %d", pod.Name, revision)
+	}
+
+	// Apply all given CiliumNetworkPolicies.
+	var mod bool
+	for _, cnp := range t.cnps {
+		for _, client := range t.Context().clients.clients() {
+			t.Infof("📜 Applying CiliumNetworkPolicy '%s' to namespace '%s'..", cnp.Name, cnp.Namespace)
+			mod, err = updateOrCreateCNP(ctx, client, cnp)
+			if err != nil {
+				return fmt.Errorf("policy application failed: %w", err)
+			}
+		}
+	}
+
+	// Register a finalizer with the Test immediately to enable cleanup.
+	// If we return a cleanup closure from this function, cleanup cannot be
+	// performed if the user cancels during the policy revision wait time.
+	t.finalizers = append(t.finalizers, func() error {
+		// Use a detached context to make sure this call is not affected by
+		// context cancellation. This deletion needs to happen event when the
+		// user interrupted the program.
+		if err := t.deletePolicies(context.TODO()); err != nil {
+			t.ciliumLogs(ctx)
+			return err
+		}
+
+		return nil
+	})
+
+	// Wait for policies to take effect on all Cilium nodes if we think policies
+	// were modified on the API server.
+	if mod {
+		t.Debug("Policy difference detected, waiting for Cilium agents to increment policy revisions..")
+		if err := t.Context().waitCiliumPolicyRevisions(ctx, revisions); err != nil {
+			return fmt.Errorf("policies were not applied on all Cilium nodes in time: %s", err)
+		}
+	}
+
+	t.Debugf("📜 Successfully applied %d CiliumNetworkPolicies", len(t.cnps))
+
+	return nil
+}
+
+// deletePolicies deletes a given set of network policies from the cluster.
+func (t *Test) deletePolicies(ctx context.Context) error {
+	if len(t.cnps) == 0 {
+		return nil
+	}
+
+	// Get current policy revisions in all Cilium pods.
+	revs, err := t.Context().getCiliumPolicyRevisions(ctx)
+	if err != nil {
+		return fmt.Errorf("geting policy revisions for Cilium agents: %w", err)
+	}
+	for pod, rev := range revs {
+		t.Debugf("Pod %s's current policy revision: %d", pod.Name(), rev)
+	}
+
+	// Delete all the Test's CNPs from all clients.
+	for _, cnp := range t.cnps {
+		t.Infof("📜 Deleting CiliumNetworkPolicy '%s' from namespace '%s'..", cnp.Name, cnp.Namespace)
+		for _, client := range t.Context().clients.clients() {
+			if err := deleteCNP(ctx, client, cnp); err != nil {
+				return fmt.Errorf("deleting CiliumNetworkPolicy: %w", err)
+			}
+		}
+	}
+
+	// Wait for policies to be deleted on all Cilium nodes.
+	if err := t.Context().waitCiliumPolicyRevisions(ctx, revs); err != nil {
+		return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
+	}
+
+	t.Debugf("📜 Successfully deleted %d CiliumNetworkPolicies", len(t.cnps))
+
+	return nil
+}
+
+// ciliumLogs dumps the logs of all Cilium agents since the start of the Test.
+// filter is applied on each line of output.
+func (t *Test) ciliumLogs(ctx context.Context) {
+	for _, pod := range t.Context().ciliumPods {
+		log, err := pod.K8sClient.CiliumLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, t.startTime, nil)
+		if err != nil {
+			t.Fatalf("Error reading Cilium logs: %s", err)
+		}
+		t.Infof("Cilium agent %s/%s logs since %s:\n%s", pod.Pod.Namespace, pod.Pod.Name, t.startTime.String(), log)
 	}
 }
 
-// ParsePolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies
-func ParsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
+// parsePolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
+func parsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
 	if policy == "" {
 		return nil, nil
 	}
+
 	yamls := strings.Split(policy, "---")
+
 	for _, yaml := range yamls {
 		if strings.TrimSpace(yaml) == "" {
 			continue
 		}
-		obj, groupVersionKind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
+
+		obj, kind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("resource decode error (%s) in: %s", err, yaml)
+			return nil, fmt.Errorf("decoding policy yaml (%w) in: %s", err, yaml)
 		}
-		switch groupVersionKind.Kind {
-		case "CiliumNetworkPolicy":
-			cnp, ok := obj.(*ciliumv2.CiliumNetworkPolicy)
-			if !ok {
-				return nil, fmt.Errorf("object cast to CiliumNetworkPolicy failed: %s", yaml)
-			}
-			cnps = append(cnps, cnp)
+
+		switch policy := obj.(type) {
+		case *ciliumv2.CiliumNetworkPolicy:
+			cnps = append(cnps, policy)
 		default:
-			return nil, fmt.Errorf("unknown policy type '%s' in: %s", groupVersionKind.Kind, yaml)
+			return nil, fmt.Errorf("unknown policy type '%s' in: %s", kind.Kind, yaml)
 		}
 	}
+
 	return cnps, nil
-}
-
-// DeleteCNP deletes a CNP
-func (k *K8sConnectivityCheck) DeleteCNP(ctx context.Context, client k8sConnectivityImplementation, cnp *ciliumv2.CiliumNetworkPolicy) (failed bool) {
-	name := client.ClusterName() + "/" + cnp.Namespace + "/" + cnp.Name
-	if _, ok := k.policies[name]; !ok {
-		k.Log("❌ [%s] policy was not applied, not deleting", name)
-		return false
-	}
-	var err error
-	if err = k.deleteCNP(ctx, client, cnp); err != nil {
-		k.Log("❌ [%s] policy delete failed: %s", name, err)
-		failed = true
-	}
-	delete(k.policies, name)
-	return failed
-}
-
-// DeleteCNPs deletes a set of CNPs
-func (k *K8sConnectivityCheck) DeleteCNPs(ctx context.Context, cnps []*ciliumv2.CiliumNetworkPolicy) {
-	// bail out if nothing to do:
-	if len(cnps) == 0 {
-		return
-	}
-
-	startTime := time.Now()
-
-	// Get current policy revisions in all Cilium pods
-	revisions, err := k.GetCiliumPolicyRevisions(ctx)
-	if err != nil {
-		k.Log("❌ unable to get policy revisions for Cilium pods: %w", err)
-	}
-	if k.params.Verbose {
-		for pc, revision := range revisions {
-			k.Log("ℹ️  pod %s current policy revision %d", pc.Pod.Name, revision)
-		}
-	}
-
-	var deleted []string
-	for _, cnp := range cnps {
-		for _, client := range k.clients.clients() {
-			if k.DeleteCNP(ctx, client, cnp) {
-				name := client.ClusterName() + "/" + cnp.Namespace + "/" + cnp.Name
-				deleted = append(deleted, name)
-			}
-		}
-	}
-
-	// Wait for policies to be deleted on all Cilium nodes
-	if len(deleted) > 0 {
-		err = k.WaitCiliumPolicyRevisions(ctx, revisions)
-		if err != nil {
-			k.Log("❌ policies are not deleted in all Cilium nodes in time")
-			k.CiliumLogs(ctx, startTime.Add(-1*time.Second), nil)
-		} else {
-			k.Log("✅ deleted CiliumNetworkPolicies: %s", strings.Join(deleted, ","))
-		}
-	}
-}
-
-// GetCiliumPolicyRevision returns the current policy revision in a Cilium pod
-func (k *K8sConnectivityCheck) GetCiliumPolicyRevision(ctx context.Context, pc PodContext) (int, error) {
-	stdout, err := pc.K8sClient.ExecInPod(ctx, pc.Pod.Namespace, pc.Pod.Name, "cilium-agent", []string{"cilium", "policy", "get", "-o", "jsonpath='{.revision}'"})
-	if err != nil {
-		return 0, err
-	}
-	revision, err := strconv.Atoi(strings.Trim(stdout.String(), "'\n"))
-	if err != nil {
-		return 0, fmt.Errorf("revision '%s' is not valid: %w", stdout.String(), err)
-	}
-	return revision, nil
-}
-
-// CiliumPolicyWaitForRevision waits for a specific policy revision to be deployed in a Cilium pod
-func (k *K8sConnectivityCheck) CiliumPolicyWaitForRevision(ctx context.Context, pc PodContext, rev int, timeout time.Duration) error {
-	revStr := strconv.Itoa(rev)
-	timeoutStr := strconv.Itoa(int(timeout.Seconds()))
-	_, err := pc.K8sClient.ExecInPod(ctx, pc.Pod.Namespace, pc.Pod.Name, "cilium-agent", []string{"cilium", "policy", "wait", revStr, "--max-wait-time", timeoutStr})
-	return err
-}
-
-// GetCiliumPolicyRevisions returns the current policy revisions of all Cilium pods
-func (k *K8sConnectivityCheck) GetCiliumPolicyRevisions(ctx context.Context) (map[PodContext]int, error) {
-	revisions := make(map[PodContext]int)
-	for _, pc := range k.ciliumPods {
-		revision, err := k.GetCiliumPolicyRevision(ctx, pc)
-		if err != nil {
-			return revisions, err
-		}
-		revisions[pc] = revision
-	}
-	return revisions, nil
-}
-
-// WaitCiliumPolicyRevisions waits for the Cilium policy revisions to be bumped
-func (k *K8sConnectivityCheck) WaitCiliumPolicyRevisions(ctx context.Context, revisions map[PodContext]int) error {
-	var err error
-	for pc, oldRevision := range revisions {
-		err = k.CiliumPolicyWaitForRevision(ctx, pc, oldRevision+1, defaults.PolicyWaitTimeout)
-		if err == nil {
-			if k.params.Verbose {
-				k.Log("ℹ️  [%s] pod %s revision > %d", pc.K8sClient.ClusterName(), pc.Pod.Name, oldRevision)
-			}
-			delete(revisions, pc)
-		}
-	}
-	if len(revisions) == 0 {
-		return nil
-	}
-	return err
-}
-
-// CiliumLogs logs the logs of all the Cilium agents since 'startTime' applying 'filter'
-func (k *K8sConnectivityCheck) CiliumLogs(ctx context.Context, startTime time.Time, filter *regexp.Regexp) {
-	for _, pc := range k.ciliumPods {
-		log, err := pc.K8sClient.CiliumLogs(ctx, pc.Pod.Namespace, pc.Pod.Name, startTime, filter)
-		if err != nil {
-			k.Log("❌ error reading Cilium logs: %w", err)
-		} else {
-			k.Log("ℹ️  [%s] Cilium agent %s/%s logs since %s:\n%s", pc.K8sClient.ClusterName(), pc.Pod.Namespace, pc.Pod.Name, startTime.String(), log)
-		}
-	}
-}
-
-// ApplyCNPs applies policies and returns the number of failures
-func (k *K8sConnectivityCheck) ApplyCNPs(ctx context.Context, policyOnly bool, cnps []*ciliumv2.CiliumNetworkPolicy) int {
-	wait := false
-	failures := 0
-	startTime := time.Now()
-
-	// bail out if nothing to do (nothing to delete and nothing to add):
-	if (!policyOnly || policyOnly && len(k.policies) == 0) && len(cnps) == 0 {
-		return 0
-	}
-
-	// Get current policy revisions in all Cilium pods
-	revisions, err := k.GetCiliumPolicyRevisions(ctx)
-	if err != nil {
-		k.Log("❌ unable to get policy revisions for Cilium pods: %w", err)
-		failures++
-	}
-	if k.params.Verbose {
-		for pc, revision := range revisions {
-			k.Log("ℹ️  pod %s current policy revision %d", pc.Pod.Name, revision)
-		}
-	}
-
-	var deleted []string
-	if len(cnps) == 0 {
-		if policyOnly {
-			k.Header("⌛ Deleting all previously applied policies...")
-			for _, cnp := range k.policies {
-				for _, client := range k.clients.clients() {
-					name := client.ClusterName() + "/" + cnp.Namespace + "/" + cnp.Name
-					deleted = append(deleted, name)
-					k.DeleteCNP(ctx, client, cnp)
-					wait = true
-				}
-			}
-		}
-	} else {
-		k.Header("⌛ Applying CiliumNetworkPolicies...")
-	}
-
-	var applied []string
-	for _, cnp := range cnps {
-		var cnpJSON string
-		if k.params.Verbose {
-			jsn, err := json.MarshalIndent(cnp, "   ", "   ")
-			if err != nil {
-				k.Log("❌ Formating CNP failed: %w", err)
-			} else {
-				cnpJSON = string(jsn)
-			}
-		}
-		for _, client := range k.clients.clients() {
-			if cnpJSON != "" {
-				k.Log("%s", cnpJSON)
-				cnpJSON = ""
-			}
-			k8sCNP, err := k.updateOrCreateCNP(ctx, client, cnp)
-			if err != nil {
-				k.Log("❌ policy apply failed: %s", err)
-				failures++
-			} else {
-				name := client.ClusterName() + "/" + cnp.Namespace + "/" + cnp.Name
-				applied = append(applied, name)
-				k.policies[name] = k8sCNP
-				wait = true
-			}
-		}
-	}
-
-	if wait {
-		// Wait for policies to take effect on all Cilium nodes
-		err = k.WaitCiliumPolicyRevisions(ctx, revisions)
-		if err != nil {
-			k.Log("❌ policy is not applied in all Cilium nodes in time")
-			k.CiliumLogs(ctx, startTime.Add(-1*time.Second), nil)
-			failures++
-			wait = false
-		}
-	}
-
-	if wait {
-		if len(deleted) > 0 {
-			k.Log("✅ deleted CiliumNetworkPolicies: %s", strings.Join(deleted, ","))
-		}
-		if len(applied) > 0 {
-			k.Log("✅ applied CiliumNetworkPolicies: %s", strings.Join(applied, ","))
-		}
-	}
-
-	return failures
-}
-
-func (k *K8sConnectivityCheck) updateOrCreateCNP(ctx context.Context, client k8sConnectivityImplementation, cnp *ciliumv2.CiliumNetworkPolicy) (*ciliumv2.CiliumNetworkPolicy, error) {
-	k8sCNP, err := client.GetCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.GetOptions{})
-	if err == nil {
-		k8sCNP.ObjectMeta.Labels = cnp.ObjectMeta.Labels
-		k8sCNP.Spec = cnp.Spec
-		k8sCNP.Specs = cnp.Specs
-		k8sCNP.Status = ciliumv2.CiliumNetworkPolicyStatus{}
-		return client.UpdateCiliumNetworkPolicy(ctx, k8sCNP, metav1.UpdateOptions{})
-	}
-	return client.CreateCiliumNetworkPolicy(ctx, cnp, metav1.CreateOptions{})
-}
-
-func (k *K8sConnectivityCheck) deleteCNP(ctx context.Context, client k8sConnectivityImplementation, cnp *ciliumv2.CiliumNetworkPolicy) error {
-	return client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{})
 }

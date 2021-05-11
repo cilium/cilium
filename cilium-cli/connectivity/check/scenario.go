@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package check
 
-import (
-	"fmt"
-	"os"
-)
+import "context"
 
-// fatalf prints the Printf formatted message to stderr and exits the program
-// Note: os.Exit(1) is not recoverable and does not fire defers.
-func fatalf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "\nError: %s\n", fmt.Sprintf(msg, args...))
-	os.Exit(1)
+// Scenario is implemented by all test scenarios like pod-to-pod, pod-to-world, etc.
+type Scenario interface {
+	// Name returns the name of the Scenario.
+	Name() string
+
+	// Run is invoked by the testing framework to execute the Scenario.
+	Run(ctx context.Context, t *Test)
 }
