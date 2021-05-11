@@ -41,7 +41,21 @@ Apply DNS Egress Policy
 
 The following Cilium network policy allows ``mediabot`` pods to only access ``api.twitter.com``. 
 
-.. literalinclude:: ../../examples/kubernetes-dns/dns-matchname.yaml
+.. tabs::
+
+   .. group-tab:: Generic
+
+      .. literalinclude:: ../../examples/kubernetes-dns/dns-matchname.yaml
+
+   .. group-tab:: OpenShift
+
+      .. literalinclude:: ../../examples/kubernetes-dns/dns-matchname-openshift.yaml
+
+.. note::
+
+   OpenShift users will need to modify the policies to match the namespace
+   ``openshift-dns`` (instead of ``kube-system``), remove the match on the
+   ``k8s:k8s-app=kube-dns`` label, and change the port to 5353.
 
 Let's take a closer look at the policy: 
 
