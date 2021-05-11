@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package check
 
-import (
-	"fmt"
-	"os"
-)
+import "context"
 
-// fatalf prints the Printf formatted message to stderr and exits the program
-// Note: os.Exit(1) is not recoverable and does not fire defers.
-func fatalf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "\nError: %s\n", fmt.Sprintf(msg, args...))
-	os.Exit(1)
+// isDone returns true if the Context has been cancelled or expired.
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
 }

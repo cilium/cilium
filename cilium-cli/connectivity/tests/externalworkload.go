@@ -16,42 +16,52 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-type PodToExternalWorkload struct {
-	check.PolicyContext
-	Variant string
+func PodToExternalWorkload(name string) check.Scenario {
+	return &podToExternalWorkload{
+		name: name,
+	}
 }
 
-func (t *PodToExternalWorkload) WithPolicy(yaml string) check.ConnectivityTest {
-	return t.WithPolicyRunner(t, yaml)
+type podToExternalWorkload struct {
+	name string
 }
 
-func (t *PodToExternalWorkload) Name() string {
-	return "pod-to-external-workload" + t.Variant
+func (s *podToExternalWorkload) Name() string {
+	tn := "pod-to-external-workload"
+	if s.name == "" {
+		return tn
+	}
+	return fmt.Sprintf("%s:%s", tn, s.name)
 }
 
-func (t *PodToExternalWorkload) Run(ctx context.Context, c check.TestContext) {
-	for _, src := range c.ClientPods() {
-		for _, dst := range c.ExternalWorkloads() {
-			run := check.NewTestRun(t, c, src, dst, 0) // 0 port number for ICMP
-			cmd := []string{"ping", "-w", "3", "-c", "1", dst.ExternalWorkload.Status.IP}
+func (s *podToExternalWorkload) Run(ctx context.Context, t *check.Test) {
+	var i int
 
-			stdout, stderr, err := src.K8sClient.ExecInPodWithStderr(ctx, src.Pod.Namespace, src.Pod.Name, "", cmd)
-			run.LogResult(cmd, err, stdout, stderr)
-			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-				Protocol: check.ICMP,
+	for _, pod := range t.Context().ClientPods() {
+		for _, wl := range t.Context().ExternalWorkloads() {
+
+			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, wl).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ping(wl))
+
+				egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+					Protocol: check.ICMP,
+				})
+
+				a.ValidateFlows(ctx, pod.Name(), pod.Pod.Status.PodIP, egressFlowRequirements)
+				ingressFlowRequirements := a.GetIngressRequirements(check.FlowParameters{
+					Protocol: check.ICMP,
+				})
+				if ingressFlowRequirements != nil {
+					a.ValidateFlows(ctx, wl.Name(), wl.Address(), ingressFlowRequirements)
+				}
 			})
-			run.ValidateFlows(ctx, src.Name(), src.Pod.Status.PodIP, egressFlowRequirements)
-			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{
-				Protocol: check.ICMP,
-			})
-			if ingressFlowRequirements != nil {
-				run.ValidateFlows(ctx, dst.Name(), dst.ExternalWorkload.Status.IP, ingressFlowRequirements)
-			}
-			run.End()
+
+			i++
 		}
 	}
 }
