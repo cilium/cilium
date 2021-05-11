@@ -22,11 +22,19 @@
 
      minikube start --network-plugin=cni --memory=4096
 
+.. note::
+
+   If minikube is deployed as a container (that is if ``docker`` is the configured
+   driver), then kube-proxy replacement features like host-reachable services
+   may not work (`GitHub issue <https://github.com/cilium/cilium/issues/15769>`_).
+   If you experience Kubernetes service load-balancing issues, then
+   `set <https://minikube.sigs.k8s.io/docs/commands/config/>`__ any other driver
+   from the supported `list <https://minikube.sigs.k8s.io/docs/drivers/>`__.
 
 ::
 
-     # Only available for minikube >= v1.12.1
      minikube start --cni=cilium --memory=4096
+     # Only available for minikube >= v1.12.1
 
 .. note::
 
