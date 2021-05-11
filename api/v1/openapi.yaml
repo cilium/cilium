@@ -1203,6 +1203,10 @@ definitions:
           Installs a route in the Linux routing table pointing to the device of
           the endpoint's interface.
         type: boolean
+      disable-sip-verification:
+        description: >
+          Disable source IP verification for the endpoint.
+        type: boolean
   EndpointStatus:
     description: The current state and configuration of the endpoint, its policy & datapath, and subcomponents
     type: object

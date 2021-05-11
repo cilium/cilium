@@ -732,6 +732,10 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		fmt.Fprintf(fw, "#define ENABLE_ENDPOINT_ROUTES 1\n")
 	}
 
+	if e.DisableSIPVerification() {
+		fmt.Fprintf(fw, "#define DISABLE_SIP_VERIFICATION 1\n")
+	}
+
 	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
 		directRoutingIface := option.Config.DirectRoutingDevice
 		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
