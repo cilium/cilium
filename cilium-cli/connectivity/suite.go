@@ -42,82 +42,93 @@ var (
 	echoIngressFromOtherClientPolicyYAML string
 )
 
-func Run(ctx context.Context, k *check.K8sConnectivityCheck) error {
-	return k.Run(ctx,
-		// First all tests without policies
-		&tests.PodToPod{},
-		&tests.ClientToClient{},
-		&tests.PodToService{},
-		&tests.PodToNodePort{},
-		&tests.PodToLocalNodePort{},
-		&tests.PodToWorld{},
-		&tests.PodToHost{},
-		&tests.PodToExternalWorkload{},
-
-		// Then test with an allow-all policy
-		(&check.PolicyContext{}).WithPolicy(allowAllPolicyYAML),
-		&tests.PodToPod{Variant: "-allow-all"},
-		&tests.ClientToClient{Variant: "-allow-all"},
-		&tests.PodToService{Variant: "-allow-all"},
-		&tests.PodToNodePort{Variant: "-allow-all"},
-		&tests.PodToLocalNodePort{Variant: "-allow-all"},
-		&tests.PodToWorld{Variant: "-allow-all"},
-		&tests.PodToHost{Variant: "-allow-all"},
-		&tests.PodToExternalWorkload{Variant: "-allow-all"},
-		// By itself this should fail, but allow-all policy is in effect so this succeeds
-		(&tests.PodToPod{Variant: "-client-egress-only-dns-with-allow-all"}).WithPolicy(clientEgressOnlyDNSPolicyYAML),
-		(&check.PolicyContext{}).WithPolicy(""), // delete all applied policies
-
-		// This policy allows ingress from client2 to client only
-		(&tests.ClientToClient{Variant: "-client-ingress-from-client"}).
-			WithPolicy(clientIngressFromClient2PolicyYAML).
-			WithExpectations(func(t *check.TestRun) (egress, ingress check.Result) {
-				if t.Src.HasLabel("other", "client") {
-					return check.ResultOK, check.ResultOK
-				} else {
-					return check.ResultOK, check.ResultDrop
-				}
-			}),
-
-		// This policy allows ingress to echo from client2 only
-		(&tests.PodToPod{Variant: "-echo-ingress-from-other-client"}).
-			WithPolicy(echoIngressFromOtherClientPolicyYAML).
-			WithExpectations(func(t *check.TestRun) (egress, ingress check.Result) {
-				if t.Dst.HasLabel("kind", "echo") && !t.Src.HasLabel("other", "client") {
-					// TCP handshake fails both in egress and ingress when
-					// L3(/L4) policy drops at either location.
-					return check.ResultDrop, check.ResultDrop
-				} else {
-					return check.ResultOK, check.ResultOK
-				}
-			}),
-
-		// Now this should fail as allow-all policy is not in effect any more
-		(&tests.PodToPod{Variant: "-client-egress-only-dns"}).
-			WithPolicy(clientEgressOnlyDNSPolicyYAML).
-			WithExpectations(func(t *check.TestRun) (egress, ingress check.Result) {
-				return check.ResultDrop, check.ResultNone
-			}),
-
-		// Policy installed with 'WithPolicy()' is automatically removed, so this should succeed:
-		&tests.PodToPod{Variant: "-no-policy"},
-
-		// This policy allows port 8080 from client to echo, so this should succeed
-		(&tests.PodToPod{Variant: "-client-egress-to-echo"}).WithPolicy(clientEgressToEchoPolicyYAML),
-
-		// This policy only allows port 80 to "google.com"
-		(&tests.PodToWorld{Variant: "-toFQDNs"}).
-			WithPolicy(clientEgressToFQDNsGooglePolicyYAML).
-			WithExpectations(func(t *check.TestRun) (egress, ingress check.Result) {
-				if t.DstPort == 80 && t.Dst.Address() == "google.com" {
-					egress = check.ResultDNSOK
-					egress.HTTP = check.HTTP{
-						Method: "GET",
-						URL:    "http://google.com/",
-					}
-					return egress, check.ResultNone
-				}
-				return check.ResultDNSDrop, check.ResultNone
-			}),
+func Run(ctx context.Context, ct *check.ConnectivityTest) error {
+	// Run all tests without any policies in place.
+	ct.NewTest("no-policies").WithScenarios(
+		tests.PodToPod(""),
+		tests.ClientToClient(""),
+		tests.PodToService(""),
+		tests.PodToRemoteNodePort(""),
+		tests.PodToLocalNodePort(""),
+		tests.PodToWorld(""),
+		tests.PodToHost(""),
+		tests.PodToExternalWorkload(""),
 	)
+
+	// Test with an allow-all policy.
+	ct.NewTest("allow-all").WithPolicy(allowAllPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(""),
+			tests.ClientToClient(""),
+			tests.PodToService(""),
+			tests.PodToRemoteNodePort(""),
+			tests.PodToLocalNodePort(""),
+			tests.PodToWorld(""),
+			tests.PodToHost(""),
+			tests.PodToExternalWorkload(""),
+		)
+
+	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
+	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(""),   // connects to other Pods directly, no DNS
+			tests.PodToWorld(""), // resolves google.com
+		).
+		WithExpectations(
+			func(a *check.Action) (egress check.Result, ingress check.Result) {
+				return check.ResultDrop, check.ResultNone
+			})
+
+	// This policy only allows ingress into client from client2.
+	ct.NewTest("client-ingress").WithPolicy(clientIngressFromClient2PolicyYAML).
+		WithScenarios(
+			tests.ClientToClient(""),
+		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+		if a.Source().HasLabel("other", "client") {
+			return check.ResultOK, check.ResultOK
+		} else {
+			return check.ResultOK, check.ResultDrop
+		}
+	})
+
+	// This policy allows ingress to echo from client only.
+	ct.NewTest("echo-ingress").WithPolicy(echoIngressFromOtherClientPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(""),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
+				// TCP handshake fails both in egress and ingress when
+				// L3(/L4) policy drops at either location.
+				return check.ResultDrop, check.ResultDrop
+			} else {
+				return check.ResultOK, check.ResultOK
+			}
+		})
+
+	// This policy allows port 8080 from client to echo, so this should succeed
+	ct.NewTest("client-egress").WithPolicy(clientEgressToEchoPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(""),
+		)
+
+	// This policy only allows port 80 to "google.com". DNS proxy enabled.
+	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsGooglePolicyYAML).
+		WithScenarios(
+			tests.PodToWorld(""),
+		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+
+		if a.Destination().Port() == 80 && a.Destination().Address() == "google.com" {
+			egress = check.ResultDNSOK
+			egress.HTTP = check.HTTP{
+				Method: "GET",
+				URL:    "http://google.com/",
+			}
+			return egress, check.ResultNone
+		}
+
+		return check.ResultDNSOKRequestDrop, check.ResultNone
+	})
+
+	return ct.Run(ctx)
 }

@@ -320,8 +320,8 @@ func IP(srcIP, dstIP string) FlowFilterImplementation {
 }
 
 type tcpFilter struct {
-	srcPort int
-	dstPort int
+	srcPort uint32
+	dstPort uint32
 }
 
 func (t *tcpFilter) Match(flow *flowpb.Flow) bool {
@@ -358,7 +358,7 @@ func (t *tcpFilter) String() string {
 }
 
 // TCP matches on TCP packets with the specified source and destination ports
-func TCP(srcPort, dstPort int) FlowFilterImplementation {
+func TCP(srcPort, dstPort uint32) FlowFilterImplementation {
 	return &tcpFilter{srcPort: srcPort, dstPort: dstPort}
 }
 

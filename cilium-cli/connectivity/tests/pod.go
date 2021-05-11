@@ -16,39 +16,52 @@ package tests
 
 import (
 	"context"
-	"net"
-	"strconv"
+	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-type PodToPod struct {
-	check.PolicyContext
-	Variant string
+// PodToPod generates one HTTP request from each client pod
+// to each echo (server) pod in the test context. The remote Pod is contacted
+// directly, no DNS is involved.
+func PodToPod(name string) check.Scenario {
+	return &podToPod{
+		name: name,
+	}
 }
 
-func (t *PodToPod) WithPolicy(yaml string) check.ConnectivityTest {
-	return t.WithPolicyRunner(t, yaml)
+// podToPod implements a Scenario.
+type podToPod struct {
+	name string
 }
 
-func (t *PodToPod) Name() string {
-	return "pod-to-pod" + t.Variant
+func (s *podToPod) Name() string {
+	tn := "pod-to-pod"
+	if s.name == "" {
+		return tn
+	}
+	return fmt.Sprintf("%s:%s", tn, s.name)
 }
 
-func (t *PodToPod) Run(ctx context.Context, c check.TestContext) {
-	for _, client := range c.ClientPods() {
-		for _, echo := range c.EchoPods() {
-			run := check.NewTestRun(t, c, client, echo, 8080)
-			cmd := curlCommand(net.JoinHostPort(echo.Pod.Status.PodIP, strconv.Itoa(8080)))
-			stdout, stderr, err := client.K8sClient.ExecInPodWithStderr(ctx, client.Pod.Namespace, client.Pod.Name, client.Pod.Labels["name"], cmd)
-			run.LogResult(cmd, err, stdout, stderr)
-			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{})
-			run.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
-			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{})
-			if ingressFlowRequirements != nil {
-				run.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, ingressFlowRequirements)
-			}
-			run.End()
+func (s *podToPod) Run(ctx context.Context, t *check.Test) {
+	var i int
+
+	for _, client := range t.Context().ClientPods() {
+		for _, echo := range t.Context().EchoPods() {
+
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, curl(echo))
+
+				egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{})
+				a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+
+				ingressFlowRequirements := a.GetIngressRequirements(check.FlowParameters{})
+				if ingressFlowRequirements != nil {
+					a.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, ingressFlowRequirements)
+				}
+			})
+
+			i++
 		}
 	}
 }

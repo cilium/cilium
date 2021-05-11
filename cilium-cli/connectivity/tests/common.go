@@ -14,6 +14,25 @@
 
 package tests
 
-func curlCommand(target string) []string {
-	return []string{"curl", "-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n", "--show-error", "--silent", "--fail", "--show-error", "--connect-timeout", "5", "--output", "/dev/null", target}
+import (
+	"fmt"
+	"net"
+
+	"github.com/cilium/cilium-cli/connectivity/check"
+)
+
+func curl(peer check.TestPeer) []string {
+	return []string{"curl",
+		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
+		"--silent", "--fail", "--show-error",
+		"--connect-timeout", "2",
+		"--output", "/dev/null",
+		fmt.Sprintf("%s://%s",
+			peer.Scheme(),
+			net.JoinHostPort(peer.Address(), fmt.Sprint(peer.Port()))),
+	}
+}
+
+func ping(peer check.TestPeer) []string {
+	return []string{"ping", "-w", "3", "-c", "1", peer.Address()}
 }
