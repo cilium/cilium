@@ -16,45 +16,60 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-type ClientToClient struct {
-	check.PolicyContext
-	Variant string
+// ClientToClient sends an ICMP packet from each client Pod
+// to each client Pod in the test context.
+func ClientToClient(name string) check.Scenario {
+	return &clientToClient{
+		name: name,
+	}
 }
 
-func (t *ClientToClient) WithPolicy(yaml string) check.ConnectivityTest {
-	return t.WithPolicyRunner(t, yaml)
+// clientToClient implements a Scenario.
+type clientToClient struct {
+	name string
 }
 
-func (t *ClientToClient) Name() string {
-	return "client-to-client" + t.Variant
+func (s *clientToClient) Name() string {
+	tn := "client-to-client"
+	if s.name == "" {
+		return tn
+	}
+	return fmt.Sprintf("%s:%s", tn, s.name)
 }
 
-func (t *ClientToClient) Run(ctx context.Context, c check.TestContext) {
-	for _, src := range c.ClientPods() {
-		for _, dst := range c.ClientPods() {
+func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
+	var i int
+
+	for _, src := range t.Context().ClientPods() {
+		for _, dst := range t.Context().ClientPods() {
 			if src.Pod.Status.PodIP == dst.Pod.Status.PodIP {
-				// Currently we only get flows once per IP
+				// Currently we only get flows once per IP,
+				// skip pings to self.
 				continue
 			}
-			run := check.NewTestRun(t, c, src, dst, 0) // 0 port number for ICMP
-			cmd := []string{"ping", "-w", "3", "-c", "1", dst.Pod.Status.PodIP}
-			stdout, stderr, err := src.K8sClient.ExecInPodWithStderr(ctx, src.Pod.Namespace, src.Pod.Name, "", cmd)
-			run.LogResult(cmd, err, stdout, stderr)
-			egressFlowRequirements := run.GetEgressRequirements(check.FlowParameters{
-				Protocol: check.ICMP,
+
+			t.NewAction(s, fmt.Sprintf("ping-%d", i), &src, &dst).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ping(dst))
+
+				a.ValidateFlows(ctx, src.Name(), src.Pod.Status.PodIP, a.GetEgressRequirements(check.FlowParameters{
+					Protocol: check.ICMP,
+				}))
+
+				ingressFlowRequirements := a.GetIngressRequirements(check.FlowParameters{
+					Protocol: check.ICMP,
+				})
+
+				if ingressFlowRequirements != nil {
+					a.ValidateFlows(ctx, dst.Name(), dst.Pod.Status.PodIP, ingressFlowRequirements)
+				}
 			})
-			run.ValidateFlows(ctx, src.Name(), src.Pod.Status.PodIP, egressFlowRequirements)
-			ingressFlowRequirements := run.GetIngressRequirements(check.FlowParameters{
-				Protocol: check.ICMP,
-			})
-			if ingressFlowRequirements != nil {
-				run.ValidateFlows(ctx, dst.Name(), dst.Pod.Status.PodIP, ingressFlowRequirements)
-			}
-			run.End()
+
+			i++
 		}
 	}
 }
