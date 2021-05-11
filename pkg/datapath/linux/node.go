@@ -756,6 +756,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
 	var hwAddr net.HardwareAddr
+	var now time.Time
 	if nextHopIsNew || refresh {
 		hwAddr, err = arp.PingOverLink(link, srcIPv4, nextHopIPv4)
 		if err != nil {
@@ -764,12 +765,18 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 			return
 		}
 		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
+		now = time.Now()
 	}
 
 	n.neighLock.Lock()
 	defer n.neighLock.Unlock()
 
 	if hwAddr != nil {
+		if prev, found := n.neighLastPingByNextHop[nextHopStr]; found && prev.After(now) {
+			// Do not update the neigh entry if there was another goroutine which
+			// issued arping after us, as it might have a more recent hwAddr value.
+			return
+		}
 		n.neighLastPingByNextHop[nextHopStr] = time.Now()
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
 			// Nothing to update, return early to avoid calling to netlink. This
