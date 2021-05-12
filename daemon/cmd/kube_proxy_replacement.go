@@ -433,7 +433,7 @@ func handleNativeDevices(strict bool) {
 		option.Config.DirectRoutingDevice == ""
 	if detectNodePortDevs || detectDirectRoutingDev {
 		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev); err != nil {
-			msg := "Unable to detect devices for BPF NodePort."
+			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
 			if strict {
 				log.WithError(err).Fatal(msg)
 			} else {
@@ -448,7 +448,7 @@ func handleNativeDevices(strict bool) {
 			if detectDirectRoutingDev {
 				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
 			}
-			l.Info("Using auto-derived devices for BPF node port")
+			l.Info("Using auto-derived devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program")
 		}
 	} else if option.Config.EnableNodePort { // both --devices and --direct-routing-device are specified by user
 		// Check whether the DirectRoutingDevice (if specified) is
