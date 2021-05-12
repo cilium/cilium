@@ -192,8 +192,6 @@ func (g *graph) hydrateFile(pkg Package, f *descriptor.FileDescriptorProto) File
 		}
 	}
 
-	fl.fileDependencies = make([]File, 0)
-
 	g.hydrateSourceCodeInfo(fl, f)
 
 	return fl

@@ -15,7 +15,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
-	github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab
+	github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
@@ -23,7 +23,7 @@ require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
-	github.com/envoyproxy/protoc-gen-validate v0.3.0-java
+	github.com/envoyproxy/protoc-gen-validate v0.4.2-0.20210105193028-872b28c45782
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
 	github.com/go-openapi/errors v0.19.3
 	github.com/go-openapi/loads v0.19.5
@@ -33,8 +33,8 @@ require (
 	github.com/go-openapi/swag v0.19.7
 	github.com/go-openapi/validate v0.19.5
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.4.0
+	github.com/golang/protobuf v1.4.3
+	github.com/google/go-cmp v0.5.0
 	github.com/google/gofuzz v1.1.0
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.14
@@ -60,7 +60,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.2.0
-	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/client_model v0.2.1-0.20200623203004-60555c9708c7
 	github.com/russross/blackfriday v1.5.2
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
@@ -69,7 +69,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.6.1
 	github.com/vishvananda/netlink v1.1.1-0.20210304225204-ec93726159ae
 	github.com/vishvananda/netns v0.0.0-20201230012202-c4f3ca719c73
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20201125193152-8a03d2e9614b
@@ -80,8 +80,9 @@ require (
 	golang.org/x/sys v0.0.0-20201231184435-2d18734c6014
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20210106214847-113979e3529a
-	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
-	google.golang.org/grpc v1.26.0
+	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
+	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8

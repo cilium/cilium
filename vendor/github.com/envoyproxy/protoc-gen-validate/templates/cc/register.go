@@ -280,8 +280,7 @@ func (fns CCFuncs) oneofTypeName(f pgs.Field) pgsgo.TypeName {
 	return pgsgo.TypeName(fmt.Sprintf("%s::%sCase::k%s",
 		fns.className(f.Message()),
 		pgsgo.PGGUpperCamelCase(f.OneOf().Name()),
-		pgsgo.PGGUpperCamelCase(f.Name()),
-	))
+		strings.ReplaceAll(pgsgo.PGGUpperCamelCase(f.Name()).String(), "_", "")))
 }
 
 func (fns CCFuncs) inType(f pgs.Field, x interface{}) string {

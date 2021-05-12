@@ -16,6 +16,10 @@ type File interface {
 	// Descriptor returns the underlying descriptor for the proto file
 	Descriptor() *descriptor.FileDescriptorProto
 
+	// TransitiveImports returns all direct and transitive dependencies of this
+	// File. Use Imports to obtain only direct dependencies.
+	TransitiveImports() []File
+
 	// Dependents returns all files where the given file was directly or
 	// transitively imported.
 	Dependents() []File
@@ -98,26 +102,27 @@ func (f *file) Services() []Service {
 	return f.srvs
 }
 
-func (f *file) Imports() (i []File) {
-	// Mapping for avoiding duplicate entries
-	importMap := make(map[string]File, len(f.AllMessages())+len(f.srvs))
+func (f *file) Imports() []File {
+	out := make([]File, len(f.fileDependencies))
+	copy(out, f.fileDependencies)
+	return out
+}
+
+func (f *file) TransitiveImports() []File {
+	importMap := make(map[string]File, len(f.fileDependencies))
 	for _, fl := range f.fileDependencies {
 		importMap[fl.Name().String()] = fl
-	}
-	for _, m := range f.AllMessages() {
-		for _, imp := range m.Imports() {
+		for _, imp := range fl.TransitiveImports() {
 			importMap[imp.File().Name().String()] = imp
 		}
 	}
-	for _, s := range f.srvs {
-		for _, imp := range s.Imports() {
-			importMap[imp.File().Name().String()] = imp
-		}
-	}
+
+	out := make([]File, 0, len(importMap))
 	for _, imp := range importMap {
-		i = append(i, imp)
+		out = append(out, imp)
 	}
-	return
+
+	return out
 }
 
 func (f *file) Dependents() []File {

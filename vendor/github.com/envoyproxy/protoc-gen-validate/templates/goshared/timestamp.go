@@ -86,7 +86,7 @@ const timestampcmpTpl = `{{ $f := .Field }}{{ $r := .Rules }}
 				{{ end }}
 			{{ else if $r.GtNow }}
 				{{ if $r.Within }}
-					if ts.Sub(now) >= 0 || ts.Sub(now.Add(within)) > 0 {
+					if ts.Sub(now) <= 0 || ts.Sub(now.Add(within)) > 0 {
 						return {{ err . "value must be greater than now within " (durStr $r.GetWithin) }}
 					}
 				{{ else }}
