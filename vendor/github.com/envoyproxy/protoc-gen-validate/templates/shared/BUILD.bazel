@@ -12,9 +12,8 @@ go_library(
     importpath = "github.com/envoyproxy/protoc-gen-validate/templates/shared",
     visibility = ["//visibility:public"],
     deps = [
-        "//gogoproto:go_default_library",
-        "//validate:go_default_library",
-        "//vendor/github.com/lyft/protoc-gen-star:go_default_library",
+        "//validate:go_default_library",  # keep
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_lyft_protoc_gen_star//:go_default_library",
     ],
 )

@@ -13,6 +13,16 @@ const (
 	UUID     WellKnown = "uuid"
 )
 
+func FileNeeds(f pgs.File, wk WellKnown) bool {
+	for _, msg := range f.Messages() {
+		needed := Needs(msg, wk)
+		if needed {
+			return true
+		}
+	}
+	return false
+}
+
 // Needs returns true if a well-known string validator is needed for this
 // message.
 func Needs(m pgs.Message, wk WellKnown) bool {

@@ -24,7 +24,7 @@ RUN apt-get update \
 
 
 # protoc
-ENV PROTOC_VER=3.6.1
+ENV PROTOC_VER=3.12.4
 ENV PROTOC_REL=protoc-"${PROTOC_VER}"-linux-x86_64.zip
 RUN wget https://github.com/google/protobuf/releases/download/v"${PROTOC_VER}/${PROTOC_REL}" \
   && unzip ${PROTOC_REL} -d protoc \
@@ -36,8 +36,8 @@ RUN wget https://github.com/google/protobuf/releases/download/v"${PROTOC_VER}/${
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:$GOROOT/bin:$PATH
-ENV GORELEASE go1.10.3.linux-amd64.tar.gz
-RUN wget -q https://storage.googleapis.com/golang/$GORELEASE \
+ENV GORELEASE go1.14.7.linux-amd64.tar.gz
+RUN wget -q https://dl.google.com/go/$GORELEASE \
     && tar -C $(dirname $GOROOT) -xzf $GORELEASE \
     && rm $GORELEASE \
     && mkdir -p $GOPATH/{src,bin,pkg}
@@ -45,7 +45,7 @@ RUN wget -q https://storage.googleapis.com/golang/$GORELEASE \
 # protoc-gen-go
 ENV PGG_PKG "github.com/golang/protobuf/protoc-gen-go"
 ENV PGG_PATH "${GOPATH}/src/${PGG_PKG}"
-ENV PGG_VER=v1.3.1
+ENV PGG_VER=v1.4.2
 RUN go get -d ${PGG_PKG} \
   && cd ${PGG_PATH} \
   && git checkout ${PGG_VER} \

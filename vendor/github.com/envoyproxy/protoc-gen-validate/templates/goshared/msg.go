@@ -1,6 +1,7 @@
 package goshared
 
 const msgTpl = `
+{{ if not (ignored .) -}}
 {{ if disabled . -}}
 	{{ cmt "Validate is disabled for " (msgTyp .) ". This method will always return nil." }}
 {{- else -}}
@@ -130,12 +131,26 @@ var _ interface{
 			{{- end }}
 		}
 	{{ end }}{{ end }}
+	{{ if has .Rules.Items.GetEnum "In" }} {{ if .Rules.Items.GetEnum.In }}
+		var {{ lookup .Field "InLookup" }} = map[{{ inType .Field .Rules.Items.GetEnum.In }}]struct{}{
+			{{- range .Rules.Items.GetEnum.In }}
+				{{ inKey $f . }}: {},
+			{{- end }}
+		}
+	{{ end }}{{ end }}
 	{{ end }}{{ end }}
 
 	{{ if has .Rules "Items"}}{{ if .Rules.Items }}
 	{{ if has .Rules.Items.GetString_ "NotIn" }} {{ if .Rules.Items.GetString_.NotIn }}
 		var {{ lookup .Field "NotInLookup" }} = map[string]struct{}{
 			{{- range .Rules.Items.GetString_.NotIn }}
+				{{ inKey $f . }}: {},
+			{{- end }}
+		}
+	{{ end }}{{ end }}
+	{{ if has .Rules.Items.GetEnum "NotIn" }} {{ if .Rules.Items.GetEnum.NotIn }}
+		var {{ lookup .Field "NotInLookup" }} = map[{{ inType .Field .Rules.Items.GetEnum.NotIn }}]struct{}{
+			{{- range .Rules.Items.GetEnum.NotIn }}
 				{{ inKey $f . }}: {},
 			{{- end }}
 		}
@@ -155,4 +170,5 @@ var _ interface{
 	{{ end }}{{ end }}
 
 {{ end }}{{ end }}
+{{- end -}}
 `

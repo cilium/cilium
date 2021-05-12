@@ -1,12 +1,14 @@
 package java
 
 const msgTpl = `
+{{ if not (ignored .) -}}
 	/**
 	 * Validates {@code {{ simpleName . }}} protobuf objects.
 	 */
 	public static class {{ simpleName . }}Validator implements io.envoyproxy.pgv.ValidatorImpl<{{ qualifiedName . }}> {
 		{{- template "msgInner" . -}}
 	}
+{{- end -}}
 `
 
 const msgInnerTpl = `

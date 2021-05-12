@@ -24,7 +24,8 @@ type Entity interface {
 	// Package returns the container package for this entity.
 	Package() Package
 
-	// Imports includes all external files required by this entity.
+	// Imports includes external files directly required by this entity. Call
+	// TransitiveImports on File to get all transitive dependencies.
 	Imports() []File
 
 	// File returns the File containing this entity.

@@ -5,7 +5,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/protoc-gen-go/generator"
 	pgs "github.com/lyft/protoc-gen-star"
 )
 
@@ -76,19 +75,6 @@ func (c context) ServerStream(m pgs.Method) pgs.Name {
 	s := PGGUpperCamelCase(m.Service().Name())
 	n := PGGUpperCamelCase(m.Name())
 	return joinNames(s, n) + "Server"
-}
-
-// PGGUpperCamelCase converts Name n to the protoc-gen-go defined upper
-// camelcase. The rules are slightly different from pgs.UpperCamelCase in that
-// leading underscores are converted to 'X', mid-string underscores followed by
-// lowercase letters are removed and the letter is capitalized, all other
-// punctuation is preserved. This method should be used when deriving names of
-// protoc-gen-go generated code (ie, message/service struct names and field
-// names).
-//
-// See: https://godoc.org/github.com/golang/protobuf/protoc-gen-go/generator#CamelCase
-func PGGUpperCamelCase(n pgs.Name) pgs.Name {
-	return pgs.Name(generator.CamelCase(n.String()))
 }
 
 var protectedNames = map[pgs.Name]pgs.Name{

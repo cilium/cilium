@@ -98,6 +98,24 @@ func (p *stdPersister) Persist(arts ...Artifact) *plugin_go.CodeGeneratorRespons
 	return resp
 }
 
+func (p *stdPersister) tailOfFile(resp *plugin_go.CodeGeneratorResponse, name string) int {
+	tail := p.indexOfFile(resp, name)
+
+	if tail == -1 {
+		return -1
+	}
+
+	f := resp.GetFile()
+	for i := tail + 1; i < len(f); i++ {
+		if f[i].GetName() != "" {
+			break
+		}
+		tail = i
+	}
+
+	return tail
+}
+
 func (p *stdPersister) indexOfFile(resp *plugin_go.CodeGeneratorResponse, name string) int {
 	for i, f := range resp.GetFile() {
 		if f.GetName() == name && f.InsertionPoint == nil {
@@ -122,7 +140,7 @@ func (p *stdPersister) insertFile(resp *plugin_go.CodeGeneratorResponse,
 
 func (p *stdPersister) insertAppend(resp *plugin_go.CodeGeneratorResponse,
 	name string, f *plugin_go.CodeGeneratorResponse_File) {
-	i := p.indexOfFile(resp, name)
+	i := p.tailOfFile(resp, name)
 	p.Assert(i > -1, "append target ", name, " missing")
 
 	resp.File = append(

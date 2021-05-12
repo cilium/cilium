@@ -7,7 +7,6 @@ import (
 	"github.com/lyft/protoc-gen-star/lang/go"
 	"github.com/envoyproxy/protoc-gen-validate/templates/cc"
 	"github.com/envoyproxy/protoc-gen-validate/templates/go"
-	"github.com/envoyproxy/protoc-gen-validate/templates/gogo"
 	"github.com/envoyproxy/protoc-gen-validate/templates/java"
 	"github.com/envoyproxy/protoc-gen-validate/templates/shared"
 )
@@ -26,7 +25,6 @@ func Template(params pgs.Parameters) map[string][]*template.Template {
 	return map[string][]*template.Template{
 		"cc":   {makeTemplate("h", cc.RegisterHeader, params), makeTemplate("cc", cc.RegisterModule, params)},
 		"go":   {makeTemplate("go", golang.Register, params)},
-		"gogo": {makeTemplate("go", gogo.Register, params)},
 		"java": {makeTemplate("java", java.Register, params)},
 	}
 }
