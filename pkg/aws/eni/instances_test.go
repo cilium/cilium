@@ -237,6 +237,45 @@ func (e *ENISuite) TestGetSubnet(c *check.C) {
 	c.Assert(subnet3.ID, check.Equals, "subnet-3")
 }
 
+func (e *ENISuite) TestFindSubnetByIDs(c *check.C) {
+	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups)
+	c.Assert(api, check.Not(check.IsNil))
+
+	mngr := NewInstancesManager(api)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	iteration1(api, mngr)
+	iteration2(api, mngr)
+
+	// exact match subnet-1
+	s := mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-1"})
+	c.Assert(s.ID, check.Equals, "subnet-1")
+
+	// exact match subnet-2
+	s = mngr.FindSubnetByIDs("vpc-2", "us-east-1", []string{"subnet-2"})
+	c.Assert(s.ID, check.Equals, "subnet-2")
+
+	// exact match subnet-3
+	s = mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-3"})
+	c.Assert(s.ID, check.Equals, "subnet-3")
+
+	// empty list shall return nil
+	c.Assert(mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{}), check.IsNil)
+
+	// all subnet match, subnet-1 has more addresses
+	s = mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-1", "subnet-3"})
+	c.Assert(s.ID, check.Equals, "subnet-1")
+
+	// invalid vpc, no match
+	c.Assert(mngr.FindSubnetByIDs("vpc-unknown", "us-west-1", []string{"subnet-1"}), check.IsNil)
+
+	// invalid AZ, no match
+	c.Assert(mngr.FindSubnetByIDs("vpc-1", "us-west-unknown", []string{"subnet-1"}), check.IsNil)
+
+	// invalid ids, no match
+	c.Assert(mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-unknown"}), check.IsNil)
+}
+
 func (e *ENISuite) TestFindSubnetByTags(c *check.C) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	c.Assert(api, check.Not(check.IsNil))

@@ -492,6 +492,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 				nodeResource.Spec.ENI.SecurityGroups = c.ENI.SecurityGroups
 			}
 
+			if len(c.ENI.SubnetIDs) > 0 {
+				nodeResource.Spec.ENI.SubnetIDs = c.ENI.SubnetIDs
+			}
+
 			if len(c.ENI.SubnetTags) > 0 {
 				nodeResource.Spec.ENI.SubnetTags = c.ENI.SubnetTags
 			}

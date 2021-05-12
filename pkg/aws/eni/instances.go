@@ -105,6 +105,30 @@ func (m *InstancesManager) GetSubnets(ctx context.Context) ipamTypes.SubnetMap {
 	return subnetsCopy
 }
 
+// FindSubnetByIDs returns the subnet with the most addresses matching VPC ID,
+// availability zone within a provided list of subnet ids
+//
+// The returned subnet is immutable so it can be safely accessed
+func (m *InstancesManager) FindSubnetByIDs(vpcID, availabilityZone string, subnetIDs []string) (bestSubnet *ipamTypes.Subnet) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, s := range m.subnets {
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
+			for _, subnetID := range subnetIDs {
+				if s.ID == subnetID {
+					if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
+						bestSubnet = s
+					}
+					continue
+				}
+			}
+		}
+	}
+
+	return
+}
+
 // FindSubnetByTags returns the subnet with the most addresses matching VPC ID,
 // availability zone and all required tags
 //

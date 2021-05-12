@@ -207,6 +207,15 @@ allocation:
 
   If unspecified, the security group ids of ``eth0`` will be used.
 
+``spec.eni.subnet-ids``
+  The subnet IDs used to select the AWS subnets for IP allocation. This is an
+  additional requirement on top of requiring to match the availability zone and
+  VPC of the instance. This parameter is mutually exclusive and has priority over
+  ``spec.eni.subnet-tags``.
+
+  If unspecified, it will let the operator pick any available subnet in the AZ 
+  with the most IP addresses available.
+
 ``spec.eni.subnet-tags``
   The tags used to select the AWS subnets for IP allocation. This is an
   additional requirement on top of requiring to match the availability zone and
