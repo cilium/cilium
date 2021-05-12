@@ -102,6 +102,15 @@ func (s *KubeProxySuite) TestDetectDevices(c *C) {
 		c.Assert(detectDevices(true, true), IsNil)
 		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy1"})
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
+
+		// 7. With IPv6 node address on dummy3, set cilium_foo interface to node IP,
+		// only dummy3 should be detected matching node IP (no IPv6 default route present)
+		option.Config.EnableIPv6 = true
+		c.Assert(createDummy("dummy3", "2001:db8::face/64"), IsNil)
+		c.Assert(createDummy("cilium_foo", "2001:db8::face/128"), IsNil)
+		node.SetK8sNodeIP(net.ParseIP("2001:db8::face"))
+		c.Assert(detectDevices(true, true), IsNil)
+		c.Assert(option.Config.Devices, checker.DeepEquals, []string{"dummy3"})
 	})
 }
 
