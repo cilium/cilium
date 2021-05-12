@@ -30,10 +30,11 @@ In line with our Star Wars theme examples, we will use a simple scenario where t
 
 .. parsed-literal::
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
-    $ kubectl get po
-    NAME                             READY   STATUS    RESTARTS   AGE
-    pod/mediabot                     1/1     Running   0          14s
+   kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
+   kubectl wait pod/mediabot --for=condition=Ready
+   kubectl get po
+   NAME                             READY   STATUS    RESTARTS   AGE
+   pod/mediabot                     1/1     Running   0          14s
 
 
 Apply DNS Egress Policy
@@ -68,18 +69,18 @@ Let's apply the policy:
 
 .. parsed-literal::
 
-  $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-matchname.yaml
+  kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-matchname.yaml
 
 Testing the policy, we see that ``mediabot`` has access to ``api.twitter.com`` but doesn't have access to any other external service, e.g., ``help.twitter.com``.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    $ kubectl exec mediabot -- curl -sL https://api.twitter.com
-    ...
-    ...
+   $ kubectl exec mediabot -- curl -I https://api.twitter.com | head -1
+   HTTP/1.1 404 Not Found
 
-    $ kubectl exec mediabot -- curl -sL https://help.twitter.com
-    ^C
+   $ kubectl exec mediabot -- curl -I --max-time 5 https://help.twitter.com | head -1
+   curl: (28) Connection timed out after 5000 milliseconds
+   command terminated with exit code 28
 
 DNS Policies Using Patterns
 ===========================
@@ -90,22 +91,23 @@ The above policy controlled DNS access based on exact match of the DNS domain na
 
 .. parsed-literal::
 
-  $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-pattern.yaml
+   kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-pattern.yaml
 
 Test that ``mediabot`` has access to multiple Twitter services for which the DNS matches the pattern ``*.twitter.com``. It is important to note and test that this doesn't allow access to ``twitter.com`` because the ``*.`` in the pattern requires one subdomain to be present in the DNS name. You can simply add more ``matchName`` and ``matchPattern`` clauses to extend the access.
 (See :ref:`DNS based` policies to learn more about specifying DNS rules using patterns and names.)
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-   $ kubectl exec mediabot -- curl -sL https://help.twitter.com
-   ...
+   $ kubectl exec mediabot -- curl -I https://help.twitter.com | head -1
+   HTTP/1.1 302 Found
 
-   $ kubectl exec mediabot -- curl -sL https://about.twitter.com
-   ...
+   $ kubectl exec mediabot -- curl -I https://about.twitter.com | head -1
+   HTTP/1.1 200 OK
 
-   $ kubectl exec mediabot -- curl -sL https://twitter.com
-   ^C
-
+   $ kubectl exec mediabot -- curl -I --max-time 5 https://twitter.com | head -1
+   curl: (7) Failed to connect to twitter.com port 443: Operation timed out
+   command terminated with exit code 7
+ 
 Combining DNS, Port and L7 Rules
 ================================
 
@@ -115,17 +117,18 @@ The DNS-based policies can be combined with port (L4) and API (L7) rules to furt
 
 .. parsed-literal::
 
-  $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-port.yaml
+  kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-port.yaml
 
 Testing, the access to ``https://help.twitter.com`` on port ``443`` will succeed but the access to ``http://help.twitter.com`` on port ``80`` will be denied.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-   $ kubectl exec mediabot -- curl https://help.twitter.com
-   ...
+   $ kubectl exec mediabot -- curl -I https://help.twitter.com | head -1
+   HTTP/1.1 302 Found
 
-   $ kubectl exec mediabot -- curl http://help.twitter.com
-   ^C
+   $ kubectl exec mediabot -- curl -I --max-time 5 http://help.twitter.com | head -1
+   curl: (28) Connection timed out after 5001 milliseconds
+   command terminated with exit code 28
 
 Refer to :ref:`l4_policy` and :ref:`l7_policy` to learn more about Cilium L4 and L7 network policies.
 
@@ -134,5 +137,5 @@ Clean-up
 
 .. parsed-literal::
 
-   $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
-   $ kubectl delete cnp fqdn
+   kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
+   kubectl delete cnp fqdn
