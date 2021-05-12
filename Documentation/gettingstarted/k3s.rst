@@ -58,7 +58,7 @@ On each node, run the following to mount the eBPF Filesystem:
 Install Cilium
 ==============
 
-.. include:: install-cli.rst
+.. include:: cli-download.rst
 
 Install Cilium by running:
 
@@ -66,6 +66,11 @@ Install Cilium by running:
 
     cilium install
 
-.. include:: k8s-install-validate.rst
+Validate the Installation
+=========================
+
+.. include:: cli-status.rst
+.. include:: cli-connectivity-test.rst
+
 .. include:: next-steps.rst
 

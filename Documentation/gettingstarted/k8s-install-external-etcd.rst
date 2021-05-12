@@ -93,4 +93,5 @@ of http for the etcd endpoint URLs:
       --set "etcd.endpoints[2]=https://etcd-endpoint3:2379"
 
 .. include:: k8s-install-validate.rst
+
 .. include:: next-steps.rst

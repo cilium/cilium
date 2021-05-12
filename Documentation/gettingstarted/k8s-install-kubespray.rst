@@ -163,14 +163,7 @@ To check if cluster is created successfully, ssh into the bastion host with the 
 
 Execute the commands below from the bastion host. If ``kubectl`` isn't installed on the bastion host, you can login to the master node to test the below commands. You may need to copy the private key to the bastion host to access the master node.
 
-.. code:: bash
-
-  $ kubectl get nodes
-  $ kubectl get pods -n kube-system
-
-You should see that nodes are in ``Ready`` state and Cilium pods are in ``Running`` state
-
-.. include:: k8s-install-connectivity-test.rst
+.. include:: k8s-install-validate.rst
 
 Delete Cluster
 ==============
