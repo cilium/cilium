@@ -898,7 +898,7 @@ keepDeprecatedProbes: false
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
 # Valid options are "disabled", "probe", "partial", "strict".
 # ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
-kubeProxyReplacement: "probe"
+#kubeProxyReplacement: "disabled"
 
 # -- healthz server bind address for the kube-proxy replacement.
 # To enable set the value to '0.0.0.0:10256' for all ipv4
