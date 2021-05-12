@@ -1173,9 +1173,10 @@ domain name.
 Limitations and known issues
 ----------------------------
 
-The current known limitation is a deny policy with ``toEntities`` "world" for
-which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
-considered external to the cluster.
+The current known limitations are the following:
+
+1) a deny policy with ``toEntities`` "world" for which a ``toFQDNs`` can cause
+traffic to be allowed if such traffic is considered external to the cluster.
 
 .. code-block:: yaml
 
@@ -1204,6 +1205,10 @@ considered external to the cluster.
                 - matchPattern: "*"
       - toFQDNs:
           - matchName: "www.google.com"
+
+2) Until a new security identity is propagated to all existing nodes, pods that
+have that new security identity allocated might be able to bypass deny policy
+enforcement for all existing pods that are selected by deny policies.
 
 .. _HostPolicies:
 
