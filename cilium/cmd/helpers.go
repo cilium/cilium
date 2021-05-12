@@ -8,13 +8,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -373,4 +377,32 @@ func dumpConfig(Opts map[string]string) {
 			fmt.Printf("%-24s %s\n", k, "Enabled")
 		}
 	}
+}
+
+// getIpv6EnableStatus api returns the EnableIPv6 status
+// by consulting the cilium-agent otherwise reads from the
+// runtime system config
+func getIpv6EnableStatus() bool {
+	params := daemon.NewGetHealthzParamsWithTimeout(5 * time.Second)
+	brief := true
+	params.SetBrief(&brief)
+	// If cilium-agent is running get the ipv6 enable status
+	if _, err := client.Daemon.GetHealthz(params); err == nil {
+		if resp, err := client.ConfigGet(); err == nil {
+			if resp.Status != nil {
+				return resp.Status.Addressing.IPV6 != nil && resp.Status.Addressing.IPV6.Enabled == true
+			}
+		}
+	} else { // else read the EnableIPv6 status from the file-system
+		agentConfigFile := filepath.Join(defaults.RuntimePath, defaults.StateDir,
+			"agent-runtime-config.json")
+
+		if byteValue, err := os.ReadFile(agentConfigFile); err == nil {
+			if err = json.Unmarshal(byteValue, &option.Config); err == nil {
+				return option.Config.EnableIPv6
+			}
+		}
+	}
+	// returning the EnableIPv6 default status
+	return defaults.EnableIPv6
 }

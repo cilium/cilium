@@ -53,7 +53,7 @@ func init() {
 
 func getMaps(eID string) []*ctmap.Map {
 	if eID == "global" {
-		return ctmap.GlobalMaps(true, true)
+		return ctmap.GlobalMaps(true, getIpv6EnableStatus())
 	}
 	id, _ := strconv.Atoi(eID)
 	return ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
