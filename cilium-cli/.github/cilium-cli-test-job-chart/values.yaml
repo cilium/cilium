@@ -8,3 +8,7 @@ cluster_cidr: 10.4.0.0/14
 test_script_cm: cilium-cli-test-script
 job_name: cilium-cli
 vm_name: ""
+cluster_name_1: ""
+cluster_cidr_1: ""
+cluster_name_2: ""
+cluster_cidr_2: ""
