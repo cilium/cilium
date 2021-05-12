@@ -23,11 +23,6 @@ to the :ref:`k8s_install_advanced` guide.
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
 
-Install the Cilium CLI
-======================
-
-.. include:: install-cli.rst
-
 Create the Cluster
 ===================
 
@@ -103,6 +98,11 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        .. code-block:: shell-session
 
           minikube start --network-plugin=cni
+
+Install the Cilium CLI
+======================
+
+.. include:: cli-download.rst
 
 Install Cilium
 ==============
@@ -225,6 +225,10 @@ pods are failing to be deployed.
    was deployed and the installer has automatically restarted them to ensure
    all pods get networking provided by Cilium.
 
-.. include:: k8s-install-validate.rst
+Validate the Installation
+=========================
+
+.. include:: cli-status.rst
+.. include:: cli-connectivity-test.rst
 
 .. include:: next-steps.rst

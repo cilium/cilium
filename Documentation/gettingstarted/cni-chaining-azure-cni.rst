@@ -96,6 +96,7 @@ This will create both the main cilium daemonset, as well as the cilium-node-init
 existing Azure CNI plugin to run in 'transparent' mode.
 
 .. include:: k8s-install-restart-pods.rst
+
 .. include:: k8s-install-validate.rst
 
 .. include:: next-steps.rst

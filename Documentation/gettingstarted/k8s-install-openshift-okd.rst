@@ -306,16 +306,13 @@ it sets only ``allowHostPorts`` and ``allowHostNetwork`` without any other privi
    groups: null
    EOF
 
-.. include:: k8s-install-connectivity-test.rst
+Deploy the connectivity test
+----------------------------
+
+.. include:: kubectl-connectivity-test.rst
 
 Cleanup after connectivity test
 -------------------------------
-
-Remove the ``cilium-test`` namespace:
-
-.. code-block:: shell-session
-
-   kubectl delete ns cilium-test
 
 Remove the ``SecurityContextConstraints``:
 
