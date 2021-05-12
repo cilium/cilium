@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -654,14 +653,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
-		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
-		if err != nil {
-			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
-			log.WithError(err).Fatalf(msg, option.Devices)
-		}
-		log.WithField(logfields.Interface, device).
-			Info("Using auto-derived device for host firewall")
-		option.Config.Devices = []string{device}
+		msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
+		log.WithError(err).Fatalf(msg, option.Devices)
 	}
 
 	bootstrapStats.cleanup.Start()
