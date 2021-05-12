@@ -339,6 +339,9 @@ Annotations:
   current behavior, set the value to ``1`` in the ``CiliumNode`` resource.
 * The legacy flannel integration has been deprecated. If you want to chain on
   top of flannel, use the standard chaining method.
+* The default setting for ``kubeProxyReplacement`` has been changed from
+  ``probe`` to ``disabled``. For any new installation, if you want to use
+  kube-proxy replacement, set  ``kubeProxyReplacement`` to ``strict``.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~

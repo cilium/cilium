@@ -13,6 +13,7 @@
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $crdWaitTimeout := "5m" -}}
+{{- $defaultKubeProxyReplacement := "probe" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -31,9 +32,15 @@
 {{- $defaultBpfCtAnyMax = 0 -}}
 {{- end -}}
 
+{{- /* Default values when 1.10 was initially deployed */ -}}
+{{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
+{{- $defaultKubeProxyReplacement = "disabled" -}}
+{{- end -}}
+
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
+{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
 
 apiVersion: v1
 kind: ConfigMap
@@ -486,12 +493,11 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
-{{- if hasKey .Values "kubeProxyReplacement" }}
-  kube-proxy-replacement:  {{ .Values.kubeProxyReplacement | quote }}
-{{- if ne .Values.kubeProxyReplacement "disabled" }}
+  kube-proxy-replacement:  {{ $kubeProxyReplacement | quote }}
+{{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
-{{- end }}
+
 {{- if hasKey .Values "hostServices" }}
 {{- if .Values.hostServices.enabled }}
   enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}
@@ -501,17 +507,17 @@ data:
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "hostPort" }}
-{{- if eq .Values.kubeProxyReplacement "partial" }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if eq .Values.kubeProxyReplacement "partial" }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "nodePort" }}
-{{- if eq .Values.kubeProxyReplacement "partial" }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
