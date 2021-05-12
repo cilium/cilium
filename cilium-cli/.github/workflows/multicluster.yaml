@@ -26,15 +26,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16.4
+          go-version: 1.16.2
 
       - name: Set up Go for root
         run: |
           sudo ln -sf `which go` `sudo which go` || true
           sudo go version
-
-      - name: Build and install cilium CLI binary
-        run: sudo make install
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@master
@@ -47,26 +44,20 @@ jobs:
         run: |
           gcloud info
 
-      - name: Create GKE cluster1
-        run: |
-          gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
-          gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
-          echo "CONTEXT1=$(kubectl config get-contexts -o name | grep ${{ env.clusterName1 }})" >> $GITHUB_ENV
-
-      - name: Install cilium in cluster1
-        run: |
-          cilium install --cluster-name ${{ env.clusterName1 }} --cluster-id 1 --restart-unmanaged-pods=false --config monitor-aggregation=none --native-routing-cidr=10.0.0.0/9
-          cilium hubble enable
-
-      - name: Enable ClusterMesh cluster1
-        run: |
-          cilium clustermesh enable
-
       - name: Create GKE cluster2
         run: |
           gcloud container clusters create ${{ env.clusterName2 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
           gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
-          echo "CONTEXT2=$(kubectl config get-contexts -o name | grep ${{ env.clusterName2 }})" >> $GITHUB_ENV
+
+      - name: Create gcloud-free kubeconfig for cluster 2
+        run: |
+          .github/get-kubeconfig.sh
+          mv kubeconfig kubeconfig-cluster2
+
+      - name: Create GKE cluster1
+        run: |
+          gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
+          gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
 
       - name: Allow cross-cluster traffic
         run: |
@@ -79,54 +70,66 @@ jobs:
           gcloud compute firewall-rules describe $GCP_FW_RULE
           echo "GCP_FW_RULE=$GCP_FW_RULE" >> $GITHUB_ENV
 
-      - name: Install cilium in cluster2
+      - name: Set job vars
+        id: vars
         run: |
-          cilium install --cluster-name ${{ env.clusterName2 }} --cluster-id 2 --restart-unmanaged-pods=false --config monitor-aggregation=none --native-routing-cidr=10.0.0.0/9 --context $CONTEXT2 --inherit-ca $CONTEXT1
-          cilium hubble enable --relay=false
+          CLUSTER_CIDR_1=$(gcloud container clusters describe ${{ env.clusterName1 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr_1::${CLUSTER_CIDR_1}
+          CLUSTER_CIDR_2=$(gcloud container clusters describe ${{ env.clusterName2 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr_2::${CLUSTER_CIDR_2}
 
-      - name: Enable ClusterMesh cluster2
-        run: |
-          cilium clustermesh enable
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+            IS_PR=true
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+          echo ::set-output name=sha::${SHA}
 
-      - name: Wait for ClusterMesh to be enabled cluster1
+      - name: Create gcloud-free kubeconfig for cluster 1, merge kubeconfigs and put them in configmap
         run: |
-          cilium --context $CONTEXT1 clustermesh status --wait
+          .github/get-kubeconfig.sh
+          mv kubeconfig kubeconfig-cluster1
+          go run .github/tools/kubeconfig-merger/main.go kubeconfig-cluster1 kubeconfig-cluster2 kubeconfig
+          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
 
-      - name: Wait for ClusterMesh to be enabled cluster2
+      - name: Load cilium test script in configmap
         run: |
-          cilium --context $CONTEXT2 clustermesh status --wait
+          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/multicluster.sh
 
-      - name: Connect clusters
+      - name: Create cilium-cli test job
         run: |
-          cilium --context $CONTEXT1 clustermesh connect --destination-context $CONTEXT2
+          helm install .github/cilium-cli-test-job-chart --generate-name \
+          --set tag=${{ steps.vars.outputs.sha }} \
+          --set job_name=cilium-cli \
+          --set test_script_cm=cilium-cli-test-script \
+          --set cluster_name_1=${{ env.clusterName1 }} \
+          --set cluster_cidr_1=${{ steps.vars.outputs.cluster_cidr_1 }} \
+          --set cluster_name_2=${{ env.clusterName2 }} \
+          --set cluster_cidr_2=${{ steps.vars.outputs.cluster_cidr_2 }}
 
-      - name: Wait for ClusterMesh to be connected cluster1
+      - name: Wait for test job
         run: |
-          cilium --context $CONTEXT1 clustermesh status --wait --wait-duration 5m
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=20m
 
-      - name: Wait for ClusterMesh to be connected cluster2
+      - name: Post-test information gathering
+        if: ${{ always() }}
         run: |
-          cilium --context $CONTEXT2 clustermesh status --wait --wait-duration 5m
-
-      - name: Relay Port Forward
-        run: |
-          cilium hubble port-forward --context $CONTEXT1&
-          sleep 5s
-
-      - name: Connectivity test
-        run: |
-          cilium --context $CONTEXT1 connectivity test --multi-cluster $CONTEXT2 --test '!/pod-to-.*-nodeport' --all-flows
+          kubectl logs -n kube-system job/cilium-cli
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
 
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          cilium --context $CONTEXT1 status
-          cilium --context $CONTEXT1 clustermesh status
-          cilium --context $CONTEXT2 status
-          cilium --context $CONTEXT2 clustermesh status
-          kubectl get pods --all-namespaces -o wide
-          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-          python cilium-sysdump.zip --output cilium-sysdump-out
           gcloud compute firewall-rules delete --quiet $GCP_FW_RULE
           gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }} --async
           gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }} --async
