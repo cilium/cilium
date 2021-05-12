@@ -179,6 +179,12 @@ spec:
                     items:
                       type: string
                     type: array
+                  subnet-ids:
+                    description: SubnetIDs is the list of subnet ids to use when evaluating
+                      what AWS subnets to use for ENI and IP allocation.
+                    items:
+                      type: string
+                    type: array
                   subnet-tags:
                     additionalProperties:
                       type: string

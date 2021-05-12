@@ -362,14 +362,21 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	resource := *n.k8sObj
 	n.mutex.RUnlock()
 
-	bestSubnet := n.manager.FindSubnetByTags(resource.Spec.ENI.VpcID, resource.Spec.ENI.AvailabilityZone, resource.Spec.ENI.SubnetTags)
+	var bestSubnet *ipamTypes.Subnet
+	if len(resource.Spec.ENI.SubnetIDs) > 0 {
+		bestSubnet = n.manager.FindSubnetByIDs(resource.Spec.ENI.VpcID, resource.Spec.ENI.AvailabilityZone, resource.Spec.ENI.SubnetIDs)
+	} else {
+		bestSubnet = n.manager.FindSubnetByTags(resource.Spec.ENI.VpcID, resource.Spec.ENI.AvailabilityZone, resource.Spec.ENI.SubnetTags)
+	}
+
 	if bestSubnet == nil {
 		return 0,
 			errUnableToFindSubnet,
 			fmt.Errorf(
-				"No matching subnet available for interface creation (VPC=%s AZ=%s SubnetTags=%s",
+				"No matching subnet available for interface creation (VPC=%s AZ=%s SubnetIDs=%v SubnetTags=%s)",
 				resource.Spec.ENI.VpcID,
 				resource.Spec.ENI.AvailabilityZone,
+				resource.Spec.ENI.SubnetIDs,
 				resource.Spec.ENI.SubnetTags,
 			)
 	}

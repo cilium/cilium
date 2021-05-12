@@ -206,6 +206,23 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		}
 	}
 
+	if ((in.SubnetIDs != nil) && (other.SubnetIDs != nil)) || ((in.SubnetIDs == nil) != (other.SubnetIDs == nil)) {
+		in, other := &in.SubnetIDs, &other.SubnetIDs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.SubnetTags != nil) && (other.SubnetTags != nil)) || ((in.SubnetTags == nil) != (other.SubnetTags == nil)) {
 		in, other := &in.SubnetTags, &other.SubnetTags
 		if other == nil {

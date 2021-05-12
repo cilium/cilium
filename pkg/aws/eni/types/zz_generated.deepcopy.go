@@ -103,6 +103,11 @@ func (in *ENISpec) DeepCopyInto(out *ENISpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.SubnetIDs != nil {
+		in, out := &in.SubnetIDs, &out.SubnetIDs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.SubnetTags != nil {
 		in, out := &in.SubnetTags, &out.SubnetTags
 		*out = make(map[string]string, len(*in))
