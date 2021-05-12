@@ -28,7 +28,7 @@ func init() {
 }
 
 func flushNat() {
-	ipv4, ipv6 := nat.GlobalMaps(true, true, true)
+	ipv4, ipv6 := nat.GlobalMaps(true, getIpv6EnableStatus(), true)
 
 	for _, m := range []*nat.Map{ipv4, ipv6} {
 		if m == nil {

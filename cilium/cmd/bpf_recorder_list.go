@@ -24,7 +24,9 @@ var bpfRecorderListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf recorder list")
 		maps := make([]interface{}, 2)
 		maps[0] = recorder.CaptureMap4
-		maps[1] = recorder.CaptureMap6
+		if getIpv6EnableStatus() {
+			maps[1] = recorder.CaptureMap6
+		}
 		dumpRecorderEntries(maps)
 	},
 }
