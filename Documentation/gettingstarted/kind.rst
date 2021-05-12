@@ -60,6 +60,7 @@ Then, install Cilium release via Helm:
    to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
 
 .. include:: k8s-install-validate.rst
+
 .. include:: next-steps.rst
 
 Troubleshooting

@@ -57,7 +57,7 @@ Deploy Cilium
 
     .. group-tab:: Cilium CLI
 
-        .. include:: install-cli.rst
+        .. include:: cli-download.rst
 
         Install Cilium by running:
 
@@ -66,5 +66,7 @@ Deploy Cilium
             cilium install
 
 .. include:: k8s-install-restart-pods.rst
+
 .. include:: k8s-install-validate.rst
+
 .. include:: next-steps.rst
