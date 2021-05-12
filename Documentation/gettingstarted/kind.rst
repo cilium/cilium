@@ -45,7 +45,7 @@ Then, install Cilium release via Helm:
       --namespace kube-system \\
       --set nodeinit.enabled=true \\
       --set kubeProxyReplacement=partial \\
-      --set hostServices.enabled=false \\
+      --set hostServices.enabled=true \\
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
@@ -57,8 +57,8 @@ Then, install Cilium release via Helm:
 
    To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v1
    controllers ``net_cls`` and ``net_prio`` have to be disabled, or cgroup v1 has
-   to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
-
+   to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter). The hostServices should be disabled when cgroup v1 is enabled.
+   
 .. include:: k8s-install-validate.rst
 .. include:: next-steps.rst
 
@@ -155,7 +155,7 @@ Make sure context is set to ``kind-cluster2`` cluster.
       --namespace kube-system \\
       --set nodeinit.enabled=true \\
       --set kubeProxyReplacement=partial \\
-      --set hostServices.enabled=false \\
+      --set hostServices.enabled=true \\
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
@@ -174,7 +174,7 @@ Change the kubectl context to ``kind-cluster1`` cluster:
       --namespace kube-system \\
       --set nodeinit.enabled=true \\
       --set kubeProxyReplacement=partial \\
-      --set hostServices.enabled=false \\
+      --set hostServices.enabled=true \\
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
