@@ -7,17 +7,19 @@ and enable/disable a variety of functionality.
 
     .. code-block:: shell-session
 
-      curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+      curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+      sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
       sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-      rm cilium-linux-amd64.tar.gz
+      rm cilium-linux-amd64.tar.gz{,.sha256sum}
 
   .. group-tab:: macOS
 
     .. code-block:: shell-session
 
-      curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-darwin-amd64.tar.gz
+      curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-darwin-amd64.tar.gz{,.sha256sum}
+      shasum -a 256 -c cilium-darwin-amd64.tar.gz.sha256sum
       sudo tar xzvfC cilium-darwin-amd64.tar.gz /usr/local/bin
-      rm cilium-darwin-amd64.tar.gz
+      rm cilium-darwin-amd64.tar.gz{,.sha256sum}
 
   .. group-tab:: Other
 
