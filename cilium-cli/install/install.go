@@ -1356,6 +1356,10 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires kube-proxy replacement to be enabled")
 		}
 
+		if m.Data["enable-bpf-masquerade"] != "true" {
+			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires eBPF masquerading to be enabled")
+		}
+
 		if m.Data["cni-chaining-mode"] != "" {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled with CNI chaining")
 		}
