@@ -128,7 +128,7 @@ You may be prompted to create a ssh public-private key pair.
 
 (Please see :ref:`appendix_kops`)
 
-.. include:: k8s-install-connectivity-test.rst
+.. include:: k8s-install-validate.rst
 
 .. _appendix_kops:
 
