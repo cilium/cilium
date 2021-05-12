@@ -1,30 +1,15 @@
 Validate the Installation
 =========================
 
-.. include:: install-cli.rst
+.. tabs::
 
-To validate that Cilium has been properly installed, you can run
+  .. tab:: Cilium CLI
 
-.. code-block:: shell-session
+    .. include:: cli-download.rst
+    .. include:: cli-status.rst
+    .. include:: cli-connectivity-test.rst
 
-   cilium status --wait
+  .. tab:: Manually
 
-The output should be similar to the following one:
-
-::
-
-      /¯¯\
-   /¯¯\__/¯¯\    Cilium:         OK
-   \__/¯¯\__/    Operator:       OK
-   /¯¯\__/¯¯\    Hubble:         disabled
-   \__/¯¯\__/    ClusterMesh:    disabled
-      \__/
-
-   DaemonSet         cilium             Desired: 2, Ready: 2/2, Available: 2/2
-   Deployment        cilium-operator    Desired: 2, Ready: 2/2, Available: 2/2
-   Containers:       cilium-operator    Running: 2
-                     cilium             Running: 2
-   Image versions    cilium             quay.io/cilium/cilium:v1.9.5: 2
-                     cilium-operator    quay.io/cilium/operator-generic:v1.9.5: 2
-
-.. include:: k8s-install-connectivity-test.rst
+    .. include:: kubectl-status.rst
+    .. include:: kubectl-connectivity-test.rst

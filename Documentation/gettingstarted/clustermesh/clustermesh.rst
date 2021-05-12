@@ -29,7 +29,7 @@ Cluster Addressing Requirements
 Install the Cilium CLI
 ======================
 
-.. include:: ../install-cli.rst
+.. include:: ../cli-download.rst
 
 Prepare the Clusters
 ####################

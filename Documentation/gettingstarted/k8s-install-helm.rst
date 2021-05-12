@@ -237,5 +237,7 @@ Install Cilium
              --namespace $CILIUM_NAMESPACE
 
 .. include:: k8s-install-restart-pods.rst
+
 .. include:: k8s-install-validate.rst
+
 .. include:: next-steps.rst

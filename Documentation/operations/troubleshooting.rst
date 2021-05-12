@@ -663,7 +663,7 @@ Cluster Mesh Troubleshooting
 Install the Cilium CLI
 ----------------------
 
-.. include:: ../gettingstarted/install-cli.rst
+.. include:: ../gettingstarted/cli-download.rst
 
 Generic
 -------
