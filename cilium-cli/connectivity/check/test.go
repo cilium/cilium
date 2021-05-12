@@ -124,17 +124,17 @@ func (t *Test) willRun() bool {
 // Failures encountered executing finalizers will be raised as warnings
 // against the Test.
 func (t *Test) finalize() {
+	if t.failed && t.Context().params.PauseOnFail {
+		t.Log("Pausing after test failure, press the Enter key to continue:")
+		fmt.Scanln()
+	}
+
 	t.Debug("Finalizing Test", t.Name())
 
 	for _, f := range t.finalizers {
 		if err := f(); err != nil {
 			t.Warnf("Error finalizing '%s': %s", t.Name(), err)
 		}
-	}
-
-	if t.failed && t.Context().params.PauseOnFail {
-		t.Log("Pausing after test failure, press the Enter key to continue:")
-		fmt.Scanln()
 	}
 }
 
