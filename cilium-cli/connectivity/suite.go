@@ -94,7 +94,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		}
 	})
 
-	// This policy allows ingress to echo from client only.
+	// This policy allows ingress to echo only from client with a label 'other:client'.
 	ct.NewTest("echo-ingress").WithPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(""),
@@ -143,6 +143,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Destination().Port() == 80 {
 				return check.ResultOK, check.ResultNone
 			}
+			// PodToWorld traffic to port 443 will be dropped by the policy
 			return check.ResultDrop, check.ResultNone
 		})
 
