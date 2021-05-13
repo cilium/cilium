@@ -39,6 +39,17 @@ the release of version ``v1.3.0``:
 - Major bugfixes relevant to the correct operation of Cilium
 - Debug tool improvements
 
+Backport Criteria for documentation changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Changes to Cilium's documentation should generally be subject to backports for
+all supported branches to which they apply (all supported branches containing
+the parent features to which the modified sections relate).
+
+The motivation is that users can then simply look at the branch of the
+documentation related to the version they are deploying, and find the latest
+correct instructions for their version.
+
 Proposing PRs for backporting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
