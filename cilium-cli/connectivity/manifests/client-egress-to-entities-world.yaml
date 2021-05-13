@@ -21,4 +21,4 @@ spec:
     toPorts:
     - ports:
       - port: "53"
-        protocol: UDP
+        protocol: ANY
