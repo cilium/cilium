@@ -16,6 +16,7 @@ package check
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -451,7 +452,66 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	// Set the timeout for all IP cache lookup retries
+	ipCacheCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
+	defer cancel()
+	for _, cp := range ct.ciliumPods {
+		err := ct.waitForIPCache(ipCacheCtx, cp)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
+	ct.Logf("⌛ [%s] Waiting for Cilium pod %s to have all the pod IPs in eBPF ipcache...", ct.client.ClusterName(), pod.Name())
+
+	for {
+		// Don't retry lookups more often than once per second.
+		r := time.After(time.Second)
+
+		// Warning: ExecInPod ignores ctx. Don't pass it here so we don't
+		// falsely expect the function to be able to be cancelled.
+		stdout, err := pod.K8sClient.ExecInPod(context.TODO(), pod.Pod.Namespace, pod.Pod.Name,
+			"cilium-agent", []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
+		if err == nil {
+			var ic ipCache
+
+			if err := json.Unmarshal(stdout.Bytes(), &ic); err != nil {
+				return fmt.Errorf("unmarshaling Cilium stdout json: %w", err)
+			}
+
+			for _, client := range ct.clientPods {
+				if _, err := ic.findPodID(client); err != nil {
+					ct.Debugf("Couldn't find client Pod %v in ipcache, retrying...", client)
+					goto retry
+				}
+			}
+
+			for _, echo := range ct.echoPods {
+				if _, err := ic.findPodID(echo); err != nil {
+					ct.Debugf("Couldn't find echo Pod %v in ipcache, retrying...", echo)
+					goto retry
+				}
+			}
+
+			return nil
+		}
+
+		ct.Debugf("Error listing ipcache for Cilium pod %s: %s", pod.Name(), err)
+
+	retry:
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for pod IDs in ipcache of Cilium pod %s", pod.Name())
+		default:
+		}
+
+		// Wait for the pace timer to avoid busy polling.
+		<-r
+	}
 }
 
 func (ct *ConnectivityTest) waitForDeployments(ctx context.Context, client *k8s.Client, deployments []string) error {
