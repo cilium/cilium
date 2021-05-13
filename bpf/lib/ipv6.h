@@ -148,8 +148,10 @@ static __always_inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off)
 {
 	__u8 hl;
 
-	ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
-		       &hl, sizeof(hl));
+	if (ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
+			   &hl, sizeof(hl)) < 0)
+		return DROP_INVALID;
+
 	if (hl <= 1)
 		return 1;
 	hl--;
