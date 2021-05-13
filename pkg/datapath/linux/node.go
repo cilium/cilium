@@ -754,18 +754,28 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	n.neighLock.Unlock() // to allow concurrent arpings below
 
-	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
 	var hwAddr net.HardwareAddr
 	var now time.Time
-	if nextHopIsNew || refresh {
-		hwAddr, err = arp.PingOverLink(link, srcIPv4, nextHopIPv4)
+	// it's not necessary to arping AKS node (static hwaddr)
+	if option.Config.IPAM == ipamOption.IPAMAzure {
+		hwAddr, err = net.ParseMAC("12:34:56:78:9a:bc")
 		if err != nil {
-			scopedLog.WithError(err).Debug("arping failed")
-			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
+			scopedLog.WithError(err).Debug("parse AKS static mac failed")
 			return
 		}
-		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
 		now = time.Now()
+	} else {
+		// nextHop hasn't been arpinged before OR we are refreshing neigh entry
+		if nextHopIsNew || refresh {
+			hwAddr, err = arp.PingOverLink(link, srcIPv4, nextHopIPv4)
+			if err != nil {
+				scopedLog.WithError(err).Debug("arping failed")
+				metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
+				return
+			}
+			metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
+			now = time.Now()
+		}
 	}
 
 	n.neighLock.Lock()
