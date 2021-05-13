@@ -25,7 +25,7 @@ func curl(peer check.TestPeer) []string {
 	return []string{"curl",
 		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
 		"--silent", "--fail", "--show-error",
-		"--connect-timeout", "2",
+		"--connect-timeout", "5",
 		"--output", "/dev/null",
 		fmt.Sprintf("%s://%s",
 			peer.Scheme(),
