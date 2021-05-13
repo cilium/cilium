@@ -59,6 +59,10 @@ func (p Parameters) serviceReadyTimeout() time.Duration {
 	return 30 * time.Second
 }
 
+func (p Parameters) ipCacheTimeout() time.Duration {
+	return 20 * time.Second
+}
+
 func (p Parameters) validate() error {
 	switch p.FlowValidation {
 	case FlowValidationModeDisabled, FlowValidationModeWarning, FlowValidationModeStrict:
