@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -354,7 +355,14 @@ func (ct *ConnectivityTest) logAggregationMode(ctx context.Context, client *k8s.
 		return "", fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
 
-	return cm.Data[defaults.ConfigMapKeyMonitorAggregation], nil
+	// Monitor aggregation level defaults to none.
+	v, ok := cm.Data[defaults.ConfigMapKeyMonitorAggregation]
+	if !ok {
+		return "none", nil
+	}
+
+	// Comparisons will be in lower case.
+	return strings.ToLower(v), nil
 }
 
 // initClients checks if Cilium is installed on the cluster, whether the cluster
