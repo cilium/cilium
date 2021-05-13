@@ -857,6 +857,7 @@ waitForMount
 waker
 walkthrough
 webservice
+wellKnownIdentities
 whitelist
 whitelisted
 whitelisting
