@@ -57,6 +57,13 @@ Any changes that you perform in the Cilium `ConfigMap` and in
 ``cilium-etcd-secrets`` ``Secret`` will require you to restart any existing
 Cilium pods in order for them to pick the latest configuration.
 
+.. attention::
+
+   When updating keys or values in the ConfigMap, the changes might take up to
+   2 minutes to be propagated to all nodes running in the cluster. For more
+   information see the official Kubernetes docs:
+   `Mounted ConfigMaps are updated automatically <https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-automatically>`__
+
 The following `ConfigMap` is an example where the etcd cluster is running in 2
 nodes, ``node-1`` and ``node-2`` with TLS, and client to server authentication
 enabled.
