@@ -810,8 +810,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testHostFirewall(kubectl)
 		})
 
-		// We need to skip this test when using kube-proxy because of #14859.
-		SkipItIf(helpers.DoesNotRunWithKubeProxyReplacement, "With native routing", func() {
+		It("With native routing", func() {
 			options := map[string]string{
 				"hostFirewall": "true",
 				"tunnel":       "disabled",
@@ -827,8 +826,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testHostFirewall(kubectl)
 		})
 
-		// We need to skip this test when using kube-proxy because of #14859.
-		SkipItIf(helpers.DoesNotRunWithKubeProxyReplacement, "With native routing and endpoint routes", func() {
+		It("With native routing and endpoint routes", func() {
 			options := map[string]string{
 				"hostFirewall":           "true",
 				"tunnel":                 "disabled",
