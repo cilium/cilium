@@ -196,12 +196,13 @@ func (a *Action) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
 	defer printer.Close()
 
 	for index, flow := range *f {
-		// TODO(timo): What is this for?
 		if !a.test.ctx.AllFlows() && r.FirstMatch > 0 && r.FirstMatch > index {
+			// Skip flows before the first match unless printing all flows
 			continue
 		}
 
 		if !a.test.ctx.AllFlows() && r.LastMatch > 0 && r.LastMatch < index {
+			// Skip flows after the last match unless printing all flows
 			continue
 		}
 
