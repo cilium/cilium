@@ -1,5 +1,69 @@
 # Changelog
 
+## v1.8.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* arp: Add retries to arping (Backport PR #15909, Upstream PR #14601, @brb)
+* Envoy is updated to release 1.15.3. (Backport PR #16115, Upstream PR #14462, @jrajahalme)
+* envoy: Move to Envoy API v3 (Backport PR #16115, Upstream PR #12331, @jrajahalme)
+* Hubble logs for HTTP responses now include HTTP response headers. (Backport PR #16105, Upstream PR #16013, @jrajahalme)
+* node-neigh: add metric to count arping requests (Backport PR #16047, Upstream PR #14816, @jaffcheng)
+* node-neigh: Locking, logging, misc improvements (Backport PR #16047, Upstream PR #15783, @brb)
+* PolicyImportErrorsTotal metric is now incremented also from k8s policy watchers (Backport PR #15892, Upstream PR #15820, @jrajahalme)
+* Store the previous Cilium's configuration options in the host (Backport PR #16092, Upstream PR #16017, @aanm)
+
+**Bugfixes:**
+* `toFQDNs` rules now allow underscores in match patterns and names (Backport PR #15819, Upstream PR #15801, @jrajahalme)
+* bpf: Fix defines in policy.h (Backport PR #15764, Upstream PR #15763, @pchaigno)
+* cilium: Encryption EKS 4.14 kernel (default) fixes (Backport PR #15602, Upstream PR #15867, @jrfastab)
+* cilium: encryption, auto-discover interface and subnet (Backport PR #15602, Upstream PR #15357, @jrfastab)
+* ctmap: do not call InitMapInfo() in init() (Backport PR #15921, Upstream PR #15590, @kkourt)
+* eni: Fix Cilium overallocating network interfaces (Backport PR #16015, Upstream PR #15911, @gandro)
+* Envoy is updated to release 1.17.3 (Backport PR #16115, Upstream PR #16102, @jrajahalme)
+* Fix aws-cni integration where pods were not being scheduled (Backport PR #16015, Upstream PR #15915, @aanm)
+* Fix channel panic from ipcache kvstore reconnect (Backport PR #15921, Upstream PR #15668, @jomenxiao)
+* Fix ethtool issues (Backport PR #15602, Upstream PR #15622, @tklauser)
+* Handle events with pod IP and node IP addresses being modified (Backport PR #15927, Upstream PR #15803, @aanm)
+* kvstore/etcd: fix etcd rate limit (QPS) not working (Backport PR #15921, Upstream PR #15742, @ArthurChiao)
+* pkg/k8s: reset k8s event lag metric on pod add (Backport PR #15921, Upstream PR #15804, @aanm)
+
+**CI Changes:**
+* bpf: Extend datapath options for K8sVerifier test (Backport PR #15764, Upstream PR #15540, @pchaigno)
+* test: Extend the clusterIP tests with policy (Backport PR #16015, Upstream PR #15928, @aditighag)
+* test: Mark GKE CI pipeline as running Linux 4.19 (Backport PR #16105, Upstream PR #14639, @pchaigno)
+* test: Skip K8sPolicy on GKE and 4.19 (Backport PR #15921, Upstream PR #15762, @pchaigno)
+
+**Misc Changes:**
+* .github: remove unnecessary docker hub credentials (Backport PR #16015, Upstream PR #15841, @aanm)
+* [v1.8]  Fix image digest preparation for release commits (#15839, @joestringer)
+* Agent: Include Cilium version in output of 'cilium status --verbose' (Backport PR #15921, Upstream PR #14492, @romanspb80)
+* arp: Set deadline for each retry (Backport PR #15909, Upstream PR #14651, @brb)
+* build(deps): bump actions/checkout from 2 to 2.3.4 (#16107, @dependabot[bot])
+* build(deps): bump docker/login-action from f3364599c6aa293cdc2b8391b1b56d0c30e45c8a to 1.9.0 (#15930, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 012185ccbeb554a7f5f987bea0f1a73519b3cdf5 to 1.3.0 (#15954, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2a4b53665e15ce7d7049afb11ff1f70ff1610609 to 1.2.0 (#15856, @dependabot[bot])
+* cilium: Fix EKS encryption panic and reinit path and add workflows test (Backport PR #15602, Upstream PR #15669, @jrfastab)
+* contrib: Clean output of submit-backport script (Backport PR #15921, Upstream PR #15838, @pchaigno)
+* contrib: Ensure release tag is upstream before push (Backport PR #15921, Upstream PR #15903, @joestringer)
+* daemon/cmd: fix Cilium version status output (Backport PR #15921, Upstream PR #15649, @aanm)
+* datapath/linux/arp: avoid leaking sock fd if unix.SetNonblock fails in func listen (Backport PR #15909, Upstream PR #15646, @tklauser)
+* datapath: migrate off j-keck/arping (Backport PR #15909, Upstream PR #13112, @vladdy)
+* docs: Update our community docs page (Backport PR #16047, Upstream PR #14968, @pchaigno)
+* docs: Update SIG-Datapath meeting time. (Backport PR #16105, Upstream PR #16027, @joestringer)
+* envoy: Do not use deprecated fields (Backport PR #16115, Upstream PR #15232, @jrajahalme)
+* Improve the docs CRD schema version update script (Backport PR #15921, Upstream PR #15869, @joestringer)
+* ipsec: Fix routing CIDR iteration on EKS (Backport PR #15602, Upstream PR #15645, @gandro)
+* mtu: Switch to v/netlink for querying netdevs (Backport PR #15921, Upstream PR #15260, @brb)
+* node-neigh: Avoid flooding the same next hop (Backport PR #16047, Upstream PR #15882, @brb)
+* pkg/k8s: add DeepEqual code generation for Service (Backport PR #15927, Upstream PR #15077, @aanm)
+* Update weekly community meeting timeslot (Backport PR #16047, Upstream PR #15985, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.8.9 (#15799, @joestringer)
+
 ## v1.8.9
 
 Summary of Changes
