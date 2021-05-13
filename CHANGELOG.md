@@ -1,5 +1,80 @@
 # Changelog
 
+## v1.9.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* arp: Add retries to arping (Backport PR #15908, Upstream PR #14601, @brb)
+* Hash IPSec keys in the bugtool. Unit test are also added. (Backport PR #15830, Upstream PR #15550, @h3llix)
+* Hubble logs for HTTP responses now include HTTP response headers. (Backport PR #16108, Upstream PR #16013, @jrajahalme)
+* node-neigh: add metric to count arping requests (Backport PR #16048, Upstream PR #14816, @jaffcheng)
+* node-neigh: Locking, logging, misc improvements (Backport PR #16048, Upstream PR #15783, @brb)
+* PolicyImportErrorsTotal metric is now incremented also from k8s policy watchers (Backport PR #15891, Upstream PR #15820, @jrajahalme)
+* Store the previous Cilium's configuration options in the host (Backport PR #16091, Upstream PR #16017, @aanm)
+
+**Bugfixes:**
+* `toFQDNs` rules now allow underscores in match patterns and names (Backport PR #15830, Upstream PR #15801, @jrajahalme)
+* bpf: Fix defines in policy.h (Backport PR #15830, Upstream PR #15763, @pchaigno)
+* bpf: fix map_array_get_16 backend retrieval (Backport PR #15830, Upstream PR #15808, @borkmann)
+* cilium: Encryption EKS 4.14 kernel (default) fixes (Backport PR #16048, Upstream PR #15867, @jrfastab)
+* Drop a `@` in clustermesh-apiserver helm chart (Backport PR #16048, Upstream PR #15934, @anthr76)
+* eni: Fix Cilium overallocating network interfaces (Backport PR #16035, Upstream PR #15911, @gandro)
+* Envoy is updated to release 1.17.3 (Backport PR #16108, Upstream PR #16102, @jrajahalme)
+* Fix an issue where packets are dropped when a pod connects to itself via a service clusterIP. (Backport PR #15709, Upstream PR #15321, @aditighag)
+* Fix aws-cni integration where pods were not being scheduled (Backport PR #16048, Upstream PR #15915, @aanm)
+* Fix bug where L7 ingress policies with IPsec dropped traffic in tunneling mode (Backport PR #16114, Upstream PR #16057, @christarazi)
+* Fix channel panic from ipcache kvstore reconnect (Backport PR #15830, Upstream PR #15668, @jomenxiao)
+* Fix panic when accounting for certain metrics in BPF map operations (#15866, @aanm)
+* Fix the initialization of host endpoint labels (Backport PR #15837, Upstream PR #15780, @pchaigno)
+* Fixing pods restart on nodes running containerd on COS (Backport PR #15920, Upstream PR #14708, @fallard84)
+* Handle events with pod IP and node IP addresses being modified (Backport PR #15926, Upstream PR #15803, @aanm)
+* ipcache: Expose correct source in Cilium API (Backport PR #15830, Upstream PR #15706, @gandro)
+* kvstore/etcd: fix etcd rate limit (QPS) not working (Backport PR #15830, Upstream PR #15742, @ArthurChiao)
+* pkg/k8s: reset k8s event lag metric on pod add (Backport PR #15830, Upstream PR #15804, @aanm)
+
+**CI Changes:**
+* connectivity-check: Reduce chances of port conflict with proxy (Backport PR #16048, Upstream PR #15988, @pchaigno)
+* test/gke: refactor test-clusters operations (Backport PR #15875, Upstream PR #15863, @nbusseneau)
+* test: 5.4 CI job (Backport PR #15957, Upstream PR #15765, @pchaigno)
+* test: Extend the clusterIP tests with policy (Backport PR #15709, Upstream PR #15928, @aditighag)
+* test: Fix fragment tracking test on GKE (Backport PR #16048, Upstream PR #15959, @pchaigno)
+* test: Format test-only's kernel_version to avoid mistakes (Backport PR #16048, Upstream PR #15743, @pchaigno)
+* test: Skip K8sPolicy on GKE and 4.19 (Backport PR #15875, Upstream PR #15762, @pchaigno)
+
+**Misc Changes:**
+* .github: remove unnecessary docker hub credentials (Backport PR #15875, Upstream PR #15841, @aanm)
+* [v1.9] Fix image digest preparation for release commits (#15817, @joestringer)
+* Agent: Include Cilium version in output of 'cilium status --verbose' (Backport PR #15830, Upstream PR #14492, @romanspb80)
+* arp: Set deadline for each retry (Backport PR #15908, Upstream PR #14651, @brb)
+* bugtool: Record attached BPF programs (Backport PR #15875, Upstream PR #14895, @aditighag)
+* build(deps): bump docker/login-action from f3364599c6aa293cdc2b8391b1b56d0c30e45c8a to 1.9.0 (#15916, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 012185ccbeb554a7f5f987bea0f1a73519b3cdf5 to 1.3.0 (#15939, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2a4b53665e15ce7d7049afb11ff1f70ff1610609 to 1.2.0 (#15855, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.2.2 to 1.3.0 (#16089, @dependabot[bot])
+* bwm: queue mapping & cong fixes (Backport PR #16048, Upstream PR #15964, @borkmann)
+* contrib: Clean output of submit-backport script (Backport PR #15875, Upstream PR #15838, @pchaigno)
+* contrib: Ensure release tag is upstream before push (Backport PR #15920, Upstream PR #15903, @joestringer)
+* daemon/cmd: fix Cilium version status output (Backport PR #15830, Upstream PR #15649, @aanm)
+* daemon: Fix the init of the endpoints' datapath config (Backport PR #15830, Upstream PR #15785, @pchaigno)
+* datapath/linux/arp: avoid leaking sock fd if unix.SetNonblock fails in func listen (Backport PR #15908, Upstream PR #15646, @tklauser)
+* datapath: migrate off j-keck/arping (Backport PR #15908, Upstream PR #13112, @vladdy)
+* docs/policy: Clarify table for deny policy scenarios (Backport PR #15875, Upstream PR #15836, @pchaigno)
+* docs: add 'endpointRoutes.enabled=true' to aws-cni (Backport PR #16114, Upstream PR #16045, @bmcustodio)
+* docs: Update our community docs page (Backport PR #16048, Upstream PR #14968, @pchaigno)
+* docs: Update SIG-Datapath meeting time. (Backport PR #16114, Upstream PR #16027, @joestringer)
+* examples: add 'rebel-base-global-shared.yaml' (Backport PR #15920, Upstream PR #15886, @bmcustodio)
+* Improve the docs CRD schema version update script (Backport PR #15920, Upstream PR #15869, @joestringer)
+* node-neigh: Avoid flooding the same next hop (Backport PR #16048, Upstream PR #15882, @brb)
+* pkg/k8s: add DeepEqual code generation for Service (Backport PR #15926, Upstream PR #15077, @aanm)
+* Update weekly community meeting timeslot (Backport PR #16048, Upstream PR #15985, @joestringer)
+* v1.9: Update Go to 1.15.12 (#16067, @tklauser)
+
+**Other Changes:**
+* docs: Add a note about minikube docker driver mode (#16086, @aditighag)
+* install: Update image digests for v1.9.6 (#15800, @joestringer)
+
 ## v1.9.6
 
 Summary of Changes
