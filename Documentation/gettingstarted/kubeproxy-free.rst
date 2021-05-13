@@ -30,6 +30,11 @@ For installing ``kubeadm`` and for more provisioning options please refer to
    maintained kernels, the situation could differ. Therefore, please check with
    your distribution.
 
+.. attention::
+
+   When switching Cilium with kube-proxy replacement from enabled to disabled,
+   or vice-versa, existing connections in that node will be disrupted.
+
 Quick-Start
 ###########
 
