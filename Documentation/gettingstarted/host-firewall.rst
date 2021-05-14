@@ -6,12 +6,20 @@
 
 .. _host_firewall:
 
-*************
-Host Firewall
-*************
+******************************************
+Host Firewall (beta when using kube-proxy)
+******************************************
 
 This document serves as an introduction to Cilium's host firewall, to enforce
 security policies for Kubernetes nodes.
+
+.. note::
+
+    The host firewall is a beta feature when running without our kube-proxy
+    replacement. In particular, two bugs need to be addressed before we can
+    consider this feature stable: :gh-issue:`12205` and :gh-issue:`14859`.
+    Please provide feedback and file a GitHub issue if you experience any
+    problems.
 
 Enable the Host Firewall in Cilium
 ==================================
