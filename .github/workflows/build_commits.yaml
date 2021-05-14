@@ -56,7 +56,28 @@ jobs:
             ${{ github.event.pull_request.commits_url }})
           PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
           PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "make build -j $(nproc) && make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
+          git rebase --exec "make build -j $(nproc)" $PR_PARENT_SHA
+
+      - name: Check code changes
+        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        id: bpf-tree
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          filters: |
+            src:
+              - 'bpf/**'
+
+      # Runs only if code under bpf/ is changed.
+      - name: Check if datapath build works for every commit
+        if: steps.bpf-tree.outputs.src == 'true'
+        run: |
+          PR_COMMITS_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.pull_request.commits_url }})
+          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
+          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
+          git rebase --exec "make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
         
       - name: Failed commit during the build
         if: ${{ failure() }}
