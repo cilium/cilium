@@ -61,7 +61,7 @@ type Action struct {
 	expIngress Result
 
 	// flows is a map of all flow logs, indexed by pod name
-	flows map[string]*flowsSet
+	flows map[string]flowsSet
 
 	flowResults map[string]FlowRequirementResults
 
@@ -83,7 +83,7 @@ func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer) *Action
 		src:         src,
 		dst:         dst,
 		started:     time.Now(),
-		flows:       map[string]*flowsSet{},
+		flows:       map[string]flowsSet{},
 		flowResults: map[string]FlowRequirementResults{},
 	}
 }
@@ -185,8 +185,8 @@ func (a *Action) shouldSucceed() bool {
 	return !a.expEgress.Drop && !a.expIngress.Drop
 }
 
-func (a *Action) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
-	if f == nil {
+func (a *Action) printFlows(pod string, f flowsSet, r FlowRequirementResults) {
+	if len(f) == 0 {
 		a.Logf("📄 No flows recorded for pod %s", pod)
 		return
 	}
@@ -195,7 +195,7 @@ func (a *Action) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
 	printer := hubprinter.New(hubprinter.Compact(), hubprinter.WithIPTranslation())
 	defer printer.Close()
 
-	for index, flow := range *f {
+	for index, flow := range f {
 		if !a.test.ctx.AllFlows() && r.FirstMatch > 0 && r.FirstMatch > index {
 			// Skip flows before the first match unless printing all flows
 			continue
@@ -233,14 +233,20 @@ func (a *Action) printFlows(pod string, f *flowsSet, r FlowRequirementResults) {
 	a.Log()
 }
 
-func (a *Action) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod string, req *filters.FlowSetRequirement) (r FlowRequirementResults) {
+func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offset int, pod string, req *filters.FlowSetRequirement) (r FlowRequirementResults) {
 	r.Matched = MatchMap{}
+	r.FirstMatch = -1
+	r.LastMatch = -1
 
-	match := func(expect bool, f filters.FlowRequirement) (int, bool, *flow.Flow) {
-		index, match, flow := flows.Contains(f.Filter)
+	// Skip 'offset' flows
+	flows = flows[offset:]
+	flowCtx := filters.NewFlowContext()
+
+	match := func(expect bool, f filters.FlowRequirement, fc *filters.FlowContext) (int, bool, *flow.Flow) {
+		index, match, flow := flows.Contains(f.Filter, fc)
 
 		if match {
-			r.Matched[index] = expect
+			r.Matched[offset+index] = expect
 		}
 
 		if match != expect {
@@ -249,7 +255,9 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod
 				msgSuffix = "found"
 			}
 
-			a.Failf("%s %s %s", f.Msg, f.Filter.String(), msgSuffix)
+			// Log using fail format but do not fail the action yet as another try of matching may succeed.
+			a.Logf(fail+" %s %s %s", f.Msg, f.Filter.String(fc), msgSuffix)
+			// Record the failure in the results of the current match attempt.
 			r.Failures++
 		} else {
 			msgSuffix := "found"
@@ -260,48 +268,46 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows *flowsSet, pod
 			a.Logf("✅ %s %s", f.Msg, msgSuffix)
 		}
 
-		return index, expect, flow
+		return index, match, flow
 	}
 
 	a.Logf("📄 Matching flows for pod %s:", pod)
 
-	if index, match, _ := match(true, req.First); !match {
+	if index, match, _ := match(true, req.First, &flowCtx); !match {
 		r.NeedMoreFlows = true
 	} else {
-		r.FirstMatch = index
+		r.FirstMatch = offset + index
 	}
 
 	for _, f := range req.Middle {
 		if f.SkipOnAggregation && a.test.ctx.FlowAggregation() {
 			continue
 		}
-		match(true, f)
+		match(true, f, &flowCtx)
 	}
 
 	if !(req.Last.SkipOnAggregation && a.test.ctx.FlowAggregation()) {
-		if index, match, lastFlow := match(true, req.Last); !match {
+		if index, match, lastFlow := match(true, req.Last, &flowCtx); !match {
 			r.NeedMoreFlows = true
 		} else {
-			r.LastMatch = index
+			r.LastMatch = offset + index
 
-			if lastFlow != nil {
-				flowTimestamp, err := ptypes.Timestamp(lastFlow.Time)
-				if err == nil {
-					r.LastMatchTimestamp = flowTimestamp
-				}
+			flowTimestamp, err := ptypes.Timestamp(lastFlow.Time)
+			if err == nil {
+				r.LastMatchTimestamp = flowTimestamp
 			}
 		}
 	}
 
 	for _, f := range req.Except {
-		match(false, f)
+		match(false, f, &flowCtx)
 	}
 
 	return
 }
 
-func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequirement {
-	var egress *filters.FlowSetRequirement
+func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSetRequirement) {
+	var egress filters.FlowSetRequirement
 	srcIP := a.src.Address()
 	dstIP := a.dst.Address()
 
@@ -319,7 +325,7 @@ func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequire
 		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
 
 		if a.expEgress.Drop {
-			egress = &filters.FlowSetRequirement{
+			egress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
@@ -329,16 +335,16 @@ func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequire
 		} else {
 			if a.expIngress.Drop {
 				// If ingress drops is in the same node we get the drop flows also for egress, tolerate that
-				egress = &filters.FlowSetRequirement{
+				egress = filters.FlowSetRequirement{
 					First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-					Last:  filters.FlowRequirement{Filter: filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, filters.Drop())), Msg: "ICMP response or request drop", SkipOnAggregation: true},
+					Last:  filters.FlowRequirement{Filter: filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, icmpRequest, filters.Drop())), Msg: "ICMP response or request drop", SkipOnAggregation: true},
 				}
 			} else {
-				egress = &filters.FlowSetRequirement{
+				egress = filters.FlowSetRequirement{
 					First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 					Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
 					Except: []filters.FlowRequirement{
-						{Filter: filters.Drop(), Msg: "Drop"},
+						{Filter: filters.And(filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, icmpRequest)), filters.Drop()), Msg: "Drop"},
 					},
 				}
 			}
@@ -352,16 +358,16 @@ func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequire
 		}
 
 		if a.expEgress.Drop {
-			egress = &filters.FlowSetRequirement{
+			egress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
-					{Filter: filters.SYNACK(), Msg: "SYN-ACK"},
-					{Filter: filters.FIN(), Msg: "FIN"},
+					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
+					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
 				},
 			}
 		} else {
-			egress = &filters.FlowSetRequirement{
+			egress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Middle: []filters.FlowRequirement{
 					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK", SkipOnAggregation: true},
@@ -369,7 +375,7 @@ func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequire
 				// Either side may FIN first
 				Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
 				Except: []filters.FlowRequirement{
-					{Filter: filters.Drop(), Msg: "Drop"},
+					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.Drop()), Msg: "Drop"},
 				},
 			}
 			if a.expEgress.HTTP.Status != "" || a.expEgress.HTTP.Method != "" || a.expEgress.HTTP.URL != "" {
@@ -385,7 +391,7 @@ func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequire
 				// Either side may RST or FIN first
 				egress.Last = filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.Or(filters.FIN(), filters.RST())), Msg: "FIN or RST", SkipOnAggregation: true}
 			} else {
-				egress.Except = append(egress.Except, filters.FlowRequirement{Filter: filters.RST(), Msg: "RST"})
+				egress.Except = append(egress.Except, filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.RST()), Msg: "RST"})
 			}
 		}
 	case UDP:
@@ -393,32 +399,29 @@ func (a *Action) GetEgressRequirements(p FlowParameters) *filters.FlowSetRequire
 	default:
 		a.Failf("Invalid egress flow matching protocol %d", p.Protocol)
 	}
+	reqs = append(reqs, egress)
 
 	if p.DNSRequired || a.expEgress.DNSProxy {
 		dnsRequest := filters.Or(filters.UDP(0, 53), filters.TCP(0, 53))
 		dnsResponse := filters.Or(filters.UDP(53, 0), filters.TCP(53, 0))
 
-		first := egress.First
-		egress.First = filters.FlowRequirement{Filter: filters.And(ipRequest, dnsRequest), Msg: "DNS request"}
-		egress.Middle = append([]filters.FlowRequirement{
-			{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"},
-			first,
-		}, egress.Middle...)
-
+		dns := filters.FlowSetRequirement{First: filters.FlowRequirement{Filter: filters.And(ipRequest, dnsRequest), Msg: "DNS request"}}
 		if a.expEgress.DNSProxy {
-			egress.Middle = append([]filters.FlowRequirement{
-				{Filter: filters.And(ipResponse, dnsResponse, filters.DNS(a.dst.Address()+".", 0)), Msg: "DNS proxy"},
-			}, egress.Middle...)
+			dns.Middle = []filters.FlowRequirement{{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"}}
+			dns.Last = filters.FlowRequirement{Filter: filters.And(ipResponse, dnsResponse, filters.DNS(a.dst.Address()+".", 0)), Msg: "DNS proxy"}
+		} else {
+			dns.Last = filters.FlowRequirement{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"}
 		}
+		reqs = append(reqs, dns)
 	}
 
-	return egress
+	return reqs
 }
 
-func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequirement {
-	var ingress *filters.FlowSetRequirement
+func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequirement {
+	var ingress filters.FlowSetRequirement
 	if a.expIngress.None {
-		return ingress
+		return []filters.FlowSetRequirement{}
 	}
 
 	srcIP := a.src.Address()
@@ -444,7 +447,7 @@ func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequir
 		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
 
 		if a.expIngress.Drop {
-			ingress = &filters.FlowSetRequirement{
+			ingress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
@@ -452,7 +455,7 @@ func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequir
 				},
 			}
 		} else {
-			ingress = &filters.FlowSetRequirement{
+			ingress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
 				Except: []filters.FlowRequirement{
@@ -462,7 +465,7 @@ func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequir
 		}
 	case TCP:
 		if a.expIngress.Drop {
-			ingress = &filters.FlowSetRequirement{
+			ingress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
@@ -471,7 +474,7 @@ func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequir
 				},
 			}
 		} else {
-			ingress = &filters.FlowSetRequirement{
+			ingress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Middle: []filters.FlowRequirement{
 					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
@@ -479,8 +482,8 @@ func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequir
 				// Either side may FIN first
 				Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
 				Except: []filters.FlowRequirement{
-					{Filter: filters.RST(), Msg: "RST"},
-					{Filter: filters.Drop(), Msg: "Drop"},
+					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.RST()), Msg: "RST"},
+					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.Drop()), Msg: "Drop"},
 				},
 			}
 		}
@@ -490,12 +493,12 @@ func (a *Action) GetIngressRequirements(p FlowParameters) *filters.FlowSetRequir
 		a.Failf("Invalid ingress flow matching protocol %d", p.Protocol)
 	}
 
-	return ingress
+	return []filters.FlowSetRequirement{ingress}
 }
 
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Fail() is called.
-func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, req *filters.FlowSetRequirement) {
+func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []filters.FlowSetRequirement) {
 	hubbleClient := a.test.ctx.HubbleClient()
 	if hubbleClient == nil {
 		return
@@ -511,7 +514,7 @@ func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, req *filt
 
 retry:
 	flows, err := a.getFlows(ctx, hubbleClient, a.started, pod, podIP)
-	if err != nil || flows == nil || len(*flows) == 0 {
+	if err != nil || len(flows) == 0 {
 		if err == nil {
 			err = fmt.Errorf("no flows returned")
 		}
@@ -521,41 +524,55 @@ retry:
 		}
 		goto retry
 	}
-
-	r := a.matchFlowRequirements(ctx, flows, pod, req)
-	if r.NeedMoreFlows {
-		// Retry until timeout. On timeout, print the flows and
-		// consider it a failure
-		if err := w.Retry(err); err != nil {
-			goto retry
+	res := FlowRequirementResults{FirstMatch: -1, LastMatch: -1}
+	for i, req := range reqs {
+		offset := 0
+		var r FlowRequirementResults
+		for offset < len(flows) {
+			r = a.matchFlowRequirements(ctx, flows, offset, pod, &req)
+			// Check if fully matched or no match for the first flow
+			if !r.NeedMoreFlows || r.FirstMatch == -1 {
+				break
+			}
+			// Try if some other flow instance would find both first and last required flows
+			offset = r.FirstMatch + 1
 		}
+		if r.NeedMoreFlows {
+			// Retry until timeout. On timeout, print the flows and
+			// consider it a failure
+			if err := w.Retry(err); err != nil {
+				goto retry
+			}
+		}
+		// Merge results
+		res.Merge(&r)
+		a.Logf(info+"Merged results #%d: %v", i, res)
 	}
-
 	a.flows[pod] = flows
-	a.flowResults[pod] = r
+	a.flowResults[pod] = res
 
-	if !r.LastMatchTimestamp.IsZero() {
-		a.test.ctx.StoreLastTimestamp(pod, r.LastMatchTimestamp)
+	if !res.LastMatchTimestamp.IsZero() {
+		a.test.ctx.StoreLastTimestamp(pod, res.LastMatchTimestamp)
 	}
 
-	if r.Failures == 0 {
-		a.Logf("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d)", pod, r.FirstMatch, r.LastMatch, len(r.Matched))
+	if res.Failures == 0 {
+		a.Logf("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d)", pod, res.FirstMatch, res.LastMatch, len(res.Matched))
 	} else {
-		a.Failf("Flow validation failed for pod %s: %d failures (first: %d, last: %d, matched: %d)", pod, r.Failures, r.FirstMatch, r.LastMatch, len(r.Matched))
+		a.Failf("Flow validation failed for pod %s: %d failures (first: %d, last: %d, matched: %d)", pod, res.Failures, res.FirstMatch, res.LastMatch, len(res.Matched))
 	}
 
-	if r.Failures > 0 {
+	if res.Failures > 0 {
 		a.failed = true
 	}
 
 	a.Log()
 }
 
-func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (*flowsSet, error) {
+func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (flowsSet, error) {
 	var set flowsSet
 
 	if hubbleClient == nil {
-		return &set, nil
+		return set, nil
 	}
 
 	sinceTimestamp, err := ptypes.TimestampProto(since)
@@ -596,11 +613,11 @@ func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverCli
 		res, err := b.Recv()
 		switch err {
 		case io.EOF, context.Canceled:
-			return &set, nil
+			return set, nil
 		case nil:
 		default:
 			if status.Code(err) == codes.Canceled {
-				return &set, nil
+				return set, nil
 			}
 			return nil, err
 		}
