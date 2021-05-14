@@ -19,11 +19,12 @@ set -e
 get_remote () {
   local remote
   local org=${1:-cilium}
+  local repo=${2:-cilium}
   remote=$(git remote -v | \
-    grep "github.com[/:]${org}/cilium" | \
+    grep "github.com[/:]${org}/${repo}" | \
     head -n1 | cut -f1)
   if [ -z "$remote" ]; then
-      echo "No remote git@github.com:${org}/cilium.git or https://github.com/${org}/cilium found" 1>&2
+      echo "No remote git@github.com:${org}/${repo}.git or https://github.com/${org}/${repo} found" 1>&2
       return 1
   fi
   echo "$remote"
@@ -54,7 +55,9 @@ require_linux() {
 commit_in_upstream() {
     local commit="$1"
     local branch="$2"
-    local remote="$(get_remote)"
+    local org="${3:-"cilium"}"
+    local repo="${4:-"cilium"}"
+    local remote="$(get_remote ${org} ${repo})"
     local branches="$(git branch -q -r --contains $commit $remote/$branch 2> /dev/null)"
     echo "$branches" | grep -q ".*$remote/$branch"
 }
