@@ -1,4 +1,6 @@
 name: Images
+
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -9,6 +11,10 @@ on:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
       - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
 
 jobs:
   lint:
