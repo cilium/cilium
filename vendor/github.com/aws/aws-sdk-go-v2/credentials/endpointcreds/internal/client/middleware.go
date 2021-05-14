@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/aws/smithy-go"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"github.com/aws/smithy-go"
 )
 
 type buildEndpoint struct {

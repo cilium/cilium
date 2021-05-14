@@ -72,12 +72,12 @@ func (p Partition) ResolveEndpoint(region string, options Options) (resolved aws
 }
 
 func (p Partition) endpointForRegion(region string) (Endpoint, bool) {
-	if !p.IsRegionalized {
-		return p.Endpoints[p.PartitionEndpoint], region == p.PartitionEndpoint
-	}
-
 	if e, ok := p.Endpoints[region]; ok {
 		return e, true
+	}
+
+	if !p.IsRegionalized {
+		return p.Endpoints[p.PartitionEndpoint], region == p.PartitionEndpoint
 	}
 
 	// Unable to find any matching endpoint, return

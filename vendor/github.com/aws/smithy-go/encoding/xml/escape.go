@@ -21,6 +21,10 @@ var (
 	escNL   = []byte("&#xA;")
 	escCR   = []byte("&#xD;")
 	escFFFD = []byte("\uFFFD") // Unicode replacement character
+
+	// Additional Escapes
+	escNextLine = []byte("&#x85;")
+	escLS       = []byte("&#x2028;")
 )
 
 // Decide whether the given rune is in the XML Character Range, per
@@ -61,6 +65,12 @@ func escapeString(e writer, s string) {
 			esc = escNL
 		case '\r':
 			esc = escCR
+		case '\u0085':
+			// Not escaped by stdlib
+			esc = escNextLine
+		case '\u2028':
+			// Not escaped by stdlib
+			esc = escLS
 		default:
 			if !isInCharacterRange(r) || (r == 0xFFFD && width == 1) {
 				esc = escFFFD
@@ -101,11 +111,17 @@ func escapeText(e writer, s []byte) {
 		case '\t':
 			esc = escTab
 		case '\n':
-			// TODO: This always escapes newline, which is different than stdlib's optional
-			// escape of new line
+			// This always escapes newline, which is different than stdlib's optional
+			// escape of new line.
 			esc = escNL
 		case '\r':
 			esc = escCR
+		case '\u0085':
+			// Not escaped by stdlib
+			esc = escNextLine
+		case '\u2028':
+			// Not escaped by stdlib
+			esc = escLS
 		default:
 			if !isInCharacterRange(r) || (r == 0xFFFD && width == 1) {
 				esc = escFFFD
