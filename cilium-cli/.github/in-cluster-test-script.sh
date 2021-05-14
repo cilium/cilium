@@ -11,4 +11,4 @@ cilium status --wait
 
 cilium hubble port-forward&
 
-cilium connectivity test
+cilium connectivity test --all-flows
