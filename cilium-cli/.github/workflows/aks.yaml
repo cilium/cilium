@@ -77,7 +77,7 @@ jobs:
 
       - name: Connectivity Test
         run: |
-          cilium connectivity test
+          cilium connectivity test --all-flows
 
       - name: Cleanup
         if: ${{ always() }}
