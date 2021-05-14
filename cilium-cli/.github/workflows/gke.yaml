@@ -77,7 +77,7 @@ jobs:
 
       - name: Wait for job
         run: |
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
+          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=15m
 
       - name: Post-test information gathering
         if: ${{ always() }}
