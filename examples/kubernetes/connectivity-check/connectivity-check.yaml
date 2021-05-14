@@ -750,7 +750,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-host-headless:31313/public
+            - echo-b-host-headless:31414/public
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -762,7 +762,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-host-headless:31313/public
+            - echo-b-host-headless:31414/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -816,7 +816,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-host-headless:31313/public
+            - echo-b-host-headless:31414/public
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -828,7 +828,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-host-headless:31313/public
+            - echo-b-host-headless:31414/public
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -878,7 +878,7 @@ spec:
   ports:
   - name: http
     port: 8080
-    nodePort: 31313
+    nodePort: 31414
   type: NodePort
   selector:
     name: echo-b
