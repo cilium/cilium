@@ -113,7 +113,7 @@ jobs:
 
       - name: Connectivity test
         run: |
-          cilium --context $CONTEXT1 connectivity test --multi-cluster $CONTEXT2 --test '!/pod-to-.*-nodeport'
+          cilium --context $CONTEXT1 connectivity test --multi-cluster $CONTEXT2 --test '!/pod-to-.*-nodeport' --all-flows
 
       - name: Cleanup
         if: ${{ always() }}
