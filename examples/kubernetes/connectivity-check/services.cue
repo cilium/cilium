@@ -40,7 +40,7 @@ deployment: "pod-to-b-intra-node-hostport": _hostPortDeployment
 // NodePort checks
 _nodePortDeployment: {
 	metadata: labels: component: "nodeport-check"
-	_probeTarget: "echo-b-host-headless:31313"
+	_probeTarget: "echo-b-host-headless:31414"
 }
 deployment: "pod-to-b-multi-node-nodeport": _nodePortDeployment
 deployment: "pod-to-b-intra-node-nodeport": _nodePortDeployment
