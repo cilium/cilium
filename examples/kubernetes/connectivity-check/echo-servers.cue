@@ -26,7 +26,7 @@ deployment: "echo-b": _echoDeployment & {
 	_serverPort:     "8080"
 	_exposeNodePort: true
 	_exposeHeadless: true
-	_nodePort:       31313
+	_nodePort:       31414
 
 	metadata: labels: component: "services-check"
 	spec: template: spec: containers: [{ports: [{_expose: true, containerPort: 8080, _portName: "http", hostPort: 40000}]}]
