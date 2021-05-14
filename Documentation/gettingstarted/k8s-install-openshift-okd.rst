@@ -115,6 +115,12 @@ If you do change any of the CIDRs, you will need to make sure that Helm values i
 reflect those changes. Namely ``clusterNetwork`` should match ``nativeRoutingCIDR``, ``clusterPoolIPv4PodCIDR`` and ``clusterPoolIPv4MaskSize``.
 Also make sure that the ``clusterNetwork`` does not conflict with ``machineNetwork`` (which represents the VPC CIDR in AWS).
 
+.. warning::
+
+   Ensure that there are multiple replicas of the ``controlPlane``. A single
+   ``controlPlane`` will lead to failure to bootstrap the cluster during
+   installation.
+
 Next, generate OpenShift manifests:
 
 .. code-block:: shell-session
