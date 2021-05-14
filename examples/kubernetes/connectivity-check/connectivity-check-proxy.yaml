@@ -1002,7 +1002,7 @@ spec:
   ports:
   - name: http
     port: 8080
-    nodePort: 31313
+    nodePort: 31414
   type: NodePort
   selector:
     name: echo-b
