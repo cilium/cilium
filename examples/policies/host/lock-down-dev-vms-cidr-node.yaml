@@ -70,14 +70,14 @@ spec:
         name: pod-to-b-intra-node-nodeport
     toPorts:
     - ports:
-      - port: "31313"
+      - port: "31414"
         protocol: TCP
   - fromEndpoints:
     - matchLabels:
         name: pod-to-b-multi-node-nodeport
     toPorts:
     - ports:
-      - port: "31313"
+      - port: "31414"
         protocol: TCP
 
 
