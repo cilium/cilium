@@ -103,6 +103,27 @@ type FlowRequirementResults struct {
 	LastMatchTimestamp time.Time
 }
 
+func (r *FlowRequirementResults) Merge(from *FlowRequirementResults) {
+	if r.FirstMatch < 0 || from.FirstMatch >= 0 && from.FirstMatch < r.FirstMatch {
+		r.FirstMatch = from.FirstMatch
+	}
+	if from.LastMatch > r.LastMatch {
+		r.LastMatch = from.LastMatch
+	}
+	if r.Matched == nil {
+		r.Matched = from.Matched
+	} else {
+		for k, v := range from.Matched {
+			r.Matched[k] = v
+		}
+	}
+	r.Failures += from.Failures
+	r.NeedMoreFlows = r.NeedMoreFlows || from.NeedMoreFlows
+	if from.LastMatchTimestamp.After(r.LastMatchTimestamp) {
+		r.LastMatchTimestamp = from.LastMatchTimestamp
+	}
+}
+
 // L4Protocol identifies the network protocol being tested
 type L4Protocol int
 
@@ -129,14 +150,14 @@ type FlowParameters struct {
 
 type flowsSet []*observer.GetFlowsResponse
 
-func (f flowsSet) Contains(filter filters.FlowFilterImplementation) (int, bool, *flow.Flow) {
+func (f flowsSet) Contains(filter filters.FlowFilterImplementation, fc *filters.FlowContext) (int, bool, *flow.Flow) {
 	if f == nil {
 		return 0, false, nil
 	}
 
 	for i, res := range f {
 		flow := res.GetFlow()
-		if filter.Match(flow) {
+		if filter.Match(flow, fc) {
 			return i, true, flow
 		}
 	}
