@@ -1,3 +1,13 @@
+# Release v1.4.0 (2021-05-06)
+
+### Smithy Go module
+* `encoding/xml`: Fix escaping of Next Line and Line Start in XML Encoder ([#267](https://github.com/aws/smithy-go/pull/267))
+
+### Codegen
+* Add support for Smithy 1.7 ([#289](https://github.com/aws/smithy-go/pull/289))
+* Add support for httpQueryParams location
+* Add support for model renaming conflict resolution with service closure
+
 # Release v1.3.1 (2021-04-08)
 
 ### Smithy Go module

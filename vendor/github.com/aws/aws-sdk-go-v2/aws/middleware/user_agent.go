@@ -87,24 +87,6 @@ func newRequestUserAgent() *requestUserAgent {
 	return r
 }
 
-func getNormalizedOSName() (os string) {
-	switch runtime.GOOS {
-	case "android":
-		os = "android"
-	case "linux":
-		os = "linux"
-	case "windows":
-		os = "windows"
-	case "darwin":
-		// Due to Apple M1 we can't distinguish between macOS and iOS when GOOS/GOARCH is darwin/amd64
-		// For now declare this as "other" until we have a better detection mechanism.
-		fallthrough
-	default:
-		os = "other"
-	}
-	return os
-}
-
 func addSDKMetadata(r *requestUserAgent) {
 	r.AddSDKAgentKey(OperatingSystemMetadata, getNormalizedOSName())
 	r.AddSDKAgentKeyValue(LanguageMetadata, "go", languageVersion)
@@ -204,12 +186,14 @@ func (u *requestUserAgent) AddUserAgentKeyValue(key, value string) {
 
 // AddUserAgentKey adds the component identified by name to the User-Agent string.
 func (u *requestUserAgent) AddSDKAgentKey(keyType SDKAgentKeyType, key string) {
-	u.sdkAgent.AddKey(keyType.string() + "/" + key)
+	// TODO: should target sdkAgent
+	u.userAgent.AddKey(keyType.string() + "/" + key)
 }
 
 // AddUserAgentKeyValue adds the key identified by the given name and value to the User-Agent string.
 func (u *requestUserAgent) AddSDKAgentKeyValue(keyType SDKAgentKeyType, key, value string) {
-	u.sdkAgent.AddKeyValue(keyType.string()+"/"+key, value)
+	// TODO: should target sdkAgent
+	u.userAgent.AddKeyValue(keyType.string()+"/"+key, value)
 }
 
 // ID the name of the middleware.
@@ -224,7 +208,8 @@ func (u *requestUserAgent) HandleBuild(ctx context.Context, in middleware.BuildI
 	switch req := in.Request.(type) {
 	case *smithyhttp.Request:
 		u.addHTTPUserAgent(req)
-		u.addHTTPSDKAgent(req)
+		// TODO: To be re-enabled
+		// u.addHTTPSDKAgent(req)
 	default:
 		return out, metadata, fmt.Errorf("unknown transport type %T", in)
 	}
