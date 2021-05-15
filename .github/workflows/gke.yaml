@@ -1,5 +1,6 @@
 name: ConformanceGKE (ci-gke)
 
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
   issue_comment:
     types:
@@ -12,6 +13,10 @@ on:
   #  types:
   #    - "labeled"
   ###
+
+concurrency:
+  group: "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }}"
+  cancel-in-progress: true
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
