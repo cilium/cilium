@@ -1245,6 +1245,9 @@ in great details:
     * "Liberating Kubernetes from kube-proxy and iptables" (KubeCon North America 2019, `slides
       <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit>`__,
       `video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__)
+    * "Kubernetes service load-balancing at scale with BPF & XDP" (Linux Plumbers 2020, `slides
+      <https://linuxplumbersconf.org/event/7/contributions/674/attachments/568/1002/plumbers_2020_cilium_load_balancer.pdf>`__,
+      `video <https://www.youtube.com/watch?v=UkvxPyIJAko&t=21s>`__)
     * "eBPF as a revolutionary technology for the container landscape" (Fosdem 2020, `slides
       <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit>`__,
       `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)
