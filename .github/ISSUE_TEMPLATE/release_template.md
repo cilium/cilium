@@ -76,6 +76,9 @@ assignees: ''
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
   - [ ] [kubespray]
+  - [ ] [network policy]
+  - [ ] [cluster administration networking]
+  - [ ] [cluster administration addons]
 
 
 [release blockers]: https://github.com/cilium/cilium/labels/release-blocker%2F1.X
@@ -96,3 +99,6 @@ assignees: ''
 [docsearch-scraper-webhook]: https://github.com/cilium/docsearch-scraper-webhook
 [security policy]: https://github.com/cilium/cilium/security/policy
 [GKE GSG]: https://docs.cilium.io/en/latest/gettingstarted/k8s-install-default/#create-the-cluster
+[network policy]: https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/cilium-network-policy/
+[cluster administration networking]: https://kubernetes.io/docs/concepts/cluster-administration/networking/
+[cluster administration addons]: https://kubernetes.io/docs/concepts/cluster-administration/addons/
