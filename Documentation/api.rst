@@ -59,7 +59,7 @@ The following Go packages can be used to access the API:
 Example
 -------
 
-The full example can be found in the `cilium/client-example`_ repository.
+The full example can be found in the `cilium/client-examples`_ repository.
 
 .. code:: go
 
@@ -99,4 +99,4 @@ API Reference
 
 .. _pkg/client: https://godoc.org/github.com/cilium/cilium/pkg/client
 .. _api/v1/models: https://godoc.org/github.com/cilium/cilium/api/v1/models
-.. _cilium/client-example: https://github.com/cilium/client-example
+.. _cilium/client-examples: https://github.com/cilium/client-examples
