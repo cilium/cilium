@@ -3,12 +3,9 @@
 cilium_tag="${1}"
 org="cilium"
 
-external_dependencies_docker=(
-  "envoyproxy/envoy:${HUBBLE_PROXY_VERSION}" \
-)
-
-external_dependencies_quay=(
-  "coreos/etcd:${ETCD_VERSION}" \
+external_dependencies=(
+  "docker.io/envoyproxy/envoy:${HUBBLE_PROXY_VERSION}" \
+  "quay.io/coreos/etcd:${ETCD_VERSION}" \
 )
 
 internal_dependencies=(
@@ -30,32 +27,14 @@ cilium_images=(\
   "operator-generic" \
 )
 
-docker_tag_exists(){
-  local repo="${1}"
-  local tag="${2}"
-  curl --silent -f -lSL "https://index.docker.io/v1/repositories/${repo}/tags/${tag}" &> /dev/null
+image_tag_exists(){
+  local image="${1}"
+  docker buildx imagetools inspect "${image}" &> /dev/null
 }
 
-quay_tag_exists(){
-  local repo="${1}"
-  local tag="${2}"
-  curl --silent -f -lSL "https://quay.io/api/v1/repository/${repo}/tag/${tag}/images" &> /dev/null
-}
-
-for image in "${external_dependencies_docker[@]}" ; do
-  image_tag=${image#*:}
-  image_name=${image%":$image_tag"}
-  if ! docker_tag_exists "${image_name}" "${image_tag}" ; then
-    echo "docker.io/${image} does not exist!"
-    not_found=true
-  fi
-done
-
-for image in "${external_dependencies_quay[@]}" ; do
-  image_tag=${image#*:}
-  image_name=${image%":$image_tag"}
-  if ! quay_tag_exists "${image_name}" "${image_tag}" ; then
-    echo "quay.io/${image} does not exist!"
+for image in "${external_dependencies[@]}" ; do
+  if ! image_tag_exists "${image}" ; then
+    echo "${image} does not exist!"
     not_found=true
   fi
 done
@@ -63,11 +42,11 @@ done
 for image in "${internal_dependencies[@]}" ; do
   image_tag=${image#*:}
   image_name=${org}/${image%":$image_tag"}
-  if ! docker_tag_exists "${image_name}" "${image_tag}" ; then
+  if ! image_tag_exists "docker.io/${image_name}:${image_tag}" ; then
     echo "docker.io/${image_name}:${image_tag} does not exist!"
     not_found=true
   fi
-  if ! quay_tag_exists "${image_name}" "${image_tag}" ; then
+  if ! image_tag_exists "quay.io/${image_name}:${image_tag}" ; then
     echo "quay.io/${image_name}:${image_tag} does not exist!"
     not_found=true
   fi
@@ -75,11 +54,11 @@ done
 
 for image in "${cilium_images[@]}"; do
   image_name="${org}/${image}"
-  if ! docker_tag_exists "${image_name}" "${cilium_tag}" ; then
+  if ! image_tag_exists "docker.io/${image_name}:${cilium_tag}" ; then
     echo "docker.io/${image_name}:${cilium_tag} does not exist!"
     not_found=true
   fi
-  if ! quay_tag_exists "${image_name}" "${cilium_tag}" ; then
+  if ! image_tag_exists "quay.io/${image_name}:${cilium_tag}" ; then
     echo "quay.io/${image_name}:${cilium_tag} does not exist!"
     not_found=true
   fi
