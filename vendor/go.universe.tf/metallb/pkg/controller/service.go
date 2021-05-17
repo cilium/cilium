@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"net"
+	"sync/atomic"
 
 	"github.com/go-kit/kit/log"
 	v1 "k8s.io/api/core/v1"
@@ -97,7 +98,7 @@ func (c *Controller) convergeBalancer(l log.Logger, key string, svc *v1.Service)
 
 	// If lbIP is still nil at this point, try to allocate.
 	if lbIP == nil {
-		if !c.synced {
+		if atomic.LoadUint32(&c.synced) == 0 {
 			l.Log("op", "allocateIP", "error", "controller not synced", "msg", "controller not synced yet, cannot allocate IP; will retry after sync")
 			return false
 		}
