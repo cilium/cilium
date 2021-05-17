@@ -190,13 +190,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	}
 
 	ciliumHasServiceIP := func(pod, vip string) bool {
-		service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
-		vip4 := fmt.Sprintf(" %s:", vip)
-		if strings.Contains(service.Stdout(), vip4) {
-			return true
-		}
-		vip6 := fmt.Sprintf(" [%s]:", vip)
-		return strings.Contains(service.Stdout(), vip6)
+		filter := "jq -r '[ .[].status.realized | select(.\"frontend-address\".ip==\"" + vip + "\") | . ] '"
+		execCmd := "cilium service list -o json | " + filter
+		service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, execCmd, "Cannot retrieve services on cilium Pod")
+		return len(service.GetStdOut().Bytes()) != 0
 	}
 
 	newlineRegexp := regexp.MustCompile(`\n[ \t\n]*`)
