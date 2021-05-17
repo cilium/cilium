@@ -1,5 +1,96 @@
 # Changelog
 
+## v1.10.0-rc2
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* doc: New performance benchmarks and tuning guide (Backport PR #16049, Upstream PR #15943, @tgraf)
+
+**Minor Changes:**
+* daemon: Add wildcard support to --devices ("eth+") (Backport PR #15919, Upstream PR #15697, @joamaki)
+* doc: Add more generic install section for egress gateway guide (Backport PR #16150, Upstream PR #16087, @tgraf)
+* doc: Reword some results (Backport PR #16049, Upstream PR #15955, @tgraf)
+* doc: Update diagrams in benchmark report (Backport PR #16150, Upstream PR #16063, @tgraf)
+* Hubble logs for HTTP responses now include HTTP response headers. (Backport PR #16150, Upstream PR #16013, @jrajahalme)
+* images: Bump Hubble CLI to v0.8.0 (Backport PR #16049, Upstream PR #15983, @gandro)
+* install: Disable kube-proxy-replacement by default (Backport PR #16150, Upstream PR #15422, @tgraf)
+* node-neigh: Locking, logging, misc improvements (Backport PR #16049, Upstream PR #15783, @brb)
+* Store the previous Cilium's configuration options in the host (Backport PR #16103, Upstream PR #16017, @aanm)
+* wireguard: Set wireguard and route MTU to detected MTU (Backport PR #16103, Upstream PR #16020, @joamaki)
+
+**Bugfixes:**
+* cilium: Encryption EKS 4.14 kernel (default) fixes (Backport PR #16049, Upstream PR #15867, @jrfastab)
+* Drop a `@` in clustermesh-apiserver helm chart (Backport PR #16049, Upstream PR #15934, @anthr76)
+* eni: Fix Cilium overallocating network interfaces (Backport PR #16049, Upstream PR #15911, @gandro)
+* Envoy is updated to release 1.17.3 (Backport PR #16150, Upstream PR #16102, @jrajahalme)
+* Fix 5.10+ complexity issue with `kubeProxyReplacement=disabled` (Backport PR #16150, Upstream PR #16084, @pchaigno)
+* Fix aws-cni integration where pods were not being scheduled (Backport PR #16049, Upstream PR #15915, @aanm)
+* Fix bug where L7 ingress policies with IPsec dropped traffic in tunneling mode (Backport PR #16103, Upstream PR #16057, @christarazi)
+* ui envoy: fix config to keep grpc conn (Backport PR #16049, Upstream PR #15938, @geakstr)
+
+**CI Changes:**
+* ci-gke: Add -v=6 for `kubectl get pods` (Backport PR #16049, Upstream PR #15994, @michi-covalent)
+* ci/wireguard: Ensure allowedIPs are set as expected (Backport PR #16049, Upstream PR #16011, @gandro)
+* connectivity-check: Reduce chances of port conflict with proxy (Backport PR #16049, Upstream PR #15988, @pchaigno)
+* jenkinsfiles: fix race detector pipelines (Backport PR #16103, Upstream PR #16056, @nbusseneau)
+* node-neigh: Fix unit test flake (Backport PR #16150, Upstream PR #16072, @brb)
+* test/runtime: Wait for endpoints to be ready before querying by labels (Backport PR #16049, Upstream PR #15990, @pchaigno)
+* test: 5.4 CI job (Backport PR #16049, Upstream PR #15765, @pchaigno)
+* test: Extend the clusterIP tests with policy (Backport PR #16049, Upstream PR #15928, @aditighag)
+* test: Fix flake in ValidateEndpointsAreCorrect (Backport PR #16103, Upstream PR #16068, @pchaigno)
+* test: Fix fragment tracking test on GKE (Backport PR #16049, Upstream PR #15959, @pchaigno)
+* test: Fix the search for VIPs in `cilium service list` (Backport PR #16049, Upstream PR #15968, @pchaigno)
+* test: Run WG with per-endpoint routes (Backport PR #16049, Upstream PR #15906, @brb)
+* test: set kubeProxyReplacement=probe for upstream k8s tests (Backport PR #16150, Upstream PR #16162, @aanm)
+* wireguard: Fix timeout in unit test (Backport PR #16049, Upstream PR #16001, @gandro)
+
+**Misc Changes:**
+* Add arm64 support for the connectivity test (Backport PR #15919, Upstream PR #15894, @aanm)
+* build(deps): bump docker/login-action from f3364599c6aa293cdc2b8391b1b56d0c30e45c8a to 1.9.0 (#15918, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 012185ccbeb554a7f5f987bea0f1a73519b3cdf5 to 1.3.0 (#15941, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.2.2 to 1.3.0 (#16090, @dependabot[bot])
+* bwm: queue mapping & cong fixes (Backport PR #16049, Upstream PR #15964, @borkmann)
+* CODEOWNERS: add maintainers to be codeowners of .github (#15925, @aanm)
+* contrib: Ensure release tag is upstream before push (Backport PR #15919, Upstream PR #15903, @joestringer)
+* contrib: Fix scripts for v1.10 (Backport PR #15919, Upstream PR #15898, @joestringer)
+* doc/encryption: improve consistency between ipsec and wireguard guides (Backport PR #16049, Upstream PR #15965, @rolinh)
+* doc: update Hubble/Hubble Relay guides for recent CLI changes (Backport PR #16049, Upstream PR #15981, @rolinh)
+* Dockerfile: use alpine 3.12 (Backport PR #16049, Upstream PR #15950, @aanm)
+* docs/ipsec: misc improvements (Backport PR #16103, Upstream PR #15978, @kaworu)
+* docs: add 'endpointRoutes.enabled=true' to aws-cni (Backport PR #16103, Upstream PR #16045, @bmcustodio)
+* docs: add ids to the list of special identities (Backport PR #16150, Upstream PR #16123, @bmcustodio)
+* docs: Add note about DNS-related policies on OpenShift (Backport PR #16150, Upstream PR #16083, @twpayne)
+* docs: clustermesh: fix output of "cilium clustermesh status" command (Backport PR #16049, Upstream PR #15982, @jibi)
+* docs: Fix egress gateway getting started guide (Backport PR #16049, Upstream PR #15984, @gandro)
+* docs: gsg/operations - use parsed-literal for all blocks referring SCM_WEB (Backport PR #16049, Upstream PR #15963, @ti-mo)
+* docs: improve and fix minor issues (Backport PR #16103, Upstream PR #15975, @qmonnet)
+* docs: improve the aws-cni chaining page (Backport PR #16103, Upstream PR #15979, @bmcustodio)
+* docs: minor improvements to tuning guide (Backport PR #16049, Upstream PR #16024, @borkmann)
+* docs: remove misplaced sentence from Quick Installation guide (Backport PR #16049, Upstream PR #15971, @lfundaro)
+* docs: Some Wireguard improvements (Backport PR #16049, Upstream PR #16023, @brb)
+* docs: tell how to deploy demo app in Hubble CLI guide (Backport PR #16049, Upstream PR #15973, @lfundaro)
+* docs: update OpenShift getting started guide (Backport PR #16103, Upstream PR #16006, @twpayne)
+* docs: Update SIG-Datapath meeting time. (Backport PR #16103, Upstream PR #16027, @joestringer)
+* ebpf: delete existing pinned map if incompatible with the spec (Backport PR #16049, Upstream PR #15832, @jibi)
+* Encryption docs update (Backport PR #16049, Upstream PR #14940, @aditighag)
+* Fix encryption getting started guides for v1.10 (Backport PR #16049, Upstream PR #15961, @jibi)
+* Follow ups for host firewall support of endpoint routes (Backport PR #16103, Upstream PR #15942, @pchaigno)
+* issue_14922: Fixed the 429 response code handling (Backport PR #15919, Upstream PR #15760, @Maddy007-maha)
+* Minor fixes for OKD GSG (Backport PR #16049, Upstream PR #16000, @errordeveloper)
+* node-neigh: Avoid flooding the same next hop (Backport PR #16049, Upstream PR #15882, @brb)
+* Update base images with most recent SHAs (Backport PR #15919, Upstream PR #15895, @aanm)
+* Update CI infrastructure for v1.10 release (Backport PR #15919, Upstream PR #15947, @christarazi)
+* Update weekly community meeting timeslot (Backport PR #16049, Upstream PR #15985, @joestringer)
+* v1.10: Update Go to 1.16.4 (#16061, @tklauser)
+* vendor: bump github.com/vishvananda/netlink to latest master (Backport PR #16103, Upstream PR #16070, @tklauser)
+* vendor: update wireguard library (Backport PR #16103, Upstream PR #16066, @aanm)
+
+**Other Changes:**
+* install: Update image digests for v1.10.0-rc1 (#15904, @joestringer)
+* workflows: fix image workflows for v1.10 (#16009, @nbusseneau)
+
 ## v1.10.0-rc1
 
 **Note**: The summary of changes below reflect the diff between the last
