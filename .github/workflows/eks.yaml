@@ -78,7 +78,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@cefc5912bc61e2b5a3b049c839fc283c7712d4e0
+        uses: aws-actions/configure-aws-credentials@0309c38ebd10f90dfbb3889431bcf4ea38088012
         with:
           aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
           aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
