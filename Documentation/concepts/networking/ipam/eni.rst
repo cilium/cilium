@@ -450,3 +450,42 @@ Metrics
 *******
 
 The IPAM metrics are documented in the section :ref:`ipam_metrics`.
+
+******************
+Node Configuration
+******************
+
+The IP address and routes on ENIs attached to the instance will be
+managed by the Cilium agent. Therefore, any system service trying to manage
+newly attached network interfaces will interfere with Cilium's configuration.
+Common scenarios are ``NetworkManager`` or ``systemd-networkd`` automatically
+performing DHCP on these interfaces or removing Cilium's IP address when the
+carrier is temporarily lost. Be sure to disable these services or configure
+your Linux distribution to not manage the newly attached ENI devices.
+The following examples configure all Linux network devices named ``eth*``
+except ``eth0`` as unmanaged.
+
+.. tabs::
+
+   .. group-tab:: Network Manager
+
+        .. code-block:: shell-session
+
+            # cat <<EOF >/etc/NetworkManager/conf.d/99-unmanaged-devices.conf
+            [keyfile]
+            unmanaged-devices=interface-name:eth*,except:interface-name:eth0
+            EOF
+            # systemctl reload NetworkManager
+
+   .. group-tab:: systemd-networkd
+
+        .. code-block:: shell-session
+
+            # cat <<EOF >/etc/systemd/network/99-unmanaged-devices.network
+            [Match]
+            Name=eth[1-9]*
+
+            [Link]
+            Unmanaged=yes
+            EOF
+            # systemctl restart systemd-networkd
