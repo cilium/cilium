@@ -336,6 +336,7 @@ generate-k8s-api:
 	azure:types\
 	ipam:types\
 	k8s:types\
+	k8s:utils\
 	maps:ctmap\
 	maps:encrypt\
 	maps:eppolicymap\
