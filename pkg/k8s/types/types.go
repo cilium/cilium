@@ -57,3 +57,6 @@ func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
 
 	return in.deepEqual(other)
 }
+
+// +deepequal-gen=true
+type IPSlice []string
