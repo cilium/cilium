@@ -72,6 +72,17 @@
 //         "name": "alice",
 //     }
 //
+// When decoding from a struct to a map, the squash tag squashes the struct
+// fields into a single map. Using the example structs from above:
+//
+//     Friend{Person: Person{Name: "alice"}}
+//
+// Will be decoded into a map:
+//
+//     map[string]interface{}{
+//         "name": "alice",
+//     }
+//
 // DecoderConfig has a field that changes the behavior of mapstructure
 // to always squash embedded structs.
 //
@@ -161,10 +172,11 @@ import (
 // data transformations. See "DecodeHook" in the DecoderConfig
 // struct.
 //
-// The type should be DecodeHookFuncType or DecodeHookFuncKind.
-// Either is accepted. Types are a superset of Kinds (Types can return
-// Kinds) and are generally a richer thing to use, but Kinds are simpler
-// if you only need those.
+// The type must be one of DecodeHookFuncType, DecodeHookFuncKind, or
+// DecodeHookFuncValue.
+// Values are a superset of Types (Values can return types), and Types are a
+// superset of Kinds (Types can return Kinds) and are generally a richer thing
+// to use, but Kinds are simpler if you only need those.
 //
 // The reason DecodeHookFunc is multi-typed is for backwards compatibility:
 // we started with Kinds and then realized Types were the better solution,
@@ -189,10 +201,13 @@ type DecodeHookFuncValue func(from reflect.Value, to reflect.Value) (interface{}
 type DecoderConfig struct {
 	// DecodeHook, if set, will be called before any decoding and any
 	// type conversion (if WeaklyTypedInput is on). This lets you modify
-	// the values before they're set down onto the resulting struct.
+	// the values before they're set down onto the resulting struct. The
+	// DecodeHook is called for every map and value in the input. This means
+	// that if a struct has embedded fields with squash tags the decode hook
+	// is called only once with all of the input data, not once for each
+	// embedded struct.
 	//
-	// If an error is returned, the entire decode will fail with that
-	// error.
+	// If an error is returned, the entire decode will fail with that error.
 	DecodeHook DecodeHookFunc
 
 	// If ErrorUnused is true, then it is an error for there to exist
@@ -879,10 +894,6 @@ func (d *Decoder) decodeMapFromStruct(name string, dataVal reflect.Value, val re
 		// Next get the actual value of this field and verify it is assignable
 		// to the map value.
 		v := dataVal.Field(i)
-		if v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Struct {
-			// Handle embedded struct pointers as embedded structs.
-			v = v.Elem()
-		}
 		if !v.Type().AssignableTo(valMap.Type().Elem()) {
 			return fmt.Errorf("cannot assign type '%s' to map value field of type '%s'", v.Type(), valMap.Type().Elem())
 		}
@@ -892,6 +903,7 @@ func (d *Decoder) decodeMapFromStruct(name string, dataVal reflect.Value, val re
 
 		// If Squash is set in the config, we squash the field down.
 		squash := d.config.Squash && v.Kind() == reflect.Struct && f.Anonymous
+
 		// Determine the name of the key in the map
 		if index := strings.Index(tagValue, ","); index != -1 {
 			if tagValue[:index] == "-" {
@@ -904,8 +916,16 @@ func (d *Decoder) decodeMapFromStruct(name string, dataVal reflect.Value, val re
 
 			// If "squash" is specified in the tag, we squash the field down.
 			squash = !squash && strings.Index(tagValue[index+1:], "squash") != -1
-			if squash && v.Kind() != reflect.Struct {
-				return fmt.Errorf("cannot squash non-struct type '%s'", v.Type())
+			if squash {
+				// When squashing, the embedded type can be a pointer to a struct.
+				if v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Struct {
+					v = v.Elem()
+				}
+
+				// The final type must be a struct
+				if v.Kind() != reflect.Struct {
+					return fmt.Errorf("cannot squash non-struct type '%s'", v.Type())
+				}
 			}
 			keyName = tagValue[:index]
 		} else if len(tagValue) > 0 {
