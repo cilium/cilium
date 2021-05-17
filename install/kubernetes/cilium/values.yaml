@@ -82,11 +82,11 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: v1.10.0-rc1
+  tag: v1.10.0-rc2
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: "sha256:bdec5db5b9651c208a326f8d3b1d6a1caf5d943989ea2fdb68b24802dd17b134"
-  useDigest: true
+  digest: ""
+  useDigest: false
 
 # -- Pod affinity for cilium-agent.
 affinity:
@@ -645,10 +645,10 @@ hubble:
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
-      tag: v1.10.0-rc1
+      tag: v1.10.0-rc2
        # hubble-relay-digest
-      digest: "sha256:9e1120dd272bf5ebce5f7b2002ac7ae9a2854d9b7a799e0548312432c9c28b8d"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: IfNotPresent
 
     # -- Specifies the resources for the hubble-relay pods
@@ -731,7 +731,7 @@ hubble:
       # -- Hubble-ui backend image.
       image:
         repository: quay.io/cilium/hubble-ui-backend
-        tag: v0.7.7@sha256:11d06121c86549c0c8684571ffed4ff3d4c4417f551728f4fad6d05525c47e9d
+        tag: v0.7.9@sha256:632c938ef6ff30e3a080c59b734afb1fb7493689275443faa1435f7141aabe76
         pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -747,7 +747,7 @@ hubble:
       # -- Hubble-ui frontend image.
       image:
         repository: quay.io/cilium/hubble-ui
-        tag: v0.7.7@sha256:f20b6b3074a431ecd2730cf19afad2562664cf98baecf32b4cbe2a09f04ad8fa
+        tag: v0.7.9@sha256:e0e461c680ccd083ac24fe4f9e19e675422485f04d8720635ec41f2ba9e5562c
         pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -1179,16 +1179,16 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: v1.10.0-rc1
+    tag: v1.10.0-rc2
     # operator-generic-digest
-    genericDigest: "sha256:3b46c6fc9dc085d395136ca9cf8af1d0f653184c797e0ad7038e103abfbffacd"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:2cd08484744f49ca86d3dd367ef4b63c3b9dfcd26a96072479f599e0f2a51d6b"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:301195fe8e5587353632f61e2ad53a037ae35816cf2c119406021883ebfcccbd"
+    awsDigest: ""
     # operator-alibabacloud-digest
-    alibabacloudDigest: "sha256:c31d79a2b8f5225632199a81c829270cb33f1f2e752fea30c8846d3a44dd07d7"
-    useDigest: true
+    alibabacloudDigest: ""
+    useDigest: false
     pullPolicy: IfNotPresent
     suffix: ""
 
@@ -1391,10 +1391,10 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.10.0-rc1
+    tag: v1.10.0-rc2
     # cilium-digest
-    digest: "sha256:bdec5db5b9651c208a326f8d3b1d6a1caf5d943989ea2fdb68b24802dd17b134"
-    useDigest: true
+    digest: ""
+    useDigest: false
     pullPolicy: IfNotPresent
 
   priorityClassName: ""
@@ -1498,10 +1498,10 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: v1.10.0-rc1
+      tag: v1.10.0-rc2
       # clustermesh-apiserver-digest
-      digest: "sha256:1a9b2488b13b43d6917b674dc17d86586fc3c8b37d787dbfe0c587275b22a12b"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: IfNotPresent
 
     etcd:
