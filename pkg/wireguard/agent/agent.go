@@ -489,6 +489,8 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 				Endpoint:          p.Endpoint.String(),
 				LastHandshakeTime: strfmt.DateTime(p.LastHandshakeTime),
 				AllowedIps:        allowedIPs,
+				TransferTx:        p.TransmitBytes,
+				TransferRx:        p.ReceiveBytes,
 			}
 			peers = append(peers, peer)
 		}
