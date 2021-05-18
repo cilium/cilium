@@ -73,7 +73,7 @@ cluster_api_server_ipv4=${K8S_CLUSTER_API_SERVER_IPV4:-"172.20.0.1"}
 cluster_api_server_ipv6=${K8S_CLUSTER_API_SERVER_IPV6:-"FD03::1"}
 
 k8s_version="v1.21.0"
-etcd_version="v3.4.13"
+etcd_version="v3.4.16"
 
 function restore_flag {
   check_num_params "$#" "2"
