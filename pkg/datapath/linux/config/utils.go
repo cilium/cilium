@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package config
 import (
 	"fmt"
 	"net"
-	"reflect"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/common"
@@ -41,7 +40,7 @@ func defineIPv4(name string, addr []byte) string {
 	if len(addr) != net.IPv4len {
 		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, common.GoArray2C(addr))
 	}
-	nboAddr := byteorder.HostSliceToNetwork(addr, reflect.Uint32).(uint32)
+	nboAddr := byteorder.NetIPv4ToHost32(addr)
 	return defineUint32(name, nboAddr)
 }
 

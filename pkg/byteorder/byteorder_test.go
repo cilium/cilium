@@ -19,7 +19,6 @@ package byteorder
 import (
 	"encoding/binary"
 	"net"
-	"reflect"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -49,7 +48,13 @@ func (b *ByteorderSuite) TestHostToNetwork(c *C) {
 	}
 }
 
-func (b *ByteorderSuite) TestHostSliceToNetworkU32(c *C) {
-	c.Assert(uint32(0x5b810b0a), Equals, HostSliceToNetwork(net.ParseIP("10.11.129.91"), reflect.Uint32).(uint32))
-	c.Assert(uint32(0xd68a0b0a), Equals, HostSliceToNetwork(net.ParseIP("10.11.138.214"), reflect.Uint32).(uint32))
+func (b *ByteorderSuite) TestNetIPv4ToHost32(c *C) {
+	switch Native {
+	case binary.LittleEndian:
+		c.Assert(NetIPv4ToHost32(net.ParseIP("10.11.129.91")), Equals, uint32(0x5b810b0a))
+		c.Assert(NetIPv4ToHost32(net.ParseIP("10.11.138.214")), Equals, uint32(0xd68a0b0a))
+	case binary.BigEndian:
+		c.Assert(NetIPv4ToHost32(net.ParseIP("10.11.129.91")), Equals, uint32(0x0a0b815b))
+		c.Assert(NetIPv4ToHost32(net.ParseIP("10.11.138.214")), Equals, uint32(0x0a0b8ad6))
+	}
 }

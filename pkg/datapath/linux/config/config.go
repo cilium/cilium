@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"reflect"
 	"sort"
 	"text/template"
 
@@ -112,9 +111,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		ipv4GW := node.GetInternalIPv4Router()
 		loopbackIPv4 := node.GetIPv4Loopback()
 		ipv4Range := node.GetIPv4AllocRange()
-		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
-		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
-		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
+		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
+		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4))
+		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
 
 		if option.Config.EnableIPv4FragmentsTracking {
 			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
@@ -326,7 +325,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableIPv4 {
 			if option.Config.LoadBalancerRSSv4CIDR != "" {
-				ipv4 := byteorder.HostSliceToNetwork(option.Config.LoadBalancerRSSv4.IP, reflect.Uint32).(uint32)
+				ipv4 := byteorder.NetIPv4ToHost32(option.Config.LoadBalancerRSSv4.IP)
 				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
 				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
 				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
@@ -423,7 +422,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 		if option.Config.EnableIPv4 {
 			nodePortIPv4Addrs := node.GetNodePortIPv4AddrsWithDevices()
-			ipv4 := byteorder.HostSliceToNetwork(nodePortIPv4Addrs[directRoutingIface], reflect.Uint32).(uint32)
+			ipv4 := byteorder.NetIPv4ToHost32(nodePortIPv4Addrs[directRoutingIface])
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
 		}
 
@@ -455,7 +454,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableIPSec {
-		a := byteorder.HostSliceToNetwork(node.GetIPv4(), reflect.Uint32).(uint32)
+		a := byteorder.NetIPv4ToHost32(node.GetIPv4())
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 		if iface := option.Config.EncryptInterface; len(iface) != 0 {
 			link, err := netlink.LinkByName(iface[0])
@@ -486,7 +485,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_MASQUERADE"] = "1"
 			cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
-				fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(cidr.IP, reflect.Uint32).(uint32))
+				fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cidr.IP))
 			ones, _ := cidr.Mask.Size()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
 
