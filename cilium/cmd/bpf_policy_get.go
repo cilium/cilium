@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -159,13 +159,13 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		trafficDirectionString := trafficDirection.String()
 		port := models.PortProtocolANY
 		if stat.Key.DestPort != 0 {
-			dport := byteorder.NetworkToHost(stat.Key.DestPort).(uint16)
+			dport := byteorder.NetworkToHost16(stat.Key.DestPort)
 			proto := u8proto.U8proto(stat.Key.Nexthdr)
 			port = fmt.Sprintf("%d/%s", dport, proto.String())
 		}
 		proxyPort := "NONE"
 		if stat.ProxyPort != 0 {
-			proxyPort = strconv.FormatUint(uint64(byteorder.NetworkToHost(stat.ProxyPort).(uint16)), 10)
+			proxyPort = strconv.FormatUint(uint64(byteorder.NetworkToHost16(stat.ProxyPort)), 10)
 		}
 		var policyStr string
 		if policymap.PolicyEntryFlags(stat.Flags).IsDeny() {

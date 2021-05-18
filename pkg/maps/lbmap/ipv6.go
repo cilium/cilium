@@ -87,14 +87,14 @@ func (v *RevNat6Key) GetKey() uint16            { return v.Key }
 // ToNetwork converts RevNat6Key to network byte order.
 func (v *RevNat6Key) ToNetwork() RevNatKey {
 	n := *v
-	n.Key = byteorder.HostToNetwork(n.Key).(uint16)
+	n.Key = byteorder.HostToNetwork16(n.Key)
 	return &n
 }
 
 // ToNetwork converts RevNat6Key to host byte order.
 func (v *RevNat6Key) ToHost() RevNatKey {
 	h := *v
-	h.Key = byteorder.NetworkToHost(h.Key).(uint16)
+	h.Key = byteorder.NetworkToHost16(h.Key)
 	return &h
 }
 
@@ -115,14 +115,14 @@ func (v *RevNat6Value) String() string {
 // ToNetwork converts RevNat6Value to network byte order.
 func (v *RevNat6Value) ToNetwork() RevNatValue {
 	n := *v
-	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	n.Port = byteorder.HostToNetwork16(n.Port)
 	return &n
 }
 
 // ToNetwork converts RevNat6Value to Host byte order.
 func (v *RevNat6Value) ToHost() RevNatValue {
 	h := *v
-	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	h.Port = byteorder.NetworkToHost16(h.Port)
 	return &h
 }
 
@@ -182,14 +182,14 @@ func (k *Service6Key) RevNatValue() RevNatValue {
 
 func (k *Service6Key) ToNetwork() ServiceKey {
 	n := *k
-	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	n.Port = byteorder.HostToNetwork16(n.Port)
 	return &n
 }
 
 // ToHost converts Service6Key to host byte order.
 func (k *Service6Key) ToHost() ServiceKey {
 	h := *k
-	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	h.Port = byteorder.NetworkToHost16(h.Port)
 	return &h
 }
 
@@ -240,14 +240,14 @@ func (s *Service6Value) GetBackendID() loadbalancer.BackendID {
 
 func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
+	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
 	return &n
 }
 
 // ToHost converts Service6Value to host byte order.
 func (s *Service6Value) ToHost() ServiceValue {
 	h := *s
-	h.RevNat = byteorder.NetworkToHost(h.RevNat).(uint16)
+	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
 	return &h
 }
 
@@ -305,14 +305,14 @@ func (b *Backend6Value) GetPort() uint16    { return b.Port }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v
-	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	n.Port = byteorder.HostToNetwork16(n.Port)
 	return &n
 }
 
 // ToHost converts Backend6Value to host byte order.
 func (v *Backend6Value) ToHost() BackendValue {
 	h := *v
-	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	h.Port = byteorder.NetworkToHost16(h.Port)
 	return &h
 }
 

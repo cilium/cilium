@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package byteorder
 
 import (
+	"encoding/binary"
 	"net"
 	"reflect"
 	"testing"
@@ -52,11 +53,14 @@ func (b *ByteorderSuite) TestHostToNetworkPutShort(c *C) {
 }
 
 func (b *ByteorderSuite) TestHostToNetwork(c *C) {
-	c.Assert(HostToNetwork(uint16(0xAABB)), Equals, uint16(0xBBAA),
-		Commentf("TestHostToNetwork failed: HostToNetwork(0xAABB) != 0xBBAA"))
-
-	c.Assert(HostToNetwork(uint32(0xAABBCCDD)), Equals, uint32(0xDDCCBBAA),
-		Commentf("TestHostToNetwork failed: HostToNetwork(0xAABBCCDD) != 0xDDCCBBAA"))
+	switch Native {
+	case binary.LittleEndian:
+		c.Assert(HostToNetwork16(0xAABB), Equals, uint16(0xBBAA))
+		c.Assert(HostToNetwork32(0xAABBCCDD), Equals, uint32(0xDDCCBBAA))
+	case binary.BigEndian:
+		c.Assert(HostToNetwork16(0xAABB), Equals, uint16(0xAABB))
+		c.Assert(HostToNetwork32(0xAABBCCDD), Equals, uint32(0xAABBCCDD))
+	}
 }
 
 func (b *ByteorderSuite) TestHostSliceToNetworkU32(c *C) {

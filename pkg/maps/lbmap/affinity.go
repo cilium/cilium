@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,14 +127,14 @@ func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork(n.RevNATID).(uint16)
+	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *AffinityMatchKey) ToHost() *AffinityMatchKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost(h.RevNATID).(uint16)
+	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
 	return &h
 }
 

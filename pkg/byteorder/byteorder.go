@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,41 +18,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
-	"unsafe"
 )
-
-// Native is set to the host ByteOrder type. This should normally be either
-// BigEndian or LittleEndian.
-var Native = getNativeEndian()
-var nativeEndian binary.ByteOrder
-
-func getNativeEndian() binary.ByteOrder {
-	if nativeEndian == nil {
-		var x uint32 = 0x01020304
-		if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
-			nativeEndian = binary.BigEndian
-		} else {
-			nativeEndian = binary.LittleEndian
-		}
-	}
-	return nativeEndian
-}
-
-// Byte swap a 16 bit value if we aren't big endian
-func swap16(i uint16) uint16 {
-	if Native == binary.BigEndian {
-		return i
-	}
-	return (i&0xff00)>>8 | (i&0xff)<<8
-}
-
-// Byte swap a 32 bit value if aren't big endian
-func swap32(i uint32) uint32 {
-	if Native == binary.BigEndian {
-		return i
-	}
-	return (i&0xff000000)>>24 | (i&0xff0000)>>8 | (i&0xff00)<<8 | (i&0xff)<<24
-}
 
 // reverse returns a reversed slice of b.
 func reverse(b []byte) []byte {
@@ -64,30 +30,6 @@ func reverse(b []byte) []byte {
 	}
 
 	return c
-}
-
-// HostToNetwork converts b to the networking byte order.
-func HostToNetwork(b interface{}) interface{} {
-	switch bt := b.(type) {
-	case uint16:
-		return swap16(bt)
-	case uint32:
-		return swap32(bt)
-	default:
-		panic(unsupported(b))
-	}
-}
-
-// NetworkToHost converts n to host byte order.
-func NetworkToHost(n interface{}) interface{} {
-	switch nt := n.(type) {
-	case uint16:
-		return swap16(nt)
-	case uint32:
-		return swap32(nt)
-	default:
-		panic(unsupported(n))
-	}
 }
 
 // HostToNetworkSlice converts b to the networking byte order.

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,16 +48,16 @@ func (k *TupleKey6) NewValue() bpf.MapValue { return &TupleValStub{} }
 // ToNetwork converts TupleKey6 ports to network byte order.
 func (k *TupleKey6) ToNetwork() TupleKey {
 	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
+	n.SourcePort = byteorder.HostToNetwork16(n.SourcePort)
+	n.DestPort = byteorder.HostToNetwork16(n.DestPort)
 	return &n
 }
 
 // ToHost converts TupleKey6 ports to network byte order.
 func (k *TupleKey6) ToHost() TupleKey {
 	n := *k
-	n.SourcePort = byteorder.NetworkToHost(n.SourcePort).(uint16)
-	n.DestPort = byteorder.NetworkToHost(n.DestPort).(uint16)
+	n.SourcePort = byteorder.NetworkToHost16(n.SourcePort)
+	n.DestPort = byteorder.NetworkToHost16(n.DestPort)
 	return &n
 }
 

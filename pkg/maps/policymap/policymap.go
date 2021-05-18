@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ func (pe *PolicyEntry) ToHost() PolicyEntry {
 	}
 
 	n := *pe
-	n.ProxyPort = byteorder.NetworkToHost(n.ProxyPort).(uint16)
+	n.ProxyPort = byteorder.NetworkToHost16(n.ProxyPort)
 	return n
 }
 
@@ -247,7 +247,7 @@ func (key *PolicyKey) String() string {
 
 	trafficDirectionString := (trafficdirection.TrafficDirection)(key.TrafficDirection).String()
 	if key.DestPort != 0 {
-		return fmt.Sprintf("%s: %d %d/%d", trafficDirectionString, key.Identity, byteorder.NetworkToHost(key.DestPort), key.Nexthdr)
+		return fmt.Sprintf("%s: %d %d/%d", trafficDirectionString, key.Identity, byteorder.NetworkToHost16(key.DestPort), key.Nexthdr)
 	}
 	return fmt.Sprintf("%s: %d", trafficDirectionString, key.Identity)
 }
@@ -260,7 +260,7 @@ func (key *PolicyKey) ToHost() PolicyKey {
 	}
 
 	n := *key
-	n.DestPort = byteorder.NetworkToHost(n.DestPort).(uint16)
+	n.DestPort = byteorder.NetworkToHost16(n.DestPort)
 	return n
 }
 
@@ -272,7 +272,7 @@ func (key *PolicyKey) ToNetwork() PolicyKey {
 	}
 
 	n := *key
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
+	n.DestPort = byteorder.HostToNetwork16(n.DestPort)
 	return n
 }
 
@@ -281,7 +281,7 @@ func (key *PolicyKey) ToNetwork() PolicyKey {
 func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection) PolicyKey {
 	return PolicyKey{
 		Identity:         id,
-		DestPort:         byteorder.HostToNetwork(dport).(uint16),
+		DestPort:         byteorder.HostToNetwork16(dport),
 		Nexthdr:          uint8(proto),
 		TrafficDirection: trafficDirection.Uint8(),
 	}
@@ -291,7 +291,7 @@ func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection tra
 // network byte-order.
 func newEntry(proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
 	return PolicyEntry{
-		ProxyPort: byteorder.HostToNetwork(proxyPort).(uint16),
+		ProxyPort: byteorder.HostToNetwork16(proxyPort),
 		Flags:     flags.UInt8(),
 	}
 }

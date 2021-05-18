@@ -75,8 +75,8 @@ func (k *CaptureWcard4) String() string {
 
 func (k *CaptureWcard4) ToHost() RecorderKey {
 	x := *k
-	x.DestPort = byteorder.NetworkToHost(k.DestPort).(uint16)
-	x.SrcPort = byteorder.NetworkToHost(k.SrcPort).(uint16)
+	x.DestPort = byteorder.NetworkToHost16(k.DestPort)
+	x.SrcPort = byteorder.NetworkToHost16(k.SrcPort)
 	return &x
 }
 

@@ -1,5 +1,5 @@
 // Copyright 2019 Authors of Hubble
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -679,7 +679,7 @@ func decodeProxyPort(dbg *monitor.DebugCapture) uint32 {
 		switch dbg.SubType {
 		case monitor.DbgCaptureProxyPre,
 			monitor.DbgCaptureProxyPost:
-			return byteorder.NetworkToHost(dbg.Arg1).(uint32)
+			return byteorder.NetworkToHost32(dbg.Arg1)
 		}
 	}
 

@@ -523,7 +523,7 @@ func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
 
 func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
 	// Match
-	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
+	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
 	ingressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
 	ingressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
@@ -559,7 +559,7 @@ func (m *IptablesManager) egressProxyRule(cmd, l4Match, markMatch, mark, port, n
 
 func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
 	// Match
-	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
+	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
 	egressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
 	egressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
