@@ -32,42 +32,6 @@ func reverse(b []byte) []byte {
 	return c
 }
 
-// HostToNetworkSlice converts b to the networking byte order.
-func HostToNetworkSlice(b []byte, t reflect.Kind) interface{} {
-	switch t {
-	case reflect.Uint32:
-		return binary.BigEndian.Uint32(b)
-	case reflect.Uint16:
-		return binary.BigEndian.Uint16(b)
-	default:
-		panic(unsupported(b))
-	}
-}
-
-// HostToNetworkPut puts v into b with the networking byte order.
-func HostToNetworkPut(b []byte, v interface{}) {
-	switch reflect.TypeOf(v).Kind() {
-	case reflect.Uint32:
-		binary.BigEndian.PutUint32(b, v.(uint32))
-	case reflect.Uint16:
-		binary.BigEndian.PutUint16(b, v.(uint16))
-	default:
-		panic(unsupported(v))
-	}
-}
-
-// NetworkToHostPut puts v into b with the networking byte order.
-func NetworkToHostPut(b []byte, v interface{}) {
-	switch reflect.TypeOf(v).Kind() {
-	case reflect.Uint32:
-		Native.PutUint32(b, v.(uint32))
-	case reflect.Uint16:
-		Native.PutUint16(b, v.(uint16))
-	default:
-		panic(unsupported(v))
-	}
-}
-
 // HostSliceToNetwork converts b to the networking byte order.
 func HostSliceToNetwork(b []byte, t reflect.Kind) interface{} {
 	switch t {

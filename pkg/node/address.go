@@ -508,7 +508,7 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 				}
 				if ipv4GWUint64 != 0 {
 					bs := make([]byte, net.IPv4len)
-					byteorder.NetworkToHostPut(bs, uint32(ipv4GWUint64))
+					byteorder.Native.PutUint32(bs, uint32(ipv4GWUint64))
 					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
 					hasIPv4 = true
 				}
