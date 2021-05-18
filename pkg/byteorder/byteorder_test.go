@@ -38,20 +38,6 @@ func (b *ByteorderSuite) TestNativeIsInitialized(c *C) {
 	c.Assert(Native, NotNil)
 }
 
-func (b *ByteorderSuite) TestHostToNetworkSlice(c *C) {
-	ip := net.ParseIP("b007::aaaa:bbbb:0:0")
-	c.Assert(HostToNetworkSlice(ip[14:], reflect.Uint16), Equals, uint16(0))
-
-	ip = net.ParseIP("b007::aaaa:bbbb:0:0")
-	c.Assert(HostToNetworkSlice(ip[8:12], reflect.Uint32), Equals, uint32(0xaaaabbbb))
-}
-
-func (b *ByteorderSuite) TestHostToNetworkPutShort(c *C) {
-	ip := net.ParseIP("b007::")
-	HostToNetworkPut(ip[12:14], uint16(0xaabb))
-	c.Assert(HostToNetworkSlice(ip[12:14], reflect.Uint16), Equals, uint16(0xaabb))
-}
-
 func (b *ByteorderSuite) TestHostToNetwork(c *C) {
 	switch Native {
 	case binary.LittleEndian:
