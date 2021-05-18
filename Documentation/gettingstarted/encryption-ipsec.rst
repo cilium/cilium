@@ -126,8 +126,8 @@ interface as follows:
 
 .. _node_to_node_encryption:
 
-Node to node encryption
------------------------
+Node-to-node encryption (beta)
+------------------------------
 
 In order to enable node-to-node encryption, add:
 
@@ -148,8 +148,11 @@ In order to enable node-to-node encryption, add:
 
 .. note::
 
-    Node to node encryption feature is tested and supported with direct routing
-    modes. Using with encapsulation/tunneling is not currently tested or supported.
+    Node-to-node encryption is a beta feature. Please provide feedback and file
+    a GitHub issue if you experience any problems.
+
+    Node-to-node encryption is tested and supported with direct routing modes.
+    Using with encapsulation/tunneling is not currently tested or supported.
 
     Support with tunneling mode is tracked with :gh-issue:`13663`.
 
