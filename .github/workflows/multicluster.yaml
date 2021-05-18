@@ -234,8 +234,16 @@ jobs:
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          gcloud container clusters delete ${{ env.clusterName1 }} --zone ${{ env.zone }} --quiet
-          gcloud container clusters delete ${{ env.clusterName2 }} --zone ${{ env.zone }} --quiet
+          i=0
+          for e in ${{ env.clusterName1 }} ${{ env.clusterName2 }}; do
+            gcloud container clusters delete $e --zone ${{ env.zone }} --quiet &
+            pids[$i]=$!
+            ((i++))
+          done
+          # Wait for all cluster-cleanup processes.
+          for pid in ${pids[*]}; do
+            wait $pid
+          done
         shell: bash {0}
 
       - name: Upload artifacts
