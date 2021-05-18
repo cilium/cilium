@@ -908,7 +908,7 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 		c := &deployment.Spec.Template.Spec.Containers[0]
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  "AZURE_SUBSCRIPTION_ID",
-			Value: k.params.Azure.SubscriptionID,
+			Value: k.params.Azure.DerivedSubscriptionID,
 		})
 
 		c.Env = append(c.Env, corev1.EnvVar{
@@ -1018,12 +1018,13 @@ const (
 )
 
 type AzureParameters struct {
-	ResourceGroupName string
-	SubscriptionID    string
-	TenantID          string
-	ResourceGroup     string
-	ClientID          string
-	ClientSecret      string
+	ResourceGroupName     string
+	SubscriptionID        string
+	DerivedSubscriptionID string
+	TenantID              string
+	ResourceGroup         string
+	ClientID              string
+	ClientSecret          string
 }
 
 type InstallParameters struct {
