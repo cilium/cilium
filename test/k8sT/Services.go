@@ -816,25 +816,27 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 
 			var wg sync.WaitGroup
-			for _, testCase := range testCases {
-				for _, name := range []string{be1Name, be2Name} {
+			for _, tc := range testCases {
+				pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, tc.selector)
+				Expect(err).Should(BeNil(), "cannot retrieve pod names by filter %q", tc.selector)
+				Expect(len(pods)).Should(BeNumerically(">", 0), "no pod exists by filter %q", tc.selector)
+				for _, pod := range pods {
 					wg.Add(1)
-					go func(tc lrpTestCase, want string) {
+					go func(tc lrpTestCase, pod string) {
 						defer GinkgoRecover()
 						defer wg.Done()
+						want := []string{be1Name, be2Name}
+						be1Found := false
+						be2Found := false
 						Eventually(func() bool {
-							pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, tc.selector)
-							Expect(err).Should(BeNil(), "cannot retrieve pod names by filter %q", tc.selector)
-							Expect(len(pods)).Should(BeNumerically(">", 0), "no pod exists by filter %q", tc.selector)
-							ret := true
-							for _, pod := range pods {
-								res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, tc.cmd)
-								Expect(err).To(BeNil(), "%s failed in %s pod", tc.cmd, pod)
-								ret = ret && strings.Contains(res.Stdout(), want)
-							}
-							return ret
+							res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, tc.cmd)
+							ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+								"%s failed in %s pod", tc.cmd, pod)
+							be1Found = be1Found || strings.Contains(res.Stdout(), want[0])
+							be2Found = be2Found || strings.Contains(res.Stdout(), want[1])
+							return be1Found && be2Found
 						}, 30*time.Second, 1*time.Second).Should(BeTrue(), "assertion fails for test case: %v", tc)
-					}(testCase, name)
+					}(tc, pod)
 				}
 			}
 			wg.Wait()
