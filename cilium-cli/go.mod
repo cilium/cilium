@@ -22,7 +22,7 @@ replace (
 )
 
 require (
-	github.com/cilium/cilium v1.9.6
+	github.com/cilium/cilium v1.9.7
 	github.com/cilium/hubble v0.7.1
 	github.com/cilium/workerpool v1.0.0
 	github.com/cloudflare/cfssl v1.5.0
