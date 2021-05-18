@@ -757,8 +757,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 
 			var wg sync.WaitGroup
-			wg.Add(len(testCases))
 			for _, testCase := range testCases {
+				wg.Add(1)
 				go func(tc lrpTestCase) {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -816,9 +816,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 
 			var wg sync.WaitGroup
-			wg.Add(len(testCases) * 2)
 			for _, testCase := range testCases {
 				for _, name := range []string{be1Name, be2Name} {
+					wg.Add(1)
 					go func(tc lrpTestCase, want string) {
 						defer GinkgoRecover()
 						defer wg.Done()
