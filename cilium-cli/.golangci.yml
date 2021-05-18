@@ -1,0 +1,18 @@
+# See https://golangci-lint.run/usage/configuration/ for available options.
+# Also https://github.com/cilium/cilium/blob/master/.golangci.yaml as a reference.
+linters:
+  disable-all: true
+  enable:
+    - goerr113
+    - goimports
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - unused
+    - varcheck
+
+issues:
+  new: true
+
