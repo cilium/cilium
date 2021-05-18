@@ -1693,7 +1693,6 @@ drop_err:
 				METRIC_INGRESS);
 }
 #endif
-BPF_LICENSE("GPL");
 
 /* Attached to the lxc device on the way to the container, only if endpoint
  * routes are enabled.
@@ -1767,3 +1766,5 @@ out:
 
 	return ret;
 }
+
+BPF_LICENSE("GPL");
