@@ -219,7 +219,7 @@ jobs:
       - name: Clean up AKS
         if: ${{ always() }}
         run: |
-          az group delete --name ${{ env.name }} --yes
+          az group delete --name ${{ env.name }} --yes --no-wait
 
       - name: Upload artifacts
         if: ${{ failure() }}
