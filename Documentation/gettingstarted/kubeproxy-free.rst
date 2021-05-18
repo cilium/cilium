@@ -1191,10 +1191,15 @@ if needed.
 The source for the affinity depends on the origin of a request. If a request is
 sent from outside the cluster to the service, the request's source IP address is
 used for determining the endpoint affinity. If a request is sent from inside
-the cluster, the client's network namespace cookie is used. The latter was introduced
-in the 5.7 Linux kernel to implement the affinity at the socket layer at which
-:ref:`host-services` operate (a source IP is not available there, as the endpoint
-selection happens before a network packet has been built by the kernel).
+the cluster, then the source depends on whether the :ref:`host-services` feature
+is used to load balance ClusterIP services. If yes, then the client's network
+namespace cookie is used as the source. The latter was introduced in the 5.7
+Linux kernel to implement the affinity at the socket layer at which
+:ref:`host-services` operate (a source IP is not available there, as the
+endpoint selection happens before a network packet has been built by the
+kernel). If :ref:`host-services` is not used (i.e. the loadbalancing is done
+at the pod network interface, on a per-packet basis), then the request's source
+IP address is used as the source.
 
 The session affinity support is enabled by default for Cilium's kube-proxy
 replacement. For users who run on older kernels which do not support the network
@@ -1209,6 +1214,13 @@ given service sent from the same source and to the same service port will be rou
 to the same service endpoints; but two requests for the same service, sent from
 the same source but to different service ports may be routed to distinct service
 endpoints.
+
+For users who run with kube-proxy (i.e. with Cilium's kube-proxy replacement
+disabled), the ClusterIP service loadbalancing when a request is sent from a pod
+running in a non-host network namespace is still performed at the pod network
+interface (until `GH#16197 <https://github.com/cilium/cilium/issues/16197>`__ is
+fixed).  For this case the session affinity support is disabled by default. To
+enable the feature, set ``config.sessionAffinity=true``.
 
 kube-proxy Replacement Health Check server
 ******************************************

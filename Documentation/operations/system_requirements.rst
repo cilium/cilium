@@ -229,24 +229,25 @@ additional kernel features continues to progress in the Linux community. Some
 of Cilium's features are dependent on newer kernel versions and are thus
 enabled by upgrading to more recent kernel versions as detailed below.
 
-=========================================== ===============================
-Cilium Feature                              Minimum Kernel Version
-=========================================== ===============================
-:ref:`concepts_fragmentation`               >= 4.10
-:ref:`cidr_limitations`                     >= 4.11
-:ref:`encryption_ipsec` in tunneling mode   >= 4.19
-:ref:`encryption_wg`                        >= 5.6
-:ref:`host-services`                        >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`kubeproxy-free`                       >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`bandwidth-manager`                    >= 5.1
-:ref:`local-redirect-policy`                >= 4.19.57, >= 5.1.16,  >= 5.2
-Full support for :ref:`session-affinity`    >= 5.7
-BPF-based proxy redirection                 >= 5.7
-BPF-based host routing                      >= 5.10
-Socket-level LB bypass in pod netns         >= 5.7
-:ref:`egress-gateway`                       >= 5.2
-VXLAN Tunnel Endpoint (VTEP) Integration    >= 5.2
-=========================================== ===============================
+====================================================== 	===============================
+Cilium Feature                                          Minimum Kernel Version
+====================================================== 	===============================
+:ref:`concepts_fragmentation`				>= 4.10
+:ref:`cidr_limitations`                     		>= 4.11
+:ref:`encryption_ipsec` in tunneling mode   		>= 4.19
+:ref:`encryption_wg`                        		>= 5.6
+:ref:`host-services`                        		>= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`kubeproxy-free`                       		>= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`bandwidth-manager`                    		>= 5.1
+:ref:`local-redirect-policy`				>= 4.19.57, >= 5.1.16,  >= 5.2
+Full support for :ref:`session-affinity`		>= 5.7
+:ref:`session-affinity` for kube-proxy ClusterIP	>= 4.10
+BPF-based proxy redirection				>= 5.7
+BPF-based host routing                      		>= 5.10
+Socket-level LB bypass in pod netns         		>= 5.7
+:ref:`egress-gateway`                       		>= 5.2
+VXLAN Tunnel Endpoint (VTEP) Integration    		>= 5.2
+====================================================== 	===============================
 
 .. _req_kvstore:
 
