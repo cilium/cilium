@@ -168,8 +168,7 @@ type ENI struct {
 	// +optional
 	VPC AwsVPC `json:"vpc,omitempty"`
 
-	// Addresses is the list of all IPs associated with the ENI, including
-	// all secondary addresses
+	// Addresses is the list of all secondary IPs associated with the ENI
 	//
 	// +optional
 	Addresses []string `json:"addresses,omitempty"`

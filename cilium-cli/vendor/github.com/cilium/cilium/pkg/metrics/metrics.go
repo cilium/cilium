@@ -71,6 +71,9 @@ const (
 	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
 	SubsystemAPILimiter = "api_limiter"
 
+	// SubsystemNodeNeigh is the subsystem to scope metrics related to management of node neighbor.
+	SubsystemNodeNeigh = "node_neigh"
+
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
 	Namespace = "cilium"
@@ -478,6 +481,10 @@ var (
 	// APILimiterProcessedRequests is the counter of the number of
 	// processed (successful and failed) requests
 	APILimiterProcessedRequests = NoOpCounterVec
+
+	// ArpingRequestsTotal is the counter of the number of sent
+	// (successful and failed) arping requests
+	ArpingRequestsTotal = NoOpCounterVec
 )
 
 type Configuration struct {
@@ -542,6 +549,7 @@ type Configuration struct {
 	APILimiterRateLimit                     bool
 	APILimiterAdjustmentFactor              bool
 	APILimiterProcessedRequests             bool
+	ArpingRequestsTotalEnabled              bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -607,6 +615,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemAPILimiter + "_rate_limit":                        {},
 		Namespace + "_" + SubsystemAPILimiter + "_adjustment_factor":                 {},
 		Namespace + "_" + SubsystemAPILimiter + "_processed_requests_total":          {},
+		Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":              {},
 	}
 }
 
@@ -1333,6 +1342,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, APILimiterProcessedRequests)
 			c.APILimiterProcessedRequests = true
+
+		case Namespace + "_arping_requests_total":
+			ArpingRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemNodeNeigh,
+				Name:      "arping_requests_total",
+				Help:      "Number of arping requests sent labeled by status",
+			}, []string{LabelStatus})
+
+			collectors = append(collectors, ArpingRequestsTotal)
+			c.ArpingRequestsTotalEnabled = true
 		}
 	}
 

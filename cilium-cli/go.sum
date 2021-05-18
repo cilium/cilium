@@ -110,10 +110,9 @@ github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWR
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/arping v1.0.1-0.20201009104213-b546132ab753/go.mod h1:hnjbWhP2F454GKo6vEscP3emePUtB+5ODiGAICLgMzQ=
-github.com/cilium/arping v1.0.1-0.20210305111713-3425030fd8c2/go.mod h1:BbglXLG6/USt+UydHFLglGzC3Sxs2VsrlDxI+N3mc7s=
 github.com/cilium/cilium v1.9.0-rc2/go.mod h1:S7/sWIZX4AKqTezMk6bGKYZg3lzmA/P0Zqi8GXwbYC0=
-github.com/cilium/cilium v1.9.6 h1:eZKBb0y77P+pZAAZVNHoE57Xrw+j+l/wVYit/z+GC6Y=
-github.com/cilium/cilium v1.9.6/go.mod h1:XHr/9x/XghED5JxMQpRk8DZhqqZ3sVqRUqIrJwO9fc0=
+github.com/cilium/cilium v1.9.7 h1:ZvF5LSs1A306QrUp6jOZrNXXrWSaCP1JwzX8lStqVEM=
+github.com/cilium/cilium v1.9.7/go.mod h1:Tz+X2y+wYHxqfs5ICQzkxUu9rYKc7c7ipmbvk4dgfXQ=
 github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595 h1:/tw/KYkvzaruvZtfP0vU3Oog83kvjh5sUYFtkVnjFUE=
 github.com/cilium/client-go v0.0.0-20210218151335-3861ecd89595/go.mod h1:5Op2bSbK+COBz8mwH62rrRgqhA9wOcORkWZ03+GL0Ow=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e/go.mod h1:c4R5wxGyXhbM6zyKeRKNIc9aab5EZi4z4oOSZvUMvZA=
@@ -127,7 +126,7 @@ github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2/go.mod h1:Ascfar4FtgB+
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/netlink v1.0.1-0.20210305225027-66e1713b4f2e/go.mod h1:twkDnbuQxJYemMlGd4JFIcuhgX83tXhKS2B/PRMpOho=
 github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab/go.mod h1:MsrtgITWuZatZCS715qDH+dp2iaVjOuxnIr8uwja5cM=
-github.com/cilium/proxy v0.0.0-20210304222512-e7430b113e09/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
+github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
 github.com/cilium/workerpool v1.0.0 h1:XdixqfwSmJ+z1AvbUL/9OLHysSEiWkZ0/dq3Iajx/Wc=
 github.com/cilium/workerpool v1.0.0/go.mod h1:GOYJhwlnIjR+jWSDNBb5kw47G1H/XA9X4WOBpgr4pQU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
