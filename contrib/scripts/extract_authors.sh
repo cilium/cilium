@@ -5,7 +5,10 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
 function extract_authors() {
-	authors=$(git shortlog --summary | awk '{$1=""; print $0}' | sed -e 's/^ //')
+	authors=$(git shortlog --summary \
+		  | awk '{$1=""; print $0}' \
+		  | sed -e 's/^ //' \
+			-e '/vagrant/d')
 
 	# Iterate $authors by line
 	IFS=$'\n'
