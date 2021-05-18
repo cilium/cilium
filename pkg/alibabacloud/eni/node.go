@@ -142,11 +142,12 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	})
 	scopedLog.Info("No more IPs available, creating new ENI")
 
+	instanceID := n.node.InstanceID()
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	index, err := n.allocENIIndex()
 	if err != nil {
-		scopedLog.WithField("instanceID", n.node.InstanceID()).Error(err)
+		scopedLog.WithField("instanceID", instanceID).Error(err)
 		return 0, "", err
 	}
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
@@ -158,7 +159,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	scopedLog = scopedLog.WithField(fieldENIID, eniID)
 	scopedLog.Info("Created new ENI")
 
-	err = n.manager.api.AttachNetworkInterface(ctx, n.node.InstanceID(), eniID)
+	err = n.manager.api.AttachNetworkInterface(ctx, instanceID, eniID)
 	if err != nil {
 		return 0, errUnableToAttachENI, fmt.Errorf("%s %s", errUnableToAttachENI, err)
 	}
@@ -175,7 +176,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	scopedLog.Info("Attached ENI to instance")
 
 	// Add the information of the created ENI to the instances manager
-	n.manager.UpdateENI(n.node.InstanceID(), eni)
+	n.manager.UpdateENI(instanceID, eni)
 	return toAllocate, "", nil
 }
 
