@@ -71,29 +71,37 @@ func (client *Client) CreateCapacityReservationWithCallback(request *CreateCapac
 // CreateCapacityReservationRequest is the request struct for api CreateCapacityReservation
 type CreateCapacityReservationRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId                 requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken                     string           `position:"Query" name:"ClientToken"`
-	Description                     string           `position:"Query" name:"Description"`
-	StartTime                       string           `position:"Query" name:"StartTime"`
-	Platform                        string           `position:"Query" name:"Platform"`
-	PrivatePoolOptionsMatchCriteria string           `position:"Query" name:"PrivatePoolOptions.MatchCriteria"`
-	InstanceType                    string           `position:"Query" name:"InstanceType"`
-	InstanceChargeType              string           `position:"Query" name:"InstanceChargeType"`
-	EfficientStatus                 requests.Integer `position:"Query" name:"EfficientStatus"`
-	Period                          requests.Integer `position:"Query" name:"Period"`
-	EndTimeType                     string           `position:"Query" name:"EndTimeType"`
-	ResourceOwnerAccount            string           `position:"Query" name:"ResourceOwnerAccount"`
-	PrivatePoolOptionsName          string           `position:"Query" name:"PrivatePoolOptions.Name"`
-	OwnerAccount                    string           `position:"Query" name:"OwnerAccount"`
-	EndTime                         string           `position:"Query" name:"EndTime"`
-	OwnerId                         requests.Integer `position:"Query" name:"OwnerId"`
-	ResourceType                    string           `position:"Query" name:"ResourceType"`
-	PeriodUnit                      string           `position:"Query" name:"PeriodUnit"`
-	TimeSlot                        string           `position:"Query" name:"TimeSlot"`
-	ZoneId                          *[]string        `position:"Query" name:"ZoneId"  type:"Repeated"`
-	ChargeType                      string           `position:"Query" name:"ChargeType"`
-	PackageType                     string           `position:"Query" name:"PackageType"`
-	InstanceAmount                  requests.Integer `position:"Query" name:"InstanceAmount"`
+	ResourceOwnerId                 requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	ClientToken                     string                          `position:"Query" name:"ClientToken"`
+	Description                     string                          `position:"Query" name:"Description"`
+	StartTime                       string                          `position:"Query" name:"StartTime"`
+	Platform                        string                          `position:"Query" name:"Platform"`
+	ResourceGroupId                 string                          `position:"Query" name:"ResourceGroupId"`
+	PrivatePoolOptionsMatchCriteria string                          `position:"Query" name:"PrivatePoolOptions.MatchCriteria"`
+	InstanceType                    string                          `position:"Query" name:"InstanceType"`
+	Tag                             *[]CreateCapacityReservationTag `position:"Query" name:"Tag"  type:"Repeated"`
+	InstanceChargeType              string                          `position:"Query" name:"InstanceChargeType"`
+	EfficientStatus                 requests.Integer                `position:"Query" name:"EfficientStatus"`
+	Period                          requests.Integer                `position:"Query" name:"Period"`
+	EndTimeType                     string                          `position:"Query" name:"EndTimeType"`
+	ResourceOwnerAccount            string                          `position:"Query" name:"ResourceOwnerAccount"`
+	PrivatePoolOptionsName          string                          `position:"Query" name:"PrivatePoolOptions.Name"`
+	OwnerAccount                    string                          `position:"Query" name:"OwnerAccount"`
+	EndTime                         string                          `position:"Query" name:"EndTime"`
+	OwnerId                         requests.Integer                `position:"Query" name:"OwnerId"`
+	ResourceType                    string                          `position:"Query" name:"ResourceType"`
+	PeriodUnit                      string                          `position:"Query" name:"PeriodUnit"`
+	TimeSlot                        string                          `position:"Query" name:"TimeSlot"`
+	ZoneId                          *[]string                       `position:"Query" name:"ZoneId"  type:"Repeated"`
+	ChargeType                      string                          `position:"Query" name:"ChargeType"`
+	PackageType                     string                          `position:"Query" name:"PackageType"`
+	InstanceAmount                  requests.Integer                `position:"Query" name:"InstanceAmount"`
+}
+
+// CreateCapacityReservationTag is a repeated param struct in CreateCapacityReservationRequest
+type CreateCapacityReservationTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateCapacityReservationResponse is the response struct for api CreateCapacityReservation

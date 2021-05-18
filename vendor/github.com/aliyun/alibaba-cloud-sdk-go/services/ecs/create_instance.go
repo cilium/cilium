@@ -110,6 +110,7 @@ type CreateInstanceRequest struct {
 	IoOptimized                     string                    `position:"Query" name:"IoOptimized"`
 	SecurityGroupId                 string                    `position:"Query" name:"SecurityGroupId"`
 	InternetMaxBandwidthOut         requests.Integer          `position:"Query" name:"InternetMaxBandwidthOut"`
+	HibernationOptionsConfigured    requests.Boolean          `position:"Query" name:"HibernationOptions.Configured"`
 	Description                     string                    `position:"Query" name:"Description"`
 	SystemDiskCategory              string                    `position:"Query" name:"SystemDisk.Category"`
 	CapacityReservationId           string                    `position:"Query" name:"CapacityReservationId"`

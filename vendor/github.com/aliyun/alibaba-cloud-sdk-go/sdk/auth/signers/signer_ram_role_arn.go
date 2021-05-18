@@ -114,6 +114,11 @@ func (signer *RamRoleArnSigner) Sign(stringToSign, secretSuffix string) string {
 
 func (signer *RamRoleArnSigner) buildCommonRequest() (request *requests.CommonRequest, err error) {
 	request = requests.NewCommonRequest()
+	if signer.credential.StsRegion != "" {
+		request.Domain = fmt.Sprintf("sts.%s.aliyuncs.com", signer.credential.StsRegion)
+	} else {
+		request.Domain = "sts.aliyuncs.com"
+	}
 	request.Product = "Sts"
 	request.Version = "2015-04-01"
 	request.ApiName = "AssumeRole"
