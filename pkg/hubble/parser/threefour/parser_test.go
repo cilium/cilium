@@ -1,5 +1,5 @@
 // Copyright 2019 Authors of Hubble
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -986,7 +986,7 @@ func TestDebugCapture(t *testing.T) {
 	dbg = monitor.DebugCapture{
 		Type:    api.MessageTypeCapture,
 		SubType: monitor.DbgCaptureProxyPost,
-		Arg1:    byteorder.HostToNetwork(uint32(1234)).(uint32),
+		Arg1:    byteorder.HostToNetwork32(1234),
 	}
 	data, err = testutils.CreateL3L4Payload(dbg)
 	require.NoError(t, err)

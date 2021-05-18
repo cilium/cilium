@@ -63,14 +63,14 @@ func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork(n.RevNATID).(uint16)
+	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *SourceRangeKey4) ToHost() SourceRangeKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost(h.RevNATID).(uint16)
+	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
 	return &h
 }
 
@@ -104,14 +104,14 @@ func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNATID = byteorder.HostToNetwork(n.RevNATID).(uint16)
+	n.RevNATID = byteorder.HostToNetwork16(n.RevNATID)
 	return &n
 }
 
 // ToHost returns the key in the host byte order
 func (k *SourceRangeKey6) ToHost() SourceRangeKey {
 	h := *k
-	h.RevNATID = byteorder.NetworkToHost(h.RevNATID).(uint16)
+	h.RevNATID = byteorder.NetworkToHost16(h.RevNATID)
 	return &h
 }
 
@@ -177,7 +177,7 @@ func initSourceRange(params InitParams) {
 
 func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {
 	ones, _ := cidr.Mask.Size()
-	id := byteorder.HostToNetwork(revNATID).(uint16)
+	id := byteorder.HostToNetwork16(revNATID)
 	if ipv6 {
 		key := &SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, RevNATID: id}
 		copy(key.Address[:], cidr.IP.To16())

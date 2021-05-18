@@ -70,6 +70,6 @@ func (n *NatEntry6) Dump(key NatKey, start uint64) string {
 // ToHost converts NatEntry4 ports to host byte order.
 func (n *NatEntry6) ToHost() NatEntry {
 	x := *n
-	x.Port = byteorder.NetworkToHost(n.Port).(uint16)
+	x.Port = byteorder.NetworkToHost16(n.Port)
 	return &x
 }

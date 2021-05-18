@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
 	// NOTE: syscall is deprecated, but it is replaced by golang.org/x/sys
 	//       which reuses syscall.Errno similarly to how we do below.
 	"syscall"
@@ -181,7 +182,7 @@ func ctLookup4Info2(n *DebugMsg) string {
 
 func ctCreate4Info(n *DebugMsg) string {
 	return fmt.Sprintf("proxy-port=%d revnat=%d src-identity=%d lb=%s",
-		n.Arg1>>16, byteorder.NetworkToHost(uint16(n.Arg1&0xFFFF)), n.Arg2, ip4Str(n.Arg3))
+		n.Arg1>>16, byteorder.NetworkToHost16(uint16(n.Arg1&0xFFFF)), n.Arg2, ip4Str(n.Arg3))
 }
 
 func ctLookup6Info1(n *DebugMsg) string {
@@ -191,7 +192,7 @@ func ctLookup6Info1(n *DebugMsg) string {
 
 func ctCreate6Info(n *DebugMsg) string {
 	return fmt.Sprintf("proxy-port=%d revnat=%d src-identity=%d",
-		n.Arg1>>16, byteorder.NetworkToHost(uint16(n.Arg1&0xFFFF)), n.Arg2)
+		n.Arg1>>16, byteorder.NetworkToHost16(uint16(n.Arg1&0xFFFF)), n.Arg2)
 }
 
 func skAssignInfo(n *DebugMsg) string {
@@ -202,32 +203,32 @@ func skAssignInfo(n *DebugMsg) string {
 }
 
 func verdictInfo(arg uint32) string {
-	revnat := byteorder.NetworkToHost(uint16(arg & 0xFFFF))
+	revnat := byteorder.NetworkToHost16(uint16(arg & 0xFFFF))
 	return fmt.Sprintf("revnat=%d", revnat)
 }
 
 func proxyInfo(arg1 uint32, arg2 uint32) string {
-	sport := byteorder.NetworkToHost(uint16(arg1 >> 16))
-	dport := byteorder.NetworkToHost(uint16(arg1 & 0xFFFF))
+	sport := byteorder.NetworkToHost16(uint16(arg1 >> 16))
+	dport := byteorder.NetworkToHost16(uint16(arg1 & 0xFFFF))
 	return fmt.Sprintf("sport=%d dport=%d saddr=%s", sport, dport, ip4Str(arg2))
 }
 
 func l4CreateInfo(n *DebugMsg) string {
 	src := n.Arg1
 	dst := n.Arg2
-	dport := byteorder.NetworkToHost(uint16(n.Arg3 >> 16))
+	dport := byteorder.NetworkToHost16(uint16(n.Arg3 >> 16))
 	proto := n.Arg3 & 0xFF
 	return fmt.Sprintf("src=%d dst=%d dport=%d proto=%d", src, dst, dport, proto)
 }
 
 func ip4Str(arg1 uint32) string {
 	ip := make(net.IP, 4)
-	byteorder.NetworkToHostPut(ip, arg1)
+	byteorder.Native.PutUint32(ip, arg1)
 	return ip.String()
 }
 
 func ip6Str(arg1 uint32) string {
-	ip6 := byteorder.NetworkToHost(arg1).(uint32)
+	ip6 := byteorder.NetworkToHost32(arg1)
 	return fmt.Sprintf("%x:%x", ip6>>16, ip6&0xFFFF)
 }
 
@@ -262,7 +263,7 @@ func (n *DebugMsg) Message() string {
 	case DbgEncap:
 		return fmt.Sprintf("Encapsulating to node %d (%#x) from seclabel %d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLxcFound:
-		return fmt.Sprintf("Local container found ifindex %s seclabel %d", ifname(int(n.Arg1)), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Local container found ifindex %s seclabel %d", ifname(int(n.Arg1)), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgPolicyDenied:
 		return fmt.Sprintf("Policy evaluation would deny packet from %d to %d", n.Arg1, n.Arg2)
 	case DbgCtLookup:
@@ -278,7 +279,7 @@ func (n *DebugMsg) Message() string {
 		return fmt.Sprintf("CT created 1/2: %s %s",
 			ctInfo(n.Arg1, n.Arg2), verdictInfo(n.Arg3))
 	case DbgCtCreated2:
-		return fmt.Sprintf("CT created 2/2: %s revnat=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("CT created 2/2: %s revnat=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgCtVerdict:
 		return fmt.Sprintf("CT verdict: %s, %s",
 			ctState(n.Arg1), verdictInfo(n.Arg2))
@@ -305,29 +306,29 @@ func (n *DebugMsg) Message() string {
 	case DbgRRBackendSlotSel:
 		return fmt.Sprintf("RR backend slot selection hash=%d (%#x), selected_service=%d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLb6LookupMaster:
-		return fmt.Sprintf("Master service lookup, addr.p4=%x key.dport=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Master service lookup, addr.p4=%x key.dport=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb6LookupMasterFail:
 		return fmt.Sprintf("Master service lookup failed, addr.p2=%x addr.p3=%x", n.Arg1, n.Arg2)
 	case DbgLb6LookupBackendSlot, DbgLb4LookupBackendSlot:
-		return fmt.Sprintf("Service backend slot lookup: slot=%d, dport=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Service backend slot lookup: slot=%d, dport=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb6LookupBackendSlotV2Fail, DbgLb4LookupBackendSlotV2Fail:
-		return fmt.Sprintf("Service backend slot lookup failed: slot=%d, dport=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Service backend slot lookup failed: slot=%d, dport=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb6LookupBackendFail, DbgLb4LookupBackendFail:
 		return fmt.Sprintf("Backend service lookup failed: backend_id=%d", n.Arg1)
 	case DbgLb6LookupBackendSlotSuccess:
-		return fmt.Sprintf("Service backend slot lookup result: target.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Service backend slot lookup result: target.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb6ReverseNatLookup, DbgLb4ReverseNatLookup:
-		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost(uint16(n.Arg1)))
+		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgLb6ReverseNat:
-		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4LookupMaster:
-		return fmt.Sprintf("Master service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Master service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4LookupMasterFail:
 		return "Master service lookup failed"
 	case DbgLb4LookupBackendSlotSuccess:
-		return fmt.Sprintf("Service backend slot lookup result: target=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Service backend slot lookup result: target=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4ReverseNat:
-		return fmt.Sprintf("Performing reverse NAT, address=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Performing reverse NAT, address=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4LoopbackSnat:
 		return fmt.Sprintf("Loopback SNAT from=%s to=%s", ip4Str(n.Arg1), ip4Str(n.Arg2))
 	case DbgLb4LoopbackSnatRev:
@@ -342,7 +343,7 @@ func (n *DebugMsg) Message() string {
 			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgL4Policy:
 		return fmt.Sprintf("Resolved L4 policy to: %d / %s",
-			byteorder.NetworkToHost(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
+			byteorder.NetworkToHost16(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
 	case DbgNetdevInCluster:
 		return fmt.Sprintf("Destination is inside cluster prefix, source identity: %d", n.Arg1)
 	case DbgNetdevEncap4:
@@ -439,7 +440,7 @@ func (n *DebugCapture) infoPrefix() string {
 		return fmt.Sprintf("== v6->v4 %d", n.Arg1)
 
 	case DbgCaptureProxyPost:
-		return fmt.Sprintf("-> proxy port %d", byteorder.NetworkToHost(uint16(n.Arg1)))
+		return fmt.Sprintf("-> proxy port %d", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	default:
 		return ""
 	}
@@ -466,9 +467,9 @@ func (n *DebugCapture) subTypeString() string {
 	case DbgCaptureAfterV64:
 		return fmt.Sprintf("Packet after nat64 ifindex %d", n.Arg1)
 	case DbgCaptureProxyPre:
-		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost(uint16(n.Arg1)))
+		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgCaptureProxyPost:
-		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost(uint16(n.Arg1)))
+		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgCaptureSnatPre:
 		return fmt.Sprintf("Packet going into snat engine on ifindex %d", n.Arg1)
 	case DbgCaptureSnatPost:

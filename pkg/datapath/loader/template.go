@@ -197,7 +197,7 @@ func sliceToU16(input []byte) uint16 {
 
 // sliceToBe16 converts the input slice of two bytes to a big-endian uint16.
 func sliceToBe16(input []byte) uint16 {
-	return byteorder.HostToNetwork(sliceToU16(input)).(uint16)
+	return byteorder.HostToNetwork16(sliceToU16(input))
 }
 
 // sliceToU32 converts the input slice of four bytes to a uint32.
@@ -211,7 +211,7 @@ func sliceToU32(input []byte) uint32 {
 
 // sliceToBe32 converts the input slice of four bytes to a big-endian uint32.
 func sliceToBe32(input []byte) uint32 {
-	return byteorder.HostToNetwork(sliceToU32(input)).(uint32)
+	return byteorder.HostToNetwork32(sliceToU32(input))
 }
 
 // elfVariableSubstitutions returns the set of data substitutions that must
@@ -251,7 +251,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = identity
-	result["SECLABEL_NB"] = byteorder.HostToNetwork(identity).(uint32)
+	result["SECLABEL_NB"] = byteorder.HostToNetwork32(identity)
 	result["POLICY_VERDICT_LOG_FILTER"] = ep.GetPolicyVerdictLogFilter()
 	return result
 

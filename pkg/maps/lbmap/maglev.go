@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -218,7 +218,7 @@ func (k *MaglevOuterKey) ToNetwork() *MaglevOuterKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
 	// the SVC BPF maps
-	n.RevNatID = byteorder.HostToNetwork(n.RevNatID).(uint16)
+	n.RevNatID = byteorder.HostToNetwork16(n.RevNatID)
 	return &n
 }
 

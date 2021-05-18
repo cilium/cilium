@@ -276,8 +276,8 @@ func recorderTupleToMapTuple4(ri *RecInfo, t *RecorderTuple) (*recorder.CaptureW
 		DestMask: uint8(onesDst),
 		SrcMask:  uint8(onesSrc),
 	}
-	k.DestPort = byteorder.HostToNetwork(t.DstPort).(uint16)
-	k.SrcPort = byteorder.HostToNetwork(t.SrcPort).(uint16)
+	k.DestPort = byteorder.HostToNetwork16(t.DstPort)
+	k.SrcPort = byteorder.HostToNetwork16(t.SrcPort)
 	copy(k.DestAddr[:], t.DstPrefix.IP.To4()[:])
 	copy(k.SrcAddr[:], t.SrcPrefix.IP.To4()[:])
 	v := &recorder.CaptureRule4{
@@ -296,8 +296,8 @@ func recorderTupleToMapTuple6(ri *RecInfo, t *RecorderTuple) (*recorder.CaptureW
 		DestMask: uint8(onesDst),
 		SrcMask:  uint8(onesSrc),
 	}
-	k.DestPort = byteorder.HostToNetwork(t.DstPort).(uint16)
-	k.SrcPort = byteorder.HostToNetwork(t.SrcPort).(uint16)
+	k.DestPort = byteorder.HostToNetwork16(t.DstPort)
+	k.SrcPort = byteorder.HostToNetwork16(t.SrcPort)
 	copy(k.DestAddr[:], t.DstPrefix.IP.To16()[:])
 	copy(k.SrcAddr[:], t.SrcPrefix.IP.To16()[:])
 	v := &recorder.CaptureRule6{

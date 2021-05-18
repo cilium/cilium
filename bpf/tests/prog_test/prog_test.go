@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -161,8 +161,8 @@ func testMap(spec *ebpf.Collection) error {
 			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{1, 1, 1, 1},
 				DestAddr:   types.IPv4{1, 1, 1, 2},
-				SourcePort: byteorder.HostToNetwork(uint16(1001)).(uint16),
-				DestPort:   byteorder.HostToNetwork(uint16(1002)).(uint16),
+				SourcePort: byteorder.HostToNetwork16(1001),
+				DestPort:   byteorder.HostToNetwork16(1002),
 				NextHeader: 0,
 				Flags:      0,
 			},
@@ -429,8 +429,8 @@ func testCt4Rst(spec *ebpf.Collection) error {
 			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{10, 3, 0, 20},
 				DestAddr:   types.IPv4{10, 3, 0, 10},
-				SourcePort: byteorder.HostToNetwork(uint16(3010)).(uint16),
-				DestPort:   byteorder.HostToNetwork(uint16(3020)).(uint16),
+				SourcePort: byteorder.HostToNetwork16(3010),
+				DestPort:   byteorder.HostToNetwork16(3020),
 				NextHeader: 6,
 				Flags:      0,
 			},
