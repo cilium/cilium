@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"reflect"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -181,7 +180,7 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
 		if option.Config.EnableIPv4 {
 			ipv4 := bpfMasqIPv4Addrs[ifName]
-			opts["IPV4_MASQUERADE"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
+			opts["IPV4_MASQUERADE"] = byteorder.NetIPv4ToHost32(ipv4)
 		}
 	}
 

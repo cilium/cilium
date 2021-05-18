@@ -16,7 +16,7 @@ package loader
 
 import (
 	"fmt"
-	"reflect"
+	"net"
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -228,7 +228,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 		result["LXC_IP_4"] = sliceToBe32(ipv6[12:16])
 	}
 	if ipv4 := ep.IPv4Address(); ipv4 != nil {
-		result["LXC_IPV4"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
+		result["LXC_IPV4"] = byteorder.NetIPv4ToHost32(net.IP(ipv4))
 	}
 
 	mac := ep.GetNodeMAC()

@@ -15,42 +15,13 @@
 package byteorder
 
 import (
-	"encoding/binary"
-	"fmt"
-	"reflect"
+	"net"
 )
 
-// reverse returns a reversed slice of b.
-func reverse(b []byte) []byte {
-	size := len(b)
-	c := make([]byte, size)
-
-	for i, j := size-1, 0; i >= 0; i, j = i-1, j+1 {
-		c[j] = b[i]
-	}
-
-	return c
-}
-
-// HostSliceToNetwork converts b to the networking byte order.
-func HostSliceToNetwork(b []byte, t reflect.Kind) interface{} {
-	switch t {
-	case reflect.Uint32:
-		if Native != binary.BigEndian {
-			return binary.BigEndian.Uint32(reverse(b))
-		}
-		return binary.BigEndian.Uint32(b)
-	case reflect.Uint16:
-		if Native != binary.BigEndian {
-			return binary.BigEndian.Uint16(reverse(b))
-		}
-		return binary.BigEndian.Uint16(b)
-	default:
-		panic(unsupported(t))
-	}
-}
-
-// unsupported returns a string to used for debugging unhandled types.
-func unsupported(field interface{}) string {
-	return fmt.Sprintf("unsupported type(%v): %v", reflect.TypeOf(field).Kind(), field)
+// NetIPv4ToHost32 converts an net.IP to a uint32 in host byte order. ip
+// must be a IPv4 address, otherwise the function will panic.
+func NetIPv4ToHost32(ip net.IP) uint32 {
+	ipv4 := ip.To4()
+	_ = ipv4[3] // Assert length of ipv4.
+	return Native.Uint32(ipv4)
 }
