@@ -26,11 +26,11 @@ import (
 
 var (
 	// allowedMatchNameChars tests that MatchName contains only valid DNS characters
-	allowedMatchNameChars = regexp.MustCompile("^[-a-zA-Z0-9.]+$")
+	allowedMatchNameChars = regexp.MustCompile("^[-a-zA-Z0-9_.]+$")
 
 	// allowedPatternChars tests that the MatchPattern field contains only the
 	// characters we want in our wilcard scheme.
-	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9.*]+$") // the * inside the [] is a literal *
+	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9_.*]+$") // the * inside the [] is a literal *
 
 	// FQDNMatchNameRegexString is a regex string which matches what's expected
 	// in the MatchName field in the FQDNSelector. This should be kept in-sync
