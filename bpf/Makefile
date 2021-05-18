@@ -220,7 +220,6 @@ bpf_xdp.o: bpf_xdp.ll
 
 # The following option combinations are compile tested
 LXC_OPTIONS = \
-	 -DHOST_REDIRECT_TO_INGRESS: \
 	 -DALLOW_ICMP_FRAG_NEEDED: \
 	 -DSKIP_DEBUG: \
 	 -DHAVE_LPM_TRIE_MAP_TYPE: \
