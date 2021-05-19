@@ -58,6 +58,9 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/b
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
     ./install-protoc.sh
 
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
+    ./install-protoplugins.sh
+
 # used to facilitate the verifier tests
 COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /bin/
 
