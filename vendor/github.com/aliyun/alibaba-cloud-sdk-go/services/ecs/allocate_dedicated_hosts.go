@@ -76,6 +76,7 @@ type AllocateDedicatedHostsRequest struct {
 	Description                    string                       `position:"Query" name:"Description"`
 	CpuOverCommitRatio             requests.Float               `position:"Query" name:"CpuOverCommitRatio"`
 	ResourceGroupId                string                       `position:"Query" name:"ResourceGroupId"`
+	MinQuantity                    requests.Integer             `position:"Query" name:"MinQuantity"`
 	ActionOnMaintenance            string                       `position:"Query" name:"ActionOnMaintenance"`
 	DedicatedHostClusterId         string                       `position:"Query" name:"DedicatedHostClusterId"`
 	Tag                            *[]AllocateDedicatedHostsTag `position:"Query" name:"Tag"  type:"Repeated"`

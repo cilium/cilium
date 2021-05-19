@@ -71,19 +71,27 @@ func (client *Client) DescribeCapacityReservationsWithCallback(request *Describe
 // DescribeCapacityReservationsRequest is the request struct for api DescribeCapacityReservations
 type DescribeCapacityReservationsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId       requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Platform              string           `position:"Query" name:"Platform"`
-	NextToken             string           `position:"Query" name:"NextToken"`
-	InstanceType          string           `position:"Query" name:"InstanceType"`
-	InstanceChargeType    string           `position:"Query" name:"InstanceChargeType"`
-	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount          string           `position:"Query" name:"OwnerAccount"`
-	OwnerId               requests.Integer `position:"Query" name:"OwnerId"`
-	PrivatePoolOptionsIds string           `position:"Query" name:"PrivatePoolOptions.Ids"`
-	MaxResults            requests.Integer `position:"Query" name:"MaxResults"`
-	ZoneId                string           `position:"Query" name:"ZoneId"`
-	PackageType           string           `position:"Query" name:"PackageType"`
-	Status                string           `position:"Query" name:"Status"`
+	ResourceOwnerId       requests.Integer                   `position:"Query" name:"ResourceOwnerId"`
+	Platform              string                             `position:"Query" name:"Platform"`
+	ResourceGroupId       string                             `position:"Query" name:"ResourceGroupId"`
+	NextToken             string                             `position:"Query" name:"NextToken"`
+	InstanceType          string                             `position:"Query" name:"InstanceType"`
+	Tag                   *[]DescribeCapacityReservationsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	InstanceChargeType    string                             `position:"Query" name:"InstanceChargeType"`
+	ResourceOwnerAccount  string                             `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount          string                             `position:"Query" name:"OwnerAccount"`
+	OwnerId               requests.Integer                   `position:"Query" name:"OwnerId"`
+	PrivatePoolOptionsIds string                             `position:"Query" name:"PrivatePoolOptions.Ids"`
+	MaxResults            requests.Integer                   `position:"Query" name:"MaxResults"`
+	ZoneId                string                             `position:"Query" name:"ZoneId"`
+	PackageType           string                             `position:"Query" name:"PackageType"`
+	Status                string                             `position:"Query" name:"Status"`
+}
+
+// DescribeCapacityReservationsTag is a repeated param struct in DescribeCapacityReservationsRequest
+type DescribeCapacityReservationsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeCapacityReservationsResponse is the response struct for api DescribeCapacityReservations

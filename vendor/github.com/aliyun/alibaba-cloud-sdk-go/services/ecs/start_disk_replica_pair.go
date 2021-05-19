@@ -20,21 +20,21 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
 )
 
-// RenewInstance invokes the ecs.RenewInstance API synchronously
-func (client *Client) RenewInstance(request *RenewInstanceRequest) (response *RenewInstanceResponse, err error) {
-	response = CreateRenewInstanceResponse()
+// StartDiskReplicaPair invokes the ecs.StartDiskReplicaPair API synchronously
+func (client *Client) StartDiskReplicaPair(request *StartDiskReplicaPairRequest) (response *StartDiskReplicaPairResponse, err error) {
+	response = CreateStartDiskReplicaPairResponse()
 	err = client.DoAction(request, response)
 	return
 }
 
-// RenewInstanceWithChan invokes the ecs.RenewInstance API asynchronously
-func (client *Client) RenewInstanceWithChan(request *RenewInstanceRequest) (<-chan *RenewInstanceResponse, <-chan error) {
-	responseChan := make(chan *RenewInstanceResponse, 1)
+// StartDiskReplicaPairWithChan invokes the ecs.StartDiskReplicaPair API asynchronously
+func (client *Client) StartDiskReplicaPairWithChan(request *StartDiskReplicaPairRequest) (<-chan *StartDiskReplicaPairResponse, <-chan error) {
+	responseChan := make(chan *StartDiskReplicaPairResponse, 1)
 	errChan := make(chan error, 1)
 	err := client.AddAsyncTask(func() {
 		defer close(responseChan)
 		defer close(errChan)
-		response, err := client.RenewInstance(request)
+		response, err := client.StartDiskReplicaPair(request)
 		if err != nil {
 			errChan <- err
 		} else {
@@ -49,14 +49,14 @@ func (client *Client) RenewInstanceWithChan(request *RenewInstanceRequest) (<-ch
 	return responseChan, errChan
 }
 
-// RenewInstanceWithCallback invokes the ecs.RenewInstance API asynchronously
-func (client *Client) RenewInstanceWithCallback(request *RenewInstanceRequest, callback func(response *RenewInstanceResponse, err error)) <-chan int {
+// StartDiskReplicaPairWithCallback invokes the ecs.StartDiskReplicaPair API asynchronously
+func (client *Client) StartDiskReplicaPairWithCallback(request *StartDiskReplicaPairRequest, callback func(response *StartDiskReplicaPairResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
-		var response *RenewInstanceResponse
+		var response *StartDiskReplicaPairResponse
 		var err error
 		defer close(result)
-		response, err = client.RenewInstance(request)
+		response, err = client.StartDiskReplicaPair(request)
 		callback(response, err)
 		result <- 1
 	})
@@ -68,40 +68,35 @@ func (client *Client) RenewInstanceWithCallback(request *RenewInstanceRequest, c
 	return result
 }
 
-// RenewInstanceRequest is the request struct for api RenewInstance
-type RenewInstanceRequest struct {
+// StartDiskReplicaPairRequest is the request struct for api StartDiskReplicaPair
+type StartDiskReplicaPairRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Period               requests.Integer `position:"Query" name:"Period"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	ExpectedRenewDay     requests.Integer `position:"Query" name:"ExpectedRenewDay"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
+	ReplicaPairId        string           `position:"Query" name:"ReplicaPairId"`
 }
 
-// RenewInstanceResponse is the response struct for api RenewInstance
-type RenewInstanceResponse struct {
+// StartDiskReplicaPairResponse is the response struct for api StartDiskReplicaPair
+type StartDiskReplicaPairResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
-	OrderId   string `json:"OrderId" xml:"OrderId"`
 }
 
-// CreateRenewInstanceRequest creates a request to invoke RenewInstance API
-func CreateRenewInstanceRequest() (request *RenewInstanceRequest) {
-	request = &RenewInstanceRequest{
+// CreateStartDiskReplicaPairRequest creates a request to invoke StartDiskReplicaPair API
+func CreateStartDiskReplicaPairRequest() (request *StartDiskReplicaPairRequest) {
+	request = &StartDiskReplicaPairRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "RenewInstance", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "StartDiskReplicaPair", "ecs", "openAPI")
 	request.Method = requests.POST
 	return
 }
 
-// CreateRenewInstanceResponse creates a response to parse from RenewInstance response
-func CreateRenewInstanceResponse() (response *RenewInstanceResponse) {
-	response = &RenewInstanceResponse{
+// CreateStartDiskReplicaPairResponse creates a response to parse from StartDiskReplicaPair response
+func CreateStartDiskReplicaPairResponse() (response *StartDiskReplicaPairResponse) {
+	response = &StartDiskReplicaPairResponse{
 		BaseResponse: &responses.BaseResponse{},
 	}
 	return
