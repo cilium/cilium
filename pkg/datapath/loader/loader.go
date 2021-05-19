@@ -359,19 +359,19 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		}
 	}
 
-	if ip := ep.IPv4Address(); ip.IsSet() {
-		if ep.RequireEndpointRoute() {
-			upsertEndpointRoute(ep, *ip.IPNet(32))
-		} else {
-			removeEndpointRoute(ep, *ip.IPNet(32))
+	if ep.RequireEndpointRoute() {
+		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			logfields.Veth: ep.InterfaceName(),
+		})
+		if ip := ep.IPv4Address(); ip.IsSet() {
+			if err := upsertEndpointRoute(ep, *ip.IPNet(32)); err != nil {
+				scopedLog.WithError(err).Warn("Failed to upsert route")
+			}
 		}
-	}
-
-	if ip := ep.IPv6Address(); ip.IsSet() {
-		if ep.RequireEndpointRoute() {
-			upsertEndpointRoute(ep, *ip.IPNet(128))
-		} else {
-			removeEndpointRoute(ep, *ip.IPNet(128))
+		if ip := ep.IPv6Address(); ip.IsSet() {
+			if err := upsertEndpointRoute(ep, *ip.IPNet(128)); err != nil {
+				scopedLog.WithError(err).Warn("Failed to upsert route")
+			}
 		}
 	}
 
