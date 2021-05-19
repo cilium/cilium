@@ -20,21 +20,21 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
 )
 
-// RenewInstance invokes the ecs.RenewInstance API synchronously
-func (client *Client) RenewInstance(request *RenewInstanceRequest) (response *RenewInstanceResponse, err error) {
-	response = CreateRenewInstanceResponse()
+// DeleteDiskReplicaPair invokes the ecs.DeleteDiskReplicaPair API synchronously
+func (client *Client) DeleteDiskReplicaPair(request *DeleteDiskReplicaPairRequest) (response *DeleteDiskReplicaPairResponse, err error) {
+	response = CreateDeleteDiskReplicaPairResponse()
 	err = client.DoAction(request, response)
 	return
 }
 
-// RenewInstanceWithChan invokes the ecs.RenewInstance API asynchronously
-func (client *Client) RenewInstanceWithChan(request *RenewInstanceRequest) (<-chan *RenewInstanceResponse, <-chan error) {
-	responseChan := make(chan *RenewInstanceResponse, 1)
+// DeleteDiskReplicaPairWithChan invokes the ecs.DeleteDiskReplicaPair API asynchronously
+func (client *Client) DeleteDiskReplicaPairWithChan(request *DeleteDiskReplicaPairRequest) (<-chan *DeleteDiskReplicaPairResponse, <-chan error) {
+	responseChan := make(chan *DeleteDiskReplicaPairResponse, 1)
 	errChan := make(chan error, 1)
 	err := client.AddAsyncTask(func() {
 		defer close(responseChan)
 		defer close(errChan)
-		response, err := client.RenewInstance(request)
+		response, err := client.DeleteDiskReplicaPair(request)
 		if err != nil {
 			errChan <- err
 		} else {
@@ -49,14 +49,14 @@ func (client *Client) RenewInstanceWithChan(request *RenewInstanceRequest) (<-ch
 	return responseChan, errChan
 }
 
-// RenewInstanceWithCallback invokes the ecs.RenewInstance API asynchronously
-func (client *Client) RenewInstanceWithCallback(request *RenewInstanceRequest, callback func(response *RenewInstanceResponse, err error)) <-chan int {
+// DeleteDiskReplicaPairWithCallback invokes the ecs.DeleteDiskReplicaPair API asynchronously
+func (client *Client) DeleteDiskReplicaPairWithCallback(request *DeleteDiskReplicaPairRequest, callback func(response *DeleteDiskReplicaPairResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
-		var response *RenewInstanceResponse
+		var response *DeleteDiskReplicaPairResponse
 		var err error
 		defer close(result)
-		response, err = client.RenewInstance(request)
+		response, err = client.DeleteDiskReplicaPair(request)
 		callback(response, err)
 		result <- 1
 	})
@@ -68,40 +68,35 @@ func (client *Client) RenewInstanceWithCallback(request *RenewInstanceRequest, c
 	return result
 }
 
-// RenewInstanceRequest is the request struct for api RenewInstance
-type RenewInstanceRequest struct {
+// DeleteDiskReplicaPairRequest is the request struct for api DeleteDiskReplicaPair
+type DeleteDiskReplicaPairRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Period               requests.Integer `position:"Query" name:"Period"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	ExpectedRenewDay     requests.Integer `position:"Query" name:"ExpectedRenewDay"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
+	ReplicaPairId        string           `position:"Query" name:"ReplicaPairId"`
 }
 
-// RenewInstanceResponse is the response struct for api RenewInstance
-type RenewInstanceResponse struct {
+// DeleteDiskReplicaPairResponse is the response struct for api DeleteDiskReplicaPair
+type DeleteDiskReplicaPairResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
-	OrderId   string `json:"OrderId" xml:"OrderId"`
 }
 
-// CreateRenewInstanceRequest creates a request to invoke RenewInstance API
-func CreateRenewInstanceRequest() (request *RenewInstanceRequest) {
-	request = &RenewInstanceRequest{
+// CreateDeleteDiskReplicaPairRequest creates a request to invoke DeleteDiskReplicaPair API
+func CreateDeleteDiskReplicaPairRequest() (request *DeleteDiskReplicaPairRequest) {
+	request = &DeleteDiskReplicaPairRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Ecs", "2014-05-26", "RenewInstance", "ecs", "openAPI")
+	request.InitWithApiInfo("Ecs", "2014-05-26", "DeleteDiskReplicaPair", "ecs", "openAPI")
 	request.Method = requests.POST
 	return
 }
 
-// CreateRenewInstanceResponse creates a response to parse from RenewInstance response
-func CreateRenewInstanceResponse() (response *RenewInstanceResponse) {
-	response = &RenewInstanceResponse{
+// CreateDeleteDiskReplicaPairResponse creates a response to parse from DeleteDiskReplicaPair response
+func CreateDeleteDiskReplicaPairResponse() (response *DeleteDiskReplicaPairResponse) {
+	response = &DeleteDiskReplicaPairResponse{
 		BaseResponse: &responses.BaseResponse{},
 	}
 	return

@@ -71,19 +71,27 @@ func (client *Client) DescribeElasticityAssurancesWithCallback(request *Describe
 // DescribeElasticityAssurancesRequest is the request struct for api DescribeElasticityAssurances
 type DescribeElasticityAssurancesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId       requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Platform              string           `position:"Query" name:"Platform"`
-	NextToken             string           `position:"Query" name:"NextToken"`
-	InstanceType          string           `position:"Query" name:"InstanceType"`
-	InstanceChargeType    string           `position:"Query" name:"InstanceChargeType"`
-	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount          string           `position:"Query" name:"OwnerAccount"`
-	OwnerId               requests.Integer `position:"Query" name:"OwnerId"`
-	PrivatePoolOptionsIds string           `position:"Query" name:"PrivatePoolOptions.Ids"`
-	MaxResults            requests.Integer `position:"Query" name:"MaxResults"`
-	ZoneId                string           `position:"Query" name:"ZoneId"`
-	PackageType           string           `position:"Query" name:"PackageType"`
-	Status                string           `position:"Query" name:"Status"`
+	ResourceOwnerId       requests.Integer                   `position:"Query" name:"ResourceOwnerId"`
+	Platform              string                             `position:"Query" name:"Platform"`
+	ResourceGroupId       string                             `position:"Query" name:"ResourceGroupId"`
+	NextToken             string                             `position:"Query" name:"NextToken"`
+	InstanceType          string                             `position:"Query" name:"InstanceType"`
+	Tag                   *[]DescribeElasticityAssurancesTag `position:"Query" name:"Tag"  type:"Repeated"`
+	InstanceChargeType    string                             `position:"Query" name:"InstanceChargeType"`
+	ResourceOwnerAccount  string                             `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount          string                             `position:"Query" name:"OwnerAccount"`
+	OwnerId               requests.Integer                   `position:"Query" name:"OwnerId"`
+	PrivatePoolOptionsIds string                             `position:"Query" name:"PrivatePoolOptions.Ids"`
+	MaxResults            requests.Integer                   `position:"Query" name:"MaxResults"`
+	ZoneId                string                             `position:"Query" name:"ZoneId"`
+	PackageType           string                             `position:"Query" name:"PackageType"`
+	Status                string                             `position:"Query" name:"Status"`
+}
+
+// DescribeElasticityAssurancesTag is a repeated param struct in DescribeElasticityAssurancesRequest
+type DescribeElasticityAssurancesTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeElasticityAssurancesResponse is the response struct for api DescribeElasticityAssurances

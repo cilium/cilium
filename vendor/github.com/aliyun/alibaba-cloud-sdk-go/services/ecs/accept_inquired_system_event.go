@@ -76,6 +76,7 @@ type AcceptInquiredSystemEventRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	Choice               string           `position:"Query" name:"Choice"`
 }
 
 // AcceptInquiredSystemEventResponse is the response struct for api AcceptInquiredSystemEvent

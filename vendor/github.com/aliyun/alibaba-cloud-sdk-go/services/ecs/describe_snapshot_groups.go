@@ -77,6 +77,7 @@ type DescribeSnapshotGroupsRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	SnapshotGroupId      *[]string        `position:"Query" name:"SnapshotGroupId"  type:"Repeated"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	AdditionalAttributes *[]string        `position:"Query" name:"AdditionalAttributes"  type:"Repeated"`
 	InstanceId           string           `position:"Query" name:"InstanceId"`
 	Name                 string           `position:"Query" name:"Name"`
 	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`

@@ -98,6 +98,7 @@ type DescribePriceRequest struct {
 	DataDisk4PerformanceLevel  string           `position:"Query" name:"DataDisk.4.PerformanceLevel"`
 	Scope                      string           `position:"Query" name:"Scope"`
 	InstanceType               string           `position:"Query" name:"InstanceType"`
+	DedicatedHostType          string           `position:"Query" name:"DedicatedHostType"`
 	DataDisk2Category          string           `position:"Query" name:"DataDisk.2.Category"`
 	DataDisk1Size              requests.Integer `position:"Query" name:"DataDisk.1.Size"`
 	Amount                     requests.Integer `position:"Query" name:"Amount"`

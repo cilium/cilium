@@ -85,8 +85,10 @@ type CreateNetworkInterfaceRequest struct {
 	Visible                        requests.Boolean             `position:"Query" name:"Visible"`
 	ResourceOwnerAccount           string                       `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                   string                       `position:"Query" name:"OwnerAccount"`
+	QueuePairNumber                requests.Integer             `position:"Query" name:"QueuePairNumber"`
 	OwnerId                        requests.Integer             `position:"Query" name:"OwnerId"`
 	SecurityGroupIds               *[]string                    `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
+	NetworkInterfaceTrafficMode    string                       `position:"Query" name:"NetworkInterfaceTrafficMode"`
 	VSwitchId                      string                       `position:"Query" name:"VSwitchId"`
 	PrivateIpAddress               *[]string                    `position:"Query" name:"PrivateIpAddress"  type:"Repeated"`
 	PrimaryIpAddress               string                       `position:"Query" name:"PrimaryIpAddress"`

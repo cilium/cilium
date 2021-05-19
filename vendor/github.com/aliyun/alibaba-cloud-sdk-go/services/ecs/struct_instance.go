@@ -88,6 +88,7 @@ type Instance struct {
 	MetadataOptions                 MetadataOptions                      `json:"MetadataOptions" xml:"MetadataOptions"`
 	DedicatedHostAttribute          DedicatedHostAttribute               `json:"DedicatedHostAttribute" xml:"DedicatedHostAttribute"`
 	EipAddress                      EipAddressInDescribeInstances        `json:"EipAddress" xml:"EipAddress"`
+	HibernationOptions              HibernationOptions                   `json:"HibernationOptions" xml:"HibernationOptions"`
 	CpuOptions                      CpuOptions                           `json:"CpuOptions" xml:"CpuOptions"`
 	EcsCapacityReservationAttr      EcsCapacityReservationAttr           `json:"EcsCapacityReservationAttr" xml:"EcsCapacityReservationAttr"`
 	DedicatedInstanceAttribute      DedicatedInstanceAttribute           `json:"DedicatedInstanceAttribute" xml:"DedicatedInstanceAttribute"`
