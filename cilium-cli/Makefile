@@ -68,23 +68,7 @@ test:
 bench:
 	go test -timeout=30s -bench=. $$(go list ./...)
 
-check: gofmt ineffassign lint staticcheck vet
+check:
+	docker run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v1.40.1 golangci-lint run -v
 
-gofmt:
-	@source="$$(find . -type f -name '*.go' -not -path './vendor/*')"; \
-	unformatted="$$(gofmt -l $$source)"; \
-	if [ -n "$$unformatted" ]; then echo "unformatted source code:" && echo "$$unformatted" && exit 1; fi
-
-ineffassign:
-	$(GO) run ./vendor/github.com/gordonklaus/ineffassign .
-
-lint:
-	$(GO) run ./vendor/golang.org/x/lint/golint -set_exit_status $$($(GO) list ./...)
-
-staticcheck:
-	$(GO) run ./vendor/honnef.co/go/tools/cmd/staticcheck -checks="all,-ST1000" $$($(GO) list ./...)
-
-vet:
-	go vet $$(go list ./...)
-
-.PHONY: $(TARGET) release local-release install clean test bench check gofmt ineffassign lint staticcheck vet
+.PHONY: $(TARGET) release local-release install clean test bench check
