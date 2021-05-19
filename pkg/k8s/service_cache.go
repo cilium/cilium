@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath"
@@ -133,15 +134,15 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 }
 
 // GetServiceFrontendIP returns the frontend IP (aka clusterIP) for the given service with type.
-func (s *ServiceCache) GetServiceFrontendIP(svcID ServiceID, svcType loadbalancer.SVCType) net.IP {
+func (s *ServiceCache) GetServiceFrontendIP(svcID ServiceID, svcType loadbalancer.SVCType) (net.IP, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
 	if svc == nil || svc.Type != svcType || len(svc.FrontendIPs) == 0 {
-		return nil
+		return nil, fmt.Errorf("service not found %v", svcID)
 	}
 
-	return ip.GetIPFromListByFamily(svc.FrontendIPs, option.Config.EnableIPv4)
+	return ip.GetIPFromListByFamily(svc.FrontendIPs, option.Config.EnableIPv4), nil
 }
 
 // GetServiceAddrsWithType returns a map of all the ports and slice of L3n4Addr that are backing the
