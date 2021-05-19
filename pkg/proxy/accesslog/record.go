@@ -218,8 +218,10 @@ type LogRecordHTTP struct {
 	Protocol string
 
 	// Headers are all HTTP headers present in the request and response. Request records
-	// contain request headers, while response headers contain both request and response
-	// headers.
+	// contain request headers, while response headers contain response headers and the
+	// 'x-request-id' from the request headers, if any. If response headers already contain
+	// a 'x-request-id' with a different value then both will be included as two separate
+	// entries with the same key.
 	Headers http.Header
 
 	// MissingHeaders are HTTP request headers that were deemed missing from the request
