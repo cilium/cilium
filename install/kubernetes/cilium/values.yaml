@@ -45,7 +45,7 @@ serviceAccounts:
     annotations: {}
   preflight:
     create: true
-    name: cilium-pre-flight 
+    name: cilium-pre-flight
     annotations: {}
   relay:
     create: true
@@ -1066,6 +1066,9 @@ tls:
 #   - geneve
 tunnel: "vxlan"
 
+# -- Disable the usage of CiliumEndpoint CRD
+disableEndpointCRD: "false"
+
 wellKnownIdentities:
   # -- Enable the use of well-known identities.
   enabled: false
@@ -1205,7 +1208,7 @@ operator:
 
   # -- For using with an existing serviceAccount.
   serviceAccountName: cilium-operator
- 
+
   # -- cilium-operator priorityClassName
   priorityClassName: ""
 
