@@ -124,6 +124,7 @@ have it scrape all Hubble metrics from the endpoints automatically:
 
     scrape_configs:
       - job_name: 'kubernetes-endpoints'
+        scrape_interval: 30s
         kubernetes_sd_configs:
           - role: endpoints
         relabel_configs:
