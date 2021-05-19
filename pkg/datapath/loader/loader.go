@@ -16,14 +16,12 @@ package loader
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path"
 	"reflect"
 	"sync"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -352,32 +350,18 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		}
 	}
 
-	if ip := ep.IPv4Address(); ip.IsSet() {
+	if ep.RequireEndpointRoute() {
 		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 			logfields.Veth: ep.InterfaceName(),
 		})
-		if ep.RequireEndpointRoute() {
+		if ip := ep.IPv4Address(); ip.IsSet() {
 			if err := upsertEndpointRoute(ep, *ip.IPNet(32)); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
-		} else {
-			if err := removeEndpointRoute(ep, *ip.IPNet(32)); err != nil && !errors.Is(err, syscall.ESRCH) {
-				scopedLog.WithError(err).Warn("Failed to remove route")
-			}
 		}
-	}
-
-	if ip := ep.IPv6Address(); ip.IsSet() {
-		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-			logfields.Veth: ep.InterfaceName(),
-		})
-		if ep.RequireEndpointRoute() {
+		if ip := ep.IPv6Address(); ip.IsSet() {
 			if err := upsertEndpointRoute(ep, *ip.IPNet(128)); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
-			}
-		} else {
-			if err := removeEndpointRoute(ep, *ip.IPNet(128)); err != nil && !errors.Is(err, syscall.ESRCH) {
-				scopedLog.WithError(err).Warn("Failed to remove route")
 			}
 		}
 	}
