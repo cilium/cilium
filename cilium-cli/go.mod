@@ -29,14 +29,11 @@ require (
 	github.com/go-openapi/strfmt v0.19.11
 	github.com/golang/protobuf v1.4.3
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/gordonklaus/ineffassign v0.0.0-20200809085317-e36bfde3bb78
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/spf13/cobra v1.1.1
-	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 	google.golang.org/grpc v1.34.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	honnef.co/go/tools v0.1.2
 	k8s.io/api v0.19.10
 	k8s.io/apimachinery v0.19.10
 	k8s.io/cli-runtime v0.19.10
