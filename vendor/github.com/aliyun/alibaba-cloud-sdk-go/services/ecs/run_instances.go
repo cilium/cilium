@@ -98,12 +98,11 @@ type RunInstancesRequest struct {
 	NetworkInterfaceQueueNumber            requests.Integer                `position:"Query" name:"NetworkInterfaceQueueNumber"`
 	IoOptimized                            string                          `position:"Query" name:"IoOptimized"`
 	SecurityGroupId                        string                          `position:"Query" name:"SecurityGroupId"`
+	HibernationOptionsConfigured           requests.Boolean                `position:"Query" name:"HibernationOptions.Configured"`
 	SystemDiskPerformanceLevel             string                          `position:"Query" name:"SystemDisk.PerformanceLevel"`
 	PasswordInherit                        requests.Boolean                `position:"Query" name:"PasswordInherit"`
 	InstanceType                           string                          `position:"Query" name:"InstanceType"`
-	HibernationConfigured                  requests.Boolean                `position:"Query" name:"HibernationConfigured"`
 	Arn                                    *[]RunInstancesArn              `position:"Query" name:"Arn"  type:"Repeated"`
-	SchedulerOptions                       string                          `position:"Query" name:"SchedulerOptions"`
 	ResourceOwnerAccount                   string                          `position:"Query" name:"ResourceOwnerAccount"`
 	SchedulerOptionsDedicatedHostClusterId string                          `position:"Query" name:"SchedulerOptions.DedicatedHostClusterId"`
 	SystemDiskDiskName                     string                          `position:"Query" name:"SystemDisk.DiskName"`
@@ -125,6 +124,7 @@ type RunInstancesRequest struct {
 	AutoRenewPeriod                        requests.Integer                `position:"Query" name:"AutoRenewPeriod"`
 	LaunchTemplateId                       string                          `position:"Query" name:"LaunchTemplateId"`
 	Ipv6AddressCount                       requests.Integer                `position:"Query" name:"Ipv6AddressCount"`
+	HostNames                              *[]string                       `position:"Query" name:"HostNames"  type:"Repeated"`
 	CapacityReservationPreference          string                          `position:"Query" name:"CapacityReservationPreference"`
 	VSwitchId                              string                          `position:"Query" name:"VSwitchId"`
 	InstanceName                           string                          `position:"Query" name:"InstanceName"`
@@ -135,6 +135,7 @@ type RunInstancesRequest struct {
 	Description                            string                          `position:"Query" name:"Description"`
 	CpuOptionsThreadsPerCore               requests.Integer                `position:"Query" name:"CpuOptions.ThreadsPerCore"`
 	SystemDiskCategory                     string                          `position:"Query" name:"SystemDisk.Category"`
+	SecurityOptionsTrustedSystemMode       string                          `position:"Query" name:"SecurityOptions.TrustedSystemMode"`
 	CapacityReservationId                  string                          `position:"Query" name:"CapacityReservationId"`
 	UserData                               string                          `position:"Query" name:"UserData"`
 	HttpEndpoint                           string                          `position:"Query" name:"HttpEndpoint"`
@@ -200,6 +201,7 @@ type RunInstancesResponse struct {
 	*responses.BaseResponse
 	RequestId      string         `json:"RequestId" xml:"RequestId"`
 	TradePrice     float64        `json:"TradePrice" xml:"TradePrice"`
+	OrderId        string         `json:"OrderId" xml:"OrderId"`
 	InstanceIdSets InstanceIdSets `json:"InstanceIdSets" xml:"InstanceIdSets"`
 }
 

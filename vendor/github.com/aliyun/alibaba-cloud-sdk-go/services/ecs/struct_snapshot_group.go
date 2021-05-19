@@ -23,5 +23,6 @@ type SnapshotGroup struct {
 	Name            string                            `json:"Name" xml:"Name"`
 	Description     string                            `json:"Description" xml:"Description"`
 	CreationTime    string                            `json:"CreationTime" xml:"CreationTime"`
+	ProgressStatus  string                            `json:"ProgressStatus" xml:"ProgressStatus"`
 	Snapshots       SnapshotsInDescribeSnapshotGroups `json:"Snapshots" xml:"Snapshots"`
 }

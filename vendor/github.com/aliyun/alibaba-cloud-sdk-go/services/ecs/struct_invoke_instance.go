@@ -19,6 +19,7 @@ package ecs
 type InvokeInstance struct {
 	UpdateTime           string `json:"UpdateTime" xml:"UpdateTime"`
 	InstanceInvokeStatus string `json:"InstanceInvokeStatus" xml:"InstanceInvokeStatus"`
+	Timed                bool   `json:"Timed" xml:"Timed"`
 	CreationTime         string `json:"CreationTime" xml:"CreationTime"`
 	ErrorInfo            string `json:"ErrorInfo" xml:"ErrorInfo"`
 	FinishTime           string `json:"FinishTime" xml:"FinishTime"`

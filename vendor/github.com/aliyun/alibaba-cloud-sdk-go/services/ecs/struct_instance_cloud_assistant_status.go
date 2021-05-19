@@ -18,6 +18,11 @@ package ecs
 // InstanceCloudAssistantStatus is a nested struct in ecs response
 type InstanceCloudAssistantStatus struct {
 	InstanceId            string `json:"InstanceId" xml:"InstanceId"`
+	OSType                string `json:"OSType" xml:"OSType"`
 	CloudAssistantStatus  string `json:"CloudAssistantStatus" xml:"CloudAssistantStatus"`
 	CloudAssistantVersion string `json:"CloudAssistantVersion" xml:"CloudAssistantVersion"`
+	InvocationCount       int64  `json:"InvocationCount" xml:"InvocationCount"`
+	ActiveTaskCount       int64  `json:"ActiveTaskCount" xml:"ActiveTaskCount"`
+	LastInvokedTime       string `json:"LastInvokedTime" xml:"LastInvokedTime"`
+	LastHeartbeatTime     string `json:"LastHeartbeatTime" xml:"LastHeartbeatTime"`
 }

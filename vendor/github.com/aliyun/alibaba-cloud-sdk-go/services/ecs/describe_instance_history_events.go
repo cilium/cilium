@@ -79,11 +79,13 @@ type DescribeInstanceHistoryEventsRequest struct {
 	PageSize                 requests.Integer `position:"Query" name:"PageSize"`
 	InstanceEventCycleStatus *[]string        `position:"Query" name:"InstanceEventCycleStatus"  type:"Repeated"`
 	EventPublishTimeEnd      string           `position:"Query" name:"EventPublishTime.End"`
+	ResourceId               *[]string        `position:"Query" name:"ResourceId"  type:"Repeated"`
 	InstanceEventType        *[]string        `position:"Query" name:"InstanceEventType"  type:"Repeated"`
 	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount             string           `position:"Query" name:"OwnerAccount"`
 	NotBeforeStart           string           `position:"Query" name:"NotBefore.Start"`
 	OwnerId                  requests.Integer `position:"Query" name:"OwnerId"`
+	ResourceType             string           `position:"Query" name:"ResourceType"`
 	EventPublishTimeStart    string           `position:"Query" name:"EventPublishTime.Start"`
 	InstanceId               string           `position:"Query" name:"InstanceId"`
 	NotBeforeEnd             string           `position:"Query" name:"NotBefore.End"`
