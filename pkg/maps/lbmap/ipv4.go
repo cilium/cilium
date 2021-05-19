@@ -29,6 +29,8 @@ const (
 	Service4MapV2Name = "cilium_lb4_services_v2"
 	// Backend4MapName is the name of the IPv4 LB backends BPF map.
 	Backend4MapName = "cilium_lb4_backends"
+	// Backend4MapV2Name is the name of the IPv4 LB backends v2 BPF map.
+	Backend4MapV2Name = "cilium_lb4_backends_v2"
 	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
 	RevNat4MapName = "cilium_lb4_reverse_nat"
 )
@@ -44,6 +46,8 @@ var (
 	Service4MapV2 *bpf.Map
 	// Backend4Map is the IPv4 LB backends BPF map.
 	Backend4Map *bpf.Map
+	// Backend4MapV2 is the IPv4 LB backends v2 BPF map.
+	Backend4MapV2 *bpf.Map
 	// RevNat4Map is the IPv4 LB reverse NAT BPF map.
 	RevNat4Map *bpf.Map
 )
@@ -64,6 +68,16 @@ func initSVC(params InitParams) {
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric()
 		Backend4Map = bpf.NewMap(Backend4MapName,
+			bpf.MapTypeHash,
+			&Backend4Key{},
+			int(unsafe.Sizeof(Backend4Key{})),
+			&Backend4Value{},
+			int(unsafe.Sizeof(Backend4Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		Backend4MapV2 = bpf.NewMap(Backend4MapV2Name,
 			bpf.MapTypeHash,
 			&Backend4Key{},
 			int(unsafe.Sizeof(Backend4Key{})),
@@ -333,7 +347,7 @@ func NewBackend4Key(id loadbalancer.BackendID) *Backend4Key {
 func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
 func (k *Backend4Key) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
 func (k *Backend4Key) NewValue() bpf.MapValue          { return &Backend4Value{} }
-func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
+func (k *Backend4Key) Map() *bpf.Map                   { return Backend4MapV2 }
 func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4Key) GetID() loadbalancer.BackendID   { return k.ID }
 
@@ -402,7 +416,7 @@ func NewBackend4(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8prot
 	}, nil
 }
 
-func (b *Backend4) Map() *bpf.Map          { return Backend4Map }
+func (b *Backend4) Map() *bpf.Map          { return Backend4MapV2 }
 func (b *Backend4) GetKey() BackendKey     { return b.Key }
 func (b *Backend4) GetValue() BackendValue { return b.Value }
 

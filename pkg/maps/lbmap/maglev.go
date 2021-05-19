@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 const (
@@ -151,7 +152,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 	return true, nil
 }
 
-func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
+func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.BackendID) error {
 	outerMap := maglevOuter4Map
 	innerMapName := MaglevInner4MapName
 	if ipv6 {

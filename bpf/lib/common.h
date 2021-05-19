@@ -875,7 +875,7 @@ struct ct_state {
 	__be32 svc_addr;
 	__u32 src_sec_id;
 	__u16 ifindex;
-	__u16 backend_id;	/* Backend ID in lb4_backends */
+	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
 
 #define SRC_RANGE_STATIC_PREFIX(STRUCT)		\

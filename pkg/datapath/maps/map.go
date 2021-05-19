@@ -159,6 +159,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_services_v2",
 			"cilium_lb4_rr_seq_v2",
 			"cilium_lb4_backends",
+			"cilium_lb4_backends_v2",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
 			"cilium_proxy4",
