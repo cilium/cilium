@@ -373,6 +373,10 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 	case svcFrontendSinglePort:
 		// Get service frontend with the clusterIP and the policy config (unnamed) port.
 		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		if ip == nil {
+			// The LRP will be applied when the selected service is added later.
+			return
+		}
 		config.frontendMappings[0].feAddr.IP = ip
 		rpm.updateConfigSvcFrontend(config, config.frontendMappings[0].feAddr)
 
@@ -383,6 +387,10 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 			ports[i] = mapping.fePort
 		}
 		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		if ip == nil {
+			// The LRP will be applied when the selected service is added later.
+			return
+		}
 		for _, feM := range config.frontendMappings {
 			feM.feAddr.IP = ip
 			rpm.updateConfigSvcFrontend(config, feM.feAddr)
