@@ -124,6 +124,7 @@ func getCgroupRootForKind() (string, error) {
 // for details).
 func CheckOrMountCgrpFS(mapRoot string, runsOnKind bool) {
 	cgrpMountOnce.Do(func() {
+		defer cgrpSanityCheck()
 		if mapRoot == "" {
 			mapRoot = cgroupRoot
 		}

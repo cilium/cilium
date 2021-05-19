@@ -477,6 +477,9 @@ const (
 	// Count is a measure being compared to the Limit
 	Count = "count"
 
+	// CgroupPath is where the cgroup fs is mounted
+	CgroupPath = "cgroupPath"
+
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
 

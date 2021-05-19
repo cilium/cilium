@@ -15,11 +15,18 @@
 package cgroups
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mountinfo"
+	"github.com/cilium/cilium/pkg/warnings"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -45,6 +52,48 @@ func mountCgroup() error {
 	return nil
 }
 
+// cgrpSanityCheck performs a sanity check on the mounted cgroup fs and issues
+// a warning if something seems wrong.
+//
+// It does this by recursively checking the number of pids in "cgroup.procs".
+// If the total number is 1, it is likely that the cgroup used is incorrect.
+func cgrpSanityCheck() {
+
+	procCount := 0
+	err := filepath.Walk(cgroupRoot, func(path string, info fs.FileInfo, _ error) error {
+		if info.IsDir() {
+			return nil
+		}
+
+		if info.Name() != "cgroup.procs" {
+			return nil
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return nil
+		}
+		defer f.Close()
+		s := bufio.NewScanner(f)
+		for s.Scan() {
+			procCount++
+			if procCount > 1 {
+				return errors.New("")
+			}
+		}
+		return nil
+	})
+
+	// if error is not set, it means that we did not reach the desired number of processes
+	if err == nil {
+		log.WithFields(logrus.Fields{
+			logfields.URL:        warnings.GetUrl("cgrouplowproccount"),
+			logfields.CgroupPath: cgroupRoot,
+			"process-count":      procCount,
+		}).Warn("Process count under cgroup is unexpectedly low")
+	}
+}
+
 // checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
 // given path.
 func cgrpCheckOrMountLocation(cgroupRoot string) error {
@@ -66,5 +115,6 @@ func cgrpCheckOrMountLocation(cgroupRoot string) error {
 	if !cgroupInstance {
 		return fmt.Errorf("Mount in the custom directory %s has a different filesystem than cgroup2", cgroupRoot)
 	}
+
 	return nil
 }
