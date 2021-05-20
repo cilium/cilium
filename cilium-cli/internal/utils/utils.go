@@ -106,3 +106,12 @@ func (w *WaitObserver) Retry(err error) error {
 
 	return nil
 }
+
+func Contains(l []string, v string) bool {
+	for _, s := range l {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
