@@ -1,5 +1,6 @@
 name: Kind
 
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request: {}
   push:
@@ -7,6 +8,10 @@ on:
       - master
   schedule:
     - cron:  '30 */6 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || 'scheduled' }}
+  cancel-in-progress: true
 
 env:
   KIND_VERSION: v0.9.0
