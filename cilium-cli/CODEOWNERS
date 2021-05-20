@@ -1,0 +1,25 @@
+# Code owners groups and a brief description of their areas:
+# @cilium/janitors           Catch-all for code not otherwise owned
+# @cilium/azure              Integration with Azure
+# @cilium/ci-structure       Continuous integration, testing
+# @cilium/cli                Commandline interfaces
+# @cilium/contributing       Developer documentation & tools
+# @cilium/hubble             Hubble integration
+# @cilium/kubernetes         K8s integration, K8s CNI plugin
+# @cilium/vendor             Vendoring, dependency management
+
+# The following filepaths should be sorted so that more specific paths occur
+# after the less specific paths, otherwise the ownership for the specific paths
+# is not properly picked up in Github.
+* @cilium/janitors
+/CODEOWNERS @cilium/contributing
+/.github/ @cilium/contributing
+/.github/workflows/ @cilium/maintainers @cilium/ci-structure
+/cmd/ @cilium/cli
+/hubble/ @cilium/hubble
+/install/azure.go @cilium/azure
+/internal/cli/ @cilium/cli
+/internal/k8s/ @cilium/kubernetes
+/go.sum @cilium/vendor
+/go.mod @cilium/vendor
+/vendor/ @cilium/vendor
