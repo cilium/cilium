@@ -332,7 +332,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// revision.
 	endpointsToBumpRevision := policy.NewEndpointSet(allEndpoints)
 
-	endpointsToRegen := policy.NewEndpointSet(nil)
+	addEndpointsToRegen := policy.NewEndpointSet(nil)
+	deletedEndpointsToRegen := policy.NewEndpointSet(nil)
+	policyOperation := "Add"
 
 	if opts != nil {
 		if opts.Replace {
@@ -341,7 +343,8 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
-					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, deletedEndpointsToRegen, &policySelectionWG)
+					policyOperation = "update"
 				}
 			}
 		}
@@ -350,7 +353,8 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
-				deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+				deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, deletedEndpointsToRegen, &policySelectionWG)
+				policyOperation = "update"
 			}
 		}
 	}
@@ -364,7 +368,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		err:    nil,
 	}
 
-	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
+	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, addEndpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
 
@@ -372,7 +376,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// bpf_host needs to be recompiled whenever CIDR policy changed.
 		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
 			logger.Debug("CIDR policy has changed; regenerating host endpoint")
-			endpointsToRegen.Insert(hostEp)
+			addEndpointsToRegen.Insert(hostEp)
 			endpointsToBumpRevision.Delete(hostEp)
 		}
 	}
@@ -421,11 +425,13 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// endpoint regeneration and serialized with the corresponding ipcache deletes via
 		// the policy reaction queue.
 		r := &PolicyReactionEvent{
-			wg:                &policySelectionWG,
-			epsToBumpRevision: endpointsToBumpRevision,
-			endpointsToRegen:  endpointsToRegen,
-			newRev:            newRev,
-			upsertIdentities:  newlyAllocatedIdentities,
+			wg:                      &policySelectionWG,
+			epsToBumpRevision:       endpointsToBumpRevision,
+			addEndpointsToRegen:     addEndpointsToRegen,
+			deletedEndpointsToRegen: deletedEndpointsToRegen,
+			newRev:                  newRev,
+			upsertIdentities:        newlyAllocatedIdentities,
+			policyOperation:         policyOperation,
 		}
 
 		ev := eventqueue.NewEvent(r)
@@ -452,12 +458,14 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 // to a policy repository for a daemon. This currently consists of endpoint
 // regenerations / policy revision incrementing for a given endpoint.
 type PolicyReactionEvent struct {
-	wg                *sync.WaitGroup
-	epsToBumpRevision *policy.EndpointSet
-	endpointsToRegen  *policy.EndpointSet
-	newRev            uint64
-	upsertIdentities  map[string]*identity.Identity // deferred CIDR identity upserts, if any
-	releasePrefixes   []*net.IPNet                  // deferred CIDR identity deletes, if any
+	wg                      *sync.WaitGroup
+	epsToBumpRevision       *policy.EndpointSet
+	addEndpointsToRegen     *policy.EndpointSet
+	deletedEndpointsToRegen *policy.EndpointSet
+	newRev                  uint64
+	upsertIdentities        map[string]*identity.Identity // deferred CIDR identity upserts, if any
+	releasePrefixes         []*net.IPNet                  // deferred CIDR identity deletes, if any
+	policyOperation         string
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
@@ -465,7 +473,37 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
 	r.wg.Wait()
-	reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev, r.upsertIdentities, r.releasePrefixes)
+	operationHandle(r.epsToBumpRevision, r.deletedEndpointsToRegen, r.addEndpointsToRegen, r.newRev, r.upsertIdentities, r.releasePrefixes, r.policyOperation)
+}
+
+func operationHandle(epsToBumpRevision, deletedEndpointsToRegen *policy.EndpointSet, addEndpointsToRegen *policy.EndpointSet, newRev uint64, upsertIdentities map[string]*identity.Identity, releasePrefixes []*net.IPNet, policyOperation string) {
+
+	if policyOperation == "update" {
+		if deletedEndpointsToRegen.Len() != 0 { // Delete in use Policy
+			metrics.PolicyUsed.Dec()
+		}
+		if deletedEndpointsToRegen.Len() == 0 { // delete dummy Policy
+			metrics.PolicyUnused.Dec()
+		}
+		metrics.PolicyUnused.Inc()
+		reactToRuleUpdates(epsToBumpRevision, deletedEndpointsToRegen, newRev, upsertIdentities, releasePrefixes)
+		reactToRuleUpdates(epsToBumpRevision, addEndpointsToRegen, newRev, upsertIdentities, releasePrefixes)
+	} else if policyOperation == "Add" {
+		if addEndpointsToRegen.Len() != 0 {
+			metrics.PolicyUsed.Inc()
+		} else {
+			metrics.PolicyUnused.Inc()
+		}
+		reactToRuleUpdates(epsToBumpRevision, addEndpointsToRegen, newRev, upsertIdentities, releasePrefixes)
+	} else { // policyOperation == "Delete"
+		if deletedEndpointsToRegen.Len() != 0 { // Delelete in use Policy
+			metrics.PolicyUsed.Dec()
+		}
+		if deletedEndpointsToRegen.Len() == 0 { // delete dummy Policy
+			metrics.PolicyUnused.Dec()
+		}
+		reactToRuleUpdates(epsToBumpRevision, deletedEndpointsToRegen, newRev, upsertIdentities, releasePrefixes)
+	}
 }
 
 // reactToRuleUpdates does the following:
@@ -601,10 +639,11 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// revision bumped.
 	epsToBumpRevision := policy.NewEndpointSet(allEndpoints)
 
-	endpointsToRegen := policy.NewEndpointSet(nil)
+	addEndpointsToRegen := policy.NewEndpointSet(nil)
+	deletedEndpointsToRegen := policy.NewEndpointSet(nil)
 
 	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
-	deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
+	deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, deletedEndpointsToRegen, &policySelectionWG)
 
 	res <- &PolicyDeleteResult{
 		newRev: rev,
@@ -633,7 +672,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		// bpf_host needs to be recompiled whenever CIDR policy changed.
 		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
 			log.Debug("CIDR policy has changed; regenerating host endpoint")
-			endpointsToRegen.Insert(hostEp)
+			deletedEndpointsToRegen.Insert(hostEp)
 			epsToBumpRevision.Delete(hostEp)
 		}
 	}
@@ -644,11 +683,13 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		// w.r.t. to endpoint regenerations remains the same, endpoints are regenerated
 		// after any prefixes have been removed from the ipcache.
 		r := &PolicyReactionEvent{
-			wg:                &policySelectionWG,
-			epsToBumpRevision: epsToBumpRevision,
-			endpointsToRegen:  endpointsToRegen,
-			newRev:            rev,
-			releasePrefixes:   prefixes,
+			wg:                      &policySelectionWG,
+			epsToBumpRevision:       epsToBumpRevision,
+			addEndpointsToRegen:     addEndpointsToRegen,
+			deletedEndpointsToRegen: deletedEndpointsToRegen,
+			newRev:                  rev,
+			releasePrefixes:         prefixes,
+			policyOperation:         "delete",
 		}
 
 		ev := eventqueue.NewEvent(r)

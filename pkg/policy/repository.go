@@ -18,9 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
-	"sync/atomic"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
@@ -33,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/proxy/go/cilium/api"
+	"sync"
+	"sync/atomic"
 )
 
 type CertificateManager interface {
@@ -763,5 +762,28 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		// enforcement for the endpoint. We don't care about returning any
 		// rules that match.
 		return false, false, nil
+	}
+}
+
+func (p *Repository) UpdatePolicyMetrics(idnty *identity.Identity, isAdd bool) {
+
+	_, _, matchingRules := p.computePolicyEnforcementAndRules(idnty)
+
+	for _, v := range matchingRules {
+		tcount := 0
+		for _, value := range v.metadata.IdentitySelected {
+			if value == true {
+				tcount++
+			}
+		}
+		if tcount == 1 && idnty.ID != identity.ReservedIdentityHealth {
+			if isAdd == true && idnty.ReferenceCount == 1 {
+				metrics.PolicyUsed.Inc()
+				metrics.PolicyUnused.Dec()
+			} else if isAdd == false && idnty.ReferenceCount == 0 {
+				metrics.PolicyUsed.Dec()
+				metrics.PolicyUnused.Inc()
+			}
+		}
 	}
 }

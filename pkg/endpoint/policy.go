@@ -255,6 +255,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		e.getLogger().Debug("Forced policy recalculation")
 	}
 
+	repo.UpdatePolicyMetrics(e.SecurityIdentity, true)
 	// Set the revision of this endpoint to the current revision of the policy
 	// repository.
 	e.setNextPolicyRevision(revision)

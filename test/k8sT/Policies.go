@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -74,6 +75,7 @@ var _ = SkipDescribeIf(func() bool {
 		cnpMatchExpression       string
 		cnpMatchExpressionDeny   string
 		connectivityCheckYml     string
+		dummyl3Policy            string
 
 		app1Service = "app1-service"
 		apps        = []string{helpers.App1, helpers.App2, helpers.App3}
@@ -110,6 +112,7 @@ var _ = SkipDescribeIf(func() bool {
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 		cnpMatchExpressionDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions-deny.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
+		dummyl3Policy = helpers.ManifestGet(kubectl.BasePath(), "sw_l3_l4_dummy.yaml")
 
 		daemonCfg = map[string]string{
 			"tls.secretsBackend": "k8s",
@@ -1314,6 +1317,312 @@ var _ = SkipDescribeIf(func() bool {
 			})
 		})
 
+	})
+
+	Context("Basic Policy Metrics Test", func() {
+		var (
+			ciliumPod        string
+			clusterIP        string
+			appPods          map[string]string
+			namespaceForTest string
+		)
+
+		BeforeAll(func() {
+			namespaceForTest = helpers.GenerateNamespaceForTest("")
+			kubectl.NamespaceDelete(namespaceForTest)
+			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
+			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
+
+			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
+
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "cannot get CiliumPod")
+
+			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service in %q namespace", namespaceForTest)
+			appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
+			logger.WithFields(logrus.Fields{
+				"ciliumPod": ciliumPod,
+				"clusterIP": clusterIP}).Info("Initial data")
+
+		})
+
+		AfterAll(func() {
+			kubectl.NamespaceDelete(namespaceForTest)
+			kubectl.Delete(demoPath)
+		})
+
+		BeforeEach(func() {
+			kubectl.CiliumExecMustSucceed(context.TODO(),
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+
+			err := kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			err = kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+		})
+
+		AfterEach(func() {
+			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
+			_ = kubectl.Exec(cmd)
+		})
+
+		policyMetricsTest := func(expectsSuccess bool) {
+			policyCount := 0
+			cmd := "cilium metrics list -o json | jq '.[] | select( .name == \"cilium_policy\" ).value'"
+			res := kubectl.CiliumExecContext(context.Background(), ciliumPod, cmd)
+			for _, cnt := range res.ByLines() {
+				policyCount, _ = strconv.Atoi(cnt)
+			}
+
+			policyUsedCount := 0
+			cmd = "cilium metrics list -o json | jq '.[] | select( .name == \"cilium_policy_used\" ).value'"
+			res = kubectl.CiliumExecContext(context.Background(), ciliumPod, cmd)
+			for _, cnt := range res.ByLines() {
+				policyUsedCount, _ = strconv.Atoi(cnt)
+			}
+
+			policyUnusedCount := 0
+			cmd = "cilium metrics list -o json | jq '.[] | select( .name == \"cilium_policy_unused\" ).value'"
+			res = kubectl.CiliumExecContext(context.Background(), ciliumPod, cmd)
+			for _, cnt := range res.ByLines() {
+				policyUnusedCount, _ = strconv.Atoi(cnt)
+			}
+
+			totalPolicyCount := policyUsedCount + policyUnusedCount
+
+			if expectsSuccess {
+				Expect(policyCount == totalPolicyCount).Should(Equal(true), "Policy count does not match with PolicyUsed and PolicyUnUsed\n")
+			}
+		}
+
+		It("checks all policies metrics", func() {
+
+			By("Testing L3/L4 rules")
+
+			_, err := kubectl.CiliumPolicyAction(
+				namespaceForTest, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			for _, appName := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				err = kubectl.WaitForCEPIdentity(namespaceForTest, appPods[appName])
+				Expect(err).Should(BeNil())
+			}
+
+			policyMetricsTest(true)
+
+			By("Testing L3/L4 deny rules")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			policyMetricsTest(true)
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3Policy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete L3 Policy Deny")
+			policyMetricsTest(true)
+
+			By("Testing L7 Policy")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
+			policyMetricsTest(true)
+
+			By("Testing L7 Policy with L3/L4 deny rules")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			policyMetricsTest(true)
+
+		}, 500)
+	})
+
+	Context("Policy UnUsed Metrics Test", func() {
+		var (
+			ciliumPod        string
+			clusterIP        string
+			appPods          map[string]string
+			namespaceForTest string
+		)
+
+		BeforeAll(func() {
+			namespaceForTest = helpers.GenerateNamespaceForTest("")
+			kubectl.NamespaceDelete(namespaceForTest)
+			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
+			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
+			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
+
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "cannot get CiliumPod")
+
+			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service in %q namespace", namespaceForTest)
+			appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
+			logger.WithFields(logrus.Fields{
+				"ciliumPod": ciliumPod,
+				"clusterIP": clusterIP}).Info("Initial data")
+
+		})
+
+		AfterAll(func() {
+			kubectl.NamespaceDelete(namespaceForTest)
+			kubectl.Delete(demoPath)
+		})
+		BeforeEach(func() {
+			kubectl.CiliumExecMustSucceed(context.TODO(),
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+			err := kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			err = kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+		})
+
+		AfterEach(func() {
+			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
+			_ = kubectl.Exec(cmd)
+		})
+
+		policyUnUsedMetricsTest := func(expectsSuccess bool) {
+
+			cmd := "cilium metrics list -o json | jq '.[] | select( .name == \"cilium_policy_unused\" ).value'"
+			res := kubectl.CiliumExecContext(context.Background(), ciliumPod, cmd)
+
+			policyUnusedCount := 0
+			for _, cnt := range res.ByLines() {
+				policyUnusedCount, _ = strconv.Atoi(cnt)
+			}
+
+			if expectsSuccess {
+				Expect(policyUnusedCount != 0).To(Equal(true), "PolicyUnUsed count should not be zero\n")
+			} else {
+				Expect(policyUnusedCount == 0).Should(Equal(true), "PolicyUnUsed count should be zero\n")
+			}
+		}
+
+		It("checks unused policy metrics", func() {
+
+			By("Testing L3/L4 rules")
+
+			_, err := kubectl.CiliumPolicyAction(
+				namespaceForTest, dummyl3Policy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			policyUnUsedMetricsTest(true)
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, dummyl3Policy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+
+			for _, appName := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				err = kubectl.WaitForCEPIdentity(namespaceForTest, appPods[appName])
+				Expect(err).Should(BeNil())
+			}
+
+			policyUnUsedMetricsTest(false)
+		}, 500)
+	})
+
+	Context("Policy Used Metrics Test", func() {
+		var (
+			ciliumPod        string
+			clusterIP        string
+			appPods          map[string]string
+			namespaceForTest string
+		)
+
+		BeforeAll(func() {
+			namespaceForTest = helpers.GenerateNamespaceForTest("")
+			kubectl.NamespaceDelete(namespaceForTest)
+			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
+			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
+
+			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
+
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "cannot get CiliumPod")
+
+			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service in %q namespace", namespaceForTest)
+			appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
+			logger.WithFields(logrus.Fields{
+				"ciliumPod": ciliumPod,
+				"clusterIP": clusterIP}).Info("Initial data")
+
+		})
+
+		AfterAll(func() {
+			kubectl.NamespaceDelete(namespaceForTest)
+			kubectl.Delete(demoPath)
+		})
+
+		BeforeEach(func() {
+			kubectl.CiliumExecMustSucceed(context.TODO(),
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+
+			err := kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			err = kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+		})
+		AfterEach(func() {
+			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
+			_ = kubectl.Exec(cmd)
+		})
+
+		policyUsedMetricsTest := func(expectsSuccess bool) {
+			policyUsedCount := 0
+			cmd := "cilium metrics list -o json | jq '.[] | select( .name == \"cilium_policy_used\" ).value'"
+			res := kubectl.CiliumExecContext(context.Background(), ciliumPod, cmd)
+			for _, cnt := range res.ByLines() {
+				policyUsedCount, _ = strconv.Atoi(cnt)
+			}
+
+			if expectsSuccess {
+				Expect(policyUsedCount != 0).To(Equal(true), "PolicyUsed count should not be zero\n")
+			} else {
+				Expect(policyUsedCount == 0).Should(Equal(true), "PolicyUsed count should be zero\n")
+			}
+		}
+
+		It("checks policy used metrics", func() {
+
+			By("Testing L3/L4 rules")
+			policyUsedMetricsTest(false)
+
+			_, err := kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			for _, appName := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				err = kubectl.WaitForCEPIdentity(namespaceForTest, appPods[appName])
+				Expect(err).Should(BeNil())
+			}
+
+			policyUsedMetricsTest(true)
+
+		}, 500)
 	})
 
 	Context("Multi-node policy test", func() {

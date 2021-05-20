@@ -70,6 +70,7 @@ func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create 
 	if create && !ok {
 		cip = newCachedSelectorPolicy(identity, cache.repo.GetSelectorCache())
 		cache.policies[identity.ID] = cip
+
 	}
 	return cip
 }
@@ -88,6 +89,7 @@ func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity.ID]
 	if ok {
+		cache.repo.UpdatePolicyMetrics(identity, false)
 		delete(cache.policies, identity.ID)
 		cip.getPolicy().Detach()
 	}
@@ -131,7 +133,6 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	if err != nil {
 		return false, err
 	}
-
 	cip.setPolicy(selPolicy)
 
 	return true, nil

@@ -210,6 +210,14 @@ var (
 	// Policy is the number of policies loaded into the agent
 	Policy = NoOpGauge
 
+	// PolicyUsed
+	// PolicyUsed is the number of used policies loaded into the agent
+	PolicyUsed = NoOpGauge
+
+	// PolicyUnused
+	// PolicyUnused is the number of unused policies loaded into the agent
+	PolicyUnused = NoOpGauge
+
 	// PolicyRegenerationCount is the total number of successful policy
 	// regenerations.
 	PolicyRegenerationCount = NoOpCounter
@@ -454,6 +462,8 @@ type Configuration struct {
 	EndpointStateCountEnabled               bool
 	EndpointRegenerationTimeStatsEnabled    bool
 	PolicyCountEnabled                      bool
+	PolicyUsedCountEnabled                  bool
+	PolicyUnusedCountEnabled                bool
 	PolicyRegenerationCountEnabled          bool
 	PolicyRegenerationTimeStatsEnabled      bool
 	PolicyRevisionEnabled                   bool
@@ -521,6 +531,8 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_endpoint_state":                                                {},
 		Namespace + "_endpoint_regeneration_time_stats_seconds":                      {},
 		Namespace + "_policy":                                                        {},
+		Namespace + "_policy_used":                                                   {},
+		Namespace + "_policy_unused":                                                 {},
 		Namespace + "_policy_regeneration_total":                                     {},
 		Namespace + "_policy_regeneration_time_stats_seconds":                        {},
 		Namespace + "_policy_max_revision":                                           {},
@@ -639,6 +651,26 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, Policy)
 			c.PolicyCountEnabled = true
+
+		case Namespace + "_policy_used":
+			PolicyUsed = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "policy_used",
+				Help:      "Number of policies used currently loaded",
+			})
+
+			collectors = append(collectors, PolicyUsed)
+			c.PolicyUsedCountEnabled = true
+
+		case Namespace + "_policy_unused":
+			PolicyUnused = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "policy_unused",
+				Help:      "Number of policies unused currently loaded",
+			})
+
+			collectors = append(collectors, PolicyUnused)
+			c.PolicyUnusedCountEnabled = true
 
 		case Namespace + "_policy_regeneration_total":
 			PolicyRegenerationCount = prometheus.NewCounter(prometheus.CounterOpts{
