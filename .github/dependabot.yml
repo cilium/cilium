@@ -13,6 +13,9 @@ updates:
       - dependency-name: "github.com/miekg/dns"
         # newer versions break our CI
       - dependency-name: "github.com/onsi/ginkgo"
+        # k8s dependencies will be updated manually along with tests
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
     labels:
     - kind/enhancement
     - release-note/misc
