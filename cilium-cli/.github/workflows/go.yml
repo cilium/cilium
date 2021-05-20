@@ -32,3 +32,21 @@ jobs:
     - name: Run static checks
       # TODO: replace with `make check` once `make lint` is happy
       run: make gofmt ineffassign staticcheck vet
+
+  go-mod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.4
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check module vendoring
+        run: |
+          go mod tidy
+          go mod vendor
+          go mod verify
+          git diff --exit-code
