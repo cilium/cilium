@@ -86,11 +86,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.18.18
-	k8s.io/apiextensions-apiserver v0.18.18
-	k8s.io/apimachinery v0.18.18
-	k8s.io/client-go v0.18.18
-	k8s.io/code-generator v0.18.18
+	k8s.io/api v0.18.19
+	k8s.io/apiextensions-apiserver v0.18.19
+	k8s.io/apimachinery v0.18.19
+	k8s.io/client-go v0.18.19
+	k8s.io/code-generator v0.18.19
 	k8s.io/klog v1.0.0
 	sigs.k8s.io/yaml v1.2.0
 )
