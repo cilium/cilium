@@ -59,3 +59,19 @@ func BearerToken(token string) runtime.ClientAuthInfoWriter {
 		return r.SetHeaderParam("Authorization", "Bearer "+token)
 	})
 }
+
+// Compose combines multiple ClientAuthInfoWriters into a single one.
+// Useful when multiple auth headers are needed.
+func Compose(auths ...runtime.ClientAuthInfoWriter) runtime.ClientAuthInfoWriter {
+	return runtime.ClientAuthInfoWriterFunc(func(r runtime.ClientRequest, _ strfmt.Registry) error {
+		for _, auth := range auths {
+			if auth == nil {
+				continue
+			}
+			if err := auth.AuthenticateRequest(r, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

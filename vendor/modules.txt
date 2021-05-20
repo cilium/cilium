@@ -290,7 +290,7 @@ github.com/go-openapi/jsonreference
 # github.com/go-openapi/loads v0.20.2
 ## explicit
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.19.26
+# github.com/go-openapi/runtime v0.19.28
 ## explicit
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client
