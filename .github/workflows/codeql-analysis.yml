@@ -3,7 +3,6 @@ name: codeql
 on:
   push:
     branches:
-    - master
     - v1.10
     - v1.9
     - v1.8
@@ -17,8 +16,6 @@ jobs:
   analyze:
     if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-18.04
-    strategy:
-      fail-fast: false
     steps:
     - name: Checkout repo
       uses: actions/checkout@v2
