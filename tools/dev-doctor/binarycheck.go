@@ -27,6 +27,7 @@ import (
 // least version minVersion.
 type binaryCheck struct {
 	name           string
+	command        string
 	alternateNames []string
 	ifNotFound     checkResult
 	versionArgs    []string
@@ -41,7 +42,11 @@ func (c *binaryCheck) Name() string {
 
 func (c *binaryCheck) Run() (checkResult, string) {
 	var path string
-	for _, name := range append([]string{c.name}, c.alternateNames...) {
+	command := c.command
+	if command == "" {
+		command = c.name
+	}
+	for _, name := range append([]string{command}, c.alternateNames...) {
 		var err error
 		path, err = exec.LookPath(name)
 		switch {
