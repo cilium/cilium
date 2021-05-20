@@ -58,7 +58,7 @@ func FileParam(name string) *Parameter {
 func SimpleArrayParam(name, tpe, fmt string) *Parameter {
 	return &Parameter{ParamProps: ParamProps{Name: name},
 		SimpleSchema: SimpleSchema{Type: jsonArray, CollectionFormat: "csv",
-			Items: &Items{SimpleSchema: SimpleSchema{Type: tpe, Format: fmt}}}}
+			Items: &Items{SimpleSchema: SimpleSchema{Type: "string", Format: fmt}}}}
 }
 
 // ParamRef creates a parameter that's a json reference
