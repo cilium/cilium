@@ -41,4 +41,5 @@ require (
 	k8s.io/apimachinery v0.19.10
 	k8s.io/cli-runtime v0.19.10
 	k8s.io/client-go v0.19.10
+	k8s.io/klog/v2 v2.2.0
 )
