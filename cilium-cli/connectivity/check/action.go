@@ -255,8 +255,8 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 				msgSuffix = "found"
 			}
 
-			// Log using fail format but do not fail the action yet as another try of matching may succeed.
-			a.Logf(fail+" %s %s %s", f.Msg, f.Filter.String(fc), msgSuffix)
+			a.Infof("%s %s %s", f.Msg, f.Filter.String(fc), msgSuffix)
+
 			// Record the failure in the results of the current match attempt.
 			r.Failures++
 		} else {
@@ -546,7 +546,7 @@ retry:
 		}
 		// Merge results
 		res.Merge(&r)
-		a.Logf(info+"Merged results #%d: %v", i, res)
+		a.Debugf("Merged flow validation results #%d: %v", i, res)
 	}
 	a.flows[pod] = flows
 	a.flowResults[pod] = res
