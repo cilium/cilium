@@ -118,3 +118,12 @@ jobs:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
           retention-days: 5
+
+      - name: Send slack notification
+        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
