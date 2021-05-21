@@ -286,7 +286,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	assertStateTransition(c, e, e.setState, StateReady, StateDisconnecting, true)
 	assertStateTransition(c, e, e.setState, StateReady, StateDisconnected, false)
 
-	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateWaitingForIdentity, true)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateWaitingForIdentity, false)
 	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateReady, false)
 	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateWaitingToRegenerate, false)
 	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateRegenerating, false)

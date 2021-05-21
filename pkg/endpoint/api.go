@@ -525,7 +525,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
-	if e.getState() == StateWaitingForIdentity && e.SecurityIdentity != nil {
+	if newEp.state == StateWaitingForIdentity && e.SecurityIdentity != nil {
 		e.setState(StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}
