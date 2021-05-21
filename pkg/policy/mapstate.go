@@ -313,12 +313,12 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 		return
 	}
 
-	keys.RedirectPreferredInsert(newKey, newEntry, adds, deletes)
+	keys.redirectPreferredInsert(newKey, newEntry, adds, deletes)
 }
 
-// RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
+// redirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry.
-func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes MapState) {
+func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes MapState) {
 	// Do not overwrite the entry, but only merge selectors if the old entry is a deny or redirect.
 	// This prevents an existing deny or redirect being overridden by a non-deny or a non-redirect.
 	// Merging selectors from the new entry to the eisting one has no datapath impact so we skip
@@ -330,6 +330,151 @@ func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry, adds,
 	}
 	// Otherwise write the entry to the map
 	keys.addKeyWithChanges(key, entry, adds, deletes)
+}
+
+// AddVisibilityKeys adjusts and expands PolicyMapState keys
+// and values to redirect for visibility on the port of the visibility
+// annotation while still denying traffic on this port for identities
+// for which the traffic is denied.
+//
+// Datapath lookup order is, from highest to lowest precedence:
+// 1. L3/L4
+// 2. L4-only (wildcard L3)
+// 3. L3-only (wildcard L4)
+// 4. Allow-all
+//
+// This means that the L4-only allow visibility key can only be added if there is an
+// allow-all key, and all L3-only deny keys are expanded to L3/L4 keys. If no
+// L4-only key is added then also the L3-only allow keys need to be expanded to
+// L3/L4 keys for visibility redirection. In addition the existing L3/L4 and L4-only
+// allow keys need to be redirected to the proxy port, if not already redirected.
+//
+// The above can be accomplished by:
+//
+// 1. Change existing L4-only ALLOW key on matching port that does not already
+//    redirect to redirect.
+//    - e.g., 0:80=allow,0 -> 0:80=allow,<proxyport>
+// 2. If allow-all policy exists, add L4-only visibility redirect key if the L4-only
+//    key does not already exist.
+//    - e.g., 0:0=allow,0 -> add 0:80=allow,<proxyport> if 0:80 does not exist
+//      - this allows all traffic on port 80, but see step 5 below.
+// 3. Change all L3/L4 ALLOW keys on matching port that do not already redirect to
+//    redirect.
+//    - e.g, <ID1>:80=allow,0 -> <ID1>:80=allow,<proxyport>
+// 4. For each L3-only ALLOW key add the corresponding L3/L4 ALLOW redirect if no
+//    L3/L4 key already exists and no L4-only key already exists and one is not added.
+//    - e.g., <ID2>:0=allow,0 -> add <ID2>:80=allow,<proxyport> if <ID2>:80
+//      and 0:80 do not exist
+// 5. If a new L4-only key was added: For each L3-only DENY key add the
+//    corresponding L3/L4 DENY key if no L3/L4 key already exists.
+//    - e.g., <ID3>:0=deny,0 -> add <ID3>:80=deny,0 if <ID3>:80 does not exist
+//
+// With the above we only change/expand existing allow keys to redirect, and
+// expand existing drop keys to also drop on the port of interest, if a new
+// L4-only key allowing the port is added.
+func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, oldMapState, insertedMapState MapState) {
+	direction := trafficdirection.Egress
+	if visMeta.Ingress {
+		direction = trafficdirection.Ingress
+	}
+
+	allowAllKey := Key{
+		TrafficDirection: direction.Uint8(),
+	}
+	key := Key{
+		DestPort:         visMeta.Port,
+		Nexthdr:          uint8(visMeta.Proto),
+		TrafficDirection: direction.Uint8(),
+	}
+
+	derivedFrom := labels.LabelArrayList{
+		labels.LabelArray{
+			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelVisibilityAnnotation, labels.LabelSourceReserved),
+		},
+	}
+	entry := NewMapStateEntry(nil, derivedFrom, true, false)
+	entry.ProxyPort = redirectPort
+
+	_, haveAllowAllKey := keys[allowAllKey]
+	l4Only, haveL4OnlyKey := keys[key]
+	addL4OnlyKey := false
+	if haveL4OnlyKey && !l4Only.IsDeny && l4Only.ProxyPort == 0 {
+		// 1. Change existing L4-only ALLOW key on matching port that does not already
+		//    redirect to redirect.
+		oldMapState[key] = l4Only
+		e.PolicyDebug(logrus.Fields{
+			logfields.BPFMapKey:   key,
+			logfields.BPFMapValue: entry,
+		}, "AddVisibilityKeys: Changing L4-only ALLOW key for visibility redirect")
+		keys[key] = entry
+	}
+	if haveAllowAllKey && !haveL4OnlyKey {
+		// 2. If allow-all policy exists, add L4-only visibility redirect key if the L4-only
+		//    key does not already exist.
+		e.PolicyDebug(logrus.Fields{
+			logfields.BPFMapKey:   key,
+			logfields.BPFMapValue: entry,
+		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibilty redirect")
+		addL4OnlyKey = true
+		insertedMapState[key] = entry
+		keys[key] = entry
+	}
+	//
+	// Loop through all L3 keys in the traffic direction of the new key
+	//
+	for k, v := range keys {
+		if k.TrafficDirection != key.TrafficDirection || k.Identity == 0 {
+			continue
+		}
+		if k.DestPort == key.DestPort && k.Nexthdr == key.Nexthdr {
+			//
+			// Same L4
+			//
+			if !v.IsDeny && v.ProxyPort == 0 {
+				// 3. Change all L3/L4 ALLOW keys on matching port that do not
+				//    already redirect to redirect.
+				oldMapState[k] = v
+				v.ProxyPort = redirectPort
+				e.PolicyDebug(logrus.Fields{
+					logfields.BPFMapKey:   k,
+					logfields.BPFMapValue: v,
+				}, "AddVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
+				keys[k] = v
+			}
+		} else if k.DestPort == 0 && k.Nexthdr == 0 {
+			//
+			// Wildcarded L4, i.e., L3-only
+			//
+			k.DestPort = key.DestPort
+			k.Nexthdr = key.Nexthdr
+			if !v.IsDeny && !haveL4OnlyKey && !addL4OnlyKey {
+				// 4. For each L3-only ALLOW key add the corresponding L3/L4
+				//    ALLOW redirect if no L3/L4 key already exists and no
+				//    L4-only key already exists and one is not added.
+				if _, ok := keys[k]; !ok {
+					v.ProxyPort = redirectPort
+					e.PolicyDebug(logrus.Fields{
+						logfields.BPFMapKey:   k,
+						logfields.BPFMapValue: v,
+					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibilty redirect")
+					insertedMapState[k] = v
+					keys[k] = v
+				}
+			} else if addL4OnlyKey && v.IsDeny {
+				// 5. If a new L4-only key was added: For each L3-only DENY
+				//    key add the corresponding L3/L4 DENY key if no L3/L4
+				//    key already exists.
+				if _, ok := keys[k]; !ok {
+					e.PolicyDebug(logrus.Fields{
+						logfields.BPFMapKey:   k,
+						logfields.BPFMapValue: v,
+					}, "AddVisibilityKeys: Extending L3-only DENY key to L3/L4 key to deny a port with visibility annotation")
+					insertedMapState[k] = v
+					keys[k] = v
+				}
+			}
+		}
+	}
 }
 
 // DetermineAllowLocalhostIngress determines whether communication should be allowed

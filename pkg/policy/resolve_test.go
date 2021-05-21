@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
+	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -196,6 +197,8 @@ func (d DummyOwner) GetNamedPortLocked(ingress bool, name string, proto uint8) u
 func (d DummyOwner) GetID() uint64 {
 	return 1234
 }
+
+func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {}
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
