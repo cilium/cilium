@@ -851,8 +851,20 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, bEp []byte) (*
 	// If host label is present, it's the host endpoint.
 	ep.isHost = ep.HasLabels(labels.LabelHost)
 
-	// Overwrite datapath configuration with the current agent configuration.
-	ep.DatapathConfiguration = NewDatapathConfiguration()
+	// Cilium running on generic-veth mode creates endpoints with 'ExternalIpam'
+	// setting true. If the configuration is overwritten with false, the endpoints
+	// will be unable to be restored. So we only overwrite datapath configuration
+	// related with 'enable-endpoint-routes'
+	if option.Config.EnableEndpointRoutes {
+		ep.DatapathConfiguration.InstallEndpointRoute = true
+		ep.DatapathConfiguration.RequireEgressProg = true
+		disabled := false
+		ep.DatapathConfiguration.RequireRouting = &disabled
+	} else {
+		ep.DatapathConfiguration.InstallEndpointRoute = false
+		ep.DatapathConfiguration.RequireEgressProg = false
+		ep.DatapathConfiguration.RequireRouting = nil
+	}
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
