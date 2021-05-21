@@ -92,6 +92,12 @@ func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *slim_corev1.Namespace) e
 	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 
+	// Do not perform any other operations the the old labels are the same as
+	// the new labels
+	if oldIdtyLabels.DeepEqual(&newIdtyLabels) {
+		return nil
+	}
+
 	eps := k.endpointManager.GetEndpoints()
 	failed := false
 	for _, ep := range eps {
