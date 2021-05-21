@@ -157,6 +157,10 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
+	if k.params.DatapathMode != "" {
+		k.Log("🔮 Custom datapath mode: %s", k.params.DatapathMode)
+	}
+
 	if strings.Contains(k.params.ClusterName, ".") {
 		k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
 		return fmt.Errorf("invalid cluster name, dots are not allowed")
