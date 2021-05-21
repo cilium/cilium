@@ -91,6 +91,19 @@ the token returned by ``kubeadm init``:
     each node has an ``InternalIP`` which is assigned to a device with the same
     name on each node.
 
+For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
+by using the following commands below. **Careful:** Be aware that this will break
+existing service connections. It will also stop service related traffic until the
+Cilium replacement has been installed:
+
+.. code-block:: shell-session
+
+    kubectl -n kube-system delete ds kube-proxy
+    # Delete the configmap as well to avoid kube-proxy being reinstalled during a kubeadm upgrade (works only for K8s 1.19 and newer)
+    kubectl -n kube-system delete cm kube-proxy
+    # Run on each node with root permissions:
+    iptables-save | grep -v KUBE | iptables-restore
+
 .. include:: k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. **Important:** Replace
