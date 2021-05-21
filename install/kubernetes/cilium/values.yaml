@@ -1658,3 +1658,8 @@ clustermesh:
 externalWorkloads:
   # -- Enable support for external workloads, such as VMs (false by default).
   enabled: false
+
+# -- Configure cgroup related configuration
+cgroup:
+  # -- Configure cgroup root where cgroup2 filesystem is mounted on the host
+  hostRoot: /run/cilium/cgroupv2

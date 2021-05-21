@@ -93,6 +93,14 @@
      - Seconds after which the completed job pod will be deleted
      - int
      - ``1800``
+   * - cgroup
+     - Configure cgroup related configuration
+     - object
+     - ``{"hostRoot":"/run/cilium/cgroupv2"}``
+   * - cgroup.hostRoot
+     - Configure cgroup root where cgroup2 filesystem is mounted on the host
+     - string
+     - ``"/run/cilium/cgroupv2"``
    * - cleanBpfState
      - Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet. WARNING: Use with care!
      - bool
