@@ -574,13 +574,17 @@ retry:
 	a.flows[pod] = flows
 
 	res := FlowRequirementResults{FirstMatch: -1, LastMatch: -1}
+	resFail := FlowRequirementResults{FirstMatch: -1, LastMatch: -1}
 	for i, req := range reqs {
 		offset := 0
 		var r FlowRequirementResults
 		for offset < len(flows) {
 			r = a.matchFlowRequirements(ctx, flows, offset, pod, &req)
-			// Check if fully matched or no match for the first flow
-			if !r.NeedMoreFlows || r.FirstMatch == -1 {
+			if r.Failures > 0 {
+				resFail.Merge(&r)
+			}
+			// Check if successfully fully matched or no match for the first flow
+			if (!r.NeedMoreFlows && r.Failures == 0) || r.FirstMatch == -1 {
 				break
 			}
 			// Try if some other flow instance would find both first and last required flows
@@ -594,7 +598,13 @@ retry:
 			}
 		}
 		// Merge results
-		res.Merge(&r)
+		if r.Failures > 0 {
+			// on Failure merge all tries to see what flows matched
+			res.Merge(&resFail)
+		} else {
+			// on Success only merge the successfully matched filters
+			res.Merge(&r)
+		}
 		a.Debugf("Merged flow validation results #%d: %v", i, res)
 	}
 	a.flowResults[pod] = res
