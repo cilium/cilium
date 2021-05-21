@@ -50,6 +50,15 @@ jobs:
         # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
         skip-build-cache: true
 
+    - name: Send slack notification
+      if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
+      uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   go-mod:
     runs-on: ubuntu-latest
     steps:
@@ -67,3 +76,12 @@ jobs:
           go mod vendor
           go mod verify
           git diff --exit-code
+
+    - name: Send slack notification
+      if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
+      uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
