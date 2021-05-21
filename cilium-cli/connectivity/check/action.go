@@ -465,7 +465,7 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response", SkipOnAggregation: true},
 				Except: []filters.FlowRequirement{
-					{Filter: filters.Drop(), Msg: "Drop"},
+					{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
 				},
 			}
 		}
