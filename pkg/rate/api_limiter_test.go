@@ -721,7 +721,7 @@ func (b *ControllerSuite) TestAdjustedParallelRequests(c *check.C) {
 	c.Assert(a.adjustedParallelRequests(), check.Equals, 2)
 }
 
-func (b *ControllerSuite) TestStressRateLimiter(c *check.C) {
+func (b *ControllerSuite) testStressRateLimiter(c *check.C, nGoRoutines int) {
 	a := NewAPILimiter("foo", APILimiterParameters{
 		EstimatedProcessingDuration: 5 * time.Millisecond,
 		RateLimit:                   1000.0,
@@ -737,7 +737,7 @@ func (b *ControllerSuite) TestStressRateLimiter(c *check.C) {
 	)
 
 	go func() {
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < nGoRoutines; i++ {
 			sem.Acquire(context.Background(), 1)
 			go func() {
 				var (
@@ -760,7 +760,7 @@ func (b *ControllerSuite) TestStressRateLimiter(c *check.C) {
 	}()
 
 	c.Assert(testutils.WaitUntil(func() bool {
-		return atomic.LoadInt32(&completed) == 1000
+		return atomic.LoadInt32(&completed) == int32(nGoRoutines)
 	}, 5*time.Second), check.IsNil)
 
 	log.Infof("%+v", a)
