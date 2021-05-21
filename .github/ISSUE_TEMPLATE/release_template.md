@@ -50,6 +50,15 @@ assignees: ''
         branch and push these changes into the helm repository. Make sure the
         generated helm charts point to the commit that contains the image
         digests.
+  - [ ] Run a sanity check by following the [GKE GSG] (make sure to specify the
+        right version in the `cilium install` command)
+- [ ] Check [read the docs] configuration:
+    - [ ] For a RC, set a new build as active and hidden in [active versions].
+    - [ ] For a new minor version set it as the [default version] and mark the
+          EOL version as active and hidden and configure the new minor version
+          as active and **not** hidden in [active versions].
+    - [ ] For new minor version and RC update algolia configuration search in
+          [docsearch-scraper-webhook].
 - [ ] Check draft release from [releases] page
   - [ ] Update the text at the top with 2-3 highlights of the release
   - [ ] Copy the text from `digest-vX.Y.Z.txt` (previously generated with
@@ -62,6 +71,7 @@ assignees: ''
 
 ## Post-release
 
+- [ ] For new minor version update [security policy]
 - [ ] Prepare post-release changes to master branch using `contrib/release/bump-readme.sh`
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
@@ -80,3 +90,9 @@ assignees: ''
 [cilium helm release tool]: https://github.com/cilium/charts/blob/master/prepare_artifacts.sh
 [Quick Install]: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default.html
 [cilium-runtime images]: https://quay.io/repository/cilium/cilium-runtime
+[read the docs]: https://readthedocs.org/projects/cilium/
+[active versions]: https://readthedocs.org/projects/cilium/versions/
+[default version]: https://readthedocs.org/dashboard/cilium/advanced/
+[docsearch-scraper-webhook]: https://github.com/cilium/docsearch-scraper-webhook
+[security policy]: https://github.com/cilium/cilium/security/policy
+[GKE GSG]: https://docs.cilium.io/en/latest/gettingstarted/k8s-install-default/#create-the-cluster
