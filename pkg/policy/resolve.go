@@ -6,6 +6,8 @@ package policy
 import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+
+	"github.com/sirupsen/logrus"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -70,6 +72,7 @@ type PolicyOwner interface {
 	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
 	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
+	PolicyDebug(fields logrus.Fields, msg string)
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
