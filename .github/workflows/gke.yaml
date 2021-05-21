@@ -31,6 +31,7 @@ jobs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
       - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
         id: pr
         run: |
           curl ${{ github.event.issue.pull_request.url }} > pr.json
@@ -39,10 +40,12 @@ jobs:
       # Because we run on issue comments, we need to checkout the code for
       # paths-filter to work.
       - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           persist-credentials: false
       - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
         uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
         id: tested-tree
         with:
