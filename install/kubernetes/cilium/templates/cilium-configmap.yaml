@@ -723,6 +723,10 @@ data:
   bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
 {{- end }}
 
+{{- if hasKey .Values.cgroup "hostRoot" }}
+  cgroup-root: {{ .Values.cgroup.hostRoot | quote }}
+{{- end }}
+
 {{- if .Values.extraConfig }}
 {{ toYaml .Values.extraConfig | indent 2 }}
 {{- end }}
