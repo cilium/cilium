@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -343,12 +342,11 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	var (
-		visPolicy               policy.DirectionalVisibilityPolicy
-		direction               trafficdirection.TrafficDirection
-		policyEnabled           bool
-		finalizeList            revert.FinalizeList
-		revertStack             revert.RevertStack
-		insertedDesiredMapState = make(map[policy.Key]struct{})
+		visPolicy    policy.DirectionalVisibilityPolicy
+		finalizeList revert.FinalizeList
+		revertStack  revert.RevertStack
+		adds         = make(policy.MapState)
+		deletes      = make(policy.MapState)
 	)
 
 	if e.visibilityPolicy == nil {
@@ -357,25 +355,14 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 	if ingress {
 		visPolicy = e.visibilityPolicy.Ingress
-		direction = trafficdirection.Ingress
-		policyEnabled = e.desiredPolicy.IngressPolicyEnabled
 	} else {
 		visPolicy = e.visibilityPolicy.Egress
-		direction = trafficdirection.Egress
-		policyEnabled = e.desiredPolicy.EgressPolicyEnabled
-	}
-
-	// If policy is enabled, do not generate visibility redirects for now.
-	// TODO: generate visibility redirects as well if policy is enabled and
-	// the L4Policy would allow the traffic at L3/L4 for an entry in the
-	// VisibilityPolicy.
-	if policyEnabled {
-		return nil, finalizeList.Finalize, revertStack.Revert
 	}
 
 	updatedStats := make([]*models.ProxyStatistics, 0, len(visPolicy))
 	for _, visMeta := range visPolicy {
 		// Create a redirect for every entry in the visibility policy.
+		// Sidecar already sees all HTTP traffic
 		if e.hasSidecarProxy && visMeta.Parser == policy.ParserTypeHTTP {
 			continue
 		}
@@ -385,7 +372,15 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 			finalizeFunc revert.FinalizeFunc
 			revertFunc   revert.RevertFunc
 		)
+
 		proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
+
+		// Skip adding a visibility redirect if a redirect for the given proto and port already
+		// exists. The existing redirect will do policy enforcement and also provides visibility
+		if desiredRedirects[proxyID] {
+			continue
+		}
+
 		redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(visMeta, proxyID, e, proxyWaitGroup)
 		if err != nil {
 			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
@@ -416,22 +411,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 		updatedStats = append(updatedStats, proxyStats)
 
-		newKey := policy.Key{
-			DestPort:         visMeta.Port,
-			Nexthdr:          uint8(visMeta.Proto),
-			TrafficDirection: direction.Uint8(),
-		}
-
-		derivedFrom := labels.LabelArrayList{
-			labels.LabelArray{
-				labels.NewLabel(policy.LabelKeyPolicyDerivedFrom, policy.LabelVisibilityAnnotation, labels.LabelSourceReserved),
-			},
-		}
-		entry := policy.NewMapStateEntry(nil, derivedFrom, true, false)
-		entry.ProxyPort = redirectPort
-
-		e.desiredPolicy.PolicyMapState[newKey] = entry
-		insertedDesiredMapState[newKey] = struct{}{}
+		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, deletes)
 	}
 
 	revertStack.Push(func() error {
@@ -443,8 +423,11 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		e.proxyStatisticsMutex.Unlock()
 
 		// Restore the desired policy map state.
-		for key := range insertedDesiredMapState {
-			delete(e.desiredPolicy.PolicyMapState, key)
+		for k := range adds {
+			delete(e.desiredPolicy.PolicyMapState, k)
+		}
+		for k, v := range deletes {
+			e.desiredPolicy.PolicyMapState[k] = v
 		}
 		return nil
 	})
@@ -1137,7 +1120,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
 	e.updatePolicyMapPressureMetric()
 
-	e.policyDebug(logrus.Fields{
+	e.PolicyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToDelete,
 		logfields.BPFMapValue: entry,
 		"incremental":         incremental,
@@ -1173,7 +1156,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
 	e.updatePolicyMapPressureMetric()
 
-	e.policyDebug(logrus.Fields{
+	e.PolicyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToAdd,
 		logfields.BPFMapValue: entry,
 		"incremental":         incremental,
@@ -1191,7 +1174,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	}
 	defer e.unlock()
 
-	e.policyDebug(nil, "ApplyPolicyMapChanges")
+	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
 
 	proxyChanges, err := e.applyPolicyMapChanges()
 	if err != nil {
@@ -1214,7 +1197,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	errors := 0
 
-	e.policyDebug(nil, "applyPolicyMapChanges")
+	e.PolicyDebug(nil, "applyPolicyMapChanges")
 
 	//  Note that after successful endpoint regeneration the
 	//  desired and realized policies are the same pointer. During
@@ -1227,11 +1210,32 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	//  applied to the Endpoint's bpf policy map.
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 
+	// Add possible visibility redirects due to incrementally added keys
+	if e.visibilityPolicy != nil {
+		for _, visMeta := range e.visibilityPolicy.Ingress {
+			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
+			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, deletes)
+			}
+		}
+		for _, visMeta := range e.visibilityPolicy.Egress {
+			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
+			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, deletes)
+			}
+		}
+	}
+
 	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range adds {
+		// AddVisibilityKeys() records changed keys in both 'deletes' (old value) and 'adds' (new value).
+		// Remove the key from 'deletes' to keep the new entry.
+		delete(deletes, keyToAdd)
+
 		// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
-		// the actual proxy port number. This is due to the fact that proxies may not yet have
-		// bound to a specific port when a proxy policy is first instantiated.
+		// the actual proxy port number, or with 0 if the redirect does not exist yet. This is
+		// due to the fact that proxies may not yet have bound to a specific port when a proxy
+		// policy is first instantiated.
 		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			if entry.ProxyPort != 0 {
@@ -1274,7 +1278,7 @@ func (e *Endpoint) syncPolicyMap() error {
 
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
-		e.policyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
+		e.PolicyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
 		return nil
 	}
 
@@ -1405,14 +1409,14 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	}
 
 	// Log full policy map for every dump
-	e.policyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
+	e.PolicyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
 	// Diffs between the maps indicate an error in the policy map update logic.
 	// Collect and log diffs if policy logging is enabled.
 	diffCount, diffs, err := e.syncDesiredPolicyMapWith(currentMap, e.getPolicyLogger() != nil)
 
 	if diffCount > 0 {
 		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")
-		e.policyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
+		e.PolicyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
 	}
 
 	return err

@@ -46,8 +46,8 @@ func (e *Endpoint) getPolicyLogger() *logrus.Entry {
 	return (*logrus.Entry)(v)
 }
 
-// policyDebug logs the 'msg' with 'fields' if policy debug logging is enabled.
-func (e *Endpoint) policyDebug(fields logrus.Fields, msg string) {
+// PolicyDebug logs the 'msg' with 'fields' if policy debug logging is enabled.
+func (e *Endpoint) PolicyDebug(fields logrus.Fields, msg string) {
 	if dbgLog := e.getPolicyLogger(); dbgLog != nil {
 		dbgLog.WithFields(fields).Debug(msg)
 	}
