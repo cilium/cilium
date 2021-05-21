@@ -180,7 +180,7 @@ func init() {
 		return
 	}
 
-	cobra.OnInitialize(option.InitConfig("Cilium", "ciliumd"))
+	cobra.OnInitialize(option.InitConfig(RootCmd, "Cilium", "ciliumd"))
 
 	// Reset the help function to also exit, as we block elsewhere in interrupts
 	// and would not exit when called with -h.

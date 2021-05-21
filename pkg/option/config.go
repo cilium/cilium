@@ -44,6 +44,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -3164,8 +3165,27 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 	return intParam
 }
 
+// validateConfigmap checks whether the flag exists and validate the value of flag
+func validateConfigmap(cmd *cobra.Command, m map[string]interface{}) (error, string) {
+	// validate the config-map
+	for key, value := range m {
+		if val := fmt.Sprintf("%v", value); val != "" {
+			flags := cmd.Flags()
+			// check whether the flag exists
+			if flag := flags.Lookup(key); flag != nil {
+				// validate the value of flag
+				if err := flag.Value.Set(val); err != nil {
+					return err, key
+				}
+			}
+		}
+	}
+
+	return nil, ""
+}
+
 // InitConfig reads in config file and ENV variables if set.
-func InitConfig(programName, configName string) func() {
+func InitConfig(cmd *cobra.Command, programName, configName string) func() {
 	return func() {
 		if viper.GetBool("version") {
 			fmt.Printf("%s %s\n", programName, version.Version)
@@ -3190,8 +3210,13 @@ func InitConfig(programName, configName string) func() {
 			} else {
 				// replace deprecated fields with new fields
 				ReplaceDeprecatedFields(m)
-				err := MergeConfig(m)
-				if err != nil {
+
+				// validate the config-map
+				if err, flag := validateConfigmap(cmd, m); err != nil {
+					log.WithError(err).Fatal("Incorrect config-map flag " + flag)
+				}
+
+				if err := MergeConfig(m); err != nil {
 					log.WithError(err).Fatal("Unable to merge configuration")
 				}
 			}

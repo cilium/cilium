@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	cobra.OnInitialize(option.InitConfig("Cilium-Operator", "cilium-operators"))
+	cobra.OnInitialize(option.InitConfig(rootCmd, "Cilium-Operator", "cilium-operators"))
 
 	flags := rootCmd.Flags()
 
