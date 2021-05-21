@@ -87,11 +87,11 @@ Cilium replacement has been installed:
 
 .. code:: bash
 
-      kubectl -n kube-system delete ds kube-proxy
-      # Delete the configmap as well to avoid kube-proxy being reinstalled during a kubeadm upgrade (works only for K8s 1.19 and newer)
-      kubectl -n kube-system delete cm kube-proxy
-      # Run on each node:
-      iptables-restore <(iptables-save | grep -v KUBE)
+    $ kubectl -n kube-system delete ds kube-proxy
+    $ # Delete the configmap as well to avoid kube-proxy being reinstalled during a kubeadm upgrade (works only for K8s 1.19 and newer)
+    $ kubectl -n kube-system delete cm kube-proxy
+    $ # Run on each node with root permissions:
+    $ iptables-save | grep -v KUBE | iptables-restore
 
 .. include:: k8s-install-download-release.rst
 
