@@ -276,6 +276,11 @@ spec:
         - mountPath: /sys/fs/bpf
           name: bpf-maps
 {{- end }}
+{{- if not (contains "/run/cilium/cgroupv2" .Values.cgroup.hostRoot) }}
+        # Check for duplicate mounts before mounting
+        - mountPath: {{ .Values.cgroup.hostRoot }}
+          name: cilium-cgroup
+{{- end}}
         - mountPath: /var/run/cilium
           name: cilium-run
         - mountPath: /host/opt/cni/bin
@@ -370,6 +375,26 @@ spec:
 {{- end }}
       hostNetwork: true
       initContainers:
+      # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
+      # We use nsenter command with host's cgroup and mount namespaces enabled.
+      - name: mount-cgroup
+        env:
+          - name: CGROUP_ROOT
+            value: {{ .Values.cgroup.hostRoot }}
+        command:
+          - nsenter
+          - --cgroup=/hostpid1ns/cgroup
+          - --mount=/hostpid1ns/mnt
+          - --
+          - sh
+          - -c
+          - 'mount | grep "$CGROUP_ROOT type cgroup2" || { echo "Mounting cgroup filesystem..."; mount -t cgroup2 none $CGROUP_ROOT; }'
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
+        volumeMounts:
+          - mountPath: /hostpid1ns
+            name: host-proc-ns
+        securityContext:
+          privileged: true
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
         command: ['sh', '-c', 'until stat {{ .Values.nodeinit.bootstrapFile }} > /dev/null 2>&1; do echo "Waiting on node-init to run..."; sleep 1; done']
@@ -427,6 +452,10 @@ spec:
 {{- /* Required for wait-bpf-mount to work */}}
           mountPropagation: HostToContainer
 {{- end }}
+          # Required to mount cgroup filesystem from the host to cilium agent pod
+        - mountPath: {{ .Values.cgroup.hostRoot }}
+          name: cilium-cgroup
+          mountPropagation: HostToContainer
         - mountPath: /var/run/cilium
           name: cilium-run
 {{- if .Values.nodeinit.resources }}
@@ -458,6 +487,16 @@ spec:
           type: DirectoryOrCreate
         name: bpf-maps
 {{- end }}
+      # To mount cgroup2 filesystem on the host
+      - hostPath:
+          path: /proc/1/ns
+          type: Directory
+        name: host-proc-ns
+      # To keep state between restarts / upgrades for cgroup2 filesystem
+      - hostPath:
+          path: {{ .Values.cgroup.hostRoot}}
+          type: DirectoryOrCreate
+        name: cilium-cgroup
       # To install cilium cni plugin in the host
       - hostPath:
           path:  {{ .Values.cni.binPath }}
