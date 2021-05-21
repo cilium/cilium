@@ -45,7 +45,7 @@ func mountCgroup() error {
 	return nil
 }
 
-// checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
+// checkOrMountCustomLocation tries to check or mount the cgroup filesystem in the
 // given path.
 func cgrpCheckOrMountLocation(cgroupRoot string) error {
 	setCgroupRoot(cgroupRoot)
