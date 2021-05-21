@@ -318,8 +318,8 @@ func (l4 *L4Filter) GetPort() uint16 {
 //                                caller must replace the ProxyPort with the actual
 //                                listening port number.
 // Note: It is possible for two selectors to select the same security ID.
-// To give priority for L7 redirection (e.g., for visibility purposes), we use
-// RedirectPreferredInsert() instead of directly inserting the value to the map.
+// To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
+// DenyPreferredInsert() instead of directly inserting the value to the map.
 // PolicyOwner (aka Endpoint) is locked during this call.
 func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection) MapState {
 	port := uint16(l4Filter.Port)
