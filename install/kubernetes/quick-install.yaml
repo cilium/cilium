@@ -150,6 +150,7 @@ data:
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"
   disable-cnp-status-updates: "true"
+  cgroup-root: "/run/cilium/cgroupv2"
 ---
 # Source: cilium/templates/cilium-agent-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -520,6 +521,26 @@ spec:
           readOnly: true
       hostNetwork: true
       initContainers:
+      # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
+      # We use nsenter command with host's cgroup and mount namespaces enabled.
+      - name: mount-cgroup
+        env:
+          - name: CGROUP_ROOT
+            value: /run/cilium/cgroupv2
+        command:
+          - nsenter
+          - --cgroup=/hostpid1ns/cgroup
+          - --mount=/hostpid1ns/mnt
+          - --
+          - sh
+          - -c
+          - 'mount | grep "$CGROUP_ROOT type cgroup2" || { echo "Mounting cgroup filesystem..."; mount -t cgroup2 none $CGROUP_ROOT; }'
+        image: "quay.io/cilium/cilium:v1.9.8@sha256:5d4c175a599ccb22a97dbc8b393a81caca71ada49951c5b5545039c6548ea350"
+        volumeMounts:
+          - mountPath: /hostpid1ns
+            name: host-proc-ns
+        securityContext:
+          privileged: true
       - command:
         - /init-container.sh
         env:
@@ -553,6 +574,10 @@ spec:
         - mountPath: /sys/fs/bpf
           name: bpf-maps
           mountPropagation: HostToContainer
+          # Required to mount cgroup filesystem from the host to cilium agent pod
+        - mountPath: /run/cilium/cgroupv2
+          name: cilium-cgroup
+          mountPropagation: HostToContainer
         - mountPath: /var/run/cilium
           name: cilium-run
         resources:
@@ -577,6 +602,16 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
+      # To mount cgroup2 filesystem on the host
+      - hostPath:
+          path: /proc/1/ns
+          type: Directory
+        name: host-proc-ns
+      # To keep state between restarts / upgrades for cgroup2 filesystem
+      - hostPath:
+          path: /run/cilium/cgroupv2
+          type: DirectoryOrCreate
+        name: cilium-cgroup
       # To install cilium cni plugin in the host
       - hostPath:
           path:  /opt/cni/bin
