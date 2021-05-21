@@ -11,15 +11,17 @@ ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
 usage() {
-    logecho "usage: $0 <VERSION> <GH-PROJECT>"
+    logecho "usage: $0 <VERSION> <GH-PROJECT> [OLD-BRANCH]"
     logecho "VERSION    Target release version (format: X.Y.Z)"
     logecho "GH-PROJECT Project Number for next (X.Y.Z+1) development release"
+    logecho "OLD-BRANCH Branch of the previous release version if VERSION is "
+    logecho "           a new minor version"
     logecho
     logecho "--help     Print this help message"
 }
 
 handle_args() {
-    if ! common::argc_validate 2; then
+    if [ "$#" -gt 3 ]; then
         usage 2>&1
         common::exit 1
     fi
@@ -56,20 +58,23 @@ main() {
     local version="v$ersion"
     local branch="v$(echo $ersion | sed 's/[^0-9]*\([0-9]\+\.[0-9]\+\).*/\1/')"
     local new_proj="$2"
+    local old_branch="$3"
 
     git fetch $REMOTE
-    git checkout -b pr/prepare-$version $REMOTE/$branch
     local old_version="$(cat VERSION)"
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
     sed -i 's/"[^"]*"/""/g' install/kubernetes/Makefile.digests
     logrun make -C install/kubernetes all USE_DIGESTS=false
-    logrun make update-authors
     old_proj=$(grep "projects" $ACTS_YAML | sed "$PROJECTS_REGEX")
     sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML
 
-    $DIR/prep-changelog.sh "$old_version" "$version"
+    if [ "${old_branch}" != "" ]; then
+      $DIR/prep-changelog.sh "$old_version" "$version" "$old_branch"
+    else
+      $DIR/prep-changelog.sh "$old_version" "$version"
+    fi
 
     logecho "Next steps:"
     logecho "* Check all changes and add to a new commit"
