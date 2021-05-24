@@ -21,7 +21,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
@@ -44,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -68,6 +71,7 @@ const (
 	initArgNrCPUs
 	initArgEndpointRoutes
 	initArgProxyRule
+	initArgNetNsCookie
 	initArgMax
 )
 
@@ -173,6 +177,121 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing datapath.NodeAddre
 	}
 
 	return retSettings, nil
+}
+
+func getNetNsCookie(ctx context.Context) string {
+	var (
+		sock     int
+		cookie   uint64
+		err      error
+		mapKey   uint32
+		mapValue uint64
+
+		srcFile     string = "bpf_sock_aux.c"
+		objFile     string = "bpf_sock_aux.o"
+		secName     string = "sock_aux_get_netns_cookie"
+		attachType  string = "bind4"
+		progPinPath string = filepath.Join(bpf.MapPrefixPath(), "cilium_"+secName)
+		mapPinPath  string = filepath.Join(bpf.MapPrefixPath(), "cilium_netns_cookie")
+	)
+
+	sockAuxClean := func() {
+		if _, err := os.Stat(progPinPath); err == nil {
+			args := []string{"cgroup", "detach", cgroups.GetCgroupRoot(), attachType, "pinned", progPinPath}
+			cmd := exec.CommandContext(ctx, "bpftool", args...)
+			cmd.Env = bpf.Environment()
+			if _, err := cmd.CombinedOutput(log, true); err != nil {
+				log.WithError(err).Debugf("bpf prog '%s' has not been properly detached", progPinPath)
+			}
+
+			if err := os.Remove(progPinPath); err != nil {
+				log.WithError(err).Debugf("bpf obj '%s' was not removed", progPinPath)
+			}
+		}
+
+		if _, err := os.Stat(mapPinPath); err == nil {
+			if err := os.Remove(mapPinPath); err != nil {
+				log.WithError(err).Debugf("bpf obj '%s' was not removed", mapPinPath)
+			}
+		}
+	}
+
+	// Make sure it is running on Kind
+	if !option.Config.EnableHostReachableServices || !strings.HasPrefix(node.GetProviderID(), "kind://") {
+		return "<nil>"
+	}
+
+	sockAuxClean()
+	if sock, err = unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0); err != nil {
+		log.WithError(err).Fatal("Failure on socket creation, impossible to get netns cookie")
+		return "<nil>"
+	}
+
+	defer unix.Close(sock)
+	if cookie, err = unix.GetsockoptUint64(sock, unix.SOL_SOCKET, unix.SO_COOKIE); err != nil {
+		log.WithError(err).Fatal("Failure on getsockopt, impossible to get netns cookie")
+		return "<nil>"
+	}
+
+	// Compile bpf prog
+	opts := []string{"-DSOCKET_MAGIC_COOKIE=" + strconv.FormatUint(cookie, 10)}
+	if err := CompileWithOptions(ctx, srcFile, objFile, opts); err != nil {
+		log.WithError(err).Fatal("Failed to compile bpf, impossible to get the netns cookie")
+		return "<nil>"
+	}
+
+	// Load bpf prog
+	args := []string{"exec", "bpf", "pin", progPinPath, "obj", objFile, "type", "sockaddr",
+		"attach_type", attachType, "sec", secName}
+	cmd := exec.CommandContext(ctx, "tc", args...)
+	cmd.Env = bpf.Environment()
+	if _, err := cmd.CombinedOutput(log, true); err != nil {
+		log.WithError(err).Fatal("Failed to load bpf, impossible to get the netns cookie")
+		return "<nil>"
+	}
+
+	defer sockAuxClean()
+
+	// Attach to cilium cgroups
+	args = []string{"cgroup", "attach", cgroups.GetCgroupRoot(), attachType, "pinned", progPinPath}
+	cmd = exec.CommandContext(ctx, "bpftool", args...)
+	cmd.Env = bpf.Environment()
+	if _, err := cmd.CombinedOutput(log, true); err != nil {
+		log.WithError(err).Fatal("Failed to attach bpf, impossible to get the netns cookie")
+		return "<nil>"
+	}
+
+	// Call hook to populate the map
+	unix.Bind(sock, &unix.SockaddrInet4{})
+
+	// Read netns cookie from pinned map
+	type bpfAttrMapOpElem struct {
+		mapFd uint32
+		pad0  [4]byte
+		key   uint64
+		value uint64
+		flags uint64
+	}
+
+	fdMap, err := bpf.ObjGet(mapPinPath)
+	if err != nil {
+		log.WithError(err).Fatal("impossible to get the netns cookie")
+		return "<nil>"
+	}
+
+	defer bpf.ObjClose(fdMap)
+	attr := bpfAttrMapOpElem{
+		mapFd: uint32(fdMap),
+		key:   uint64(uintptr(unsafe.Pointer(&mapKey))),
+		value: uint64(uintptr(unsafe.Pointer(&mapValue))),
+	}
+
+	if err := bpf.LookupElementFromPointers(fdMap, unsafe.Pointer(&attr), unsafe.Sizeof(attr)); err != nil {
+		log.WithError(err).Fatal("impossible to get the netns cookie")
+		return "<nil>"
+	}
+
+	return strconv.FormatUint(mapValue, 10)
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
@@ -423,6 +542,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	} else {
 		args[initArgProxyRule] = "false"
 	}
+
+	// Required when cilium is running on Kind
+	args[initArgNetNsCookie] = getNetNsCookie(ctx)
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.

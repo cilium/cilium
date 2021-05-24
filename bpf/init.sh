@@ -36,6 +36,7 @@ MCPU=${18}
 NR_CPUS=${19}
 ENDPOINT_ROUTES=${20}
 PROXY_RULE=${21}
+NETNS_COOKIE=${22}
 
 ID_HOST=1
 ID_WORLD=2
@@ -497,6 +498,11 @@ if [ "$HOSTLB" = "true" ]; then
 
 	CALLS_MAP="cilium_calls_lb"
 	COPTS=""
+
+	if [ "$NETNS_COOKIE" != "<nil>" ]; then
+		COPTS+="-DHOST_NETNS_COOKIE=$NETNS_COOKIE"
+	fi
+
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_PEER" = "true" ]; then

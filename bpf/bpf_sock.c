@@ -82,7 +82,13 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 {
-#ifdef BPF_HAVE_NETNS_COOKIE
+#if defined(BPF_HAVE_NETNS_COOKIE) && defined(HOST_NETNS_COOKIE)
+	__net_cookie own_cookie = get_netns_cookie(ctx);
+
+	if (cookie)
+		*cookie = own_cookie;
+	return own_cookie == HOST_NETNS_COOKIE;
+#elif defined(BPF_HAVE_NETNS_COOKIE)
 	__net_cookie own_cookie = get_netns_cookie(ctx);
 
 	if (cookie)
