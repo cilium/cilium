@@ -254,6 +254,10 @@ Weekly Developer meeting
 * Weekly, Monday, 8:00 am PT, 11:00 am ET, 5:00 pm CEST
 * `Join zoom <https://zoom.us/j/596609673>`_
 
+eBPF & Cilium Office Hours livestream
+-------------------------------------
+We host a weekly community `YouTube livestream called eCHO <https://www.youtube.com/channel/UCJFUxkVQTBJh3LD1wYBWvuQ>`_ which (very loosely!) stands for eBPF & Cilium Office Hours. Join us live, catch up with past episodes, or head over to the `eCHO repo <https://github.com/isovalent/eCHO>`_ and let us know your ideas for topics we should cover.
+
 License
 =======
 
