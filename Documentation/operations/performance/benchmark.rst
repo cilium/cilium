@@ -218,15 +218,15 @@ while running the benchmark:
 
 .. image:: images/bench_tcp_crr_32_processes_cpu.png
 
-Encryption (Wireguard/IPsec)
+Encryption (WireGuard/IPsec)
 ============================
 
-Cilium supports encryption via Wireguard and IPsec. This first section will
-look at Wireguard and compare it against using Calico for Wireguard encryption.
-If you are interested in IPsec performance and how it compares to Wireguard,
+Cilium supports encryption via WireGuard® and IPsec. This first section will
+look at WireGuard and compare it against using Calico for WireGuard encryption.
+If you are interested in IPsec performance and how it compares to WireGuard,
 please see :ref:`performance_wireguard_ipsec`.
 
-Wireguard Throughput
+WireGuard Throughput
 --------------------
 
 Looking at TCP throughput first, the following graph shows results for both
@@ -236,55 +236,55 @@ Looking at TCP throughput first, the following graph shows results for both
 
 .. note::
 
-   The Cilium eBPF kube-proxy replacement combined with Wireguard is currently
+   The Cilium eBPF kube-proxy replacement combined with WireGuard is currently
    slightly slower than Cilium eBPF + kube-proxy. We have identified the
    problem and will be resolving this deficit in one of the next releases.
 
 The following graph shows the total CPU consumption across the entire system
-while running the Wireguard encryption benchmark:
+while running the WireGuard encryption benchmark:
 
 .. image:: images/bench_wireguard_tcp_1_stream_cpu.png
 
-Wireguard Request/Response
+WireGuard Request/Response
 --------------------------
 
 The next benchmark measures the request/response rate while encrypting with
-Wireguard. See :ref:`request_response` for details on what this test actually
+WireGuard. See :ref:`request_response` for details on what this test actually
 entails.
 
 .. image:: images/bench_wireguard_rr_1_process.png
 
 All tested configurations performed more or less the same. The following graph
 shows the total CPU consumption across the entire system while running the
-Wireguard encryption benchmark:
+WireGuard encryption benchmark:
 
 .. image:: images/bench_wireguard_rr_1_process_cpu.png
 
 .. _performance_wireguard_ipsec:
 
-Wireguard vs IPsec
+WireGuard vs IPsec
 ------------------
 
-In this section, we compare Cilium encryption using Wireguard and IPsec.
-Wireguard is able to achieve a higher maximum throughput:
+In this section, we compare Cilium encryption using WireGuard and IPsec.
+WireGuard is able to achieve a higher maximum throughput:
 
 .. image:: images/bench_wireguard_ipsec_tcp_stream_1_stream.png
 
 However, looking at the CPU resources required to achieve 10Gbit/s of
-throughput, Wireguard is less efficient at achieving the same throughput:
+throughput, WireGuard is less efficient at achieving the same throughput:
 
 .. image:: images/bench_wireguard_ipsec_tcp_stream_1_stream_cpu.png
 
 .. tip::
 
-   IPsec performing better than Wireguard in in this test is unexpected in some
+   IPsec performing better than WireGuard in in this test is unexpected in some
    ways. A possible explanation is that the IPsec encryption is making use of
-   AES-NI instructions whereas the Wireguard implementation is not. This would
+   AES-NI instructions whereas the WireGuard implementation is not. This would
    typically lead to IPsec being more efficient when AES-NI offload is
-   available and Wireguard being more efficient if the instruction set is not
+   available and WireGuard being more efficient if the instruction set is not
    available.
 
-Looking at the request/response rate, IPsec is outperforming Wireguard in our
+Looking at the request/response rate, IPsec is outperforming WireGuard in our
 tests. Unlike for the throughput tests, the MTU does not have any effect as the
 packet sizes remain small:
 
