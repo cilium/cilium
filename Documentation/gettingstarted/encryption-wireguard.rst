@@ -7,14 +7,14 @@
 .. _encryption_wg:
 
 ********************************
-Wireguard Transparent Encryption
+WireGuard Transparent Encryption
 ********************************
 
 This guide explains how to configure Cilium with transparent encryption of
-traffic between Cilium-managed endpoints using `Wireguard <https://www.wireguard.com/>`_.
+traffic between Cilium-managed endpoints using `WireGuard® <https://www.wireguard.com/>`_.
 
-When Wireguard is enabled in Cilium, the agent running on each cluster node
-will establish a secure Wireguard tunnel between it and all other known nodes
+When WireGuard is enabled in Cilium, the agent running on each cluster node
+will establish a secure WireGuard tunnel between it and all other known nodes
 in the cluster. Each node automatically creates its own encryption key-pair and
 distributes its public key via the ``io.cilium.network.wg-pub-key`` annotation
 in the Kubernetes ``CiliumNode`` custom resource object. Each node's public key
@@ -25,7 +25,7 @@ Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
 in that case, given that the raw traffic can be observed on the node anyway.
 
-The Wireguard tunnel endpoint is exposed on UDP port ``51871`` on each node. If
+The WireGuard tunnel endpoint is exposed on UDP port ``51871`` on each node. If
 you run Cilium in an environment that requires firewall rules to enable
 connectivity, you will have to ensure that all Cilium cluster nodes can reach
 each other via that port.
@@ -33,17 +33,17 @@ each other via that port.
 .. note::
 
    When running in the tunneling mode (i.e. with VXLAN or Geneve), pod to pod
-   traffic will be sent only over the Wireguard tunnel which means that the
+   traffic will be sent only over the WireGuard tunnel which means that the
    packets will bypass the other tunnel, and thus they will be encapsulated
    only once.
 
-Enable Wireguard in Cilium
+Enable WireGuard in Cilium
 ==========================
 
-Before you enable Wireguard in Cilium, please ensure that the Linux distribution
-running on your cluster nodes has support for Wireguard in kernel mode
+Before you enable WireGuard in Cilium, please ensure that the Linux distribution
+running on your cluster nodes has support for WireGuard in kernel mode
 (i.e. ``CONFIG_WIREGUARD=m`` on Linux 5.6 and newer, or via the out-of-tree
-Wireguard module on older kernels).
+WireGuard module on older kernels).
 
 .. tabs::
 
@@ -69,7 +69,7 @@ Wireguard module on older kernels).
              --set encryption.enabled=true \\
              --set encryption.type=wireguard
 
-Wireguard may also be enabled manually by setting setting the
+WireGuard may also be enabled manually by setting setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
 each Cilium agent instance.
 
@@ -80,7 +80,7 @@ Run a ``bash`` shell in one of the Cilium pods with
 ``kubectl -n kube-system exec -ti ds/cilium -- bash`` and execute the following
 commands:
 
-1. Check that Wireguard has been enabled (number of peers should correspond to
+1. Check that WireGuard has been enabled (number of peers should correspond to
    a number of nodes subtracted by one):
 
 .. code-block:: shell-session
@@ -179,7 +179,7 @@ commands can be helpful:
 For pod to pod packets to be successfully encrypted and decrypted, the following
 must hold:
 
- - Wireguard public key of a remote node in the ``peers[*].public-key`` section
+ - WireGuard public key of a remote node in the ``peers[*].public-key`` section
    matches the actual public key of the remote node (``public-key`` retrieved via
    the same command on the remote node).
  - ``peers[*].allowed-ips`` should contain a list of pod IP addresses running
@@ -188,7 +188,7 @@ must hold:
 Limitations
 ===========
 
-Wireguard support in Cilium currently lacks the following features,
+WireGuard support in Cilium currently lacks the following features,
 which may be resolved in upcoming Cilium releases:
 
  - Host-level encryption. Only traffic between two Cilium-managed endpoints
@@ -197,6 +197,11 @@ which may be resolved in upcoming Cilium releases:
    agent will currently not be encrypted.
  - L7 policy enforcement and visibility
  - eBPF-based host routing
- - Support for older kernels via user-mode Wireguard
+ - Support for older kernels via user-mode WireGuard
 
 The current status of these limitations is tracked in :gh-issue:`15462`.
+
+Legal
+=====
+
+"WireGuard" is a registered trademark of Jason A. Donenfeld.
