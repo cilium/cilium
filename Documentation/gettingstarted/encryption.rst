@@ -11,7 +11,7 @@ Transparent Encryption
 ************************************
 
 Cilium supports the transparent encryption of Cilium-managed host traffic and
-traffic between Cilium-managed endpoints either using IPsec or Wireguard:
+traffic between Cilium-managed endpoints either using IPsec or WireGuard®:
 
 .. toctree::
    :maxdepth: 1
