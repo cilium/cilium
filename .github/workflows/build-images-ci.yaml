@@ -177,8 +177,9 @@ jobs:
   # we need to build cilium-test separately
   # this is caused by running apt while building the image
   # which requires qemu setup in order to avoid x86/arm64 binaries mixups
+  # note: we only build on pushes to master branch
   build-and-push-with-qemu:
-    if: ${{ github.repository == 'cilium/cilium' }}
+    if: ${{ github.repository == 'cilium/cilium' && github.event_name == 'push' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -200,24 +201,13 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME_CI }}
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
-      - name: Getting image tag
-        id: tag
-        run: |
-          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
-            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
-          else
-            echo ::set-output name=tag::${{ github.sha }}
-          fi
-
       - name: Checkout Source Code
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           persist-credentials: false
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ github.sha }}
 
-      # master branch pushes
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_master
         with:
@@ -227,15 +217,14 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
-            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name != 'pull_request_target' }}
         shell: bash
         run: |
           mkdir -p image-digest/
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
