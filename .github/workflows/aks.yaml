@@ -26,6 +26,13 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
+    if: |
+      (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-aks') ||
+        (startsWith(github.event.comment.body, 'test-me-please'))
+      )) ||
+      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event.label.name == 'ci-run/aks'
     runs-on: ubuntu-latest
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
