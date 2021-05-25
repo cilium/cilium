@@ -98,6 +98,11 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("unable to create secret to store CA: %w", err)
 		}
+		k.pushRollbackStep(func(ctx context.Context) {
+			if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s Secret: %w", defaults.CASecretName, err)
+			}
+		})
 	}
 
 	err := k.certManager.LoadCAFromK8s(ctx)
@@ -110,6 +115,11 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 		if err := k.certManager.StoreCAInK8s(ctx); err != nil {
 			return fmt.Errorf("unable to store CA in secret: %w", err)
 		}
+		k.pushRollbackStep(func(ctx context.Context) {
+			if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s Secret: %w", defaults.CASecretName, err)
+			}
+		})
 	} else {
 		k.Log("🔑 Found existing CA in secret %s", defaults.CASecretName)
 	}
@@ -118,6 +128,11 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 	if err := k.createHubbleServerCertificate(ctx); err != nil {
 		return err
 	}
+	k.pushRollbackStep(func(ctx context.Context) {
+		if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.HubbleServerSecretName, metav1.DeleteOptions{}); err != nil {
+			k.Log("Cannot delete %s Secret: %w", defaults.HubbleServerSecretName, err)
+		}
+	})
 
 	return nil
 }
