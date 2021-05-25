@@ -98,6 +98,12 @@ message Flow {
     // proxy_port indicates the port of the proxy to which the flow was forwarded
     uint32 proxy_port = 29;
 
+    // packet_size is the length of the last packet in the Flow. It does not
+    // represent the aggregate size of any connection. Additionally, if
+    // bpf.monitorAggregation is set to anything other than "none" then
+    // most packets' size will not be reported.
+    uint32 packet_size = 30;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
