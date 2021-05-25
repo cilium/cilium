@@ -14,7 +14,7 @@
 
 # ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
+ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 *monitor)
 {
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {}, ct_state = {};
@@ -22,7 +22,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
 	__u8 audited = 0;
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple tuple = {};
-	__u32 dst_id = 0, monitor = 0;
+	__u32 dst_id = 0;
 	union v6addr orig_dip;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -44,7 +44,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
 		return hdrlen;
 	l4_off = l3_off + hdrlen;
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
+			 &ct_state, monitor);
 	if (ret < 0)
 		return ret;
 
@@ -241,7 +241,7 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid)
 
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
-			__u32 ipcache_srcid __maybe_unused)
+			__u32 ipcache_srcid __maybe_unused, __u32 *monitor)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -249,7 +249,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	__u8 audited = 0;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
-	__u32 dst_id = 0, monitor = 0;
+	__u32 dst_id = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 
@@ -271,7 +271,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	tuple.saddr = ip4->saddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
+			 &ct_state, monitor);
 	if (ret < 0)
 		return ret;
 
