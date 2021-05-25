@@ -47,6 +47,7 @@ Deathstar
 Dinan
 Dockerfile
 Dockerfiles
+Donenfeld
 Elasticsearch
 FIt
 Facebook
@@ -189,7 +190,7 @@ Viljoen
 Virtualization
 Wakeup
 Wendlandt
-Wireguard
+WireGuard
 Wireshark
 XDP
 Xenial

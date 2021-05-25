@@ -329,7 +329,7 @@ Port Range / Protocol    Description
 9891/tcp                 operator gops server (listening on 127.0.0.1)
 9892/tcp                 clustermesh-apiserver gops server (listening on 127.0.0.1)
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
-51871/udp                Wireguard encryption tunnel endpoint
+51871/udp                WireGuard encryption tunnel endpoint
 ======================== ===========================================================
 
 .. _admin_mount_bpffs:
