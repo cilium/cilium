@@ -119,8 +119,9 @@ func NewMap(name string, v4 bool, entries int) *Map {
 	}
 }
 
-func (m *Map) Delete(k bpf.MapKey) error {
-	return (&m.Map).Delete(k)
+func (m *Map) Delete(k bpf.MapKey) (deleted bool, err error) {
+	deleted, err = (&m.Map).SilentDelete(k)
+	return
 }
 
 func (m *Map) DumpStats() *bpf.DumpStats {
@@ -174,7 +175,7 @@ func statStartGc(m *Map) gcStats {
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := m.Delete(key)
+		err := (&m.Map).Delete(key)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
 		} else {
@@ -188,7 +189,7 @@ func doFlush4(m *Map) gcStats {
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		err := m.Delete(key)
+		err := (&m.Map).Delete(key)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
 		} else {
@@ -225,8 +226,8 @@ func deleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 		rkey.DestPort = val.Port
 		rkey.Flags = tuple.TUPLE_F_IN
 
-		m.Delete(&key)
-		m.Delete(&rkey)
+		m.SilentDelete(&key)
+		m.SilentDelete(&rkey)
 	}
 	return nil
 }
@@ -249,8 +250,8 @@ func deleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 		rkey.DestPort = val.Port
 		rkey.Flags = tuple.TUPLE_F_IN
 
-		m.Delete(&key)
-		m.Delete(&rkey)
+		m.SilentDelete(&key)
+		m.SilentDelete(&rkey)
 	}
 	return nil
 }
@@ -263,7 +264,7 @@ func deleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 	key.SourcePort = key.DestPort
 	key.DestPort = port
 	key.Flags = tuple.TUPLE_F_OUT
-	m.Delete(&key)
+	m.SilentDelete(&key)
 
 	return nil
 }
@@ -276,7 +277,7 @@ func deleteSwappedMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 	key.SourcePort = key.DestPort
 	key.DestPort = port
 	key.Flags = tuple.TUPLE_F_OUT
-	m.Delete(&key)
+	m.SilentDelete(&key)
 
 	return nil
 }
@@ -298,7 +299,10 @@ func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
+func GlobalMaps(ipv4, ipv6, nodeport bool) (ipv4Map, ipv6Map *Map) {
+	if !nodeport {
+		return
+	}
 	entries := option.Config.NATMapEntriesGlobal
 	if entries == 0 {
 		entries = option.LimitTableMax

@@ -23,6 +23,7 @@ datapath instead of the default veth-based one.
 
     - IPVLAN L2 mode
     - L7 policy enforcement
+    - FQDN Policies
     - NAT64
     - IPVLAN with tunneling
     - eBPF-based masquerading

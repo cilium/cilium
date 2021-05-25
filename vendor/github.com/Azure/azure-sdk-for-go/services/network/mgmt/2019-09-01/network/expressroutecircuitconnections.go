@@ -69,7 +69,7 @@ func (client ExpressRouteCircuitConnectionsClient) CreateOrUpdate(ctx context.Co
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -111,7 +111,29 @@ func (client ExpressRouteCircuitConnectionsClient) CreateOrUpdateSender(req *htt
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client ExpressRouteCircuitConnectionsClient) (ercc ExpressRouteCircuitConnection, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.ExpressRouteCircuitConnectionsCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if ercc.Response.Response, err = future.GetResult(sender); err == nil && ercc.Response.Response.StatusCode != http.StatusNoContent {
+			ercc, err = client.CreateOrUpdateResponder(ercc.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsCreateOrUpdateFuture", "Result", ercc.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -152,7 +174,7 @@ func (client ExpressRouteCircuitConnectionsClient) Delete(ctx context.Context, r
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -190,7 +212,23 @@ func (client ExpressRouteCircuitConnectionsClient) DeleteSender(req *http.Reques
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client ExpressRouteCircuitConnectionsClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.ExpressRouteCircuitConnectionsDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -238,6 +276,7 @@ func (client ExpressRouteCircuitConnectionsClient) Get(ctx context.Context, reso
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -317,6 +356,11 @@ func (client ExpressRouteCircuitConnectionsClient) List(ctx context.Context, res
 	result.ercclr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ExpressRouteCircuitConnectionsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.ercclr.hasNextLink() && result.ercclr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return

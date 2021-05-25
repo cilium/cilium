@@ -56,6 +56,25 @@ func TestParseContextOptions(t *testing.T) {
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.Status(), "source=pod")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.Status(), "destination=dns")
+	assert.EqualValues(t, opts.GetLabelNames(), []string{"destination"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.Status(), "source=ip")
+	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "pod-short|dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.Status(), "source=pod-short|dns")
+	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "namespace|invalid"})
+	assert.NotNil(t, err)
+	assert.Nil(t, opts)
 }
 
 func TestParseGetLabelValues(t *testing.T) {
@@ -89,6 +108,54 @@ func TestParseGetLabelValues(t *testing.T) {
 	opts, err = ParseContextOptions(Options{"destinationContext": "pod-short"})
 	assert.Nil(t, err)
 	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}}), []string{"foo/bar-bar"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}), []string{"1.1.1.1"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{IP: &pb.IP{Destination: "2.2.2.2"}}), []string{"2.2.2.2"})
+
+	opts, err = ParseContextOptions(Options{"sourceContext": "namespace|dns", "destinationContext": "identity|pod-short|ip"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		IP: &pb.IP{
+			Destination: "2.2.2.2",
+		},
+		Source: &pb.Endpoint{
+			Namespace: "foo",
+		},
+		SourceNames: []string{"cilium.io"},
+		Destination: &pb.Endpoint{
+			Namespace: "bar",
+			PodName:   "foo-123",
+		},
+	}), []string{"foo", "bar/foo"})
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		IP: &pb.IP{
+			Destination: "2.2.2.2",
+		},
+		SourceNames: []string{"cilium.io"},
+		Destination: &pb.Endpoint{
+			Namespace: "bar",
+			PodName:   "foo-123",
+			Labels:    []string{"a", "b"},
+		},
+	}), []string{"cilium.io", "a,b"})
+	assert.EqualValues(t, opts.GetLabelValues(&pb.Flow{
+		IP: &pb.IP{
+			Destination: "2.2.2.2",
+		},
+	}), []string{"", "2.2.2.2"})
 }
 
 func TestShortenPodName(t *testing.T) {

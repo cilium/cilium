@@ -13,6 +13,8 @@ extend google.protobuf.MessageOptions {
     // Disabled nullifies any validation rules for this message, including any
     // message fields associated with it that do support validation.
     optional bool disabled = 1071;
+    // Ignore skips generation of validation methods for this message.
+    optional bool ignored = 1072;
 }
 
 // Validation rules applied at the oneof level
@@ -553,7 +555,28 @@ message StringRules {
         // Uuid specifies that the field must be a valid UUID as defined by
         // RFC 4122
         bool uuid     = 22;
+
+        // WellKnownRegex specifies a common well known pattern defined as a regex.
+        KnownRegex well_known_regex = 24;
     }
+
+  // This applies to regexes HTTP_HEADER_NAME and HTTP_HEADER_VALUE to enable
+  // strict header validation.
+  // By default, this is true, and HTTP header validations are RFC-compliant.
+  // Setting to false will enable a looser validations that only disallows
+  // \r\n\0 characters, which can be used to bypass header matching rules.
+  optional bool strict = 25 [default = true];
+}
+
+// WellKnownRegex contain some well-known patterns.
+enum KnownRegex {
+  UNKNOWN = 0;
+
+  // HTTP header name as defined by RFC 7230.
+  HTTP_HEADER_NAME = 1;
+
+  // HTTP header value as defined by RFC 7230.
+  HTTP_HEADER_VALUE = 2;
 }
 
 // BytesRules describe the constraints applied to `bytes` values

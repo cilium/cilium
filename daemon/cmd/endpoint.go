@@ -306,24 +306,19 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+	if epTemplate.DatapathConfiguration == nil {
+		dpConfig := endpoint.NewDatapathConfiguration()
+		epTemplate.DatapathConfiguration = &dpConfig
+	}
 	if option.Config.EnableEndpointRoutes {
-		if epTemplate.DatapathConfiguration == nil {
-			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
-		}
-
-		// Indicate to insert a per endpoint route instead of routing
-		// via cilium_host interface
 		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
-
-		// Since routing occurs via endpoint interface directly, BPF
-		// program is needed on that device at egress as BPF program on
-		// cilium_host interface is bypassed
 		epTemplate.DatapathConfiguration.RequireEgressProg = true
-
-		// Delegate routing to the Linux stack rather than tail-calling
-		// between BPF programs.
 		disabled := false
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
+	} else {
+		epTemplate.DatapathConfiguration.InstallEndpointRoute = false
+		epTemplate.DatapathConfiguration.RequireEgressProg = false
+		epTemplate.DatapathConfiguration.RequireRouting = nil
 	}
 
 	log.WithFields(logrus.Fields{
@@ -573,7 +568,7 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 // model specifies is one to which an Endpoint can transition as part of a
 // call to PATCH on an Endpoint.
 func validPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
+	switch endpoint.State(state) {
 	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
 		return true
 	}
@@ -682,11 +677,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	return len(errs)
 }
 
-// NotifyMonitorDeleted notifies the monitor that an endpoint has been deleted.
-func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
-	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
-}
-
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes
 // it from Cilium, releasing all resources associated with it such as its
 // visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
@@ -695,13 +685,10 @@ func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return ep.Delete(d, d.ipam, d.endpointManager, conf)
+	return d.endpointManager.RemoveEndpoint(ep, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
-	// id can be an endpoint iD or an IP so not using logfields.EndpointID
-	log.WithField("id", id).Info("Delete endpoint request")
-
 	if ep, err := d.endpointManager.Lookup(id); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
@@ -709,8 +696,55 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	} else if err = endpoint.APICanModify(ep); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else {
+		msg := "Delete endpoint request"
+		switch containerID := ep.GetShortContainerID(); containerID {
+		case "":
+			log.WithFields(logrus.Fields{
+				logfields.IPv4: ep.GetIPv4Address(),
+				logfields.IPv6: ep.GetIPv6Address(),
+			}).Info(msg)
+		default:
+			log.WithFields(logrus.Fields{
+				logfields.ContainerID: containerID,
+			}).Info(msg)
+		}
 		return d.deleteEndpoint(ep), nil
 	}
+}
+
+// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
+// which works around the difficulties in initializing various subsystems
+// involved in managing endpoints, such as the EndpointManager, IPAM and
+// the Monitor.
+//
+// It is called after Daemon calls into d.endpointManager.RemoveEndpoint().
+func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
+
+	if !conf.NoIPRelease {
+		if option.Config.EnableIPv4 {
+			if err := d.ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
+				scopedLog := ep.Logger(daemonSubsys).WithError(err)
+				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if err := d.ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+				scopedLog := ep.Logger(daemonSubsys).WithError(err)
+				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
+			}
+		}
+	}
+}
+
+// EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,
+// allowing the EndpointManager to be the primary implementer of the core
+// endpoint management functionality while deferring other responsibilities
+// to the daemon.
+//
+// It is called after Daemon calls into d.endpointManager.AddEndpoint().
+func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
+	d.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 }
 
 type deleteEndpointID struct {
@@ -763,7 +797,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 			return api.Error(PatchEndpointIDConfigFailedCode, err)
 		}
 	}
-	if err := ep.UpdateReferences(d.endpointManager); err != nil {
+	if err := d.endpointManager.UpdateReferences(ep); err != nil {
 		return api.Error(PatchEndpointIDNotFoundCode, err)
 	}
 

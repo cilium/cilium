@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -54,7 +54,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	cache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
-			FrontendIP: net.ParseIP("1.1.1.1"),
+			FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
 			Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				loadbalancer.FEPortName("foo"): {
 					Protocol: loadbalancer.TCP,
@@ -67,7 +67,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 			},
 		},
 		svcID2: {
-			FrontendIP: net.ParseIP("2.2.2.2"),
+			FrontendIPs: []net.IP{net.ParseIP("2.2.2.2")},
 			Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				loadbalancer.FEPortName("bar"): {
 					Protocol: loadbalancer.UDP,
@@ -76,7 +76,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 			},
 		},
 	}
-	cache.endpoints = map[ServiceID]*endpointSlices{
+	cache.endpoints = map[ServiceID]*EndpointSlices{
 		svcID1: {
 			epSlices: map[string]*Endpoints{
 				"": &endpoints,
@@ -155,23 +155,23 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
-	k8sEndpointSlice := &slim_discovery_v1beta1.EndpointSlice{
-		AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+	k8sEndpointSlice := &slim_discovery_v1.EndpointSlice{
+		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-afbh9",
 			Namespace: "bar",
 			Labels: map[string]string{
-				slim_discovery_v1beta1.LabelServiceName: "foo",
+				slim_discovery_v1.LabelServiceName: "foo",
 			},
 		},
-		Endpoints: []slim_discovery_v1beta1.Endpoint{
+		Endpoints: []slim_discovery_v1.Endpoint{
 			{
 				Addresses: []string{
 					"2.2.2.2",
 				},
 			},
 		},
-		Ports: []slim_discovery_v1beta1.EndpointPort{
+		Ports: []slim_discovery_v1.EndpointPort{
 			{
 				Name:     func() *string { a := "http-test-svc"; return &a }(),
 				Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
@@ -181,7 +181,7 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 	}
 
 	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.UpdateEndpointSlices(k8sEndpointSlice, swgEps)
+		svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swgEps)
 	}
 	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
 		svcCache.DeleteEndpointSlices(k8sEndpointSlice, swgEps)
@@ -645,23 +645,23 @@ func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
-	k8sEndpointSlice1 := &slim_discovery_v1beta1.EndpointSlice{
-		AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+	k8sEndpointSlice1 := &slim_discovery_v1.EndpointSlice{
+		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-yyyyy",
 			Namespace: "bar",
 			Labels: map[string]string{
-				slim_discovery_v1beta1.LabelServiceName: "foo",
+				slim_discovery_v1.LabelServiceName: "foo",
 			},
 		},
-		Endpoints: []slim_discovery_v1beta1.Endpoint{
+		Endpoints: []slim_discovery_v1.Endpoint{
 			{
 				Addresses: []string{
 					"2.2.2.2",
 				},
 			},
 		},
-		Ports: []slim_discovery_v1beta1.EndpointPort{
+		Ports: []slim_discovery_v1.EndpointPort{
 			{
 				Name:     func() *string { a := "http-test-svc"; return &a }(),
 				Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
@@ -670,23 +670,23 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 		},
 	}
 
-	k8sEndpointSlice2 := &slim_discovery_v1beta1.EndpointSlice{
-		AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+	k8sEndpointSlice2 := &slim_discovery_v1.EndpointSlice{
+		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
 			Namespace: "bar",
 			Labels: map[string]string{
-				slim_discovery_v1beta1.LabelServiceName: "foo",
+				slim_discovery_v1.LabelServiceName: "foo",
 			},
 		},
-		Endpoints: []slim_discovery_v1beta1.Endpoint{
+		Endpoints: []slim_discovery_v1.Endpoint{
 			{
 				Addresses: []string{
 					"2.2.2.3",
 				},
 			},
 		},
-		Ports: []slim_discovery_v1beta1.EndpointPort{
+		Ports: []slim_discovery_v1.EndpointPort{
 			{
 				Name:     func() *string { a := "http-test-svc"; return &a }(),
 				Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
@@ -695,23 +695,23 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 		},
 	}
 
-	k8sEndpointSlice3 := &slim_discovery_v1beta1.EndpointSlice{
-		AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+	k8sEndpointSlice3 := &slim_discovery_v1.EndpointSlice{
+		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
 			Namespace: "baz",
 			Labels: map[string]string{
-				slim_discovery_v1beta1.LabelServiceName: "foo",
+				slim_discovery_v1.LabelServiceName: "foo",
 			},
 		},
-		Endpoints: []slim_discovery_v1beta1.Endpoint{
+		Endpoints: []slim_discovery_v1.Endpoint{
 			{
 				Addresses: []string{
 					"2.2.2.4",
 				},
 			},
 		},
-		Ports: []slim_discovery_v1beta1.EndpointPort{
+		Ports: []slim_discovery_v1.EndpointPort{
 			{
 				Name:     func() *string { a := "http-test-svc"; return &a }(),
 				Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
@@ -751,9 +751,9 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	}
 
 	swgEps := lock.NewStoppableWaitGroup()
-	svcCache.UpdateEndpointSlices(k8sEndpointSlice1, swgEps)
-	svcCache.UpdateEndpointSlices(k8sEndpointSlice2, swgEps)
-	svcCache.UpdateEndpointSlices(k8sEndpointSlice3, swgEps)
+	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice2, swgEps)
+	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice3, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice1
@@ -841,7 +841,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	c.Assert(endpoints.String(), check.Equals, "")
 
 	// Reinserting the endpoints should re-match with the still existing service
-	svcCache.UpdateEndpointSlices(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice1, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()

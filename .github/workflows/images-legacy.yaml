@@ -1,0 +1,277 @@
+name: Image CI Build
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push-prs:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+
+          - name: operator
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@0d135e0c2fc0dba0729c1a47ecfcf5a3c7f8579e
+
+      - name: Login to quay.io for CI
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
+
+      - name: Checkout Source Code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+          ref: ${{ steps.tag.outputs.tag }}
+
+      # master branch pushes
+      - name: CI Build ${{ matrix.name }}
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_ci_master
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: CI race detection Build ${{ matrix.name }}
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_ci_master_detect_race_condition
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+          build-args: |
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:07ea8061d047c1085f99916c09d1d9b4c214040b@sha256:f3f8b38ab591055b94a1720d6cda0beabe75c65f2d74e32b65388e4333de7f2c
+            LOCKDEBUG=1
+            RACE=1
+            OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: CI Image Releases digests
+        if: ${{ github.event_name != 'pull_request_target' }}
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+
+      # PR updates
+      - name: CI Build ${{ matrix.name }}
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_ci_pr
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: CI Image Releases digests
+        if: ${{ github.event_name == 'pull_request_target' }}
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+
+      - name: CI race detection Build ${{ matrix.name }}
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_ci_pr_detect_race_condition
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+          build-args: |
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:07ea8061d047c1085f99916c09d1d9b4c214040b@sha256:f3f8b38ab591055b94a1720d6cda0beabe75c65f2d74e32b65388e4333de7f2c
+            LOCKDEBUG=1
+            RACE=1
+            OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: CI Image Releases digests
+        if: ${{ github.event_name == 'pull_request_target' }}
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+  # we need to build cilium-test separately
+  # this is caused by running apt while building the image
+  # which requires qemu setup in order to avoid x86/arm64 binaries mixups
+  build-and-push-with-qemu:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium-test
+            dockerfile: ./images/cilium-test/Dockerfile
+
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c308fdd69d26ed66f4506ebd74b180abe5362145
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@0d135e0c2fc0dba0729c1a47ecfcf5a3c7f8579e
+
+      - name: Login to quay.io for CI
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
+
+      - name: Checkout Source Code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+          ref: ${{ steps.tag.outputs.tag }}
+
+      # master branch pushes
+      - name: CI Build ${{ matrix.name }}
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_ci_master
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+
+      - name: CI Image Releases digests
+        if: ${{ github.event_name != 'pull_request_target' }}
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  image-digests:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    name: Display Digests
+    runs-on: ubuntu-20.04
+    needs: [build-and-push-prs, build-and-push-with-qemu]
+    steps:
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@158ca71f7c614ae705e79f25522ef4658df18253
+        with:
+          path: image-digest/
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat

@@ -17,7 +17,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,19 +90,25 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"sysctl -a",
 		"bpftool map show",
 		"bpftool prog show",
+		"bpftool net show",
+		"taskset -pc 1",
 		// iptables
 		"iptables-save -c",
 		"iptables -S",
 		"ip6tables -S",
 		"iptables -L -v",
 		"ip rule",
-		"ip -4 route show table 2005",
-		"ip -6 route show table 2005",
-		"ip -4 route show table 200",
-		"ip -6 route show table 200",
+		"iptables-legacy -L -v",
+		"iptables-legacy -S",
+		"ip6tables-legacy -S",
+		"iptables-nft -L -v",
+		"iptables-nft -S",
+		"ip6tables-nft -S",
+		"iptables-nft-save -c",
+		"iptables-legacy-save -c",
 		// xfrm
 		"ip xfrm policy",
-		"ip -s xfrm state | awk '!/auth|enc|aead|auth-trunc|comp/'",
+		"ip -s xfrm state",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
 		fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName),
@@ -139,6 +144,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// Commands that require variables and / or more configuration are added
 	// separately below
 	commands = append(commands, catCommands()...)
+	commands = append(commands, routeCommands()...)
 	commands = append(commands, ethoolCommands()...)
 	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
 	commands = append(commands, copyCiliumInfoCommands(cmdDir, k8sPods)...)
@@ -157,7 +163,7 @@ func save(c *BugtoolConfiguration, path string) error {
 	if err != nil {
 		return fmt.Errorf("Cannot marshal config %s", err)
 	}
-	err = ioutil.WriteFile(path, data, 0644)
+	err = os.WriteFile(path, data, 0644)
 	if err != nil {
 		return fmt.Errorf("Cannot write config %s", err)
 	}
@@ -167,7 +173,7 @@ func save(c *BugtoolConfiguration, path string) error {
 func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var content []byte
 	var err error
-	content, err = ioutil.ReadFile(path)
+	content, err = os.ReadFile(path)
 
 	if err != nil {
 		return nil, err
@@ -198,6 +204,19 @@ func catCommands() []string {
 		commands = append(commands, fmt.Sprintf("cat %s", f))
 	}
 	// TODO: handle K8s case as well.
+	return commands
+}
+
+// routeCommands gets the routes tables dynamically.
+func routeCommands() []string {
+	commands := []string{}
+	routes, _ := execCommand("ip route show table all | grep -E --only-matching 'table [0-9]+'")
+
+	for _, r := range strings.Split(strings.TrimSuffix(routes, "\n"), "\n") {
+		routeTablev4 := fmt.Sprintf("ip -4 route show %v", r)
+		routeTablev6 := fmt.Sprintf("ip -6 route show %v", r)
+		commands = append(commands, routeTablev4, routeTablev6)
+	}
 	return commands
 }
 
@@ -279,9 +298,11 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf policy get --all --numeric",
 		"cilium bpf sha list",
 		"cilium bpf fs show",
+		"cilium bpf recorder list",
 		"cilium ip list -n -o json",
 		"cilium map list --verbose",
 		"cilium service list",
+		"cilium recorder list",
 		"cilium status --verbose",
 		"cilium identity list",
 		"cilium-health status",

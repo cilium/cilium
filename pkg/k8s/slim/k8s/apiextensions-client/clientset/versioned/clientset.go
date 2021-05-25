@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	apiextensionsv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/typed/apiextensions/v1"
-	apiextensionsv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/typed/apiextensions/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -28,7 +27,6 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	ApiextensionsV1beta1() apiextensionsv1beta1.ApiextensionsV1beta1Interface
 	ApiextensionsV1() apiextensionsv1.ApiextensionsV1Interface
 }
 
@@ -36,13 +34,7 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	apiextensionsV1beta1 *apiextensionsv1beta1.ApiextensionsV1beta1Client
-	apiextensionsV1      *apiextensionsv1.ApiextensionsV1Client
-}
-
-// ApiextensionsV1beta1 retrieves the ApiextensionsV1beta1Client
-func (c *Clientset) ApiextensionsV1beta1() apiextensionsv1beta1.ApiextensionsV1beta1Interface {
-	return c.apiextensionsV1beta1
+	apiextensionsV1 *apiextensionsv1.ApiextensionsV1Client
 }
 
 // ApiextensionsV1 retrieves the ApiextensionsV1Client
@@ -71,10 +63,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.apiextensionsV1beta1, err = apiextensionsv1beta1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 	cs.apiextensionsV1, err = apiextensionsv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -91,7 +79,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.apiextensionsV1beta1 = apiextensionsv1beta1.NewForConfigOrDie(c)
 	cs.apiextensionsV1 = apiextensionsv1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
@@ -101,7 +88,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.apiextensionsV1beta1 = apiextensionsv1beta1.New(c)
 	cs.apiextensionsV1 = apiextensionsv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

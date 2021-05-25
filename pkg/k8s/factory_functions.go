@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -90,7 +91,7 @@ func ObjToV1Endpoints(obj interface{}) *slim_corev1.Endpoints {
 	return nil
 }
 
-func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice {
+func ObjToV1Beta1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice {
 	ep, ok := obj.(*slim_discover_v1beta1.EndpointSlice)
 	if ok {
 		return ep
@@ -107,6 +108,26 @@ func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice 
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid k8s v1beta1 EndpointSlice")
+	return nil
+}
+
+func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1.EndpointSlice {
+	ep, ok := obj.(*slim_discover_v1.EndpointSlice)
+	if ok {
+		return ep
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ep, ok := deletedObj.Obj.(*slim_discover_v1.EndpointSlice)
+		if ok {
+			return ep
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 EndpointSlice")
 	return nil
 }
 
@@ -190,26 +211,6 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	return nil
 }
 
-func ObjToV1beta1CRD(obj interface{}) *slim_apiextensions_v1beta1.CustomResourceDefinition {
-	crd, ok := obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
-	if ok {
-		return crd
-	}
-	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-	if ok {
-		// Delete was not observed by the watcher but is
-		// removed from kube-apiserver. This is the last
-		// known state and the object no longer exists.
-		crd, ok := deletedObj.Obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
-		if ok {
-			return crd
-		}
-	}
-	log.WithField(logfields.Object, logfields.Repr(obj)).
-		Warn("Ignoring invalid k8s v1beta1 CustomResourceDefinition")
-	return nil
-}
-
 func ObjToV1PartialObjectMetadata(obj interface{}) *slim_metav1.PartialObjectMetadata {
 	pom, ok := obj.(*slim_metav1.PartialObjectMetadata)
 	if ok {
@@ -245,7 +246,7 @@ func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datap
 
 	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
 	// method.
-	return svc1.DeepEquals(svc2)
+	return svc1.DeepEqual(svc2)
 }
 
 // AnnotationsEqual returns whether the annotation with any key in
@@ -278,6 +279,25 @@ func convertToK8sServicePorts(ports []v1.ServicePort) []slim_corev1.ServicePort 
 	return slimPorts
 }
 
+func ConvertToK8sV1ServicePorts(slimPorts []slim_corev1.ServicePort) []v1.ServicePort {
+	if slimPorts == nil {
+		return nil
+	}
+
+	ports := make([]v1.ServicePort, 0, len(slimPorts))
+	for _, port := range slimPorts {
+		ports = append(ports,
+			v1.ServicePort{
+				Name:     port.Name,
+				Protocol: v1.Protocol(port.Protocol),
+				Port:     port.Port,
+				NodePort: port.NodePort,
+			},
+		)
+	}
+	return ports
+}
+
 func convertToK8sServiceAffinityConfig(saCfg *v1.SessionAffinityConfig) *slim_corev1.SessionAffinityConfig {
 	if saCfg == nil {
 		return nil
@@ -289,6 +309,22 @@ func convertToK8sServiceAffinityConfig(saCfg *v1.SessionAffinityConfig) *slim_co
 
 	return &slim_corev1.SessionAffinityConfig{
 		ClientIP: &slim_corev1.ClientIPConfig{
+			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
+		},
+	}
+}
+
+func ConvertToK8sV1ServiceAffinityConfig(saCfg *slim_corev1.SessionAffinityConfig) *v1.SessionAffinityConfig {
+	if saCfg == nil {
+		return nil
+	}
+
+	if saCfg.ClientIP == nil {
+		return &v1.SessionAffinityConfig{}
+	}
+
+	return &v1.SessionAffinityConfig{
+		ClientIP: &v1.ClientIPConfig{
 			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
 		},
 	}
@@ -308,6 +344,22 @@ func convertToK8sLoadBalancerIngress(lbIngs []v1.LoadBalancerIngress) []slim_cor
 		)
 	}
 	return slimLBIngs
+}
+
+func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngress) []v1.LoadBalancerIngress {
+	if slimLBIngs == nil {
+		return nil
+	}
+
+	lbIngs := make([]v1.LoadBalancerIngress, 0, len(slimLBIngs))
+	for _, lbIng := range slimLBIngs {
+		lbIngs = append(lbIngs,
+			v1.LoadBalancerIngress{
+				IP: lbIng.IP,
+			},
+		)
+	}
+	return lbIngs
 }
 
 // ConvertToK8sService converts a *v1.Service into a
@@ -338,6 +390,7 @@ func ConvertToK8sService(obj interface{}) interface{} {
 				Type:                  slim_corev1.ServiceType(concreteObj.Spec.Type),
 				ExternalIPs:           concreteObj.Spec.ExternalIPs,
 				SessionAffinity:       slim_corev1.ServiceAffinity(concreteObj.Spec.SessionAffinity),
+				LoadBalancerIP:        concreteObj.Spec.LoadBalancerIP,
 				ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyType(concreteObj.Spec.ExternalTrafficPolicy),
 				HealthCheckNodePort:   concreteObj.Spec.HealthCheckNodePort,
 				SessionAffinityConfig: convertToK8sServiceAffinityConfig(concreteObj.Spec.SessionAffinityConfig),
@@ -375,6 +428,7 @@ func ConvertToK8sService(obj interface{}) interface{} {
 					Type:                  slim_corev1.ServiceType(svc.Spec.Type),
 					ExternalIPs:           svc.Spec.ExternalIPs,
 					SessionAffinity:       slim_corev1.ServiceAffinity(svc.Spec.SessionAffinity),
+					LoadBalancerIP:        svc.Spec.LoadBalancerIP,
 					ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyType(svc.Spec.ExternalTrafficPolicy),
 					HealthCheckNodePort:   svc.Spec.HealthCheckNodePort,
 					SessionAffinityConfig: convertToK8sServiceAffinityConfig(svc.Spec.SessionAffinityConfig),
@@ -402,39 +456,35 @@ func ConvertToK8sService(obj interface{}) interface{} {
 func ConvertToCCNP(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
-		cnp := &types.SlimCNP{
+		ccnp := &types.SlimCNP{
 			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
 				TypeMeta:   concreteObj.TypeMeta,
 				ObjectMeta: concreteObj.ObjectMeta,
+				Spec:       concreteObj.Spec,
+				Specs:      concreteObj.Specs,
 			},
 		}
-		if concreteObj.CiliumNetworkPolicy != nil {
-			cnp.Spec = concreteObj.Spec
-			cnp.Specs = concreteObj.Specs
-		}
 		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
-		return cnp
+		return ccnp
 
 	case cache.DeletedFinalStateUnknown:
-		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
+		ccnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
 		if !ok {
 			return obj
 		}
 		slimCNP := &types.SlimCNP{
 			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-				TypeMeta:   cnp.TypeMeta,
-				ObjectMeta: cnp.ObjectMeta,
+				TypeMeta:   ccnp.TypeMeta,
+				ObjectMeta: ccnp.ObjectMeta,
+				Spec:       ccnp.Spec,
+				Specs:      ccnp.Specs,
 			},
-		}
-		if cnp.CiliumNetworkPolicy != nil {
-			slimCNP.Spec = cnp.Spec
-			slimCNP.Specs = cnp.Specs
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
 			Obj: slimCNP,
 		}
-		*cnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
+		*ccnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return dfsu
 
 	default:
@@ -672,6 +722,30 @@ func ConvertToCiliumLocalRedirectPolicy(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumEgressNATPolicy converts a *cilium_v2.CiliumEgressNATPolicy into a
+// *cilium_v2.CiliumEgressNATPolicy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumEgressNATPolicy in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumEgressNATPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumEgressNATPolicy(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumEgressNATPolicy
+	switch concreteObj := obj.(type) {
+	case *cilium_v2alpha1.CiliumEgressNATPolicy:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumEgressNATPolicy, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumEgressNATPolicy,
+		}
+	default:
+		return obj
+	}
+}
+
 // ObjToCiliumNode attempts to cast object to a CiliumNode object and
 // returns a deep copy if the castin succeeds. Otherwise, nil is returned.
 func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
@@ -806,5 +880,27 @@ func ObjToCLRP(obj interface{}) *cilium_v2.CiliumLocalRedirectPolicy {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid v2 Cilium Local Redirect Policy")
+	return nil
+}
+
+// ObjToCENP attempts to cast object to a CENP object and
+// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+func ObjToCENP(obj interface{}) *cilium_v2alpha1.CiliumEgressNATPolicy {
+	cENP, ok := obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
+	if ok {
+		return cENP
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cn, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
+		if ok {
+			return cn
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 Cilium Egress Gateway Policy")
 	return nil
 }

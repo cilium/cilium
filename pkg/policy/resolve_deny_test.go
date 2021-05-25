@@ -447,7 +447,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel, ruleLabel}, false, true)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, true)
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelDenyAnyEgress}, false, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -467,7 +467,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 							cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:  &PerSelectorPolicy{IsDeny: true},
 						},
-						DerivedFromRules: labels.LabelArrayList{ruleLabel, ruleLabel},
+						DerivedFromRules: labels.LabelArrayList{ruleLabel},
 					},
 				},
 				Egress: L4PolicyMap{},

@@ -37,6 +37,8 @@ static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, __u32 proto,
 		    __u32 flags);
 static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, __u32 nlen,
 		    __u32 flags);
+static int BPF_FUNC(skb_change_head, struct __sk_buff *skb, __u32 head_room,
+		    __u64 flags);
 
 static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, __u32 len);
 

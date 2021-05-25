@@ -66,7 +66,7 @@ func (client DdosProtectionPlansClient) CreateOrUpdate(ctx context.Context, reso
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -108,7 +108,29 @@ func (client DdosProtectionPlansClient) CreateOrUpdateSender(req *http.Request) 
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client DdosProtectionPlansClient) (dpp DdosProtectionPlan, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.DdosProtectionPlansCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if dpp.Response.Response, err = future.GetResult(sender); err == nil && dpp.Response.Response.StatusCode != http.StatusNoContent {
+			dpp, err = client.CreateOrUpdateResponder(dpp.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansCreateOrUpdateFuture", "Result", dpp.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -147,7 +169,7 @@ func (client DdosProtectionPlansClient) Delete(ctx context.Context, resourceGrou
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -183,7 +205,23 @@ func (client DdosProtectionPlansClient) DeleteSender(req *http.Request) (future 
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client DdosProtectionPlansClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.DdosProtectionPlansDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -229,6 +267,7 @@ func (client DdosProtectionPlansClient) Get(ctx context.Context, resourceGroupNa
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -302,6 +341,11 @@ func (client DdosProtectionPlansClient) List(ctx context.Context) (result DdosPr
 	result.dpplr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.dpplr.hasNextLink() && result.dpplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -412,6 +456,11 @@ func (client DdosProtectionPlansClient) ListByResourceGroup(ctx context.Context,
 	result.dpplr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.dpplr.hasNextLink() && result.dpplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -524,6 +573,7 @@ func (client DdosProtectionPlansClient) UpdateTags(ctx context.Context, resource
 	result, err = client.UpdateTagsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosProtectionPlansClient", "UpdateTags", resp, "Failure responding to request")
+		return
 	}
 
 	return

@@ -26,6 +26,7 @@ minor version of Cilium, for example in a ``v1.2.z`` release prior to the
 release of version ``v1.3.0``:
 
 - All bugfixes
+- Debug tool improvements
 
 Backport Criteria for X.Y-1.Z and X.Y-2.Z
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,7 +37,16 @@ the release of version ``v1.3.0``:
 
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium
+- Debug tool improvements
 
+Proposing PRs for backporting
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+PRs are proposed for backporting by adding a ``needs-backport/X.Y`` label to
+them. Normally this is done by the author when the PR is created or one of the
+maintainers when the PR is reviewed. When proposing PRs that have already been
+merged, also add a comment to the PR to ensure that the backporters are
+notified.
 
 Backporting Guide for the Backporter
 ------------------------------------
@@ -65,8 +75,15 @@ One-time Setup
       $ git config --global user.name "John Doe"
       $ git config --global user.email johndoe@example.com
 
+#. Add remotes for the Cilium upstream repository and your Cilium repository fork.
+
+   .. code-block:: bash
+
+      $ git remote add johndoe git@github.com:johndoe/cilium.git
+      $ git remote add upstream https://github.com/cilium/cilium.git
+
 #. Make sure you have a GitHub developer access token with the ``public_repos``
-   scope available. You can do this directly from
+   ``workflow`` scopes available. You can do this directly from
    https://github.com/settings/tokens or by opening GitHub and then navigating
    to: User Profile -> Settings -> Developer Settings -> Personal access token
    -> Generate new token.
@@ -88,7 +105,7 @@ One-time Setup
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | `PyGithub <https://pypi.org/project/PyGithub/>`_             | No        | ``pip3 install PyGithub``                               |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
-   | `Github hub CLI <https://github.com/github/hub>`_            | No        | N/A (OS-specific)                                       |
+   | `Github hub CLI (>= 2.8.3) <https://github.com/github/hub>`_ | No        | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
 
    Verify your machine is correctly configured by running
@@ -166,12 +183,6 @@ Creating the Backports Branch
    commit does not cherry-pick cleanly, please mention the necessary changes in
    the pull request description in the next section.
 
-#. Push your backports branch to cilium repo.
-
-   .. code-block:: bash
-
-      $ git push -u origin HEAD
-
 Creating the Backport Pull Request
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -190,8 +201,28 @@ the labels for the PRs that are backported, based on the
 
       $ GITHUB_TOKEN=xxx contrib/backporting/submit-backport
 
+The script takes up to three positional arguments:
+
+   .. code-block:: bash
+
+      usage: submit-backport [branch version] [pr-summary] [your remote]
+
+- The first parameter is the version of the branch against which the PR should
+  be done, and defaults to the version passed to ``start-backport``.
+- The second one is the name of the file containing the text summary to use for
+  the PR, and defaults to the file created by ``start-backport``.
+- The third one is the name of the git remote of your (forked) repository to
+  which your changes will be pushed. It defaults to the git remote
+  which matches ``github.com/<your github username>/cilium``.
+
 Via GitHub Web Interface
 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+#. Push your backports branch to your fork of the Cilium repo.
+
+   .. code-block:: bash
+
+      $ git push -u <remote_for_your_fork> HEAD
 
 #. Create a new PR from your branch towards the feature branch you are
    backporting to. Note that by default Github creates PRs against the

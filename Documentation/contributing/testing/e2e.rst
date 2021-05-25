@@ -64,7 +64,7 @@ To run all of the runtime tests, execute the following command from the ``test``
 
 ::
 
-    ginkgo --focus="Runtime" -noColor
+    ginkgo --focus="Runtime"
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -72,7 +72,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 ::
 
-    $ ginkgo --focus="Runtime" -noColor -v -dryRun
+    $ ginkgo --focus="Runtime" -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -115,7 +115,7 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
 ::
 
-    ginkgo --focus="K8s" -noColor
+    ginkgo --focus="K8s"
 
 To run a specific test from the Kubernetes tests suite, run the following command
 from the ``test`` directory:
@@ -130,21 +130,19 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.13
-* 1.14
-* 1.15
 * 1.16
 * 1.17
 * 1.18
 * 1.19
 * 1.20
+* 1.21
 
 By default, the Vagrant VMs are provisioned with Kubernetes 1.20. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
 ::
 
-    K8S_VERSION=<version> ginkgo --focus="K8s" -noColor
+    K8S_VERSION=<version> ginkgo --focus="K8s"
 
 .. note::
 
@@ -177,7 +175,7 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
 
 ::
 
-    ginkgo --focus="Nightly"  -noColor
+    ginkgo --focus="Nightly"
 
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and contain
@@ -415,18 +413,10 @@ Test execution flow:
 Debugging:
 ~~~~~~~~~~
 
-Ginkgo provides to us different ways of debugging. In case that you want to see
-all the logs messages in the console you can run the test in verbose mode using
-the option ``-v``:
-
-::
-
-	ginkgo --focus "Runtime" -v
-
-In case that the verbose mode is not enough, you can retrieve all run commands
-and their output in the report directory (``./test/test_results``). Each test
-creates a new folder, which contains a file called log where all information is
-saved, in case of a failing test an exhaustive data will be added.
+You can retrieve all run commands and their output in the report directory
+(``./test/test_results``). Each test creates a new folder, which contains
+a file called log where all information is saved, in case of a failing
+test an exhaustive data will be added.
 
 ::
 
@@ -480,7 +470,7 @@ This mode expects:
 - A populated K8S_VERSION environment variable set to the version of the cluster
 
 - If appropriate, set the ``CNI_INTEGRATION`` environment variable set to one
-  of ``flannel``, ``gke``, ``eks``, ``microk8s`` or ``minikube``. This selects
+  of ``gke``, ``eks``, ``eks-chaining``, ``microk8s`` or ``minikube``. This selects
   matching configuration overrides for cilium.
   Leaving this unset for non-matching integrations is also correct.
 
@@ -491,12 +481,12 @@ An example invocation is
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
 
 Running in GKE
 ^^^^^^^^^^^^^^
 
-1- Setup a cluster as in :ref:`k8s_install_gke` or utilize an existing
+1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
 cluster.
 
 .. note:: You do not need to deploy Cilium in this step, as the End-To-End
@@ -509,36 +499,41 @@ cluster.
 2- Invoke the tests from ``cilium/test`` with options set as explained in
 `Running End-To-End Tests In Other Environments via kubeconfig`_
 
-.. note:: GKE clusters may have namespaces stuck at the ``Terminating`` state,
-          causing Ginkgo tests to fail. If so, you'll see them in ``kubectl get ns``,
-          and can get rid of them by running ``cilium/test/gke/clean-cluster.sh``.
+.. note:: The tests require the ``NATIVE_CIDR`` environment variable to be set to
+          the value of the cluster IPv4 CIDR returned by the ``gcloud container
+          clusters describe`` command.
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay" -cilium.passCLIEnvironment=true
+  export CLUSTER_NAME=cluster1
+  export CLUSTER_ZONE=us-west2-a
+  export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
 
-.. note:: The kubernetes version defaults to 1.18 but can be configured with
-          versions between 1.13 and 1.18. Version should match the server
+  CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
+
+.. note:: The kubernetes version defaults to 1.21 but can be configured with
+          versions between 1.16 and 1.21. Version should match the server
           version reported by ``kubectl version``.
 
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Not all tests can succeed on EKS. Many do, however and may be useful.
+:gh-issue:`9678#issuecomment-749350425` contains a list of tests that are still
+failing.
 
-1- Setup a cluster as in :ref:`k8s_install_eks` or utilize an existing
+1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
 cluster.
 
-2- Invoke the tests from ``cilium/test`` with options set as explained in
-`Running End-To-End Tests In Other Environments via kubeconfig`_
+2- Source the testing integration script from ``cilium/contrib/testing/integrations.sh``.
+
+3- Invoke the ``gks`` function by passing which ``cilium`` docker image to run and the test focus. The command also
+accepts additional ginkgo arguments.
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium" -cilium.operator-image="docker.io/cilium/operator" -cilium.passCLIEnvironment=true
+  gks quay.io/cilium/cilium:latest K8sDemo
 
-Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
-
-.. note:: The kubernetes version varies between AWS regions. Be sure to check with ``kubectl version``
 
 Adding new Managed Kubernetes providers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -602,7 +597,7 @@ To run this you can use the following command:
 
 ::
 
-    ginkgo  -v -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
+    ginkgo -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 
 
 VMs for Testing
@@ -623,6 +618,8 @@ configuration options that can be passed as environment variables:
 | CONTAINER\_RUNTIME   | docker            | containerd   | To set the default container runtime in the Kubernetes cluster   |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | K8S\_VERSION         | 1.18              | 1.\*\*       | Kubernetes version to install                                    |
++----------------------+-------------------+--------------+------------------------------------------------------------------+
+| KUBEPROXY            | 1                 | 0-1          | If 0 the Kubernetes' kube-proxy won't be installed               |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | SERVER\_BOX          | cilium/ubuntu-dev | *            | Vagrantcloud base image                                          |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+

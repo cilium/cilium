@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -88,7 +87,7 @@ func dumpShaList() {
 	bpfTemplateList := make(map[string][]string)
 
 	// Find all templates
-	templateDirs, err := ioutil.ReadDir(templatesDir)
+	templateDirs, err := os.ReadDir(templatesDir)
 	if err != nil {
 		Fatalf("failed to list template directory: %s\n", err)
 	}
@@ -97,7 +96,7 @@ func dumpShaList() {
 	}
 
 	// Find all endpoint usage of the templates
-	stateDirs, err := ioutil.ReadDir(stateDir)
+	stateDirs, err := os.ReadDir(stateDir)
 	if err != nil {
 		Fatalf("failed to list state directory: %s\n", err)
 	}

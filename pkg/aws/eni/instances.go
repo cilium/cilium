@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
@@ -35,13 +35,12 @@ type EC2API interface {
 	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
-	CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error)
-	AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error)
+	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error)
+	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
-	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error
+	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
-	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
@@ -53,22 +52,20 @@ type InstancesManager struct {
 	vpcs           ipamTypes.VirtualNetworkMap
 	securityGroups types.SecurityGroupMap
 	api            EC2API
-	eniTags        map[string]string
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(api EC2API, eniTags map[string]string) *InstancesManager {
+func NewInstancesManager(api EC2API) *InstancesManager {
 	return &InstancesManager{
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
-		eniTags:   eniTags,
 	}
 }
 
 // CreateNode is called on discovery of a new node and returns the ENI node
 // allocation implementation for the new node
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.NodeOperations {
-	return &Node{k8sObj: obj, manager: m, node: n}
+	return NewNode(n, obj, m)
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
@@ -204,6 +201,15 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 // ForeachInstance will iterate over each instance inside `instances`, and call
 // `fn`. This function is read-locked for the entire execution.
 func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.InterfaceIterator) {
+	// This is a safety net in case the InstanceID is not known for some
+	// reason. If we don't know the instanceID, we also can't derive the
+	// list of ENIs attached to this instance. Without this,
+	// ForeachInstance() would return the ENIs of all instances.
+	if instanceID == "" {
+		log.Error("BUG: Inconsistent CiliumNode state. The InstanceID is not known")
+		return
+	}
+
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	m.instances.ForeachInterface(instanceID, fn)

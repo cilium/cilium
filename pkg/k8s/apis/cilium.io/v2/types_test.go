@@ -364,7 +364,6 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 			Name: "rule1",
 			UID:  uuidRule,
 		},
-		CiliumNetworkPolicy: empty,
 	}
 	_, err = emptyCCNP.Parse()
 	c.Assert(err, checker.DeepEquals, ErrEmptyCCNP)
@@ -514,7 +513,7 @@ func (s *CiliumV2Suite) TestParseWithNodeSelector(c *C) {
 			Name:      "rule",
 			UID:       uuidRule,
 		},
-		CiliumNetworkPolicy: &cnpl,
+		Spec: cnpl.Spec,
 	}
 	_, err = ccnpl.Parse()
 	c.Assert(err, IsNil)

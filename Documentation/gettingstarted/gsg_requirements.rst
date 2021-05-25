@@ -7,14 +7,7 @@ across the globe, there is almost always someone available to help.
 Setup Cilium
 ============
 
-If you have not set up Cilium yet, pick any installation method as described in
-section :ref:`gs_install` to set up Cilium for your Kubernetes environment. If
-in doubt, pick :ref:`gs_minikube` as the simplest way to set up a Kubernetes
-cluster with Cilium:
-
-.. parsed-literal::
-
-    minikube start --network-plugin=cni --memory=4096
-    minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf
-    kubectl create -f \ |SCM_WEB|\/install/kubernetes/quick-install.yaml
-
+If you have not set up Cilium yet, follow the guide :ref:`k8s_install_standard`
+for instructions on how to quickly bootstrap a Kubernetes cluster and install
+Cilium. If in doubt, pick the minikube route, you will be good to go in less
+than 5 minutes.

@@ -15,7 +15,7 @@
 package clustermesh
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -57,7 +57,7 @@ func createConfigDirectoryWatcher(path string, lifecycle clusterLifecycle) (*con
 }
 
 func isEtcdConfigFile(path string) bool {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
@@ -66,31 +66,38 @@ func isEtcdConfigFile(path string) bool {
 	return strings.Contains(string(b), "endpoints:")
 }
 
+func (cdw *configDirectoryWatcher) handleAddedFile(name, absolutePath string) {
+	// A typical directory will look like this:
+	// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test5 -> ..data/test5
+	// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test7 -> ..data/test7
+	//
+	// Ignore all backing files and only read the symlinks
+	if strings.HasPrefix(name, "..") {
+		return
+	}
+
+	if !isEtcdConfigFile(absolutePath) {
+		return
+	}
+
+	cdw.lifecycle.add(name, absolutePath)
+}
+
 func (cdw *configDirectoryWatcher) watch() error {
 	log.WithField(fieldConfig, cdw.path).Debug("Starting config directory watcher")
 
-	files, err := ioutil.ReadDir(cdw.path)
+	files, err := os.ReadDir(cdw.path)
 	if err != nil {
 		return err
 	}
 
 	for _, f := range files {
-		// A typical directory will look like this:
-		// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test5 -> ..data/test5
-		// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test7 -> ..data/test7
-		//
-		// Ignore all backing files and only read the symlinks
-		if strings.HasPrefix(f.Name(), "..") || f.IsDir() {
+		if f.IsDir() {
 			continue
 		}
 
 		absolutePath := path.Join(cdw.path, f.Name())
-		if !isEtcdConfigFile(absolutePath) {
-			continue
-		}
-
-		log.WithField(fieldClusterName, f.Name()).WithField("mode", f.Mode()).Debugf("Found configuration in initial scan")
-		cdw.lifecycle.add(f.Name(), absolutePath)
+		cdw.handleAddedFile(f.Name(), absolutePath)
 	}
 
 	go func() {
@@ -103,7 +110,7 @@ func (cdw *configDirectoryWatcher) watch() error {
 				case event.Op&fsnotify.Create == fsnotify.Create,
 					event.Op&fsnotify.Write == fsnotify.Write,
 					event.Op&fsnotify.Chmod == fsnotify.Chmod:
-					cdw.lifecycle.add(name, event.Name)
+					cdw.handleAddedFile(name, event.Name)
 				case event.Op&fsnotify.Remove == fsnotify.Remove,
 					event.Op&fsnotify.Rename == fsnotify.Rename:
 					cdw.lifecycle.remove(name)

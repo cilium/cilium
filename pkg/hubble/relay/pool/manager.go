@@ -23,6 +23,7 @@ import (
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
@@ -80,6 +81,8 @@ func (m *PeerManager) Start() {
 
 func (m *PeerManager) watchNotifications() {
 	ctx, cancel := context.WithCancel(context.Background())
+	retryTimer, retryTimerDone := inctimer.New()
+	defer retryTimerDone()
 connect:
 	for {
 		cl, err := m.opts.peerClientBuilder.Client(m.opts.peerServiceAddress)
@@ -92,7 +95,7 @@ connect:
 			case <-m.stop:
 				cancel()
 				return
-			case <-time.After(m.opts.retryTimeout):
+			case <-retryTimer.After(m.opts.retryTimeout):
 				continue
 			}
 		}
@@ -107,7 +110,7 @@ connect:
 			case <-m.stop:
 				cancel()
 				return
-			case <-time.After(m.opts.retryTimeout):
+			case <-retryTimer.After(m.opts.retryTimeout):
 				continue
 			}
 		}
@@ -130,11 +133,11 @@ connect:
 				case <-m.stop:
 					cancel()
 					return
-				case <-time.After(m.opts.retryTimeout):
+				case <-retryTimer.After(m.opts.retryTimeout):
 					continue connect
 				}
 			}
-			m.opts.log.WithField("change notification", cn).Debug("Received peer change notification")
+			m.opts.log.WithField("change notification", cn).Info("Received peer change notification")
 			p := peerTypes.FromChangeNotification(cn)
 			switch cn.GetType() {
 			case peerpb.ChangeNotificationType_PEER_ADDED:
@@ -149,6 +152,8 @@ connect:
 }
 
 func (m *PeerManager) manageConnections() {
+	connTimer, connTimerDone := inctimer.New()
+	defer connTimerDone()
 	for {
 		select {
 		case <-m.stop:
@@ -163,7 +168,7 @@ func (m *PeerManager) manageConnections() {
 				// a connection request has been made, make sure to attempt a connection
 				m.connect(p, true)
 			}()
-		case <-time.After(m.opts.connCheckInterval):
+		case <-connTimer.After(m.opts.connCheckInterval):
 			m.mu.RLock()
 			now := time.Now()
 			for _, p := range m.peers {
@@ -310,29 +315,34 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 			if err := p.conn.Close(); err != nil {
 				m.opts.log.WithFields(logrus.Fields{
 					"error": err,
-				}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
+					"peer":  p.Name,
+				}).Warning("Failed to properly close gRPC client connection")
 			}
 			p.conn = nil
 		}
 	}
 
-	m.opts.log.WithFields(logrus.Fields{
-		"address": p.Address,
-	}).Debugf("Connecting peer %s...", p.Name)
+	scopedLog := m.opts.log.WithFields(logrus.Fields{
+		"address":    p.Address,
+		"hubble-tls": p.TLSEnabled,
+		"peer":       p.Name,
+	})
+
+	scopedLog.Info("Connecting")
 	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)
 		p.connAttempts++
-		m.opts.log.WithFields(logrus.Fields{
-			"address": p.Address,
-			"error":   err,
-		}).Warningf("Failed to create gRPC client connection to peer %s; next attempt after %s", p.Name, duration)
+		scopedLog.WithFields(logrus.Fields{
+			"error":       err,
+			"next-try-in": duration,
+		}).Warning("Failed to create gRPC client")
 	} else {
 		p.nextConnAttempt = time.Time{}
 		p.connAttempts = 0
 		p.conn = conn
-		m.opts.log.Debugf("Peer %s connected", p.Name)
+		scopedLog.Info("Connected")
 	}
 }
 
@@ -345,12 +355,17 @@ func (m *PeerManager) disconnect(p *peer) {
 	if p.conn == nil {
 		return
 	}
-	m.opts.log.Debugf("Disconnecting peer %s...", p.Name)
+
+	scopedLog := m.opts.log.WithFields(logrus.Fields{
+		"address":    p.Address,
+		"hubble-tls": p.TLSEnabled,
+		"peer":       p.Name,
+	})
+
+	scopedLog.Info("Disconnecting")
 	if err := p.conn.Close(); err != nil {
-		m.opts.log.WithFields(logrus.Fields{
-			"error": err,
-		}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
+		scopedLog.WithField("error", err).Warning("Failed to properly close gRPC client connection")
 	}
 	p.conn = nil
-	m.opts.log.Debugf("Peer %s disconnected", p.Name)
+	scopedLog.Info("Disconnected")
 }

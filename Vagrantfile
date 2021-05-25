@@ -270,7 +270,10 @@ Vagrant.configure(2) do |config|
     end
     cilium_dir = '.'
     cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'
-    if ENV["SHARE_PARENT"] then
+    if ENV["SHARE_PARENT"] == "2" then
+      cilium_dir = '../..'
+      cilium_path = '/home/vagrant/go/src/github.com'
+    elsif ENV["SHARE_PARENT"] then
       cilium_dir = '..'
       cilium_path = '/home/vagrant/go/src/github.com/cilium'
     end

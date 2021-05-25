@@ -155,8 +155,9 @@ func (c *C) Fatalf(format string, args ...interface{}) {
 //
 // Some checkers may not need the expected argument (e.g. IsNil).
 //
-// Extra arguments provided to the function are logged next to the reported
-// problem when the matching fails.
+// If the last value in args implements CommentInterface, it is used to log
+// additional information instead of being passed to the checker (see Commentf
+// for an example).
 func (c *C) Check(obtained interface{}, checker Checker, args ...interface{}) bool {
 	return c.internalCheck("Check", obtained, checker, args...)
 }
@@ -167,8 +168,9 @@ func (c *C) Check(obtained interface{}, checker Checker, args ...interface{}) bo
 //
 // Some checkers may not need the expected argument (e.g. IsNil).
 //
-// Extra arguments provided to the function are logged next to the reported
-// problem when the matching fails.
+// If the last value in args implements CommentInterface, it is used to log
+// additional information instead of being passed to the checker (see Commentf
+// for an example).
 func (c *C) Assert(obtained interface{}, checker Checker, args ...interface{}) {
 	if !c.internalCheck("Assert", obtained, checker, args...) {
 		c.stopNow()

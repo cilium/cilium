@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -62,20 +61,13 @@ type CiliumNetworkPolicy struct {
 
 // DeepEqual compares 2 CNPs.
 func (in *CiliumNetworkPolicy) DeepEqual(other *CiliumNetworkPolicy) bool {
-	return sharedCNPDeepEqual(in, other) && in.deepEqual(other)
+	return objectMetaDeepEqual(in.ObjectMeta, other.ObjectMeta) && in.deepEqual(other)
 }
 
-// sharedCNPDeepEqual performs an equality check for CNP that ignores the
-// LastAppliedConfigAnnotation and ignores the Status field of the CNP. This
-// function's usage is shared among CNP and CCNP as CCNP embeds a CNP.
-func sharedCNPDeepEqual(in, other *CiliumNetworkPolicy) bool {
-	switch {
-	case (in == nil) != (other == nil):
-		return false
-	case (in == nil) && (other == nil):
-		return true
-	}
-
+// objectMetaDeepEqual performs an equality check for metav1.ObjectMeta that
+// ignores the LastAppliedConfigAnnotation. This function's usage is shared
+// among CNP and CCNP as they have the same structure.
+func objectMetaDeepEqual(in, other metav1.ObjectMeta) bool {
 	if !(in.Name == other.Name && in.Namespace == other.Namespace) {
 		return false
 	}
@@ -204,7 +196,7 @@ func (r *CiliumNetworkPolicy) AnnotationsEquals(o *CiliumNetworkPolicy) bool {
 // rules.
 func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
-		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
+		return nil, NewErrParse("CiliumNetworkPolicy must have name")
 	}
 
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
@@ -213,10 +205,11 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	// convert them back to CCNPs to allow proper parsing.
 	if namespace == "" {
 		ccnp := CiliumClusterwideNetworkPolicy{
-			TypeMeta:            r.TypeMeta,
-			ObjectMeta:          r.ObjectMeta,
-			CiliumNetworkPolicy: r,
-			Status:              r.Status,
+			TypeMeta:   r.TypeMeta,
+			ObjectMeta: r.ObjectMeta,
+			Spec:       r.Spec,
+			Specs:      r.Specs,
+			Status:     r.Status,
 		}
 		return ccnp.Parse()
 	}
@@ -231,10 +224,10 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
-			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
+			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
 		if r.Spec.NodeSelector.LabelSelector != nil {
-			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+			return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 		}
 		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, r.Spec)
 		retRules = append(retRules, cr)
@@ -242,7 +235,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
 			if err := rule.Sanitize(); err != nil {
-				return nil, fmt.Errorf("Invalid CiliumNetworkPolicy specs: %s", err)
+				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 
 			}
 			cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, rule)
@@ -252,10 +245,6 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	return retRules, nil
 }
-
-// ErrEmptyCNP is an error representing a CNP that is empty, which means it is
-// missing both a `spec` and `specs` (both are nil).
-var ErrEmptyCNP = errors.New("Invalid CiliumNetworkPolicy spec(s): empty policy")
 
 // GetControllerName returns the unique name for the controller manager.
 func (r *CiliumNetworkPolicy) GetControllerName() string {

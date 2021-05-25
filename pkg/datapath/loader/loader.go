@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path"
 	"reflect"
 	"sync"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -47,6 +49,7 @@ const (
 
 	symbolFromEndpoint = "from-container"
 	symbolToEndpoint   = "to-container"
+	symbolFromNetwork  = "from-network"
 
 	symbolFromHostNetdevEp = "from-netdev"
 	symbolToHostNetdevEp   = "to-netdev"
@@ -153,6 +156,11 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	mac, err := link.GetHardwareAddr(ifName)
 	if err != nil {
 		return err
+	}
+	if mac == nil {
+		// L2-less device
+		mac = make([]byte, 6)
+		opts["ETH_HLEN"] = uint32(0)
 	}
 	opts["NODE_MAC_1"] = sliceToBe32(mac[0:4])
 	opts["NODE_MAC_2"] = uint32(sliceToBe16(mac[4:6]))
@@ -261,7 +269,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	for i, interfaceName := range interfaceNames {
 		symbol := symbols[i]
-		if err := l.replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i]); err != nil {
+		if err := replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i], false, ""); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: interfaceName,
@@ -280,10 +288,9 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 }
 
 func datapathHasMultipleMasterDevices() bool {
-	// In Flannel's case or when using ipvlan, HOST_DEV2 is equal to HOST_DEV1
-	// in init.sh and we have a single master device.
-	return option.Config.DatapathMode != datapathOption.DatapathModeIpvlan &&
-		!option.Config.IsFlannelMasterDeviceSet()
+	// When using ipvlan, HOST_DEV2 is equal to HOST_DEV1 in init.sh and we
+	// have a single master device.
+	return option.Config.DatapathMode != datapathOption.DatapathModeIpvlan
 }
 
 func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo) error {
@@ -309,7 +316,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
+		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, ""); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
@@ -324,7 +331,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 		}
 
 		if ep.RequireEgressProg() {
-			if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress); err != nil {
+			if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, false, ""); err != nil {
 				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 					logfields.Path: objPath,
 					logfields.Veth: ep.InterfaceName(),
@@ -337,19 +344,56 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				}
 				return err
 			}
+		} else {
+			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
+			if err != nil {
+				log.WithField("device", ep.InterfaceName()).Error(err)
+			}
 		}
 	}
 
-	if ep.RequireEndpointRoute() {
-		if ip := ep.IPv4Address(); ip.IsSet() {
-			upsertEndpointRoute(ep, *ip.IPNet(32))
-		}
-
-		if ip := ep.IPv6Address(); ip.IsSet() {
-			upsertEndpointRoute(ep, *ip.IPNet(128))
+	if ip := ep.IPv4Address(); ip.IsSet() {
+		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			logfields.Veth: ep.InterfaceName(),
+		})
+		if ep.RequireEndpointRoute() {
+			if err := upsertEndpointRoute(ep, *ip.IPNet(32)); err != nil {
+				scopedLog.WithError(err).Warn("Failed to upsert route")
+			}
+		} else {
+			if err := removeEndpointRoute(ep, *ip.IPNet(32)); err != nil && !errors.Is(err, syscall.ESRCH) {
+				scopedLog.WithError(err).Warn("Failed to remove route")
+			}
 		}
 	}
 
+	if ip := ep.IPv6Address(); ip.IsSet() {
+		scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+			logfields.Veth: ep.InterfaceName(),
+		})
+		if ep.RequireEndpointRoute() {
+			if err := upsertEndpointRoute(ep, *ip.IPNet(128)); err != nil {
+				scopedLog.WithError(err).Warn("Failed to upsert route")
+			}
+		} else {
+			if err := removeEndpointRoute(ep, *ip.IPNet(128)); err != nil && !errors.Is(err, syscall.ESRCH) {
+				scopedLog.WithError(err).Warn("Failed to remove route")
+			}
+		}
+	}
+
+	return nil
+}
+
+func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
+	if err := compileNetwork(ctx); err != nil {
+		log.WithError(err).Fatal("failed to compile encryption programs")
+	}
+	for _, iface := range option.Config.EncryptInterface {
+		if err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, ""); err != nil {
+			log.WithField(logfields.Interface, iface).Fatal("Load encryption network failed")
+		}
+	}
 	return nil
 }
 
@@ -486,4 +530,10 @@ func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *Loader) CallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(callsmap.MapName, id)
+}
+
+// CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
+// specified ID.
+func (l *Loader) CustomCallsMapPath(id uint16) string {
+	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
 }

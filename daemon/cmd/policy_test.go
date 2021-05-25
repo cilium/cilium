@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -372,7 +371,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	c.Assert(prodBarNetworkPolicy, Not(IsNil))
@@ -415,7 +414,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	c.Assert(prodBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(prodBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
@@ -497,7 +496,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 // HTTP rules here have no side effects, so the L4 allow-all rule is
@@ -576,7 +575,7 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
@@ -677,7 +676,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
@@ -823,45 +822,11 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
+	e.Delete(endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
 	c.Assert(networkPolicies, HasLen, 0)
-}
-
-type dummyManager struct{}
-
-func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
-	return uint16(1), nil
-}
-
-func (d *dummyManager) RunK8sCiliumEndpointSync(*endpoint.Endpoint, endpoint.EndpointStatusConfiguration) {
-}
-
-func (d *dummyManager) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-}
-
-func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *endpoint.Endpoint) {
-}
-
-func (d *dummyManager) UpdateIDReference(*endpoint.Endpoint) {
-}
-
-func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
-}
-
-func (d *dummyManager) RemoveID(uint16) {
-}
-
-func (d *dummyManager) ReleaseID(*endpoint.Endpoint) error {
-	return nil
-}
-
-func (d *dummyManager) AddIPv6Address(addressing.CiliumIPv6) {
-}
-
-func (d *dummyManager) RemoveIPv6Address(addressing.CiliumIPv6) {
 }
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
@@ -951,7 +916,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 			},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0], checker.Equals, expectedIngressPolicy)
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0], checker.ExportedEquals, expectedIngressPolicy)
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
@@ -975,7 +940,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 		return qaBarNetworkPolicy != nil && len(qaBarNetworkPolicy.IngressPerPortPolicies) == 2
 	}, time.Second*1)
 	c.Assert(err, IsNil)
-	c.Assert(qaBarNetworkPolicy, checker.Equals, &cilium.NetworkPolicy{
+	c.Assert(qaBarNetworkPolicy, checker.ExportedEquals, &cilium.NetworkPolicy{
 		Name:             QAIPv4Addr.String(),
 		Policy:           uint64(qaBarSecLblsCtx.ID),
 		ConntrackMapName: "global",
@@ -1005,7 +970,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	})
 
 	// Delete the endpoint.
-	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
+	e.Delete(endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)

@@ -66,7 +66,7 @@ func (client FirewallPoliciesClient) CreateOrUpdate(ctx context.Context, resourc
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -105,7 +105,29 @@ func (client FirewallPoliciesClient) CreateOrUpdateSender(req *http.Request) (fu
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client FirewallPoliciesClient) (fp FirewallPolicy, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.FirewallPoliciesCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.FirewallPoliciesCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if fp.Response.Response, err = future.GetResult(sender); err == nil && fp.Response.Response.StatusCode != http.StatusNoContent {
+			fp, err = client.CreateOrUpdateResponder(fp.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.FirewallPoliciesCreateOrUpdateFuture", "Result", fp.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -144,7 +166,7 @@ func (client FirewallPoliciesClient) Delete(ctx context.Context, resourceGroupNa
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -180,7 +202,23 @@ func (client FirewallPoliciesClient) DeleteSender(req *http.Request) (future Fir
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client FirewallPoliciesClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.FirewallPoliciesDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.FirewallPoliciesDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -227,6 +265,7 @@ func (client FirewallPoliciesClient) Get(ctx context.Context, resourceGroupName 
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -305,6 +344,11 @@ func (client FirewallPoliciesClient) List(ctx context.Context, resourceGroupName
 	result.fplr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.fplr.hasNextLink() && result.fplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -414,6 +458,11 @@ func (client FirewallPoliciesClient) ListAll(ctx context.Context) (result Firewa
 	result.fplr, err = client.ListAllResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.FirewallPoliciesClient", "ListAll", resp, "Failure responding to request")
+		return
+	}
+	if result.fplr.hasNextLink() && result.fplr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return

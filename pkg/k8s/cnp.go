@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package k8s
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"time"
@@ -39,23 +40,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 )
-
-// ErrParse is an error to describe where policy fails to parse due any invalid
-// rule.
-type ErrParse struct {
-	msg string
-}
-
-// Error returns the error message for parsing
-func (e ErrParse) Error() string {
-	return e.msg
-}
-
-// IsErrParse returns true if the error is a ErrParse
-func IsErrParse(e error) bool {
-	_, ok := e.(ErrParse)
-	return ok
-}
 
 // CNPStatusUpdateContext is the context required to update the status of a
 // CNP. It is filled out by the owner of the Kubernetes client before
@@ -80,18 +64,6 @@ type CNPStatusUpdateContext struct {
 	// WaitForEndpointsAtPolicyRev must point to a function that will wait
 	// for all local endpoints to reach the particular policy revision
 	WaitForEndpointsAtPolicyRev func(ctx context.Context, rev uint64) error
-}
-
-func (c *CNPStatusUpdateContext) prepareUpdate(cnp *types.SlimCNP, scopedLog *logrus.Entry) (serverRule *types.SlimCNP, err error) {
-	serverRule = cnp
-	_, err = cnp.Parse()
-	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRule)).
-			Warn("Error parsing new CiliumNetworkPolicy rule")
-		err = ErrParse{err.Error()}
-	}
-
-	return
 }
 
 func (c *CNPStatusUpdateContext) updateStatus(ctx context.Context, cnp *types.SlimCNP, rev uint64, policyImportErr, waitForEPsErr error) (err error) {
@@ -128,8 +100,7 @@ func (c *CNPStatusUpdateContext) updateStatus(ctx context.Context, cnp *types.Sl
 // up.
 func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *types.SlimCNP, rev uint64, policyImportErr error) error {
 	var (
-		err        error
-		serverRule *types.SlimCNP
+		err error
 
 		// The following is an example distribution with jitter applied:
 		//
@@ -173,23 +144,18 @@ retryLoop:
 		default:
 		}
 
-		// Failure to prepare are returned as error immediately to
-		// expose them via the controller status as these errors are
-		// most likely not temporary.
 		// In case of a CNP parse error will update the status in the CNP.
-		serverRule, err = c.prepareUpdate(cnp, scopedLog)
-		if IsErrParse(err) {
-			statusErr := c.updateStatus(ctx, serverRule, rev, err, waitForEPsErr)
+		if errors.Is(policyImportErr, cilium_v2.ParsingErr) {
+			statusErr := c.updateStatus(ctx, cnp, rev, policyImportErr, waitForEPsErr)
 			if statusErr != nil {
 				scopedLog.WithError(statusErr).Debug("CNP status for invalid rule cannot be updated")
 			}
 		}
-		if err != nil {
-			return err
+		if policyImportErr != nil {
+			return policyImportErr
 		}
 
-		err = c.updateStatus(ctx, serverRule, rev, policyImportErr, waitForEPsErr)
-		scopedLog.WithError(err).WithField("status", serverRule.Status).Debug("CNP status update result from apiserver")
+		err = c.updateStatus(ctx, cnp, rev, policyImportErr, waitForEPsErr)
 
 		switch {
 		case waitForEPsErr != nil:

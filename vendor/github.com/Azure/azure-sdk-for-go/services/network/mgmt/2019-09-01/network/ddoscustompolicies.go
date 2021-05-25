@@ -66,7 +66,7 @@ func (client DdosCustomPoliciesClient) CreateOrUpdate(ctx context.Context, resou
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -105,7 +105,29 @@ func (client DdosCustomPoliciesClient) CreateOrUpdateSender(req *http.Request) (
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client DdosCustomPoliciesClient) (dcp DdosCustomPolicy, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.DdosCustomPoliciesCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if dcp.Response.Response, err = future.GetResult(sender); err == nil && dcp.Response.Response.StatusCode != http.StatusNoContent {
+			dcp, err = client.CreateOrUpdateResponder(dcp.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesCreateOrUpdateFuture", "Result", dcp.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -144,7 +166,7 @@ func (client DdosCustomPoliciesClient) Delete(ctx context.Context, resourceGroup
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -180,7 +202,23 @@ func (client DdosCustomPoliciesClient) DeleteSender(req *http.Request) (future D
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client DdosCustomPoliciesClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.DdosCustomPoliciesDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -226,6 +264,7 @@ func (client DdosCustomPoliciesClient) Get(ctx context.Context, resourceGroupNam
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -302,6 +341,7 @@ func (client DdosCustomPoliciesClient) UpdateTags(ctx context.Context, resourceG
 	result, err = client.UpdateTagsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.DdosCustomPoliciesClient", "UpdateTags", resp, "Failure responding to request")
+		return
 	}
 
 	return

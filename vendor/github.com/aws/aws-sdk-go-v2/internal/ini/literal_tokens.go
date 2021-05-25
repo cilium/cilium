@@ -193,6 +193,16 @@ func newValue(t ValueType, base int, raw []rune) (Value, error) {
 	return v, err
 }
 
+// NewStringValue returns a Value type generated using a string input.
+func NewStringValue(str string) (Value, error) {
+	return newValue(StringType, 10, []rune(str))
+}
+
+// NewIntValue returns a Value type generated using an int64 input.
+func NewIntValue(i int64) (Value, error) {
+	return newValue(IntegerType, 10, []rune{rune(i)})
+}
+
 // Append will append values and change the type to a string
 // type.
 func (v *Value) Append(tok Token) {

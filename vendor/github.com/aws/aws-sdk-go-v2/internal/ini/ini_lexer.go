@@ -4,14 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-)
-
-const (
-	// ErrCodeUnableToReadFile is used when a file is failed to be
-	// opened or read from.
-	ErrCodeUnableToReadFile = "FailedRead"
 )
 
 // TokenType represents the various different tokens types
@@ -59,7 +51,7 @@ type iniLexer struct{}
 func (l *iniLexer) Tokenize(r io.Reader) ([]Token, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, awserr.New(ErrCodeUnableToReadFile, "unable to read file", err)
+		return nil, &UnableToReadFile{Err: err}
 	}
 
 	return l.tokenize(b)

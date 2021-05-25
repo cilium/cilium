@@ -27,6 +27,9 @@ type Encap interface {
 	Equal(Encap) bool
 }
 
+//Protocol describe what was the originator of the route
+type RouteProtocol int
+
 // Route represents a netlink route.
 type Route struct {
 	LinkIndex        int
@@ -36,7 +39,7 @@ type Route struct {
 	Src              net.IP
 	Gw               net.IP
 	MultiPath        []*NexthopInfo
-	Protocol         int
+	Protocol         RouteProtocol
 	Priority         int
 	Table            int
 	Type             int

@@ -78,6 +78,60 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 
 }
 
+func (s *NodeSuite) TestGetIPByType(c *C) {
+	n := Node{
+		Name: "node-1",
+		IPAddresses: []Address{
+			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+		},
+	}
+
+	ip := n.GetIPByType(addressing.NodeInternalIP, false)
+	c.Assert(ip, IsNil)
+	ip = n.GetIPByType(addressing.NodeInternalIP, true)
+	c.Assert(ip, IsNil)
+
+	ip = n.GetIPByType(addressing.NodeExternalIP, false)
+	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+	ip = n.GetIPByType(addressing.NodeExternalIP, true)
+	c.Assert(ip, IsNil)
+
+	n = Node{
+		Name: "node-2",
+		IPAddresses: []Address{
+			{IP: net.ParseIP("f00b::1"), Type: addressing.NodeCiliumInternalIP},
+		},
+	}
+
+	ip = n.GetIPByType(addressing.NodeExternalIP, false)
+	c.Assert(ip, IsNil)
+	ip = n.GetIPByType(addressing.NodeExternalIP, true)
+	c.Assert(ip, IsNil)
+
+	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, false)
+	c.Assert(ip, IsNil)
+	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, true)
+	c.Assert(ip.Equal(net.ParseIP("f00b::1")), Equals, true)
+
+	n = Node{
+		Name: "node-3",
+		IPAddresses: []Address{
+			{IP: net.ParseIP("192.42.0.3"), Type: addressing.NodeExternalIP},
+			{IP: net.ParseIP("f00d::1"), Type: addressing.NodeExternalIP},
+		},
+	}
+
+	ip = n.GetIPByType(addressing.NodeInternalIP, false)
+	c.Assert(ip, IsNil)
+	ip = n.GetIPByType(addressing.NodeInternalIP, true)
+	c.Assert(ip, IsNil)
+
+	ip = n.GetIPByType(addressing.NodeExternalIP, false)
+	c.Assert(ip.Equal(net.ParseIP("192.42.0.3")), Equals, true)
+	ip = n.GetIPByType(addressing.NodeExternalIP, true)
+	c.Assert(ip.Equal(net.ParseIP("f00d::1")), Equals, true)
+}
+
 func (s *NodeSuite) TestParseCiliumNode(c *C) {
 	nodeResource := &ciliumv2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},

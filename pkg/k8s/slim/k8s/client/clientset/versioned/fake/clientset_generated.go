@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	fakecorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1/fake"
+	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1"
+	fakediscoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1/fake"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1"
 	fakediscoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1/fake"
 	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
@@ -86,6 +88,11 @@ func (c *Clientset) CoreV1() corev1.CoreV1Interface {
 // DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
 func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
 	return &fakediscoveryv1beta1.FakeDiscoveryV1beta1{Fake: &c.Fake}
+}
+
+// DiscoveryV1 retrieves the DiscoveryV1Client
+func (c *Clientset) DiscoveryV1() discoveryv1.DiscoveryV1Interface {
+	return &fakediscoveryv1.FakeDiscoveryV1{Fake: &c.Fake}
 }
 
 // MetaV1 retrieves the MetaV1Client

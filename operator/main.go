@@ -20,9 +20,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/cilium/cilium/operator/api"
+	"github.com/cilium/cilium/operator/cmd"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
@@ -30,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -37,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
@@ -110,7 +115,14 @@ var (
 	// isLeader is an atomic boolean value that is true when the Operator is
 	// elected leader. Otherwise, it is false.
 	isLeader atomic.Value
+
+	doOnce sync.Once
 )
+
+func init() {
+	rootCmd.AddCommand(cmd.MetricsCmd)
+	cmd.Populate()
+}
 
 func initEnv() {
 	// Prepopulate option.Config with options from CLI.
@@ -121,7 +133,9 @@ func initEnv() {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug)
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
 
 	option.LogRegisteredOptions(log)
 	// Enable fallback to direct API probing to check for support of Leases in
@@ -145,11 +159,23 @@ func initK8s(k8sInitDone chan struct{}) {
 }
 
 func doCleanup(exitCode int) {
-	isLeader.Store(false)
-	gops.Close()
-	close(shutdownSignal)
-	leaderElectionCtxCancel()
-	os.Exit(exitCode)
+	// We run the cleanup logic only once. The operator is assumed to exit
+	// once the cleanup logic is executed.
+	doOnce.Do(func() {
+		isLeader.Store(false)
+		gops.Close()
+		close(shutdownSignal)
+
+		// Cancelling this conext here makes sure that if the operator hold the
+		// leader lease, it will be released.
+		leaderElectionCtxCancel()
+
+		// If the exit code is set to 0, then we assume that the operator will
+		// exit gracefully once the lease has been released.
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	})
 }
 
 func main() {
@@ -184,6 +210,31 @@ func getAPIServerAddr() []string {
 	return []string{operatorOption.Config.OperatorAPIServeAddr}
 }
 
+// checkStatus checks the connection status to the kvstore and
+// k8s apiserver and returns an error if any of them is unhealthy
+func checkStatus() error {
+	if kvstoreEnabled() {
+		// We check if we are the leader here because only the leader has
+		// access to the kvstore client. Otherwise, the kvstore client check
+		// will block. It is safe for a non-leader to skip this check, as the
+		// it is the leader's responsibility to report the status of the
+		// kvstore client.
+		if leader, ok := isLeader.Load().(bool); ok && leader {
+			if client := kvstore.Client(); client == nil {
+				return fmt.Errorf("kvstore client not configured")
+			} else if _, err := client.Status(); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err := k8s.Client().Discovery().ServerVersion(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
@@ -191,10 +242,26 @@ func runOperator() {
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
 	isLeader.Store(false)
-	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
+
+	// Configure API server for the operator.
+	srv, err := api.NewServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to create operator apiserver")
+	}
+
+	go func() {
+		err = srv.WithStatusCheckFunc(checkStatus).StartServer()
+		if err != nil {
+			log.WithError(err).Fatalf("Unable to start operator apiserver")
+		}
+	}()
 
 	if operatorOption.Config.EnableMetrics {
 		operatorMetrics.Register()
+	}
+
+	if operatorOption.Config.PProf {
+		pprof.Enable(operatorOption.Config.PProfPort)
 	}
 
 	initK8s(k8sInitDone)
@@ -207,7 +274,7 @@ func runOperator() {
 
 	// Register the CRDs after validating that we are running on a supported
 	// version of K8s.
-	if err := k8s.RegisterCRDs(); err != nil {
+	if err := client.RegisterCRDs(); err != nil {
 		log.WithError(err).Fatal("Unable to register CRDs")
 	}
 
@@ -303,13 +370,13 @@ func onOperatorStartLeading(ctx context.Context) {
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
-	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool:
+	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool, ipamOption.IPAMAlibabaCloud:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(); err != nil {
+		if err := alloc.Init(ctx); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
@@ -343,9 +410,14 @@ func onOperatorStartLeading(ctx context.Context) {
 		nodeManager = &NOPNodeManager
 	}
 
+	if operatorOption.Config.BGPAnnounceLBIP {
+		log.Info("Starting LB IP allocator")
+		operatorWatchers.StartLBIPAllocator(option.Config)
+	}
+
 	if kvstoreEnabled() {
 		if operatorOption.Config.SyncK8sServices {
-			operatorWatchers.StartSynchronizingServices(true)
+			operatorWatchers.StartSynchronizingServices(true, option.Config)
 		}
 
 		var goopts *kvstore.ExtraOptions
@@ -412,7 +484,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		} else {
 			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
-		scopedLog.Info("Connecting to kvstore...")
+		scopedLog.Info("Connecting to kvstore")
 		if err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
@@ -461,13 +533,13 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	err = enableCNPWatcher()
 	if err != nil {
-		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
+		log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
 	err = enableCCNPWatcher()
 	if err != nil {
-		log.WithError(err).WithField("subsys", "CCNPWatcher").Fatal(
+		log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -41,10 +42,6 @@ const (
 	// maxAllocAttempts is the number of attempted allocation requests
 	// performed before failing.
 	maxAllocAttempts = 16
-
-	// listTimeout is the time to wait for the initial list operation to
-	// succeed when creating a new allocator
-	listTimeout = 3 * time.Minute
 )
 
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
@@ -319,7 +316,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 		go func() {
 			select {
 			case <-a.initialListDone:
-			case <-time.After(listTimeout):
+			case <-time.After(option.Config.AllocatorListTimeout):
 				log.Fatalf("Timeout while waiting for initial allocator state")
 			}
 			a.startLocalKeySync()
@@ -507,9 +504,9 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		}
 
 		if firstUse {
-			log.WithField(fieldKey, k).Info("Reserved new local key")
+			log.WithField(fieldKey, k).Debug("Reserved new local key")
 		} else {
-			log.WithField(fieldKey, k).Info("Reusing existing local key")
+			log.WithField(fieldKey, k).Debug("Reusing existing local key")
 		}
 	}
 
@@ -849,6 +846,8 @@ func (a *Allocator) syncLocalKeys() error {
 
 func (a *Allocator) startLocalKeySync() {
 	go func(a *Allocator) {
+		kvTimer, kvTimerDone := inctimer.New()
+		defer kvTimerDone()
 		for {
 			if err := a.syncLocalKeys(); err != nil {
 				log.WithError(err).Warning("Unable to run local key sync routine")
@@ -858,7 +857,7 @@ func (a *Allocator) startLocalKeySync() {
 			case <-a.stopGC:
 				log.Debug("Stopped master key sync routine")
 				return
-			case <-time.After(option.Config.KVstorePeriodicSync):
+			case <-kvTimer.After(option.Config.KVstorePeriodicSync):
 			}
 		}
 	}(a)

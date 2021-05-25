@@ -32,6 +32,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -969,6 +970,123 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 	}
 }
 
+func (s *K8sSuite) Test_ConvertToK8sV1ServicePorts(c *C) {
+	type args struct {
+		ports []slim_corev1.ServicePort
+	}
+	tests := []struct {
+		name string
+		args args
+		want []v1.ServicePort
+	}{
+		{
+			name: "empty",
+			args: args{
+				ports: []slim_corev1.ServicePort{},
+			},
+			want: []v1.ServicePort{},
+		},
+		{
+			name: "non-empty",
+			args: args{
+				ports: []slim_corev1.ServicePort{
+					{
+						Name: "foo",
+						Port: int32(1),
+					},
+				},
+			},
+			want: []v1.ServicePort{
+				{
+					Name: "foo",
+					Port: int32(1),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToK8sV1ServicePorts(tt.args.ports)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToK8sV1SessionAffinityConfig(c *C) {
+	ts := int32(1)
+	type args struct {
+		cfg *slim_corev1.SessionAffinityConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want *v1.SessionAffinityConfig
+	}{
+		{
+			name: "empty",
+			args: args{
+				cfg: &slim_corev1.SessionAffinityConfig{},
+			},
+			want: &v1.SessionAffinityConfig{},
+		},
+		{
+			name: "non-empty",
+			args: args{
+				cfg: &slim_corev1.SessionAffinityConfig{
+					ClientIP: &slim_corev1.ClientIPConfig{
+						TimeoutSeconds: &ts,
+					},
+				},
+			},
+			want: &v1.SessionAffinityConfig{
+				ClientIP: &v1.ClientIPConfig{
+					TimeoutSeconds: &ts,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToK8sV1ServiceAffinityConfig(tt.args.cfg)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
+	type args struct {
+		ings []slim_corev1.LoadBalancerIngress
+	}
+	tests := []struct {
+		name string
+		args args
+		want []v1.LoadBalancerIngress
+	}{
+		{
+			name: "empty",
+			args: args{
+				ings: []slim_corev1.LoadBalancerIngress{},
+			},
+			want: []v1.LoadBalancerIngress{},
+		},
+		{
+			name: "non-empty",
+			args: args{
+				ings: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: "1.1.1.1",
+					},
+				},
+			},
+			want: []v1.LoadBalancerIngress{
+				{
+					IP: "1.1.1.1",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToK8sV1LoadBalancerIngress(tt.args.ings)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
 func (s *K8sSuite) Test_ConvertToCNP(c *C) {
 	type args struct {
 		obj interface{}
@@ -1041,9 +1159,7 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 		{
 			name: "normal conversion",
 			args: args{
-				obj: &v2.CiliumClusterwideNetworkPolicy{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
+				obj: &v2.CiliumClusterwideNetworkPolicy{},
 			},
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
@@ -1063,9 +1179,7 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: &v2.CiliumClusterwideNetworkPolicy{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-					},
+					Obj: &v2.CiliumClusterwideNetworkPolicy{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{

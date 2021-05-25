@@ -13,6 +13,7 @@
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $crdWaitTimeout := "5m" -}}
+{{- $defaultKubeProxyReplacement := "probe" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -31,9 +32,15 @@
 {{- $defaultBpfCtAnyMax = 0 -}}
 {{- end -}}
 
+{{- /* Default values when 1.10 was initially deployed */ -}}
+{{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
+{{- $defaultKubeProxyReplacement = "disabled" -}}
+{{- end -}}
+
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
+{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
 
 apiVersion: v1
 kind: ConfigMap
@@ -143,7 +150,17 @@ data:
   prometheus-serve-addr: ":{{ .Values.prometheus.port }}"
   # Port to expose Envoy metrics (e.g. "9095"). Envoy metrics listener will be disabled if this
   # field is not set.
+  {{- if .Values.proxy.prometheus.enabled }}
   proxy-prometheus-port: "{{ .Values.proxy.prometheus.port }}"
+  {{- end }}
+  {{- if .Values.prometheus.metrics }}
+  # Metrics that should be enabled or disabled from the default metric
+  # list. (+metric_foo to enable metric_foo , -metric_bar to disable
+  # metric_bar).
+  metrics: {{- range .Values.prometheus.metrics }}
+    {{ . }}
+  {{- end }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.operator.prometheus.enabled }}
@@ -274,6 +291,15 @@ data:
   # backend and affinity maps.
   bpf-lb-map-max: "{{ .Values.bpf.lbMapMax }}"
 {{- end }}
+  # bpf-lb-bypass-fib-lookup instructs Cilium to enable the FIB lookup bypass
+  # optimization for nodeport reverse NAT handling.
+{{- if hasKey .Values.bpf "lbBypassFIBLookup" }}
+  bpf-lb-bypass-fib-lookup: {{ .Values.bpf.lbBypassFIBLookup | quote }}
+{{- end }}
+{{- if hasKey .Values.bpf "lbExternalClusterIP" }}
+  bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
+{{- end }}
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;
@@ -317,9 +343,21 @@ data:
   tunnel: {{ .Values.tunnel }}
 {{- end }}
 
-{{- if .Values.eni }}
+{{- if .Values.eni.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
+{{- if .Values.eni.updateEC2AdapterLimitViaAPI }}
+  update-ec2-adapter-limit-via-api: "true"
+  # The below value is deprecated and will be removed in a future release, see https://github.com/cilium/cilium/issues/12396
+  update-ec2-apdater-limit-via-api: "true"
+{{- end }}
+{{- if .Values.eni.awsReleaseExcessIPs }}
+  aws-release-excess-ips: "true"
+{{- end }}
+  ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
+  eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
+  subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | quote }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter | quote }}
 {{- end }}
 
 {{- if .Values.azure.enabled }}
@@ -331,17 +369,9 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if .Values.flannel.enabled }}
-  # Interface to be used when running Cilium on top of a CNI plugin.
-  # For flannel, use "cni0"
-  flannel-master-device: {{ .Values.flannel.masterDevice }}
-
-  # When running Cilium with policy enforcement enabled on top of a CNI plugin
-  # the BPF programs will be installed on the network interface specified in
-  # 'flannel-master-device' and on all network interfaces belonging to
-  # a container. When the Cilium DaemonSet is removed, the BPF programs will
-  # be kept in the interfaces unless this option is set to "true".
-  flannel-uninstall-on-exit: "{{ .Values.flannel.uninstallOnExit}}"
+{{- if .Values.alibabacloud.enabled }}
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
 {{- end }}
 
 {{- if hasKey .Values "l7Proxy" }}
@@ -391,15 +421,28 @@ data:
 {{- end }}
 
 {{- if .Values.encryption.enabled }}
+  {{- if eq .Values.encryption.type "ipsec" }}
   enable-ipsec: {{ .Values.encryption.enabled | quote }}
+
+    {{- if and .Values.encryption.ipsec.mountPath .Values.encryption.ipsec.keyFile }}
+  ipsec-key-file: {{ .Values.encryption.ipsec.mountPath }}/{{ .Values.encryption.ipsec.keyFile }}
+    {{- else }}
   ipsec-key-file: {{ .Values.encryption.mountPath }}/{{ .Values.encryption.keyFile }}
-{{- if hasKey .Values.encryption "interface" }}
+    {{- end }}
+    {{- if .Values.encryption.ipsec.interface }}
+  encrypt-interface: {{ .Values.encryption.ipsec.interface }}
+    {{- else if .Values.encryption.interface }}
   encrypt-interface: {{ .Values.encryption.interface }}
-{{- end }}
-{{- if .Values.encryption.nodeEncryption }}
+    {{- end }}
+
+    {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+    {{- end }}
+  {{- else if eq .Values.encryption.type "wireguard" }}
+  enable-wireguard: {{ .Values.encryption.enabled | quote }}
+  {{- end }}
 {{- end }}
-{{- end }}
+
 {{- if hasKey .Values "datapathMode" }}
 {{- if eq .Values.datapathMode "ipvlan" }}
   datapath-mode: ipvlan
@@ -409,6 +452,11 @@ data:
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
   install-iptables-rules: {{ .Values.installIptablesRules | quote }}
+{{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne .Values.cni.chainingMode "none") }}
+  install-no-conntrack-iptables-rules: "false"
+{{- else }}
+  install-no-conntrack-iptables-rules: {{ .Values.installNoConntrackIptablesRules | quote }}
+{{- end}}
 
 {{- if hasKey .Values "iptablesRandomFully" }}
   iptables-random-fully: {{ .Values.iptablesRandomFully | quote }}
@@ -445,12 +493,11 @@ data:
   devices: {{ join " " .Values.devices | quote }}
 {{- end }}
 
-{{- if hasKey .Values "kubeProxyReplacement" }}
-  kube-proxy-replacement:  {{ .Values.kubeProxyReplacement | quote }}
-{{- if ne .Values.kubeProxyReplacement "disabled" }}
+  kube-proxy-replacement:  {{ $kubeProxyReplacement | quote }}
+{{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
-{{- end }}
+
 {{- if hasKey .Values "hostServices" }}
 {{- if .Values.hostServices.enabled }}
   enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}
@@ -460,17 +507,17 @@ data:
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "hostPort" }}
-{{- if eq .Values.kubeProxyReplacement "partial" }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if eq .Values.kubeProxyReplacement "partial" }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "nodePort" }}
-{{- if eq .Values.kubeProxyReplacement "partial" }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
@@ -526,6 +573,12 @@ data:
 {{- if hasKey .Values.k8s "requireIPv4PodCIDR" }}
   k8s-require-ipv4-pod-cidr: {{ .Values.k8s.requireIPv4PodCIDR | quote }}
 {{- end }}
+{{- if hasKey .Values.k8s "requireIPv6PodCIDR" }}
+  k8s-require-ipv6-pod-cidr: {{ .Values.k8s.requireIPv6PodCIDR | quote }}
+{{- end }}
+{{- if .Values.endpointStatus.enabled }}
+  endpoint-status: {{ required "endpointStatus.status required: policy, health, controllers, logs and / or state. For 2 or more options use a comma: \"policy, health\"" .Values.endpointStatus.status | quote }}
+{{- end }}
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
@@ -547,7 +600,7 @@ data:
 {{- if hasKey .Values "healthChecking" }}
   enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
-{{- if .Values.etcd.managed }}
+{{- if or .Values.wellKnownIdentities.enabled .Values.etcd.managed }}
   enable-well-known-identities: "true"
 {{- else }}
   enable-well-known-identities: "false"
@@ -631,6 +684,14 @@ data:
   disable-cnp-status-updates: "true"
 {{- end }}
 
+{{- if .Values.egressGateway.enabled }}
+  enable-egress-gateway: "true"
+{{- end }}
+
+{{- if .Values.enableK8sEventHandover }}
+  enable-k8s-event-handover: "true"
+{{- end }}
+
 {{- if hasKey .Values "crdWaitTimeout" }}
   crd-wait-timeout: {{ .Values.crdWaitTimeout | quote }}
 {{- else if ( ne $crdWaitTimeout "5m" ) }}
@@ -644,6 +705,17 @@ data:
 {{- if hasKey .Values.k8s "serviceProxyName" }}
   # Configure service proxy name for Cilium.
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
+{{- end }}
+
+{{- if and .Values.customCalls .Values.customCalls.enabled }}
+  # Enable tail call hooks for custom eBPF programs.
+  enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
+{{- end }}
+
+{{- if and .Values.bgp.enabled (not .Values.bgp.announce.loadbalancerIP) }}
+{{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
+{{- else if and .Values.bgp.enabled .Values.bgp.announce.loadbalancerIP }}
+  bgp-announce-lb-ip: {{ .Values.bgp.announce.loadbalancerIP | quote }}
 {{- end }}
 
 {{- if .Values.extraConfig }}

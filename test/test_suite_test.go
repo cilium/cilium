@@ -39,7 +39,7 @@ import (
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.20",
+		"K8S_VERSION": "1.21",
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
@@ -177,16 +177,6 @@ var _ = BeforeAll(func() {
 		Fail(fmt.Sprintf(
 			"Cannot get the scope for running test, please use --cilium.testScope option: %s",
 			err))
-	}
-
-	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationFlannel:
-		switch helpers.GetCurrentK8SEnv() {
-		case "1.8":
-			log.Infof("Cilium in %q mode is not supported in Kubernetes 1.8 due CNI < 0.6.0", helpers.CIIntegrationFlannel)
-			os.Exit(0)
-			return
-		}
 	}
 
 	if config.CiliumTestConfig.SSHConfig != "" {

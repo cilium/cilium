@@ -22,15 +22,14 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func notifyTimeNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.TimeNotification) *flowpb.AgentEvent {
-	var ts *timestamp.Timestamp
+	var ts *timestamppb.Timestamp
 	if goTime, err := time.Parse(time.RFC3339Nano, n.Time); err == nil {
-		ts, _ = ptypes.TimestampProto(goTime)
+		ts = timestamppb.New(goTime)
 	}
 	return &flowpb.AgentEvent{
 		Type: typ,
@@ -83,9 +82,9 @@ func notifyEndpointUpdateNotificationToProto(typ flowpb.AgentEventType, n monito
 	}
 }
 func notifyIPCacheNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.IPCacheNotification) *flowpb.AgentEvent {
-	var oldIdentity *wrappers.UInt32Value
+	var oldIdentity *wrapperspb.UInt32Value
 	if n.OldIdentity != nil {
-		oldIdentity = &wrappers.UInt32Value{
+		oldIdentity = &wrapperspb.UInt32Value{
 			Value: *n.OldIdentity,
 		}
 	}

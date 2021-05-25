@@ -26,6 +26,11 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+/* The XDP datapath does not take care of health probes from the local node,
+ * thus do not compile it in.
+ */
+#undef ENABLE_HEALTH_CHECK
+
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/eps.h"

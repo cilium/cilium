@@ -25,7 +25,9 @@ import (
 )
 
 var _ = Describe("K8sCLI", func() {
-	SkipContextIf(helpers.DoesNotRunOnGKE, "CLI", func() {
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+	}, "CLI", func() {
 		var kubectl *helpers.Kubectl
 		var ciliumFilename string
 
@@ -70,7 +72,7 @@ var _ = Describe("K8sCLI", func() {
 				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l id", helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "The pods were not ready after timeout")
 
-				ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(fooNode)
+				ciliumPod, err = kubectl.GetCiliumPodOnNode(fooNode)
 				Expect(err).Should(BeNil())
 
 				err := kubectl.WaitForCEPIdentity(helpers.DefaultNamespace, fooID)
@@ -117,6 +119,53 @@ var _ = Describe("K8sCLI", func() {
 					Expect(containsReservedIdentity).To(BeTrue(), "Reserved identity '%s' not in 'cilium identity list' output", id)
 				}
 			})
+
+			It("Test cilium bpf metrics list", func() {
+				demoManifest := helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
+				app1Service := "app1-service"
+				l3L4DenyPolicy := helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy-deny.yaml")
+
+				namespaceForTest := helpers.GenerateNamespaceForTest("")
+				kubectl.NamespaceDelete(namespaceForTest)
+				kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
+				kubectl.Apply(helpers.ApplyOptions{FilePath: demoManifest, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
+
+				err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
+				Expect(err).To(BeNil(),
+					"testapp pods are not ready after timeout in namespace %q", namespaceForTest)
+
+				_, err = kubectl.CiliumPolicyAction(
+					namespaceForTest, l3L4DenyPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Cannot apply L3 Deny Policy")
+
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+				ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
+				ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+
+				countBeforeK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Policy denied by denylist", "ingress")
+				countBeforeK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Policy denied by denylist", "ingress")
+
+				appPods := helpers.GetAppPods([]string{helpers.App2}, namespaceForTest, kubectl, "id")
+
+				clusterIP, _, err := kubectl.GetServiceHostPort(namespaceForTest, app1Service)
+				Expect(err).To(BeNil(), "Cannot get service in %q namespace", namespaceForTest)
+
+				res := kubectl.ExecPodCmd(
+					namespaceForTest, appPods[helpers.App2],
+					helpers.CurlFail("http://%s/public", clusterIP))
+				res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+					appPods[helpers.App2], clusterIP)
+
+				countAfterK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Policy denied by denylist", "ingress")
+				countAfterK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Policy denied by denylist", "ingress")
+
+				Expect((countAfterK8s1 + countAfterK8s2) - (countBeforeK8s1 + countBeforeK8s2)).To(Equal(3))
+
+				_, err = kubectl.CiliumPolicyAction(
+					namespaceForTest, l3L4DenyPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+			})
 		})
 
 		Context("stdout/stderr testing", func() {
@@ -126,7 +175,7 @@ var _ = Describe("K8sCLI", func() {
 			)
 
 			BeforeAll(func() {
-				ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel("k8s1")
+				ciliumPod, err = kubectl.GetCiliumPodOnNode("k8s1")
 				Expect(err).Should(BeNil())
 			})
 

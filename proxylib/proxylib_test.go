@@ -23,11 +23,12 @@ import (
 
 	_ "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/proxylib/proxylib"
 	"github.com/cilium/cilium/proxylib/test"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -125,18 +126,20 @@ func checkAccessLogs(t *testing.T, logServer *test.AccessLogServer, expPasses, e
 	passes, drops := 0, 0
 	nWaits := 0
 	done := false
+	timer, timerDone := inctimer.New()
+	defer timerDone()
 	// Loop until done or when the timeout has ticked 100 times without any logs being received
 	for !done && nWaits < 100 {
 		select {
-		case pblog := <-logServer.Logs:
-			if pblog.EntryType == cilium.EntryType_Denied {
+		case entryType := <-logServer.Logs:
+			if entryType == cilium.EntryType_Denied {
 				drops++
 			} else {
 				passes++
 			}
 			// Start the timeout again (for upto 5 seconds)
 			nWaits = 0
-		case <-time.After(50 * time.Millisecond):
+		case <-timer.After(50 * time.Millisecond):
 			// Count the number of times we have waited since the last log was received
 			nWaits++
 			// Finish when expected number of passes and drops have been collected

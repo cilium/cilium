@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,6 +74,16 @@ func requireEndpointIDorGlobal(cmd *cobra.Command, args []string) {
 
 	if args[0] != "global" {
 		requireEndpointID(cmd, args)
+	}
+}
+
+func requireRecorderID(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		Usagef(cmd, "Missing recorder id argument")
+	}
+
+	if args[0] == "" {
+		Usagef(cmd, "Empty recorder id argument")
 	}
 }
 
@@ -251,9 +261,9 @@ func endpointToPolicyMapPath(endpointID string) (string, error) {
 	}
 
 	var mapName string
-	id, err := strconv.Atoi(endpointID)
+	idUint64, err := strconv.ParseUint(endpointID, 10, 16)
 	if err == nil {
-		mapName = bpf.LocalMapName(policymap.MapName, uint16(id))
+		mapName = bpf.LocalMapName(policymap.MapName, uint16(idUint64))
 	} else if numericIdentity := identity.GetReservedID(endpointID); numericIdentity != identity.IdentityUnknown {
 		mapSuffix := "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
 		mapName = fmt.Sprintf("%s%s", policymap.MapName, mapSuffix)

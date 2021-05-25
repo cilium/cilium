@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -296,11 +296,11 @@ func (p *APILimiterParameters) mergeUserConfigKeyValue(key, value string) error 
 		}
 		p.RateLimit = limit
 	case "rate-burst":
-		burst, err := strconv.ParseUint(value, 0, 64)
+		burst, err := parsePositiveInt(value)
 		if err != nil {
-			return fmt.Errorf("unable to parse integer %q: %w", value, err)
+			return err
 		}
-		p.RateBurst = int(burst)
+		p.RateBurst = burst
 	case "min-wait-duration":
 		minWaitDuration, err := time.ParseDuration(value)
 		if err != nil {
@@ -326,29 +326,29 @@ func (p *APILimiterParameters) mergeUserConfigKeyValue(key, value string) error 
 		}
 		p.AutoAdjust = v
 	case "parallel-requests":
-		parallel, err := strconv.ParseUint(value, 0, 64)
+		parallel, err := parsePositiveInt(value)
 		if err != nil {
-			return fmt.Errorf("unable to parse integer %q: %w", value, err)
+			return err
 		}
-		p.ParallelRequests = int(parallel)
+		p.ParallelRequests = parallel
 	case "min-parallel-requests":
-		minParallel, err := strconv.ParseUint(value, 0, 64)
+		minParallel, err := parsePositiveInt(value)
 		if err != nil {
-			return fmt.Errorf("unable to parse integer %q: %w", value, err)
+			return err
 		}
-		p.MinParallelRequests = int(minParallel)
+		p.MinParallelRequests = minParallel
 	case "max-parallel-requests":
-		maxParallel, err := strconv.ParseUint(value, 0, 64)
+		maxParallel, err := parsePositiveInt(value)
 		if err != nil {
-			return fmt.Errorf("unable to parse integer %q: %w", value, err)
+			return err
 		}
 		p.MaxParallelRequests = int(maxParallel)
 	case "mean-over":
-		meanOver, err := strconv.ParseUint(value, 0, 64)
+		meanOver, err := parsePositiveInt(value)
 		if err != nil {
-			return fmt.Errorf("unable to parse integer %q: %w", value, err)
+			return err
 		}
-		p.MeanOver = int(meanOver)
+		p.MeanOver = meanOver
 	case "log":
 		v, err := strconv.ParseBool(value)
 		if err != nil {
@@ -368,11 +368,11 @@ func (p *APILimiterParameters) mergeUserConfigKeyValue(key, value string) error 
 		}
 		p.MaxAdjustmentFactor = maxAdjustmentFactor
 	case "skip-initial":
-		skipInitial, err := strconv.ParseUint(value, 0, 64)
+		skipInitial, err := parsePositiveInt(value)
 		if err != nil {
-			return fmt.Errorf("unable to parse integer %q: %w", value, err)
+			return err
 		}
-		p.SkipInitial = int(skipInitial)
+		p.SkipInitial = skipInitial
 	default:
 		return fmt.Errorf("unknown rate limiting option %q", key)
 	}
@@ -886,4 +886,17 @@ func (s *APILimiterSet) Wait(ctx context.Context, name string) (LimitedRequest, 
 	}
 
 	return l.Wait(ctx)
+}
+
+// parsePositiveInt parses value as an int. It returns an error if value cannot
+// be parsed or is negative.
+func parsePositiveInt(value string) (int, error) {
+	switch i64, err := strconv.ParseInt(value, 10, 64); {
+	case err != nil:
+		return 0, fmt.Errorf("unable to parse positive integer %q: %v", value, err)
+	case i64 < 0:
+		return 0, fmt.Errorf("unable to parse positive integer %q: negative value", value)
+	default:
+		return int(i64), nil
+	}
 }

@@ -30,6 +30,7 @@ IPv4 Fragmentation       node             8k              Max 8k fragmented data
 Session Affinity         node             64k             Max 64k affinities from different clients
 IP Masq                  node             16k             Max 16k IPv4 cidrs used by BPF-based ip-masq-agent
 Service Source Ranges    node             64k             Max 64k cumulative LB source ranges across all services
+Egress Policy            endpoint         16k             Max 16k endpoints across all destination CIDRs across all clusters 
 ======================== ================ =============== =====================================================
 
 For some BPF maps, the upper capacity limit can be overridden using command

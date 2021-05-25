@@ -26,11 +26,15 @@ import (
 // * a security identity
 // * a means of incrementing its policy revision
 // * a means of checking if it represents a node or a pod.
+// * a set of labels
+// * a kubernetes namespace
 type Endpoint interface {
 	GetID16() uint16
 	GetSecurityIdentity() (*identity.Identity, error)
 	PolicyRevisionBumpEvent(rev uint64)
 	IsHost() bool
+	GetOpLabels() []string
+	GetK8sNamespace() string
 }
 
 // EndpointSet is used to be able to group together a given set of Endpoints

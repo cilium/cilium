@@ -2,6 +2,9 @@
 {{- $hubbleCAProvided := .Values.hubble.tls.ca.cert }}
 {{- $hubbleCAGenerate := and .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "helm") .Values.hubble.relay.enabled -}}
 {{- if or $hubbleCAProvided $hubbleCAGenerate }}
+# NOTE: the hubble-ca-cert ConfigMap is deprecated and will be removed in v1.11
+# The Hubble CA certificate can be found in both the hubble-server-certs and
+# hubble-relay-client-certs Secrets under the ca.crt key.
 apiVersion: v1
 kind: ConfigMap
 metadata:

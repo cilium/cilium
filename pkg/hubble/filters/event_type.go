@@ -50,6 +50,17 @@ func filterByEventType(types []*flowpb.EventTypeFilter) FilterFunc {
 				}
 				return true
 			}
+		case *flowpb.DebugEvent:
+			for _, typeFilter := range types {
+				if t := typeFilter.GetType(); t != 0 && t != monitorAPI.MessageTypeDebug {
+					continue
+				}
+				debugEventType := int32(ev.GetDebugEvent().GetType())
+				if typeFilter.GetMatchSubType() && typeFilter.GetSubType() != debugEventType {
+					continue
+				}
+				return true
+			}
 		case *flowpb.LostEvent:
 			// Currently there's no way in the Hubble CLI and API to filter lost events,
 			// thus always include them. They are very uncommon and only occur on

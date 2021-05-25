@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: cilium-builder
-    image: quay.io/cilium/cilium-builder:2020-12-10@sha256:57012cdb87e43f3f6e50027a6a18381601a579ae081d6493460854cfa77f42b8
+    image: quay.io/cilium/cilium-builder:3e04d507e2f7a0b569490060ddc8b9423c9fc8f0@sha256:7949a297fd2f07a008ef8a163ed84bfb338a37f3b36b68c2c9c5fddb324d325f
     workingDir: /cilium
     command: ["sleep"]
     args:
@@ -38,3 +38,5 @@ spec:
   - key: "node.kubernetes.io/unreachable"
     operator: "Exists"
   hostNetwork: true
+  nodeSelector:
+    "cilium.io/ci-node": k8s1

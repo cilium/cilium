@@ -2,7 +2,7 @@ package connectivity_check
 
 // Default parameters for echo servers (may be overridden).
 _echoDeployment: {
-	_image:       "docker.io/cilium/json-mock:1.2"
+	_image:       "quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b"
 	_probeTarget: *"localhost:8080" | string
 	_probePath:   ""
 }
@@ -26,7 +26,7 @@ deployment: "echo-b": _echoDeployment & {
 	_serverPort:     "8080"
 	_exposeNodePort: true
 	_exposeHeadless: true
-	_nodePort:       31313
+	_nodePort:       31414
 
 	metadata: labels: component: "services-check"
 	spec: template: spec: containers: [{ports: [{_expose: true, containerPort: 8080, _portName: "http", hostPort: 40000}]}]
@@ -72,7 +72,7 @@ ingressCNP: "echo-c": ingressL7Policy & {}
 // Expose hostport by deploying a host pod and adding a headless service with no port.
 // No ingress policy will apply in this case.
 deployment: "echo-c-host": _echoDeploymentWithHostPort & {
-	_serverPort: "41001"
+	_serverPort: "41002"
 	_affinity:   "echo-c"
 	metadata: labels: component: "proxy-check"
 }

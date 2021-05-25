@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,51 +27,108 @@ import (
 )
 
 const (
+	// HealthProbe4MapName is the health datapath map name
+	HealthProbe4MapName = "cilium_lb4_health"
+
 	// SockRevNat4MapName is the BPF map name.
 	SockRevNat4MapName = "cilium_lb4_reverse_sk"
 
 	// SockRevNat4MapSize is the maximum number of entries in the BPF map.
 	SockRevNat4MapSize = 256 * 1024
+
+	// Service4MapV2Name is the name of the IPv4 LB Services v2 BPF map.
+	Service4MapV2Name = "cilium_lb4_services_v2"
+	// Backend4MapName is the name of the IPv4 LB backends BPF map.
+	Backend4MapName = "cilium_lb4_backends"
+	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
+	RevNat4MapName = "cilium_lb4_reverse_nat"
 )
 
 var (
-	// MaxSockRevNat4MapEntries is the maximum number of entries in the BPF map.
-	// It is set by InitMapInfo(), but unit tests use the initial value below.
+	// MaxSockRevNat4MapEntries is the maximum number of entries in the BPF
+	// map. It is set by Init(), but unit tests use the initial value below.
 	MaxSockRevNat4MapEntries = SockRevNat4MapSize
+
+	// The following BPF maps are initialized in initSVC().
+
+	// Service4MapV2 is the IPv4 LB Services v2 BPF map.
+	Service4MapV2 *bpf.Map
+	// Backend4Map is the IPv4 LB backends BPF map.
+	Backend4Map *bpf.Map
+	// RevNat4Map is the IPv4 LB reverse NAT BPF map.
+	RevNat4Map *bpf.Map
 )
 
-var (
-	Service4MapV2 = bpf.NewMap("cilium_lb4_services_v2",
-		bpf.MapTypeHash,
-		&Service4Key{},
-		int(unsafe.Sizeof(Service4Key{})),
-		&Service4Value{},
-		int(unsafe.Sizeof(Service4Value{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
-	Backend4Map = bpf.NewMap("cilium_lb4_backends",
-		bpf.MapTypeHash,
-		&Backend4Key{},
-		int(unsafe.Sizeof(Backend4Key{})),
-		&Backend4Value{},
-		int(unsafe.Sizeof(Backend4Value{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
-	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
-		bpf.MapTypeHash,
-		&RevNat4Key{},
-		int(unsafe.Sizeof(RevNat4Key{})),
-		&RevNat4Value{},
-		int(unsafe.Sizeof(RevNat4Value{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
-)
+// initSVC constructs the IPv4 & IPv6 LB BPF maps used for Services. The maps
+// have their maximum entries configured. Note this does not create or open the
+// maps; it simply constructs the objects.
+func initSVC(params InitParams) {
+	if params.IPv4 {
+		Service4MapV2 = bpf.NewMap(Service4MapV2Name,
+			bpf.MapTypeHash,
+			&Service4Key{},
+			int(unsafe.Sizeof(Service4Key{})),
+			&Service4Value{},
+			int(unsafe.Sizeof(Service4Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		Backend4Map = bpf.NewMap(Backend4MapName,
+			bpf.MapTypeHash,
+			&Backend4Key{},
+			int(unsafe.Sizeof(Backend4Key{})),
+			&Backend4Value{},
+			int(unsafe.Sizeof(Backend4Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		RevNat4Map = bpf.NewMap(RevNat4MapName,
+			bpf.MapTypeHash,
+			&RevNat4Key{},
+			int(unsafe.Sizeof(RevNat4Key{})),
+			&RevNat4Value{},
+			int(unsafe.Sizeof(RevNat4Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+	}
+
+	if params.IPv6 {
+		Service6MapV2 = bpf.NewMap(Service6MapV2Name,
+			bpf.MapTypeHash,
+			&Service6Key{},
+			int(unsafe.Sizeof(Service6Key{})),
+			&Service6Value{},
+			int(unsafe.Sizeof(Service6Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		Backend6Map = bpf.NewMap(Backend6MapName,
+			bpf.MapTypeHash,
+			&Backend6Key{},
+			int(unsafe.Sizeof(Backend6Key{})),
+			&Backend6Value{},
+			int(unsafe.Sizeof(Backend6Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+		RevNat6Map = bpf.NewMap(RevNat6MapName,
+			bpf.MapTypeHash,
+			&RevNat6Key{},
+			int(unsafe.Sizeof(RevNat6Key{})),
+			&RevNat6Value{},
+			int(unsafe.Sizeof(RevNat6Value{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+	}
+}
 
 // The compile-time check for whether the structs implement the interfaces
 var _ RevNatKey = (*RevNat4Key)(nil)
@@ -412,7 +469,7 @@ func CreateSockRevNat4Map() error {
 		0,
 		0,
 		bpf.ConvertKeyValue,
-	)
+	).WithPressureMetric()
 	_, err := sockRevNat4Map.Create()
 	return err
 }

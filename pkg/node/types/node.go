@@ -20,6 +20,7 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -47,13 +48,14 @@ func (nn Identity) String() string {
 // instance. Invalid IP and CIDRs are silently ignored
 func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	node = Node{
-		Name:          n.Name,
-		EncryptionKey: uint8(n.Spec.Encryption.Key),
-		Cluster:       option.Config.ClusterName,
-		ClusterID:     option.Config.ClusterID,
-		Source:        source.CustomResource,
-		Labels:        n.ObjectMeta.Labels,
-		NodeIdentity:  uint32(n.Spec.NodeIdentity),
+		Name:            n.Name,
+		EncryptionKey:   uint8(n.Spec.Encryption.Key),
+		Cluster:         option.Config.ClusterName,
+		ClusterID:       option.Config.ClusterID,
+		Source:          source.CustomResource,
+		Labels:          n.ObjectMeta.Labels,
+		NodeIdentity:    uint32(n.Spec.NodeIdentity),
+		WireguardPubKey: n.ObjectMeta.Annotations[annotation.WireguardPubKey],
 	}
 
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
@@ -193,6 +195,8 @@ type Node struct {
 
 	// NodeIdentity is the numeric identity allocated for the node
 	NodeIdentity uint32
+
+	WireguardPubKey string
 }
 
 // Fullname returns the node's full name including the cluster name if a
@@ -247,6 +251,21 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 	return backupIP, ipType
 }
 
+// GetExternalIP returns ExternalIP of k8s Node. If not present, then it
+// returns nil;
+func (n *Node) GetExternalIP(ipv6 bool) net.IP {
+	for _, addr := range n.IPAddresses {
+		if (ipv6 && addr.IP.To4() != nil) || (!ipv6 && addr.IP.To4() == nil) {
+			continue
+		}
+		if addr.Type == addressing.NodeExternalIP {
+			return addr.IP
+		}
+	}
+
+	return nil
+}
+
 // GetK8sNodeIPs returns k8s Node IP (either InternalIP or ExternalIP or nil;
 // the former is preferred).
 func (n *Node) GetK8sNodeIP() net.IP {
@@ -282,6 +301,18 @@ func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
 			continue
 		}
 		if addr.Type == addressing.NodeCiliumInternalIP {
+			return addr.IP
+		}
+	}
+	return nil
+}
+
+func (n *Node) GetIPByType(addrType addressing.AddressType, ipv6 bool) net.IP {
+	for _, addr := range n.IPAddresses {
+		if addr.Type != addrType {
+			continue
+		}
+		if is4 := addr.IP.To4() != nil; (!ipv6 && is4) || (ipv6 && !is4) {
 			return addr.IP
 		}
 	}

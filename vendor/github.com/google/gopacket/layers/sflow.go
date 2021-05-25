@@ -25,7 +25,7 @@ Specification has this to say:
     be used for all interfaces.
 
 This decoder only supports the compact form, because that is the only
-one for which data was avaialble.
+one for which data was available.
 
 The datagram is composed of one or more samples of type flow or counter,
 and each sample is composed of one or more records describing the sample.
@@ -460,27 +460,72 @@ func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 	var sdc SFlowDataSource
 
 	s.EnterpriseID, s.Format = sdf.decode()
+	if len(*data) < 4 {
+		return SFlowFlowSample{}, errors.New("ethernet counters too small")
+	}
 	*data, s.SampleLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowFlowSample{}, errors.New("ethernet counters too small")
+	}
 	*data, s.SequenceNumber = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	if expanded {
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.SourceIDClass = (*data)[4:], SFlowSourceFormat(binary.BigEndian.Uint32((*data)[:4]))
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.SourceIDIndex = (*data)[4:], SFlowSourceValue(binary.BigEndian.Uint32((*data)[:4]))
 	} else {
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, sdc = (*data)[4:], SFlowDataSource(binary.BigEndian.Uint32((*data)[:4]))
 		s.SourceIDClass, s.SourceIDIndex = sdc.decode()
 	}
+	if len(*data) < 4 {
+		return SFlowFlowSample{}, errors.New("ethernet counters too small")
+	}
 	*data, s.SamplingRate = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowFlowSample{}, errors.New("ethernet counters too small")
+	}
 	*data, s.SamplePool = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowFlowSample{}, errors.New("ethernet counters too small")
+	}
 	*data, s.Dropped = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 
 	if expanded {
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.InputInterfaceFormat = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.InputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.OutputInterfaceFormat = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.OutputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	} else {
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.InputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		if len(*data) < 4 {
+			return SFlowFlowSample{}, errors.New("ethernet counters too small")
+		}
 		*data, s.OutputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	}
+	if len(*data) < 4 {
+		return SFlowFlowSample{}, errors.New("ethernet counters too small")
 	}
 	*data, s.RecordCount = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 
@@ -2184,19 +2229,61 @@ func decodeEthernetCounters(data *[]byte) (SFlowEthernetCounters, error) {
 
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	ec.EnterpriseID, ec.Format = cdf.decode()
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.AlignmentErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.FCSErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.SingleCollisionFrames = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.MultipleCollisionFrames = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.SQETestErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.DeferredTransmissions = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.LateCollisions = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.ExcessiveCollisions = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.InternalMacTransmitErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.CarrierSenseErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.FrameTooLongs = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.InternalMacReceiveErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	if len(*data) < 4 {
+		return SFlowEthernetCounters{}, errors.New("ethernet counters too small")
+	}
 	*data, ec.SymbolErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	return ec, nil
 }

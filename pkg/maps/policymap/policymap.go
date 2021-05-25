@@ -45,6 +45,10 @@ const (
 	// are allowed. In the datapath, this is represented with the value 0 in the
 	// port field of map elements.
 	AllPorts = uint16(0)
+
+	// PressureMetricThreshold sets the threshold over which map pressure will
+	// be reported for the policy map.
+	PressureMetricThreshold = 0.1
 )
 
 type policyFlag uint8
@@ -121,6 +125,18 @@ type PolicyEntry struct {
 	Pad2      uint16 `align:"pad2"`
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
+}
+
+// ToHost returns a copy of entry with fields converted from network byte-order
+// to host-byte-order if necessary.
+func (pe *PolicyEntry) ToHost() PolicyEntry {
+	if pe == nil {
+		return PolicyEntry{}
+	}
+
+	n := *pe
+	n.ProxyPort = byteorder.NetworkToHost(n.ProxyPort).(uint16)
+	return n
 }
 
 func (pe *PolicyEntry) SetFlags(flags uint8) {
@@ -373,18 +389,6 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	err := pm.DumpWithCallback(cb)
 
 	return entries, err
-}
-
-func (pm *PolicyMap) DumpKeysToSlice() ([]PolicyKey, error) {
-	var policyKeys []PolicyKey
-
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		keyDump := *key.DeepCopyMapKey().(*PolicyKey)
-		policyKeys = append(policyKeys, keyDump)
-	}
-	err := pm.DumpWithCallback(cb)
-
-	return policyKeys, err
 }
 
 func newMap(path string) *PolicyMap {

@@ -74,6 +74,7 @@ func (client HubVirtualNetworkConnectionsClient) Get(ctx context.Context, resour
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.HubVirtualNetworkConnectionsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -151,6 +152,11 @@ func (client HubVirtualNetworkConnectionsClient) List(ctx context.Context, resou
 	result.lhvncr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.HubVirtualNetworkConnectionsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lhvncr.hasNextLink() && result.lhvncr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return

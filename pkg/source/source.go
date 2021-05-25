@@ -48,25 +48,25 @@ const (
 func AllowOverwrite(existing, new Source) bool {
 	switch existing {
 
-	// Kubernetes state can be overwritten by everything except generated
-	// and unspecified state
-	case Kubernetes:
-		return new != Generated && new != Unspec
-
-	// Custom-resource state can be overwritten everything except
-	// generated, unspecified and Kuberntes (non-CRD) state
-	case CustomResource:
-		return new != Generated && new != Unspec && new != Kubernetes
+	// Local state can only be overwritten by other local state
+	case Local:
+		return new == Local
 
 	// KVStore can be overwritten by other kvstore or local state
 	case KVStore:
 		return new == KVStore || new == Local
 
-	// local state can only be overwritten by other local state
-	case Local:
-		return new == Local
+	// Custom-resource state can be overwritten by everything except
+	// generated, unspecified and Kubernetes (non-CRD) state
+	case CustomResource:
+		return new != Generated && new != Unspec && new != Kubernetes
 
-	// Generated and unspecified state can be overwritten by everything
+	// Kubernetes state can be overwritten by everything except generated
+	// and unspecified state
+	case Kubernetes:
+		return new != Generated && new != Unspec
+
+	// Generated can be overwritten by everything except by Unspecified
 	case Generated:
 		return new != Unspec
 

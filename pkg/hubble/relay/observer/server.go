@@ -23,10 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	grpcStatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -169,6 +171,18 @@ sortedFlowsLoop:
 	return g.Wait()
 }
 
+// GetAgentEvents implements observerpb.ObserverServer.GetAgentEvents by proxying requests to
+// the hubble instance the proxy is connected to.
+func (s *Server) GetAgentEvents(req *observerpb.GetAgentEventsRequest, stream observerpb.Observer_GetAgentEventsServer) error {
+	return grpcStatus.Errorf(codes.Unimplemented, "GetAgentEvents not yet implemented")
+}
+
+// GetDebugEvents implements observerpb.ObserverServer.GetDebugEvents by proxying requests to
+// the hubble instance the proxy is connected to.
+func (s *Server) GetDebugEvents(req *observerpb.GetDebugEventsRequest, stream observerpb.Observer_GetDebugEventsServer) error {
+	return grpcStatus.Errorf(codes.Unimplemented, "GetDebugEvents not yet implemented")
+}
+
 // GetNodes implements observerpb.ObserverClient.GetNodes.
 func (s *Server) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) (*observerpb.GetNodesResponse, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
@@ -284,10 +298,10 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	}()
 	resp := &observerpb.ServerStatusResponse{
 		Version: build.RelayVersion.String(),
-		NumConnectedNodes: &wrappers.UInt32Value{
+		NumConnectedNodes: &wrapperspb.UInt32Value{
 			Value: numConnectedNodes,
 		},
-		NumUnavailableNodes: &wrappers.UInt32Value{
+		NumUnavailableNodes: &wrapperspb.UInt32Value{
 			Value: numUnavailableNodes,
 		},
 		UnavailableNodes: unavailableNodes,

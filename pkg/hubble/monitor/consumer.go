@@ -18,6 +18,7 @@ import (
 	"time"
 
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
+	"github.com/cilium/cilium/pkg/lock"
 	monitorConsumer "github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
@@ -34,6 +35,7 @@ type Observer interface {
 type consumer struct {
 	observer      Observer
 	numEventsLost uint64
+	lostLock      lock.Mutex
 }
 
 // NewConsumer returns an initialized pointer to consumer.
@@ -49,9 +51,17 @@ func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 // counter to the observer. If it succeeds to enqueue a notification, it
 // resets the counter.
 func (c *consumer) sendNumLostEvents() {
+	c.lostLock.Lock()
+	defer c.lostLock.Unlock()
+	// check again, in case multiple
+	// routines contended the lock
+	if c.numEventsLost == 0 {
+		return
+	}
+
 	numEventsLostNotification := &observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourceEventsQueue,
 			NumLostEvents: c.numEventsLost,
@@ -62,6 +72,7 @@ func (c *consumer) sendNumLostEvents() {
 		// We now now safely reset the counter, as at this point have
 		// successfully notified the observer about the amount of events
 		// that were lost since the previous LostEvent message
+		c.observer.GetLogger().Warningf("hubble events queue is processing messages again: %d messages were lost", c.numEventsLost)
 		c.numEventsLost = 0
 	default:
 		// We do not need to bump the numEventsLost counter here, as we will
@@ -77,20 +88,30 @@ func (c *consumer) sendEvent(event *observerTypes.MonitorEvent) {
 	if c.numEventsLost > 0 {
 		c.sendNumLostEvents()
 	}
-
 	select {
 	case c.observer.GetEventsChannel() <- event:
 	default:
-		c.observer.GetLogger().Debug("hubble events queue is full, dropping message")
-		c.numEventsLost++
+		c.logStartedDropping()
 	}
+}
+
+// logStartedDropping logs that the events channel is full
+// and starts couting exactly how many messages it has
+// lost until the consumer can recover.
+func (c *consumer) logStartedDropping() {
+	c.lostLock.Lock()
+	defer c.lostLock.Unlock()
+	if c.numEventsLost == 0 {
+		c.observer.GetLogger().Warning("hubble events queue is full; dropping messages")
+	}
+	c.numEventsLost++
 }
 
 // NotifyAgentEvent implements monitorConsumer.MonitorConsumer
 func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
 	c.sendEvent(&observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.AgentEvent{
 			Type:    typ,
 			Message: message,
@@ -102,7 +123,7 @@ func (c *consumer) NotifyAgentEvent(typ int, message interface{}) {
 func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
 	c.sendEvent(&observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.PerfEvent{
 			Data: data,
 			CPU:  cpu,
@@ -114,7 +135,7 @@ func (c *consumer) NotifyPerfEvent(data []byte, cpu int) {
 func (c *consumer) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
 	c.sendEvent(&observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetName(),
+		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload: &observerTypes.LostEvent{
 			Source:        observerTypes.LostEventSourcePerfRingBuffer,
 			NumLostEvents: numLostEvents,

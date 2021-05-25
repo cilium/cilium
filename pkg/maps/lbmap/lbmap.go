@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -100,21 +100,7 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if p.UseMaglev && len(p.Backends) != 0 {
-		backendNames := make([]string, 0, len(p.Backends))
-		for name := range p.Backends {
-			backendNames = append(backendNames, name)
-		}
-		// Maglev algorithm might produce different lookup table for the same
-		// set of backends listed in a different order. To avoid that sort
-		// backends by name, as the names are the same on all nodes (in opposite
-		// to backend IDs which are node-local).
-		sort.Strings(backendNames)
-		table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
-		for i, pos := range table {
-			lbmap.maglevBackendIDsBuffer[i] = p.Backends[backendNames[pos]]
-		}
-
-		if err := updateMaglevTable(p.IPv6, p.ID, lbmap.maglevBackendIDsBuffer); err != nil {
+		if err := lbmap.UpsertMaglevLookupTable(p.ID, p.Backends, p.IPv6); err != nil {
 			return err
 		}
 	}
@@ -160,6 +146,30 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 				logfields.BackendSlot: svcKey.GetBackendSlot(),
 			}).WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
+	}
+
+	return nil
+}
+
+// UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
+// inserts into the Maglev BPF map.
+func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+	backendNames := make([]string, 0, len(backends))
+	for name := range backends {
+		backendNames = append(backendNames, name)
+	}
+	// Maglev algorithm might produce different lookup table for the same
+	// set of backends listed in a different order. To avoid that sort
+	// backends by name, as the names are the same on all nodes (in opposite
+	// to backend IDs which are node-local).
+	sort.Strings(backendNames)
+	table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
+	for i, pos := range table {
+		lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
+	}
+
+	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+		return err
 	}
 
 	return nil
@@ -481,9 +491,22 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	return lbBackends, nil
 }
 
+// IsMaglevLookupTableRecreated returns true if the maglev lookup BPF map
+// was recreated due to the changed M param.
+func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
+	if ipv6 {
+		return maglevRecreatedIPv6
+	}
+	return maglevRecreatedIPv4
+}
+
 func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	checkSourceRange bool) error {
+
+	// isRoutable denotes whether this service can be accessed from outside the cluster.
+	isRoutable := !fe.IsSurrogate() &&
+		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
 
 	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
@@ -493,7 +516,7 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 		SvcType:          svcType,
 		SvcLocal:         svcLocal,
 		SessionAffinity:  sessionAffinity,
-		IsRoutable:       !fe.IsSurrogate(),
+		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
 	})
 	zeroValue.SetFlags(flag.UInt16())
@@ -591,10 +614,26 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 	return &lbsvc
 }
 
-// InitMapInfo updates the map info defaults for sock rev nat {4,6} and lb maps.
-func InitMapInfo(maxSockRevNatEntries, lbMapMaxEntries int) {
-	MaxSockRevNat4MapEntries = maxSockRevNatEntries
-	MaxSockRevNat6MapEntries = maxSockRevNatEntries
+// Init updates the map info defaults for sock rev nat {4,6} and LB maps and
+// then initializes all LB-related maps.
+func Init(params InitParams) {
+	if params.MaxSockRevNatMapEntries != 0 {
+		MaxSockRevNat4MapEntries = params.MaxSockRevNatMapEntries
+		MaxSockRevNat6MapEntries = params.MaxSockRevNatMapEntries
+	}
 
-	MaxEntries = lbMapMaxEntries
+	if params.MaxEntries != 0 {
+		MaxEntries = params.MaxEntries
+	}
+
+	initSVC(params)
+	initAffinity(params)
+	initSourceRange(params)
+}
+
+// InitParams represents the parameters to be passed to Init().
+type InitParams struct {
+	IPv4, IPv6 bool
+
+	MaxSockRevNatMapEntries, MaxEntries int
 }

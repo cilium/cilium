@@ -94,7 +94,7 @@ var _ = Describe("NightlyPolicyStress", func() {
 			randomNamespace := deploymentManager.DeployRandomNamespace(ConnectivityCheck)
 			deploymentManager.WaitUntilReady()
 
-			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 
 			By("Stressing Cilium policy engine by inserting 20000 identities into kvstore...")

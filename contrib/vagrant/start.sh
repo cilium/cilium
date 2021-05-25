@@ -200,24 +200,14 @@ function write_k8s_install() {
     k8s_dir="${1}"
     filename="${2}"
     filename_2nd_half="${3}"
-    if [[ -n "${IPV6_EXT}" ]]; then
-        # The k8s cluster cidr will be /80
-        # it can be any value as long it's lower than /96
-        # k8s will assign each node a cidr for example:
-        #   master  : FD02::0:0:0/96
-        #   worker 1: FD02::1:0:0/96
-        #   worker 1: FD02::2:0:0/96
-        k8s_cluster_cidr+="FD02::/80"
-        k8s_node_cidr_mask_size="96"
-        k8s_service_cluster_ip_range="FD03::/112"
-        k8s_cluster_api_server_ip="FD03::1"
-        k8s_cluster_dns_ip="FD03::A"
-    fi
-    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.16.0.0/12"}
+    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.16.0.0/12,FD02::/80"}
     k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"16"}
-    k8s_service_cluster_ip_range=${k8s_service_cluster_ip_range:-"172.20.0.0/24"}
+    k8s_node_cidr_v6_mask_size=${k8s_node_cidr_v6_mask_size:-"96"}
+    k8s_service_cluster_ip_range=${k8s_service_cluster_ip_range:-"172.20.0.0/24,FD03::/112"}
     k8s_cluster_api_server_ip=${k8s_cluster_api_server_ip:-"172.20.0.1"}
+    k8s_cluster_api_server_ipv6=${k8s_cluster_api_server_ipv6:-"FD03::1"}
     k8s_cluster_dns_ip=${k8s_cluster_dns_ip:-"172.20.0.10"}
+    k8s_cluster_dns_ipv6=${k8s_cluster_dns_ipv6:-"FD03::A"}
 
     cat <<EOF >> "${filename}"
 # K8s
@@ -225,9 +215,12 @@ k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/contrib/vagrant/scripts"
 export IPV6_EXT="${IPV6_EXT}"
 export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
 export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
+export K8S_NODE_CIDR_V6_MASK_SIZE="${k8s_node_cidr_v6_mask_size}"
 export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
+export K8S_CLUSTER_API_SERVER_IPV6="${k8s_cluster_api_server_ipv6}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+export K8S_CLUSTER_DNS_IPV6="${k8s_cluster_dns_ipv6}"
 export RUNTIME="${RUNTIME}"
 export INSTALL="${INSTALL}"
 # Always do installation if RELOAD is not set
@@ -271,9 +264,12 @@ k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/contrib/vagrant/scripts"
 export IPV6_EXT="${IPV6_EXT}"
 export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
 export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
+export K8S_NODE_CIDR_V6_MASK_SIZE="${k8s_node_cidr_v6_mask_size}"
 export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
+export K8S_CLUSTER_API_SERVER_IPV6="${k8s_cluster_api_server_ipv6}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+export K8S_CLUSTER_DNS_IPV6="${k8s_cluster_dns_ipv6}"
 export RUNTIME="${RUNTIME}"
 export K8STAG="${VM_BASENAME}"
 export NWORKERS="${NWORKERS}"
@@ -306,7 +302,10 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options=" --debug --pprof --enable-hubble --hubble-listen-address :4244 --enable-k8s-event-handover --k8s-require-ipv4-pod-cidr --auto-direct-node-routes"
+    cilium_options="\
+      --debug --pprof --enable-hubble --hubble-listen-address :4244 --enable-k8s-event-handover \
+      --k8s-require-ipv4-pod-cidr --enable-bandwidth-manager --kube-proxy-replacement probe \
+      --enable-remote-node-identity"
     cilium_operator_options=" --debug"
 
     if [[ "${IPV4}" -eq "1" ]]; then
@@ -320,15 +319,18 @@ function write_cilium_cfg() {
     cilium_options+=" --enable-ipv6-ndp"
     cilium_options+=" --ipv6-mcast-device enp0s8"
 
+    cilium_options+=" ${TUNNEL_MODE_STRING}"
+
     if [ -n "${K8S}" ]; then
+        cilium_kvstore_options="--kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
         cilium_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
-        cilium_options+=" --kvstore etcd"
-        cilium_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
+        cilium_options_with_kvstore="${cilium_options} ${cilium_kvstore_options}"
+        cilium_options+=" --identity-allocation-mode=crd --enable-k8s-event-handover=false"
         cilium_operator_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
-        cilium_operator_options+=" --kvstore etcd"
-        cilium_operator_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
         cilium_operator_options+=" --cluster-pool-ipv4-cidr=10.${master_ipv4_suffix}.0.0/16"
         cilium_operator_options+=" --cluster-pool-ipv6-cidr=fd00::/104"
+        cilium_operator_options_with_kvstore="${cilium_operator_options} ${cilium_kvstore_options}"
+        cilium_operator_options+=" --identity-allocation-mode=crd"
     else
         if [[ "${IPV4}" -eq "1" ]]; then
             cilium_options+=" --kvstore-opt consul.address=${MASTER_IPV4}:8500"
@@ -341,12 +343,14 @@ function write_cilium_cfg() {
         cilium_operator_options+=" --kvstore consul"
     fi
 
-    cilium_options+=" ${TUNNEL_MODE_STRING}"
-
 cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\${K8S}" ]; then
     echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+    echo '# Cilium configuration with kvstore.' >> /etc/sysconfig/cilium
+    echo 'CILIUM_OPTS="${cilium_options_with_kvstore}"' >> /etc/sysconfig/cilium
+    echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options_with_kvstore}"' >> /etc/sysconfig/cilium
+    echo '# Cilium configuration without kvstore.' >> /etc/sysconfig/cilium
 fi
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options}"' >> /etc/sysconfig/cilium
@@ -576,36 +580,92 @@ function vboxnet_addr_finder(){
     vboxnet_add_ipv4 "${vboxnetname}" "${IPV4_BASE_ADDR_NFS}" "255.255.255.0"
 }
 
-vboxnet_addr_finder
 
-ipv6_public_workers_addrs=()
+function createVm(){
+    vboxnet_addr_finder
 
-split_ipv4 ipv4_array "${MASTER_IPV4}"
-MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
+    ipv6_public_workers_addrs=()
 
-set_reload_if_vm_exists
+    split_ipv4 ipv4_array "${MASTER_IPV4}"
+    MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
 
-create_master
-create_workers
-set_vagrant_env
-create_k8s_config
+    set_reload_if_vm_exists
 
-cd "${dir}/../.."
+    create_master
+    create_workers
+    set_vagrant_env
+    create_k8s_config
 
-PROVISION_ARGS=""
-if [ -n "${NO_PROVISION}" ]; then
-    PROVISION_ARGS="--no-provision"
-fi
-if [ -n "${RELOAD}" ]; then
-    vagrant reload $PROVISION_ARGS $1
-elif [ -n "${PROVISION}" ]; then
-    vagrant provision $1
-else
-    vagrant up $PROVISION_ARGS $1
-    if [ "$?" -eq "0" -a -n "${K8S}" ]; then
-        host_port=$(vagrant port --guest 6443 k8s1)
-        vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
-        echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
+    cd "${dir}/../.."
+
+    PROVISION_ARGS=""
+    if [ -n "${NO_PROVISION}" ]; then
+        PROVISION_ARGS="--no-provision"
     fi
-fi
+    if [ -n "${RELOAD}" ]; then
+        vagrant reload $PROVISION_ARGS $1
+    elif [ -n "${PROVISION}" ]; then
+        vagrant provision $1
+    else
+        vagrant up $PROVISION_ARGS $1
+        if [ "$?" -eq "0" -a -n "${K8S}" ]; then
+            host_port=$(vagrant port --guest 6443 k8s1)
+            vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
+            echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
+        fi
+    fi
+}
 
+#get number of running VM(s)
+runningVm=$(VBoxManage list runningvms | awk 'END{ print NR }')
+VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
+if [ "$VMName" ]; then
+    echo
+    echo "Detected running VMs that might cause conflict"
+    echo
+    VBoxManage list runningvms
+
+    #option to stop, delete VM(s) or ignore and continue
+    echo
+    printf "Do you wish to stop, destroy the VM(s) or ignore and continue? [s/d/C]  "
+    read optn
+
+    case "$optn" in
+        "s" )
+            #stop the VM(s)
+            for ((i=1; i<=$runningVm; i=i+1))
+            do
+                VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
+                echo
+                VBoxManage controlvm $VMName poweroff
+                printf "\n$VMName stopped\n"
+            done
+            printf "\n$runningVm VM(s) stopped successfully\n"
+            printf "Tip: Try running vagrant status to check status\n\n"
+        ;;
+        "d" )
+            #destroy the VM(s)
+            for ((i=1; i<=$runningVm; i=i+1))
+            do
+                VMName=$(VBoxManage list runningvms | awk 'NR==1{print $1}' |  cut -d "\"" -f 2)
+                echo
+                VBoxManage controlvm $VMName poweroff
+                VBoxManage unregistervm $VMName --delete
+                printf "\n$VMName destroyed\n"
+            done
+            printf "\n$runningVm VM(s) destroyed successfully\n"
+            printf "Tip: Try running vagrant status to check status\n\n"
+        ;;
+        "C" | * )
+            #continue and default case
+            echo
+            #value to start.sh is passed to function createVm
+            createVm $1
+        ;;
+    esac
+else
+    echo
+    echo
+    #value to start.sh is passed to function createVm
+    createVm $1
+fi

@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,16 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -38,9 +41,12 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egresspolicy"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
@@ -77,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -92,6 +99,10 @@ import (
 const (
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
+
+	// ConfigModifyQueueSize is the size of the event queue for serializing
+	// configuration updates to the daemon
+	ConfigModifyQueueSize = 10
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -102,6 +113,7 @@ type Daemon struct {
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	svc              *service.Service
+	rec              *recorder.Recorder
 	policy           *policy.Repository
 	preFilter        datapath.PreFilter
 
@@ -128,6 +140,8 @@ type Daemon struct {
 
 	mtuConfig     mtu.Configuration
 	policyTrigger *trigger.Trigger
+
+	datapathRegenTrigger *trigger.Trigger
 
 	// datapath is the underlying datapath implementation to use to
 	// implement all aspects of an agent
@@ -163,7 +177,14 @@ type Daemon struct {
 
 	redirectPolicyManager *redirectpolicy.Manager
 
+	bgpSpeaker *speaker.Speaker
+
+	egressPolicyManager *egresspolicy.Manager
+
 	apiLimiterSet *rate.APILimiterSet
+
+	// event queue for serializing configuration updates to the daemon.
+	configModifyQueue *eventqueue.EventQueue
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -241,9 +262,8 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
-	dCtx, cancel := context.WithCancel(ctx)
 	// Pass the cancel to our signal handler directly so that it's canceled
 	// before we run the cleanup functions (see `cleanup.go` for implementation).
 	cleaner.SetCancelFunc(cancel)
@@ -278,11 +298,24 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		log.WithError(err).Fatal("Unable to configure API rate limiting")
 	}
 
+	// Do the partial kube-proxy replacement initialization before creating BPF
+	// maps. Otherwise, some maps might not be created (e.g. session affinity).
+	// finishKubeProxyReplacementInit(), which is called later after the device
+	// detection, might disable BPF NodePort and friends. But this is fine, as
+	// the feature does not influence the decision which BPF maps should be
+	// created.
+	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
+
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
-		option.Config.EnableIPv4, option.Config.EnableIPv6,
-	)
+		option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
-	lbmap.InitMapInfo(option.Config.SockRevNatEntries, option.Config.LBMapEntries)
+	lbmap.Init(lbmap.InitParams{
+		IPv4: option.Config.EnableIPv4,
+		IPv6: option.Config.EnableIPv6,
+
+		MaxSockRevNatMapEntries: option.Config.SockRevNatEntries,
+		MaxEntries:              option.Config.LBMapEntries,
+	})
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {
@@ -296,12 +329,19 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	}
 
 	var mtuConfig mtu.Configuration
-	externalIP := node.GetExternalIPv4()
+	externalIP := node.GetIPv4()
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
-	mtuConfig = mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU, externalIP)
+	mtuConfig = mtu.NewConfiguration(
+		authKeySize,
+		option.Config.EnableIPSec,
+		option.Config.Tunnel != option.TunnelDisabled,
+		option.Config.EnableWireguard,
+		configuredMTU,
+		externalIP,
+	)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipcache.IPIdentityCache, option.Config)
 	if err != nil {
@@ -320,7 +360,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
 
 	d := Daemon{
-		ctx:               dCtx,
+		ctx:               ctx,
 		cancel:            cancel,
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -333,7 +373,16 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		apiLimiterSet:     apiLimiterSet,
 	}
 
+	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
+	d.configModifyQueue.Run()
+
 	d.svc = service.NewService(&d)
+
+	d.rec, err = recorder.NewRecorder(d.ctx, &d)
+	if err != nil {
+		log.WithError(err).Error("Error while initializing BPF pcap recorder")
+		return nil, nil, err
+	}
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),
@@ -352,6 +401,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	d.endpointManager.InitMetrics()
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+	if option.Config.BGPAnnounceLBIP {
+		d.bgpSpeaker = speaker.New()
+	}
+
+	d.egressPolicyManager = egresspolicy.NewEgressPolicyManager()
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
@@ -361,35 +415,37 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.svc,
 		d.datapath,
 		d.redirectPolicyManager,
+		d.bgpSpeaker,
+		d.egressPolicyManager,
+		option.Config,
 	)
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
+	if option.Config.BGPAnnounceLBIP {
+		d.bgpSpeaker.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	}
 
 	bootstrapStats.daemonInit.End(true)
 
-	// Delete BPF programs on exit if running in tandem with Flannel.
-	if option.Config.FlannelUninstallOnExit {
-		cleaner.cleanupFuncs.Add(func() {
-			for _, ep := range d.endpointManager.GetEndpoints() {
-				ep.DeleteBPFProgramLocked()
-			}
-		})
-	}
 	// Stop all endpoints (its goroutines) on exit.
 	cleaner.cleanupFuncs.Add(func() {
-		for _, ep := range d.endpointManager.GetEndpoints() {
-			ep.Stop()
-		}
-	})
+		log.Info("Waiting for all endpoints' go routines to be stopped.")
+		var wg sync.WaitGroup
 
-	// Do the partial kube-proxy replacement initialization before creating BPF
-	// maps. Otherwise, some maps might not be created (e.g. session affinity).
-	// finishKubeProxyReplacementInit(), which is called later after the device
-	// detection, might disable BPF NodePort and friends. But this is fine, as
-	// the feature does not influence the decision which BPF maps should be
-	// created.
-	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
+		eps := d.endpointManager.GetEndpoints()
+		wg.Add(len(eps))
+
+		for _, ep := range eps {
+			go func(ep *endpoint.Endpoint) {
+				ep.Stop()
+				wg.Done()
+			}(ep)
+		}
+
+		wg.Wait()
+		log.Info("All endpoints' goroutines stopped.")
+	})
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()
@@ -422,6 +478,20 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		return nil, nil, err
 	}
 	d.policyTrigger = t
+
+	// Reuse policyTriggerMetrics and PolicyTriggerInterval here since
+	// this is only triggered by agent configuration changes for now
+	// and should be counted in policyTriggerMetrics.
+	regenerationTrigger, err := trigger.NewTrigger(trigger.Parameters{
+		Name:            "datapath-regeneration",
+		MetricsObserver: &policyTriggerMetrics{},
+		MinInterval:     option.Config.PolicyTriggerInterval,
+		TriggerFunc:     d.datapathRegen,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	d.datapathRegenTrigger = regenerationTrigger
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
@@ -490,6 +560,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		bootstrapStats.k8sInit.End(true)
 	}
 
+	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
+		if err := wgAgent.Init(mtuConfig); err != nil {
+			log.WithError(err).Fatal("Failed to initialize wireguard agent")
+		}
+	}
+
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
 	// can be supported or not. This needs to be done before handleNativeDevices()
 	// as BandwidthManager needs these to be available for setup.
@@ -503,6 +579,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
+	// Cgroup v2 hierarchy root used for attachment is different when running on Kind.
+	runsOnKind := option.Config.EnableHostReachableServices &&
+		strings.HasPrefix(node.GetProviderID(), "kind://")
+	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot, runsOnKind)
+
 	// Launch the K8s watchers in parallel as we continue to process other
 	// daemon options.
 	if k8s.IsEnabled() {
@@ -515,7 +596,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" ||
+		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity ||
 			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
 
 		var msg string
@@ -523,6 +604,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		case !option.Config.EnableNodePort:
 			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
 				option.EnableNodePort)
+		case !option.Config.EnableRemoteNodeIdentity:
+			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
+				option.EnableRemoteNodeIdentity)
 		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
 		case option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices():
 			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
@@ -535,6 +619,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		// this  statement, so it's OK to fallback to iptables-based MASQ.
 		option.Config.EnableBPFMasquerade = false
 		log.Warn(msg + " Falling back to iptables-based masquerading.")
+		// Too bad, if we need to revert to iptables-based MASQ, we also cannot
+		// use BPF host routing since we need the upper stack.
+		if !option.Config.EnableHostLegacyRouting {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
+				option.EnableHostLegacyRouting)
+		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
@@ -546,6 +637,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
+	} else if option.Config.EnableEgressGateway {
+		log.Fatalf("Egress Gateway requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
+	} else if !option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
+		// There is not yet support for option.Config.EnableIPv6Masquerade
+		log.Infof("Auto-disabling %q feature since IPv4 masquerading was generally disabled",
+			option.EnableBPFMasquerade)
+		option.Config.EnableBPFMasquerade = false
 	}
 	if option.Config.EnableIPMasqAgent {
 		if !option.Config.EnableIPv4 {
@@ -606,7 +704,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache)
+		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache, option.Config)
 	}
 
 	// Start IPAM
@@ -637,7 +735,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			logfields.V6Prefix:       node.GetIPv6AllocRange(),
 			logfields.V4HealthIP:     d.nodeDiscovery.LocalNode.IPv4HealthIP,
 			logfields.V6HealthIP:     d.nodeDiscovery.LocalNode.IPv6HealthIP,
-			logfields.V4CiliumHostIP: node.GetInternalIPv4(),
+			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
@@ -645,7 +743,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
-			node.GetInternalIPv4(), node.GetIPv6Router())
+			node.GetInternalIPv4Router(), node.GetIPv6Router())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
@@ -656,7 +754,8 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	if option.Config.IPAM == ipamOption.IPAMCRD || option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
+	if option.Config.IPAM == ipamOption.IPAMCRD || option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure ||
+		option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		if option.Config.EnableIPv6 {
 			d.ipam.IPv6Allocator.RestoreFinished()
 		}
@@ -676,6 +775,8 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.bootstrapClusterMesh(nodeMngr)
 	}
 
+	// Must be done at least after initializing BPF LB-related maps
+	// (lbmap.Init()).
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
 	bootstrapStats.bpfBase.EndError(err)
@@ -737,8 +838,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 // WithDefaultEndpointManager creates the default endpoint manager with a
 // functional endpoint synchronizer.
-func WithDefaultEndpointManager() *endpointmanager.EndpointManager {
-	return WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+func WithDefaultEndpointManager(ctx context.Context, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
+	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+	if option.Config.EndpointGCInterval > 0 {
+		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, option.Config.EndpointGCInterval)
+	}
+	return mgr
 }
 
 // WithCustomEndpointManager creates the custom endpoint manager with the
@@ -778,6 +883,9 @@ func (d *Daemon) Close() {
 	if d.policyTrigger != nil {
 		d.policyTrigger.Shutdown()
 	}
+	if d.datapathRegenTrigger != nil {
+		d.datapathRegenTrigger.Shutdown()
+	}
 	d.nodeDiscovery.Close()
 }
 
@@ -802,6 +910,27 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 		RegenerationLevel: regeneration.RegenerateWithDatapathLoad,
 	}
 	return d.endpointManager.RegenerateAllEndpoints(regenRequest), nil
+}
+
+func (d *Daemon) datapathRegen(reasons []string) {
+	reason := strings.Join(reasons, ", ")
+
+	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            reason,
+		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+	}
+	d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
+}
+
+// TriggerDatapathRegen triggers datapath rewrite for every daemon's endpoint.
+// This is only called after agent configuration changes for now. Policy revision
+// needs to be increased on PolicyEnforcement mode change.
+func (d *Daemon) TriggerDatapathRegen(force bool, reason string) {
+	if force {
+		log.Debug("PolicyEnforcement mode changed, increasing policy revision to enforce policy recalculation")
+		d.policy.BumpRevision()
+	}
+	d.datapathRegenTrigger.TriggerWithReason(reason)
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {
@@ -841,7 +970,7 @@ func (d *Daemon) GetNodeSuffix() string {
 
 	switch {
 	case option.Config.EnableIPv4:
-		ip = node.GetExternalIPv4()
+		ip = node.GetIPv4()
 	case option.Config.EnableIPv6:
 		ip = node.GetIPv6()
 	}

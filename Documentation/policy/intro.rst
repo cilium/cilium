@@ -32,6 +32,10 @@ always
   With always mode, policy enforcement is enabled on all endpoints even if no
   rules select specific endpoints.
 
+  If you want to configure health entity to check cluster-wide connectivity when 
+  you start cilium-agent with ``enable-policy=always``, you will likely want to
+  enable communications to and from the health endpoint. See :ref:`health_endpoint`.
+
 never
   With never mode, policy enforcement is disabled on all endpoints, even if
   rules do select specific endpoints. In other words, all traffic is allowed

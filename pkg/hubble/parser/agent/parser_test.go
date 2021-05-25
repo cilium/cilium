@@ -29,22 +29,23 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type mockEndpoint struct {
-	ID        uint64
+	ID        uint16
 	Labels    []string
 	PodName   string
 	Namespace string
 }
 
-func (e *mockEndpoint) GetID() uint64           { return e.ID }
+func (e *mockEndpoint) GetID() uint64           { return uint64(e.ID) }
 func (e *mockEndpoint) GetOpLabels() []string   { return e.Labels }
 func (e *mockEndpoint) GetK8sPodName() string   { return e.PodName }
 func (e *mockEndpoint) GetK8sNamespace() string { return e.Namespace }
+func (e *mockEndpoint) GetID16() uint16         { return e.ID }
 
 func TestDecodeAgentEvent(t *testing.T) {
 	unknownNotification := struct {
@@ -57,8 +58,8 @@ func TestDecodeAgentEvent(t *testing.T) {
 	unknownNotificationJSON, _ := json.Marshal(unknownNotification)
 
 	agentStartTS := time.Now()
-	protoAgentStartTimestamp, err := ptypes.TimestampProto(agentStartTS)
-	assert.NoError(t, err)
+	agentStartTSProto := timestamppb.New(agentStartTS)
+	assert.NoError(t, agentStartTSProto.CheckValid())
 
 	mockEP := &mockEndpoint{
 		ID:        65535,
@@ -127,7 +128,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 				Type: flowpb.AgentEventType_AGENT_STARTED,
 				Notification: &flowpb.AgentEvent_AgentStart{
 					AgentStart: &flowpb.TimeNotification{
-						Time: protoAgentStartTimestamp,
+						Time: agentStartTSProto,
 					},
 				},
 			},
@@ -248,7 +249,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 					IpcacheUpdate: &flowpb.IPCacheNotification{
 						Cidr:     "192.168.10.11/32",
 						Identity: 1023,
-						OldIdentity: &wrappers.UInt32Value{
+						OldIdentity: &wrapperspb.UInt32Value{
 							Value: oldID,
 						},
 						HostIp:     "10.1.5.4",

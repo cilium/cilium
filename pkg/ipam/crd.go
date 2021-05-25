@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	alibabaCloud "github.com/cilium/cilium/pkg/alibabacloud/utils"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -82,18 +83,20 @@ type nodeStore struct {
 	restoreFinished  chan struct{}
 	restoreCloseOnce sync.Once
 
-	conf Configuration
+	conf      Configuration
+	mtuConfig MtuConfiguration
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister) *nodeStore {
+func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
 		allocators:         []*crdAllocator{},
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
+		mtuConfig:          mtuConfig,
 	}
 	store.restoreFinished = make(chan struct{})
 	ciliumClient := k8s.CiliumClient()
@@ -215,6 +218,13 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 			return
 		}
 	}
+	// return AlibabaCloud vpc CIDR
+	if len(node.Status.AlibabaCloud.ENIs) > 0 {
+		c, err := cidr.ParseCIDR(node.Spec.AlibabaCloud.CIDRBlock)
+		if err == nil {
+			result = c
+		}
+	}
 	return
 }
 
@@ -250,7 +260,7 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 			minimumReached = true
 		}
 
-		if n.conf.IPAMMode() == ipamOption.IPAMENI {
+		if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
 			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
 				if nativeCIDR := n.conf.IPv4NativeRoutingCIDR(); nativeCIDR != nil {
 					logFields := logrus.Fields{
@@ -293,6 +303,12 @@ func (n *nodeStore) deleteLocalNodeResource() {
 func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
+
+	if n.conf.IPAMMode() == ipamOption.IPAMENI {
+		if err := configureENIDevices(n.ownNode, node, n.mtuConfig); err != nil {
+			log.WithError(err).Errorf("Failed to update routes and rules for ENIs")
+		}
+	}
 
 	n.ownNode = node
 	n.allocationPoolSize[IPv4] = 0
@@ -434,9 +450,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
+func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg, mtuConfig)
 	})
 
 	allocator := &crdAllocator{
@@ -451,18 +467,18 @@ func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8
 	return allocator
 }
 
-func deriveGatewayIP(eni eniTypes.ENI) string {
-	subnetIP, _, err := net.ParseCIDR(eni.Subnet.CIDR)
+// deriveGatewayIP accept the CIDR and the index of the IP in this CIDR.
+func deriveGatewayIP(cidr string, index int) string {
+	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		log.WithError(err).Warningf("Unable to parse AWS subnet CIDR %s", eni.Subnet.CIDR)
+		log.WithError(err).Warningf("Unable to parse subnet CIDR %s", cidr)
 		return ""
 	}
-
-	addr := subnetIP.To4()
-
-	// The gateway for a subnet and VPC is always x.x.x.1
-	// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
-	return net.IPv4(addr[0], addr[1], addr[2], addr[3]+1).String()
+	gw := ip.GetIPAtIndex(*ipNet, int64(index))
+	if gw == nil {
+		return ""
+	}
+	return gw.String()
 }
 
 func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
@@ -482,7 +498,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 	case ipamOption.IPAMENI:
 		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
 			if eni.ID == ipInfo.Resource {
-				result.Master = eni.MAC
+				result.PrimaryMAC = eni.MAC
 				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
 				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
 				// Add manually configured Native Routing CIDR
@@ -490,31 +506,58 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR().String())
 				}
 				if eni.Subnet.CIDR != "" {
-					result.GatewayIP = deriveGatewayIP(eni)
+					// The gateway for a subnet and VPC is always x.x.x.1
+					// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
+					result.GatewayIP = deriveGatewayIP(eni.Subnet.CIDR, 1)
 				}
+				result.InterfaceNumber = strconv.Itoa(eni.Number)
 
 				return
 			}
 		}
-
-		result = nil
-		err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 
 	// In Azure mode, the Resource points to the azure interface so we can
 	// derive the master interface
 	case ipamOption.IPAMAzure:
 		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
 			if iface.ID == ipInfo.Resource {
-				result.Master = iface.MAC
-				result.GatewayIP = iface.GatewayIP
+				result.PrimaryMAC = iface.MAC
+				result.GatewayIP = iface.Gateway
+				// For now, we can hardcode the interface number to a valid
+				// integer because it will not be used in the allocation result
+				// anyway. To elaborate, Azure IPAM mode automatically sets
+				// option.Config.EgressMultiHomeIPRuleCompat to true, meaning
+				// that the CNI will not use the interface number when creating
+				// the pod rules and routes. We are hardcoding simply to bypass
+				// the parsing errors when InterfaceNumber is empty. See
+				// https://github.com/cilium/cilium/issues/15496.
+				//
+				// TODO: Once https://github.com/cilium/cilium/issues/14705 is
+				// resolved, then we don't need to hardcode this anymore.
+				result.InterfaceNumber = "0"
 				return
 			}
 		}
 
-		result = nil
-		err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
+	// In AlibabaCloud mode, the Resource points to the ENI so we can derive the
+	// master interface and all CIDRs of the VPC
+	case ipamOption.IPAMAlibabaCloud:
+		for _, eni := range a.store.ownNode.Status.AlibabaCloud.ENIs {
+			if eni.NetworkInterfaceID != ipInfo.Resource {
+				continue
+			}
+			result.PrimaryMAC = eni.MACAddress
+			result.CIDRs = []string{eni.VSwitch.CIDRBlock}
+
+			// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html
+			result.GatewayIP = deriveGatewayIP(eni.VSwitch.CIDRBlock, -3)
+			result.InterfaceNumber = strconv.Itoa(alibabaCloud.GetENIIndexFromTags(eni.Tags))
+			return
+		}
 	}
 
+	result = nil
+	err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 	return
 }
 

@@ -135,6 +135,10 @@ func (MockEndpoint) GetK8sNamespace() string {
 	return ""
 }
 
+func (MockEndpoint) GetID16() uint16 {
+	return 0
+}
+
 func (s *MonitorAPISuite) TestEndpointRegenMessage(c *C) {
 	e := MockEndpoint{}
 	rerr := RegenError{}

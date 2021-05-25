@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -42,7 +42,7 @@ contribute to Cilium:
 +--------------------------------------------------------------+------------------------------+--------------------------------------------------+
 + `gomega <https://github.com/onsi/gomega>`_                   | >= 1.2.0                     | ``go get -u github.com/onsi/gomega``             |
 +--------------------------------------------------------------+------------------------------+--------------------------------------------------+
-+ golangci-lint                                                | >= v1.27                     | ``https://github.com/golangci/golangci-lint``    |
++ `golangci-lint <https://github.com/golangci/golangci-lint>`_ | >= v1.27                     | ``go get -u github.com/golangci/golangci-lint``  |
 +--------------------------------------------------------------+------------------------------+--------------------------------------------------+
 + `Docker <https://docs.docker.com/engine/installation/>`_     | OS-Dependent                 | N/A (OS-specific)                                |
 +--------------------------------------------------------------+------------------------------+--------------------------------------------------+
@@ -76,8 +76,8 @@ setup for the Vagrantfile in the root of the Cilium tree depends on a number of
 environment variables and network setup that are managed via
 ``contrib/vagrant/start.sh``.
 
-Using the provided Vagrantfile
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Option 1 - Using the Provided Vagrantfiles (Recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To bring up a Vagrant VM with Cilium plus dependencies installed, run:
 
@@ -91,7 +91,7 @@ existing cluster. For example, to add a net-next VM to a one-node cluster:
 
 ::
 
-    $ NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
+    $ K8S=1 NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
 
 Cilium Vagrantfiles look for a file ``.devvmrc`` in the root of your
 Cilium repository. This file is ignored for Git, so it does not exist
@@ -127,8 +127,8 @@ The box is currently available for the following providers:
 
 * virtualbox
 
-Options
-^^^^^^^
+Configuration Options
+---------------------
 
 The following environment variables can be set to customize the VMs
 brought up by vagrant:
@@ -203,7 +203,7 @@ If you have any issue with the provided vagrant box
 build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
 
 Launch CI VMs
-^^^^^^^^^^^^^
+-------------
 
 The ``test`` directory also contains a ``Vagrantfile`` that can be
 used to bring up the CI VM images that will cache a Vagrant box
@@ -242,8 +242,8 @@ the local CI k8s nodes.
 The runtime VM uses the same cached box as the k8s nodes, but does not start
 K8s, but runs Cilium as a systemd service.
 
-Manual Installation
-^^^^^^^^^^^^^^^^^^^
+Option 2 - Manual Installation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Alternatively you can import the vagrant box ``cilium/ubuntu``
 directly and manually install Cilium:
@@ -381,11 +381,24 @@ httpd servers) and tests various simple network policies with
 them. These containers should be automatically removed when the test
 finishes.
 
+.. _making_changes:
+
 Making Changes
 ~~~~~~~~~~~~~~
 
-#. Create a topic branch: ``git checkout -b myBranch master``
-#. Make the changes you want
+#. Make sure the ``master`` branch of your fork is up-to-date:
+
+   ::
+
+      git fetch upstream master:master
+
+#. Create a PR branch with a descriptive name, branching from ``master``:
+
+   ::
+
+      git switch -c pr/changes-to-something master
+
+#. Make the changes you want.
 #. Separate the changes into logical commits.
 
    #. Describe the changes in the commit messages. Focus on answering the
@@ -394,6 +407,11 @@ Making Changes
    #. If any description is required to understand your code changes, then
       those instructions should be code comments instead of statements in the
       commit description.
+
+   .. note::
+
+      For submitting PRs, all commits need be to signed off (``git commit -s``). See the section :ref:`dev_coo`.
+
 #. Make sure your changes meet the following criteria:
 
    #. New code is covered by :ref:`unit_testing`.
@@ -402,6 +420,7 @@ Making Changes
       new code.
    #. Follow-up commits are squashed together nicely. Commits should separate
       logical chunks of code and not represent a chronological list of changes.
+
 #. Run ``git diff --check`` to catch obvious white space violations
 #. Run ``make`` to build your changes. This will also run ``make lint`` and error out
    on any golang linting errors. The rules are configured in ``.golangci.yaml``

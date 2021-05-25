@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -95,6 +94,7 @@ var sections = map[string]addSection{
 	"cilium-policy":           addCiliumPolicy,
 	"cilium-memory-map":       addCiliumMemoryMap,
 	"cilium-subsystems":       addSubsystems,
+	"cilium-encryption":       addEncryption,
 }
 
 func init() {
@@ -330,6 +330,30 @@ func addCiliumMemoryMap(w *tabwriter.Writer, p *models.DebugInfo) {
 	}
 }
 
+func addEncryption(w *tabwriter.Writer, p *models.DebugInfo) {
+	printMD(w, "Cilium encryption\n", "")
+
+	if p.Encryption != nil && p.Encryption.Wireguard != nil {
+		fmt.Fprint(w, "##### Wireguard\n\n")
+		printTicks(w)
+		for _, wg := range p.Encryption.Wireguard.Interfaces {
+			fmt.Fprintf(w, "interface: %s\n", wg.Name)
+			fmt.Fprintf(w, "  public key: %s\n", wg.PublicKey)
+			fmt.Fprintf(w, "  listening port: %d\n", wg.ListenPort)
+			for _, peer := range wg.Peers {
+				fmt.Fprintf(w, "\npeer: %s\n", peer.PublicKey)
+				fmt.Fprintf(w, "  endpoint: %s\n", peer.Endpoint)
+				fmt.Fprintf(w, "  allowed ips: %s\n", strings.Join(peer.AllowedIps, ", "))
+				fmt.Fprintf(w, "  latest handshake: %s\n", peer.LastHandshakeTime)
+				fmt.Fprintf(w, "  transfer: %d B received, %d B sent\n", peer.TransferRx, peer.TransferTx)
+			}
+			fmt.Fprint(w, "\n")
+		}
+		printTicks(w)
+	}
+
+}
+
 func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPath string) {
 	data := buf.Bytes()
 	db := &models.DebugInfo{}
@@ -434,7 +458,7 @@ func printTicks(w io.Writer) {
 
 func writeHTML(data []byte, path string) {
 	output := blackfriday.Run(data)
-	if err := ioutil.WriteFile(path, output, 0644); err != nil {
+	if err := os.WriteFile(path, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
 		return
 	}

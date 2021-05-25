@@ -5,52 +5,13 @@ pipeline {
         label 'baremetal'
     }
 
-    parameters {
-        string(defaultValue: '${ghprbPullDescription}', name: 'ghprbPullDescription')
-        string(defaultValue: '${ghprbActualCommit}', name: 'ghprbActualCommit')
-        string(defaultValue: '${ghprbTriggerAuthorLoginMention}', name: 'ghprbTriggerAuthorLoginMention')
-        string(defaultValue: '${ghprbPullAuthorLoginMention}', name: 'ghprbPullAuthorLoginMention')
-        string(defaultValue: '${ghprbGhRepository}', name: 'ghprbGhRepository')
-        string(defaultValue: '${ghprbPullLongDescription}', name: 'ghprbPullLongDescription')
-        string(defaultValue: '${ghprbCredentialsId}', name: 'ghprbCredentialsId')
-        string(defaultValue: '${ghprbTriggerAuthorLogin}', name: 'ghprbTriggerAuthorLogin')
-        string(defaultValue: '${ghprbPullAuthorLogin}', name: 'ghprbPullAuthorLogin')
-        string(defaultValue: '${ghprbTriggerAuthor}', name: 'ghprbTriggerAuthor')
-        string(defaultValue: '${ghprbCommentBody}', name: 'ghprbCommentBody')
-        string(defaultValue: '${ghprbPullTitle}', name: 'ghprbPullTitle')
-        string(defaultValue: '${ghprbPullLink}', name: 'ghprbPullLink')
-        string(defaultValue: '${ghprbAuthorRepoGitUrl}', name: 'ghprbAuthorRepoGitUrl')
-        string(defaultValue: '${ghprbTargetBranch}', name: 'ghprbTargetBranch')
-        string(defaultValue: '${ghprbPullId}', name: 'ghprbPullId')
-        string(defaultValue: '${ghprbActualCommitAuthor}', name: 'ghprbActualCommitAuthor')
-        string(defaultValue: '${ghprbActualCommitAuthorEmail}', name: 'ghprbActualCommitAuthorEmail')
-        string(defaultValue: '${ghprbTriggerAuthorEmail}', name: 'ghprbTriggerAuthorEmail')
-        string(defaultValue: '${GIT_BRANCH}', name: 'GIT_BRANCH')
-        string(defaultValue: '${ghprbPullAuthorEmail}', name: 'ghprbPullAuthorEmail')
-        string(defaultValue: '${sha1}', name: 'sha1')
-        string(defaultValue: '${ghprbSourceBranch}', name: 'ghprbSourceBranch')
-    }
-
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
-        K8S_VERSION="1.20"
+        K8S_VERSION="1.21"
         KERNEL="419"
         SERVER_BOX = "cilium/ubuntu-4-19"
-        CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
-        RACE="""${sh(
-                returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
-            )}"""
-        LOCKDEBUG="""${sh(
-                returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
-            )}"""
-        BASE_IMAGE="""${sh(
-                returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2020-12-10@sha256:ee6f0f81fa73125234466c13fd16bed30cc3209daa2f57098f63e0285779e5f3"; fi'
-            )}"""
     }
 
     options {
@@ -74,10 +35,27 @@ pipeline {
             steps {
                 sh 'env'
                 Status("PENDING", "${env.JOB_NAME}")
-                sh 'rm -rf src; mkdir -p src/github.com/cilium'
-                sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
+                sh 'mkdir -p ${PROJ_PATH}'
+                sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
                 sh '/usr/local/bin/cleanup || true'
+            }
+        }
+        stage('Set programmatic env vars') {
+            steps {
+                script {
+                    if (env.ghprbActualCommit?.trim()) {
+                        env.DOCKER_TAG = env.ghprbActualCommit
+                    } else {
+                        env.DOCKER_TAG = env.GIT_COMMIT
+                    }
+                    if (env.run_with_race_detection?.trim()) {
+                        env.DOCKER_TAG = env.DOCKER_TAG + "-race"
+                        env.RACE = 1
+                        env.LOCKDEBUG = 1
+                        env.BASE_IMAGE = "quay.io/cilium/cilium-runtime:8fe001a11f25ad9e6676c19b0431f83c893fbab4@sha256:921ab4bf310f562ce7d4aea1f5c2bc8651f273f1a93b36c71b9cb9954869ef68"
+                    }
+                }
             }
         }
         stage('Preload vagrant boxes'){
@@ -98,7 +76,7 @@ pipeline {
                 retry(3){
                     sh 'cd ${TESTDIR}; vagrant destroy k8s1-${K8S_VERSION} --force'
                     sh 'cd ${TESTDIR}; vagrant destroy k8s2-${K8S_VERSION} --force'
-                    sh 'cd ${TESTDIR}; timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
+                    sh 'cd ${TESTDIR}; CILIUM_REGISTRY=quay.io timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
                 }
             }
         }
@@ -109,7 +87,7 @@ pipeline {
             }
 
             steps {
-                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh"'
+                sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; sudo ./test/kubernetes-test.sh ${DOCKER_TAG}"'
             }
         }
 

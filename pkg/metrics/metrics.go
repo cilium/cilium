@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -70,6 +71,9 @@ const (
 
 	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
 	SubsystemAPILimiter = "api_limiter"
+
+	// SubsystemNodeNeigh is the subsystem to scope metrics related to management of node neighbor.
+	SubsystemNodeNeigh = "node_neigh"
 
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
@@ -300,10 +304,6 @@ var (
 
 	// Datapath statistics
 
-	// DatapathErrors is the number of errors managing datapath components
-	// such as BPF maps.
-	DatapathErrors = NoOpCounterVec
-
 	// ConntrackGCRuns is the number of times that the conntrack GC
 	// process was run.
 	ConntrackGCRuns = NoOpCounterVec
@@ -319,6 +319,9 @@ var (
 
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
+
+	// ConntrackDumpReset marks the count for conntrack dump resets
+	ConntrackDumpResets = NoOpCounterVec
 
 	// Signals
 
@@ -439,6 +442,10 @@ var (
 	// APILimiterProcessedRequests is the counter of the number of
 	// processed (successful and failed) requests
 	APILimiterProcessedRequests = NoOpCounterVec
+
+	// ArpingRequestsTotal is the counter of the number of sent
+	// (successful and failed) arping requests
+	ArpingRequestsTotal = NoOpCounterVec
 )
 
 type Configuration struct {
@@ -469,11 +476,11 @@ type Configuration struct {
 	DropBytesEnabled                        bool
 	NoOpCounterVecEnabled                   bool
 	ForwardBytesEnabled                     bool
-	DatapathErrorsEnabled                   bool
 	ConntrackGCRunsEnabled                  bool
 	ConntrackGCKeyFallbacksEnabled          bool
 	ConntrackGCSizeEnabled                  bool
 	ConntrackGCDurationEnabled              bool
+	ConntrackDumpResetsEnabled              bool
 	SignalsHandledEnabled                   bool
 	ServicesCountEnabled                    bool
 	ErrorsWarningsEnabled                   bool
@@ -492,6 +499,7 @@ type Configuration struct {
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
+	BPFMapPressure                          bool
 	TriggerPolicyUpdateTotal                bool
 	TriggerPolicyUpdateFolds                bool
 	TriggerPolicyUpdateCallDuration         bool
@@ -503,6 +511,7 @@ type Configuration struct {
 	APILimiterRateLimit                     bool
 	APILimiterAdjustmentFactor              bool
 	APILimiterProcessedRequests             bool
+	ArpingRequestsTotalEnabled              bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -531,7 +540,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_drop_bytes_total":                                              {},
 		Namespace + "_forward_count_total":                                           {},
 		Namespace + "_forward_bytes_total":                                           {},
-		Namespace + "_" + SubsystemDatapath + "_errors_total":                        {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":         {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_entries":                {},
@@ -563,6 +572,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemAPILimiter + "_rate_limit":                        {},
 		Namespace + "_" + SubsystemAPILimiter + "_adjustment_factor":                 {},
 		Namespace + "_" + SubsystemAPILimiter + "_processed_requests_total":          {},
+		Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":              {},
 	}
 }
 
@@ -855,17 +865,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, ForwardBytes)
 			c.ForwardBytesEnabled = true
 
-		case Namespace + "_" + SubsystemDatapath + "_errors_total":
-			DatapathErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemDatapath,
-				Name:      "errors_total",
-				Help:      "Number of errors that occurred in the datapath or datapath management",
-			}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
-
-			collectors = append(collectors, DatapathErrors)
-			c.DatapathErrorsEnabled = true
-
 		case Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":
 			ConntrackGCRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -922,6 +921,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ConntrackGCDuration)
 			c.ConntrackGCDurationEnabled = true
+
+		case Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":
+			ConntrackDumpResets = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemDatapath,
+				Name:      "conntrack_dump_resets_total",
+				Help:      "Number of conntrack dump resets. Happens when a BPF entry gets removed while dumping the map is in progress",
+			}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+			collectors = append(collectors, ConntrackDumpResets)
+			c.ConntrackDumpResetsEnabled = true
 
 		case Namespace + "_" + SubsystemDatapath + "_signals_handled_total":
 			SignalsHandled = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -1114,6 +1124,9 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, BPFMapOps)
 			c.BPFMapOps = true
 
+		case Namespace + "_" + SubsystemBPF + "_map_pressure":
+			c.BPFMapPressure = true
+
 		case Namespace + "_" + SubsystemTriggers + "_policy_update_total":
 			TriggerPolicyUpdateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -1235,10 +1248,77 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, APILimiterProcessedRequests)
 			c.APILimiterProcessedRequests = true
+
+		case Namespace + "_arping_requests_total":
+			ArpingRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemNodeNeigh,
+				Name:      "arping_requests_total",
+				Help:      "Number of arping requests sent labeled by status",
+			}, []string{LabelStatus})
+
+			collectors = append(collectors, ArpingRequestsTotal)
+			c.ArpingRequestsTotalEnabled = true
 		}
 	}
 
 	return c, collectors
+}
+
+// GaugeWithThreshold is a prometheus gauge that registers itself with
+// prometheus if over a threshold value and unregisters when under.
+type GaugeWithThreshold struct {
+	gauge     prometheus.Gauge
+	threshold float64
+	active    bool
+}
+
+// Set the value of the GaugeWithThreshold.
+func (gwt *GaugeWithThreshold) Set(value float64) {
+	overThreshold := value > gwt.threshold
+	if gwt.active && !overThreshold {
+		gwt.active = !Unregister(gwt.gauge)
+		if gwt.active {
+			log.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+		}
+	} else if !gwt.active && overThreshold {
+		err := Register(gwt.gauge)
+		gwt.active = err == nil
+		if err != nil {
+			log.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+		}
+	}
+
+	gwt.gauge.Set(value)
+}
+
+// NewGaugeWithThreshold creates a new GaugeWithThreshold.
+func NewGaugeWithThreshold(name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
+	return &GaugeWithThreshold{
+		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace:   Namespace,
+			Subsystem:   subsystem,
+			Name:        name,
+			Help:        desc,
+			ConstLabels: labels,
+		}),
+		threshold: threshold,
+		active:    false,
+	}
+}
+
+// NewBPFMapPressureGauge creates a new GaugeWithThreshold for the
+// cilium_bpf_map_pressure metric with the map name as constant label.
+func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThreshold {
+	return NewGaugeWithThreshold(
+		"map_pressure",
+		SubsystemBPF,
+		"Fill percentage of map, tagged by map name",
+		map[string]string{
+			LabelMapName: mapname,
+		},
+		threshold,
+	)
 }
 
 func init() {

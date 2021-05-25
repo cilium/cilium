@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package scheme
 
 import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +34,7 @@ var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	corev1.AddToScheme,
 	discoveryv1beta1.AddToScheme,
+	discoveryv1.AddToScheme,
 	metav1.AddToScheme,
 }
 

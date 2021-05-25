@@ -66,7 +66,7 @@ func (client ExpressRouteCrossConnectionsClient) CreateOrUpdate(ctx context.Cont
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -105,7 +105,29 @@ func (client ExpressRouteCrossConnectionsClient) CreateOrUpdateSender(req *http.
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client ExpressRouteCrossConnectionsClient) (ercc ExpressRouteCrossConnection, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.ExpressRouteCrossConnectionsCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if ercc.Response.Response, err = future.GetResult(sender); err == nil && ercc.Response.Response.StatusCode != http.StatusNoContent {
+			ercc, err = client.CreateOrUpdateResponder(ercc.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsCreateOrUpdateFuture", "Result", ercc.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -152,6 +174,7 @@ func (client ExpressRouteCrossConnectionsClient) Get(ctx context.Context, resour
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -225,6 +248,11 @@ func (client ExpressRouteCrossConnectionsClient) List(ctx context.Context) (resu
 	result.ercclr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.ercclr.hasNextLink() && result.ercclr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -330,7 +358,7 @@ func (client ExpressRouteCrossConnectionsClient) ListArpTable(ctx context.Contex
 
 	result, err = client.ListArpTableSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListArpTable", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListArpTable", nil, "Failure sending request")
 		return
 	}
 
@@ -368,7 +396,29 @@ func (client ExpressRouteCrossConnectionsClient) ListArpTableSender(req *http.Re
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client ExpressRouteCrossConnectionsClient) (ercatlr ExpressRouteCircuitsArpTableListResult, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsListArpTableFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.ExpressRouteCrossConnectionsListArpTableFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if ercatlr.Response.Response, err = future.GetResult(sender); err == nil && ercatlr.Response.Response.StatusCode != http.StatusNoContent {
+			ercatlr, err = client.ListArpTableResponder(ercatlr.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsListArpTableFuture", "Result", ercatlr.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -415,6 +465,11 @@ func (client ExpressRouteCrossConnectionsClient) ListByResourceGroup(ctx context
 	result.ercclr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.ercclr.hasNextLink() && result.ercclr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -521,7 +576,7 @@ func (client ExpressRouteCrossConnectionsClient) ListRoutesTable(ctx context.Con
 
 	result, err = client.ListRoutesTableSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListRoutesTable", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListRoutesTable", nil, "Failure sending request")
 		return
 	}
 
@@ -559,7 +614,29 @@ func (client ExpressRouteCrossConnectionsClient) ListRoutesTableSender(req *http
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client ExpressRouteCrossConnectionsClient) (ercrtlr ExpressRouteCircuitsRoutesTableListResult, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsListRoutesTableFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.ExpressRouteCrossConnectionsListRoutesTableFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if ercrtlr.Response.Response, err = future.GetResult(sender); err == nil && ercrtlr.Response.Response.StatusCode != http.StatusNoContent {
+			ercrtlr, err = client.ListRoutesTableResponder(ercrtlr.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsListRoutesTableFuture", "Result", ercrtlr.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -601,7 +678,7 @@ func (client ExpressRouteCrossConnectionsClient) ListRoutesTableSummary(ctx cont
 
 	result, err = client.ListRoutesTableSummarySender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListRoutesTableSummary", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "ListRoutesTableSummary", nil, "Failure sending request")
 		return
 	}
 
@@ -639,7 +716,29 @@ func (client ExpressRouteCrossConnectionsClient) ListRoutesTableSummarySender(re
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client ExpressRouteCrossConnectionsClient) (erccrtslr ExpressRouteCrossConnectionsRoutesTableSummaryListResult, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsListRoutesTableSummaryFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.ExpressRouteCrossConnectionsListRoutesTableSummaryFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if erccrtslr.Response.Response, err = future.GetResult(sender); err == nil && erccrtslr.Response.Response.StatusCode != http.StatusNoContent {
+			erccrtslr, err = client.ListRoutesTableSummaryResponder(erccrtslr.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsListRoutesTableSummaryFuture", "Result", erccrtslr.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -687,6 +786,7 @@ func (client ExpressRouteCrossConnectionsClient) UpdateTags(ctx context.Context,
 	result, err = client.UpdateTagsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ExpressRouteCrossConnectionsClient", "UpdateTags", resp, "Failure responding to request")
+		return
 	}
 
 	return

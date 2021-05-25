@@ -182,13 +182,16 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		policyImportErr = k8s.PreprocessRules(rules, &k.K8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
-		rev, policyImportErr = k.policyManager.PolicyAdd(rules, &policy.AddOptions{
-			ReplaceWithLabels: cnp.GetIdentityLabels(),
-			Source:            metrics.LabelEventSourceK8s,
-		})
+		if policyImportErr == nil {
+			rev, policyImportErr = k.policyManager.PolicyAdd(rules, &policy.AddOptions{
+				ReplaceWithLabels: cnp.GetIdentityLabels(),
+				Source:            metrics.LabelEventSourceK8s,
+			})
+		}
 	}
 
 	if policyImportErr != nil {
+		metrics.PolicyImportErrorsTotal.Inc()
 		scopedLog.WithError(policyImportErr).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
 		scopedLog.Info("Imported CiliumNetworkPolicy")
@@ -257,10 +260,12 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 		// update to the new policy will be skipped.
 		switch {
 		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
+			metrics.PolicyImportErrorsTotal.Inc()
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumNetworkPolicy rule")
 			return err
 		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
+			metrics.PolicyImportErrorsTotal.Inc()
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
 			return err
@@ -269,6 +274,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	_, err = newRuleCpy.Parse()
 	if err != nil {
+		metrics.PolicyImportErrorsTotal.Inc()
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return err

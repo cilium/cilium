@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,51 +27,36 @@ import (
 )
 
 const (
+	// HealthProbe6MapName is the health datapath map name
+	HealthProbe6MapName = "cilium_lb6_health"
+
 	// SockRevNat6MapName is the BPF map name.
 	SockRevNat6MapName = "cilium_lb6_reverse_sk"
 
 	// SockRevNat6MapSize is the maximum number of entries in the BPF map.
 	SockRevNat6MapSize = 256 * 1024
+
+	// Service6MapV2Name is the name of the IPv6 LB Services v2 BPF map.
+	Service6MapV2Name = "cilium_lb6_services_v2"
+	// Backend6MapName is the name of the IPv6 LB backends BPF map.
+	Backend6MapName = "cilium_lb6_backends"
+	// RevNat6MapName is the name of the IPv6 LB reverse NAT BPF map.
+	RevNat6MapName = "cilium_lb6_reverse_nat"
 )
 
 var (
-	// MaxSockRevNat6MapEntries is the maximum number of entries in the BPF map.
-	// It is set by InitMapInfo(), but unit tests use the initial value below.
+	// MaxSockRevNat6MapEntries is the maximum number of entries in the BPF
+	// map. It is set by Init(), but unit tests use the initial value below.
 	MaxSockRevNat6MapEntries = SockRevNat6MapSize
-)
 
-var (
-	Service6MapV2 = bpf.NewMap("cilium_lb6_services_v2",
-		bpf.MapTypeHash,
-		&Service6Key{},
-		int(unsafe.Sizeof(Service6Key{})),
-		&Service6Value{},
-		int(unsafe.Sizeof(Service6Value{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
-	Backend6Map = bpf.NewMap("cilium_lb6_backends",
-		bpf.MapTypeHash,
-		&Backend6Key{},
-		int(unsafe.Sizeof(Backend6Key{})),
-		&Backend6Value{},
-		int(unsafe.Sizeof(Backend6Value{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
-	// RevNat6Map represents the BPF map for reverse NAT in IPv6 load balancer
-	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
-		bpf.MapTypeHash,
-		&RevNat6Key{},
-		int(unsafe.Sizeof(RevNat6Key{})),
-		&RevNat6Value{},
-		int(unsafe.Sizeof(RevNat6Value{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
+	// The following BPF maps are initialized in initSVC().
+
+	// Service6MapV2 is the IPv6 LB Services v2 BPF map.
+	Service6MapV2 *bpf.Map
+	// Backend6Map is the IPv6 LB backends BPF map.
+	Backend6Map *bpf.Map
+	// RevNat6Map is the IPv6 LB reverse NAT BPF map.
+	RevNat6Map *bpf.Map
 )
 
 // The compile-time check for whether the structs implement the interfaces
@@ -410,7 +395,7 @@ func CreateSockRevNat6Map() error {
 		0,
 		0,
 		bpf.ConvertKeyValue,
-	)
+	).WithPressureMetric()
 	_, err := sockRevNat6Map.Create()
 	return err
 }

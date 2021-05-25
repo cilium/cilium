@@ -10,10 +10,11 @@
 # Cluster.
 helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
-  --set image.tag=latest \
-  --set image.repository=k8s1:5000/cilium/cilium-dev \
-  --set operator.image.repository=k8s1:5000/cilium/operator \
-  --set operator.image.tag=latest \
+  --set image.tag=$1 \
+  --set image.repository=quay.io/cilium/cilium-ci \
+  --set operator.image.repository=quay.io/cilium/operator \
+  --set operator.image.tag=$1 \
+  --set operator.image.suffix=-ci \
   --set debug.enabled=true \
   --set k8s.requireIPv4PodCIDR=true \
   --set pprof.enabled=true \
@@ -23,6 +24,7 @@ helm template --validate install/kubernetes/cilium \
   --set ipv4.enabled=true \
   --set ipv6.enabled=true \
   --set identityChangeGracePeriod="0s" \
+  --set kubeProxyReplacement=probe \
   > cilium.yaml
 
 kubectl apply -f cilium.yaml
@@ -61,7 +63,7 @@ test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 
-GO_VERSION="1.15.6"
+GO_VERSION="1.16.4"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
@@ -87,6 +89,8 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 #  - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
 #    because it conflicts with the pod's security identity.
 #  - More info at https://github.com/cilium/cilium/issues/9209
+#  - Cilium does not distinguish between UDP and TCP
+# should enforce ingress policy allowing any port traffic to a server on a specific protocol
 echo "Running upstream NetworkPolicy tests"
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)"
+  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)|(should.enforce.ingress.policy.allowing.any.port.traffic.to.a.server.on.a.specific.protocol)"

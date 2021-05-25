@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -227,13 +227,14 @@ func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 //
-// Returns false if the entry is not owned by the self declared source, i.e.
-// returns false if the kubernetes layer is trying to upsert an entry now
-// managed by the kvstore layer. See source.AllowOverwrite() for rules on
-// ownership. hostIP is the location of the given IP. It is optional (may be
-// nil) and is propagated to the listeners. k8sMeta contains Kubernetes-specific
-// metadata such as pod namespace and pod name belonging to the IP (may be nil).
-func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (updated bool, namedPortsChanged bool) {
+// Returns an error if the entry is not owned by the self declared source, i.e.
+// returns error if the kubernetes layer is trying to upsert an entry now
+// managed by the kvstore layer or if 'ip' is invalid. See
+// source.AllowOverwrite() for rules on ownership. hostIP is the location of the
+// given IP. It is optional (may be nil) and is propagated to the listeners.
+// k8sMeta contains Kubernetes-specific metadata such as pod namespace and pod
+// name belonging to the IP (may be nil).
+func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	var newNamedPorts policy.NamedPortMap
 	if k8sMeta != nil {
 		newNamedPorts = k8sMeta.NamedPorts
@@ -259,7 +260,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 	defer ipc.mutex.Unlock()
 
 	var cidr *net.IPNet
-	var oldIdentity *identity.NumericIdentity
+	var oldIdentity *Identity
 	callbackListeners := true
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
@@ -269,23 +270,22 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
 		if !source.AllowOverwrite(cachedIdentity.Source, newIdentity.Source) {
-			return false, false
+			return false, NewErrOverwrite(cachedIdentity.Source, newIdentity.Source)
 		}
 
 		// Skip update if IP is already mapped to the given identity
 		// and the host IP hasn't changed.
 		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) &&
 			hostKey == oldHostKey && metaEqual {
-			return true, false
+			return false, nil
 		}
 
-		oldIdentity = &cachedIdentity.ID
+		oldIdentity = &cachedIdentity
 	}
 
 	// Endpoint IP identities take precedence over CIDR identities, so if the
 	// IP is a full CIDR prefix and there's an existing equivalent endpoint IP,
 	// don't notify the listeners.
-	var err error
 	if _, cidr, err = net.ParseCIDR(ip); err == nil {
 		ones, bits := cidr.Mask.Size()
 		if ones == bits {
@@ -309,7 +309,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					cidrIdentity.shadowed = true
 					ipc.ipToIdentityCache[cidrStr] = cidrIdentity
-					oldIdentity = &cidrIdentity.ID
+					oldIdentity = &cidrIdentity
 				} else {
 					// The endpoint IP and the CIDR are associated with the
 					// same identity and host IP. Nothing changes for the
@@ -324,7 +324,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 			logfields.Identity: newIdentity,
 			logfields.Key:      hostKey,
 		}).Error("Attempt to upsert invalid IP into ipcache layer")
-		return false, false
+		return false, NewErrInvalidIP(ip)
 	}
 
 	scopedLog.Debug("Upserting IP into ipcache layer")
@@ -381,11 +381,11 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID, hostKey, k8sMeta)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta)
 		}
 	}
 
-	return true, namedPortsChanged
+	return namedPortsChanged, nil
 }
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
@@ -402,7 +402,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 			endpointIP := net.ParseIP(ip)
 			cidr = endpointIPToCIDR(endpointIP)
 		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity.ID, encryptKey, k8sMeta)
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, k8sMeta)
 	}
 }
 
@@ -430,7 +430,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
 	oldK8sMeta := ipc.getK8sMetadata(ip)
 	var newHostIP net.IP
-	var oldIdentity *identity.NumericIdentity
+	var oldIdentity *Identity
 	newIdentity := cachedIdentity
 	callbackListeners := true
 
@@ -457,7 +457,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 				cacheModification = Upsert
 				cidrIdentity.shadowed = false
 				ipc.ipToIdentityCache[cidrStr] = cidrIdentity
-				oldIdentity = &cachedIdentity.ID
+				oldIdentity = &cachedIdentity
 				newIdentity = cidrIdentity
 			} else {
 				// The endpoint IP and the CIDR were associated with the same
@@ -489,7 +489,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
-				oldIdentity, newIdentity.ID, encryptKey, oldK8sMeta)
+				oldIdentity, newIdentity, encryptKey, oldK8sMeta)
 		}
 	}
 
@@ -578,6 +578,23 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (ips []string)
 		}
 	}
 	return ips
+}
+
+// LookupByHostRLocked returns the list of IPs returns the set of IPs
+// (endpoint or CIDR prefix) that have hostIPv4 or hostIPv6 associated as the
+// host of the entry. Requires the caller to hold the RLock.
+func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.IPNet) {
+	for ip, host := range ipc.ipToHostIPCache {
+		if hostIPv4 != nil && host.IP.Equal(hostIPv4) || hostIPv6 != nil && host.IP.Equal(hostIPv6) {
+			_, cidr, err := net.ParseCIDR(ip)
+			if err != nil {
+				endpointIP := net.ParseIP(ip)
+				cidr = endpointIPToCIDR(endpointIP)
+			}
+			cidrs = append(cidrs, *cidr)
+		}
+	}
+	return cidrs
 }
 
 // GetIPIdentityMapModel returns all known endpoint IP to security identity mappings

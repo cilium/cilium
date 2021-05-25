@@ -1,0 +1,548 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.1-0.20200716001835-4a903ddb7005
+  creationTimestamp: null
+  name: ciliumnodes.cilium.io
+spec:
+  group: cilium.io
+  names:
+    kind: CiliumNode
+    listKind: CiliumNodeList
+    plural: ciliumnodes
+    shortNames:
+    - cn
+    - ciliumn
+    singular: ciliumnode
+  scope: Cluster
+  versions:
+  - name: v2
+    schema:
+      openAPIV3Schema:
+        description: CiliumNode represents a node managed by Cilium. It contains a
+          specification to control various node specific configuration aspects and
+          a status section to represent the status of the node.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired specification/configuration of the
+              node.
+            properties:
+              addresses:
+                description: Addresses is the list of all node addresses.
+                items:
+                  description: NodeAddress is a node address.
+                  properties:
+                    ip:
+                      description: IP is an IP of a node
+                      type: string
+                    type:
+                      description: Type is the type of the node address
+                      type: string
+                  type: object
+                type: array
+              alibaba-cloud:
+                description: AlibabaCloud is the AlibabaCloud IPAM specific configuration.
+                properties:
+                  availability-zone:
+                    description: AvailabilityZone is the availability zone to use
+                      when allocating ENIs.
+                    type: string
+                  cidr-block:
+                    description: CIDRBlock is vpc ipv4 CIDR
+                    type: string
+                  instance-type:
+                    description: InstanceType is the ECS instance type, e.g. "ecs.g6.2xlarge"
+                    type: string
+                  security-group-tags:
+                    additionalProperties:
+                      type: string
+                    description: SecurityGroupTags is the list of tags to use when
+                      evaluating which security groups to use for the ENI.
+                    type: object
+                  security-groups:
+                    description: SecurityGroups is the list of security groups to
+                      attach to any ENI that is created and attached to the instance.
+                    items:
+                      type: string
+                    type: array
+                  vpc-id:
+                    description: VPCID is the VPC ID to use when allocating ENIs.
+                    type: string
+                  vswitch-tags:
+                    additionalProperties:
+                      type: string
+                    description: VSwitchTags is the list of tags to use when evaluating
+                      which vSwitch to use for the ENI.
+                    type: object
+                  vswitches:
+                    description: VSwitches is the ID of vSwitch available for ENI
+                    items:
+                      type: string
+                    type: array
+                type: object
+              azure:
+                description: Azure is the Azure IPAM specific configuration.
+                properties:
+                  interface-name:
+                    description: InterfaceName is the name of the interface the cilium-operator
+                      will use to allocate all the IPs on
+                    type: string
+                type: object
+              encryption:
+                description: Encryption is the encryption configuration of the node.
+                properties:
+                  key:
+                    description: Key is the index to the key to use for encryption
+                      or 0 if encryption is disabled.
+                    type: integer
+                type: object
+              eni:
+                description: ENI is the AWS ENI specific configuration.
+                properties:
+                  availability-zone:
+                    description: AvailabilityZone is the availability zone to use
+                      when allocating ENIs.
+                    type: string
+                  delete-on-termination:
+                    description: DeleteOnTermination defines that the ENI should be
+                      deleted when the associated instance is terminated. If the parameter
+                      is not set the default behavior is to delete the ENI on instance
+                      termination.
+                    type: boolean
+                  first-interface-index:
+                    description: FirstInterfaceIndex is the index of the first ENI
+                      to use for IP allocation, e.g. if the node has eth0, eth1, eth2
+                      and FirstInterfaceIndex is set to 1, then only eth1 and eth2
+                      will be used for IP allocation, eth0 will be ignored for PodIP
+                      allocation.
+                    minimum: 0
+                    type: integer
+                  instance-id:
+                    description: "InstanceID is the AWS InstanceId of the node. The
+                      InstanceID is used to retrieve AWS metadata for the node. \n
+                      OBSOLETE: This field is obsolete, please use Spec.InstanceID"
+                    type: string
+                  instance-type:
+                    description: InstanceType is the AWS EC2 instance type, e.g. "m5.large"
+                    type: string
+                  max-above-watermark:
+                    description: "MaxAboveWatermark is the maximum number of addresses
+                      to allocate beyond the addresses needed to reach the PreAllocate
+                      watermark. Going above the watermark can help reduce the number
+                      of API calls to allocate IPs, e.g. when a new ENI is allocated,
+                      as many secondary IPs as possible are allocated. Limiting the
+                      amount can help reduce waste of IPs. \n OBSOLETE: This field
+                      is obsolete, please use Spec.IPAM.MaxAboveWatermark"
+                    minimum: 0
+                    type: integer
+                  min-allocate:
+                    description: "MinAllocate is the minimum number of IPs that must
+                      be allocated when the node is first bootstrapped. It defines
+                      the minimum base socket of addresses that must be available.
+                      After reaching this watermark, the PreAllocate and MaxAboveWatermark
+                      logic takes over to continue allocating IPs. \n OBSOLETE: This
+                      field is obsolete, please use Spec.IPAM.MinAllocate"
+                    minimum: 0
+                    type: integer
+                  pre-allocate:
+                    description: "PreAllocate defines the number of IP addresses that
+                      must be available for allocation in the IPAMspec. It defines
+                      the buffer of addresses available immediately without requiring
+                      cilium-operator to get involved. \n OBSOLETE: This field is
+                      obsolete, please use Spec.IPAM.PreAllocate"
+                    minimum: 0
+                    type: integer
+                  security-group-tags:
+                    additionalProperties:
+                      type: string
+                    description: SecurityGroupTags is the list of tags to use when
+                      evaliating what AWS security groups to use for the ENI.
+                    type: object
+                  security-groups:
+                    description: SecurityGroups is the list of security groups to
+                      attach to any ENI that is created and attached to the instance.
+                    items:
+                      type: string
+                    type: array
+                  subnet-tags:
+                    additionalProperties:
+                      type: string
+                    description: SubnetTags is the list of tags to use when evaluating
+                      what AWS subnets to use for ENI and IP allocation.
+                    type: object
+                  vpc-id:
+                    description: VpcID is the VPC ID to use when allocating ENIs.
+                    type: string
+                type: object
+              health:
+                description: HealthAddressing is the addressing information for health
+                  connectivity checking.
+                properties:
+                  ipv4:
+                    description: IPv4 is the IPv4 address of the IPv4 health endpoint.
+                    type: string
+                  ipv6:
+                    description: IPv6 is the IPv6 address of the IPv4 health endpoint.
+                    type: string
+                type: object
+              instance-id:
+                description: InstanceID is the identifier of the node. This is different
+                  from the node name which is typically the FQDN of the node. The
+                  InstanceID typically refers to the identifier used by the cloud
+                  provider or some other means of identification.
+                type: string
+              ipam:
+                description: IPAM is the address management specification. This section
+                  can be populated by a user or it can be automatically populated
+                  by an IPAM operator.
+                properties:
+                  max-above-watermark:
+                    description: MaxAboveWatermark is the maximum number of addresses
+                      to allocate beyond the addresses needed to reach the PreAllocate
+                      watermark. Going above the watermark can help reduce the number
+                      of API calls to allocate IPs, e.g. when a new ENI is allocated,
+                      as many secondary IPs as possible are allocated. Limiting the
+                      amount can help reduce waste of IPs.
+                    minimum: 0
+                    type: integer
+                  max-allocate:
+                    description: MaxAllocate is the maximum number of IPs that can
+                      be allocated to the node. When the current amount of allocated
+                      IPs will approach this value, the considered value for PreAllocate
+                      will decrease down to 0 in order to not attempt to allocate
+                      more addresses than defined.
+                    minimum: 0
+                    type: integer
+                  min-allocate:
+                    description: MinAllocate is the minimum number of IPs that must
+                      be allocated when the node is first bootstrapped. It defines
+                      the minimum base socket of addresses that must be available.
+                      After reaching this watermark, the PreAllocate and MaxAboveWatermark
+                      logic takes over to continue allocating IPs.
+                    minimum: 0
+                    type: integer
+                  podCIDRs:
+                    description: PodCIDRs is the list of CIDRs available to the node
+                      for allocation. When an IP is used, the IP will be added to
+                      Status.IPAM.Used
+                    items:
+                      type: string
+                    type: array
+                  pool:
+                    additionalProperties:
+                      description: AllocationIP is an IP which is available for allocation,
+                        or already has been allocated
+                      properties:
+                        owner:
+                          description: "Owner is the owner of the IP. This field is
+                            set if the IP has been allocated. It will be set to the
+                            pod name or another identifier representing the usage
+                            of the IP \n The owner field is left blank for an entry
+                            in Spec.IPAM.Pool and filled out as the IP is used and
+                            also added to Status.IPAM.Used."
+                          type: string
+                        resource:
+                          description: Resource is set for both available and allocated
+                            IPs, it represents what resource the IP is associated
+                            with, e.g. in combination with AWS ENI, this will refer
+                            to the ID of the ENI
+                          type: string
+                      type: object
+                    description: Pool is the list of IPs available to the node for
+                      allocation. When an IP is used, the IP will remain on this list
+                      but will be added to Status.IPAM.Used
+                    type: object
+                  pre-allocate:
+                    description: PreAllocate defines the number of IP addresses that
+                      must be available for allocation in the IPAMspec. It defines
+                      the buffer of addresses available immediately without requiring
+                      cilium-operator to get involved.
+                    minimum: 0
+                    type: integer
+                type: object
+              nodeidentity:
+                description: NodeIdentity is the Cilium numeric identity allocated
+                  for the node, if any.
+                format: int64
+                type: integer
+            type: object
+          status:
+            description: Status defines the realized specification/configuration and
+              status of the node.
+            properties:
+              alibaba-cloud:
+                description: AlibabaCloud is the AlibabaCloud specific status of the
+                  node.
+                properties:
+                  enis:
+                    additionalProperties:
+                      description: ENI represents an AlibabaCloud Elastic Network
+                        Interface
+                      properties:
+                        instance-id:
+                          description: InstanceID is the InstanceID using this ENI
+                          type: string
+                        mac-address:
+                          description: MACAddress is the mac address of the ENI
+                          type: string
+                        network-interface-id:
+                          description: NetworkInterfaceID is the ENI id
+                          type: string
+                        primary-ip-address:
+                          description: PrimaryIPAddress is the primary IP on ENI
+                          type: string
+                        private-ipsets:
+                          description: PrivateIPSets is the list of all IPs on the
+                            ENI, including PrimaryIPAddress
+                          items:
+                            description: PrivateIPSet is a nested struct in ecs response
+                            properties:
+                              primary:
+                                type: boolean
+                              private-ip-address:
+                                type: string
+                            type: object
+                          type: array
+                        security-groupids:
+                          description: SecurityGroupIDs is the security group ids
+                            used by this ENI
+                          items:
+                            type: string
+                          type: array
+                        tags:
+                          additionalProperties:
+                            type: string
+                          description: Tags is the tags on this ENI
+                          type: object
+                        type:
+                          description: Type is the ENI type Primary or Secondary
+                          type: string
+                        vpc:
+                          description: VPC is the vpc to which the ENI belongs
+                          properties:
+                            cidr:
+                              description: CIDRBlock is the VPC IPv4 CIDR
+                              type: string
+                            ipv6-cidr:
+                              description: IPv6CIDRBlock is the VPC IPv6 CIDR
+                              type: string
+                            vpc-id:
+                              description: VPCID is the vpc to which the ENI belongs
+                              type: string
+                          type: object
+                        vswitch:
+                          description: VSwitch is the vSwitch the ENI is using
+                          properties:
+                            cidr:
+                              description: CIDRBlock is the vSwitch IPv4 CIDR
+                              type: string
+                            ipv6-cidr:
+                              description: IPv6CIDRBlock is the vSwitch IPv6 CIDR
+                              type: string
+                            vswitch-id:
+                              description: VSwitchID is the vSwitch to which the ENI
+                                belongs
+                              type: string
+                          type: object
+                        zone-id:
+                          description: ZoneID is the zone to which the ENI belongs
+                          type: string
+                      type: object
+                    description: ENIs is the list of ENIs on the node
+                    type: object
+                type: object
+              azure:
+                description: Azure is the Azure specific status of the node.
+                properties:
+                  interfaces:
+                    description: Interfaces is the list of interfaces on the node
+                    items:
+                      description: AzureInterface represents an Azure Interface
+                      properties:
+                        GatewayIP:
+                          description: "GatewayIP is the interface's subnet's default
+                            route \n OBSOLETE: This field is obsolete, please use
+                            Gateway field instead."
+                          type: string
+                        addresses:
+                          description: Addresses is the list of all IPs associated
+                            with the interface, including all secondary addresses
+                          items:
+                            description: AzureAddress is an IP address assigned to
+                              an AzureInterface
+                            properties:
+                              ip:
+                                description: IP is the ip address of the address
+                                type: string
+                              state:
+                                description: State is the provisioning state of the
+                                  address
+                                type: string
+                              subnet:
+                                description: Subnet is the subnet the address belongs
+                                  to
+                                type: string
+                            type: object
+                          type: array
+                        gateway:
+                          description: Gateway is the interface's subnet's default
+                            route
+                          type: string
+                        id:
+                          description: ID is the identifier
+                          type: string
+                        mac:
+                          description: MAC is the mac address
+                          type: string
+                        name:
+                          description: Name is the name of the interface
+                          type: string
+                        security-group:
+                          description: SecurityGroup is the security group associated
+                            with the interface
+                          type: string
+                        state:
+                          description: State is the provisioning state
+                          type: string
+                      type: object
+                    type: array
+                type: object
+              eni:
+                description: ENI is the AWS ENI specific status of the node.
+                properties:
+                  enis:
+                    additionalProperties:
+                      description: "ENI represents an AWS Elastic Network Interface
+                        \n More details: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html"
+                      properties:
+                        addresses:
+                          description: Addresses is the list of all secondary IPs
+                            associated with the ENI
+                          items:
+                            type: string
+                          type: array
+                        availability-zone:
+                          description: AvailabilityZone is the availability zone of
+                            the ENI
+                          type: string
+                        description:
+                          description: Description is the description field of the
+                            ENI
+                          type: string
+                        id:
+                          description: ID is the ENI ID
+                          type: string
+                        ip:
+                          description: IP is the primary IP of the ENI
+                          type: string
+                        mac:
+                          description: MAC is the mac address of the ENI
+                          type: string
+                        number:
+                          description: Number is the interface index, it used in combination
+                            with FirstInterfaceIndex
+                          type: integer
+                        security-groups:
+                          description: SecurityGroups are the security groups associated
+                            with the ENI
+                          items:
+                            type: string
+                          type: array
+                        subnet:
+                          description: Subnet is the subnet the ENI is associated
+                            with
+                          properties:
+                            cidr:
+                              description: CIDR is the CIDR range associated with
+                                the subnet
+                              type: string
+                            id:
+                              description: ID is the ID of the subnet
+                              type: string
+                          type: object
+                        vpc:
+                          description: VPC is the VPC information to which the ENI
+                            is attached to
+                          properties:
+                            cidrs:
+                              description: CIDRs is the list of CIDR ranges associated
+                                with the VPC
+                              items:
+                                type: string
+                              type: array
+                            id:
+                              description: / ID is the ID of a VPC
+                              type: string
+                            primary-cidr:
+                              description: PrimaryCIDR is the primary CIDR of the
+                                VPC
+                              type: string
+                          type: object
+                      type: object
+                    description: ENIs is the list of ENIs on the node
+                    type: object
+                type: object
+              ipam:
+                description: IPAM is the IPAM status of the node.
+                properties:
+                  operator-status:
+                    description: Operator is the Operator status of the node
+                    properties:
+                      error:
+                        description: Error is the error message set by cilium-operator.
+                        type: string
+                    type: object
+                  used:
+                    additionalProperties:
+                      description: AllocationIP is an IP which is available for allocation,
+                        or already has been allocated
+                      properties:
+                        owner:
+                          description: "Owner is the owner of the IP. This field is
+                            set if the IP has been allocated. It will be set to the
+                            pod name or another identifier representing the usage
+                            of the IP \n The owner field is left blank for an entry
+                            in Spec.IPAM.Pool and filled out as the IP is used and
+                            also added to Status.IPAM.Used."
+                          type: string
+                        resource:
+                          description: Resource is set for both available and allocated
+                            IPs, it represents what resource the IP is associated
+                            with, e.g. in combination with AWS ENI, this will refer
+                            to the ID of the ENI
+                          type: string
+                      type: object
+                    description: Used lists all IPs out of Spec.IPAM.Pool which have
+                      been allocated and are in use.
+                    type: object
+                type: object
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

@@ -22,9 +22,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/sirupsen/logrus"
 )
@@ -50,6 +52,8 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		triggeredBySignal := false
+		ctTimer, ctTimerDone := inctimer.New()
+		defer ctTimerDone()
 		for {
 			var (
 				maxDeleteRatio float64
@@ -70,13 +74,18 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				// mean the next iteration has completed and it is not in-use.
 				gcStart = time.Now()
 
+				// aliveTime is offset to the future by ToFQDNsIdleConnectionGracePeriod
+				// (default 0), allowing previously active connections to be considerred
+				// alive during idle periods of upto ToFQDNsIdleConnectionGracePeriod.
+				aliveTime = gcStart.Add(option.Config.ToFQDNsIdleConnectionGracePeriod)
+
 				emitEntryCB = func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) {
 					// FQDN related connections can only be outbound
 					if flags != ctmap.TUPLE_F_OUT {
 						return
 					}
 					if ep, exists := epsMap[srcIP.String()]; exists {
-						ep.MarkDNSCTEntry(dstIP, gcStart)
+						ep.MarkDNSCTEntry(dstIP, aliveTime)
 					}
 				}
 			)
@@ -133,7 +142,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 						ipv6 = true
 					}
 				}
-			case <-time.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
+			case <-ctTimer.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
 				ipv4 = ipv4Orig
 				ipv6 = ipv6Orig
 			}

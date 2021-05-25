@@ -52,7 +52,7 @@ func (r *Route) getNetlinkRoute() netlink.Route {
 		Dst:      &r.Prefix,
 		Src:      r.Local,
 		MTU:      r.MTU,
-		Protocol: r.Proto,
+		Protocol: netlink.RouteProtocol(r.Proto),
 		Table:    r.Table,
 		Type:     r.Type,
 	}
@@ -512,6 +512,24 @@ func lookupDefaultRoute(family int) (netlink.Route, error) {
 
 	log.Debugf("Found default route on node %v", routes[0])
 	return routes[0], nil
+}
+
+func DeleteRouteTable(table, family int) error {
+	var routeErr error
+
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return fmt.Errorf("Unable to list table %d routes: %s", table, err)
+	}
+
+	routeErr = nil
+	for _, route := range routes {
+		err := netlink.RouteDel(&route)
+		if err != nil {
+			routeErr = fmt.Errorf("%w: Failed to delete route: %s", routeErr, err)
+		}
+	}
+	return routeErr
 }
 
 // NodeDeviceWithDefaultRoute returns the node's device which handles the

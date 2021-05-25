@@ -25,15 +25,8 @@ import (
 )
 
 type DummyEndpoint struct {
-	rev uint64
-}
-
-func (d *DummyEndpoint) GetID16() uint16 {
-	return 0
-}
-
-func (d *DummyEndpoint) IsHost() bool {
-	return false
+	rev      uint64
+	Endpoint // Implement methods of the interface that need to mock out real behavior.
 }
 
 func (d *DummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {

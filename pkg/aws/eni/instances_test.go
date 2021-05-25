@@ -203,7 +203,7 @@ func (e *ENISuite) TestGetSubnet(c *check.C) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	c.Assert(api, check.Not(check.IsNil))
 
-	mngr := NewInstancesManager(api, nil)
+	mngr := NewInstancesManager(api)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	c.Assert(mngr.GetSubnet("subnet-1"), check.IsNil)
@@ -241,7 +241,7 @@ func (e *ENISuite) TestFindSubnetByTags(c *check.C) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	c.Assert(api, check.Not(check.IsNil))
 
-	mngr := NewInstancesManager(api, nil)
+	mngr := NewInstancesManager(api)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	iteration1(api, mngr)
@@ -277,7 +277,7 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	c.Assert(api, check.Not(check.IsNil))
 
-	mngr := NewInstancesManager(api, nil)
+	mngr := NewInstancesManager(api)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	sgGroups := mngr.FindSecurityGroupByTags("vpc-1", map[string]string{

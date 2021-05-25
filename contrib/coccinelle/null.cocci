@@ -21,4 +21,4 @@ E << r.E;
 p << r.p;
 @@
 
-print "* file: %s deref of NULL value %s on line %s" % (p[0].file,E,p[0].line)
+print("* file: %s deref of NULL value %s on line %s" % (p[0].file,E,p[0].line))

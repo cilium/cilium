@@ -78,6 +78,8 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 	case monitorAPI.MessageTypeTrace:
 		typeName = "Trace"
 		subType = monitorAPI.TraceObservationPoints[uint8(flow.GetEventType().SubType)]
+	case monitorAPI.MessageTypePolicyVerdict:
+		typeName = "PolicyVerdict"
 	default:
 		typeName = "Unknown"
 		subType = fmt.Sprintf("%d", eventType)

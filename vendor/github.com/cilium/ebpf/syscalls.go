@@ -11,9 +11,7 @@ import (
 )
 
 // Generic errors returned by BPF syscalls.
-var (
-	ErrNotExist = errors.New("requested object does not exist")
-)
+var ErrNotExist = errors.New("requested object does not exist")
 
 // bpfObjName is a null-terminated string made up of
 // 'A-Za-z0-9_' characters.
@@ -26,18 +24,20 @@ func newBPFObjName(name string) bpfObjName {
 	return result
 }
 
+// invalidBPFObjNameChar returns true if char may not appear in
+// a BPF object name.
 func invalidBPFObjNameChar(char rune) bool {
 	dotAllowed := objNameAllowsDot() == nil
 
 	switch {
 	case char >= 'A' && char <= 'Z':
-		fallthrough
+		return false
 	case char >= 'a' && char <= 'z':
-		fallthrough
+		return false
 	case char >= '0' && char <= '9':
-		fallthrough
+		return false
 	case dotAllowed && char == '.':
-		fallthrough
+		return false
 	case char == '_':
 		return false
 	default:
@@ -66,6 +66,17 @@ type bpfMapOpAttr struct {
 	key     internal.Pointer
 	value   internal.Pointer
 	flags   uint64
+}
+
+type bpfBatchMapOpAttr struct {
+	inBatch   internal.Pointer
+	outBatch  internal.Pointer
+	keys      internal.Pointer
+	values    internal.Pointer
+	count     uint32
+	mapFd     uint32
+	elemFlags uint64
+	flags     uint64
 }
 
 type bpfMapInfo struct {
@@ -203,35 +214,25 @@ func bpfMapCreate(attr *bpfMapCreateAttr) (*internal.FD, error) {
 	return internal.NewFD(uint32(fd)), nil
 }
 
-var haveNestedMaps = internal.FeatureTest("nested maps", "4.12", func() (bool, error) {
-	inner, err := bpfMapCreate(&bpfMapCreateAttr{
-		mapType:    Array,
-		keySize:    4,
-		valueSize:  4,
-		maxEntries: 1,
-	})
-	if err != nil {
-		return false, err
-	}
-	defer inner.Close()
-
-	innerFd, _ := inner.Value()
-	nested, err := bpfMapCreate(&bpfMapCreateAttr{
+var haveNestedMaps = internal.FeatureTest("nested maps", "4.12", func() error {
+	_, err := bpfMapCreate(&bpfMapCreateAttr{
 		mapType:    ArrayOfMaps,
 		keySize:    4,
 		valueSize:  4,
 		maxEntries: 1,
-		innerMapFd: innerFd,
+		// Invalid file descriptor.
+		innerMapFd: ^uint32(0),
 	})
-	if err != nil {
-		return false, nil
+	if errors.Is(err, unix.EINVAL) {
+		return internal.ErrNotSupported
 	}
-
-	_ = nested.Close()
-	return true, nil
+	if errors.Is(err, unix.EBADF) {
+		return nil
+	}
+	return err
 })
 
-var haveMapMutabilityModifiers = internal.FeatureTest("read- and write-only maps", "5.2", func() (bool, error) {
+var haveMapMutabilityModifiers = internal.FeatureTest("read- and write-only maps", "5.2", func() error {
 	// This checks BPF_F_RDONLY_PROG and BPF_F_WRONLY_PROG. Since
 	// BPF_MAP_FREEZE appeared in 5.2 as well we don't do a separate check.
 	m, err := bpfMapCreate(&bpfMapCreateAttr{
@@ -242,10 +243,10 @@ var haveMapMutabilityModifiers = internal.FeatureTest("read- and write-only maps
 		flags:      unix.BPF_F_RDONLY_PROG,
 	})
 	if err != nil {
-		return false, nil
+		return internal.ErrNotSupported
 	}
 	_ = m.Close()
-	return true, nil
+	return nil
 })
 
 func bpfMapLookupElem(m *internal.FD, key, valueOut internal.Pointer) error {
@@ -331,6 +332,29 @@ func objGetNextID(cmd internal.BPFCmd, start uint32) (uint32, error) {
 	return attr.nextID, wrapObjError(err)
 }
 
+func bpfMapBatch(cmd internal.BPFCmd, m *internal.FD, inBatch, outBatch, keys, values internal.Pointer, count uint32, opts *BatchOptions) (uint32, error) {
+	fd, err := m.Value()
+	if err != nil {
+		return 0, err
+	}
+
+	attr := bpfBatchMapOpAttr{
+		inBatch:  inBatch,
+		outBatch: outBatch,
+		keys:     keys,
+		values:   values,
+		count:    count,
+		mapFd:    fd,
+	}
+	if opts != nil {
+		attr.elemFlags = opts.ElemFlags
+		attr.flags = opts.Flags
+	}
+	_, err = internal.BPF(cmd, unsafe.Pointer(&attr), unsafe.Sizeof(attr))
+	// always return count even on an error, as things like update might partially be fulfilled.
+	return attr.count, wrapMapError(err)
+}
+
 func wrapObjError(err error) error {
 	if err == nil {
 		return nil
@@ -355,7 +379,11 @@ func wrapMapError(err error) error {
 		return ErrKeyExist
 	}
 
-	return errors.New(err.Error())
+	if errors.Is(err, unix.ENOTSUPP) {
+		return ErrNotSupported
+	}
+
+	return err
 }
 
 func bpfMapFreeze(m *internal.FD) error {
@@ -388,7 +416,7 @@ func bpfGetMapInfoByFD(fd *internal.FD) (*bpfMapInfo, error) {
 	return &info, nil
 }
 
-var haveObjName = internal.FeatureTest("object names", "4.15", func() (bool, error) {
+var haveObjName = internal.FeatureTest("object names", "4.15", func() error {
 	attr := bpfMapCreateAttr{
 		mapType:    Array,
 		keySize:    4,
@@ -399,16 +427,16 @@ var haveObjName = internal.FeatureTest("object names", "4.15", func() (bool, err
 
 	fd, err := bpfMapCreate(&attr)
 	if err != nil {
-		return false, nil
+		return internal.ErrNotSupported
 	}
 
 	_ = fd.Close()
-	return true, nil
+	return nil
 })
 
-var objNameAllowsDot = internal.FeatureTest("dot in object names", "5.2", func() (bool, error) {
+var objNameAllowsDot = internal.FeatureTest("dot in object names", "5.2", func() error {
 	if err := haveObjName(); err != nil {
-		return false, err
+		return err
 	}
 
 	attr := bpfMapCreateAttr{
@@ -421,11 +449,37 @@ var objNameAllowsDot = internal.FeatureTest("dot in object names", "5.2", func()
 
 	fd, err := bpfMapCreate(&attr)
 	if err != nil {
-		return false, nil
+		return internal.ErrNotSupported
 	}
 
 	_ = fd.Close()
-	return true, nil
+	return nil
+})
+
+var haveBatchAPI = internal.FeatureTest("map batch api", "5.6", func() error {
+	var maxEntries uint32 = 2
+	attr := bpfMapCreateAttr{
+		mapType:    Hash,
+		keySize:    4,
+		valueSize:  4,
+		maxEntries: maxEntries,
+	}
+
+	fd, err := bpfMapCreate(&attr)
+	if err != nil {
+		return internal.ErrNotSupported
+	}
+	defer fd.Close()
+	keys := []uint32{1, 2}
+	values := []uint32{3, 4}
+	kp, _ := marshalPtr(keys, 8)
+	vp, _ := marshalPtr(values, 8)
+	nilPtr := internal.NewPointer(nil)
+	_, err = bpfMapBatch(internal.BPF_MAP_UPDATE_BATCH, fd, nilPtr, nilPtr, kp, vp, maxEntries, nil)
+	if err != nil {
+		return internal.ErrNotSupported
+	}
+	return nil
 })
 
 func bpfObjGetFDByID(cmd internal.BPFCmd, id uint32) (*internal.FD, error) {

@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strconv"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/contexthelpers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
@@ -187,20 +187,14 @@ type clientOptions struct {
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
-	endpointsOpt, endpointsSet := e.opts[EtcdAddrOption]
-	configPathOpt, configSet := e.opts[EtcdOptionConfig]
-
-	rateLimitOpt, rateLimitSet := e.opts[EtcdRateLimitOption]
-
 	clientOptions := clientOptions{
 		KeepAliveHeartbeat: 15 * time.Second,
 		KeepAliveTimeout:   25 * time.Second,
 		RateLimit:          defaults.KVstoreQPS,
 	}
 
-	if rateLimitSet {
-		// error is discarded here because this option has validation
-		clientOptions.RateLimit, _ = strconv.Atoi(rateLimitOpt.value)
+	if o, ok := e.opts[EtcdRateLimitOption]; ok && o.value != "" {
+		clientOptions.RateLimit, _ = strconv.Atoi(o.value)
 	}
 
 	if o, ok := e.opts[etcdOptionKeepAliveTimeout]; ok && o.value != "" {
@@ -210,6 +204,9 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	if o, ok := e.opts[etcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
 		clientOptions.KeepAliveHeartbeat, _ = time.ParseDuration(o.value)
 	}
+
+	endpointsOpt, endpointsSet := e.opts[EtcdAddrOption]
+	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 
 	var configPath string
 	if configSet {
@@ -235,6 +232,13 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	if e.config.Endpoints == nil && endpointsSet {
 		e.config.Endpoints = []string{endpointsOpt.value}
 	}
+
+	log.WithFields(logrus.Fields{
+		"ConfigPath":         configPath,
+		"KeepAliveHeartbeat": clientOptions.KeepAliveHeartbeat,
+		"KeepAliveTimeout":   clientOptions.KeepAliveTimeout,
+		"RateLimit":          clientOptions.RateLimit,
+	}).Info("Creating etcd client")
 
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
@@ -1105,6 +1109,9 @@ func (e *etcdClient) statusChecker() {
 
 	consecutiveQuorumErrors := 0
 
+	statusTimer, statusTimerDone := inctimer.New()
+	defer statusTimerDone()
+
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -1168,7 +1175,7 @@ func (e *etcdClient) statusChecker() {
 		case <-e.stopStatusChecker:
 			close(e.statusCheckErrors)
 			return
-		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
+		case <-statusTimer.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
 	}
 }
@@ -1644,20 +1651,28 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 // Close closes the etcd session
 func (e *etcdClient) Close() {
 	close(e.stopStatusChecker)
-	<-e.firstSession
+	sessionErr := e.waitForInitialSession(context.Background())
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
 	}
 	e.RLock()
 	defer e.RUnlock()
-	if err := e.lockSession.Close(); err != nil {
-		e.getLogger().WithError(err).Warning("Failed to revoke lock session while closing etcd client")
+	// Only close e.lockSession if the initial session was successful
+	if sessionErr == nil {
+		if err := e.lockSession.Close(); err != nil {
+			e.getLogger().WithError(err).Warning("Failed to revoke lock session while closing etcd client")
+		}
 	}
-	if err := e.session.Close(); err != nil {
-		e.getLogger().WithError(err).Warning("Failed to revoke main session while closing etcd client")
+	// Only close e.session if the initial session was successful
+	if sessionErr == nil {
+		if err := e.session.Close(); err != nil {
+			e.getLogger().WithError(err).Warning("Failed to revoke main session while closing etcd client")
+		}
 	}
-	if err := e.client.Close(); err != nil {
-		e.getLogger().WithError(err).Warning("Failed to close etcd client")
+	if e.client != nil {
+		if err := e.client.Close(); err != nil {
+			e.getLogger().WithError(err).Warning("Failed to close etcd client")
+		}
 	}
 }
 
@@ -1774,7 +1789,7 @@ func newConfig(fpath string) (*client.Config, error) {
 	}
 
 	yc := &yamlConfig{}
-	b, err := ioutil.ReadFile(fpath)
+	b, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -1799,7 +1814,7 @@ func newConfig(fpath string) (*client.Config, error) {
 // reload on-disk certificate and key when needed
 func getClientCertificateReloader(fpath string) (func(*tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
 	yc := &yamlKeyPairConfig{}
-	b, err := ioutil.ReadFile(fpath)
+	b, err := os.ReadFile(fpath)
 	if err != nil {
 		return nil, err
 	}

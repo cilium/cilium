@@ -17,9 +17,13 @@
 package linux
 
 import (
+	"context"
+	"crypto/rand"
 	"net"
 	"runtime"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -32,6 +36,7 @@ import (
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -75,7 +80,7 @@ const (
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
 	bpf.ConfigureResourceLimits()
 	s.nodeAddressing = addressing
-	s.mtuConfig = mtu.NewConfiguration(0, false, false, 1500, nil)
+	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
 
@@ -187,7 +192,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4: s.enableIPv4,
@@ -199,34 +204,34 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 
 	if s.enableIPv4 {
 		// add & remove IPv4 node route
-		err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true)
+		err = linuxNodeHandler.updateNodeRoute(ip4CIDR, true, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 
-		err = linuxNodeHandler.deleteNodeRoute(ip4CIDR)
+		err = linuxNodeHandler.deleteNodeRoute(ip4CIDR, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
 		// add & remove IPv6 node route
-		err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true)
+		err = linuxNodeHandler.updateNodeRoute(ip6CIDR, true, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6CIDR)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 
-		err = linuxNodeHandler.deleteNodeRoute(ip6CIDR)
+		err = linuxNodeHandler.deleteNodeRoute(ip6CIDR, false)
 		c.Assert(err, check.IsNil)
 
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6CIDR, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -235,7 +240,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	// enable as per test definition
@@ -247,13 +252,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -265,12 +270,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+	foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
 	c.Assert(err, check.IsNil)
 	c.Assert(foundRoute, check.IsNil)
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -284,13 +289,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestSingleClusterPrefix(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv4().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR())
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(s.nodeAddressing.IPv6().AllocationCIDR(), false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -301,7 +306,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:        s.enableIPv4,
@@ -313,13 +318,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -333,13 +338,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -353,13 +358,13 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(net2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -375,7 +380,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	externalNodeIP2 := net.ParseIP("8.8.8.8")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:          s.enableIPv4,
@@ -409,7 +414,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -419,7 +424,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -448,7 +453,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -458,7 +463,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -495,12 +500,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -512,12 +517,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc1 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -541,14 +546,14 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -578,7 +583,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -590,7 +595,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
 		// node routes for alloc2 ranges should have been installed
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
@@ -615,14 +620,14 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
 
 	if s.enableIPv6 {
 		// node routes for alloc2 ranges should be gone
-		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.IsNil)
 	}
@@ -643,7 +648,7 @@ func lookupDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) 
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
+	ip4Alloc2 := cidr.MustParseCIDR("5.5.5.0/26")
 
 	externalNode1IP4v1 := net.ParseIP("4.4.4.4")
 	externalNode1IP4v2 := net.ParseIP("4.4.4.5")
@@ -661,7 +666,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 	defer removeDevice(externalNode2Device)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:              s.enableIPv4,
@@ -699,6 +704,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(c *check.C) {
 		},
 		IPv4AllocCIDR: ip4Alloc1,
 	}
+
 	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
 	c.Assert(err, check.IsNil)
 
@@ -786,7 +792,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	underlayIP := net.ParseIP("4.4.4.4")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 	nodeConfig := datapath.LocalNodeConfiguration{
 		EnableIPv4:          s.enableIPv4,
@@ -870,7 +876,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 }
 
 func insertFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) {
-	nodeRoute, err := n.createNodeRoute(prefix)
+	nodeRoute, err := n.createNodeRouteSpec(prefix, false)
 	c.Assert(err, check.IsNil)
 
 	nodeRoute.Device = dummyExternalDeviceName
@@ -880,7 +886,7 @@ func insertFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) {
 }
 
 func lookupFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) bool {
-	routeSpec, err := n.createNodeRoute(prefix)
+	routeSpec, err := n.createNodeRouteSpec(prefix, false)
 	c.Assert(err, check.IsNil)
 
 	routeSpec.Device = dummyExternalDeviceName
@@ -893,7 +899,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -978,7 +984,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	ip1 := net.ParseIP("9.9.9.250")
 	ipnet.IP = ip0
 	addr := &netlink.Addr{IPNet: ipnet}
-	netlink.AddrAdd(veth0, addr)
+	err = netlink.AddrAdd(veth0, addr)
 	c.Assert(err, check.IsNil)
 	err = netlink.LinkSetUp(veth0)
 	c.Assert(err, check.IsNil)
@@ -1007,8 +1013,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	defer func() { option.Config.EnableNodePort = prevNP }()
 	option.Config.EnableNodePort = true
 	dpConfig := DatapathConfiguration{HostDevice: "veth0"}
+	prevARPPeriod := option.Config.ARPPingRefreshPeriod
+	defer func() { option.Config.ARPPingRefreshPeriod = prevARPPeriod }()
+	option.Config.ARPPingRefreshPeriod = time.Duration(1 * time.Nanosecond)
 
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
@@ -1018,12 +1027,42 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
+	// wait waits for neigh entry update or waits for removal if waitForDelete=true
+	wait := func(nodeID nodeTypes.Identity, before *time.Time, waitForDelete bool) {
+		err := testutils.WaitUntil(func() bool {
+			linuxNodeHandler.neighLock.Lock()
+			defer linuxNodeHandler.neighLock.Unlock()
+			nextHop, found := linuxNodeHandler.neighNextHopByNode[nodeID]
+			if !found {
+				return waitForDelete
+			}
+			lastPing, found := linuxNodeHandler.neighLastPingByNextHop[nextHop]
+			if !found {
+				return false
+			}
+			if waitForDelete {
+				return false
+			}
+			return before.Before(lastPing)
+		}, 5*time.Second)
+		c.Assert(err, check.IsNil)
+	}
+
 	nodev1 := nodeTypes.Node{
 		Name:        "node1",
 		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, ip1}},
 	}
+	now := time.Now()
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
+	// insertNeighbor is invoked async
+	// Insert the same node second time. This should not increment refcount for
+	// the same nextHop. We test it by checking that NodeDelete has removed the
+	// related neigh entry.
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+	// insertNeighbor is invoked async, so thus this wait based on last ping
+	wait(nodev1.Identity(), &now, false)
 
 	// Check whether an arp entry for nodev1 IP addr (=veth1) was added
 	neighs, err := netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
@@ -1037,9 +1076,43 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	}
 	c.Assert(found, check.Equals, true)
 
+	// Swap MAC addresses of veth0 and veth1 to ensure the MAC address of veth1 changed.
+	// Trigger neighbor refresh on veth0 and check whether the arp entry was updated.
+	var veth0HwAddr, veth1HwAddr, updatedHwAddrFromArpEntry net.HardwareAddr
+	veth0HwAddr = veth0.Attrs().HardwareAddr
+	netns0.Do(func(ns.NetNS) error {
+		veth1, err := netlink.LinkByName("veth1")
+		c.Assert(err, check.IsNil)
+		veth1HwAddr = veth1.Attrs().HardwareAddr
+		err = netlink.LinkSetHardwareAddr(veth1, veth0HwAddr)
+		c.Assert(err, check.IsNil)
+		return nil
+	})
+
+	now = time.Now()
+	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
+	c.Assert(err, check.IsNil)
+
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
+	wait(nodev1.Identity(), &now, false)
+	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+	c.Assert(err, check.IsNil)
+	found = false
+	for _, n := range neighs {
+		if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+			found = true
+			updatedHwAddrFromArpEntry = n.HardwareAddr
+			break
+		}
+	}
+	c.Assert(found, check.Equals, true)
+	c.Assert(updatedHwAddrFromArpEntry.String(), check.Equals, veth0HwAddr.String())
+
 	// Remove nodev1, and check whether the arp entry was removed
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	c.Assert(err, check.IsNil)
+	// deleteNeighbor is invoked async too
+	wait(nodev1.Identity(), nil, true)
 
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
@@ -1051,6 +1124,87 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		}
 	}
 	c.Assert(found, check.Equals, false)
+
+	// Create multiple goroutines which call insertNeighbor and check whether
+	// MAC changes of veth1 are properly handled. This is a basic randomized
+	// testing of insertNeighbor() fine-grained locking.
+	now = time.Now()
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+	wait(nodev1.Identity(), &now, false)
+
+	rndHWAddr := func() net.HardwareAddr {
+		mac := make([]byte, 6)
+		_, err := rand.Read(mac)
+		c.Assert(err, check.IsNil)
+		mac[0] = (mac[0] | 2) & 0xfe
+		return net.HardwareAddr(mac)
+	}
+	neighRefCount := func(nextHopStr string) int {
+		linuxNodeHandler.neighLock.Lock()
+		defer linuxNodeHandler.neighLock.Unlock()
+		return linuxNodeHandler.neighNextHopRefCount[nextHopStr]
+	}
+	neighHwAddr := func(nextHopStr string) string {
+		linuxNodeHandler.neighLock.Lock()
+		defer linuxNodeHandler.neighLock.Unlock()
+		if neigh, found := linuxNodeHandler.neighByNextHop[nextHopStr]; found {
+			return neigh.HardwareAddr.String()
+		}
+		return ""
+	}
+
+	done := make(chan struct{})
+	count := 30
+	var wg sync.WaitGroup
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		go func() {
+			defer wg.Done()
+			ticker := time.NewTicker(100 * time.Millisecond)
+			for {
+				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1, true)
+				select {
+				case <-ticker.C:
+				case <-done:
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 10; i++ {
+		mac := rndHWAddr()
+		// Change MAC
+		netns0.Do(func(ns.NetNS) error {
+			veth1, err := netlink.LinkByName("veth1")
+			c.Assert(err, check.IsNil)
+			err = netlink.LinkSetHardwareAddr(veth1, mac)
+			c.Assert(err, check.IsNil)
+			return nil
+		})
+		// Check that MAC has been changed in the neigh table
+		time.Sleep(500 * time.Millisecond)
+		neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+		c.Assert(err, check.IsNil)
+		found = false
+		for _, n := range neighs {
+			if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
+				c.Assert(n.HardwareAddr.String(), check.Equals, mac.String())
+				c.Assert(neighHwAddr(ip1.String()), check.Equals, mac.String())
+				c.Assert(neighRefCount(ip1.String()), check.Equals, 1)
+				found = true
+				break
+			}
+		}
+		c.Assert(found, check.Equals, true)
+
+	}
+	// Cleanup
+	close(done)
+	now = time.Now()
+	err = linuxNodeHandler.NodeDelete(nodev1)
+	c.Assert(err, check.IsNil)
+	wait(nodev1.Identity(), nil, true)
 
 	// Setup routine for the 2. test
 	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
@@ -1195,7 +1349,9 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		Name:        "node2",
 		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node2IP}},
 	}
+	now = time.Now()
 	c.Assert(linuxNodeHandler.NodeAdd(nodev2), check.IsNil)
+	wait(nodev2.Identity(), &now, false)
 
 	node3IP := net.ParseIP("7.7.7.250")
 	nodev3 := nodeTypes.Node{
@@ -1203,6 +1359,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		IPAddresses: []nodeTypes.Address{{nodeaddressing.NodeInternalIP, node3IP}},
 	}
 	c.Assert(linuxNodeHandler.NodeAdd(nodev3), check.IsNil)
+	wait(nodev3.Identity(), &now, false)
 
 	nextHop := net.ParseIP("9.9.9.250")
 	// Check that both node{2,3} are via nextHop (gw)
@@ -1220,6 +1377,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 
 	// Check that removing node2 will not remove nextHop, as it is still used by node3
 	c.Assert(linuxNodeHandler.NodeDelete(nodev2), check.IsNil)
+	wait(nodev2.Identity(), nil, true)
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	found = false
 	for _, n := range neighs {
@@ -1232,9 +1390,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 
 	// However, removing node3 should remove the neigh entry for nextHop
 	c.Assert(linuxNodeHandler.NodeDelete(nodev3), check.IsNil)
+	wait(nodev3.Identity(), nil, true)
+
+	found = false
 	neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
 	c.Assert(err, check.IsNil)
-	found = false
 	for _, n := range neighs {
 		if n.IP.Equal(nextHop) && n.State == netlink.NUD_PERMANENT {
 			found = true
@@ -1251,7 +1411,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config da
 	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
@@ -1357,7 +1517,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(c *check.C, config
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
@@ -1426,7 +1586,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(c *ch
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nil).(*linuxNodeHandler)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)

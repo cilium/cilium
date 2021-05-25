@@ -16,17 +16,22 @@ spec:
 {{- end }}
   template:
     metadata:
+      annotations:
 {{- with .Values.clustermesh.apiserver.podAnnotations }}
-      annotations: {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
 {{- end }}
       labels:
         k8s-app: clustermesh-apiserver
+{{- with .Values.clustermesh.apiserver.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{- toYaml . | nindent 8 }}
 {{- end }}
       restartPolicy: Always
-      serviceAccount: clustermesh-apiserver
+      serviceAccount: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       initContainers:
       - name: etcd-init
         image: {{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}
@@ -95,7 +100,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: {{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}
+        image: "{{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}{{ if .Values.clustermesh.apiserver.image.useDigest }}@{{ .Values.clustermesh.apiserver.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
           - /usr/bin/clustermesh-apiserver

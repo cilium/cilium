@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package ipcache
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -66,11 +67,11 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(cachedIdentity.Source, Equals, source.KVStore)
 
 	// kubernetes source cannot update kvstore source
-	updated, _ := IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
+	_, err := IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,
 		Source: source.Kubernetes,
 	})
-	c.Assert(updated, Equals, false)
+	c.Assert(errors.Is(err, &ErrOverwrite{NewSrc: source.Kubernetes}), Equals, true)
 
 	IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,
@@ -278,11 +279,11 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 		},
 	}
 
-	updated, namedPortsChanged := IPIdentityCache.Upsert(endpointIP, nil, 0, &meta, Identity{
+	namedPortsChanged, err := IPIdentityCache.Upsert(endpointIP, nil, 0, &meta, Identity{
 		ID:     identity,
 		Source: source.Kubernetes,
 	})
-	c.Assert(updated, Equals, true)
+	c.Assert(err, IsNil)
 
 	// Assure both caches are updated..
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -327,11 +328,11 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 		},
 	}
 
-	updated, namedPortsChanged = IPIdentityCache.Upsert(endpointIP2, nil, 0, &meta2, Identity{
+	namedPortsChanged, err = IPIdentityCache.Upsert(endpointIP2, nil, 0, &meta2, Identity{
 		ID:     identity2,
 		Source: source.Kubernetes,
 	})
-	c.Assert(updated, Equals, true)
+	c.Assert(err, IsNil)
 
 	// Assure both caches are updated..
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 2)
@@ -377,11 +378,11 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 		PodName:   "podname",
 	}
 
-	updated, namedPortsChanged = IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
+	namedPortsChanged, err = IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
 		ID:     identity,
 		Source: source.KVStore,
 	})
-	c.Assert(updated, Equals, true)
+	c.Assert(err, IsNil)
 	c.Assert(namedPortsChanged, Equals, false)
 
 	// Assure upsert occurs across all mappings.
@@ -395,11 +396,11 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(IPIdentityCache.GetK8sMetadata(endpointIP), checker.DeepEquals, k8sMeta)
 
 	newIdentity := identityPkg.NumericIdentity(69)
-	updated, namedPortsChanged = IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
+	namedPortsChanged, err = IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
 		ID:     newIdentity,
 		Source: source.KVStore,
 	})
-	c.Assert(updated, Equals, true)
+	c.Assert(err, IsNil)
 	c.Assert(namedPortsChanged, Equals, false)
 
 	// Assure upsert occurs across all mappings.
@@ -438,11 +439,11 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 
 	for index := range endpointIPs {
 		k8sMeta.PodName = fmt.Sprintf("pod-%d", int(identities[index]))
-		updated, namedPortsChanged = IPIdentityCache.Upsert(endpointIPs[index], nil, 0, k8sMeta, Identity{
+		namedPortsChanged, err = IPIdentityCache.Upsert(endpointIPs[index], nil, 0, k8sMeta, Identity{
 			ID:     identities[index],
 			Source: source.KVStore,
 		})
-		c.Assert(updated, Equals, true)
+		c.Assert(err, IsNil)
 		npm = IPIdentityCache.GetNamedPorts()
 		c.Assert(npm, NotNil)
 		c.Assert(npm["http2"], checker.HasKey, policy.PortProto{Port: uint16(8080), Proto: uint8(6)})
@@ -519,12 +520,12 @@ func newDummyListener(ipc *IPCache) *dummyListener {
 }
 
 func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
-	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *identityPkg.NumericIdentity,
-	newID identityPkg.NumericIdentity, encryptKey uint8, k8sMeta *K8sMetadata) {
+	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *Identity,
+	newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
 
 	switch modType {
 	case Upsert:
-		dl.entries[cidr.String()] = newID
+		dl.entries[cidr.String()] = newID.ID
 	default:
 		// Ignore, for simplicity we just clear the cache every time
 	}

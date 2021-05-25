@@ -27,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/math"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -35,6 +37,9 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	"github.com/cilium/cilium/pkg/hubble/recorder"
+	"github.com/cilium/cilium/pkg/hubble/recorder/recorderoption"
+	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -44,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -131,6 +137,24 @@ func (d *Daemon) launchHubble() {
 		observeroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
 		observeroption.WithCiliumDaemon(d),
 	)
+	if option.Config.HubbleExportFilePath != "" {
+		exporterOpts := []exporteroption.Option{
+			exporteroption.WithPath(option.Config.HubbleExportFilePath),
+			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
+			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
+		}
+		if option.Config.HubbleExportFileCompress {
+			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
+		}
+		hubbleExporter, err := exporter.NewExporter(logger, exporterOpts...)
+		if err != nil {
+			logger.WithError(err).Error("Failed to configure Hubble export")
+		} else {
+			opt := observeroption.WithOnDecodedEvent(hubbleExporter)
+			observerOpts = append(observerOpts, opt)
+		}
+	}
+
 	d.hubbleObserver, err = observer.NewLocalServer(payloadParser, logger,
 		observerOpts...,
 	)
@@ -147,13 +171,32 @@ func (d *Daemon) launchHubble() {
 	if option.Config.HubbleTLSDisabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
-	localSrv, err := server.NewServer(logger,
+
+	localSrvOpts := []serveroption.Option{
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
 		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)),
 		serveroption.WithInsecure(),
-	)
+	}
+
+	if option.Config.EnableRecorder && option.Config.EnableHubbleRecorderAPI {
+		dispatch, err := sink.NewDispatch(option.Config.HubbleRecorderSinkQueueSize)
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
+			return
+		}
+		d.monitorAgent.RegisterNewConsumer(dispatch)
+		svc, err := recorder.NewService(d.rec, dispatch,
+			recorderoption.WithStoragePath(option.Config.HubbleRecorderStoragePath))
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble recorder service")
+			return
+		}
+		localSrvOpts = append(localSrvOpts, serveroption.WithRecorderService(svc))
+	}
+
+	localSrv, err := server.NewServer(logger, localSrvOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize local Hubble server")
 		return
@@ -260,6 +303,19 @@ func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) 
 	return ep, true
 }
 
+// GetEndpointInfo returns endpoint info for a given Cilium endpoint id. Used by Hubble.
+func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+	ep := d.endpointManager.LookupCiliumID(id)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
+}
+
+func (d *Daemon) GetEndpoints() map[policy.Endpoint]struct{} {
+	return d.endpointManager.GetPolicyEndpoints()
+}
+
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
 // FQDN cache of an endpoint specified by sourceEpID.
 //
@@ -328,10 +384,9 @@ func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
 		bits = net.IPv6len * 8
 	}
 	for _, prefixLen := range prefixes {
-		if prefixLen == bits {
-			// IP lookup was already done above; skip it here
-			continue
-		}
+		// note: we perform a lookup even when `prefixLen == bits`, as some
+		// entries derived by a single address cidr-range will not have been
+		// found by the above lookup
 		mask := net.CIDRMask(prefixLen, bits)
 		cidr := net.IPNet{
 			IP:   ip.Mask(mask),

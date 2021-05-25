@@ -34,11 +34,11 @@ type AllocationResult struct {
 	// the IP is routable.
 	CIDRs []string
 
-	// Master is the MAC address of the master interface. This is useful
+	// PrimaryMAC is the MAC address of the primary interface. This is useful
 	// when the IP is a secondary address of an interface which is
 	// represented on the node as a Linux device and all routing of the IP
 	// must occur through that master interface.
-	Master string
+	PrimaryMAC string
 
 	// GatewayIP is the IP of the gateway which must be used for this IP.
 	// If the allocated IP is derived from a VPC, then the gateway
@@ -48,6 +48,10 @@ type AllocationResult struct {
 	// ExpirationUUID is the UUID of the expiration timer. This field is
 	// only set if AllocateNextWithExpiration is used.
 	ExpirationUUID string
+
+	// InterfaceNumber is a field for generically identifying an interface.
+	// This is only useful in ENI mode.
+	InterfaceNumber string
 }
 
 // Allocator is the interface for an IP allocator implementation

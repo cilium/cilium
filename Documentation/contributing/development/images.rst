@@ -20,7 +20,7 @@ contains your local changes.
 
 ::
 
-    DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
+    ARCH=amd64 DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
 
 Run ``make docker-operator-generic-image`` (respectively,
 ``docker-operator-aws-image`` or ``docker-operator-azure-image``) to build the
@@ -28,14 +28,16 @@ cilium-operator Docker image:
 
 ::
 
-    DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make docker-operator-generic-image
+    ARCH=amd64 DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make docker-operator-generic-image
 
 The commands above assumes that your username for ``quay.io`` is ``myaccount``.
-You can then push the image tag to your own registry for development builds:
 
-::
+~~~~~~~~~~~~~~
+Race detection
+~~~~~~~~~~~~~~
 
-    docker push quay.io/myaccount/cilium-dev:jane-developer-my-fix-amd64
+See section on :ref:`compiling Cilium with race detection
+<compile-cilium-with-race-detection>`.
 
 Official release images
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,6 +47,73 @@ Anyone can build official release images using the make target below.
 ::
 
     DOCKER_IMAGE_TAG=v1.4.0 make docker-images-all
+
+Experimental Docker BuildKit and Buildx support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Docker BuildKit allows build artifact caching between builds and
+generally results in faster builds for the developer. Support can be
+enabled by:
+
+::
+
+    export DOCKER_BUILDKIT=1
+
+Multi-arch image build support for arm64 (aka aarch64) and amd64 (aka
+x86-64) can be enabled by defining:
+
+::
+
+    export DOCKER_BUILDX=1
+
+Multi-arch images are built using a cross-compilation builder by
+default, which uses Go cross compilation for Go targets, and QEMU
+based emulation for other build steps. You can also define your own
+Buildx builder if you have access to both arm64 and amd64 machines.
+The "cross" builder will be defined and used if your current builder
+is "default".
+
+Buildx targets push images automatically, so you must also have
+DOCKER_REGISTRY and DOCKER_DEV_ACCOUNT defined, e.g.:
+
+::
+
+    export DOCKER_REGISTRY=docker.io
+    export DOCKER_DEV_ACCOUNT=your-account
+
+Currently the cilium-runtime and cilium-builder images are released
+for amd64 only (see the table below). This means that you have to
+build your own cilium-runtime and cilium-builder images:
+
+::
+
+    make docker-image-runtime
+
+After the build finishes update the runtime image references in other
+Dockerfiles (``docker buildx imagetools inspect`` is useful for finding
+image information). Then proceed to build the cilium-builder:
+
+::
+
+    make docker-image-builder
+
+After the build finishes update the main Cilium Dockerfile with the
+new builder reference, then proceed to build Hubble from
+github.com/cilium/hubble. Hubble builds via buildx QEMU based
+emulation, unless you have an ARM machine added to your buildx
+builder:
+
+::
+
+    export IMAGE_REPOSITORY=${DOCKER_REGISTRY}/${DOCKER_DEV_ACCOUNT}/hubble
+    CONTAINER_ENGINE="docker buildx" DOCKER_FLAGS="--push --platform=linux/arm64,linux/amd64" make image
+
+Update the main Cilium Dockerfile with the new Hubble reference and
+build the multi-arch versions of the Cilium images:
+
+::
+
+    make docker-images-all
 
 Official Cilium repositories
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,29 +127,29 @@ on GH actions.
 |                               |                                             |                                               +-----------+-------------+                   |
 |                               |                                             |                                               | **amd64** | **aarch64** |                   |
 +-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-| github.com/cilium/cilium      | contrib/packaging/docker/Dockerfile.runtime | quay.io/cilium/cilium-runtime                 |     Y     |      N      |     Quay auto     |
+| github.com/cilium/cilium      | images/runtime/Dockerfile                   | quay.io/cilium/cilium-runtime                 |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | Dockerfile.builder                          | quay.io/cilium/cilium-builder                 |     Y     |      N      |     Quay auto     |
+|                               | images/builder/Dockerfile                   | quay.io/cilium/cilium-builder                 |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | Dockerfile                                  | [docker|quay].io/cilium/cilium                |     Y     |      N      |  Quay/Docker auto |
+|                               | images/cilium/Dockerfile                    | [docker|quay].io/cilium/cilium                |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | cilium-docker-plugin.Dockerfile             | [docker|quay].io/cilium/docker-plugin         |     Y     |      N      |  Quay/Docker auto |
+|                               | images/cilium-docker-plugin/Dockerfile      | [docker|quay].io/cilium/docker-plugin         |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | hubble-relay.Dockerfile                     | [docker|quay].io/cilium/hubble-relay          |     Y     |      N      |  Quay/Docker auto |
+|                               | images/hubble-relay/Dockerfile              | [docker|quay].io/cilium/hubble-relay          |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | cilium-operator.Dockerfile                  | [docker|quay].io/cilium/operator              |     Y     |      N      |  Quay/Docker auto |
+|                               | images/operator/Dockerfile                  | [docker|quay].io/cilium/operator              |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | cilium-operator-aws.Dockerfile              | [docker|quay].io/cilium/operator-aws          |     Y     |      N      |  Quay/Docker auto |
+|                               | images/operator-aws/Dockerfile              | [docker|quay].io/cilium/operator-aws          |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | cilium-operator-azure.Dockerfile            | [docker|quay].io/cilium/operator-azure        |     Y     |      N      |  Quay/Docker auto |
+|                               | images/operator-azure/Dockerfile            | [docker|quay].io/cilium/operator-azure        |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | cilium-operator-generic.Dockerfile          | [docker|quay].io/cilium/operator-generic      |     Y     |      N      |  Quay/Docker auto |
+|                               | images/operator-generic/Dockerfile          | [docker|quay].io/cilium/operator-generic      |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | clustermesh-apiserver.Dockerfile            | [docker|quay].io/cilium/clustermesh-apiserver |     Y     |      N      |  Quay/Docker auto |
+|                               | images/clustermesh-apiserver/Dockerfile     | [docker|quay].io/cilium/clustermesh-apiserver |     Y     |      Y      |     GH Action     |
 +-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-| github.com/cilium/proxy       | Dockerfile.builder                          | quay.io/cilium/cilium-envoy-builder           |     Y     |      N      |     Quay auto     |
+| github.com/cilium/proxy       | Dockerfile.builder                          | quay.io/cilium/cilium-envoy-builder           |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | Dockerfile                                  | quay.io/cilium/cilium-envoy                   |     Y     |      N      |     Quay auto     |
+|                               | Dockerfile                                  | quay.io/cilium/cilium-envoy                   |     Y     |      Y      |     GH Action     |
 +-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
 |                               | images/bpftool/Dockerfile                   | docker.io/cilium/cilium-bpftool               |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
@@ -124,91 +193,52 @@ Image dependency:
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Login to quay.io with your credentials to the repository that you want to
-update:
+#. cilium-builder depends on cilium-runtime so one needs to update
+   cilium-runtime first. Steps 4 and 7 will fetch the digest of the image built
+   by GitHub actions.
 
-* `cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains Cilium build-time dependencies
-* `cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains Cilium run-time dependencies
+   .. code-block:: shell-session
 
-0. After login, select the tab "builds" on the left menu.
+       $ make -C images/ update-runtime-image
 
-.. image:: ../../images/cilium-quayio-tag-0.png
-    :align: center
+#. Commit your changes and create a PR in cilium/cilium.
 
-1. Click on the wheel.
-2. Enable the trigger for that build trigger.
+   .. code-block:: shell-session
 
-.. image:: ../../images/cilium-quayio-tag-1.png
-    :align: center
+       $ git commit -s -a -m "update cilium-{runtime,builder}"
 
-3. Confirm that you want to enable the trigger.
+#. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`_
+   to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`_.
+   Note that at this step cilium-builder build failure is expected since we have yet to update the runtime digest.
 
-.. image:: ../../images/cilium-quayio-tag-2.png
-    :align: center
+#. Wait for cilium-runtime build to complete. Only after the image is available run:
 
-4. After enabling the trigger, click again on the wheel.
-5. And click on "Run Trigger Now".
+   .. code-block:: shell-session
 
-.. image:: ../../images/cilium-quayio-tag-3.png
-    :align: center
+       $ make -C images/ update-runtime-image update-builder-image
 
-6. A new pop-up will appear to select your desired branch.
-7. If you're interested in simply bumping the image to have the latest
-   packages, then select the release branch (i.e. v1.7, v1.8). If you already
-   have a branch that contains changes, select the branch that contains the new
-   changes.
+#. Commit your changes and re-push to the PR in cilium/cilium.
 
-.. image:: ../../images/cilium-quayio-tag-4.png
-    :align: center
+   .. code-block:: shell-session
 
-8. After selecting your branch click on "Start Build".
+       $ git commit --amend -s -a
 
-.. image:: ../../images/cilium-quayio-tag-5.png
-    :align: center
+#. Ping one of the members of `team/build <https://github.com/orgs/cilium/teams/build/members>`_
+   to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`_.
 
-9. Once the build has started you can disable the Build trigger by clicking on
-   the wheel.
-10. And click on "Disable Trigger".
+#. Wait for the build to complete. Only after the image is available run:
 
-.. image:: ../../images/cilium-quayio-tag-6.png
-    :align: center
+   .. code-block:: shell-session
 
-11. Confirm that you want to disable the build trigger.
+       $ make -C images/ update-runtime-image update-builder-image
 
-.. image:: ../../images/cilium-quayio-tag-7.png
-    :align: center
+#. Commit your changes and re-push to the PR in cilium/cilium.
 
-12. Once the build is finished click under Tags (on the left menu).
-13. Click on the wheel and;
-14. Add a new tag to the image that was built.
+   .. code-block:: shell-session
 
-.. image:: ../../images/cilium-quayio-tag-8.png
-    :align: center
+       $ git commit --amend -s -a
 
-15. Write the name of the tag that you want to give for the newly built image.
-16. Confirm the name is correct and click on "Create Tag".
-
-.. image:: ../../images/cilium-quayio-tag-9.png
-    :align: center
-
-17. After the new tag was created you can delete the other tag, which is the
-    name of your branch. Select the tag name.
-18. Click in Actions.
-19. Click in "Delete Tags".
-
-.. image:: ../../images/cilium-quayio-tag-10.png
-    :align: center
-
-20. Confirm that you want to delete tag with your branch name.
-
-.. image:: ../../images/cilium-quayio-tag-11.png
-    :align: center
-
-You have created a new image build with a new tag. The next steps should be to
-update the repository root's Dockerfile so that it points to the new
-``cilium-builder`` or ``cilium-runtime`` image recently created.
-
-21. Update the versions of the images that are pulled into the CI VMs.
+#. Update the versions of the images that are pulled into the CI VMs.
 
 * Open a PR against the :ref:`packer_ci` with an update to said image versions. Once your PR is merged, a new version of the VM will be ready for consumption in the CI.
 * Update the ``SERVER_VERSION``  field in ``test/Vagrantfile`` to contain the new version, which is the build number from the `Jenkins Job for the VMs <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_. For example, build 119 from the pipeline would be the value to set for ``SERVER_VERSION``.

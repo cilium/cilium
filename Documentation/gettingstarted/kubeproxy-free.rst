@@ -36,41 +36,9 @@ Quick-Start
 Initialize the control-plane node via ``kubeadm init`` and skip the
 installation of the ``kube-proxy`` add-on:
 
-.. tabs::
-
-  .. group-tab:: K8s 1.16 and newer
-
-    .. code:: bash
-
-      kubeadm init --skip-phases=addon/kube-proxy
-
-  .. group-tab:: K8s 1.15 and older
-
-    In K8s 1.15 and older it is not yet possible to disable kube-proxy via ``--skip-phases=addon/kube-proxy``
-    in kubeadm, therefore the below workaround for manually removing the ``kube-proxy`` DaemonSet and
-    cleaning the corresponding iptables rules after kubeadm initialization is still necessary (`kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__).
-
-    Initialize control-plane as first step:
-
-    .. code:: bash
-
-      kubeadm init
-
-    Then delete the ``kube-proxy`` DaemonSet and remove its iptables rules as following:
-
-    .. code:: bash
-
-      kubectl -n kube-system delete ds kube-proxy
-      iptables-restore <(iptables-save | grep -v KUBE)
-
-For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
-by using the following commands:
-
 .. code:: bash
 
-      kubectl -n kube-system delete ds kube-proxy
-      # Run on each node:
-      iptables-restore <(iptables-save | grep -v KUBE)
+      kubeadm init --skip-phases=addon/kube-proxy
 
 Afterwards, join worker nodes by specifying the control-plane node IP address and
 the token returned by ``kubeadm init``:
@@ -88,6 +56,19 @@ the token returned by ``kubeadm init``:
     You can validate this by running ``kubectl get nodes -o wide`` to see whether
     each node has an ``InternalIP`` which is assigned to a device with the same
     name on each node.
+
+For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
+by using the following commands below. **Careful:** Be aware that this will break
+existing service connections. It will also stop service related traffic until the
+Cilium replacement has been installed:
+
+.. code:: bash
+
+      kubectl -n kube-system delete ds kube-proxy
+      # Delete the configmap as well to avoid kube-proxy being reinstalled during a kubeadm upgrade (works only for K8s 1.19 and newer)
+      kubectl -n kube-system delete cm kube-proxy
+      # Run on each node:
+      iptables-restore <(iptables-save | grep -v KUBE)
 
 .. include:: k8s-install-download-release.rst
 
@@ -616,7 +597,7 @@ instead for gaining visibility.
 NodePort XDP on AWS
 ===================
 
-In order to run with NodePort XDP on AWS, follow the instructions in the :ref:`k8s_install_eks`
+In order to run with NodePort XDP on AWS, follow the instructions in the :ref:`k8s_install_quick`
 guide to set up an EKS cluster or use any other method of your preference to set up a
 Kubernetes cluster.
 
@@ -804,7 +785,11 @@ the IP addresses of native devices which have the default route on the host or
 have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
 ExternalIP if both exist. To change the devices, set their names in the
 ``devices`` Helm option, e.g. ``devices='{eth0,eth1,eth2}'``. Each
-listed device has to be named the same on all Cilium managed nodes.
+listed device has to be named the same on all Cilium managed nodes. Alternatively
+if the devices do not match across different nodes, the wildcard option can be 
+used, e.g. ``devices=eth+``, which would match any device starting with prefix
+``eth``. If no device can be matched the Cilium agent will try to perform auto 
+detection.
 
 When multiple devices are used, only one device can be used for direct routing
 between Cilium nodes. By default, if a single device was detected or specified
@@ -841,6 +826,29 @@ kernels or starting from v5.7 kernels only for the host namespace by default
 and therefore not affecting any application pod ``bind(2)`` requests anymore. In
 order to opt-out from this behavior in general, this setting can be changed for
 expert users by switching ``nodePort.bindProtection`` to ``false``.
+
+NodePort with FHRP & VPC
+************************
+
+When using Cilium's kube-proxy replacement in conjunction with a
+`FHRP <https://en.wikipedia.org/wiki/First-hop_redundancy_protocol>`_
+such as VRRP or Cisco's HSRP and VPC (also known as multi-chassis EtherChannel), the default configuration
+can cause issues or unwanted traffic flows. This is due to an optimization that causes the source IP of
+ingress packets destined for a NodePort to be associated with the corresponding MAC address, and later in
+the reply, the MAC address is used as the destination when forwarding the L2 frame, bypassing the FIB lookup.
+
+In such an environment, it may be preferred to instruct Cilium not to attempt this optimization.
+This will ensure the response is always forwarded to the MAC address of the currently active FHRP peer, no matter
+the origin of the incoming packet.
+
+To disable the optimization set ``bpf.lbBypassFIBLookup`` to ``false``.
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set kubeProxyReplacement=strict \\
+        --set bpf.lbBypassFIBLookup=false
 
 .. _Configuring Maps:
 
@@ -998,7 +1006,16 @@ Cilium's eBPF kube-proxy replacement can be configured in several modes, i.e. it
 replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
 underlying Linux kernel requirements do not support a full kube-proxy replacement.
 
-This section therefore elaborates on the various ``kubeProxyReplacement`` options:
+**Careful:** When deploying the eBPF kube-proxy replacement under co-existence with
+kube-proxy on the system, be aware that both mechanisms operate independent of each
+other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
+*running* cluster in order to delegate operation from respectively back to kube-proxy,
+then it must be expected that existing connections will break since, for example,
+both NAT tables are not aware of each other. If deployed in co-existence on a newly
+spawned up node/cluster which does not yet serve user traffic, then this is not an
+issue.
+
+This section elaborates on the various ``kubeProxyReplacement`` options:
 
 - ``kubeProxyReplacement=strict``: This option expects a kube-proxy-free
   Kubernetes setup where Cilium is expected to fully replace all kube-proxy
@@ -1181,10 +1198,17 @@ working, take a look at `this KEP
     free mode, make sure that default Kubernetes services like ``kube-dns`` and ``kubernetes``
     have the required label value.
 
+External Access To ClusterIP Services
+*************************************
+
+As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`__,
+Cilium's eBPF kube-proxy replacement by default disallows access to a ClusterIP service from outside the cluster.
+This can be allowed by setting ``bpf.lbExternalClusterIP=true``.
+
 Limitations
 ###########
 
-    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
+    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`gsg_encryption`.
     * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
       which uses eBPF cgroup hooks to implement the service translation. The getpeername(2)
       hook address translation in eBPF is only available for v5.8 kernels. It is known to
@@ -1210,11 +1234,7 @@ Limitations
       objects if support is available and ignores ``Endpoints`` in those cases. Kubernetes 1.19
       release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
       resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
-      to work. For a more detailed discussion see
-      `#12438 <https://github.com/cilium/cilium/issues/12438>`__.
-    * As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`__,
-      Cilium's eBPF kube-proxy replacement disallow access of a ClusterIP service
-      from outside a cluster.
+      to work. For a more detailed discussion see :gh-issue:`12438`.
 
 Further Readings
 ################
@@ -1225,6 +1245,9 @@ in great details:
     * "Liberating Kubernetes from kube-proxy and iptables" (KubeCon North America 2019, `slides
       <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit>`__,
       `video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__)
+    * "Kubernetes service load-balancing at scale with BPF & XDP" (Linux Plumbers 2020, `slides
+      <https://linuxplumbersconf.org/event/7/contributions/674/attachments/568/1002/plumbers_2020_cilium_load_balancer.pdf>`__,
+      `video <https://www.youtube.com/watch?v=UkvxPyIJAko&t=21s>`__)
     * "eBPF as a revolutionary technology for the container landscape" (Fosdem 2020, `slides
       <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit>`__,
       `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)

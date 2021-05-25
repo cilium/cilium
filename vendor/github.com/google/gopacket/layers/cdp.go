@@ -13,6 +13,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 
@@ -227,7 +228,7 @@ func decodeCiscoDiscovery(data []byte, p gopacket.PacketBuilder) error {
 		return fmt.Errorf("Invalid CiscoDiscovery version number %d", c.Version)
 	}
 	var err error
-	c.Values, err = decodeCiscoDiscoveryTLVs(data[4:])
+	c.Values, err = decodeCiscoDiscoveryTLVs(data[4:], p)
 	if err != nil {
 		return err
 	}
@@ -242,8 +243,12 @@ func (c *CiscoDiscoveryInfo) LayerType() gopacket.LayerType {
 	return LayerTypeCiscoDiscoveryInfo
 }
 
-func decodeCiscoDiscoveryTLVs(data []byte) (values []CiscoDiscoveryValue, err error) {
+func decodeCiscoDiscoveryTLVs(data []byte, p gopacket.PacketBuilder) (values []CiscoDiscoveryValue, err error) {
 	for len(data) > 0 {
+		if len(data) < 4 {
+			p.SetTruncated()
+			return nil, errors.New("CDP TLV < 4 bytes")
+		}
 		val := CiscoDiscoveryValue{
 			Type:   CDPTLVType(binary.BigEndian.Uint16(data[:2])),
 			Length: binary.BigEndian.Uint16(data[2:4]),
@@ -251,6 +256,9 @@ func decodeCiscoDiscoveryTLVs(data []byte) (values []CiscoDiscoveryValue, err er
 		if val.Length < 4 {
 			err = fmt.Errorf("Invalid CiscoDiscovery value length %d", val.Length)
 			break
+		} else if len(data) < int(val.Length) {
+			p.SetTruncated()
+			return nil, fmt.Errorf("CDP TLV < length %d", val.Length)
 		}
 		val.Value = data[4:val.Length]
 		values = append(values, val)
@@ -263,7 +271,7 @@ func decodeCiscoDiscoveryInfo(data []byte, p gopacket.PacketBuilder) error {
 	var err error
 	info := &CiscoDiscoveryInfo{BaseLayer: BaseLayer{Contents: data}}
 	p.AddLayer(info)
-	values, err := decodeCiscoDiscoveryTLVs(data)
+	values, err := decodeCiscoDiscoveryTLVs(data, p)
 	if err != nil { // Unlikely, as parent decode will fail, but better safe...
 		return err
 	}

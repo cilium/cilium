@@ -120,7 +120,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		ep.OpLabels.OrchestrationInfo = infoLabels
 	}
 
-	ep.setState(string(base.State), "Endpoint creation")
+	ep.setState(State(base.State), "Endpoint creation")
 
 	return ep, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -138,17 +137,11 @@ type MapTypes struct {
 	HaveStackMapType               bool `json:"have_stack_map_type"`
 }
 
-// Misc contains bools exposing miscellaneous eBPF features.
-type Misc struct {
-	HaveLargeInsnLimit bool `json:"have_large_insn_limit"`
-}
-
 // Features contains BPF feature checks returned by bpftool.
 type Features struct {
 	SystemConfig `json:"system_config"`
 	MapTypes     `json:"map_types"`
 	Helpers      map[string][]string `json:"helpers"`
-	Misc         `json:"misc"`
 }
 
 // ProbeManager is a manager of BPF feature checks.
@@ -160,21 +153,27 @@ type ProbeManager struct {
 // feature checks.
 func NewProbeManager() *ProbeManager {
 	newProbeManager := func() {
-		var features Features
-		out, err := exec.WithTimeout(
-			defaults.ExecTimeout,
-			"bpftool", "-j", "feature", "probe",
-		).CombinedOutput(log, true)
-		if err != nil {
-			log.WithError(err).Fatal("could not run bpftool")
-		}
-		if err := json.Unmarshal(out, &features); err != nil {
-			log.WithError(err).Fatal("could not parse bpftool output")
-		}
-		probeManager = &ProbeManager{features: features}
+		probeManager = &ProbeManager{}
+		probeManager.features = probeManager.Probe()
 	}
 	once.Do(newProbeManager)
 	return probeManager
+}
+
+// Probe probes the underlying kernel for features.
+func (*ProbeManager) Probe() Features {
+	var features Features
+	out, err := exec.WithTimeout(
+		defaults.ExecTimeout,
+		"bpftool", "-j", "feature", "probe",
+	).CombinedOutput(log, true)
+	if err != nil {
+		log.WithError(err).Fatal("could not run bpftool")
+	}
+	if err := json.Unmarshal(out, &features); err != nil {
+		log.WithError(err).Fatal("could not parse bpftool output")
+	}
+	return features
 }
 
 func (p *ProbeManager) probeSystemKernelHz() (int, error) {
@@ -318,11 +317,6 @@ func (p *ProbeManager) GetMapTypes() *MapTypes {
 	return &p.features.MapTypes
 }
 
-// GetMisc returns information about miscellaneous eBPF features.
-func (p *ProbeManager) GetMisc() *Misc {
-	return &p.features.Misc
-}
-
 // GetHelpers returns information about available BPF helpers for the given
 // program type.
 // If program type is not found, returns nil.
@@ -367,7 +361,7 @@ func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
 
 	io.Copy(writer, stdoutPipe)
 	if err := cmd.Wait(); err != nil {
-		stderr, err := ioutil.ReadAll(stderrPipe)
+		stderr, err := io.ReadAll(stderrPipe)
 		if err != nil {
 			return fmt.Errorf(
 				"reading from bpftool feature probe stderr pipe failed: %w", err)

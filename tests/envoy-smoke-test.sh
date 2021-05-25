@@ -313,8 +313,9 @@ function proxy_test {
   log "beginning proxy test"
   monitor_clear
 
-  log "trying to reach server IPv4 at http://$SERVER_IP4:80/public from client (expected: 200)"
-  RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public)
+  # Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'
+  log "trying to reach server IPv4 at http://$SERVER_IP4:80//public from client (expected: 200)"
+  RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80//public)
   if [[ "${RETURN//$'\n'}" != "200" ]]; then
     abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
   fi
@@ -341,7 +342,19 @@ function proxy_test {
 }
 
 proxy_init
+
+log "+----------------------------------------------------------------------+"
+log "Testing without Policy"
+log "+----------------------------------------------------------------------+"
+# Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'
+log "trying to reach server IPv4 at http://$SERVER_IP4:80//public from client (expected: 200)"
+RETURN=$(docker exec -i client curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80//public)
+if [[ "${RETURN//$'\n'}" != "200" ]]; then
+  abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
+fi
+
 policy_base
+
 for state in "false" "true"; do
   cilium config ConntrackLocal=$state
 

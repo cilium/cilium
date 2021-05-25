@@ -18,7 +18,6 @@ package envoy
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -81,7 +80,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	logging.ConfigureLogLevel(true) // Use 'true' for debugging
 	flowdebug.Enable()
 
-	stateLogDir, err := ioutil.TempDir("", "envoy_go_test")
+	stateLogDir, err := os.MkdirTemp("", "envoy_go_test")
 	c.Assert(err, IsNil)
 
 	log.Debugf("state log directory: %s", stateLogDir)
@@ -161,7 +160,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	flowdebug.Enable()
 
-	stateLogDir, err := ioutil.TempDir("", "envoy_go_test")
+	stateLogDir, err := os.MkdirTemp("", "envoy_go_test")
 	c.Assert(err, IsNil)
 
 	log.Debugf("state log directory: %s", stateLogDir)

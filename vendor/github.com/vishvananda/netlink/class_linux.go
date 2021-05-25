@@ -176,6 +176,12 @@ func classPayload(req *nl.NetlinkRequest, class Class) error {
 		options.AddRtAttr(nl.TCA_HTB_PARMS, opt.Serialize())
 		options.AddRtAttr(nl.TCA_HTB_RTAB, SerializeRtab(rtab))
 		options.AddRtAttr(nl.TCA_HTB_CTAB, SerializeRtab(ctab))
+		if htb.Rate >= uint64(1<<32) {
+			options.AddRtAttr(nl.TCA_HTB_RATE64, nl.Uint64Attr(htb.Rate))
+		}
+		if htb.Ceil >= uint64(1<<32) {
+			options.AddRtAttr(nl.TCA_HTB_CEIL64, nl.Uint64Attr(htb.Ceil))
+		}
 	case "hfsc":
 		hfsc := class.(*HfscClass)
 		opt := nl.HfscCopt{}
@@ -306,6 +312,10 @@ func parseHtbClassData(class Class, data []syscall.NetlinkRouteAttr) (bool, erro
 			htb.Quantum = opt.Quantum
 			htb.Level = opt.Level
 			htb.Prio = opt.Prio
+		case nl.TCA_HTB_RATE64:
+			htb.Rate = native.Uint64(datum.Value[0:8])
+		case nl.TCA_HTB_CEIL64:
+			htb.Ceil = native.Uint64(datum.Value[0:8])
 		}
 	}
 	return detailed, nil
@@ -331,7 +341,6 @@ func parseHfscClassData(class Class, data []syscall.NetlinkRouteAttr) (bool, err
 func parseTcStats(data []byte) (*ClassStatistics, error) {
 	buf := &bytes.Buffer{}
 	buf.Write(data)
-	native := nl.NativeEndian()
 	tcStats := &tcStats{}
 	if err := binary.Read(buf, native, tcStats); err != nil {
 		return nil, err
@@ -353,7 +362,6 @@ func parseTcStats(data []byte) (*ClassStatistics, error) {
 func parseGnetStats(data []byte, gnetStats interface{}) error {
 	buf := &bytes.Buffer{}
 	buf.Write(data)
-	native := nl.NativeEndian()
 	return binary.Read(buf, native, gnetStats)
 }
 

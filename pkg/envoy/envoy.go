@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os/exec"
@@ -99,7 +98,7 @@ func (a *admin) transact(query string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -325,6 +324,11 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case "off", "critical", "error":
 				scopedLog.Error(msg)
 			case "warning":
+				// Silently drop expected warnings if flowdebug is not enabled
+				// TODO: Remove this special case when https://github.com/envoyproxy/envoy/issues/13504 is fixed.
+				if !flowdebug.Enabled() && strings.Contains(msg, "Unable to use runtime singleton for feature envoy.http.headermap.lazy_map_min_size") {
+					continue
+				}
 				scopedLog.Warn(msg)
 			case "info":
 				scopedLog.Info(msg)

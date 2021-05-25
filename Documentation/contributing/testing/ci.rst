@@ -42,7 +42,7 @@ After you don't need to run tests on your branch, please remove the branch from 
    with a test suite and create a regex, e.g
    ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next``
    will run specified test in 1.18 Kubernetes cluster running on net-next nodes.
-   Kubernetes version defaults to 1.20, kernel version defaults to 4.19.
+   Kubernetes version defaults to 1.21, kernel version defaults to 4.19.
 
    +------------------------------------------------+-------------------------------------------+
    | ``test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
@@ -153,31 +153,12 @@ packet.net before the branch is merged.
 Testing matrix
 ^^^^^^^^^^^^^^
 
-We are currently testing following kernel - k8s version pairs in our CI:
+Up to date CI testing information regarding k8s - kernel version pairs can
+always be found in the `Cilium CI matrix`_.
 
-+--------------------+------------------+
-| Kubernetes version | Kernel version   |
-+====================+==================+
-| Vagrant k8s clusters per PR           |
-+--------------------+------------------+
-| 1.13               | 5.x.x (net-next) |
-+--------------------+------------------+
-| 1.19               | 4.19.57          |
-+--------------------+------------------+
-| 1.20               | 4.9              |
-+--------------------+------------------+
-| Vagrant k8s clusters per backport     |
-| (in addition to PR)                   |
-+--------------------+------------------+
-| 1.{13-19}          | 4.9              |
-+--------------------+------------------+
-| GKE clusters                          |
-+--------------------+------------------+
-| 1.15.12            | 4.19.112+        |
-+--------------------+------------------+
+.. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 
 .. _trigger_phrases:
-
 
 Triggering Pull-Request Builds With Jenkins
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,46 +166,36 @@ Triggering Pull-Request Builds With Jenkins
 To ensure that build resources are used judiciously, builds on Jenkins
 are manually triggered via comments on each pull-request that contain
 "trigger-phrases". Only members of the Cilium GitHub organization are
-allowed to trigger these jobs. Refer to the table below for information
-regarding which phrase triggers which build, which build is required for
-a pull-request to be merged, etc. Each linked job contains a description
-illustrating which subset of tests the job runs.
+allowed to trigger these jobs.
 
+Depending on the PR target branch, a specific set of jobs is marked as required,
+as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
+directly on the PR page. The following trigger phrases may be used to trigger
+them all at once:
 
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| Jenkins Job                                                                                                    | Trigger Phrases   | Required To Merge? |
-+================================================================================================================+===================+====================+
-| `K8s-1.19-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-newest-kernel-4.9/>`_                        | test-me-please,   | Yes                |
-|                                                                                                                | retest-4.9        |                    |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `K8s-1.18-Kernel-4.19 <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                         | test-me-please,   | Yes                |
-|                                                                                                                | retest-4.19       |                    |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `K8s-1.12-Kernel-netnext <https://jenkins.cilium.io/job/Cilium-PR-K8s-oldest-net-next/>`_                      | test-me-please,   | Yes                |
-|                                                                                                                | retest-net-next   |                    |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Runtime-4.9 <https://jenkins.cilium.io/job/Cilium-PR-Runtime-4.9/>`_                                          | test-me-please,   | Yes                |
-|                                                                                                                | retest-runtime    |                    |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-K8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                          | test-missed-k8s   | Yes                |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-kubernetes-upstream-test <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_      | test-upstream-k8s | Yes                |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-me-please,   | Yes                |
-|                                                                                                                | test-gke          |                    |
-+----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
++------------------+--------------------------+
+| PR target branch | Trigger required PR jobs |
++==================+==========================+
+| master           | test-me-please           |
++------------------+--------------------------+
+| v1.10            | test-backport-1.10       |
++------------------+--------------------------+
+| v1.9             | test-backport-1.9        |
++------------------+--------------------------+
+| v1.8             | test-backport-1.8        |
++------------------+--------------------------+
 
-For Backport PRs, the phrase ``test-backport-x.x`` (with ``x.x`` being the target Cilium version) should be used to
-trigger all of the above jobs which are marked as required to validate changes
-to existing releases.
+For ``master`` PRs: on top of ``test-me-please``, one may use 
+``test-missed-k8s`` to trigger all non-required K8s versions on Kernel 4.9 as
+per the `Cilium CI matrix`_.
+
+For all PRs: one may manually retrigger a specific job (e.g. in case of a flake)
+with the individual trigger featured directly in the PR check's name (e.g. for
+``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use ``test-1.20-4.9``).
+
+For a full list of Jenkins PR jobs, see `Jenkins
+<https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
+each job's build triggers advanced options.
 
 There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
@@ -246,9 +217,9 @@ If you want to run test suite with race condition detection enabled, enter follo
 +====================================================================================+========================+
 | https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Kernel-Race-Detection | test-race-4.19         |
 +------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.13-net-next-Race-Detection   | test-race-net-next     |
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.16-net-next-Race-Detection   | test-race-net-next     |
 +------------------------------------------------------------------------------------+------------------------+
-| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.20-kernel-4.9-Race-Detection | test-race-4.9          |
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.21-kernel-4.9-Race-Detection | test-race-4.9          |
 +------------------------------------------------------------------------------------+------------------------+
 | https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-GKE-Race-Detection             | test-race-gke          |
 +------------------------------------------------------------------------------------+------------------------+
@@ -278,12 +249,12 @@ example patch that shows how this can be achieved.
                  steps {
                      parallel(
                          "Runtime":{
-    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated" -v -noColor'
-    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo" -v -noColor'
+    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated"'
+    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo"'
                          },
                          "K8s-1.9":{
-    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" -v -noColor ${FAILFAST}'
-    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" -v -noColor ${FAILFAST}'
+    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" ${FAILFAST}'
+    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" ${FAILFAST}'
                          },
                          failFast: true
                      )

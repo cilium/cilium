@@ -65,21 +65,32 @@ If you intent to release a new feature release, see the
 
    Run ``./Documentation/check-crd-compat-table.sh vX.Y``
 
-   If a branch for ``vX.Y`` doesn't exist yet, then ensure the CRD schema
-   version has not been incremented in the case there were no changes. If there
-   were changes to the CRD, then ensure it is incremented at most by 1 patch
-   version.
+   If a branch for ``vX.Y`` doesn't exist yet, then manually ensure the CRD
+   schema version has not been incremented in the case there were no changes. If
+   there were changes to the CRD, then ensure it is incremented at most by 1
+   patch version.
+
+#. If there is a branch for this RC, prepare the changelog now.
+   If this is the first RC, ``X.Y.Z`` should be the last, stable version,
+   otherwise ``X.Y.Z`` should point to the last released RC ``contrib/release/prep-changelog.sh X.Y.Z X.Y.0-rcX``.
+
+#. Add all modified files using ``git add`` and create a commit with the title
+   ``Prepare for release vX.Y.Z-rcW+1``.
+
+#. If a branch for ``vX.Y`` doesn't exist yet, we need to modify the VERSION
+   file temporarily so that ``--version`` returns the right RC version.
+
+   Change the file ``VERSION`` with ``vX.Y.Z-rcW+1``.
+
+#. Run ``make -C install/kubernetes all USE_DIGESTS=false``
+
+#. If there is not branch for this RC, prepare the changelog now
+   (as it was previously skipped).
+   If this is the first RC, ``X.Y.Z`` should be the last, stable version,
+   otherwise ``X.Y.Z`` should point to the last released RC ``contrib/release/prep-changelog.sh X.Y.Z X.Y.0-rcX``.
 
 #. Add all modified files using ``git add`` and create a pull request with the
-   title ``Prepare for release vX.Y.Z-rcW+1``. Add the backport label to the PR which
-   corresponds to the branch for which the release is being performed, e.g.
-   ``backport/1.0``.
-
-   .. note::
-
-       Make sure to create the PR against the desired stable branch. In this
-       case ``v1.0``
-
+   title ``Create helm chart release vX.Y.Z-rcW+1``.
 
 #. Follow standard procedures to get the aforementioned PR merged into the
    desired stable branch. See :ref:`submit_pr` for more information about this
@@ -90,9 +101,6 @@ If you intent to release a new feature release, see the
    ::
 
        git checkout v1.0; git pull
-
-#. Check https://hub.docker.com and create a build for the new tag. This build
-   will automatically be triggered when the tag is pushed to github.com
 
 #. Create release tags:
 
@@ -146,6 +154,26 @@ If you intent to release a new feature release, see the
            ```
 
    #. Preview the description and then publish the release
+
+#. Get the digests for the ``vX.Y.Z-rcN`` and make a commit to the helm charts
+   repository to include those digests.
+
+#. Follow standard procedures to get the aforementioned PR merged into the
+   desired stable branch. See :ref:`submit_pr` for more information about this
+   process.
+
+#. Checkout out the stable branch and pull your merged changes:
+
+   ::
+
+       git checkout v1.0; git pull
+
+#. Publish the helm charts for this RC.
+
+#. **If there isn't a stable branch available** we need to revert the changes
+   made in the commit "Create helm chart release vX.Y.Z-rcW+1" as the master
+   should not point to this RC. Make a commit reverting the changes and push
+   those changes as a PR to be merged into master.
 
 #. Announce the release in the ``#general`` channel on Slack. Sample text:
 

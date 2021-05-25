@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"sync"
@@ -57,6 +56,14 @@ const (
 	hostEndpointObj          = hostEndpointPrefix + ".o"
 	hostEndpointObjDebug     = hostEndpointPrefix + ".dbg.o"
 	hostEndpointAsm          = hostEndpointPrefix + "." + string(outputAssembly)
+
+	networkPrefix = "bpf_network"
+	networkProg   = networkPrefix + "." + string(outputSource)
+	networkObj    = networkPrefix + ".o"
+
+	xdpPrefix = "bpf_xdp"
+	xdpProg   = xdpPrefix + "." + string(outputSource)
+	xdpObj    = xdpPrefix + ".o"
 )
 
 var (
@@ -74,6 +81,8 @@ type progInfo struct {
 	Output string
 	// OutputType to be created by LLVM
 	OutputType OutputType
+	// Options are passed directly to LLVM as individual parameters
+	Options []string
 }
 
 // directoryInfo includes relevant directories for compilation and linking
@@ -146,15 +155,31 @@ var (
 		Output:     hostEndpointObj,
 		OutputType: outputObject,
 	}
+	networkTcProg = &progInfo{
+		Source:     networkProg,
+		Output:     networkObj,
+		OutputType: outputObject,
+	}
 )
 
 // GetBPFCPU returns the BPF CPU for this host.
 func GetBPFCPU() string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
+			manager := probes.NewProbeManager()
 			// We can probe the availability of BPF instructions indirectly
-			// based on what kernel helpers are available since both were
-			// added in the same release, that is, 4.14.
+			// based on what kernel helpers are available when both were
+			// added in the same release.
+			// We want to enable v3 only on kernels 5.10+ where we have
+			// tested it and need it to work around complexity issues.
+			if h := manager.GetHelpers("sched_cls"); h != nil {
+				if _, ok := h["bpf_redirect_neigh"]; ok {
+					nameBPFCPU = "v3"
+					return
+				}
+			}
+			// We want to enable v2 on all kernels that support it, that is,
+			// kernels 4.14+.
 			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
 				if _, ok := h["bpf_redirect_map"]; ok {
 					nameBPFCPU = "v2"
@@ -227,7 +252,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	/* Ignoring the output here because pkg/command/exec will log it. */
 	_, err = linkCmd.CombinedOutput(log, true)
 	if err == nil {
-		compileOut, _ = ioutil.ReadAll(compilerStderr)
+		compileOut, _ = io.ReadAll(compilerStderr)
 		err = compileCmd.Wait()
 	} else {
 		cancelCompile()
@@ -284,6 +309,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 	}
 
 	args = append(args, standardCFlags...)
+	args = append(args, prog.Options...)
 	args = append(args, progCFlags(prog, dir)...)
 
 	// Compilation is split between two exec calls. First clang generates
@@ -371,10 +397,12 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 	return nil
 }
 
-// Compile compiles a BPF program generating an object file.
-func Compile(ctx context.Context, src string, out string) error {
+// CompileWithOptions compiles a BPF program generating an object file,
+// using a set of provided compiler options.
+func CompileWithOptions(ctx context.Context, src string, out string, opts []string) error {
 	prog := progInfo{
 		Source:     src,
+		Options:    opts,
 		Output:     out,
 		OutputType: outputObject,
 	}
@@ -387,6 +415,11 @@ func Compile(ctx context.Context, src string, out string) error {
 	return compile(ctx, &prog, &dirs)
 }
 
+// Compile compiles a BPF program generating an object file.
+func Compile(ctx context.Context, src string, out string) error {
+	return CompileWithOptions(ctx, src, out, nil)
+}
+
 // compileTemplate compiles a BPF program generating a template object file.
 func compileTemplate(ctx context.Context, out string, isHost bool) error {
 	dirs := directoryInfo{
@@ -396,4 +429,38 @@ func compileTemplate(ctx context.Context, out string, isHost bool) error {
 		State:   out,
 	}
 	return compileDatapath(ctx, &dirs, isHost, log)
+}
+
+// compileNetwork compiles a BPF program attached to network
+func compileNetwork(ctx context.Context) error {
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
+	}
+	scopedLog := log.WithField(logfields.Debug, true)
+
+	versionCmd := exec.CommandContext(ctx, compiler, "--version")
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	versionCmd = exec.CommandContext(ctx, linker, "--version")
+	linkerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	scopedLog.WithFields(logrus.Fields{
+		compiler: string(compilerVersion),
+		linker:   string(linkerVersion),
+	}).Debug("Compiling network programs")
+
+	// Write out assembly and preprocessing files for debugging purposes
+	if err := compile(ctx, networkTcProg, &dirs); err != nil {
+		scopedLog.WithField(logfields.Params, logfields.Repr(networkTcProg)).
+			WithError(err).Warn("Failed to compile")
+		return err
+	}
+	return nil
 }

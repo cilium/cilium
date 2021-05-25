@@ -5,6 +5,7 @@
 # uniqeness. A sample of each unique trace is printed
 
 import re,sys,collections
+from functools import cmp_to_key
 
 def get_stacks(f):
     """
@@ -40,10 +41,10 @@ def get_hashable_stack_value(stack):
     return "".join(strip_stack(stack))
 
 def print_usage():
-    print """usage: {} [-h | path/to/file]
+    print("""usage: {} [-h | path/to/file]
         -h:         This help.
         path/to/file:   Read and parse file with go stacktraces
-        "-" or no params: Read and parse stdin""".format(sys.argv[0])
+        '-' or no params: Read and parse stdin""".format(sys.argv[0]))
 
 if __name__ == "__main__":
     # Handle arguments. We only support a file path, or stdin on "-" or no
@@ -65,10 +66,10 @@ if __name__ == "__main__":
         consolidated[h].append(stack)
 
     # print count of each unique stack, and a sample, sorted by frequency
-    print "{} unique stack traces".format(len(consolidated))
-    for stack in sorted(consolidated.values(), cmp=lambda a,b: len(a)-len(b), reverse=True):
-        print "{} occurences. Sample stack trace:".format(len(stack))
-        print "\n".join(stack[0])
+    print("{} unique stack traces".format(len(consolidated)))
+    for stack in sorted(consolidated.values(), key=cmp_to_key(lambda a,b: len(a)-len(b)), reverse=True):
+        print("{} occurences. Sample stack trace:".format(len(stack)))
+        print("\n".join(stack[0]))
 
     if f != sys.stdin:
         f.close()

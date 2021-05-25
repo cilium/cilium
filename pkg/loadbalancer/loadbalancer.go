@@ -15,7 +15,6 @@
 package loadbalancer
 
 import (
-	"crypto/sha512"
 	"fmt"
 	"net"
 	"sort"
@@ -169,9 +168,9 @@ const (
 
 const (
 	// ScopeExternal is the lookup scope for services from outside the node.
-	ScopeExternal = 0
+	ScopeExternal uint8 = iota
 	// ScopeInternal is the lookup scope for services from inside the node.
-	ScopeInternal = 1
+	ScopeInternal
 )
 
 var (
@@ -278,9 +277,20 @@ func NewL4Type(name string) (L4Type, error) {
 
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
 // the Port number.
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type L4Addr struct {
 	Protocol L4Type
 	Port     uint16
+}
+
+// DeepEqual returns true if both the receiver and 'o' are deeply equal.
+func (l *L4Addr) DeepEqual(o *L4Addr) bool {
+	if l == nil {
+		return o == nil
+	}
+	return l.deepEqual(o)
 }
 
 // NewL4Addr creates a new L4Addr.
@@ -288,32 +298,25 @@ func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 	return &L4Addr{Protocol: protocol, Port: number}
 }
 
-// Equals returns true if both L4Addr are considered equal.
-func (l *L4Addr) Equals(o *L4Addr) bool {
-	switch {
-	case (l == nil) != (o == nil):
-		return false
-	case (l == nil) && (o == nil):
-		return true
-	}
-	return l.Port == o.Port && l.Protocol == o.Protocol
-}
-
-// DeepCopy returns a DeepCopy of the given L4Addr.
-func (l *L4Addr) DeepCopy() *L4Addr {
-	return &L4Addr{
-		Port:     l.Port,
-		Protocol: l.Protocol,
-	}
-}
-
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
 // includes the lookup scope for frontend addresses which is used in service
 // handling for externalTrafficPolicy=Local, that is, Scope{External,Internal}.
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type L3n4Addr struct {
+	// +deepequal-gen=false
 	IP net.IP
 	L4Addr
 	Scope uint8
+}
+
+// DeepEqual returns true if both the receiver and 'o' are deeply equal.
+func (l *L3n4Addr) DeepEqual(o *L3n4Addr) bool {
+	if l == nil {
+		return o == nil
+	}
+	return l.IP.Equal(o.IP) && l.deepEqual(o)
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
@@ -464,28 +467,23 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// DeepCopy returns a DeepCopy of the given L3n4Addr.
-func (a *L3n4Addr) DeepCopy() *L3n4Addr {
-	copyIP := make(net.IP, len(a.IP))
-	copy(copyIP, a.IP)
-	return &L3n4Addr{
-		IP:     copyIP,
-		L4Addr: *a.L4Addr.DeepCopy(),
-		Scope:  a.Scope,
-	}
-}
-
-// Hash calculates L3n4Addr's internal SHA256Sum.
+// Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.
+// Note: the resulting string is meant to be used as a key for maps and is not
+// readable by a human eye when printed out.
 func (a L3n4Addr) Hash() string {
-	// FIXME: Remove Protocol's omission once we care about protocols.
-	protoBak := a.Protocol
-	a.Protocol = ""
-	defer func() {
-		a.Protocol = protoBak
-	}()
+	const lenProto = 0 // proto is omitted for now
+	const lenScope = 1 // scope is uint8 which is an alias for byte
+	const lenPort = 2  // port is uint16 which is 2 bytes
 
-	str := []byte(fmt.Sprintf("%+v", a))
-	return fmt.Sprintf("%x", sha512.Sum512_256(str))
+	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort)
+	copy(b, a.IP.To16())
+	// FIXME: add Protocol once we care about protocols
+	// scope is a uint8 which is an alias for byte so a cast is safe
+	b[net.IPv6len+lenProto] = byte(a.Scope)
+	// port is a uint16, so 2 bytes
+	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
+	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
+	return string(b)
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
@@ -495,9 +493,20 @@ func (a *L3n4Addr) IsIPv6() bool {
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
 // KVStore.
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type L3n4AddrID struct {
 	L3n4Addr
 	ID ID
+}
+
+// DeepEqual returns true if both the receiver and 'o' are deeply equal.
+func (l *L3n4AddrID) DeepEqual(o *L3n4AddrID) bool {
+	if l == nil {
+		return o == nil
+	}
+	return l.deepEqual(o)
 }
 
 // NewL3n4AddrID creates a new L3n4AddrID.
@@ -509,29 +518,4 @@ func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, scope uint8, i
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
 func (l *L3n4AddrID) IsIPv6() bool {
 	return l.L3n4Addr.IsIPv6()
-}
-
-// Equals checks equality of both given addresses.
-func (l *L3n4AddrID) Equals(o *L3n4AddrID) bool {
-	switch {
-	case (l == nil) != (o == nil):
-		return false
-	case (l == nil) && (o == nil):
-		return true
-	}
-
-	if l.ID != o.ID {
-		return false
-	}
-	if l.Scope != o.Scope {
-		return false
-	}
-	if !l.IP.Equal(o.IP) {
-		return false
-	}
-	if !l.L4Addr.Equals(&o.L4Addr) {
-		return false
-	}
-
-	return true
 }

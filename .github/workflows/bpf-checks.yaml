@@ -1,12 +1,35 @@
 name: BPF checks
 
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request: {}
   push:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-latest
+    outputs:
+      bpf-tree: ${{ steps.changes.outputs.bpf-tree }}
+      coccinelle: ${{ steps.changes.outputs.coccinelle }}
+    steps:
+      - name: Check code changes
+        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        id: changes
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          filters: |
+            bpf-tree:
+              - 'bpf/**'
+            coccinelle:
+              - 'contrib/coccinelle/**'
+
   checkpatch:
     name: checkpatch
     runs-on: ubuntu-latest
@@ -14,29 +37,60 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Run checkpatch.pl
-        uses: docker://cilium/cilium-checkpatch:71bf805000d58c07c45eb6e436640a4dc0ca6c84
+        uses: docker://quay.io/cilium/cilium-checkpatch:cc7e6b5811f46d7b040dedfe2f6b0010c2c51a12@sha256:9160b6ca58eb99a3ed5d567a494b2e2001325ebad32029c5bd17a8ae4df01044
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Runs only if code under bpf/ or contrib/coccinnelle/ is changed.
   coccicheck:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' }}
     name: coccicheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: docker://cilium/coccicheck:1.0
+        with:
+          persist-credentials: false
+      - uses: docker://cilium/coccicheck:2.0
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Runs only if code under bpf/ is changed.
   build_all:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
     name: build datapath
     runs-on: ubuntu-latest
     steps:
+      - name: Install Go
+        uses: actions/setup-go@v2.1.3
+        with:
+          go-version: 1.16.4
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.5
         with:
           path: $HOME/.clang
           key: llvm-10.0
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
+        uses: KyleMayes/install-llvm-action@d0970114d0f720f5eb6a91b9e33cc2699f469f37
         with:
           version: "10.0"
           directory: $HOME/.clang
@@ -44,9 +98,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Build all BPF datapath permutations
         env:
           V: 0
         run: |
           make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+      - name: Run BPF_PROG_TEST_RUN tests
+        run: |
+          make -C bpf go_prog_test || (echo "Run 'make -C bpf go_prog_test' locally to investigate failures"; exit 1)
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

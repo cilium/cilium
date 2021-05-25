@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _aws_metadata_with_policy:
+
 ***********************************************
 Locking down external access using AWS metadata
 ***********************************************
@@ -20,7 +22,7 @@ Setup Cilium
 This guide will work with any approach to installing Cilium, including minikube,
 as long as the cilium-operator pod in the deployment can reach the AWS API server
 However, since the most common use of this mechanism is for Kubernetes clusters
-running in AWS, we recommend trying it out along with the guide: :ref:`k8s_install_eks` .
+running in AWS, we recommend trying it out along with the guide: :ref:`k8s_install_quick` .
 
 Create AWS secrets
 ==================

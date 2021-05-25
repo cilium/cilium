@@ -245,14 +245,11 @@ func (s *SIP) NextLayerType() gopacket.LayerType {
 
 // DecodeFromBytes decodes the slice into the SIP struct.
 func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-
 	// Init some vars for parsing follow-up
 	var countLines int
 	var line []byte
 	var err error
-
-	// Clean leading new line
-	data = bytes.Trim(data, "\n")
+	var offset int
 
 	// Iterate on all lines of the SIP Headers
 	// and stop when we reach the SDP (aka when the new line
@@ -265,19 +262,21 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		line, err = buffer.ReadBytes(byte('\n'))
 		if err != nil {
 			if err == io.EOF {
+				if len(bytes.Trim(line, "\r\n")) > 0 {
+					df.SetTruncated()
+				}
 				break
 			} else {
 				return err
 			}
 		}
+		offset += len(line)
 
 		// Trim the new line delimiters
 		line = bytes.Trim(line, "\r\n")
 
 		// Empty line, we hit Body
-		// Putting packet remain in Paypload
 		if len(line) == 0 {
-			s.BaseLayer.Payload = buffer.Bytes()
 			break
 		}
 
@@ -298,6 +297,7 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 		countLines++
 	}
+	s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: data[offset:]}
 
 	return nil
 }
@@ -469,11 +469,11 @@ func (s *SIP) GetHeader(headerName string) []string {
 	headerName = strings.ToLower(headerName)
 	h := make([]string, 0)
 	if _, ok := s.Headers[headerName]; ok {
-		if len(s.Headers[headerName]) > 0 {
-			return s.Headers[headerName]
-		} else if len(s.Headers[compactSipHeadersCorrespondance[headerName]]) > 0 {
-			return s.Headers[compactSipHeadersCorrespondance[headerName]]
-		}
+		return s.Headers[headerName]
+	}
+	compactHeader := compactSipHeadersCorrespondance[headerName]
+	if _, ok := s.Headers[compactHeader]; ok {
+		return s.Headers[compactHeader]
 	}
 	return h
 }
@@ -482,13 +482,9 @@ func (s *SIP) GetHeader(headerName string) []string {
 // the specified name. If the current SIP packet has multiple
 // headers with the same name, it returns the first.
 func (s *SIP) GetFirstHeader(headerName string) string {
-	headerName = strings.ToLower(headerName)
-	if _, ok := s.Headers[headerName]; ok {
-		if len(s.Headers[headerName]) > 0 {
-			return s.Headers[headerName][0]
-		} else if len(s.Headers[compactSipHeadersCorrespondance[headerName]]) > 0 {
-			return s.Headers[compactSipHeadersCorrespondance[headerName]][0]
-		}
+	headers := s.GetHeader(headerName)
+	if len(headers) > 0 {
+		return headers[0]
 	}
 	return ""
 }

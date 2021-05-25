@@ -120,6 +120,10 @@ func init() {
 	config.Flags(commandFlags, "ginkgo", true)
 	commandFlags.Parse(args)
 	ciliumTestConfig.CiliumTestConfig.ParseFlags()
+
+	if !config.DefaultReporterConfig.Succinct {
+		config.DefaultReporterConfig.Verbose = true
+	}
 }
 
 func (s *scope) isUnset() bool {
@@ -640,6 +644,18 @@ func FailWithToggle(message string, callerSkip ...int) {
 	afterEachCB[testName] = func() {
 		ginkgo.Fail(message, callerSkip...)
 	}
+}
+
+// SkipDescribeIf is a wrapper for the Describe block which is being executed
+// if the given condition is NOT met.
+func SkipDescribeIf(condition func() bool, text string, body func()) bool {
+	if condition() {
+		return It(text, func() {
+			Skip("skipping due to unmet condition")
+		})
+	}
+
+	return Describe(text, body)
 }
 
 // SkipContextIf is a wrapper for the Context block which is being executed

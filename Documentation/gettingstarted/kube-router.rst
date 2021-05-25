@@ -23,7 +23,7 @@ Download the kube-router DaemonSet template:
 
 .. code:: bash
 
-    curl -LO https://raw.githubusercontent.com/cloudnativelabs/kube-router/v0.4.0/daemonset/generic-kuberouter-only-advertise-routes.yaml
+    curl -LO https://raw.githubusercontent.com/cloudnativelabs/kube-router/v1.2/daemonset/generic-kuberouter-only-advertise-routes.yaml
 
 Open the file ``generic-kuberouter-only-advertise-routes.yaml`` and edit the
 ``args:`` section. The following arguments are **requried** to be set to
@@ -140,4 +140,4 @@ installed:
   * ``10.2.2.0/24 dev tun-172011760 proto 17 src 172.0.50.227``
   * ``10.2.3.0/24 dev tun-1720186231 proto 17 src 172.0.50.227``
 
-.. include:: k8s-install-connectivity-test.rst
+.. include:: k8s-install-validate.rst

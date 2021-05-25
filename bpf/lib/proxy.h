@@ -192,7 +192,7 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 			__be16 proxy_port, bool from_host __maybe_unused,
 			bool ipv4 __maybe_unused)
 {
-	int result = CTX_ACT_OK;
+	int result __maybe_unused = CTX_ACT_OK;
 
 #ifdef ENABLE_TPROXY
 	if (!from_host)
@@ -201,13 +201,6 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #endif
 		ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
-#ifdef HOST_REDIRECT_TO_INGRESS
-	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
-	/* In this case, the DBG_CAPTURE_PROXY_POST will be sent from the
-	 * program attached to HOST_IFINDEX.
-	 */
-	return redirect(HOST_IFINDEX, BPF_F_INGRESS);
-#else
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
 
 #ifdef ENABLE_TPROXY
@@ -224,7 +217,6 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #endif /* ENABLE_TPROXY */
 	ctx_change_type(ctx, PACKET_HOST); /* Required for ingress packets from overlay */
 	return result;
-#endif
 }
 
 #ifdef ENABLE_IPV4

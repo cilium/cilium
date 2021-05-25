@@ -352,6 +352,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	netNs, err = ns.GetNS(args.Netns)
 	if err != nil {
 		err = fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
+		return
 	}
 	defer netNs.Close()
 
@@ -500,7 +501,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	switch conf.IpamMode {
-	case ipamOption.IPAMENI, ipamOption.IPAMAzure:
+	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 		if err != nil {
 			err = fmt.Errorf("unable to setup interface datapath: %s", err)

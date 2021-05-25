@@ -20,7 +20,6 @@ IP=$2
 K8S_VERSION=$3
 IPv6=$4
 CONTAINER_RUNTIME=$5
-CNI_INTEGRATION=$6
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
@@ -40,11 +39,6 @@ export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
 export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/${K8S_VERSION}/coredns_deployment.yaml"
 if [ ! -f "${COREDNS_DEPLOYMENT}" ]; then
     export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/coredns_deployment.yaml"
-fi
-
-if [ "${CNI_INTEGRATION}" == "flannel" ]; then
-    export KUBEADM_POD_CIDR="10.244.0.0/16"
-    export KUBEADM_V1BETA2_POD_CIDR="10.244.0.0/16,fd02::/112"
 fi
 
 source ${PROVISIONSRC}/helpers.bash
@@ -95,6 +89,11 @@ ff02::2 ip6-allrouters
 192.168.36.15 k8s5
 192.168.36.16 k8s6
 EOF
+
+# Configure default IPv6 route without this connectivity from host to
+# services is not possible as there is no default route. enp0s8 is the primary
+# interface for test environment.
+sudo ip -6 route add default dev enp0s8
 
 cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
@@ -228,80 +227,21 @@ fi
 # SystemVerification errors are ignored as net-next VM often triggers them, eg:
 #     [ERROR SystemVerification]: unsupported kernel release: 5.0.0-rc6+
 case $K8S_VERSION in
-    "1.8")
-        KUBERNETES_CNI_VERSION="0.5.1"
-        K8S_FULL_VERSION="1.8.14"
-        KUBEADM_OPTIONS="--skip-preflight-checks"
-        KUBEADM_SLAVE_OPTIONS="--skip-preflight-checks"
-        ;;
-    "1.9")
-        KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.9.11"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        ;;
-    "1.10")
-        KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.10.13"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        ;;
-    "1.11")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.11.10"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,FileExisting-crictl,SystemVerification"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,FileExisting-crictl,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        ;;
-    "1.12")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.12.10"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA2}"
-        ;;
-    "1.13")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.13.12"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        ;;
-    "1.14")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.14.10"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        ;;
-    "1.15")
-        KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.15.12"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
-        KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        ;;
     "1.16")
         KUBERNETES_CNI_VERSION="0.7.5"
         K8S_FULL_VERSION="1.16.15"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
         ;;
     "1.17")
         KUBERNETES_CNI_VERSION="0.8.7"
-        K8S_FULL_VERSION="1.17.14"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        K8S_FULL_VERSION="1.17.17"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
-        API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
     "1.18")
         # kubeadm 1.18 requires conntrack to be installed, we can remove this
@@ -309,9 +249,9 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.18.12"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        K8S_FULL_VERSION="1.18.18"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
@@ -323,9 +263,9 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.19.4"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        K8S_FULL_VERSION="1.19.10"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
@@ -337,9 +277,23 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.7"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.20.0"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        K8S_FULL_VERSION="1.20.6"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        ;;
+    "1.21")
+        # kubeadm 1.21 requires conntrack to be installed, we can remove this
+        # once we have upgrade the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="0.8.7"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.21.0"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
@@ -347,16 +301,14 @@ case $K8S_VERSION in
         ;;
 esac
 
-# TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
-#           (skipping the kube-proxy phase).
-#if [ "$KUBEPROXY" == "0" ]; then
-#    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
-#fi
+if [ "$KUBEPROXY" == "0" ]; then
+    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
+fi
 
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16"|"1.17"|"1.18"|"1.19"|"1.20")
+    "1.16"|"1.17"|"1.18"|"1.19"|"1.20"|"1.21")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
@@ -368,7 +320,7 @@ case $K8S_VERSION in
             install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
         fi
         ;;
-#   "1.20")
+#   "1.21")
 #       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
 #       ;;
 esac
@@ -408,6 +360,8 @@ if [[ "${PRELOAD_VM}" == "true" ]]; then
     exit 0
 fi
 
+echo KUBELET_EXTRA_ARGS=\"--fail-swap-on=false\" | tee -a /etc/default/kubelet
+
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
     if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
@@ -419,11 +373,6 @@ if [[ "${HOST}" == "k8s1" ]]; then
       sudo sed -i "s/${KUBEADM_ADDR}/k8s1/" /etc/kubernetes/admin.conf
       sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
       sudo chown root:root /root/.kube/config
-
-      if [[ "${KUBEPROXY}" == "0" ]]; then
-          kubectl -n kube-system delete ds kube-proxy
-          iptables-restore <(iptables-save | grep -v KUBE)
-      fi
 
       sudo -u vagrant mkdir -p /home/vagrant/.kube
       sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config

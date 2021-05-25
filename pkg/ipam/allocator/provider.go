@@ -25,7 +25,7 @@ import (
 // AllocatorProvider defines the functions of IPAM provider front-end
 // these are implemented by e.g. pkg/ipam/allocator/{aws,azure}.
 type AllocatorProvider interface {
-	Init() error
+	Init(ctx context.Context) error
 	Start(getterUpdater ipam.CiliumNodeGetterUpdater) (NodeEventHandler, error)
 }
 

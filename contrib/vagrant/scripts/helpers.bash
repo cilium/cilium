@@ -10,12 +10,16 @@
 #   K8S_CLUSTER_CIDR the cluster cidr to be used in kube-controller-manager
 #       cluster-cidr option
 #   K8S_NODE_CIDR_MASK_SIZE the node cidr to be used in kube-controller-manager
-#       node-cidr-mask-size option
+#       node-cidr-mask-size-ipv4 option
+#   K8S_NODE_CIDR_V6_MASK_SIZE the node cidr to be used in kube-controller-manager
+#       node-cidr-mask-size-ipv6 option
 #   K8S_SERVICE_CLUSTER_IP_RANGE the service cluster IP range to be used in
 #       kube-controller-manager service-cluster-ip-range option
 #   K8S_CLUSTER_DNS_IP the kubedns service IP to be set up in kube-dns service
 #       spec file
 #   K8S_CLUSTER_API_SERVER_IP the cluster api service IP to be set up in the
+#       certificates generated
+#   K8S_CLUSTER_API_SERVER_IPV6 the cluster api service IPv6 to be set up in the
 #       certificates generated
 #   WGET, if set https_proxy, it will set https_proxy for the command's wget,
 #       otherwise alias for wget
@@ -54,29 +58,21 @@ esac
 
 kubernetes_master="${controllers_ips[0]}"
 
-# Default values for IPv4
+# Default values for IPv4 and IPv6
 #
 # CIDR Range for Pods in cluster.
-k8s_cluster_cidr=${K8S_CLUSTER_CIDR:-"10.16.0.0/12"} # 10.16.0.1-10.31.255.255
+k8s_cluster_cidr=${K8S_CLUSTER_CIDR:-"10.16.0.0/12,FD02::/96"} # 10.16.0.1-10.31.255.255
 # Mask size for node cidr in cluster.
-k8s_node_cidr_mask_size=${K8S_NODE_CIDR_MASK_SIZE:-"16"} # 1st Node: 10.16.0.1-10.16.255.254, 2nd Node: 10.17.0.1-10.17.255.254...
+k8s_node_cidr_v4_mask_size=${K8S_NODE_CIDR_MASK_SIZE:-"16"} # 1st Node: 10.16.0.1-10.16.255.254, 2nd Node: 10.17.0.1-10.17.255.254...
+k8s_node_cidr_v6_mask_size=${K8S_NODE_CIDR_V6_MASK_SIZE:-"112"} # 1st Node: 10.16.0.1-10.16.255.254, 2nd Node: 10.17.0.1-10.17.255.254...
 # CIDR Range for Services in cluster.
-k8s_service_cluster_ip_range=${K8S_SERVICE_CLUSTER_IP_RANGE:-"172.20.0.0/24"}
+k8s_service_cluster_ip_range=${K8S_SERVICE_CLUSTER_IP_RANGE:-"172.20.0.0/24,FD03::/112"}
 cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"172.20.0.10"}
-cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"172.20.0.1"}
+cluster_dns_ipv6=${K8S_CLUSTER_DNS_IPV6:-"FD03::A"}
+cluster_api_server_ipv4=${K8S_CLUSTER_API_SERVER_IPV4:-"172.20.0.1"}
+cluster_api_server_ipv6=${K8S_CLUSTER_API_SERVER_IPV6:-"FD03::1"}
 
-# Default values for IPv6
-#
-# CIDR Range for Pods in cluster.
-#k8s_cluster_cidr=${K8S_CLUSTER_CIDR:-"FD02::/96"} # 10.0.0.1-10.63.255.254
-# Mask size for node cidr in cluster.
-#k8s_node_cidr_mask_size=${K8S_NODE_CIDR_MASK_SIZE:-"112"} # 1st Node: 10.0.0.1-10.0.255.254, 2nd Node: 10.1.0.1-10.1.255.254...
-# CIDR Range for Services in cluster.
-#k8s_service_cluster_ip_range=${K8S_SERVICE_CLUSTER_IP_RANGE:-"FD03::/112"}
-#cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"FD03::A"}
-#cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"FD03::1"}
-
-k8s_version="v1.20.0-rc.0"
+k8s_version="v1.21.0"
 etcd_version="v3.4.13"
 
 function restore_flag {

@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -178,7 +177,7 @@ func runTool() {
 		sendArchiveToStdout = true
 		dumpPath = defaultDumpPath
 	}
-	dbgDir, err := ioutil.TempDir(dumpPath, prefix)
+	dbgDir, err := os.MkdirTemp(dumpPath, prefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
 		os.Exit(1)
@@ -313,7 +312,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			// iptables commands hold locks so we can't have multiple runs. They
 			// have to be run one at a time to avoid 'Another app is currently
 			// holding the xtables lock...'
-			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown)
+			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
 			continue
 		}
 		// Tell the wait group it needs to track another goroutine
@@ -332,7 +331,13 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			// When we are done we return the thing we took from
 			// the semaphore, so another goroutine can get it
 			defer func() { semaphore <- true }()
-			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown)
+			if strings.Contains(cmd, "xfrm state") {
+				//  Output of 'ip -s xfrm state' needs additional processing to replace
+				// raw keys by their hash.
+				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, hashEncryptionKeys)
+			} else {
+				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
+			}
 		}(cmd)
 	}
 	// Wait for all the spawned goroutines to finish up.
@@ -350,7 +355,7 @@ func execCommand(prompt string) (string, error) {
 }
 
 // writeCmdToFile will execute command and write markdown output to a file
-func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool) {
+func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool, postProcess func(output string) string) {
 	// Clean up the filename
 	name := strings.Replace(prompt, "/", " ", -1)
 	name = strings.Replace(name, " ", "-", -1)
@@ -383,6 +388,11 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 	}
 	// Write prompt as header and the output as body, and / or error but delete empty output.
 	output, err := execCommand(prompt)
+	// Post-process the output if necessary
+	if postProcess != nil {
+		output = postProcess(output)
+	}
+
 	if err != nil {
 		fmt.Fprintf(f, "> Error while running '%s':  %s\n\n", prompt, err)
 	}
@@ -463,13 +473,13 @@ func pprofTraces(rootDir string) error {
 	}
 
 	cmd := fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName)
-	writeCmdToFile(rootDir, cmd, nil, enableMarkdown)
+	writeCmdToFile(rootDir, cmd, nil, enableMarkdown, nil)
 
 	cmd = fmt.Sprintf("gops stats $(pidof %s)", components.CiliumAgentName)
-	writeCmdToFile(rootDir, cmd, nil, enableMarkdown)
+	writeCmdToFile(rootDir, cmd, nil, enableMarkdown, nil)
 
 	cmd = fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName)
-	writeCmdToFile(rootDir, cmd, nil, enableMarkdown)
+	writeCmdToFile(rootDir, cmd, nil, enableMarkdown, nil)
 
 	wg.Wait()
 	if profileErr != nil {

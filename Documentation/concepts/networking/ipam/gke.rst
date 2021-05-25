@@ -10,9 +10,8 @@
 Google Kubernetes Engine
 ########################
 
-When running Cilium on Google GKE following the :ref:`k8s_install_gke` guide,
-the native networking layer of Google Cloud will be utilized for address
-management and IP forwarding.
+When running Cilium on Google GKE, the native networking layer of Google Cloud
+will be utilized for address management and IP forwarding.
 
 ************
 Architecture
@@ -29,7 +28,7 @@ additional details of this IPAM mode.
 
 The corresponding datapath is described in section :ref:`gke_datapath`.
 
-See the getting started guide :ref:`k8s_install_gke` to install Cilium Google
+See the getting started guide :ref:`k8s_install_quick` to install Cilium Google
 Kubernetes Engine (GKE).
 
 *************
@@ -63,10 +62,10 @@ for IPAM matches the PodCIDR announced in the Kubernetes node:
 
 .. code:: bash
 
-    kubectl -n cilium get pods -o wide | grep gke-cluster4-default-pool-b195a3f3-k431
+    kubectl -n kube-system get pods -o wide | grep gke-cluster4-default-pool-b195a3f3-k431
     cilium-lv4xd                       1/1     Running   0          3h8m   10.164.0.112   gke-cluster4-default-pool-b195a3f3-k431   <none>           <none>
 
-    kubectl -n cilium exec -ti cilium-lv4xd -- cilium status
+    kubectl -n kube-system exec -ti cilium-lv4xd -- cilium status
     KVStore:                Ok   Disabled
     Kubernetes:             Ok   1.14+ (v1.14.10-gke.27) [linux/amd64]
     Kubernetes APIs:        ["CustomResourceDefinition", "cilium/v2::CiliumClusterwideNetworkPolicy", "cilium/v2::CiliumEndpoint", "cilium/v2::CiliumNetworkPolicy", "cilium/v2::CiliumNode", "core/v1::Endpoint", "core/v1::Namespace", "core/v1::Pods", "core/v1::Service", "networking.k8s.io/v1::NetworkPolicy"]

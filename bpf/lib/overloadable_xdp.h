@@ -93,4 +93,12 @@ static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 	ctx_store_meta(ctx, XFER_MARKER, meta);
 }
 
+static __always_inline __maybe_unused int
+ctx_change_head(struct xdp_md *ctx __maybe_unused,
+		__u32 head_room __maybe_unused,
+		__u64 flags __maybe_unused)
+{
+	return 0; /* Only intended for SKB context. */
+}
+
 #endif /* __LIB_OVERLOADABLE_XDP_H_ */

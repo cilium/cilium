@@ -20,7 +20,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+
+	"github.com/vishvananda/netlink"
 )
+
+// Untagged ethernet (IEEE 802.3) frame header len
+const EthHdrLen = 14
 
 // MAC address is an net.HardwareAddr encapsulation to force cilium to only use MAC-48.
 type MAC net.HardwareAddr
@@ -105,4 +110,37 @@ func GenerateRandMAC() (MAC, error) {
 	buf[0] = (buf[0] | 0x02) & 0xfe
 
 	return MAC(buf), nil
+}
+
+// HasMacAddr returns true if the given network interface has L2 addr.
+func HasMacAddr(iface string) bool {
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return false
+	}
+	if len(link.Attrs().HardwareAddr) == 0 {
+		return false
+	}
+	return true
+}
+
+// HaveMACAddrs returns true if all given network interfaces have L2 addr.
+func HaveMACAddrs(ifaces []string) bool {
+	for _, iface := range ifaces {
+		if !HasMacAddr(iface) {
+			return false
+		}
+	}
+	return true
+}
+
+// CArrayString returns a string which can be used for assigning the given
+// MAC addr to "union macaddr" in C.
+func CArrayString(m net.HardwareAddr) string {
+	if m == nil || len(m) == 0 {
+		return "{0x0,0x0,0x0,0x0,0x0,0x0}"
+	}
+
+	return fmt.Sprintf("{0x%x,0x%x,0x%x,0x%x,0x%x,0x%x}",
+		m[0], m[1], m[2], m[3], m[4], m[5])
 }

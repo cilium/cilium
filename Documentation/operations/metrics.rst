@@ -136,6 +136,7 @@ have it scrape all Hubble metrics from the endpoints automatically:
 
     scrape_configs:
       - job_name: 'kubernetes-endpoints'
+        scrape_interval: 30s
         kubernetes_sd_configs:
           - role: endpoints
         relabel_configs:
@@ -207,13 +208,24 @@ Name                                       Labels                               
 ``services_events_total``                                                                     Number of services events labeled by action type
 ========================================== ================================================== ========================================================
 
+Cluster health
+~~~~~~~~~~~~~~
+
+========================================== ================================================== ========================================================
+Name                                       Labels                                             Description
+========================================== ================================================== ========================================================
+``unreachable_nodes``                                                                         Number of nodes that cannot be reached
+``unreachable_health_endpoints``                                                              Number of health endpoints that cannot be reached
+``controllers_failing``                                                                       Number of failing controllers
+========================================== ================================================== ========================================================
+
 Datapath
 ~~~~~~~~
 
 ============================================= ================================================== ========================================================
 Name                                          Labels                                             Description
 ============================================= ================================================== ========================================================
-``datapath_errors_total``                     ``area``, ``name``, ``family``                     Total number of errors occurred in datapath management
+``datapath_conntrack_dump_resets_total``      ``area``, ``name``, ``family``                     Number of conntrack dump resets. Happens when a BPF entry gets removed while dumping the map is in progress.
 ``datapath_conntrack_gc_runs_total``          ``status``                                         Number of times that the conntrack garbage collector process was run
 ``datapath_conntrack_gc_key_fallbacks_total``                                                    The number of alive and deleted conntrack entries at the end of a garbage collector run labeled by datapath family
 ``datapath_conntrack_gc_entries``             ``family``                                         The number of alive and deleted conntrack entries at the end of a garbage collector run
@@ -228,6 +240,7 @@ Name                                       Labels                               
 ========================================== ===================================================================== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Duration of eBPF system call performed
 ``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
+``bpf_map_pressure``                       ``map_name``                                                          Map pressure defined as fill-up ratio of the map. Policy maps are exceptionally reported only when ratio is over 0.1.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Max memory used by eBPF programs installed in the system
 ========================================== ===================================================================== ========================================================
@@ -330,6 +343,7 @@ IPAM
 Name                                     Labels                                       Description
 ======================================== ============================================ ========================================================
 ``ipam_events_total``                                                                 Number of IPAM events received labeled by action and datapath family type
+``ip_addresses``                         ``family``                                   Number of allocated IP addresses
 ======================================== ============================================ ========================================================
 
 KVstore
@@ -447,7 +461,17 @@ Option Value   Description
 ``namespace``  Kubernetes namespace name
 ``pod``        Kubernetes pod name
 ``pod-short``  Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``dns``        All known DNS names of the source or destination (comma-separated)
+``ip``         The IPv4 or IPv6 address
 ============== ====================================================================================
+
+When specifying the source and/or destination context, multiple contexts can be
+specified by separating them via the ``|`` symbol.
+When multiple are specified, then the first non-empty value is added to the
+metric as a label. For example, a metric configuration of
+``flow:destinationContext=dns|ip`` will first try to use the DNS name of the
+target for the label. If no DNS name is known for the target, it will fall back
+and use the IP address of the target instead.
 
 .. _hubble_exported_metrics:
 

@@ -6,11 +6,10 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
 
 #include "lib/common.h"
-#include "lib/ipv6.h"
-#include "lib/l3.h"
-#include "lib/eth.h"
 
 #ifdef ENABLE_IPSEC
 static __always_inline int
@@ -40,7 +39,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
 			ctx->mark = 0;
 			return CTX_ACT_OK;
 		}
@@ -68,7 +67,11 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 		return CTX_ACT_OK;
 	}
 	ctx->mark = 0;
+#ifdef ENABLE_ENDPOINT_ROUTES
+	return CTX_ACT_OK;
+#else
 	return redirect(CILIUM_IFINDEX, 0);
+#endif /* ENABLE_ROUTING */
 }
 #else
 static __always_inline int

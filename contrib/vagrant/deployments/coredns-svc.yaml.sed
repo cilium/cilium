@@ -1,5 +1,5 @@
 # File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.20/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.21/cluster/addons/dns/coredns/coredns.yaml.base
 
 apiVersion: v1
 kind: Service
@@ -17,7 +17,13 @@ metadata:
 spec:
   selector:
     k8s-app: kube-dns
+  ipFamilies:
+    - IPv4
+    - IPv6
   clusterIP: $DNS_SERVER_IP
+  clusterIPs:
+  - $DNS_SERVER_IP
+  - $DNS_SERVER_IPV6
   ports:
   - name: dns
     port: 53

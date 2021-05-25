@@ -572,7 +572,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	c.Assert(len(affectedNames), checker.Equals, 0)
+	c.Assert(affectedNames, HasLen, 0)
 	c.Assert(cache.Lookup("test.com"), HasLen, 5)
 }
 
@@ -594,7 +594,7 @@ func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	c.Assert(len(affectedNames), checker.Equals, 0)
+	c.Assert(affectedNames, HasLen, 0)
 }
 
 func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
@@ -603,7 +603,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	dnsCache := NewDNSCache(0)
 	dnsCache.overLimit["test.com"] = true
 	affectedNames, _ := dnsCache.cleanupOverLimitEntries()
-	c.Assert(len(affectedNames), checker.Equals, 0)
+	c.Assert(affectedNames, HasLen, 0)
 }
 
 func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string][]string) {
@@ -676,7 +676,8 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	// Cause 1.1.1.1 to die by not marking it alive before the second GC
 	//zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
 	now = now.Add(time.Second)
-	zombies.MarkAlive(now, net.ParseIP("2.2.2.2"))
+	// Mark 2.2.2.2 alive with 1 second grace period
+	zombies.MarkAlive(now.Add(time.Second), net.ParseIP("2.2.2.2"))
 	zombies.SetCTGCTime(now)
 
 	// alive should contain 2.2.2.2 -> somethingelse.com
@@ -706,13 +707,24 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
 	})
 
+	// Cause all zombies but 2.2.2.2 to die
+	now = now.Add(time.Second)
+	zombies.SetCTGCTime(now)
+	alive, dead = zombies.GC()
+	c.Assert(alive, HasLen, 1)
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
+	})
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"onemorething.com"},
+	})
+
 	// Cause all zombies to die
 	now = now.Add(time.Second)
 	zombies.SetCTGCTime(now)
 	alive, dead = zombies.GC()
 	c.Assert(alive, HasLen, 0)
 	assertZombiesContain(c, dead, map[string][]string{
-		"1.1.1.1": {"onemorething.com"},
 		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
 	})
 }
@@ -912,7 +924,7 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 
 	cidrMatcher := func(ip net.IP) bool { return false }
 	alive = zombies.DumpAlive(cidrMatcher)
-	c.Assert(len(alive), checker.Equals, 0)
+	c.Assert(alive, HasLen, 0)
 
 	cidrMatcher = func(ip net.IP) bool { return true }
 	alive = zombies.DumpAlive(cidrMatcher)
@@ -941,5 +953,5 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	c.Assert(err, IsNil)
 	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
 	alive = zombies.DumpAlive(cidrMatcher)
-	c.Assert(len(alive), checker.Equals, 0)
+	c.Assert(alive, HasLen, 0)
 }

@@ -22,7 +22,7 @@ import (
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/versioncheck"
-	"github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
@@ -168,7 +168,6 @@ const (
 	DefaultNamespace       = "default"
 	KubeSystemNamespace    = "kube-system"
 	CiliumNamespaceDefault = KubeSystemNamespace
-	CiliumNamespaceGKE     = "cilium"
 
 	TestResultsPath = "test_results/"
 	RunDir          = "/var/run/cilium"
@@ -178,10 +177,6 @@ const (
 	CiliumBugtool          = "cilium-bugtool"
 	CiliumDockerDaemonName = "cilium-docker"
 	AgentDaemon            = "cilium-agent"
-
-	GeneratedHTMLManifest   = "html.yaml"
-	GeneratedServerManifest = "server.yaml"
-	GeneratedClientManifest = "client.yaml"
 
 	KubectlCreate = ResourceLifeCycleAction("create")
 	KubectlDelete = ResourceLifeCycleAction("delete")
@@ -323,7 +318,7 @@ var ciliumCLICommands = map[string]string{
 	"cilium status --all-controllers":       "status.txt",
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 
-	"hubble observe --since 4h -o json": "hubble_observe.txt",
+	"hubble observe --since 4h -o jsonpb": "hubble_observe.json",
 }
 
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
@@ -338,7 +333,7 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium policy get":               "policy_get.txt",
 	"cilium status --all-controllers": "status.txt",
 
-	"hubble observe --since 4h -o json": "hubble_observe.txt",
+	"hubble observe --since 4h -o jsonpb": "hubble_observe.json",
 }
 
 // ciliumKubCLICommandsKVStore contains commands related to querying the kvstore.

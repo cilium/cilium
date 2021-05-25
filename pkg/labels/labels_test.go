@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
 )
 
@@ -371,4 +372,22 @@ func TestLabels_GetFromSource(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkLabel_String(b *testing.B) {
+	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", "k8s")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = l.String()
+	}
+}
+
+func TestLabel_String(t *testing.T) {
+	// with value
+	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", "k8s")
+	assert.Equal(t, "k8s:io.kubernetes.pod.namespace=kube-system", l.String())
+	// without value
+	l = NewLabel("io.kubernetes.pod.namespace", "", "k8s")
+	assert.Equal(t, "k8s:io.kubernetes.pod.namespace", l.String())
 }

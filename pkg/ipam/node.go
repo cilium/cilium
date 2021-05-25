@@ -20,15 +20,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	"github.com/cilium/cilium/pkg/defaults"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
@@ -693,9 +690,9 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 // [(*Node).resource)] with the K8s apiserver. This operation occurs on an
 // interval to refresh the CiliumNode resource.
 //
-// For Azure and ENI IPAM modes, this function serves two purposes: (1) as the
-// entry point to initialize the CiliumNode resource and (2) to keep the
-// resource up-to-date with K8s.
+// For Azure and ENI IPAM modes, this function serves two purposes: (1)
+// finalizes the initialization of the CiliumNode resource (setting
+// PreAllocate) and (2) to keep the resource up-to-date with K8s.
 //
 // To initialize, or seed, the CiliumNode resource, the PreAllocate field is
 // populated with a default value and then is adjusted as necessary.
@@ -743,8 +740,13 @@ func (n *Node) syncToAPIServer() (err error) {
 		node.Spec.IPAM.Pool = n.Pool()
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
+		// The PreAllocate value is added here rather than where the CiliumNode
+		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
+		// pkg/nodediscovery), because mutateNodeResource() does not have
+		// access to the ipam.Node object. Since we are in the CiliumNode
+		// update sync loop, we can compute the value.
 		if node.Spec.IPAM.PreAllocate == 0 {
-			adjustPreAllocateIfNeeded(node)
+			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIPv4()
 		}
 
 		err = n.update(origNode, node, retry, false)
@@ -794,7 +796,8 @@ func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) 
 	} else if updateErr != nil {
 		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
 			logfields.Attempt: attempts,
-		}).Warning("Failed to update CiliumNode spec")
+			"updateStatus":    status,
+		}).Warning("Failed to update CiliumNode")
 
 		var newNode *v2.CiliumNode
 		newNode, err = n.manager.k8sAPI.Get(node.Name)
@@ -818,32 +821,4 @@ func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) 
 	}
 
 	return err
-}
-
-// adjustPreAllocateIfNeeded adjusts IPAM values depending on the instance
-// type. This is needed when the instance type is on the smaller side which
-// requires us to lower the PreAllocate value and include eth0 as an ENI device
-// because the instance type does not allow for additional ENIs to be attached
-// (hence limited).
-//
-// For now, this function is only needed in ENI IPAM mode. In the future, this
-// may also be needed for Azure IPAM as well.
-func adjustPreAllocateIfNeeded(node *v2.CiliumNode) {
-	if option.Config.IPAM != ipamOption.IPAMENI {
-		return
-	}
-
-	// Auto set the PreAllocate to the default value and we'll determine if we
-	// need to adjust it below.
-	node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
-
-	if lim, ok := limits.Get(node.Spec.ENI.InstanceType); ok {
-		max := lim.Adapters * lim.IPv4
-		if node.Spec.IPAM.PreAllocate > max {
-			node.Spec.IPAM.PreAllocate = max
-
-			var i int = 0
-			node.Spec.ENI.FirstInterfaceIndex = &i // Include eth0
-		}
-	}
 }

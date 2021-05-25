@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/math"
 	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -379,7 +379,7 @@ func (r *Ring) readFrom(ctx context.Context, read uint64, ch chan<- *v1.Event) {
 			now := time.Now().UTC()
 			select {
 			case ch <- &v1.Event{
-				Timestamp: &timestamp.Timestamp{
+				Timestamp: &timestamppb.Timestamp{
 					Seconds: int64(now.Unix()),
 					Nanos:   int32(now.Nanosecond()),
 				},

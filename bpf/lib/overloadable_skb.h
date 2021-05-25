@@ -62,6 +62,17 @@ set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
 	ctx->cb[0] = or_encrypt_key(key);
 }
 
+/**
+ * set_encrypt_mark - sets the encryption mark to make skb to match ip rule
+ * used to steer packet into Wireguard tunnel device (cilium_wg0) in order to
+ * encrypt it.
+ */
+static __always_inline __maybe_unused void
+set_encrypt_mark(struct __sk_buff *ctx)
+{
+	ctx->mark |= MARK_MAGIC_ENCRYPT;
+}
+
 static __always_inline __maybe_unused int
 redirect_self(const struct __sk_buff *ctx)
 {
@@ -135,6 +146,12 @@ static __always_inline __maybe_unused void
 ctx_set_xfer(struct __sk_buff *ctx __maybe_unused, __u32 meta __maybe_unused)
 {
 	/* Only possible from XDP -> SKB. */
+}
+
+static __always_inline __maybe_unused int
+ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
+{
+	return skb_change_head(ctx, head_room, flags);
 }
 
 #endif /* __LIB_OVERLOADABLE_SKB_H_ */

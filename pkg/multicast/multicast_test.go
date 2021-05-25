@@ -18,11 +18,11 @@ package multicast
 
 import (
 	"math/rand"
-	"net"
 	"testing"
 	"time"
 
 	"github.com/cilium/cilium/pkg/addressing"
+	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
 )
 
@@ -37,7 +37,7 @@ var _ = Suite(&MulticastSuite{
 })
 
 func (m *MulticastSuite) TestGroupOps(c *C) {
-	ifs, err := net.Interfaces()
+	ifs, err := netlink.LinkList()
 	c.Assert(err, IsNil)
 
 	if len(ifs) == 0 {
@@ -48,20 +48,20 @@ func (m *MulticastSuite) TestGroupOps(c *C) {
 	maddr := m.randMaddr()
 
 	// Join Group
-	err = JoinGroup(ifc.Name, maddr.String())
+	err = JoinGroup(ifc.Attrs().Name, maddr.String())
 	c.Assert(err, IsNil)
 
 	// maddr in group
-	inGroup, err := IsInGroup(ifc.Name, maddr.String())
+	inGroup, err := IsInGroup(ifc.Attrs().Name, maddr.String())
 	c.Assert(err, IsNil)
 	c.Assert(inGroup, Equals, true)
 
 	// LeaveGroup
-	err = LeaveGroup(ifc.Name, maddr.String())
+	err = LeaveGroup(ifc.Attrs().Name, maddr.String())
 	c.Assert(err, IsNil)
 
 	// maddr not in group
-	inGroup, err = IsInGroup(ifc.Name, maddr.String())
+	inGroup, err = IsInGroup(ifc.Attrs().Name, maddr.String())
 	c.Assert(err, IsNil)
 	c.Assert(inGroup, Equals, false)
 }

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"net"
+	"os"
 	"time"
 
 	"github.com/google/gopacket"
@@ -29,6 +30,7 @@ var (
 	ErrNotImplemented = errors.New("not implemented")
 
 	timeout = 1 * time.Second
+	retries = 3
 )
 
 var defaultSerializeOpts = gopacket.SerializeOptions{
@@ -38,18 +40,27 @@ var defaultSerializeOpts = gopacket.SerializeOptions{
 
 // PingOverLink performs arping request from 'src' IP address to the 'dst' IP address
 // over the link 'link' and returns the hardware address (MAC) of the destination
-func PingOverLink(link netlink.Link, src net.IP, dst net.IP) (net.HardwareAddr, error) {
+func PingOverLink(link netlink.Link, src net.IP, dst net.IP) (hwAddr net.HardwareAddr, err error) {
 	p, err := newPinger(link, src)
 	if err != nil {
 		return nil, err
 	}
 	defer p.close()
 
-	if err := p.setDeadline(time.Now().Add(timeout)); err != nil {
-		return nil, err
-	}
+	for i := 0; i < retries; i++ {
+		if err := p.setDeadline(time.Now().Add(timeout)); err != nil {
+			return nil, err
+		}
 
-	return p.resolve(dst)
+		hwAddr, err = p.resolve(dst)
+		if err == nil {
+			return
+		}
+		if !errors.Is(err, os.ErrDeadlineExceeded) {
+			return
+		}
+	}
+	return
 }
 
 var _ net.Addr = &Addr{}
@@ -87,7 +98,8 @@ func (p *pinger) resolve(ip net.IP) (net.HardwareAddr, error) {
 			return nil, err
 		}
 
-		if resp.Operation != layers.ARPReply || !bytes.Equal(resp.SourceProtAddress, ip.To4()) {
+		if !(resp.Operation == layers.ARPReply && bytes.Equal(resp.SourceProtAddress, ip.To4()) &&
+			bytes.Equal(resp.DstProtAddress, p.ip.To4())) {
 			continue
 		}
 

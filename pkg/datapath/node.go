@@ -15,6 +15,7 @@
 package datapath
 
 import (
+	"context"
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -133,4 +134,10 @@ type NodeHandler interface {
 	// NodeConfigurationChanged is called when the local node configuration
 	// has changed
 	NodeConfigurationChanged(config LocalNodeConfiguration) error
+
+	// NodeNeighDiscoveryEnabled returns whether node neighbor discovery is enabled
+	NodeNeighDiscoveryEnabled() bool
+
+	// NodeNeighborRefresh is called to refresh node neighbor table
+	NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node)
 }

@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -110,7 +109,7 @@ func (c *TimeoutConfig) Validate() error {
 		return fmt.Errorf("Timeout too short (must be at least 5 seconds): %v", c.Timeout)
 	}
 	if c.Ticker == 0 {
-		c.Ticker = 5 * time.Second
+		c.Ticker = 1 * time.Second
 	} else if c.Ticker < time.Second {
 		return fmt.Errorf("Timeout config Ticker interval too short (must be at least 1 second): %v", c.Ticker)
 	}
@@ -289,8 +288,7 @@ func CreateLogFile(filename string, data []byte) error {
 	}
 
 	finalPath := filepath.Join(path, filename)
-	err = ioutil.WriteFile(finalPath, data, LogPerm)
-	return err
+	return os.WriteFile(finalPath, data, LogPerm)
 }
 
 // WriteToReportFile writes data to filename. It appends to existing files.
@@ -332,7 +330,7 @@ func reportMapContext(ctx context.Context, path string, reportCmds map[string]st
 
 	for cmd, logfile := range reportCmds {
 		res := node.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
-		err := ioutil.WriteFile(
+		err := os.WriteFile(
 			fmt.Sprintf("%s/%s", path, logfile),
 			res.CombineOutput().Bytes(),
 			LogPerm)
@@ -440,7 +438,7 @@ func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 	case IsCiliumV1_9(cst):
 		return versioncheck.MustCompile(">=1.12.0 <1.20.0"), nil
 	case IsCiliumV1_10(cst):
-		return versioncheck.MustCompile(">=1.13.0 <1.21.0"), nil
+		return versioncheck.MustCompile(">=1.16.0 <1.22.0"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}
@@ -498,7 +496,11 @@ func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) 
 // or bpf-next.git tree).
 func RunsOnNetNextKernel() bool {
 	netNext := os.Getenv("NETNEXT")
-	return netNext == "true" || netNext == "1"
+	if netNext == "true" || netNext == "1" {
+		return true
+	}
+	netNext = os.Getenv("KERNEL")
+	return netNext == "net-next"
 }
 
 // DoesNotRunOnNetNextKernel is the complement function of RunsOnNetNextKernel.
@@ -506,9 +508,23 @@ func DoesNotRunOnNetNextKernel() bool {
 	return !RunsOnNetNextKernel()
 }
 
+// RunsOn54Kernel checks whether a test case is running on the 5.4 kernel.
+func RunsOn54Kernel() bool {
+	return os.Getenv("KERNEL") == "54"
+}
+
+// DoesNotRunOn54Kernel is the complement function of RunsOn54Kernel.
+func DoesNotRunOn54Kernel() bool {
+	return !RunsOn54Kernel()
+}
+
 // RunsOn419Kernel checks whether a test case is running on the 4.19 kernel.
 func RunsOn419Kernel() bool {
 	return os.Getenv("KERNEL") == "419"
+}
+
+func GKENativeRoutingCIDR() string {
+	return os.Getenv("NATIVE_CIDR")
 }
 
 // DoesNotRunOn419Kernel is the complement function of RunsOn419Kernel.
@@ -516,17 +532,16 @@ func DoesNotRunOn419Kernel() bool {
 	return !RunsOn419Kernel()
 }
 
-// RunsOnNetNextOr419Kernel checks whether a test case is running on the net-next
-// kernel (depending on the image, it's the latest kernel either from net-next.git
-// or bpf-next.git tree), or on the > 4.19.57 kernel.
-func RunsOnNetNextOr419Kernel() bool {
-	return RunsOnNetNextKernel() || RunsOn419Kernel()
+// RunsOn419OrLaterKernel checks whether a test case is running on the bpf-next,
+// 4.19.x (x > 57), or 5.4 kernels.
+func RunsOn419OrLaterKernel() bool {
+	return RunsOnNetNextKernel() || RunsOn419Kernel() || RunsOn54Kernel()
 }
 
-// DoesNotRunOnNetNextOr419Kernel is the complement function of
-// RunsOnNetNextOr419Kernel.
-func DoesNotRunOnNetNextOr419Kernel() bool {
-	return !RunsOnNetNextOr419Kernel()
+// DoesNotRunOn419OrLaterKernel is the complement function of
+// RunsOn419OrLaterKernel.
+func DoesNotRunOn419OrLaterKernel() bool {
+	return !RunsOn419OrLaterKernel()
 }
 
 // RunsOnGKE returns true if the tests are running on GKE.
@@ -537,6 +552,29 @@ func RunsOnGKE() bool {
 // DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
 func DoesNotRunOnGKE() bool {
 	return !RunsOnGKE()
+}
+
+// RunsOnEKS returns true if the tests are running on EKS.
+func RunsOnEKS() bool {
+	return GetCurrentIntegration() == CIIntegrationEKS
+}
+
+// DoesNotRunOnEKS is the complement function of DoesNotRunOnEKS.
+func DoesNotRunOnEKS() bool {
+	return !RunsOnEKS()
+}
+
+// RunsWithKubeProxyReplacement returns true if the kernel supports our
+// kube-proxy replacement. Note that kube-proxy may still be running
+// alongside Cilium.
+func RunsWithKubeProxyReplacement() bool {
+	return RunsOnGKE() || RunsOn419OrLaterKernel()
+}
+
+// DoesNotRunWithKubeProxyReplacement is the complement function of
+// RunsWithKubeProxyReplacement.
+func DoesNotRunWithKubeProxyReplacement() bool {
+	return !RunsWithKubeProxyReplacement()
 }
 
 // DoesNotHaveHosts returns a function which returns true if a CI job
@@ -577,6 +615,8 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
+// HasHostReachableServices returns true if the given Cilium pod has TCP and/or
+// UDP host reachable services are enabled.
 func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
 		"cilium status -o jsonpath='{.kube-proxy-replacement.features.hostReachableServices}'")
@@ -593,6 +633,16 @@ func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool
 		return false
 	}
 	return true
+}
+
+// HasBPFNodePort returns true if the given Cilium pod has BPF NodePort enabled.
+func (kub *Kubectl) HasBPFNodePort(pod string) bool {
+	status := kub.CiliumExecContext(context.TODO(), pod,
+		"cilium status -o jsonpath='{.kube-proxy-replacement.features.nodePort.enabled}'")
+	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
+	lines := status.ByLines()
+	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get nodePort status")
+	return strings.Contains(lines[0], "true")
 }
 
 // GetNodeWithoutCilium returns a name of a node which does not run cilium.
@@ -634,4 +684,35 @@ func SkipK8sVersions(k8sVersions string) bool {
 	}
 	constraint := versioncheck.MustCompile(k8sVersions)
 	return constraint(k8sVersion)
+}
+
+// DualStackSupported returns whether the current environment has DualStack IPv6
+// enabled or not for the cluster.
+func DualStackSupported() bool {
+	supportedVersions := versioncheck.MustCompile(">=1.18.0")
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		// If we cannot conclude the k8s version we assume that dual stack is not
+		// supported.
+		return false
+	}
+
+	// We only have DualStack enabled in Vagrant test env.
+	return GetCurrentIntegration() == "" && supportedVersions(k8sVersion)
+}
+
+// DualStackSupportBeta returns true if the environment has a Kubernetes version that
+// has support for k8s DualStack beta API types.
+func DualStackSupportBeta() bool {
+	// DualStack support was promoted to beta with API types finalized in k8s 1.21
+	// The API types for dualstack services are same in k8s 1.20 and 1.21 so we include
+	// K8s version 1.20 as well.
+	// https://github.com/kubernetes/kubernetes/pull/98969
+	supportedVersions := versioncheck.MustCompile(">=1.20.0")
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		return false
+	}
+
+	return GetCurrentIntegration() == "" && supportedVersions(k8sVersion)
 }

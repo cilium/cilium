@@ -1,0 +1,56 @@
+# Copyright 2020-2021 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+# since this is image is built with root context, most of the files
+# need to be excluded for faster builds and to avoid spoiling build
+# cache due to unchecked files (like configs or random binaries)
+*
+
+# must-have toplevel files
+!/Makefile*
+!/go.sum
+!/go.mod
+!/VERSION
+
+# directories
+!/.git
+!/api
+!/bpf
+!/bugtool
+!/cilium
+!/cilium-health
+!/contrib/packaging/docker
+!/daemon
+!/envoy
+!/pkg
+!/plugins/cilium-cni
+!/proxylib
+!/vendor
+
+!/test
+!/install/kubernetes
+!/images/cilium-test
+/images/cilium-test/Dockerfile
+
+tests/cilium-files
+test/test_results*
+test/.vagrant
+test/tmp.yaml
+test/*_manifest.yaml
+test/*.xml
+test/*.json
+test/*.log
+test/bpf/_results
+test/cilium-[0-9a-f]*.yaml
+test/*tmp
+test/cilium-istioctl
+
+test/k8sT/manifests/cnp-second-namespaces.yaml
+test/cilium.conf.ginkgo
+
+test/gke/cluster-name
+test/gke/cluster-uri
+test/gke/cluster-version
+test/gke/gke-kubeconfig
+test/gke/resize-kubeconfig
+test/gke/registry-adder.yaml

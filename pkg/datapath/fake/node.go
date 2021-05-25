@@ -15,6 +15,8 @@
 package fake
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -44,4 +46,12 @@ func (n *fakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error 
 
 func (n *fakeNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
 	return nil
+}
+
+func (n *fakeNodeHandler) NodeNeighDiscoveryEnabled() bool {
+	return false
+}
+
+func (n *fakeNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
+	return
 }

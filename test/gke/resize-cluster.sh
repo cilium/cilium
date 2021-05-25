@@ -7,7 +7,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-# this script sets management cluster nodepool cnrm object nodecount and resizes the cluster via gcloud cli
+# this script sets management cluster nodepool cnrm object nodecount which resizes the cluster via ConfigConnector
 
 if [ ! "$#" -eq 2 ] ; then
   echo "$0 supports exactly 2 arguments - desired node count and cluster uri"
@@ -28,15 +28,20 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export KUBECONFIG="${script_dir}/resize-kubeconfig"
 gcloud container clusters get-credentials --project "${project}" --region "europe-west4" management-cluster-0
+kubectl get containernodepools.container.cnrm.cloud.google.com "${cluster_name}" -n test-clusters -o yaml | sed "s/nodeCount:.*$/nodeCount: ${node_count}/g" | kubectl replace -f -
 
-kubectl get containernodepools.container.cnrm.cloud.google.com ${cluster_name} -n test-clusters -o yaml | sed "s/nodeCount:.*$/nodeCount: ${node_count}/g" | kubectl replace -f -
 
-gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
+resize_wait_retries=0
+scaled=1
+while [ $resize_wait_retries -lt 20 ]; do
+	echo "waiting for resize operations to finish"
+	current_node_count=$(gcloud container clusters describe --project "${project}" --region "${region}" "${cluster_uri}" --format="value(currentNodeCount)")
+	if [[ "${current_node_count}" == "${node_count}" ]] ; then
+		scaled=0
+		break
+	fi
+	sleep 15
+	((resize_wait_retries++)) || true
+done
 
-node_pools=($(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --format="value(name)"))
-if [ "${#node_pools[@]}" -ne 1 ] ; then
-  echo "expected 1 node pool, found ${#node_pools[@]}"
-  exit 1
-fi
-
-gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[0]}" --num-nodes ${node_count} --quiet "${cluster_uri}"
+exit $scaled

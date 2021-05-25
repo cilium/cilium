@@ -38,12 +38,13 @@ static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 
 /* Time access */
 static __u64 BPF_FUNC(ktime_get_ns);
+static __u64 BPF_FUNC(ktime_get_boot_ns);
 static __u64 BPF_FUNC(jiffies64);
 #define jiffies	jiffies64()
 
 /* We have cookies! ;-) */
-static __u64 BPF_FUNC(get_socket_cookie, void *ctx);
-static __u64 BPF_FUNC(get_netns_cookie, void *ctx);
+static __sock_cookie BPF_FUNC(get_socket_cookie, void *ctx);
+static __net_cookie BPF_FUNC(get_netns_cookie, void *ctx);
 
 /* Debugging */
 static __printf(1, 3) void
@@ -91,5 +92,13 @@ static struct bpf_sock *BPF_FUNC(sk_lookup_tcp, void *ctx,
 static struct bpf_sock *BPF_FUNC(sk_lookup_udp, void *ctx,
 				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
 				 __u64 netns, __u64 flags);
+
+/* Socket helpers, misc */
+/* Remapped name to avoid clash with getsockopt(2) when included from
+ * regular applications.
+ */
+static int BPF_FUNC_REMAP(get_socket_opt, void *ctx, int level, int optname,
+			  void *optval, int optlen) =
+	(void *)BPF_FUNC_getsockopt;
 
 #endif /* __BPF_HELPERS__ */

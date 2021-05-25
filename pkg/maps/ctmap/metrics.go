@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -98,9 +99,9 @@ func (s *gcStats) finish() {
 	family := s.family.String()
 	switch s.family {
 	case gcFamilyIPv6:
-		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
+		metrics.ConntrackDumpResets.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
 	case gcFamilyIPv4:
-		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
+		metrics.ConntrackDumpResets.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
 	}
 	proto := s.proto.String()
 
@@ -136,7 +137,7 @@ type NatGCStats struct {
 	// to correctly count EgressAlive, so skip it
 }
 
-func newNatGCStats(m NatMap, family gcFamily) NatGCStats {
+func newNatGCStats(m *nat.Map, family gcFamily) NatGCStats {
 	return NatGCStats{
 		DumpStats: m.DumpStats(),
 		Family:    family,

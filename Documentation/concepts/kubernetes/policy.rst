@@ -46,13 +46,13 @@ For more information, see the official `NetworkPolicy documentation
 
 Known missing features for Kubernetes Network Policy:
 
-+-------------------------------+----------------------------------------------+
-| Feature                       | Tracking Issue                               |
-+===============================+==============================================+
-| ``ipBlock`` set with a pod IP | https://github.com/cilium/cilium/issues/9209 |
-+-------------------------------+----------------------------------------------+
-| SCTP                          | https://github.com/cilium/cilium/issues/5719 |
-+-------------------------------+----------------------------------------------+
++-------------------------------+------------------+
+| Feature                       | Tracking Issue   |
++===============================+==================+
+| ``ipBlock`` set with a pod IP | :gh-issue:`9209` |
++-------------------------------+------------------+
+| SCTP                          | :gh-issue:`5719` |
++-------------------------------+------------------+
 
 .. _CiliumNetworkPolicy:
 
@@ -69,9 +69,10 @@ The raw specification of the resource in Go looks like this:
 .. code-block:: go
 
         type CiliumNetworkPolicy struct {
+                // +deepequal-gen=false
                 metav1.TypeMeta `json:",inline"`
-                // +optional
-                Metadata metav1.ObjectMeta `json:"metadata"`
+                // +deepequal-gen=false
+                metav1.ObjectMeta `json:"metadata"`
 
                 // Spec is the desired Cilium specific rule specification.
                 Spec *api.Rule `json:"spec,omitempty"`
@@ -80,7 +81,9 @@ The raw specification of the resource in Go looks like this:
                 Specs api.Rules `json:"specs,omitempty"`
 
                 // Status is the status of the Cilium policy rule
-                // +optional
+                //
+                // +deepequal-gen=false
+                // +kubebuilder:validation:Optional
                 Status CiliumNetworkPolicyStatus `json:"status"`
         }
 
@@ -115,20 +118,26 @@ CiliumClusterwideNetworkPolicy
 `CiliumClusterwideNetworkPolicy` is similar to `CiliumNetworkPolicy`, except
 (1) policies defined by `CiliumClusterwideNetworkPolicy` are non-namespaced and
 cluster-scoped, and (2) it enables the use of :ref:`NodeSelector`. Internally
-the policy is composed of `CiliumNetworkPolicy` itself and thus the effects of
-this policy specification are also same.
+the policy is identical to `CiliumNetworkPolicy` and thus the effects of this
+policy specification are also same.
 
 The raw specification of the resource in go looks like this:
 
 .. code-block:: go
 
         type CiliumClusterwideNetworkPolicy struct {
-                *CiliumNetworkPolicy
+                // Spec is the desired Cilium specific rule specification.
+                Spec *api.Rule
 
-                // Status is the status of the Cilium policy rule
-                // +optional
-                // The reason this field exists in this structure is due a bug in the k8s code-generator
-                // that doesn't create a `UpdateStatus` method because the field does not exist in
-                // the structure.
-                Status CiliumNetworkPolicyStatus `json:"status"`
+                // Specs is a list of desired Cilium specific rule specification.
+                Specs api.Rules
+
+                // Status is the status of the Cilium policy rule.
+                //
+                // The reason this field exists in this structure is due a bug in the k8s
+                // code-generator that doesn't create a `UpdateStatus` method because the
+                // field does not exist in the structure.
+                //
+                // +kubebuilder:validation:Optional
+                Status CiliumNetworkPolicyStatus
         }

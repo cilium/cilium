@@ -1,4 +1,24 @@
 {{- if .Values.operator.enabled }}
+
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
+{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
+
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities.KubeVersion.Major -}}
+{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
+{{- if .Values.Capabilities.KubeVersion.Minor -}}
+{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -23,6 +43,21 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  # to perform LB IP allocation for BGP
+  - services/status
+  verbs:
+  - update
 - apiGroups:
   - ""
   resources:
@@ -71,13 +106,9 @@ rules:
 # For cilium-operator running in HA mode.
 #
 # Cilium operator running in HA mode requires the use of ResourceLock for Leader Election
-# between mulitple running instances.
+# between multiple running instances.
 # The preferred way of doing this is to use LeasesResourceLock as edits to Leases are less
 # common and fewer objects in the cluster watch "all Leases".
-# The support for leases was introduced in coordination.k8s.io/v1 during Kubernetes 1.14 release.
-# In Cilium we currently don't support HA mode for K8s version < 1.14. This condition make sure
-# that we only authorize access to leases resources in supported K8s versions.
-{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -86,5 +117,4 @@ rules:
   - create
   - get
   - update
-{{- end }}
 {{- end }}

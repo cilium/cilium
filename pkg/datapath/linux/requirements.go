@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ func getClangVersion(filePath string) (semver.Version, error) {
 	if err != nil {
 		log.WithError(err).Fatal("clang version: NOT OK")
 	}
-	res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(verOut))
+	res := regexp.MustCompile(`(clang version )([^\s]*)`).FindStringSubmatch(string(verOut))
 	if len(res) != 3 {
 		log.Fatalf("clang version: NOT OK: unable to get clang's version "+
 			"from: %q", string(verOut))
@@ -148,9 +148,8 @@ func CheckMinRequirements() {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			errMsg := "BPF system config check: NOT OK."
-			if errors.Is(err, probes.ErrKernelConfigNotFound) {
-				log.WithError(err).Info(errMsg)
-			} else {
+			// TODO(brb) warn after GH#14314 has been resolved
+			if !errors.Is(err, probes.ErrKernelConfigNotFound) {
 				log.WithError(err).Warn(errMsg)
 			}
 		}

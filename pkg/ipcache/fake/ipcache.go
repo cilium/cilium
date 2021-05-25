@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,9 +45,9 @@ func NewIPCache(events bool) *IPCache {
 	}
 }
 
-func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, bool) {
+func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
 	i.Events <- NodeEvent{EventUpsert, net.ParseIP(ip)}
-	return true, false
+	return false, nil
 }
 
 func (i *IPCache) Delete(IP string, source source.Source) bool {

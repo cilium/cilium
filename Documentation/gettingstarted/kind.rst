@@ -53,20 +53,15 @@ Then, install Cilium release via Helm:
       --set image.pullPolicy=IfNotPresent \\
       --set ipam.mode=kubernetes
 
+.. note::
+
+   To fully enable Cilium's kube-proxy replacement (:ref:`kubeproxy-free`), cgroup v1
+   controllers ``net_cls`` and ``net_prio`` have to be disabled, or cgroup v1 has
+   to be disabled (e.g. by setting the kernel ``cgroup_no_v1="all"`` parameter).
+
 .. include:: k8s-install-validate.rst
-.. include:: namespace-kube-system.rst
-.. include:: hubble-enable.rst
 
-Next steps
-==========
-
-Now that you have a Kubernetes cluster with Cilium up and running, you can take
-a couple of next steps to explore various capabilities:
-
-* :ref:`gs_http`
-* :ref:`gs_dns`
-* :ref:`gs_cassandra`
-* :ref:`gs_kafka`
+.. include:: next-steps.rst
 
 Troubleshooting
 ===============
@@ -165,9 +160,6 @@ Make sure context is set to ``kind-cluster2`` cluster.
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
-      --set etcd.enabled=true \\
-      --set etcd.managed=true \\
-      --set identityAllocationMode=kvstore \\
       --set cluster.name=cluster2 \\
       --set cluster.id=2
 
@@ -187,14 +179,11 @@ Change the kubectl context to ``kind-cluster1`` cluster:
       --set externalIPs.enabled=true \\
       --set nodePort.enabled=true \\
       --set hostPort.enabled=true \\
-      --set etcd.enabled=true \\
-      --set etcd.managed=true \\
-      --set identityAllocationMode=kvstore \\
       --set cluster.name=cluster1 \\
       --set cluster.id=1
 
 Setting up Cluster Mesh
 ------------------------
 
-We can complete setup by following the Cluster Mesh guide with :ref:`gs_clustermesh_expose_etcd`.
+We can complete setup by following the Cluster Mesh guide with :ref:`gs_clustermesh`.
 For Kind, we'll want to deploy the ``NodePort`` service into the ``kube-system`` namespace.

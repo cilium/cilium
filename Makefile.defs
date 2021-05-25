@@ -22,6 +22,7 @@ LIBDIR?=$(PREFIX)/lib
 LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
+export GOARCH ?= $(shell $(GO) env GOARCH)
 
 INSTALL = install
 
@@ -29,12 +30,12 @@ CONTAINER_ENGINE?=docker
 
 # Set DOCKER_DEV_ACCOUNT with "cilium" by default
 ifeq ($(DOCKER_DEV_ACCOUNT),)
-    DOCKER_DEV_ACCOUNT="cilium"
+    DOCKER_DEV_ACCOUNT=cilium
 endif
 
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
-    DOCKER_IMAGE_TAG="latest"
+    DOCKER_IMAGE_TAG=latest
 endif
 
 ifeq ($(shell uname -m),aarch64)
@@ -81,9 +82,11 @@ ifeq ($(NOSTRIP),)
     GO_BUILD_LDFLAGS += -s -w
 endif
 
-CILIUM_ENVOY_REF=$(shell grep -o "FROM .*cilium/cilium-envoy.*:[^ ]*" $(ROOT_DIR)/Dockerfile | cut -d ' ' -f 2)
-CILIUM_ENVOY_SHA=$(shell echo $(subst @,:,$(CILIUM_ENVOY_REF)) | cut -d : -f 2)
-GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
+    CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
+    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@]*).*/\1/p;d')
+    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system
 BPF_SRCFILES_IGNORE = bpf/.gitignore
@@ -121,9 +124,13 @@ else
     endif
 endif
 
-
 GO_BUILD = CGO_ENABLED=0 $(GO) build
-GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(GO) build
+# Currently crosscompiling only enabled for arm64 targets
+CGO_CC =
+ifeq ($(GOARCH),arm64)
+    CGO_CC = CC=aarch64-linux-gnu-gcc
+endif
+GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
 
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race

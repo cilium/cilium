@@ -245,8 +245,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			helpers.CiliumDockerNetwork,
 			fmt.Sprintf("--dns=%s -l app=test", DNSServerIP))
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	AfterAll(func() {
@@ -404,7 +403,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
 		res.ExpectSuccess("Cannot access to %q", world1Target)
 
-		_ = monitorCMD.WaitUntilMatch(allowVerdict)
+		monitorCMD.WaitUntilMatch(allowVerdict)
 		monitorCMD.ExpectContains(allowVerdict)
 		monitorCMD.Reset()
 
@@ -856,8 +855,7 @@ INITSYSTEM=SYSTEMD`
 			vm.SetUpCiliumWithOptions(config)
 
 			ExpectCiliumReady(vm)
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 		})
 
 		BeforeEach(func() {
@@ -921,6 +919,7 @@ INITSYSTEM=SYSTEMD`
 			monitorCMD.Reset()
 			res = vm.ContainerExec(helpers.App1, curlCmd)
 			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
+			monitorCMD.WaitUntilMatch("xx drop (Policy denied)")
 			monitorCMD.ExpectContains("xx drop (Policy denied)")
 
 			By("Testing connectivity to %q", world1Target)
@@ -987,12 +986,14 @@ INITSYSTEM=SYSTEMD`
 			monitorCMD.Reset()
 			res = vm.ContainerExec(helpers.App1, curlCmd)
 			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
+			monitorCMD.WaitUntilMatch("xx drop (Policy denied)")
 			monitorCMD.ExpectContains("xx drop (Policy denied)")
 
 			By("Testing connectivity to %q", world1Target)
 			monitorCMD.Reset()
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
 			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
+			monitorCMD.WaitUntilMatch("verdict Forwarded GET http://world1.cilium.test/ => 200")
 			monitorCMD.ExpectContains("verdict Forwarded GET http://world1.cilium.test/ => 200")
 		})
 	})

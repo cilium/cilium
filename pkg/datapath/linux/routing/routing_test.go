@@ -41,15 +41,26 @@ var _ = Suite(&LinuxRoutingSuite{})
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {
 	ip, ri := getFakes(c)
 	masterMAC := ri.MasterIfMAC
-	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, false) }, masterMAC)
-	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, true) }, masterMAC)
+	runFuncInNetNS(c, func() {
+		ifaceCleanup := createDummyDevice(c, masterMAC)
+		defer ifaceCleanup()
+
+		runConfigureThenDelete(c, ri, ip, 1500)
+	})
+	runFuncInNetNS(c, func() {
+		ifaceCleanup := createDummyDevice(c, masterMAC)
+		defer ifaceCleanup()
+
+		ri.Masquerade = false
+		runConfigureThenDelete(c, ri, ip, 1500)
+	})
 }
 
 func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	_, ri := getFakes(c)
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
-	err := ri.Configure(ipv6, 1500, true)
+	err := ri.Configure(ipv6, 1500, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
@@ -57,7 +68,7 @@ func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 func (e *LinuxRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
-	err := Delete(ipv6)
+	err := Delete(ipv6, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
@@ -74,7 +85,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 		{
 			name: "valid IP addr matching rules",
 			preRun: func() net.IP {
-				runConfigure(c, fakeRoutingInfo, fakeIP, 1500, false)
+				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
 				return fakeIP
 			},
 			wantErr: false,
@@ -85,7 +96,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 				ip := net.ParseIP("192.168.2.233")
 				c.Assert(ip, NotNil)
 
-				runConfigure(c, fakeRoutingInfo, fakeIP, 1500, false)
+				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
 				return ip
 			},
 			wantErr: true,
@@ -96,7 +107,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 				ip := net.ParseIP("192.168.2.233")
 				c.Assert(ip, NotNil)
 
-				runConfigure(c, fakeRoutingInfo, ip, 1500, false)
+				runConfigure(c, fakeRoutingInfo, ip, 1500)
 
 				// Find interface ingress rules so that we can create a
 				// near-duplicate.
@@ -122,14 +133,17 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 	for _, tt := range tests {
 		c.Log("Test: " + tt.name)
 		runFuncInNetNS(c, func() {
+			ifaceCleanup := createDummyDevice(c, masterMAC)
+			defer ifaceCleanup()
+
 			ip := tt.preRun()
-			err := Delete(ip)
+			err := Delete(ip, false)
 			c.Assert((err != nil), Equals, tt.wantErr)
-		}, masterMAC)
+		})
 	}
 }
 
-func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
+func runFuncInNetNS(c *C, run func()) {
 	// Source:
 	// https://github.com/vishvananda/netlink/blob/c79a4b7b40668c3f7867bf256b80b6b2dc65e58e/netns_test.go#L49
 	runtime.LockOSThread() // We need a constant OS thread
@@ -137,31 +151,19 @@ func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
 
 	currentNS, err := netns.Get()
 	c.Assert(err, IsNil)
-	c.Logf("[DEBUG] Root network ns %v", currentNS.UniqueId())
-	defer func() {
-		c.Assert(netns.Set(currentNS), IsNil)
-		c.Logf("[DEBUG] Set back to previous network ns %v", currentNS.UniqueId())
-	}()
+	defer c.Assert(netns.Set(currentNS), IsNil)
 
 	networkNS, err := netns.New()
 	c.Assert(err, IsNil)
-	c.Logf("[DEBUG] Inside new network ns %v", networkNS.UniqueId())
-	defer func() {
-		uid := networkNS.UniqueId()
-		c.Assert(networkNS.Close(), IsNil)
-		c.Logf("[DEBUG] Closed new network ns %v", uid)
-	}()
-
-	ifaceCleanup := createDummyDevice(c, macAddr)
-	defer ifaceCleanup()
+	defer c.Assert(networkNS.Close(), IsNil)
 
 	run()
 }
 
-func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool) {
+func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int) {
 	// Create rules and routes
 	beforeCreationRules, beforeCreationRoutes := listRulesAndRoutes(c, netlink.FAMILY_V4)
-	runConfigure(c, ri, ip, mtu, masq)
+	runConfigure(c, ri, ip, mtu)
 	afterCreationRules, afterCreationRoutes := listRulesAndRoutes(c, netlink.FAMILY_V4)
 
 	c.Assert(len(afterCreationRules), Not(Equals), 0)
@@ -180,13 +182,13 @@ func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool)
 	c.Assert(len(afterDeletionRoutes), Equals, len(beforeCreationRoutes))
 }
 
-func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int, masq bool) {
-	err := ri.Configure(ip, mtu, masq)
+func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int) {
+	err := ri.Configure(ip, mtu, false)
 	c.Assert(err, IsNil)
 }
 
 func runDelete(c *C, ip net.IP) {
-	err := Delete(ip)
+	err := Delete(ip, false)
 	c.Assert(err, IsNil)
 }
 
@@ -217,7 +219,6 @@ func listRulesAndRoutes(c *C, family int) ([]netlink.Rule, []netlink.Route) {
 // be used to remove the device for cleanup purposes.
 func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	if linkExistsWithMAC(c, macAddr) {
-		c.Logf("[DEBUG] Found device with identical mac addr: %s", macAddr.String())
 		c.FailNow()
 	}
 
@@ -232,17 +233,11 @@ func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	err := netlink.LinkAdd(dummy)
 	c.Assert(err, IsNil)
 
-	c.Log("[DEBUG] Added dummy device")
-
 	found := linkExistsWithMAC(c, macAddr)
-	if !found {
-		c.Log("[DEBUG] Couldn't find device even after creation")
-	}
 	c.Assert(found, Equals, true)
 
 	return func() {
 		c.Assert(netlink.LinkDel(dummy), IsNil)
-		c.Log("[DEBUG] Cleaned up dummy device")
 	}
 }
 
@@ -260,10 +255,13 @@ func getFakes(c *C) (net.IP, RoutingInfo) {
 	c.Assert(err, IsNil)
 	c.Assert(fakeMAC, NotNil)
 
-	fakeRoutingInfo, err := parse(fakeGateway.String(),
+	fakeRoutingInfo, err := parse(
+		fakeGateway.String(),
 		[]string{fakeCIDR.String()},
 		fakeMAC.String(),
-		true)
+		"1",
+		true,
+	)
 	c.Assert(err, IsNil)
 	c.Assert(fakeRoutingInfo, NotNil)
 

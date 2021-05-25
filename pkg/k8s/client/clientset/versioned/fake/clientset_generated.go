@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	fakeciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2/fake"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	fakeciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -77,4 +79,9 @@ var _ clientset.Interface = &Clientset{}
 // CiliumV2 retrieves the CiliumV2Client
 func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
 	return &fakeciliumv2.FakeCiliumV2{Fake: &c.Fake}
+}
+
+// CiliumV2alpha1 retrieves the CiliumV2alpha1Client
+func (c *Clientset) CiliumV2alpha1() ciliumv2alpha1.CiliumV2alpha1Interface {
+	return &fakeciliumv2alpha1.FakeCiliumV2alpha1{Fake: &c.Fake}
 }

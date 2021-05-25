@@ -50,6 +50,12 @@ type K8sWatcherSuite struct{}
 
 var _ = Suite(&K8sWatcherSuite{})
 
+type fakeWatcherConfiguration struct{}
+
+func (f *fakeWatcherConfiguration) K8sServiceProxyName() string {
+	return ""
+}
+
 type fakeEndpointManager struct {
 	OnGetEndpoints                func() []*endpoint.Endpoint
 	OnLookupPodName               func(string) *endpoint.Endpoint
@@ -226,6 +232,9 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		nil,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -529,6 +538,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		svcManager,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -669,6 +681,9 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		svcManager,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1115,6 +1130,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		svcManager,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1408,6 +1426,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		svcManager,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1694,6 +1715,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		svcManager,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2545,6 +2569,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		svcManager,
 		fakeDatapath.NewDatapath(),
 		nil,
+		nil,
+		nil,
+		&fakeWatcherConfiguration{},
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()

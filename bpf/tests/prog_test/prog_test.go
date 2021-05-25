@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// NB: leave this out from the CI for now.
-// +build noci
+// +build privileged_tests
 
 package bpfprogtester
 

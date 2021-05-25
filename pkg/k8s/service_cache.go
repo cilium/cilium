@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -85,10 +87,10 @@ type ServiceCache struct {
 	// value.
 	mutex    lock.RWMutex
 	services map[ServiceID]*Service
-	// endpoints maps a service to a map of endpointSlices. In case the cluster
+	// endpoints maps a service to a map of EndpointSlices. In case the cluster
 	// is still using the v1.Endpoints, the key used in the internal map of
-	// endpointSlices is the v1.Endpoint name.
-	endpoints map[ServiceID]*endpointSlices
+	// EndpointSlices is the v1.Endpoint name.
+	endpoints map[ServiceID]*EndpointSlices
 
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
@@ -100,7 +102,7 @@ type ServiceCache struct {
 func NewServiceCache(nodeAddressing datapath.NodeAddressing) ServiceCache {
 	return ServiceCache{
 		services:          map[ServiceID]*Service{},
-		endpoints:         map[ServiceID]*endpointSlices{},
+		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 		nodeAddressing:    nodeAddressing,
@@ -114,11 +116,17 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
-	if svc == nil {
+	if svc == nil || len(svc.FrontendIPs) == 0 || len(svc.Ports) == 0 {
 		return nil
 	}
+
+	feIP := ip.GetIPFromListByFamily(svc.FrontendIPs, option.Config.EnableIPv4)
+	if feIP == nil {
+		return nil
+	}
+
 	for _, port := range svc.Ports {
-		return loadbalancer.NewL3n4Addr(port.Protocol, svc.FrontendIP, port.Port,
+		return loadbalancer.NewL3n4Addr(port.Protocol, feIP, port.Port,
 			loadbalancer.ScopeExternal)
 	}
 	return nil
@@ -129,29 +137,50 @@ func (s *ServiceCache) GetServiceFrontendIP(svcID ServiceID, svcType loadbalance
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
-	if svc == nil || svc.Type != svcType {
+	if svc == nil || svc.Type != svcType || len(svc.FrontendIPs) == 0 {
 		return nil
 	}
 
-	return svc.FrontendIP
+	return ip.GetIPFromListByFamily(svc.FrontendIPs, option.Config.EnableIPv4)
 }
 
-// GetServiceAddrWithPortsAndType returns a slice of all the L3n4Addr that are backing the
-// given Service ID with given type.
+// GetServiceAddrsWithType returns a map of all the ports and slice of L3n4Addr that are backing the
+// given Service ID with given type. It also returns the number of frontend IPs associated with the service.
 // Note: The returned IPs are with External scope.
-func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID, svcType loadbalancer.SVCType) map[loadbalancer.FEPortName]*loadbalancer.L3n4Addr {
+func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID,
+	svcType loadbalancer.SVCType) (map[loadbalancer.FEPortName][]*loadbalancer.L3n4Addr, int) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
-	if svc == nil || svc.Type != svcType {
+	if svc == nil || svc.Type != svcType || len(svc.FrontendIPs) == 0 {
+		return nil, 0
+	}
+
+	addrsByPort := make(map[loadbalancer.FEPortName][]*loadbalancer.L3n4Addr)
+	for pName, l4Addr := range svc.Ports {
+		addrs := make([]*loadbalancer.L3n4Addr, 0, len(svc.FrontendIPs))
+		for _, feIP := range svc.FrontendIPs {
+			if isValidServiceFrontendIP(feIP) {
+				addrs = append(addrs, loadbalancer.NewL3n4Addr(l4Addr.Protocol, feIP, l4Addr.Port, loadbalancer.ScopeExternal))
+			}
+		}
+
+		addrsByPort[pName] = addrs
+	}
+
+	return addrsByPort, len(svc.FrontendIPs)
+}
+
+// GetEndpointsOfService returns all the endpoints that correlate with a
+// service given a ServiceID.
+func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	eps, ok := s.endpoints[svcID]
+	if !ok {
 		return nil
 	}
-	addrsByPort := make(map[loadbalancer.FEPortName]*loadbalancer.L3n4Addr)
-	for pName, l4Addr := range svc.Ports {
-		addrsByPort[pName] = loadbalancer.NewL3n4Addr(l4Addr.Protocol, svc.FrontendIP,
-			l4Addr.Port, loadbalancer.ScopeExternal)
-	}
-	return addrsByPort
+	return eps.GetEndpoints()
 }
 
 // GetNodeAddressing returns the registered node addresses to this service cache.
@@ -174,7 +203,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 
 	oldService, ok := s.services[svcID]
 	if ok {
-		if oldService.DeepEquals(newService) {
+		if oldService.DeepEqual(newService) {
 			return svcID
 		}
 	}
@@ -248,7 +277,7 @@ func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpo
 
 	eps, ok := s.endpoints[esID.ServiceID]
 	if ok {
-		if eps.epSlices[esID.EndpointSliceName].DeepEquals(newEndpoints) {
+		if eps.epSlices[esID.EndpointSliceName].DeepEqual(newEndpoints) {
 			return esID.ServiceID, newEndpoints
 		}
 	} else {
@@ -288,8 +317,14 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg 
 	return s.updateEndpoints(epSliceID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) UpdateEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	svcID, newEndpoints := ParseEndpointSlice(epSlice)
+func (s *ServiceCache) UpdateEndpointSlicesV1(epSlice *slim_discovery_v1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+	svcID, newEndpoints := ParseEndpointSliceV1(epSlice)
+
+	return s.updateEndpoints(svcID, newEndpoints, swg)
+}
+
+func (s *ServiceCache) UpdateEndpointSlicesV1Beta1(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+	svcID, newEndpoints := ParseEndpointSliceV1Beta1(epSlice)
 
 	return s.updateEndpoints(svcID, newEndpoints, swg)
 }
@@ -332,7 +367,7 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg 
 	return s.deleteEndpoints(epSliceID, swg)
 }
 
-func (s *ServiceCache) DeleteEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCache) DeleteEndpointSlices(epSlice endpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointSliceID(epSlice)
 
 	return s.deleteEndpoints(svcID, swg)
@@ -373,14 +408,17 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 	defer s.mutex.RUnlock()
 
 	for _, svc := range s.services {
-		for _, p := range svc.Ports {
-			address := loadbalancer.L3n4Addr{
-				IP:     svc.FrontendIP,
-				L4Addr: *p,
-				Scope:  loadbalancer.ScopeExternal,
+		for _, feIP := range svc.FrontendIPs {
+			for _, p := range svc.Ports {
+				address := loadbalancer.L3n4Addr{
+					IP:     feIP,
+					L4Addr: *p,
+					Scope:  loadbalancer.ScopeExternal,
+				}
+				uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 			}
-			uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 		}
+
 		for _, nodePortFEs := range svc.NodePorts {
 			for _, fe := range nodePortFEs {
 				if fe.Scope == loadbalancer.ScopeExternal {

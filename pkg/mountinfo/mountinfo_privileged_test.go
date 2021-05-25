@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build privileged_tests
+// +build linux,privileged_tests
 
 package mountinfo
 
 import (
-	"io/ioutil"
 	"os"
 
 	"golang.org/x/sys/unix"
@@ -32,7 +31,7 @@ var _ = Suite(&MountInfoPrivilegedTestSuite{})
 // TestIsMountFSbyMount tests the public function IsMountFS by performing
 // an actual mount.
 func (s *MountInfoPrivilegedTestSuite) TestIsMountFSbyMount(c *C) {
-	tmpDir, err := ioutil.TempDir("", "IsMountFS_")
+	tmpDir, err := os.MkdirTemp("", "IsMountFS_")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(tmpDir)
 

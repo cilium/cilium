@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package common
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -39,11 +38,11 @@ func C2GoArray(str string) []byte {
 	hexStr := strings.Split(str, ", ")
 	for _, hexDigit := range hexStr {
 		strDigit := strings.TrimPrefix(hexDigit, "0x")
-		digit, err := strconv.ParseInt(strDigit, 16, 9)
+		digitUint64, err := strconv.ParseUint(strDigit, 16, 8)
 		if err != nil {
 			return nil
 		}
-		ret = append(ret, byte(digit))
+		ret = append(ret, byte(digitUint64))
 	}
 	return ret
 }
@@ -118,7 +117,7 @@ func GetNumPossibleCPUs(log *logrus.Entry) int {
 }
 
 func getNumPossibleCPUsFromReader(log *logrus.Entry, r io.Reader) int {
-	out, err := ioutil.ReadAll(r)
+	out, err := io.ReadAll(r)
 	if err != nil {
 		log.WithError(err).Errorf("unable to read %q to get CPU count", PossibleCPUSysfsPath)
 		return 0

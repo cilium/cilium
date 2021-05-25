@@ -1,13 +1,13 @@
 |logo|
 
-|cii| |build-status| |pulls| |slack| |go-report| |go-doc| |rtd| |apache| |gpl|
+|cii| |slack| |go-report| |go-doc| |rtd| |apache| |gpl|
 
 Cilium is open source software for providing and transparently securing network
 connectivity and loadbalancing between application workloads such as
 application containers or processes. Cilium operates at Layer 3/4 to provide
 traditional networking and security services as well as Layer 7 to protect and
 secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
-is integrated into common orchestration frameworks such as Kubernetes and Mesos.
+is integrated into common orchestration frameworks such as Kubernetes.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
@@ -31,13 +31,13 @@ For upgrades to new major releases please consult the `Cilium Upgrade Guide
 Listed below are the actively maintained release branches along with their latest
 minor release, corresponding image pull tags and their release notes:
 
-+-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__ | 2020-12-04 | ``docker.io/cilium/cilium:v1.9.1``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.1>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__ |
-+-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-12-04 | ``docker.io/cilium/cilium:v1.8.6``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.6>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
-+-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2020-12-04 | ``docker.io/cilium/cilium:v1.7.12``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.12>`__ | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
-+-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
+| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2021-05-20 | ``quay.io/cilium/cilium:v1.10.0`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.0>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__ |
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
+| `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2021-05-12 | ``quay.io/cilium/cilium:v1.9.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.7>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__  |
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
+| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__   | 2021-05-12 | ``quay.io/cilium/cilium:v1.8.10`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.10>`__ | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__  |
++---------------------------------------------------------+------------+-----------------------------------+---------------------------------------------------------------------------+-------------------------------------------------------------------------+
 
 Functionality Overview
 ======================
@@ -171,21 +171,6 @@ tooling to provide:
   and application and security visibility based on flow logs.
 
 .. _Hubble: https://github.com/cilium/hubble/
-
-Integrations
-------------
-
-* Network plugin integrations: CNI_, libnetwork_
-* Container runtime events: containerd_
-* Kubernetes: NetworkPolicy_, Labels_, Ingress_, Service_
-
-.. _CNI: https://github.com/containernetworking/cni
-.. _libnetwork: https://github.com/docker/libnetwork
-.. _containerd: https://github.com/containerd/containerd
-.. _service: https://kubernetes.io/docs/concepts/services-networking/service/
-.. _Ingress: https://kubernetes.io/docs/concepts/services-networking/ingress/
-.. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
-.. _Labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 .. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
 
 .. end-functionality-overview
@@ -291,11 +276,6 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
     :alt: Cilium Logo
     :width: 350px
 
-.. |build-status| image:: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/badge/icon
-    :alt: Build Status
-    :scale: 100%
-    :target: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/
-
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card
     :target: https://goreportcard.com/report/github.com/cilium/cilium
@@ -323,7 +303,3 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. |cii| image:: https://bestpractices.coreinfrastructure.org/projects/1269/badge
     :alt: CII Best Practices
     :target: https://bestpractices.coreinfrastructure.org/projects/1269
-
-.. |pulls| image:: https://img.shields.io/docker/pulls/cilium/cilium.svg
-    :alt: Cilium pulls
-    :target: https://hub.docker.com/r/cilium/cilium/tags/

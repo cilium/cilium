@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LIB_COMMON_H_
 #define __LIB_COMMON_H_
@@ -10,7 +10,9 @@
 #include <linux/if_ether.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
+#include <linux/socket.h>
 
+#include "eth.h"
 #include "endian.h"
 #include "mono.h"
 #include "config.h"
@@ -30,8 +32,19 @@
 #define AF_INET6 10
 #endif
 
+#ifndef IP_DF
+#define IP_DF 0x4000
+#endif
+
 #ifndef EVENT_SOURCE
 #define EVENT_SOURCE 0
+#endif
+
+#ifndef THIS_MTU
+/* If not available, fall back to generically detected MTU instead of more
+ * fine-grained per-device MTU.
+ */
+# define THIS_MTU MTU
 #endif
 
 #define PORT_UDP_VXLAN 4789
@@ -68,7 +81,9 @@
 #define CILIUM_CALL_NAT46			9
 #define CILIUM_CALL_IPV6_FROM_LXC		10
 #define CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY	11
+#define CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY
 #define CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY	12
+#define CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY
 #define CILIUM_CALL_IPV4_TO_ENDPOINT		13
 #define CILIUM_CALL_IPV6_TO_ENDPOINT		14
 #define CILIUM_CALL_IPV4_NODEPORT_NAT		15
@@ -106,6 +121,14 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 	void *data_end = ctx_data_end(ctx);
 	struct ethhdr *eth = data;
 
+	if (ETH_HLEN == 0) {
+		/* The packet is received on L2-less device. Determine L3
+		 * protocol from skb->protocol.
+		 */
+		*proto = ctx_get_protocol(ctx);
+		return true;
+	}
+
 	if (data + ETH_HLEN > data_end)
 		return false;
 	*proto = eth->h_proto;
@@ -115,10 +138,11 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 }
 
 static __always_inline __maybe_unused bool
-__revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
-		       void **l3, const __u32 l3_len, const bool pull)
+____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
+			 void **l3, const __u32 l3_len, const bool pull,
+			 __u8 eth_hlen)
 {
-	const __u32 tot_len = ETH_HLEN + l3_len;
+	const __u64 tot_len = eth_hlen + l3_len;
 	void *data_end;
 	void *data;
 
@@ -134,8 +158,16 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	*data_ = data;
 	*data_end_ = data_end;
 
-	*l3 = data + ETH_HLEN;
+	*l3 = data + eth_hlen;
 	return true;
+}
+
+static __always_inline __maybe_unused bool
+__revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
+		       void **l3, const __u32 l3_len, const bool pull)
+{
+	return ____revalidate_data_pull(ctx, data, data_end, l3, l3_len, pull,
+					ETH_HLEN);
 }
 
 /* revalidate_data_pull() initializes the provided pointers from the ctx and
@@ -161,6 +193,10 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
  */
 #define revalidate_data(ctx, data, data_end, ip)			\
 	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
+
+#define revalidate_data_with_eth_hlen(ctx, data, data_end, ip, eth_len)		\
+	____revalidate_data_pull(ctx, data, data_end, (void **)ip,	\
+				 sizeof(**ip), false, eth_len)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
@@ -207,6 +243,11 @@ struct endpoint_info {
 	mac_t		mac;
 	mac_t		node_mac;
 	__u32		pad[4];
+};
+
+struct egress_info {
+	__u32 egress_ip;
+	__u32 tunnel_endpoint;
 };
 
 struct edt_id {
@@ -263,7 +304,6 @@ enum {
 	POLICY_EGRESS = 2,
 };
 
-
 enum {
 	POLICY_MATCH_NONE = 0,
 	POLICY_MATCH_L3_ONLY = 1,
@@ -273,12 +313,18 @@ enum {
 };
 
 enum {
+	CAPTURE_INGRESS = 1,
+	CAPTURE_EGRESS = 2,
+};
+
+enum {
 	CILIUM_NOTIFY_UNSPEC,
 	CILIUM_NOTIFY_DROP,
 	CILIUM_NOTIFY_DBG_MSG,
 	CILIUM_NOTIFY_DBG_CAPTURE,
 	CILIUM_NOTIFY_TRACE,
 	CILIUM_NOTIFY_POLICY_VERDICT,
+	CILIUM_NOTIFY_CAPTURE,
 };
 
 #define NOTIFY_COMMON_HDR \
@@ -338,7 +384,7 @@ enum {
 #define DROP_POLICY		-133
 #define DROP_INVALID		-134
 #define DROP_CT_INVALID_HDR	-135
-#define DROP_UNUSED3		-136 /* unused */
+#define DROP_FRAG_NEEDED	-136
 #define DROP_CT_UNKNOWN_PROTO	-137
 #define DROP_UNUSED4		-138 /* unused */
 #define DROP_UNKNOWN_L3		-139
@@ -403,6 +449,7 @@ enum {
 #define REASON_LB_REVNAT_STALE		8
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
+#define REASON_MISSED_CUSTOM_CALL	11
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
@@ -444,6 +491,17 @@ enum {
  * overlap with MARK_MAGIC_KEY_ID.
  */
 #define MARK_MAGIC_SNAT_DONE		0x1500
+
+/* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
+ * being mutual exclusive given former is only under DSR. Used to push health
+ * probe packets to ipip tunnel device & to avoid looping back.
+ */
+#define MARK_MAGIC_HEALTH_IPIP_DONE	MARK_MAGIC_SNAT_DONE
+
+/* MARK_MAGIC_HEALTH can overlap with MARK_MAGIC_DECRYPT with both being
+ * mutual exclusive. Note, MARK_MAGIC_HEALTH is user-facing UAPI for LB!
+ */
+#define MARK_MAGIC_HEALTH		MARK_MAGIC_DECRYPT
 
 /* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
  * zero so that they can be OR'd with service port.
@@ -512,6 +570,7 @@ enum {
 #define	CB_HINT			CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
+#define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 	CB_IFINDEX,
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
@@ -528,6 +587,7 @@ enum {
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
+#define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* State values for NAT46 */
@@ -673,13 +733,17 @@ struct lb6_backend {
 	__u8 pad;
 };
 
+struct lb6_health {
+	struct lb6_backend peer;
+};
+
 struct lb6_reverse_nat {
 	union v6addr address;
 	__be16 port;
 } __packed;
 
 struct ipv6_revnat_tuple {
-	__u64 cookie;
+	__sock_cookie cookie;
 	union v6addr address;
 	__be16 port;
 	__u16 pad;
@@ -722,13 +786,17 @@ struct lb4_backend {
 	__u8 pad;
 };
 
+struct lb4_health {
+	struct lb4_backend peer;
+};
+
 struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;
 } __packed;
 
 struct ipv4_revnat_tuple {
-	__u64 cookie;
+	__sock_cookie cookie;
 	__be32 address;
 	__be16 port;
 	__u16 pad;
@@ -742,7 +810,7 @@ struct ipv4_revnat_entry {
 
 union lb4_affinity_client_id {
 	__u32 client_ip;
-	__u64 client_cookie; /* netns cookie */
+	__net_cookie client_cookie;
 } __packed;
 
 struct lb4_affinity_key {
@@ -756,7 +824,7 @@ struct lb4_affinity_key {
 
 union lb6_affinity_client_id {
 	union v6addr client_ip;
-	__u64 client_cookie; /* netns cookie */
+	__net_cookie client_cookie;
 } __packed;
 
 struct lb6_affinity_key {
@@ -811,7 +879,8 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
-static __always_inline int redirect_ep(int ifindex __maybe_unused,
+static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
+				       int ifindex __maybe_unused,
 				       bool needs_backlog __maybe_unused)
 {
 	/* If our datapath has proper redirect support, we make use
@@ -824,8 +893,17 @@ static __always_inline int redirect_ep(int ifindex __maybe_unused,
 	 * versa.
 	 */
 #ifdef ENABLE_HOST_REDIRECT
-	return needs_backlog || !is_defined(ENABLE_REDIRECT_FAST) ?
-	       redirect(ifindex, 0) : redirect_peer(ifindex, 0);
+	if (needs_backlog || !is_defined(ENABLE_REDIRECT_FAST)) {
+		return redirect(ifindex, 0);
+	} else {
+# ifdef ENCAP_IFINDEX
+		/* When coming from overlay, we need to set packet type
+		 * to HOST as otherwise we might get dropped in IP layer.
+		 */
+		ctx_change_type(ctx, PACKET_HOST);
+# endif /* ENCAP_IFINDEX */
+		return redirect_peer(ifindex, 0);
+	}
 #else
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_REDIRECT */

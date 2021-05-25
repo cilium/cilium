@@ -17,7 +17,6 @@
 package certloader
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -301,18 +300,14 @@ type tlsConfigFiles struct {
 // directories create the TLS directories and return the TLS configuration file
 // paths.
 func directories(t *testing.T) (dir string, hubble, relay tlsConfigFiles) {
-	var err error
-	dir, err = ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal("ioutil.TempDir", err)
-	}
+	dir = t.TempDir()
 
 	// hubble tls config files
 	hubbleDir := filepath.Join(dir, "hubble")
 	hubble.caFiles = []string{filepath.Join(hubbleDir, "ca.crt")}
 	hubble.certFile = filepath.Join(hubbleDir, "server.crt")
 	hubble.privkeyFile = filepath.Join(hubbleDir, "server.key")
-	if err = os.MkdirAll(hubbleDir, 0755); err != nil {
+	if err := os.MkdirAll(hubbleDir, 0755); err != nil {
 		t.Fatal("os.MkdirAll", err)
 	}
 	// relay tls config files
@@ -320,7 +315,7 @@ func directories(t *testing.T) (dir string, hubble, relay tlsConfigFiles) {
 	relay.caFiles = []string{filepath.Join(relayDir, "ca.crt")}
 	relay.certFile = filepath.Join(relayDir, "server.crt")
 	relay.privkeyFile = filepath.Join(relayDir, "server.key")
-	if err = os.MkdirAll(relayDir, 0755); err != nil {
+	if err := os.MkdirAll(relayDir, 0755); err != nil {
 		t.Fatal("os.MkdirAll", err)
 	}
 
@@ -330,48 +325,48 @@ func directories(t *testing.T) (dir string, hubble, relay tlsConfigFiles) {
 // setup create the TLS files with the initial TLS configurations.
 func setup(t *testing.T, hubble, relay tlsConfigFiles) {
 	// hubble tls config files
-	if err := ioutil.WriteFile(hubble.caFiles[0], initialHubbleServerCA, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(hubble.caFiles[0], initialHubbleServerCA, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(hubble.certFile, initialHubbleServerCertificate, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(hubble.certFile, initialHubbleServerCertificate, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(hubble.privkeyFile, initialHubbleServerPrivkey, 0600); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(hubble.privkeyFile, initialHubbleServerPrivkey, 0600); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
 	// relay tls config files
-	if err := ioutil.WriteFile(relay.caFiles[0], initialRelayClientCA, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(relay.caFiles[0], initialRelayClientCA, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(relay.certFile, initialRelayClientCertificate, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(relay.certFile, initialRelayClientCertificate, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(relay.privkeyFile, initialRelayClientPrivkey, 0600); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(relay.privkeyFile, initialRelayClientPrivkey, 0600); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
 }
 
 // rotate replace the TLS files with the rotated TLS configurations.
 func rotate(t *testing.T, hubble, relay tlsConfigFiles) {
 	// hubble tls config files
-	if err := ioutil.WriteFile(hubble.caFiles[0], rotatedHubbleServerCA, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(hubble.caFiles[0], rotatedHubbleServerCA, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(hubble.certFile, rotatedHubbleServerCertificate, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(hubble.certFile, rotatedHubbleServerCertificate, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(hubble.privkeyFile, rotatedHubbleServerPrivkey, 0600); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(hubble.privkeyFile, rotatedHubbleServerPrivkey, 0600); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
 	// relay tls config files
-	if err := ioutil.WriteFile(relay.caFiles[0], rotatedRelayClientCA, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(relay.caFiles[0], rotatedRelayClientCA, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(relay.certFile, rotatedRelayClientCertificate, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(relay.certFile, rotatedRelayClientCertificate, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err := ioutil.WriteFile(relay.privkeyFile, rotatedRelayClientPrivkey, 0600); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(relay.privkeyFile, rotatedRelayClientPrivkey, 0600); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
 }
 
@@ -387,24 +382,16 @@ func k8sDataDirName() string {
 //      sources:
 //      - secret:
 //          items:
-//          - key: hubble/tls.crt
+//          - key: ca.crt
+//            path: client-ca.crt
+//          - key: tls.crt
 //            path: server.crt
-//          - key: hubble/tls.key
+//          - key: tls.key
 //            path: server.key
 //          name: hubble-server-certs
 //          optional: true
-//      - configMap:
-//          items:
-//          - key: ca.crt
-//            path: client-ca.crt
-//          name: hubble-ca-cert
-//          optional: true
 func k8sDirectories(t *testing.T) (dir string, hubble tlsConfigFiles) {
-	var err error
-	dir, err = ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal("ioutil.TempDir", err)
-	}
+	dir = t.TempDir()
 
 	hubble.caFiles = []string{filepath.Join(dir, "client-ca.crt")}
 	hubbleDir := filepath.Join(dir, "hubble")
@@ -413,10 +400,10 @@ func k8sDirectories(t *testing.T) (dir string, hubble tlsConfigFiles) {
 
 	emptyDataDir := k8sDataDirName()
 	dataDir := filepath.Join(dir, emptyDataDir)
-	if err = os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		t.Fatal("os.MkdirAll", err)
 	}
-	if err = os.Symlink(emptyDataDir, filepath.Join(dir, "..data")); err != nil {
+	if err := os.Symlink(emptyDataDir, filepath.Join(dir, "..data")); err != nil {
 		t.Fatal("os.Symlink", err)
 	}
 
@@ -442,26 +429,26 @@ func k8sUpdate(t *testing.T, dir string, hubbleServerCert, hubbleServerKey, hubb
 	}
 
 	// write initial TLS certificates into dataDir
-	if err = ioutil.WriteFile(filepath.Join(dataDir, "hubble", "server.crt"), hubbleServerCert, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(filepath.Join(dataDir, "hubble", "server.crt"), hubbleServerCert, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err = ioutil.WriteFile(filepath.Join(dataDir, "hubble", "server.key"), hubbleServerKey, 0600); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(filepath.Join(dataDir, "hubble", "server.key"), hubbleServerKey, 0600); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
-	if err = ioutil.WriteFile(filepath.Join(dataDir, "client-ca.crt"), hubbleCA, 0644); err != nil {
-		t.Fatal("ioutil.WriteFile", err)
+	if err := os.WriteFile(filepath.Join(dataDir, "client-ca.crt"), hubbleCA, 0644); err != nil {
+		t.Fatal("os.WriteFile", err)
 	}
 
 	// create new '..data_tmp' symlink to point to newDataDir
-	if err = os.Symlink(newDataDir, filepath.Join(dir, "..data_tmp")); err != nil {
+	if err := os.Symlink(newDataDir, filepath.Join(dir, "..data_tmp")); err != nil {
 		t.Fatal("os.Symlink", err)
 	}
 	// overwrite '..data' with '..data_tmp'
-	if err = os.Rename(filepath.Join(dir, "..data_tmp"), filepath.Join(dir, "..data")); err != nil {
+	if err := os.Rename(filepath.Join(dir, "..data_tmp"), filepath.Join(dir, "..data")); err != nil {
 		t.Fatal("os.Rename", err)
 	}
 	// remove old setup data dir
-	if err = os.RemoveAll(filepath.Join(dir, oldDataDir)); err != nil {
+	if err := os.RemoveAll(filepath.Join(dir, oldDataDir)); err != nil {
 		t.Fatal("os.RemoveAll", err)
 	}
 }

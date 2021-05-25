@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -49,16 +50,20 @@ var (
 	ipv6DummyAddr = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 )
 
+func (s *ConfigSuite) SetUpSuite(c *C) {
+	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
+}
+
 func (s *ConfigSuite) SetUpTest(c *C) {
 	err := bpf.ConfigureResourceLimits()
 	c.Assert(err, IsNil)
 	node.InitDefaultPrefix("")
-	node.SetInternalIPv4(ipv4DummyAddr)
+	node.SetInternalIPv4Router(ipv4DummyAddr)
 	node.SetIPv4Loopback(ipv4DummyAddr)
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
-	node.SetInternalIPv4(nil)
+	node.SetInternalIPv4Router(nil)
 	node.SetIPv4Loopback(nil)
 }
 

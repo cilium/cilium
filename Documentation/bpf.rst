@@ -189,7 +189,7 @@ programs run inside the kernel, the verifier's job is to make sure that these ar
 safe to run, not affecting the system's stability. This means that from an instruction
 set point of view, loops can be implemented, but the verifier will restrict that.
 However, there is also a concept of tail calls that allows for one BPF program to
-jump into another one. This, too, comes with an upper nesting limit of 32 calls,
+jump into another one. This, too, comes with an upper nesting limit of 33 calls,
 and is usually used to decouple parts of the program logic, for example, into stages.
 
 The instruction format is modeled as two operand instructions, which helps mapping
@@ -581,7 +581,7 @@ bytes per subprogram (note that if the verifier detects the bpf2bpf call, then
 the main function is treated as a sub-function as well). In total, with this
 restriction, the BPF program's call chain can consume at most 8KB of stack
 space. This limit comes from the 256 bytes per stack frame multiplied by the
-tail call count limit(32). Without this, the BPF programs will operate on
+tail call count limit (33). Without this, the BPF programs will operate on
 512-byte stack size, yielding the 16KB size in total for the maximum count of
 tail calls that would overflow the stack on some architectures.
 
@@ -935,14 +935,14 @@ be used:
 
 ::
 
-    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/iproute2/iproute2.git
+    $ git clone https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
 Similarly, to clone into mentioned ``net-next`` branch of iproute2, run the
 following:
 
 ::
 
-    $ git clone -b net-next git://git.kernel.org/pub/scm/linux/kernel/git/iproute2/iproute2.git
+    $ git clone -b net-next https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
 After that, proceed with the build and installation:
 
@@ -1119,13 +1119,12 @@ following commands can be used:
 
 ::
 
-    $ git clone https://git.llvm.org/git/llvm.git
-    $ cd llvm/tools
-    $ git clone --depth 1 https://git.llvm.org/git/clang.git
-    $ cd ..; mkdir build; cd build
-    $ cmake .. -DLLVM_TARGETS_TO_BUILD="BPF;X86" -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLVM_BUILD_RUNTIME=OFF
+    $ git clone https://github.com/llvm/llvm-project.git
+    $ cd llvm-project
+    $ mkdir build
+    $ cd build
+    $ cmake -DLLVM_ENABLE_PROJECTS=clang -DLLVM_TARGETS_TO_BUILD="BPF;X86" -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLVM_BUILD_RUNTIME=OFF  -G "Unix Makefiles" ../llvm
     $ make -j $(getconf _NPROCESSORS_ONLN)
-
     $ ./bin/llc --version
     LLVM (http://llvm.org/):
     LLVM version x.y.zsvn
@@ -1866,7 +1865,8 @@ describe some of the differences for the BPF model:
   Another possibility is to use tail calls by calling into the same program
   again and using a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map for having a local
   scratch space. While being dynamic, this form of looping however is limited
-  to a maximum of 32 iterations.
+  to a maximum of 34 iterations (the initial program, plus 33 iterations from
+  the tail calls).
 
   In the future, BPF may have some native, but limited form of implementing loops.
 
@@ -1939,7 +1939,7 @@ describe some of the differences for the BPF model:
         .max_elem       = 1,
     };
 
-    __section_tail(JMP_MAP_ID, 0)
+    __section_tail(BPF_JMP_MAP_ID, 0)
     int looper(struct __sk_buff *skb)
     {
         printk("skb cb: %u\n", skb->cb[0]++);
@@ -4483,8 +4483,8 @@ legacy cBPF:
   operates at Layer 3/4 to provide traditional networking and security services
   as well as Layer 7 to protect and secure use of modern application protocols
   such as HTTP, gRPC and Kafka. It is integrated into orchestration frameworks
-  such as Kubernetes and Mesos, and BPF is the foundational part of Cilium that
-  operates in the kernel's networking data path.
+  such as Kubernetes. BPF is the foundational part of Cilium that operates in
+  the kernel's networking data path.
 
   https://github.com/cilium/cilium
 
@@ -4636,7 +4636,12 @@ surrounding ecosystem in user space.
 
 All BPF update newsletters (01 - 12) can be found here:
 
-     https://cilium.io/blog/categories/bpf%20newsletter/
+     https://cilium.io/blog/categories/eBPF/
+
+And for the news on the latest resources and developments in the eBPF world,
+please refer to the link here:
+
+     https://ebpf.io/blog
 
 Podcasts
 --------

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-remote="origin"
 dst_file="${dir}/concepts/kubernetes/compatibility-table.rst"
+
+. "${dir}/../contrib/backporting/common.sh"
+remote="$(get_remote)"
 
 set -o nounset
 set -o pipefail
@@ -23,7 +25,7 @@ get_line_of_schema_version(){
 
 get_schema_of_branch(){
    stable_branch="${1}"
-   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//'
+   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//' | uniq
 }
 
 get_stable_branches(){
@@ -32,12 +34,26 @@ get_stable_branches(){
 
 get_stable_tags_for_minor(){
    minor_ver="${1}"
-   git ls-remote --tags ${remote} v\* | awk '{ print $2 }' | grep "${minor_ver}" | grep -v '\^' | grep -v '\-' | sed 's+refs/tags/++' | sort -V
+   git ls-remote --refs --tags ${remote} v\* \
+       | awk '{ print $2 }' \
+       | grep "${minor_ver}" \
+       | grep -v '\-' \
+       | sed 's+refs/tags/++' \
+       | sort -V \
+   || echo ""
 }
 
 get_rc_tags_for_minor(){
    minor_ver="${1}"
-   git ls-remote --tags ${remote} v\* | awk '{ print $2 }' | grep "${minor_ver}" | grep -v '\^' | grep '\-' | sed 's+refs/tags/++' | sort -V
+   git ls-remote --refs --tags ${remote} v\* \
+       | awk '{ print $2 }' \
+       | grep "${minor_ver}.*\-" \
+       | sed 's+refs/tags/++' \
+       | sort -V
+}
+
+filter_out_oldest() {
+    echo "${@}" | cut -d' ' -f2- -
 }
 
 create_file(){
@@ -50,9 +66,10 @@ create_file(){
   echo   "+-----------------+----------------+" >> "${dst_file}"
   stable_branches=$(get_stable_branches)
   if [[ ${stable_branches} != *"${release_version}"* ]]; then
-    stable_branches="${stable_branches} ${release_version}"
+      stable_branches="$(filter_out_oldest ${stable_branches} ${release_version})"
   fi
   for stable_branch in ${stable_branches}; do
+      >&2 echo -n "Checking stable branch ${stable_branch} schema version... "
       rc_tags=$(get_rc_tags_for_minor "${stable_branch}")
       stable_tags=$(get_stable_tags_for_minor "${stable_branch}")
       for tag in ${rc_tags} ${stable_tags}; do
@@ -61,11 +78,13 @@ create_file(){
           echo   "+-----------------+----------------+" >> "${dst_file}"
       done
       schema_version=$(get_schema_of_branch "${stable_branch}")
+      >&2 echo "${schema_version}"
       printf "| %-15s | %-14s |\n" ${stable_branch} ${schema_version} >> "${dst_file}"
       echo   "+-----------------+----------------+" >> "${dst_file}"
   done
 
   schema_version=$(get_schema_of_branch "master")
+  >&2 echo "Checking latest branch schema version... ${schema_version}"
   printf "| %-15s | %-14s |\n" "latest / master" ${schema_version} >> "${dst_file}"
   echo   "+-----------------+----------------+" >> "${dst_file}"
 }
@@ -123,20 +142,27 @@ if [[ "$#" -ne 1 ]]; then
   exit 1
 fi
 
-release_version="${1}"
+release_ersion="$(echo $1 | sed 's/^v//')"
+release_version="v$release_ersion"
 
 create_file ${release_version} "${dst_file}"
 
-last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | head -n 1 | awk '{ print $4 }')
-current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | head -n 1 | awk '{ print $4 }')
+last_cilium_release=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | awk 'NR == 1 { print $2 }')
+last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | awk 'NR == 1 { print $4 }')
+current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | awk 'NR == 1 { print $4 }')
+>&2 echo "Cilium ${last_cilium_release} schema: ${last_release_version}; Current: ${current_release_version}"
 
-if [[ ! $(semverEQ "${current_release_version}" "${last_release_version}")  ]]; then
+# Cilium v1.9 or earlier used examples/crds, this dir was moved in v1.10.
+crd_path="$(realpath --relative-to . "examples/crds")"
+
+if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_path \
+    && semverEQ "${current_release_version}" "${last_release_version}"; then
   semverParseInto ${last_release_version} last_major last_minor last_patch ignore
   expected_version="${last_major}.${last_minor}.$(( ${last_patch} + 1 ))"
   if [[ "${current_release_version}" != "${expected_version}" ]]; then
-    echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
-    echo "git checkout ${remote}/${release_version} && \\"
-    echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
+    >&2 echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
+    >&2 echo "git checkout ${remote}/${release_version} && \\"
+    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
     exit 1
   fi
 fi

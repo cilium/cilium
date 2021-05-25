@@ -1,4 +1,24 @@
 {{- if .Values.nodeinit.enabled }}
+
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
+{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
+
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities.KubeVersion.Major -}}
+{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
+{{- if .Values.Capabilities.KubeVersion.Minor -}}
+{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -18,6 +38,9 @@ spec:
 {{- end }}
       labels:
         app: cilium-node-init
+{{- with .Values.nodeinit.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- with .Values.tolerations }}
       tolerations:
@@ -25,7 +48,7 @@ spec:
 {{- end }}
       hostPID: true
       hostNetwork: true
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")) .Values.enableCriticalPriorityClass }}
+{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-node-critical
 {{- end }}
 {{- if .Values.imagePullSecrets }}
@@ -66,8 +89,8 @@ spec:
                       # Works for COS, ubuntu
                       while docker ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
                     else
-                      # COS-beta (with containerd)
-                      while crictl ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
+                      # COS-beta (with containerd). Some versions of COS have crictl in /home/kubernetes/bin.
+                      while PATH="${PATH}:/home/kubernetes/bin" crictl ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
                     fi
 
                     systemctl disable sys-fs-bpf.mount || true
@@ -105,7 +128,9 @@ spec:
           - name: CHECKPOINT_PATH
             value: /tmp/node-init.cilium.io
           # STARTUP_SCRIPT is the script run on node bootstrap. Node
-          # bootstrapping can be customized in this script.
+          # bootstrapping can be customized in this script. This script is invoked
+          # using nsenter, so it runs in the host's network and mount namespace using
+          # the host's userland tools!
           - name: STARTUP_SCRIPT
             value: |
               #!/bin/bash
@@ -162,18 +187,6 @@ spec:
               ip -4 a
               ip -6 a
 
-{{- if or .Values.nodeinit.expectAzureVnet .Values.azure.enabled }}
-              # Azure specific: Transparent bridge mode is required in order
-              # for proxy-redirection to work
-              until [ -f /var/run/azure-vnet.json ]; do
-                echo waiting for azure-vnet to be created
-                sleep 1s
-              done
-              if [ -f /var/run/azure-vnet.json ]; then
-                sed -i 's/"Mode": "bridge",/"Mode": "transparent",/g' /var/run/azure-vnet.json
-              fi
-{{- end }}
-
 {{- if .Values.nodeinit.removeCbrBridge }}
               if ip link show cbr0; then
                 echo "Detected cbr0 bridge. Deleting interface..."
@@ -229,8 +242,46 @@ spec:
                   docker kill "${container_id}" || true
                 done
               else
-                # COS-beta (with containerd)
-                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do crictl stopp $(cat $f) || true; done
+                # COS-beta (with containerd). Some versions of COS have crictl in /home/kubernetes/bin.
+                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do PATH="${PATH}:/home/kubernetes/bin" crictl stopp "$(sed 's/\r//;1q' $f)" || true; done
+              fi
+{{- end }}
+
+              # AKS: If azure-vnet is installed on the node, and (still) configured in bridge mode,
+              # configure it as 'transparent' to be consistent with Cilium's CNI chaining config.
+              # If the azure-vnet CNI config is not removed, kubelet will execute CNI CHECK commands
+              # against it every 5 seconds and write 'bridge' to its state file, causing inconsistent
+              # behaviour when Pods are removed.
+              if [ -f /etc/cni/net.d/10-azure.conflist ]; then
+                echo "Ensuring azure-vnet is configured in 'transparent' mode..."
+                sed -i 's/"mode":\s*"bridge"/"mode":"transparent"/g' /etc/cni/net.d/10-azure.conflist
+              fi
+
+{{- if .Values.azure.enabled }}
+              # The azure0 interface being present means the node was booted with azure-vnet configured
+              # in bridge mode. This means there might be ebtables rules and neight entries interfering
+              # with pod connectivity if we deploy with Azure IPAM.
+              if ip l show dev azure0 >/dev/null 2>&1; then
+
+                # In Azure IPAM mode, also remove the azure-vnet state file, otherwise ebtables rules get
+                # restored by the azure-vnet CNI plugin on every CNI CHECK, which can cause connectivity
+                # issues in Cilium-managed Pods. Since azure-vnet is no longer called on scheduling events,
+                # this file can be removed.
+                rm -f /var/run/azure-vnet.json
+
+                # This breaks connectivity for existing workload Pods when Cilium is scheduled, but we need
+                # to flush these to prevent Cilium-managed Pod IPs conflicting with Pod IPs previously allocated
+                # by azure-vnet. These ebtables DNAT rules contain fixed MACs that are no longer bound on the node,
+                # causing packets for these Pods to be redirected back out to the gateway, where they are dropped.
+                echo 'Flushing ebtables pre/postrouting rules in nat table.. (disconnecting non-Cilium Pods!)'
+                ebtables -t nat -F PREROUTING || true
+                ebtables -t nat -F POSTROUTING || true
+
+                # ip-masq-agent periodically injects PERM neigh entries towards the gateway
+                # for all other k8s nodes in the cluster. These are safe to flush, as ARP can
+                # resolve these nodes as usual. PERM entries will be automatically restored later.
+                echo 'Deleting all permanent neighbour entries on azure0...'
+                ip neigh show dev azure0 nud permanent | cut -d' ' -f1 | xargs -r -n1 ip neigh del dev azure0 to || true
               fi
 {{- end }}
 

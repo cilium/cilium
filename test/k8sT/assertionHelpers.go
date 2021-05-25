@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,7 +58,12 @@ func ExpectCiliumNotRunning(vm *helpers.Kubectl) {
 // the error returned by that function is nil.
 func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
 	By("Waiting for cilium-operator to be ready")
-	err := vm.WaitforPods(helpers.CiliumNamespace, "-l name=cilium-operator", longTimeout)
+	var err error
+	if vm.NumNodes() < 2 {
+		err = vm.WaitforNPods(helpers.CiliumNamespace, "-l name=cilium-operator", 1, longTimeout)
+	} else {
+		err = vm.WaitforPods(helpers.CiliumNamespace, "-l name=cilium-operator", longTimeout)
+	}
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
 }
 
@@ -173,15 +178,9 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationGKE:
-		vm.RestartUnmanagedPodsInNamespace(helpers.KubeSystemNamespace)
-		vm.RestartUnmanagedPodsInNamespace(helpers.CiliumNamespace)
-	}
-
-	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationFlannel:
-		By("Installing Flannel")
-		vm.ApplyDefault(vm.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
-	default:
+		if helpers.LogGathererNamespace != helpers.KubeSystemNamespace {
+			vm.RestartUnmanagedPodsInNamespace(helpers.KubeSystemNamespace)
+		}
 	}
 
 	err := vm.CiliumPreFlightCheck()
@@ -209,13 +208,5 @@ func SkipIfIntegration(integration string) {
 		Skip(fmt.Sprintf(
 			"This feature is not supported in Cilium %q mode. Skipping test.",
 			integration))
-	}
-}
-
-// SkipItIfNoKubeProxy will skip It if kube-proxy is disabled (= NodePort BPF is
-// enabled)
-func SkipItIfNoKubeProxy() {
-	if !helpers.RunsWithKubeProxy() {
-		Skip("kube-proxy is disabled (NodePort BPF is enabled). Skipping test.")
 	}
 }

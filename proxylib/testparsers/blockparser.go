@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 
 	. "github.com/cilium/cilium/proxylib/proxylib"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,11 +74,11 @@ func getBlock(data [][]byte) ([]byte, int, int, error) {
 
 				// Now 'block' contains everything before the ':', parse it as a decimal number
 				// indicating the length of the frame AFTER the ':'
-				len64, err := strconv.ParseUint(block.String(), 10, 64)
-				if err != nil {
+				if lenUint64, err := strconv.ParseUint(block.String(), 10, 64); err != nil {
 					return block.Bytes(), 0, 0, err
+				} else {
+					block_len = int(lenUint64)
 				}
-				block_len = int(len64)
 				if block_len <= block.Len() {
 					return block.Bytes(), 0, 0, fmt.Errorf("Block length too short")
 				}

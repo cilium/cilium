@@ -50,7 +50,7 @@ implementation. It requires Linux kernel 4.19 and can be enabled with
 the ``bpf.masquerade=true`` helm option (enabled by default).
 
 The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-free>`.
-The dependency will be removed in the future (`GH-13732 <https://github.com/cilium/cilium/issues/13732>`_).
+The dependency will be removed in the future (:gh-issue:`13732`).
 
 Masquerading can take place only on those devices which run the eBPF masquerading
 program. This means that a packet sent from a pod to an outside will be masqueraded

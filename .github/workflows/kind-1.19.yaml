@@ -1,0 +1,149 @@
+name: ConformanceKind1.19
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  kind_version: v0.9.0
+  kind_config: .github/kind-config.yaml
+  cilium_install_defaults: |
+
+
+jobs:
+  installation-and-connectivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request }} ]; then
+            SHA=${{ github.event.pull_request.head.sha }}
+          else
+            SHA=${{ github.sha }}
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="--agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --operator-image=quay.io/${{ github.repository_owner }}/operator-generic-ci \
+            --version=${SHA} \
+            --wait=false \
+            --config monitor-aggregation=none"
+          echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
+          echo ::set-output name=sha::${SHA}
+
+      - name: Install Cilium CLI
+        run: |
+          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.6/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz
+
+      - name: Checkout kind config
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@7a937c0fb648064a83b8b9354151e5e543d9fcec
+        with:
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-generic-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+
+      - name: Install Cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Status
+        run: |
+          cilium status --wait
+
+      - name: Port forward Relay
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 10s
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test
+
+      - name: Clean up Cilium
+        run: |
+          cilium uninstall --wait
+          pgrep -f "kubectl port-forward" | xargs kill -9 # kill background port forwards
+
+      - name: Install Cilium with encryption
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --encryption=ipsec
+
+      - name: Enable Relay
+        run: |
+          cilium hubble enable
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Port forward Relay
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 10s
+
+      - name: Restart connectivity test pods
+        run: |
+          kubectl delete pod -n cilium-test --selector=kind=client
+          kubectl delete pod -n cilium-test --selector=kind=echo
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test
+
+      - name: Post-test information gathering
+        if: ${{ always() }}
+        run: |
+          cilium status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
+
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
+
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

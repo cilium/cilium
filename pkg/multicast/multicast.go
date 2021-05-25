@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/net/ipv6"
 )
 
@@ -86,7 +87,7 @@ func JoinGroup(ifc string, ip string) error {
 		return err
 	}
 
-	dev, err := net.InterfaceByName(ifc)
+	dev, err := interfaceByName(ifc)
 	if err != nil {
 		return err
 	}
@@ -102,7 +103,7 @@ func LeaveGroup(ifc string, ip string) error {
 		return err
 	}
 
-	dev, err := net.InterfaceByName(ifc)
+	dev, err := interfaceByName(ifc)
 	if err != nil {
 		return err
 	}
@@ -114,7 +115,7 @@ func LeaveGroup(ifc string, ip string) error {
 
 // ListGroup lists multicast addresses on the interface ifc
 func ListGroup(ifc string) ([]net.Addr, error) {
-	dev, err := net.InterfaceByName(ifc)
+	dev, err := interfaceByName(ifc)
 	if err != nil {
 		return nil, err
 	}
@@ -173,4 +174,23 @@ func (a Address) SolicitedNodeMaddr() addressing.CiliumIPv6 {
 	copy(maddr[13:], ipv6[13:])
 
 	return maddr
+}
+
+// interfaceByName get *net.Interface by name using netlink.
+//
+// The reason not to use net.InterfaceByName directly is to avoid potential
+// deadlocks (#15051).
+func interfaceByName(name string) (*net.Interface, error) {
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &net.Interface{
+		Index:        link.Attrs().Index,
+		MTU:          link.Attrs().MTU,
+		Name:         link.Attrs().Name,
+		Flags:        link.Attrs().Flags,
+		HardwareAddr: link.Attrs().HardwareAddr,
+	}, nil
 }

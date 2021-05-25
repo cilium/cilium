@@ -44,7 +44,7 @@ import (
 )
 
 func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
-	log.Info("Starting to synchronize k8s nodes to kvstore...")
+	log.Info("Starting to synchronize k8s nodes to kvstore")
 
 	ciliumNodeStore, err := store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeStorePrefix,
@@ -101,7 +101,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 		// present in the k8sNodeStore.
 
 		switch option.Config.IPAM {
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 			nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(context.TODO(), meta_v1.ListOptions{})
 			if err != nil {
 				log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
@@ -165,6 +165,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 				kvStoreNodes := ciliumNodeStore.SharedKeysMap()
 				for {
 					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
+
 					if clusterwide {
 						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
 							meta_v1.ListOptions{
@@ -177,8 +178,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 						cnpItemsList = make([]cilium_v2.CiliumNetworkPolicy, 0)
 						for _, ccnp := range ccnpList.Items {
-							ccnp.CiliumNetworkPolicy.Status = ccnp.Status
-							cnpItemsList = append(cnpItemsList, *ccnp.CiliumNetworkPolicy)
+							cnpItemsList = append(cnpItemsList, cilium_v2.CiliumNetworkPolicy{
+								Status: ccnp.Status,
+							})
 						}
 						continueID = ccnpList.Continue
 					} else {

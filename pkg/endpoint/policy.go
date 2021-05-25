@@ -458,8 +458,12 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		e.syncPolicyMapController()
 	}
 
-	// Set realized state to desired state.
-	e.realizedPolicy = e.desiredPolicy
+	if e.desiredPolicy != e.realizedPolicy {
+		// Remove references to the old policy
+		e.realizedPolicy.Detach()
+		// Set realized state to desired state.
+		e.realizedPolicy = e.desiredPolicy
+	}
 
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
@@ -551,7 +555,7 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
 	if err != nil {
-		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		log.WithError(err).Debugf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 	}
 	if regen {
 		// Regenerate logs status according to the build success/failure
@@ -729,7 +733,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 				IP := endpointIP.IP()
 				ID := e.SecurityIdentity.ID
-				hostIP := node.GetExternalIPv4()
+				hostIP := node.GetIPv4()
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace

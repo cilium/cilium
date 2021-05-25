@@ -19,7 +19,7 @@ package endpoint
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
@@ -39,7 +39,7 @@ type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
 	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateWaitingForIdentity)
-	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil)
+	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil, nil)
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)
@@ -49,7 +49,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	}
 
 	var buf bytes.Buffer
-	file, err := ioutil.TempFile("", "cilium_ep_bench_")
+	file, err := os.CreateTemp("", "cilium_ep_bench_")
 	if err != nil {
 		b.Fatal(err)
 	}

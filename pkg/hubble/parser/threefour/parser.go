@@ -25,6 +25,7 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
@@ -33,10 +34,10 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Parser is a parser for L3/L4 payloads
@@ -108,6 +109,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
 	var pvn *monitor.PolicyVerdictNotify
+	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -140,6 +142,13 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
+	case monitorAPI.MessageTypeCapture:
+		dbg = &monitor.DebugCapture{}
+		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dbg); err != nil {
+			return fmt.Errorf("failed to parse debug capture: %w", err)
+		}
+		eventSubType = dbg.SubType
+		packetOffset = monitor.DebugCaptureLen
 	default:
 		return errors.NewErrInvalidType(eventType)
 	}
@@ -165,10 +174,16 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary := decodeLayers(p.packet)
-	if tn != nil && !tn.OriginalIP().IsUnspecified() {
-		srcIP = tn.OriginalIP()
+	if tn != nil {
+		if !tn.OriginalIP().IsUnspecified() {
+			srcIP = tn.OriginalIP()
+			if ip != nil {
+				ip.Source = srcIP.String()
+			}
+		}
+
 		if ip != nil {
-			ip.Source = srcIP.String()
+			ip.Encrypted = (tn.Reason & monitor.TraceReasonEncryptMask) != 0
 		}
 	}
 
@@ -204,6 +219,9 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
+	decoded.DebugCapturePoint = decodeDebugCapturePoint(dbg)
+	decoded.Interface = decodeNetworkInterface(tn, dbg)
+	decoded.ProxyPort = decodeProxyPort(dbg)
 	decoded.Summary = summary
 
 	return nil
@@ -323,7 +341,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 	if p.identityGetter != nil {
 		if id, err := p.identityGetter.GetIdentity(numericIdentity); err != nil {
 			p.log.WithError(err).WithField("identity", numericIdentity).
-				Warn("failed to resolve identity")
+				Debug("failed to resolve identity")
 		} else {
 			labels = sortAndFilterLabels(p.log, id.Labels, numericIdentity)
 		}
@@ -379,6 +397,9 @@ func decodeVerdict(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor
 	case pvn != nil:
 		if pvn.Verdict < 0 {
 			return pb.Verdict_DROPPED
+		}
+		if pvn.IsTrafficAudited() {
+			return pb.Verdict_AUDIT
 		}
 		return pb.Verdict_FORWARDED
 	}
@@ -472,20 +493,20 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
-func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrappers.BoolValue {
+func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
 	case tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint):
 		// Unfortunately, not all trace points have the connection
 		// tracking state available. For certain trace point
 		// events, we do not know if it actually was a reply or not.
-		return &wrappers.BoolValue{
+		return &wrapperspb.BoolValue{
 			Value: tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply,
 		}
 	case pvn != nil && pvn.Verdict >= 0:
 		// Forwarded PolicyVerdictEvents are emitted for the first packet of
 		// connection, therefore we statically assume that they are not reply
 		// packets
-		return &wrappers.BoolValue{Value: false}
+		return &wrapperspb.BoolValue{Value: false}
 	default:
 		// For other events, such as drops, we simply do not know if they were
 		// replies or not.
@@ -615,4 +636,52 @@ func getTCPFlags(tcp layers.TCP) string {
 	}
 
 	return strings.Join(info, comma)
+}
+
+func decodeDebugCapturePoint(dbg *monitor.DebugCapture) pb.DebugCapturePoint {
+	if dbg == nil {
+		return pb.DebugCapturePoint_DBG_CAPTURE_POINT_UNKNOWN
+	}
+	return pb.DebugCapturePoint(dbg.SubType)
+}
+
+func decodeNetworkInterface(tn *monitor.TraceNotify, dbg *monitor.DebugCapture) *pb.NetworkInterface {
+	ifIndex := uint32(0)
+	if tn != nil {
+		ifIndex = tn.Ifindex
+	} else if dbg != nil {
+		switch dbg.SubType {
+		case monitor.DbgCaptureDelivery,
+			monitor.DbgCaptureFromLb,
+			monitor.DbgCaptureAfterV46,
+			monitor.DbgCaptureAfterV64,
+			monitor.DbgCaptureSnatPre,
+			monitor.DbgCaptureSnatPost:
+			ifIndex = dbg.Arg1
+		}
+	}
+
+	if ifIndex == 0 {
+		return nil
+	}
+
+	// if the interface is not found, `name` will be an empty string and thus
+	// omitted in the protobuf message
+	name, _ := link.GetIfNameCached(int(ifIndex))
+	return &pb.NetworkInterface{
+		Index: ifIndex,
+		Name:  name,
+	}
+}
+
+func decodeProxyPort(dbg *monitor.DebugCapture) uint32 {
+	if dbg != nil {
+		switch dbg.SubType {
+		case monitor.DbgCaptureProxyPre,
+			monitor.DbgCaptureProxyPost:
+			return byteorder.NetworkToHost(dbg.Arg1).(uint32)
+		}
+	}
+
+	return 0
 }

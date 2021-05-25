@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -60,7 +59,7 @@ func startXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfi
 
 	go func() {
 		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
-		if err := grpcServer.Serve(listener); err != nil && !strings.Contains(err.Error(), "closed network connection") {
+		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 			log.WithError(err).Fatal("Envoy: Failed to serve xDS gRPC API")
 		}
 	}()

@@ -9,9 +9,12 @@ set -o pipefail
 set -o nounset
 
 packages=(
+  # Additional iproute2 runtime dependencies
   libelf1
   libmnl0
+  # Bash completion for Cilium
   bash-completion
+  # Additional misc runtime dependencies
   iptables
   kmod
   ca-certificates

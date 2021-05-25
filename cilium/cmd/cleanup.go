@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,10 +33,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// configCmd represents the config command
+// cleanupCmd represents the cleanup command
 var cleanupCmd = &cobra.Command{
 	Use:   "cleanup",
-	Short: "Reset the agent state",
+	Short: "Remove system state installed by Cilium at runtime",
+	Long: `Clean up CNI configurations, CNI binaries, attached BPF programs,
+bpffs, tc filters, routes, links and named network namespaces.
+
+Running this command might be necessary to get the worker node back into
+working condition after uninstalling the Cilium agent.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cleanup")
 		runCleanup()
@@ -67,9 +71,11 @@ const (
 	ciliumNetNSPrefix = "cilium-"
 	hostLinkPrefix    = "lxc"
 	hostLinkLen       = len(hostLinkPrefix + "XXXXX")
-	cniConfigV1       = "/etc/cni/net.d/10-cilium-cni.conf"
-	cniConfigV2       = "/etc/cni/net.d/00-cilium-cni.conf"
-	cniConfigV3       = "/etc/cni/net.d/05-cilium-cni.conf"
+	cniPath           = "/etc/cni/net.d"
+	cniConfigV1       = cniPath + "/10-cilium-cni.conf"
+	cniConfigV2       = cniPath + "/00-cilium-cni.conf"
+	cniConfigV3       = cniPath + "/05-cilium-cni.conf"
+	cniConfigV4       = cniPath + "/05-cilium.conf"
 )
 
 func init() {
@@ -215,8 +221,8 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		defaults.LibraryPath))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("endpoint state in %s",
 		defaults.RuntimePath))
-	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s",
-		cniConfigV1, cniConfigV2, cniConfigV3))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s",
+		cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4))
 	return toBeRemoved
 }
 
@@ -241,6 +247,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		funcs = append(funcs, cleanupNamedNetNSs)
 		funcs = append(funcs, unmountCgroup)
 		funcs = append(funcs, removeDirs)
+		funcs = append(funcs, revertCNIBackup)
 		funcs = append(funcs, removeCNI)
 	}
 	return funcs
@@ -320,12 +327,32 @@ func confirmCleanup() bool {
 func removeCNI() error {
 	os.Remove(cniConfigV1)
 	os.Remove(cniConfigV2)
+	os.Remove(cniConfigV3)
 
-	err := os.Remove(cniConfigV3)
+	err := os.Remove(cniConfigV4)
 	if os.IsNotExist(err) {
 		return nil
 	}
 	return err
+}
+
+// revertCNIBackup removes the ".cilium_bak" suffix from all files in cniPath,
+// reverting them back to their original filenames.
+func revertCNIBackup() error {
+	return filepath.Walk(cniPath,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.Mode().IsRegular() {
+				return nil
+			}
+			if !strings.HasSuffix(path, ".cilium_bak") {
+				return nil
+			}
+			origFileName := strings.TrimSuffix(path, ".cilium_bak")
+			return os.Rename(path, origFileName)
+		})
 }
 
 func unmountCgroup() error {
@@ -363,7 +390,7 @@ func removeDirs() error {
 
 func removeAllMaps() error {
 	mapDir := bpf.MapPrefixPath()
-	maps, err := ioutil.ReadDir(mapDir)
+	maps, err := os.ReadDir(mapDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

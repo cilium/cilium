@@ -59,6 +59,16 @@ struct bpf_elf_map __section_maps LB6_SRC_RANGE_MAP = {
 };
 #endif
 
+#ifdef ENABLE_HEALTH_CHECK
+struct bpf_elf_map __section_maps LB6_HEALTH_MAP = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(__sock_cookie),
+	.size_value	= sizeof(struct lb6_health),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
+#endif
+
 #if LB_SELECTION == LB_SELECTION_MAGLEV
 struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_INNER = {
 	.type		= BPF_MAP_TYPE_ARRAY,
@@ -131,6 +141,16 @@ struct bpf_elf_map __section_maps LB4_SRC_RANGE_MAP = {
 };
 #endif
 
+#ifdef ENABLE_HEALTH_CHECK
+struct bpf_elf_map __section_maps LB4_HEALTH_MAP = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(__sock_cookie),
+	.size_value	= sizeof(struct lb4_health),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
+#endif
+
 #if LB_SELECTION == LB_SELECTION_MAGLEV
 struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_INNER = {
 	.type		= BPF_MAP_TYPE_ARRAY,
@@ -165,7 +185,11 @@ struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
 };
 #endif
 
-#define REV_NAT_F_TUPLE_SADDR 1
+#define REV_NAT_F_TUPLE_SADDR	1
+#ifndef DSR_XLATE_MODE
+# define DSR_XLATE_MODE		0
+# define DSR_XLATE_FRONTEND	1
+#endif
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
 #else
@@ -272,6 +296,11 @@ bool lb6_svc_has_src_range_check(const struct lb6_service *svc __maybe_unused)
 #endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
+static __always_inline bool lb_skip_l4_dnat(void)
+{
+	return DSR_XLATE_MODE == DSR_XLATE_FRONTEND;
+}
+
 static __always_inline
 bool lb4_svc_is_local_scope(const struct lb4_service *svc)
 {
@@ -296,29 +325,9 @@ bool lb6_svc_is_affinity(const struct lb6_service *svc)
 	return svc->flags & SVC_FLAG_AFFINITY;
 }
 
-static __always_inline
-__u8 svc_is_routable_mask(void)
-{
-	__u8 mask = SVC_FLAG_ROUTABLE;
-
-#ifdef ENABLE_LOADBALANCER
-	mask |= SVC_FLAG_LOADBALANCER;
-#endif
-#ifdef ENABLE_NODEPORT
-	mask |= SVC_FLAG_NODEPORT;
-#endif
-#ifdef ENABLE_EXTERNAL_IP
-	mask |= SVC_FLAG_EXTERNAL_IP;
-#endif
-#ifdef ENABLE_HOSTPORT
-	mask |= SVC_FLAG_HOSTPORT;
-#endif
-	return mask;
-}
-
 static __always_inline bool __lb_svc_is_routable(__u8 flags)
 {
-	return (flags & svc_is_routable_mask()) > SVC_FLAG_ROUTABLE;
+	return (flags & SVC_FLAG_ROUTABLE) != 0;
 }
 
 static __always_inline
@@ -636,35 +645,42 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		return 0;
 
 	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
-	return map_array_get_16(backend_ids, index, LB_MAGLEV_LUT_SIZE);
+	return map_array_get_16(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 1);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     union v6addr *new_dst, __u8 nexthdr __maybe_unused,
+				     union v6addr *new_dst, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     const struct lb6_key *key,
-				     const struct lb6_backend *backend __maybe_unused)
+				     const struct lb6_backend *backend,
+				     const bool skip_l3_xlate)
 {
+	if (skip_l3_xlate)
+		goto l4_xlate;
+
 	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
-
 	if (csum_off) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
+				       16, 0);
 
-		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum,
+				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
 
-	if (backend->port && key->dport != backend->port &&
+l4_xlate:
+	if (likely(backend->port) && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__be16 tmp = backend->port;
 		int ret;
 
 		/* Port offsets for UDP and TCP are the same */
-		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
+		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
+				     tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -772,7 +788,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
-				     struct ct_state *state, const bool skip_xlate)
+				     struct ct_state *state,
+				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	union v6addr *addr;
@@ -881,9 +898,9 @@ update_state:
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return skip_xlate ? CTX_ACT_OK :
+	return lb_skip_l4_dnat() ? CTX_ACT_OK :
 	       lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
-			 csum_off, key, backend);
+			 csum_off, key, backend, skip_l3_xlate);
 drop_no_service:
 	tuple->flags = flags;
 	return DROP_NO_SERVICE;
@@ -1156,7 +1173,7 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		return 0;
 
 	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
-	return map_array_get_16(backend_ids, index, LB_MAGLEV_LUT_SIZE);
+	return map_array_get_16(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 1);
 }
 #else
 # error "Invalid load balancer backend selection algorithm!"
@@ -1166,10 +1183,14 @@ static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
 	  int l4_off, struct csum_offset *csum_off, struct lb4_key *key,
-	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header)
+	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header,
+	  const bool skip_l3_xlate)
 {
 	__be32 sum;
 	int ret;
+
+	if (skip_l3_xlate)
+		goto l4_xlate;
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
 			      new_daddr, 4, 0);
@@ -1198,7 +1219,8 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 			return DROP_CSUM_L4;
 	}
 
-	if (backend->port && key->dport != backend->port &&
+l4_xlate:
+	if (likely(backend->port) && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP) &&
 	    has_l4_header) {
 		__be16 tmp = backend->port;
@@ -1209,6 +1231,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 		if (IS_ERR(ret))
 			return ret;
 	}
+
 	return CTX_ACT_OK;
 }
 
@@ -1317,7 +1340,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
 				     struct ct_state *state, __be32 saddr,
-				     bool has_l4_header, const bool skip_xlate)
+				     bool has_l4_header,
+				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 new_saddr = 0, new_daddr;
@@ -1455,10 +1479,10 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
-	return skip_xlate ? CTX_ACT_OK :
+	return lb_skip_l4_dnat() ? CTX_ACT_OK :
 	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 backend, has_l4_header);
+			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
 		tuple->flags = flags;
 		return DROP_NO_SERVICE;

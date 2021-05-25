@@ -7,7 +7,7 @@
 #include <linux/if_ether.h>
 
 #ifndef ETH_HLEN
-#define ETH_HLEN 14
+#define ETH_HLEN __ETH_HLEN
 #endif
 
 #ifndef ETH_ALEN
@@ -107,6 +107,13 @@ static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
 	__bpf_memcpy_builtin(data + off, mac, ETH_ALEN);
 	return 0;
 #endif
+}
+
+static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
+					   const __u16 proto, int off)
+{
+	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,
+			       &proto, sizeof(proto), 0);
 }
 
 #endif /* __LIB_ETH__ */

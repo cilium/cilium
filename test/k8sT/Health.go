@@ -25,7 +25,9 @@ import (
 )
 
 var _ = Describe("K8sHealthTest", func() {
-	SkipContextIf(helpers.DoesNotRunOnGKE, "cilium-health", func() {
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+	}, "cilium-health", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string
@@ -56,7 +58,7 @@ var _ = Describe("K8sHealthTest", func() {
 		})
 
 		getCilium := func(node string) (pod, ip string) {
-			pod, err := kubectl.GetCiliumPodOnNodeWithLabel(node)
+			pod, err := kubectl.GetCiliumPodOnNode(node)
 			Expect(err).Should(BeNil())
 
 			res, err := kubectl.Get(
@@ -77,8 +79,6 @@ var _ = Describe("K8sHealthTest", func() {
 		}
 
 		It("Checks status between nodes", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-
 			cilium1, cilium1IP := getCilium(helpers.K8s1)
 			cilium2, cilium2IP := getCilium(helpers.K8s2)
 

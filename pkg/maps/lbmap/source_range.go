@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -138,25 +138,42 @@ type SourceRangeValue struct {
 func (v *SourceRangeValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *SourceRangeValue) String() string              { return "" }
 
-var SourceRange4Map = bpf.NewMap(
-	SourceRange4MapName,
-	bpf.MapTypeLPMTrie,
-	&SourceRangeKey4{}, int(unsafe.Sizeof(SourceRangeKey4{})),
-	&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
-	MaxEntries,
-	bpf.BPF_F_NO_PREALLOC, 0,
-	bpf.ConvertKeyValue,
-).WithCache()
+var (
+	// SourceRange4Map is the BPF map for storing IPv4 service source ranges to
+	// check if option.Config.EnableSVCSourceRangeCheck is enabled.
+	SourceRange4Map *bpf.Map
+	// SourceRange6Map is the BPF map for storing IPv6 service source ranges to
+	// check if option.Config.EnableSVCSourceRangeCheck is enabled.
+	SourceRange6Map *bpf.Map
+)
 
-var SourceRange6Map = bpf.NewMap(
-	SourceRange6MapName,
-	bpf.MapTypeLPMTrie,
-	&SourceRangeKey6{}, int(unsafe.Sizeof(SourceRangeKey6{})),
-	&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
-	MaxEntries,
-	bpf.BPF_F_NO_PREALLOC, 0,
-	bpf.ConvertKeyValue,
-).WithCache()
+// initSourceRange creates the BPF maps for storing both IPv4 and IPv6
+// service source ranges.
+func initSourceRange(params InitParams) {
+	if params.IPv4 {
+		SourceRange4Map = bpf.NewMap(
+			SourceRange4MapName,
+			bpf.MapTypeLPMTrie,
+			&SourceRangeKey4{}, int(unsafe.Sizeof(SourceRangeKey4{})),
+			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
+			MaxEntries,
+			bpf.BPF_F_NO_PREALLOC, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+	}
+
+	if params.IPv6 {
+		SourceRange6Map = bpf.NewMap(
+			SourceRange6MapName,
+			bpf.MapTypeLPMTrie,
+			&SourceRangeKey6{}, int(unsafe.Sizeof(SourceRangeKey6{})),
+			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
+			MaxEntries,
+			bpf.BPF_F_NO_PREALLOC, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric()
+	}
+}
 
 func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {
 	ones, _ := cidr.Mask.Size()

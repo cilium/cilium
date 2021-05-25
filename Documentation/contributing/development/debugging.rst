@@ -56,7 +56,7 @@ toFQDNs rules and events relating to those rules are also relevant.
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium monitor --related-to 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium monitor --related-to 3459
     Listening for events on 4 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
     level=info msg="Initializing dissection cache..." subsys=monitor
@@ -113,7 +113,7 @@ time is included in the json output of the command.
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium fqdn cache list
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium fqdn cache list
     Endpoint   Source   FQDN         TTL    ExpirationTime             IPs
     3459       lookup   cilium.io.   3600   2020-04-21T15:04:27.146Z   104.198.14.52
 
@@ -149,7 +149,7 @@ callbacks provided by other packages via daemon in cilium-agent.
   query) an error occurred. These errors would come from the internal rule
   lookup in the proxy, the ``allowed`` field.
 - ``Timeout waiting for response to forwarded proxied DNS lookup``: The proxy
-  forwards requests 1:1 and does not cache. It applies a 5s timeout on
+  forwards requests 1:1 and does not cache. It applies a 10s timeout on
   responses to those requests, as the client will retry within this period
   (usually). Bursts of these errors can happen if the DNS target server
   misbehaves and many pods see DNS timeouts. This isn't an actual problem with
@@ -192,7 +192,7 @@ allocated Security Identities. These can be listed with:
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium identity list
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium identity list
     ID         LABELS
     1          reserved:host
     2          reserved:world
@@ -220,7 +220,7 @@ They can be listed along with other selectors (roughly corresponding to any L3 r
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium policy selectors
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium policy selectors
     SELECTOR                                                                                                         USERS   IDENTITIES
     MatchName: , MatchPattern: *                                                                                     1       16777217
     &LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}                   2       1
@@ -271,6 +271,29 @@ corresponds to the ``toFQDNS: matchName: "*"`` rule would list all identities
 for IPs that came from the DNS Proxy. Other CIDR identities would not be
 included.
 
+Unintended DNS Policy Drops
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``toFQDNSs`` policy enforcement relies on the source POD performing a DNS query
+before using an IP address returned in the DNS response. Sometimes PODs may hold
+on to a DNS response and start new connections to the same IP address at a later
+time. This may trigger policy drops if the DNS response has expired as
+requested by the DNS server in the time-to-live (TTL) value in the
+response. When DNS is used for service load balancing the advertised TTL value
+may be short (e.g., 60 seconds). To allow for reasonable POD behavior without
+unintended policy drops Cilium employs a configurable minimum DNS TTL value via
+``--tofqdns-min-ttl`` which defaults to 3600 seconds. This setting overrides
+short TTLs and allows the POD to use the IP address in the DNS response for one
+hour. Existing connections also keep the IP address as allowed in the
+policy. Any new connections opened by the POD using the same IP address without
+performing a new DNS query after the (possibly extended) DNS TTL has expired
+can be dropped by Cilium policy enforcement. To allow PODs to use the DNS
+response after TTL expiry for new connections a command line option
+``--tofqdns-idle-connection-grace-period`` may be used to keep the
+IP-address/name mapping valid in the policy for an extended time after DNS TTL
+expiry. This option takes effect only if the POD has opened at least one
+connection during the DNS TTL period.
+
 Datapath Plumbing
 ~~~~~~~~~~~~~~~~~
 
@@ -282,7 +305,7 @@ Endpoint with the new CIDR Identity of the IP. This can be verified:
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium bpf policy get 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get 3459
     DIRECTION   LABELS (source:key[=value])   PORT/PROTO   PROXY PORT   BYTES   PACKETS
     Ingress     reserved:unknown              ANY          NONE         1367    7
     Ingress     reserved:host                 ANY          NONE         0       0
@@ -296,7 +319,7 @@ there may be cases where this doesn't occur:
 
 .. code:: bash
 
-    $ kubectl exec pod/cilium-sbp8v -n cilium -- cilium bpf policy get -n 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get -n 3459
     DIRECTION   IDENTITY   PORT/PROTO   PROXY PORT   BYTES   PACKETS
     Ingress     0          ANY          NONE         1367    7
     Ingress     1          ANY          NONE         0       0
@@ -339,11 +362,23 @@ To debug data races, Golang allows ``-race`` to be passed to the compiler to
 compile Cilium with race detection. Additionally, the flag can be provided to
 ``go test`` to detect data races in a testing context.
 
+.. _compile-cilium-with-race-detection:
+
+~~~~~~~~~~~~~~
+Race detection
+~~~~~~~~~~~~~~
+
 To compile a Cilium binary with race detection, you can do:
 
 .. code:: bash
 
     $ make RACE=1
+
+.. Note::
+
+    For building the Operator with race detection, you must also provide
+    ``BASE_IMAGE`` which can be the ``cilium/cilium-runtime`` image from the
+    root Dockerfile found in the Cilium repository.
 
 To run unit tests with race detection, you can do:
 

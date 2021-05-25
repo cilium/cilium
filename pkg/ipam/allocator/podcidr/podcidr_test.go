@@ -246,7 +246,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 						op: k8sOpCreate,
 					},
 				})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(1))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 			args: args{
 				node: &v2.CiliumNode{
@@ -301,7 +301,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 						op: k8sOpCreate,
 					},
 				})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(1))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 			args: args{
 				node: &v2.CiliumNode{
@@ -392,7 +392,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 						op: k8sOpCreate,
 					},
 				})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(1))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 			args: args{
 				node: &v2.CiliumNode{
@@ -456,7 +456,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 						op: k8sOpCreate,
 					},
 				})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(1))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 			args: args{
 				node: &v2.CiliumNode{
@@ -548,7 +548,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 						op: k8sOpDelete,
 					},
 				})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(1))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 			args: args{
 				nodeName: "node-1",
@@ -565,7 +565,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 			},
 			testPostRun: func(fields *fields) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(0))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(0))
 			},
 			args: args{
 				nodeName: "node-1",
@@ -615,7 +615,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Resync(c *C) {
 			},
 			testPostRun: func(fields *fields) {
 				time.Sleep(2 * time.Millisecond)
-				c.Assert(atomic.LoadInt32(&reSyncCalls), checker.Equals, int32(1))
+				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 		},
 	}
@@ -1010,13 +1010,13 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 					},
 				})
-				c.Assert(onIsAllocatedCallsv4, checker.Equals, 1)
-				c.Assert(onOccupyCallsv4, checker.Equals, 1)
-				c.Assert(releaseCallsv4, checker.Equals, 0)
+				c.Assert(onIsAllocatedCallsv4, Equals, 1)
+				c.Assert(onOccupyCallsv4, Equals, 1)
+				c.Assert(releaseCallsv4, Equals, 0)
 
-				c.Assert(onIsAllocatedCallsv6, checker.Equals, 1)
-				c.Assert(onOccupyCallsv6, checker.Equals, 1)
-				c.Assert(releaseCallsv6, checker.Equals, 0)
+				c.Assert(onIsAllocatedCallsv6, Equals, 1)
+				c.Assert(onOccupyCallsv6, Equals, 1)
+				c.Assert(releaseCallsv6, Equals, 0)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1076,13 +1076,13 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 			},
 			testPostRun: func(fields *fields) {
 				c.Assert(fields.nodes, checker.DeepEquals, map[string]*nodeCIDRs{})
-				c.Assert(onIsAllocatedCallsv4, checker.Equals, 1)
-				c.Assert(onOccupyCallsv4, checker.Equals, 1)
-				c.Assert(releaseCallsv4, checker.Equals, 1)
+				c.Assert(onIsAllocatedCallsv4, Equals, 1)
+				c.Assert(onOccupyCallsv4, Equals, 1)
+				c.Assert(releaseCallsv4, Equals, 1)
 
-				c.Assert(onIsAllocatedCallsv6, checker.Equals, 0)
-				c.Assert(onOccupyCallsv6, checker.Equals, 0)
-				c.Assert(releaseCallsv6, checker.Equals, 0)
+				c.Assert(onIsAllocatedCallsv6, Equals, 0)
+				c.Assert(onOccupyCallsv6, Equals, 0)
+				c.Assert(releaseCallsv6, Equals, 0)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1195,7 +1195,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 					},
 				})
-				c.Assert(onAllocateNextv6, checker.Equals, 1)
+				c.Assert(onAllocateNextv6, Equals, 1)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1216,8 +1216,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 		}
 		newNodeCIDRs, gotAllocated, err := n.reuseIPNets(tt.args.nodeName, tt.args.v4CIDR, tt.args.v6CIDR)
 		gotErr := err != nil
-		c.Assert(gotErr, checker.Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
-		c.Assert(gotAllocated, checker.Equals, tt.wantAllocated, Commentf("Test Name: %s", tt.name))
+		c.Assert(gotErr, Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
+		c.Assert(gotAllocated, Equals, tt.wantAllocated, Commentf("Test Name: %s", tt.name))
 		c.Assert(newNodeCIDRs, checker.DeepEquals, tt.fields.newNodeCIDRs, Commentf("Test Name: %s", tt.name))
 
 		if tt.testPostRun != nil {
@@ -1327,8 +1327,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 					},
 				})
-				c.Assert(allocateNextCallsv4, checker.Equals, 1)
-				c.Assert(allocateNextCallsv6, checker.Equals, 1)
+				c.Assert(allocateNextCallsv4, Equals, 1)
+				c.Assert(allocateNextCallsv6, Equals, 1)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1382,8 +1382,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 			},
 			testPostRun: func(fields *fields) {
 				c.Assert(fields.nodes, checker.DeepEquals, map[string]*nodeCIDRs{})
-				c.Assert(allocateNextCallsv4, checker.Equals, 1)
-				c.Assert(releaseCallsv4, checker.Equals, 1)
+				c.Assert(allocateNextCallsv4, Equals, 1)
+				c.Assert(releaseCallsv4, Equals, 1)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1421,7 +1421,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 		nodeCIDRs, gotAllocated, err := n.allocateNext(tt.args.nodeName)
 		c.Assert(err, checker.DeepEquals, tt.wantErr, Commentf("Test Name: %s", tt.name))
 		c.Assert(nodeCIDRs, checker.DeepEquals, tt.nodeCIDRs, Commentf("Test Name: %s", tt.name))
-		c.Assert(gotAllocated, checker.Equals, tt.wantAllocated, Commentf("Test Name: %s", tt.name))
+		c.Assert(gotAllocated, Equals, tt.wantAllocated, Commentf("Test Name: %s", tt.name))
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)
@@ -1487,8 +1487,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_releaseIPNets(c *C) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				c.Assert(len(fields.nodes), checker.Equals, 0)
-				c.Assert(onReleaseCalls, checker.Equals, 1)
+				c.Assert(fields.nodes, HasLen, 0)
+				c.Assert(onReleaseCalls, Equals, 1)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1522,8 +1522,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_releaseIPNets(c *C) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				c.Assert(len(fields.nodes), checker.Equals, 0)
-				c.Assert(onReleaseCalls, checker.Equals, 1)
+				c.Assert(fields.nodes, HasLen, 0)
+				c.Assert(onReleaseCalls, Equals, 1)
 			},
 			args: args{
 				nodeName: "node-1",
@@ -1634,7 +1634,7 @@ func (s *PodCIDRSuite) Test_parsePodCIDRs(c *C) {
 	for _, tt := range tests {
 		nodeCIDRs, err := parsePodCIDRs(tt.args.podCIDRs)
 		gotErr := err != nil
-		c.Assert(gotErr, checker.Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
+		c.Assert(gotErr, Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
 		c.Assert(nodeCIDRs, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
@@ -1732,7 +1732,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					},
 					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
 						calls[k8sOpGet]++
-						c.Assert(nodeName, checker.Equals, "node-1")
+						c.Assert(nodeName, Equals, "node-1")
 						return &v2.CiliumNode{
 							ObjectMeta: v1.ObjectMeta{
 								Name: "node-1",
@@ -1821,7 +1821,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					},
 					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
 						calls[k8sOpGet]++
-						c.Assert(nodeName, checker.Equals, "node-1")
+						c.Assert(nodeName, Equals, "node-1")
 						return nil, &k8sErrors.StatusError{
 							ErrStatus: v1.Status{
 								Reason: v1.StatusReasonNotFound,
@@ -2043,7 +2043,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 	for _, tt := range tests {
 		tt.testSetup()
 		gotErr := syncToK8s(tt.args.nodeGetter, tt.args.ciliumNodesToK8s) != nil
-		c.Assert(gotErr, checker.Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
+		c.Assert(gotErr, Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.args)
 		}
@@ -2076,7 +2076,7 @@ func (s *PodCIDRSuite) TestNewNodesPodCIDRManager(c *C) {
 	nm.k8sReSync.Trigger()
 	// Waiting 2 times the amount of time set in the trigger
 	time.Sleep(2 * time.Second)
-	c.Assert(onDeleteCalls, checker.Equals, 0)
+	c.Assert(onDeleteCalls, Equals, 0)
 
 	nm.Mutex.Lock()
 	nm.ciliumNodesToK8s = map[string]*ciliumNodeK8sOp{
@@ -2096,5 +2096,5 @@ func (s *PodCIDRSuite) TestNewNodesPodCIDRManager(c *C) {
 	// Wait for the controller to try more times, the number of deletedCalls
 	// should not be different because we have successfully deleted the node.
 	time.Sleep(2 * time.Second)
-	c.Assert(onDeleteCalls, checker.Equals, 2)
+	c.Assert(onDeleteCalls, Equals, 2)
 }

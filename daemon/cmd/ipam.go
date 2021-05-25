@@ -68,22 +68,24 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	if ipv4Result != nil {
 		resp.Address.IPV4 = ipv4Result.IP.String()
 		resp.IPV4 = &models.IPAMAddressResponse{
-			Cidrs:          ipv4Result.CIDRs,
-			IP:             ipv4Result.IP.String(),
-			MasterMac:      ipv4Result.Master,
-			Gateway:        ipv4Result.GatewayIP,
-			ExpirationUUID: ipv4Result.ExpirationUUID,
+			Cidrs:           ipv4Result.CIDRs,
+			IP:              ipv4Result.IP.String(),
+			MasterMac:       ipv4Result.PrimaryMAC,
+			Gateway:         ipv4Result.GatewayIP,
+			ExpirationUUID:  ipv4Result.ExpirationUUID,
+			InterfaceNumber: ipv4Result.InterfaceNumber,
 		}
 	}
 
 	if ipv6Result != nil {
 		resp.Address.IPV6 = ipv6Result.IP.String()
 		resp.IPV6 = &models.IPAMAddressResponse{
-			Cidrs:          ipv6Result.CIDRs,
-			IP:             ipv6Result.IP.String(),
-			MasterMac:      ipv6Result.Master,
-			Gateway:        ipv6Result.GatewayIP,
-			ExpirationUUID: ipv6Result.ExpirationUUID,
+			Cidrs:           ipv6Result.CIDRs,
+			IP:              ipv6Result.IP.String(),
+			MasterMac:       ipv6Result.PrimaryMAC,
+			Gateway:         ipv6Result.GatewayIP,
+			ExpirationUUID:  ipv6Result.ExpirationUUID,
+			InterfaceNumber: ipv6Result.InterfaceNumber,
 		}
 	}
 
@@ -172,6 +174,36 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	return status
 }
 
+func (d *Daemon) allocateRouterIPv4(family datapath.NodeAddressingFamily) (net.IP, error) {
+	if option.Config.LocalRouterIPv4 != "" {
+		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
+		if routerIP == nil {
+			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv4)
+		}
+		if d.datapath.LocalNodeAddressing().IPv4().AllocationCIDR().Contains(routerIP) {
+			log.Warn("Specified router IP is within IPv4 podCIDR.")
+		}
+		return routerIP, nil
+	} else {
+		return d.allocateDatapathIPs(family)
+	}
+}
+
+func (d *Daemon) allocateRouterIPv6(family datapath.NodeAddressingFamily) (net.IP, error) {
+	if option.Config.LocalRouterIPv6 != "" {
+		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
+		if routerIP == nil {
+			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv6)
+		}
+		if d.datapath.LocalNodeAddressing().IPv6().AllocationCIDR().Contains(routerIP) {
+			log.Warn("Specified router IP is within IPv6 podCIDR.")
+		}
+		return routerIP, nil
+	} else {
+		return d.allocateDatapathIPs(family)
+	}
+}
+
 func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Blacklist allocation of the external IP
 	d.ipam.BlacklistIP(family.PrimaryExternal(), "node-ip")
@@ -180,17 +212,16 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	// In that case, removal and re-creation of the cilium_host is
 	// required. It will also cause disruption of networking until all
 	// endpoints have been regenerated.
+	var result *ipam.AllocationResult
 	routerIP = family.Router()
 	if routerIP != nil {
-		err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
+		result, err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
 		if err != nil {
 			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
 			// The restored router IP is not part of the allocation range.
 			// This indicates that the allocation range has changed.
-			if !option.Config.IsFlannelMasterDeviceSet() {
-				deleteHostDevice()
-			}
+			deleteHostDevice()
 
 			// force re-allocation of the router IP
 			routerIP = nil
@@ -198,7 +229,6 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	}
 
 	if routerIP == nil {
-		var result *ipam.AllocationResult
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(family, "router")
 		if err != nil {
@@ -206,6 +236,16 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 			return
 		}
 		routerIP = result.IP
+	}
+	if (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud) && result != nil {
+		var routingInfo *linuxrouting.RoutingInfo
+		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
+			result.PrimaryMAC, result.InterfaceNumber, option.Config.EnableIPv4Masquerade)
+		if err != nil {
+			err = fmt.Errorf("failed to create router info %w", err)
+			return
+		}
+		node.SetRouterInfo(routingInfo)
 	}
 
 	return
@@ -223,10 +263,10 @@ func (d *Daemon) allocateHealthIPs() error {
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
 			d.nodeDiscovery.LocalNode.IPv4HealthIP = result.IP
 
-			// In ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
+			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 			// in order to set up rules and routes on the local node to direct
 			// endpoint traffic out of the ENIs.
-			if option.Config.IPAM == ipamOption.IPAMENI {
+			if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 				if err := d.parseHealthEndpointInfo(result); err != nil {
 					log.WithError(err).Warn("Unable to allocate health information for ENI")
 				}
@@ -253,17 +293,17 @@ func (d *Daemon) allocateHealthIPs() error {
 func (d *Daemon) allocateIPs() error {
 	bootstrapStats.ipam.Start()
 	if option.Config.EnableIPv4 {
-		routerIP, err := d.allocateDatapathIPs(d.datapath.LocalNodeAddressing().IPv4())
+		routerIP, err := d.allocateRouterIPv4(d.datapath.LocalNodeAddressing().IPv4())
 		if err != nil {
 			return err
 		}
 		if routerIP != nil {
-			node.SetInternalIPv4(routerIP)
+			node.SetInternalIPv4Router(routerIP)
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		routerIP, err := d.allocateDatapathIPs(d.datapath.LocalNodeAddressing().IPv6())
+		routerIP, err := d.allocateRouterIPv6(d.datapath.LocalNodeAddressing().IPv6())
 		if err != nil {
 			return err
 		}
@@ -292,8 +332,8 @@ func (d *Daemon) allocateIPs() error {
 		}
 	}
 
-	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
-	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
+	log.Infof("  External-Node IPv4: %s", node.GetIPv4())
+	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4Router())
 
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
@@ -363,15 +403,18 @@ func (d *Daemon) startIPAM() {
 	bootstrapStats.ipam.Start()
 	log.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.k8sWatcher)
+	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.k8sWatcher, &d.mtuConfig)
 	bootstrapStats.ipam.End(true)
 }
 
 func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 	var err error
-	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(result.GatewayIP,
+	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(
+		result.GatewayIP,
 		result.CIDRs,
-		result.Master,
-		option.Config.EnableIPv4Masquerade)
+		result.PrimaryMAC,
+		result.InterfaceNumber,
+		option.Config.EnableIPv4Masquerade,
+	)
 	return err
 }

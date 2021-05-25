@@ -1,8 +1,7 @@
 package v4
 
 import (
-	"net/http"
-	"strings"
+	sdkstrings "github.com/aws/aws-sdk-go-v2/internal/strings"
 )
 
 // Rules houses a set of Rule needed for validation of a
@@ -62,7 +61,7 @@ type Patterns []string
 // been found
 func (p Patterns) IsValid(value string) bool {
 	for _, pattern := range p {
-		if strings.HasPrefix(http.CanonicalHeaderKey(value), pattern) {
+		if sdkstrings.HasPrefixFold(value, pattern) {
 			return true
 		}
 	}

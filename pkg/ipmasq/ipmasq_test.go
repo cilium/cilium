@@ -18,7 +18,6 @@ package ipmasq
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -99,7 +98,7 @@ var _ = check.Suite(&IPMasqTestSuite{})
 func (i *IPMasqTestSuite) SetUpTest(c *check.C) {
 	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
 
-	configFile, err := ioutil.TempFile("", "ipmasq-test")
+	configFile, err := os.CreateTemp("", "ipmasq-test")
 	c.Assert(err, check.IsNil)
 	i.configFilePath = configFile.Name()
 
@@ -115,7 +114,7 @@ func (i *IPMasqTestSuite) TearDownTest(c *check.C) {
 }
 
 func (i *IPMasqTestSuite) writeConfig(cfg string, c *check.C) {
-	err := ioutil.WriteFile(i.configFilePath, []byte(cfg), 0644)
+	err := os.WriteFile(i.configFilePath, []byte(cfg), 0644)
 	c.Assert(err, check.IsNil)
 }
 

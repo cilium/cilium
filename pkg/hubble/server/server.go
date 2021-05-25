@@ -23,6 +23,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
+	recorderpb "github.com/cilium/cilium/api/v1/recorder"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 
 	"github.com/sirupsen/logrus"
@@ -89,6 +90,9 @@ func (s *Server) initGRPCServer() error {
 	}
 	if s.opts.PeerService != nil {
 		peerpb.RegisterPeerServer(srv, s.opts.PeerService)
+	}
+	if s.opts.RecorderService != nil {
+		recorderpb.RegisterRecorderServer(srv, s.opts.RecorderService)
 	}
 	s.srv = srv
 	reflection.Register(s.srv)

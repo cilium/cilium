@@ -5,23 +5,24 @@ on:
 jobs:
   policy-stress-test:
     name: Start Nightly Policy Stress tests
+    if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-18.04
     steps:
-      - name: Trim git sha
-        id: vars
-        run: echo "::set-output name=sha_short::$(echo ${GITHUB_SHA:0:9})"
       - name: Request GKE test cluster
         uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706
         env:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --namespace=test-clusters --image=cilium/cilium-test-dev:${{ steps.vars.outputs.sha_short }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium:latest" "quay.io/cilium/operator-generic:latest" "quay.io/cilium/hubble-relay:latest" "NightlyPolicyStress"
+          args: --namespace=test-clusters --image=quay.io/cilium/cilium-test-ci:${{ github.sha }} "/usr/local/bin/cilium-test-gke.sh" "quay.io/cilium/cilium-ci:${{ github.sha }}" "quay.io/cilium/operator-generic-ci:${{ github.sha }}" "quay.io/cilium/hubble-relay-ci:${{ github.sha }}" "NightlyPolicyStress"
   baseline-test:
     name: Start performance test
+    if: github.repository == 'cilium/cilium'
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - name: Add namespace object
         run: |
           cat <<EOT > cilium.yaml
@@ -56,3 +57,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --namespace=test-clusters --init-manifest=cilium.yaml --image=cilium/cilium-perf-test:8cfdbfe "/usr/local/bin/run_in_test_cluster.sh" "--prom-name=prom" "--prom-ns=prom" "--duration=30m" "--manifest-path=/go/src/github.com/cilium/cilium-perf-test/1.8/manifests/"
+
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

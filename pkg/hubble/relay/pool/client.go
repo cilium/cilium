@@ -17,6 +17,7 @@ package pool
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
@@ -44,6 +45,16 @@ type GRPCClientConnBuilder struct {
 
 // ClientConn implements ClientConnBuilder.ClientConn.
 func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.ClientConn, error) {
+	// Ensure that the hostname (used as ServerName) information is given when
+	// Relay is configured with mTLS, and empty otherwise. We do this to report
+	// a mTLS misconfiguration between Hubble and Relay as early as possible.
+	switch {
+	case b.TLSConfig != nil && hostname == "":
+		return nil, fmt.Errorf("missing TLS ServerName for %s", target)
+	case b.TLSConfig == nil && hostname != "":
+		return nil, fmt.Errorf("unexpected TLS ServerName %s for %s", hostname, target)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
 	defer cancel()
 	opts := make([]grpc.DialOption, len(b.Options))

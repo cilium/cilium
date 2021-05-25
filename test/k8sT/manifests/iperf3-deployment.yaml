@@ -1,0 +1,21 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: iperf3-server
+spec:
+  selector:
+    matchLabels:
+      name: iperf3
+  template:
+    metadata:
+      labels:
+        name: iperf3
+        zgroup: testapp
+    spec:
+      hostNetwork: true
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: iperf3
+          image: docker.io/cilium/netperf:2.0
+          command: ["iperf3", "-s"]

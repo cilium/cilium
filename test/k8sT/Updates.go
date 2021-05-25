@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,8 +67,6 @@ var _ = Describe("K8sUpdates", func() {
 				helpers.CiliumStableVersion, helpers.GetCurrentK8SEnv()))
 			return
 		}
-
-		SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
@@ -146,8 +144,7 @@ func removeCilium(kubectl *helpers.Kubectl) {
 // that need to run, and the second one are the cleanup actions
 func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVersion, oldImageVersion, newHelmChartVersion, newImageVersion string) (func(), func()) {
 	var (
-		privateIface string // only used when running w/o kube-proxy
-		err          error
+		err error
 
 		timeout = 5 * time.Minute
 	)
@@ -159,13 +156,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
 			oldImageVersion, helpers.GetCurrentK8SEnv()))
 		return func() {}, func() {}
-	}
-
-	SkipIfIntegration(helpers.CIIntegrationFlannel)
-
-	if helpers.RunsWithoutKubeProxy() {
-		privateIface, err = kubectl.GetPrivateIface()
-		ExpectWithOffset(1, err).To(BeNil(), "Unable to determine private iface")
 	}
 
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
@@ -180,22 +170,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"sleepAfterInit":     "true",
 			"operator.enabled":   "false ",
 			"hubble.tls.enabled": "false",
-		}
-		// Cilium < v1.8 doesn't support multi-dev, so set only one device.
-		// If not set, then overwriteHelmOptions() will set two devices.
-		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
-			switch oldHelmChartVersion {
-			case "1.5-dev", "1.6-dev", "1.7-dev":
-				opts["global.nodePort.device"] = privateIface
-			default:
-				opts["devices"] = privateIface
-			}
-			// Cilium < v1.8 has kube-proxy-replacement=strict mode
-			// broken due to too high complexity (v4, v6, strict, debug).
-			// See also notes in GH-#12018 issue.
-			if helpers.RunsOn419Kernel() {
-				opts["debug.enabled"] = "false"
-			}
 		}
 		if imageName != "" {
 			opts["image.repository"] = imageName
@@ -272,17 +246,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"image.repository":              "quay.io/cilium/cilium",
 			"operator.image.repository":     "quay.io/cilium/operator",
 			"hubble.relay.image.repository": "quay.io/cilium/hubble-relay",
-		}
-		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
-			switch oldHelmChartVersion {
-			case "1.5-dev", "1.6-dev", "1.7-dev":
-				opts["global.nodePort.device"] = privateIface
-			default:
-				opts["devices"] = privateIface
-			}
-			if helpers.RunsOn419Kernel() {
-				opts["debug.enabled"] = "false"
-			}
 		}
 
 		// Eventually allows multiple return values, and performs the assertion
@@ -444,17 +407,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			opts["agent"] = "false "
 		} else {
 			opts["agent.enabled"] = "false "
-		}
-		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
-			switch oldHelmChartVersion {
-			case "1.5-dev", "1.6-dev", "1.7-dev":
-				opts["global.nodePort.device"] = privateIface
-			default:
-				opts["devices"] = privateIface
-			}
-			if helpers.RunsOn419Kernel() {
-				opts["debug.enabled"] = "false"
-			}
 		}
 
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {

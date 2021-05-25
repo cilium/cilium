@@ -41,33 +41,33 @@ const (
 // DefaultRetryableHTTPStatusCodes is the default set of HTTP status codes the SDK
 // should consider as retryable errors.
 var DefaultRetryableHTTPStatusCodes = map[int]struct{}{
-	500: struct{}{},
-	502: struct{}{},
-	503: struct{}{},
-	504: struct{}{},
+	500: {},
+	502: {},
+	503: {},
+	504: {},
 }
 
 // DefaultRetryableErrorCodes provides the set of API error codes that should
 // be retried.
 var DefaultRetryableErrorCodes = map[string]struct{}{
-	"RequestTimeout":          struct{}{},
-	"RequestTimeoutException": struct{}{},
+	"RequestTimeout":          {},
+	"RequestTimeoutException": {},
 
 	// Throttled status codes
-	"Throttling":                             struct{}{},
-	"ThrottlingException":                    struct{}{},
-	"ThrottledException":                     struct{}{},
-	"RequestThrottledException":              struct{}{},
-	"TooManyRequestsException":               struct{}{},
-	"ProvisionedThroughputExceededException": struct{}{},
-	"TransactionInProgressException":         struct{}{},
-	"RequestLimitExceeded":                   struct{}{},
-	"BandwidthLimitExceeded":                 struct{}{},
-	"LimitExceededException":                 struct{}{},
-	"RequestThrottled":                       struct{}{},
-	"SlowDown":                               struct{}{},
-	"PriorRequestNotComplete":                struct{}{},
-	"EC2ThrottledException":                  struct{}{},
+	"Throttling":                             {},
+	"ThrottlingException":                    {},
+	"ThrottledException":                     {},
+	"RequestThrottledException":              {},
+	"TooManyRequestsException":               {},
+	"ProvisionedThroughputExceededException": {},
+	"TransactionInProgressException":         {},
+	"RequestLimitExceeded":                   {},
+	"BandwidthLimitExceeded":                 {},
+	"LimitExceededException":                 {},
+	"RequestThrottled":                       {},
+	"SlowDown":                               {},
+	"PriorRequestNotComplete":                {},
+	"EC2ThrottledException":                  {},
 }
 
 // DefaultRetryables provides the set of retryable checks that are used by

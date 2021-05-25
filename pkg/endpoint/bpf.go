@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -39,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -65,6 +67,10 @@ const (
 	ciliumCHeaderPrefix = "CILIUM_BASE64_"
 )
 
+var (
+	handleNoHostInterfaceOnce sync.Once
+)
+
 // policyMapPath returns the path to the policy map of endpoint.
 func (e *Endpoint) policyMapPath() string {
 	return bpf.LocalMapPath(policymap.MapName, e.ID)
@@ -73,6 +79,12 @@ func (e *Endpoint) policyMapPath() string {
 // callsMapPath returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) callsMapPath() string {
 	return e.owner.Datapath().Loader().CallsMapPath(e.ID)
+}
+
+// callsCustomMapPath returns the path to cilium custom tail calls map of an
+// endpoint.
+func (e *Endpoint) customCallsMapPath() string {
+	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
 }
 
 // BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
@@ -284,6 +296,11 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				e.proxyStatisticsMutex.Unlock()
 
 				updatedStats = append(updatedStats, proxyStats)
+			}
+
+			if e.desiredPolicy == e.realizedPolicy {
+				// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
+				continue
 			}
 
 			// Set the proxy port in the policy map.
@@ -626,7 +643,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
 	}
 
-	if !datapathRegenCtxt.epInfoCache.IsHost() {
+	if !datapathRegenCtxt.epInfoCache.IsHost() ||
+		(option.Config.EnableHostFirewall && option.Config.EnableEndpointRoutes) {
 		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 		stats.mapSync.Start()
 		epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache, e.policyMap)
@@ -817,6 +835,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 		// Also reset the in-memory state of the realized state as the
 		// BPF map content is guaranteed to be empty right now.
 		e.realizedPolicy.PolicyMapState = make(policy.MapState)
+		e.initPolicyMapPressureMetric()
+		e.updatePolicyMapPressureMetric()
 	}
 
 	// Only generate & populate policy map if a security identity is set up for
@@ -973,6 +993,9 @@ func (e *Endpoint) deleteMaps() []error {
 		"calls":  e.callsMapPath(),
 		"egress": e.BPFIpvlanMapPath(),
 	}
+	if !e.isHost {
+		maps["custom"] = e.customCallsMapPath()
+	}
 	for name, path := range maps {
 		if err := os.RemoveAll(path); err != nil {
 			errors = append(errors, fmt.Errorf("unable to remove %s map file %s: %s", name, path, err))
@@ -1071,6 +1094,27 @@ func (e *Endpoint) SkipStateClean() {
 	e.unlock()
 }
 
+func (e *Endpoint) initPolicyMapPressureMetric() {
+	if !option.Config.MetricsConfig.BPFMapPressure {
+		return
+	}
+
+	if e.policyMapPressureGauge != nil {
+		return
+	}
+
+	e.policyMapPressureGauge = metrics.NewBPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
+}
+
+func (e *Endpoint) updatePolicyMapPressureMetric() {
+	if e.policyMapPressureGauge == nil {
+		return
+	}
+
+	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MapInfo.MaxEntries)
+	e.policyMapPressureGauge.Set(value)
+}
+
 // The bool pointed by hadProxy, if not nil, will be set to 'true' if
 // the deleted entry had a proxy port assigned to it.  *hadProxy is
 // not otherwise changed (e.g., it is never set to 'false').
@@ -1105,6 +1149,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 
 	// Operation was successful, remove from realized state.
 	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
+	e.updatePolicyMapPressureMetric()
 
 	e.policyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToDelete,
@@ -1140,6 +1185,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 
 	// Operation was successful, add to realized state.
 	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+	e.updatePolicyMapPressureMetric()
 
 	e.policyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToAdd,
@@ -1197,7 +1243,9 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 
 	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range adds {
-		// Keep the existing proxy port, if any
+		// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
+		// the actual proxy port number. This is due to the fact that proxies may not yet have
+		// bound to a specific port when a proxy policy is first instantiated.
 		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			if entry.ProxyPort != 0 {
@@ -1231,65 +1279,95 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
 func (e *Endpoint) syncPolicyMap() error {
-	e.policyDebug(logrus.Fields{
-		"policyRealized": e.realizedPolicy == e.desiredPolicy,
-	}, "syncPolicyMap")
-
-	// Nothing to do if the desired policy is already fully realized.
-	if e.realizedPolicy != e.desiredPolicy {
-		errors := 0
-
-		// Add policy map entries before deleting to avoid transient drops
-		err := e.addPolicyMapDelta()
-		if err != nil {
-			errors++
-		}
-
-		// Delete policy keys present in the realized state, but not present in the desired state
-		for keyToDelete := range e.realizedPolicy.PolicyMapState {
-			// If key that is in realized state is not in desired state, just remove it.
-			if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-				if !e.deletePolicyKey(keyToDelete, false, nil) {
-					errors++
-				}
-			}
-		}
-
-		if errors > 0 {
-			return fmt.Errorf("syncPolicyMap failed")
-		}
+	// Apply pending policy map changes first so that desired map is up-to-date before
+	// we diff the maps below.
+	_, err := e.applyPolicyMapChanges()
+	if err != nil {
+		return err
 	}
 
-	// Still may have changes due to identities added and/or
-	// deleted after the desired policy was computed.
-	_, err := e.applyPolicyMapChanges()
-	return err
-}
-
-// addPolicyMapDelta adds new or updates existing bpf policy map state based
-// on the difference between the realized and desired policy state without
-// dumping the bpf policy map.
-func (e *Endpoint) addPolicyMapDelta() error {
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
+		e.policyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
 		return nil
 	}
 
+	// Diffs between the maps are expected here, so do not bother collecting them
+	_, _, err = e.syncDesiredPolicyMapWith(e.realizedPolicy.PolicyMapState, false)
+	return err
+}
+
+// syncDesiredPolicyMapWith updates the bpf policy map state based on the
+// difference between the given 'realized' and desired policy state without
+// dumping the bpf policy map.
+func (e *Endpoint) syncDesiredPolicyMapWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
+	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+		if oldEntry, ok := realized[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+			// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
+			// the actual proxy port number. This is due to the fact that proxies may not yet have
+			// bound to a specific port when a proxy policy is first instantiated.
+			if entry.IsRedirectEntry() {
+				// Will change to 0 if on a sidecar
+				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
+			}
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
+			}
+			diffCount++
+			if withDiffs {
+				diffs = append(diffs, policy.MapChange{Add: true, Key: keyToAdd, Value: entry})
+			}
+		}
+	}
+
+	// Delete policy keys present in the realized state, but not present in the desired state
+	for keyToDelete := range realized {
+		// If key that is in realized state is not in desired state, just remove it.
+		if entry, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
+			if !e.deletePolicyKey(keyToDelete, false, nil) {
+				errors++
+			}
+			diffCount++
+			if withDiffs {
+				diffs = append(diffs, policy.MapChange{Add: false, Key: keyToDelete, Value: entry})
 			}
 		}
 	}
 
 	if errors > 0 {
-		return fmt.Errorf("updating desired PolicyMap state failed")
+		err = fmt.Errorf("syncPolicyMap failed")
 	}
+	return diffCount, diffs, err
+}
 
-	return nil
+func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
+	currentMap := make(policy.MapState)
+
+	cb := func(key bpf.MapKey, value bpf.MapValue) {
+		// Convert key to host byte-order. ToHost() makes a copy.
+		keyHostOrder := key.(*policymap.PolicyKey).ToHost()
+		// Convert from policymap.Key to policy.Key
+		policyKey := policy.Key{
+			Identity:         keyHostOrder.Identity,
+			DestPort:         keyHostOrder.DestPort,
+			Nexthdr:          keyHostOrder.Nexthdr,
+			TrafficDirection: keyHostOrder.TrafficDirection,
+		}
+		// Convert value to host byte-order. ToHost() makes a copy.
+		entryHostOrder := value.(*policymap.PolicyEntry).ToHost()
+		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
+		policyEntry := policy.MapStateEntry{
+			ProxyPort: entryHostOrder.ProxyPort,
+			IsDeny:    policymap.PolicyEntryFlags(entryHostOrder.GetFlags()).IsDeny(),
+		}
+		currentMap[policyKey] = policyEntry
+	}
+	err := e.policyMap.DumpWithCallback(cb)
+
+	return currentMap, err
 }
 
 // syncPolicyMapWithDump attempts to synchronize the PolicyMap for this endpoint to
@@ -1302,16 +1380,18 @@ func (e *Endpoint) addPolicyMapDelta() error {
 // PolicyMap is unable to be dumped, or any update operation to the map fails.
 // Must be called with e.mutex Lock()ed.
 func (e *Endpoint) syncPolicyMapWithDump() error {
-
-	if e.realizedPolicy.PolicyMapState == nil {
-		e.realizedPolicy.PolicyMapState = make(policy.MapState)
-	}
-
 	if e.policyMap == nil {
 		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
 	}
 
-	currentMapContents, err := e.policyMap.DumpKeysToSlice()
+	// Apply pending policy map changes first so that desired map is up-to-date before
+	// we diff the maps below.
+	_, err := e.applyPolicyMapChanges()
+	if err != nil {
+		return err
+	}
+
+	currentMap, err := e.dumpPolicyMapToMapState()
 
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
@@ -1332,44 +1412,21 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		}
 
 		// Try to dump again, fail if error occurs.
-		currentMapContents, err = e.policyMap.DumpKeysToSlice()
+		currentMap, err = e.dumpPolicyMapToMapState()
 		if err != nil {
 			return err
 		}
 	}
 
-	errors := 0
-
 	// Log full policy map for every dump
-	e.policyDebug(logrus.Fields{
-		"dumpedPolicyMap": currentMapContents,
-	}, "syncPolicyMapWithDump")
+	e.policyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
+	// Diffs between the maps indicate an error in the policy map update logic.
+	// Collect and log diffs if policy logging is enabled.
+	diffCount, diffs, err := e.syncDesiredPolicyMapWith(currentMap, e.getPolicyLogger() != nil)
 
-	for _, entry := range currentMapContents {
-		// Convert key to host-byte order for lookup in the desiredMapState.
-		keyHostOrder := entry.ToHost()
-
-		// Convert from policymap.Key to policy.Key
-		keyToDelete := policy.Key{
-			Identity:         keyHostOrder.Identity,
-			DestPort:         keyHostOrder.DestPort,
-			Nexthdr:          keyHostOrder.Nexthdr,
-			TrafficDirection: keyHostOrder.TrafficDirection,
-		}
-
-		// If key that is in policy map is not in desired state, just remove it.
-		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			e.getLogger().WithField(logfields.BPFMapKey, entry.String()).Debug("syncPolicyMapWithDump removing a bpf policy entry not in the desired state")
-			if !e.deletePolicyKey(keyToDelete, false, nil) {
-				errors++
-			}
-		}
-	}
-
-	err = e.addPolicyMapDelta()
-
-	if errors > 0 {
-		return fmt.Errorf("synchronizing desired PolicyMap state failed")
+	if diffCount > 0 {
+		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")
+		e.policyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
 	}
 
 	return err
@@ -1422,6 +1479,12 @@ func (e *Endpoint) RequireEndpointRoute() bool {
 	return e.DatapathConfiguration.InstallEndpointRoute
 }
 
+// DisableSIPVerification returns true if the endpoint wants to skip
+// srcIP verification
+func (e *Endpoint) DisableSIPVerification() bool {
+	return e.DatapathConfiguration.DisableSipVerification
+}
+
 // GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter that would control
 // the creation of policy verdict logs. Value of VerdictLogFilter needs to be
 // consistent with how it is used in policy_verdict_filter_allow() in bpf/lib/policy_log.h
@@ -1457,6 +1520,37 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 		if err != nil {
 			return fmt.Errorf("interface %s could not be found", e.ifName)
 		}
+	}
+	return nil
+}
+
+// CheckHealth verifies that the endpoint is alive and healthy by checking the
+// link status. This satisfies endpointmanager.EndpointCheckerFunc.
+func CheckHealth(ep *Endpoint) error {
+	// Be extra careful, we're only looking for one specific type of error
+	// currently: That the link has gone missing. Ignore other error to
+	// ensure that the caller doesn't unintentionally tear down the
+	// Endpoint thinking that it no longer exists.
+	iface := ep.HostInterface()
+	if iface == "" {
+		handleNoHostInterfaceOnce.Do(func() {
+			log.WithFields(logrus.Fields{
+				logfields.URL:         "https://github.com/cilium/cilium/pull/14541",
+				logfields.HelpMessage: "For more information, see the linked URL. Pass endpoint-gc-interval=\"0\" to disable",
+			}).Info("Endpoint garbage collection is ineffective, ignoring endpoint")
+		})
+		return nil
+	}
+	_, err := netlink.LinkByName(iface)
+	if _, ok := err.(netlink.LinkNotFoundError); ok {
+		return fmt.Errorf("Endpoint is invalid: %w", err)
+	}
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.EndpointID:  ep.StringID(),
+			logfields.ContainerID: ep.GetShortContainerID(),
+			logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+		}).Warning("An error occurred while checking endpoint health")
 	}
 	return nil
 }

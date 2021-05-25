@@ -87,6 +87,7 @@ func (client BaseClient) CheckDNSNameAvailability(ctx context.Context, location 
 	result, err = client.CheckDNSNameAvailabilityResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.BaseClient", "CheckDNSNameAvailability", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -155,7 +156,7 @@ func (client BaseClient) DeleteBastionShareableLink(ctx context.Context, resourc
 
 	result, err = client.DeleteBastionShareableLinkSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.BaseClient", "DeleteBastionShareableLink", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.BaseClient", "DeleteBastionShareableLink", nil, "Failure sending request")
 		return
 	}
 
@@ -193,7 +194,23 @@ func (client BaseClient) DeleteBastionShareableLinkSender(req *http.Request) (fu
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client BaseClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.DeleteBastionShareableLinkFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.DeleteBastionShareableLinkFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -241,6 +258,11 @@ func (client BaseClient) DisconnectActiveSessions(ctx context.Context, resourceG
 	result.bsdr, err = client.DisconnectActiveSessionsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.BaseClient", "DisconnectActiveSessions", resp, "Failure responding to request")
+		return
+	}
+	if result.bsdr.hasNextLink() && result.bsdr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -349,7 +371,7 @@ func (client BaseClient) Generatevirtualwanvpnserverconfigurationvpnprofile(ctx 
 
 	result, err = client.GeneratevirtualwanvpnserverconfigurationvpnprofileSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.BaseClient", "Generatevirtualwanvpnserverconfigurationvpnprofile", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.BaseClient", "Generatevirtualwanvpnserverconfigurationvpnprofile", nil, "Failure sending request")
 		return
 	}
 
@@ -387,7 +409,29 @@ func (client BaseClient) GeneratevirtualwanvpnserverconfigurationvpnprofileSende
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client BaseClient) (vpr VpnProfileResponse, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.GeneratevirtualwanvpnserverconfigurationvpnprofileFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.GeneratevirtualwanvpnserverconfigurationvpnprofileFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if vpr.Response.Response, err = future.GetResult(sender); err == nil && vpr.Response.Response.StatusCode != http.StatusNoContent {
+			vpr, err = client.GeneratevirtualwanvpnserverconfigurationvpnprofileResponder(vpr.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.GeneratevirtualwanvpnserverconfigurationvpnprofileFuture", "Result", vpr.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -426,7 +470,7 @@ func (client BaseClient) GetActiveSessions(ctx context.Context, resourceGroupNam
 
 	result, err = client.GetActiveSessionsSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.BaseClient", "GetActiveSessions", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.BaseClient", "GetActiveSessions", nil, "Failure sending request")
 		return
 	}
 
@@ -462,7 +506,29 @@ func (client BaseClient) GetActiveSessionsSender(req *http.Request) (future GetA
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client BaseClient) (baslrp BastionActiveSessionListResultPage, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.GetActiveSessionsFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.GetActiveSessionsFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if baslrp.baslr.Response.Response, err = future.GetResult(sender); err == nil && baslrp.baslr.Response.Response.StatusCode != http.StatusNoContent {
+			baslrp, err = client.GetActiveSessionsResponder(baslrp.baslr.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.GetActiveSessionsFuture", "Result", baslrp.baslr.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -515,7 +581,7 @@ func (client BaseClient) GetActiveSessionsComplete(ctx context.Context, resource
 	}
 	var future GetActiveSessionsFuture
 	future, err = client.GetActiveSessions(ctx, resourceGroupName, bastionHostName)
-	result.Future = future.Future
+	result.FutureAPI = future.FutureAPI
 	return
 }
 
@@ -552,6 +618,11 @@ func (client BaseClient) GetBastionShareableLink(ctx context.Context, resourceGr
 	result.bsllr, err = client.GetBastionShareableLinkResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.BaseClient", "GetBastionShareableLink", resp, "Failure responding to request")
+		return
+	}
+	if result.bsllr.hasNextLink() && result.bsllr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -659,7 +730,7 @@ func (client BaseClient) PutBastionShareableLink(ctx context.Context, resourceGr
 
 	result, err = client.PutBastionShareableLinkSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.BaseClient", "PutBastionShareableLink", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.BaseClient", "PutBastionShareableLink", nil, "Failure sending request")
 		return
 	}
 
@@ -697,7 +768,29 @@ func (client BaseClient) PutBastionShareableLinkSender(req *http.Request) (futur
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client BaseClient) (bsllrp BastionShareableLinkListResultPage, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.PutBastionShareableLinkFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.PutBastionShareableLinkFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if bsllrp.bsllr.Response.Response, err = future.GetResult(sender); err == nil && bsllrp.bsllr.Response.Response.StatusCode != http.StatusNoContent {
+			bsllrp, err = client.PutBastionShareableLinkResponder(bsllrp.bsllr.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.PutBastionShareableLinkFuture", "Result", bsllrp.bsllr.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -750,7 +843,7 @@ func (client BaseClient) PutBastionShareableLinkComplete(ctx context.Context, re
 	}
 	var future PutBastionShareableLinkFuture
 	future, err = client.PutBastionShareableLink(ctx, resourceGroupName, bastionHostName, bslRequest)
-	result.Future = future.Future
+	result.FutureAPI = future.FutureAPI
 	return
 }
 
@@ -785,6 +878,7 @@ func (client BaseClient) SupportedSecurityProviders(ctx context.Context, resourc
 	result, err = client.SupportedSecurityProvidersResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.BaseClient", "SupportedSecurityProviders", resp, "Failure responding to request")
+		return
 	}
 
 	return

@@ -2,11 +2,11 @@
 
 function check_img_list {
   local imgs=$@
-  for img in $imgs ; do 
+  for img in $imgs ; do
     #fmt_img=$img
     fmt_img=$(echo $img | sed -e 's/.*docker.io\///g' | sed -e 's/library\///g')
     #echo "checking if $img is cached..."
-    IMG_EXISTS=$(docker images $fmt_img | wc -l) 
+    IMG_EXISTS=$(docker images $fmt_img | wc -l)
     if [[ "$IMG_EXISTS" != "2" ]] ; then
       #echo "*******************************"
       echo -e "not cached in VM: \t$img"
@@ -41,8 +41,7 @@ function test_images {
 
 function cilium_images {
   echo "Downloading all images needed to build cilium"
-  CILIUM_DOCKERFILES="./Dockerfile ./cilium-operator.Dockerfile ./Dockerfile.builder"
-  CILIUM_IMGS=$(grep -rI --no-filename "quay.io" $CILIUM_DOCKERFILES   | sed -nEe 's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
+  CILIUM_IMGS=$(grep -rI --no-filename "quay.io" images/*/Dockerfile | sed -nEe 's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
 
   check_img_list $CILIUM_IMGS
   for p in `jobs -p`; do

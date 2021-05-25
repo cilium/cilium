@@ -17,13 +17,13 @@ package v1
 import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Event represents a single event observed and stored by Hubble
 type Event struct {
 	// Timestamp when event was observed in Hubble
-	Timestamp *timestamp.Timestamp
+	Timestamp *timestamppb.Timestamp
 	// Event contains the actual event
 	Event interface{}
 }
@@ -47,6 +47,18 @@ func (ev *Event) GetAgentEvent() *pb.AgentEvent {
 	}
 	if f, ok := ev.Event.(*pb.AgentEvent); ok {
 		return f
+	}
+	return nil
+}
+
+// GetDebugEvent returns the decoded debug event, or nil if the event is nil
+// or not an debug event
+func (ev *Event) GetDebugEvent() *pb.DebugEvent {
+	if ev == nil || ev.Event == nil {
+		return nil
+	}
+	if d, ok := ev.Event.(*pb.DebugEvent); ok {
+		return d
 	}
 	return nil
 }

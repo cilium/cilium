@@ -23,12 +23,13 @@ import (
 	relaypb "github.com/cilium/cilium/api/v1/relay"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/queue"
+	"github.com/cilium/cilium/pkg/inctimer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func isAvailable(conn poolTypes.ClientConn) bool {
@@ -83,7 +84,8 @@ func sortFlows(
 
 	go func() {
 		defer close(sortedFlows)
-
+		bufferTimer, bufferTimerDone := inctimer.New()
+		defer bufferTimerDone()
 	flowsLoop:
 		for {
 			select {
@@ -100,7 +102,7 @@ func sortFlows(
 					}
 				}
 				pq.Push(flow)
-			case t := <-time.After(bufferDrainTimeout):
+			case t := <-bufferTimer.After(bufferDrainTimeout):
 				// Make sure to drain old flows from the queue when no new
 				// flows are received. The bufferDrainTimeout duration is used
 				// as a sorting window.
@@ -134,8 +136,8 @@ func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsRespons
 	}
 
 	return &observerpb.GetFlowsResponse{
-		NodeName: nodeTypes.GetName(),
-		Time:     ptypes.TimestampNow(),
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
+		Time:     timestamppb.New(time.Now()),
 		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
 			NodeStatus: &relaypb.NodeStatusEvent{
 				StateChange: relaypb.NodeState_NODE_ERROR,
@@ -148,8 +150,8 @@ func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsRespons
 
 func nodeStatusEvent(state relaypb.NodeState, nodeNames ...string) *observerpb.GetFlowsResponse {
 	return &observerpb.GetFlowsResponse{
-		NodeName: nodeTypes.GetName(),
-		Time:     ptypes.TimestampNow(),
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
+		Time:     timestamppb.New(time.Now()),
 		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
 			NodeStatus: &relaypb.NodeStatusEvent{
 				StateChange: state,
@@ -212,7 +214,7 @@ func aggregateErrors(
 				}
 
 				pendingResponse = response
-				flushPending = time.After(errorAggregationWindow)
+				flushPending = inctimer.After(errorAggregationWindow)
 			case <-flushPending:
 				select {
 				case aggregated <- pendingResponse:

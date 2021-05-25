@@ -57,6 +57,11 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 
 #ifndef SKIP_POLICY_MAP
 #ifdef ENABLE_IPV6
+/* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
+ * on the same node, either via the stack or via a redirect call.
+ * Depending on the configuration, it may also enforce ingress policies for the
+ * destination pod via a tail call.
+ */
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
 					       const struct endpoint_info *ep,
@@ -88,8 +93,9 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, seclabel);
 
-	return redirect_ep(ep->ifindex, from_host);
+	return redirect_ep(ctx, ep->ifindex, from_host);
 #else
+	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
@@ -100,6 +106,11 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 }
 #endif /* ENABLE_IPV6 */
 
+/* Performs IPv4 L2/L3 handling and delivers the packet to the destination pod
+ * on the same node, either via the stack or via a redirect call.
+ * Depending on the configuration, it may also enforce ingress policies for the
+ * destination pod via a tail call.
+ */
 static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, struct iphdr *ip4,
 					       const struct endpoint_info *ep,
@@ -130,8 +141,9 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, seclabel);
 
-	return redirect_ep(ep->ifindex, from_host);
+	return redirect_ep(ctx, ep->ifindex, from_host);
 #else
+	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);

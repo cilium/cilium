@@ -13,19 +13,26 @@ spec:
       k8s-app: hubble-ui
   template:
     metadata:
-{{- with .Values.hubble.ui.podAnnotations }}
       annotations:
+{{- if .Values.hubble.ui.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/hubble-ui-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-ui-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
+{{- with .Values.hubble.ui.podAnnotations }}
         {{- toYaml . | nindent 8 }}
 {{- end }}
       labels:
         k8s-app: hubble-ui
+{{- with .Values.hubble.ui.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
       {{- if .Values.hubble.ui.securityContext.enabled }}
       securityContext:
         runAsUser: 1001
       {{- end }}
-      serviceAccount: hubble-ui
-      serviceAccountName: hubble-ui
+      serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.ui.name | quote }}
 {{- with .Values.hubble.ui.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
@@ -33,6 +40,10 @@ spec:
 {{- with .Values.hubble.ui.tolerations }}
       tolerations:
       {{- toYaml . | trim | nindent 6 }}
+{{- end }}
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 6 }}
 {{- end }}
       containers:
         - name: frontend

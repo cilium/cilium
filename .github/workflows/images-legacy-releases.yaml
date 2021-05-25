@@ -1,0 +1,170 @@
+name: Image Release Build
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+
+jobs:
+  build-and-push:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    environment: release
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+
+          - name: operator
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+
+          - name: docker-plugin
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@0d135e0c2fc0dba0729c1a47ecfcf5a3c7f8579e
+
+      - name: Login to DockerHub
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
+
+      - name: Login to quay.io
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+
+      - name: Getting image tag
+        id: tag
+        run: |
+          echo ::set-output name=tag::${GITHUB_REF##*/}
+
+      - name: Checkout Source Code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+
+      - name: Release Build ${{ matrix.name }}
+        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        id: docker_build_release
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+            quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ github.sha }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: Image Release Digest
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          job_name=${{ matrix.name }}
+          job_name_capital=${job_name^^}
+          job_name_underscored=${job_name_capital//-/_}
+          echo "${job_name_underscored}_DIGEST := \"${{ steps.docker_build_release.outputs.digest }}\"" > image-digest/makefile-digest.txt
+
+          echo "### ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+          echo "\`docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`quay.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "" >> image-digest/${{ matrix.name }}.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: image-digest
+          retention-days: 1
+
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  image-digests:
+    if: ${{ github.repository == 'cilium/cilium' }}
+    name: Display Digests
+    runs-on: ubuntu-20.04
+    needs: build-and-push
+    steps:
+      - name: Getting image tag
+        id: tag
+        run: |
+          echo ::set-output name=tag::${GITHUB_REF##*/}
+      - name: Downloading Image Digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+
+      - name: Download digests of all images built
+        uses: actions/download-artifact@158ca71f7c614ae705e79f25522ef4658df18253
+        with:
+          path: image-digest/
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          echo "## Docker Manifests" > ../image-digest-output.txt
+          echo "" >> ../image-digest-output.txt
+          find -type f -not -name "makefile-digest.txt" | sort | xargs -d '\n' cat >> ../image-digest-output.txt
+
+      - name: Image Makefile Digests
+        shell: bash
+        run: |
+          cd image-digest/
+          echo "# File generated by .github/workflows/images-legacy-releases.yaml; DO NOT EDIT." > ../Makefile.digests
+          echo "# Copyright "$(date +'%Y')" Authors of Cilium" >> ../Makefile.digests
+          echo "# SPDX-License-Identifier: Apache-2.0" >> ../Makefile.digests
+          echo "" >> ../Makefile.digests
+          find -type f  -name "makefile-digest.txt" | sort | xargs -d '\n' cat >> ../Makefile.digests
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: image-digest-output.txt-${{ steps.tag.outputs.tag }}
+          path: image-digest-output.txt
+          retention-days: 1
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: Makefile.digests-${{ steps.tag.outputs.tag }}
+          path: Makefile.digests
+          retention-days: 1

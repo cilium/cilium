@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2018-2020 Authors of Cilium
+# Copyright 2018-2021 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 CG_PROGS=${CG_PROGS:-$ALL_CG_PROGS}
 ALL_XDP_PROGS="bpf_xdp"
 XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
-IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests"
+IGNORED_PROGS="bpf_alignchecker tests/bpf_ct_tests custom/bpf_custom"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 VERBOSE=false
 RUN_ALL_TESTS=false
@@ -61,7 +61,7 @@ function cleanup {
 }
 
 function get_section {
-	grep "__section(" $DIR/$1 | sed 's/__sec[^\"]*\"\([0-9A-Za-z_-]*\).*/\1/'
+	sed -n 's/.*__section("\([0-9A-Za-z_-]*\).*/\1/p' $DIR/$1
 }
 
 function load_prog {

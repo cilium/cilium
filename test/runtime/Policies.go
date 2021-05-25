@@ -62,10 +62,20 @@ var _ = Describe("RuntimePolicies", func() {
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
+		testStartTime time.Time
 	)
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+
+		// We need to stop and start Cilium separately (vs. doing a restart) to
+		// allow us to validate only the logs of the startup. The stop may
+		// contain "bad" log messages but they are expected (abrupt stop during
+		// endpoint regeneration).
+		vm.ExecWithSudo("systemctl stop cilium").ExpectSuccess("Failed trying to stop cilium via systemctl")
+		ExpectCiliumNotRunning(vm)
+		testStartTime = time.Now()
+
 		// Make sure that Cilium is started with appropriate CLI options
 		// (specifically to exclude the local addresses that are populated for
 		// CIDR policy tests).
@@ -76,8 +86,9 @@ var _ = Describe("RuntimePolicies", func() {
 
 		initContainer = "initContainer"
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	BeforeEach(func() {
@@ -90,10 +101,11 @@ var _ = Describe("RuntimePolicies", func() {
 
 	JustBeforeEach(func() {
 		_, monitorStop = vm.MonitorStart()
+		testStartTime = time.Now()
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
@@ -240,8 +252,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status := vm.PolicyDelAll()
 		status.ExpectSuccess()
-
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
@@ -263,8 +274,7 @@ var _ = Describe("RuntimePolicies", func() {
 		By("Disabling all the policies. All should work")
 
 		vm.PolicyDelAll().ExpectSuccess("cannot delete the policy")
-
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
 			connectivityTest(allRequests, app, helpers.Httpd1, true)
@@ -310,7 +320,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		By("Uninstalling policy")
 		vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		By("Canceling background connections from app2 to httpd1")
 		cancel()
@@ -363,8 +373,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status := vm.PolicyDelAll()
 		status.ExpectSuccess()
-
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
@@ -413,7 +422,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status = vm.PolicyDelAll()
 		status.ExpectSuccess()
-		vm.WaitEndpointsReady()
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
@@ -497,6 +506,8 @@ var _ = Describe("RuntimePolicies", func() {
 	It("L3-Dependent L7 Egress", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3DependentL7EgressJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "unable to import %s", policiesL3DependentL7EgressJSON)
+
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		endpointIDS, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
@@ -954,8 +965,7 @@ var _ = Describe("RuntimePolicies", func() {
 			_, err := vm.PolicyRenderAndImport(policy)
 			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			checkEgressToWorld()
 		}
@@ -1105,8 +1115,7 @@ var _ = Describe("RuntimePolicies", func() {
 			_, err := vm.PolicyRenderAndImport(policy)
 			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 		}
 
 		// curlWithRetry retries the curl, to make sure that allowed curls don't
@@ -1558,7 +1567,7 @@ var _ = Describe("RuntimePolicies", func() {
 				// Checks for a ingress policy verdict event (type 5)
 				err := hubbleRes.WaitUntilMatchFilterLine(
 					`{.source.labels} -> {.IP.destination} : {.verdict} {.event_type.type}`,
-					fmt.Sprintf(`["reserved:host"] -> %s : FORWARDED 5`, endpointIP.IPV4))
+					fmt.Sprintf(`["reserved:host"] -> %s : AUDIT 5`, endpointIP.IPV4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				hubbleRes.ExpectContainsFilterLine(
@@ -1567,10 +1576,9 @@ var _ = Describe("RuntimePolicies", func() {
 					"No ingress traffic to endpoint")
 
 				By("Testing cilium monitor output")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("local EP ID %s, remote ID host, proto 1, ingress, action audit", endpointID),
-					"No ingress policy log record",
-				)
+				auditVerdict := fmt.Sprintf("local EP ID %s, remote ID host, proto 1, ingress, action audit", endpointID)
+				monitorRes.WaitUntilMatch(auditVerdict)
+				monitorRes.ExpectContains(auditVerdict, "No ingress policy log record")
 
 				By("Testing cilium endpoint list output")
 				res = vm.Exec("cilium endpoint list")
@@ -1604,14 +1612,13 @@ var _ = Describe("RuntimePolicies", func() {
 				// Checks for a ingress policy verdict event (type 5)
 				hubbleRes.ExpectContainsFilterLine(
 					`{.source.ID} -> {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
-					fmt.Sprintf(`%s -> ["reserved:host"] %s : FORWARDED 5`, endpointID, hostIP),
+					fmt.Sprintf(`%s -> ["reserved:host"] %s : AUDIT 5`, endpointID, hostIP),
 					"Default policy verdict on egress failed")
 
 				By("Testing cilium monitor output")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("ID %s, remote ID host, proto 1, egress, action audit", endpointID),
-					"No egress policy log record",
-				)
+				auditVerdict := fmt.Sprintf("ID %s, remote ID host, proto 1, egress, action audit", endpointID)
+				monitorRes.WaitUntilMatch(auditVerdict)
+				monitorRes.ExpectContains(auditVerdict, "No egress policy log record")
 
 				By("Testing cilium endpoint list output")
 				res := vm.Exec("cilium endpoint list")
@@ -1731,8 +1738,7 @@ var _ = Describe("RuntimePolicies", func() {
 			vm.ContainerCreate(newContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
 
 			By("Waiting for newly added endpoint to be ready")
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			// All endpoints should be able to connect to this container on port
 			// 80, but should not be able to ping because ICMP does not use
@@ -1759,8 +1765,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	BeforeEach(func() {
@@ -1890,8 +1895,10 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Verifying that trace says that %q can reach %q", httpd2Label, httpd1Label)
 
-		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP`, httpd2Label, httpd1Label))
+		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP --dport 0/ANY`, httpd2Label, httpd1Label))
 		Expect(res.Stdout()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		endpointIDS, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
@@ -1953,13 +1960,13 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Verifying verbose trace for expected output using security identities")
 		res = vm.Exec(fmt.Sprintf(
-			`cilium policy trace --src-identity %d --dst-identity %d`,
+			`cilium policy trace --src-identity %d --dst-identity %d --dport 0/ANY`,
 			httpd2SecurityIdentity, httpd1SecurityIdentity))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
 		By("Verifying verbose trace for expected output using endpoint IDs")
 		res = vm.Exec(fmt.Sprintf(
-			`cilium policy trace --src-endpoint %s --dst-endpoint %s`,
+			`cilium policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`,
 			httpd2EndpointID, httpd1EndpointID))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 
@@ -1994,7 +2001,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 		By("Checking that policy trace returns allowed verdict without any policies imported")
-		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
+		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s --dport 0/ANY`, httpd2EndpointID, httpd1EndpointID))
 		res.ExpectContains(allowedVerdict, "Policy trace did not contain %s", allowedVerdict)
 	})
 })

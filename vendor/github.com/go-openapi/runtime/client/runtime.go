@@ -32,10 +32,12 @@ import (
 	"time"
 
 	"github.com/go-openapi/strfmt"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/logger"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/yamlpc"
 )
 
 // TLSClientOptions to configure client authentication with mutual TLS
@@ -80,7 +82,7 @@ type TLSClientOptions struct {
 	ServerName string
 
 	// InsecureSkipVerify controls whether the certificate chain and hostname presented
-	// by the server are validated. If false, any certificate is accepted.
+	// by the server are validated. If true, any certificate is accepted.
 	InsecureSkipVerify bool
 
 	// VerifyPeerCertificate, if not nil, is called after normal
@@ -244,6 +246,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 
 	// TODO: actually infer this stuff from the spec
 	rt.Consumers = map[string]runtime.Consumer{
+		runtime.YAMLMime:    yamlpc.YAMLConsumer(),
 		runtime.JSONMime:    runtime.JSONConsumer(),
 		runtime.XMLMime:     runtime.XMLConsumer(),
 		runtime.TextMime:    runtime.TextConsumer(),
@@ -252,6 +255,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 		runtime.DefaultMime: runtime.ByteStreamConsumer(),
 	}
 	rt.Producers = map[string]runtime.Producer{
+		runtime.YAMLMime:    yamlpc.YAMLProducer(),
 		runtime.JSONMime:    runtime.JSONProducer(),
 		runtime.XMLMime:     runtime.XMLProducer(),
 		runtime.TextMime:    runtime.TextProducer(),
@@ -287,6 +291,14 @@ func NewWithClient(host, basePath string, schemes []string, client *http.Client)
 		})
 	}
 	return rt
+}
+
+// WithOpenTracing adds opentracing support to the provided runtime.
+// A new client span is created for each request.
+// If the context of the client operation does not contain an active span, no span is created.
+// The provided opts are applied to each spans - for example to add global tags.
+func (r *Runtime) WithOpenTracing(opts ...opentracing.StartSpanOption) runtime.ClientTransport {
+	return newOpenTracingTransport(r, r.Host, opts)
 }
 
 func (r *Runtime) pickScheme(schemes []string) string {

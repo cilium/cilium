@@ -20,22 +20,24 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/asaskevich/govalidator"
+	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
+	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var _ = Describe("K8sHubbleTest", func() {
 	// We want to run Hubble tests both with and without our kube-proxy
 	// replacement, as the trace events depend on it. We thus run the tests
 	// on GKE and our 4.9 pipeline.
-	SkipContextIf(helpers.RunsOnNetNextOr419Kernel, "Hubble Observe", func() {
+	SkipContextIf(helpers.RunsOn419OrLaterKernel, "Hubble Observe", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string
@@ -92,25 +94,38 @@ var _ = Describe("K8sHubbleTest", func() {
 			res.ExpectSuccess("removing proxy visibility annotation failed")
 		}
 
-		hubbleObserveUntilMatch := func(hubblePod, args, filter, expected string, timeout time.Duration) {
-			hubbleObserve := func() bool {
-				res := kubectl.HubbleObserve(hubblePod, args)
+		getFlowsFromRelay := func(args string) []*pb.Flow {
+			args = fmt.Sprintf("--server %s %s", hubbleRelayAddress, args)
+
+			var result []*pb.Flow
+			hubbleObserve := func() error {
+				res := kubectl.HubbleObserve(ciliumPodK8s1, args)
 				res.ExpectSuccess("hubble observe invocation failed: %q", res.OutputPrettyPrint())
 
-				lines, err := res.FilterLines(filter)
-				Expect(err).Should(BeNil(), "hubble observe: invalid filter: %q", filter)
-
+				lines := res.ByLines()
+				flows := make([]*pb.Flow, 0, len(lines))
 				for _, line := range lines {
-					if line.String() == expected {
-						return true
+					if len(line) == 0 {
+						continue
 					}
+
+					f := &pb.Flow{}
+					if err := protojson.Unmarshal([]byte(line), f); err != nil {
+						return fmt.Errorf("failed to decode in %q: %w", lines, err)
+					}
+					flows = append(flows, f)
 				}
 
-				return false
+				if len(flows) == 0 {
+					return fmt.Errorf("no flows returned for query %q", args)
+				}
+
+				result = flows
+				return nil
 			}
 
-			Eventually(hubbleObserve, timeout, time.Second).Should(BeTrue(),
-				"hubble observe: filter %q never matched expected string %q", filter, expected)
+			Eventually(hubbleObserve, helpers.MidCommandTimeout).Should(BeNil())
+			return result
 		}
 
 		BeforeAll(func() {
@@ -123,10 +138,11 @@ var _ = Describe("K8sHubbleTest", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
 				"hubble.relay.enabled":   "true",
+				"bpf.monitorAggregation": "none",
 			})
 
 			var err error
-			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
 
 			ExpectHubbleRelayReady(kubectl, hubbleRelayNamespace)
@@ -214,14 +230,10 @@ var _ = Describe("K8sHubbleTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			// In case a node was temporarily unavailable, hubble-relay will
-			// reconnect once it receives a new request. Therefore we retry
-			// in a 5 second interval.
-			hubbleObserveUntilMatch(ciliumPodK8s1, fmt.Sprintf(
-				"--server %s --last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
-				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port),
-				`{$.Type}`, "L3_L4",
-				helpers.MidCommandTimeout)
+			flows := getFlowsFromRelay(fmt.Sprintf(
+				"--last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port))
+			Expect(flows).NotTo(BeEmpty())
 		})
 
 		It("Test L7 Flow", func() {
@@ -257,14 +269,32 @@ var _ = Describe("K8sHubbleTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			// In case a node was temporarily unavailable, hubble-relay will
-			// reconnect once it receives a new request. Therefore we retry
-			// in a 5 second interval.
-			hubbleObserveUntilMatch(ciliumPodK8s1, fmt.Sprintf(
-				"--server %s --last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
-				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels),
-				`{$.Type}`, "L7",
-				helpers.MidCommandTimeout)
+			flows := getFlowsFromRelay(fmt.Sprintf(
+				"--last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
+			Expect(flows).NotTo(BeEmpty())
+		})
+
+		It("Test FQDN Policy with Relay", func() {
+			fqdnProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
+			fqdnTarget := "vagrant-cache.ci.cilium.io"
+
+			_, err := kubectl.CiliumPolicyAction(
+				namespaceForTest, fqdnProxyPolicy,
+				helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+			defer kubectl.CiliumPolicyAction(namespaceForTest, fqdnProxyPolicy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+
+			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s", fqdnTarget)))
+			res.ExpectSuccess("%q cannot curl fqdn target %q", appPods[helpers.App2], fqdnTarget)
+
+			flows := getFlowsFromRelay(fmt.Sprintf(
+				"--last 1 --type trace:from-endpoint --from-pod %s/%s --to-fqdn %s",
+				namespaceForTest, appPods[helpers.App2], fqdnTarget))
+			Expect(flows).To(HaveLen(1))
+			Expect(flows[0].Destination.Identity).To(BeNumerically(">=", identity.MinimalNumericIdentity))
 		})
 	})
 })

@@ -8,7 +8,9 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+
 	"github.com/google/gopacket"
 )
 
@@ -37,9 +39,21 @@ type VXLAN struct {
 // LayerType returns LayerTypeVXLAN
 func (vx *VXLAN) LayerType() gopacket.LayerType { return LayerTypeVXLAN }
 
-func decodeVXLAN(data []byte, p gopacket.PacketBuilder) error {
-	vx := &VXLAN{}
+// CanDecode returns the layer type this DecodingLayer can decode
+func (vx *VXLAN) CanDecode() gopacket.LayerClass {
+	return LayerTypeVXLAN
+}
 
+// NextLayerType retuns the next layer we should see after vxlan
+func (vx *VXLAN) NextLayerType() gopacket.LayerType {
+	return LayerTypeEthernet
+}
+
+// DecodeFromBytes takes a byte buffer and decodes
+func (vx *VXLAN) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 8 {
+		return errors.New("vxlan packet too small")
+	}
 	// VNI is a 24bit number, Uint32 requires 32 bits
 	var buf [4]byte
 	copy(buf[1:], data[4:7])
@@ -58,6 +72,17 @@ func decodeVXLAN(data []byte, p gopacket.PacketBuilder) error {
 	const vxlanLength = 8
 	vx.Contents = data[:vxlanLength]
 	vx.Payload = data[vxlanLength:]
+
+	return nil
+
+}
+
+func decodeVXLAN(data []byte, p gopacket.PacketBuilder) error {
+	vx := &VXLAN{}
+	err := vx.DecodeFromBytes(data, p)
+	if err != nil {
+		return err
+	}
 
 	p.AddLayer(vx)
 	return p.NextDecoder(LinkTypeEthernet)

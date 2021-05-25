@@ -1,18 +1,19 @@
 #!/bin/bash
 set -e
 
-CILIUM_DS_TAG="k8s-app=cilium"
-KUBE_SYSTEM_NAMESPACE="kube-system"
-KUBECTL="/usr/bin/kubectl"
-PROVISIONSRC="/tmp/provision"
-GOPATH="/home/vagrant/go"
-REGISTRY="k8s1:5000"
-CILIUM_TAG="cilium/cilium-dev"
-CILIUM_OPERATOR_TAG="cilium/operator"
-CILIUM_OPERATOR_GENERIC_TAG="cilium/operator-generic"
-CILIUM_OPERATOR_AWS_TAG="cilium/operator-aws"
-CILIUM_OPERATOR_AZURE_TAG="cilium/operator-azure"
-HUBBLE_RELAY_TAG="cilium/hubble-relay"
+export CILIUM_DS_TAG="k8s-app=cilium"
+export KUBE_SYSTEM_NAMESPACE="kube-system"
+export KUBECTL="/usr/bin/kubectl"
+export PROVISIONSRC="/tmp/provision"
+export GOPATH="/home/vagrant/go"
+export REGISTRY="k8s1:5000"
+export DOCKER_REGISTRY="docker.io"
+export CILIUM_TAG="cilium/cilium-dev"
+export CILIUM_OPERATOR_TAG="cilium/operator"
+export CILIUM_OPERATOR_GENERIC_TAG="cilium/operator-generic"
+export CILIUM_OPERATOR_AWS_TAG="cilium/operator-aws"
+export CILIUM_OPERATOR_AZURE_TAG="cilium/operator-azure"
+export HUBBLE_RELAY_TAG="cilium/hubble-relay"
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -35,7 +36,7 @@ then
 
       if [[ "${CILIUM_IMAGE}" == "" ]]; then
         echo "building cilium container image..."
-        DOCKER_BUILDKIT=1 make LOCKDEBUG=1 docker-cilium-image
+        make LOCKDEBUG=1 docker-cilium-image
         echo "tagging cilium image..."
         docker tag cilium/cilium "${REGISTRY}/${CILIUM_TAG}"
         echo "pushing cilium image to ${REGISTRY}/${CILIUM_TAG}..."
@@ -48,13 +49,15 @@ then
 
       if [[ "${CILIUM_OPERATOR_IMAGE}" == "" ]]; then
         echo "building cilium-operator image..."
-        DOCKER_BUILDKIT=1 make LOCKDEBUG=1 docker-operator-image
+        make LOCKDEBUG=1 docker-operator-image
         echo "building cilium-operator-aws image..."
-        DOCKER_BUILDKIT=1 make -B LOCKDEBUG=1 docker-operator-aws-image
+        make -B LOCKDEBUG=1 docker-operator-aws-image
         echo "building cilium-operator-azure image..."
-        DOCKER_BUILDKIT=1 make -B LOCKDEBUG=1 docker-operator-azure-image
+        make -B LOCKDEBUG=1 docker-operator-azure-image
+        echo "building cilium-operator-alibabacloud image..."
+        make -B LOCKDEBUG=1 docker-operator-alibabacloud-image
         echo "building cilium-operator-generic image..."
-        DOCKER_BUILDKIT=1 make -B LOCKDEBUG=1 docker-operator-generic-image
+        make -B LOCKDEBUG=1 docker-operator-generic-image
         echo "tagging cilium-operator images..."
         docker tag "${CILIUM_OPERATOR_TAG}" "${REGISTRY}/${CILIUM_OPERATOR_TAG}"
         docker tag "${CILIUM_OPERATOR_AWS_TAG}" "${REGISTRY}/${CILIUM_OPERATOR_AWS_TAG}"
@@ -84,7 +87,7 @@ then
 
       if [[ "${HUBBLE_RELAY_IMAGE}" == "" ]]; then
         echo "building hubble-relay image..."
-        DOCKER_BUILDKIT=1 make LOCKDEBUG=1 docker-hubble-relay-image
+        make LOCKDEBUG=1 docker-hubble-relay-image
         echo "tagging hubble-relay image..."
         docker tag ${HUBBLE_RELAY_TAG} ${REGISTRY}/${HUBBLE_RELAY_TAG}
         echo "pushing hubble-relay image to ${REGISTRY}/${HUBBLE_RELAY_TAG}..."
@@ -110,7 +113,7 @@ then
     fi
 else
     echo "compiling cilium..."
-    sudo -u vagrant -H -E make LOCKDEBUG=1 SKIP_K8S_CODE_GEN_CHECK=false SKIP_DOCS=true
+    sudo -u vagrant -H -E make SKIP_CUSTOMVET_CHECK=true LOCKDEBUG=1 SKIP_K8S_CODE_GEN_CHECK=false SKIP_DOCS=true
     echo "installing cilium..."
     make install
     mkdir -p /etc/sysconfig/

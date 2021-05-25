@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.1-experimental
 
-# Copyright 2020 Authors of Cilium
+# Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:5af8f784456b17fc0a2bbe3777855ca198124272
-ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:8bce67040cd0ae39e0beb55bcb976a824d9966d2ac8d2e4bf6119b45505cee64
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:3e04d507e2f7a0b569490060ddc8b9423c9fc8f0@sha256:7949a297fd2f07a008ef8a163ed84bfb338a37f3b36b68c2c9c5fddb324d325f
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:cf31af331f38d1d7158470e095b132acd126a7180a54f263d386da88eb681d93
 
 FROM ${UBUNTU_IMAGE} as rootfs
 ARG TARGETPLATFORM

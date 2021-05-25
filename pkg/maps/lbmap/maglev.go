@@ -36,10 +36,16 @@ const (
 	MaglevOuter6MapName = "cilium_lb6_maglev"
 )
 
-var MaglevOuter4Map *bpf.Map
-var MaglevOuter6Map *bpf.Map
+var (
+	MaglevOuter4Map     *bpf.Map
+	MaglevOuter6Map     *bpf.Map
+	maglevRecreatedIPv4 bool
+	maglevRecreatedIPv6 bool
+)
 
 func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
+	var err error
+
 	dummyInnerMap := newInnerMaglevMap("cilium_lb_maglev_dummy")
 	if err := dummyInnerMap.CreateUnpinned(); err != nil {
 		return err
@@ -47,7 +53,7 @@ func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
 	defer dummyInnerMap.Close()
 
 	if ipv4 {
-		if _, err := deleteMapIfMNotMatch(MaglevOuter4MapName); err != nil {
+		if maglevRecreatedIPv4, err = deleteMapIfMNotMatch(MaglevOuter4MapName); err != nil {
 			return err
 		}
 		MaglevOuter4Map = newOuterMaglevMap(MaglevOuter4MapName, dummyInnerMap)
@@ -56,7 +62,7 @@ func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
 		}
 	}
 	if ipv6 {
-		if _, err := deleteMapIfMNotMatch(MaglevOuter6MapName); err != nil {
+		if maglevRecreatedIPv6, err = deleteMapIfMNotMatch(MaglevOuter6MapName); err != nil {
 			return err
 		}
 		MaglevOuter6Map = newOuterMaglevMap(MaglevOuter6MapName, dummyInnerMap)
@@ -138,7 +144,7 @@ func newOuterMaglevMap(name string, innerMap *bpf.Map) *bpf.Map {
 		MaxEntries,
 		0, uint32(innerMap.GetFd()),
 		bpf.ConvertKeyValue,
-	)
+	).WithPressureMetric()
 }
 
 func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {

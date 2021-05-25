@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/google/gopacket"
 )
 
@@ -142,6 +143,10 @@ func decodeUSB(data []byte, p gopacket.PacketBuilder) error {
 }
 
 func (m *USB) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 40 {
+		df.SetTruncated()
+		return errors.New("USB < 40 bytes")
+	}
 	m.ID = binary.LittleEndian.Uint64(data[0:8])
 	m.EventType = USBEventType(data[8])
 	m.TransferType = USBTransportType(data[9])

@@ -36,7 +36,8 @@ func FlowProtocol(flow *pb.Flow) string {
 		}
 		return "Unknown L7"
 
-	case monitorAPI.MessageTypeDrop, monitorAPI.MessageTypeTrace:
+	case monitorAPI.MessageTypeDrop, monitorAPI.MessageTypeTrace,
+		monitorAPI.MessageTypePolicyVerdict, monitorAPI.MessageTypeCapture:
 		if l4 := flow.GetL4(); l4 != nil {
 			switch {
 			case l4.GetTCP() != nil:

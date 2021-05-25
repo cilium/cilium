@@ -9,9 +9,7 @@ Create chart name and version as used by the chart label.
 Return the appropriate apiVersion for ingress.
 */}}
 {{- define "ingress.apiVersion" -}}
-{{- if semverCompare ">=1.4-0, <1.14-0" .Capabilities.KubeVersion.Version -}}
-{{- print "extensions/v1beta1" -}}
-{{- else if semverCompare ">=1.14-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
+{{- if semverCompare ">=1.16-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
 {{- print "networking.k8s.io/v1beta1" -}}
 {{- else if semverCompare "^1.19-0" .Capabilities.KubeVersion.Version -}}
 {{- print "networking.k8s.io/v1" -}}
@@ -60,6 +58,7 @@ ca.crt: |-
 {{- $_ := set . "ca" $ca -}}
 {{- $cn := list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." }}
 {{- $cert := genSignedCert $cn nil (list $cn) (.Values.hubble.tls.auto.certValidityDuration | int) $ca -}}
+ca.crt: {{ $ca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
@@ -67,6 +66,7 @@ tls.key: {{ $cert.Key | b64enc }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
 {{- $_ := set . "ca" $ca -}}
 {{- $cert := genSignedCert "*.hubble-relay.cilium.io" nil (list "*.hubble-relay.cilium.io") (.Values.hubble.tls.auto.certValidityDuration | int) $ca -}}
+ca.crt: {{ $ca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
@@ -91,6 +91,7 @@ ca.key: {{ .cmca.Key | b64enc }}
 {{- $IPs := (list "127.0.0.1") }}
 {{- $SANs := (list $CN) }}
 {{- $cert := genSignedCert $CN $IPs $SANs (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+ca.crt: {{ .cmca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
@@ -101,6 +102,7 @@ tls.key: {{ $cert.Key | b64enc }}
 {{- $CN := "root" }}
 {{- $SANs := (list "localhost") }}
 {{- $cert := genSignedCert $CN nil $SANs (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+ca.crt: {{ .cmca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
@@ -110,6 +112,7 @@ tls.key: {{ $cert.Key | b64enc }}
 {{- template "clustermesh.apiserver.generate.ca" . }}
 {{- $CN := "externalworkload" }}
 {{- $cert := genSignedCert $CN nil nil (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+ca.crt: {{ .cmca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
@@ -119,6 +122,7 @@ tls.key: {{ $cert.Key | b64enc }}
 {{- template "clustermesh.apiserver.generate.ca" . }}
 {{- $CN := "remote" }}
 {{- $cert := genSignedCert $CN nil nil (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+ca.crt: {{ .cmca.Cert | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}

@@ -50,6 +50,10 @@ const (
 	// which corresponds to policy_verdict_notify defined in bpf/lib/policy_log.h
 	MessageTypePolicyVerdict
 
+	// MessageTypeRecCapture is a BPF datapath notification carrying a RecorderCapture
+	// which corresponds to capture_msg defined in bpf/lib/pcap.h
+	MessageTypeRecCapture
+
 	// 129-255 are reserved for agent level events
 
 	// MessageTypeAccessLog contains a pkg/proxy/accesslog.LogRecord
@@ -67,6 +71,7 @@ const (
 	MessageTypeNameL7            = "l7"
 	MessageTypeNameAgent         = "agent"
 	MessageTypeNamePolicyVerdict = "policy-verdict"
+	MessageTypeNameRecCapture    = "recorder"
 )
 
 type MessageTypeFilter []int
@@ -81,6 +86,7 @@ var (
 		MessageTypeNameL7:            MessageTypeAccessLog,
 		MessageTypeNameAgent:         MessageTypeAgent,
 		MessageTypeNamePolicyVerdict: MessageTypePolicyVerdict,
+		MessageTypeNameRecCapture:    MessageTypeRecCapture,
 	}
 )
 

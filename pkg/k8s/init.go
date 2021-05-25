@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -101,6 +100,12 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 			return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
 
 		}
+
+		// This is going to be used to detect whether cilium-agent is running on KIND
+		// to set a cgroup v2 root. The provider ID cannot be retrieved from CiliumNode
+		// object (a case above for IPAM == ClusterPool). This is fine, as long as
+		// we recommend to use IPAM = Kubernetes in the KIND getting started guide.
+		node.SetProviderID(k8sNode.Spec.ProviderID)
 
 		nodeInterface := ConvertToNode(k8sNode)
 		if nodeInterface == nil {
@@ -236,7 +241,7 @@ func WaitForNodeInformation() error {
 		// addressing, e.g. an IPv6 only PodCIDR running over
 		// IPv4 encapsulation.
 		if nodeIP4 != nil {
-			node.SetExternalIPv4(nodeIP4)
+			node.SetIPv4(nodeIP4)
 		}
 
 		if nodeIP6 != nil {
@@ -244,6 +249,9 @@ func WaitForNodeInformation() error {
 		}
 
 		node.SetLabels(n.Labels)
+
+		node.SetK8sExternalIPv4(n.GetExternalIP(false))
+		node.SetK8sExternalIPv6(n.GetExternalIP(true))
 
 		// K8s Node IP is used by BPF NodePort devices auto-detection
 		node.SetK8sNodeIP(k8sNodeIP)
@@ -257,18 +265,5 @@ func WaitForNodeInformation() error {
 
 	// Annotate addresses will occur later since the user might
 	// want to specify them manually
-	return nil
-}
-
-// RegisterCRDs registers all CRDs with the K8s apiserver.
-func RegisterCRDs() error {
-	if option.Config.SkipCRDCreation {
-		return nil
-	}
-
-	if err := cilium_v2_client.CreateCustomResourceDefinitions(APIExtClient()); err != nil {
-		return fmt.Errorf("Unable to create custom resource definition: %s", err)
-	}
-
 	return nil
 }

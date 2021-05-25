@@ -50,14 +50,25 @@ func noOpSleepWithContext(context.Context, time.Duration) error {
 
 func noOpSleep(time.Duration) {}
 
-// TestingUseNoOpSleep is a utility for disabling sleep across the SDK for
+// TestingUseNopSleep is a utility for disabling sleep across the SDK for
 // testing.
-func TestingUseNoOpSleep() func() {
+func TestingUseNopSleep() func() {
 	SleepWithContext = noOpSleepWithContext
 	Sleep = noOpSleep
 
 	return func() {
 		SleepWithContext = sleepWithContext
 		Sleep = time.Sleep
+	}
+}
+
+// TestingUseReferenceTime is a utility for swapping the time function across the SDK to return a specific reference time
+// for testing purposes.
+func TestingUseReferenceTime(referenceTime time.Time) func() {
+	NowTime = func() time.Time {
+		return referenceTime
+	}
+	return func() {
+		NowTime = time.Now
 	}
 }

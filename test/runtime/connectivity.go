@@ -207,19 +207,13 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 			By("Testing bidirectional connectivity from client to server")
 
-			// NB: Previous versions of this test did not specify the ICMP id, which
-			// presumably caused transient errors (see #12891) when the ICMP ids for the
-			// valid direction (client->server) matched the ICMP ids for the invalid
-			// direction (server->client). We now ensure that the ICMP ids do not match.
-			// Furthermore, the original issue can be now easily reproduced by changing
-			// 2222 to 1111 below.
 			By("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client)
-			res = vm.ContainerExec(helpers.Server, helpers.Ping6WithID(clientDockerNetworking[helpers.IPv6], 2222))
+			res = vm.ContainerExec(helpers.Server, helpers.Ping6WithID(clientDockerNetworking[helpers.IPv6], 1111))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
 
 			By("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client)
-			res = vm.ContainerExec(helpers.Server, helpers.PingWithID(clientDockerNetworking[helpers.IPv4], 2222))
+			res = vm.ContainerExec(helpers.Server, helpers.PingWithID(clientDockerNetworking[helpers.IPv4], 1111))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
 
@@ -429,8 +423,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 					Expect(err).To(BeNil(), "Cannot set ConnTrackLocal=%q for endpoint %q",
 						conntrackLocalOptionMode, endpointToConfigure)
 				}
-				areEndpointsReady := vm.WaitEndpointsReady()
-				Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+				Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 				clientServerConnectivity()
 			}
 
@@ -478,8 +471,7 @@ var restartChaosTest = func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL4Json), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Cannot install L4 policy")
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		By("Starting background connection from app2 to httpd1 container")
 		ctx, cancel := context.WithCancel(context.Background())

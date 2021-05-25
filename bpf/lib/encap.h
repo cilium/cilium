@@ -63,10 +63,11 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *which;
-	__u32 off, noff;
 	__u8 nexthdr;
 	__u16 proto;
 	__be32 sum;
+	__u32 noff;
+	__u64 off;
 	int ret;
 
 	validate_ethertype(ctx, &proto);
@@ -147,9 +148,9 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 monitor)
 {
 	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
-
 	if (ret != 0)
 		return ret;
+
 	return redirect(ENCAP_IFINDEX, 0);
 }
 
@@ -193,7 +194,18 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			return encap_and_redirect_ipsec(ctx, tunnel_endpoint,
 							encrypt_key, seclabel);
 #endif
+#if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
+		/* For IPSec and the host firewall, traffic from a pod to a remote node
+		 * is sent through the tunnel. In the case of node --> VIP@remote pod,
+		 * packets may be DNATed when they enter the remote node. If kube-proxy
+		 * is used, the response needs to go through the stack on the way to
+		 * the tunnel, to apply the correct reverse DNAT.
+		 * See #14674 for details.
+		 */
+		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+#else
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+#endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
 	}
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);

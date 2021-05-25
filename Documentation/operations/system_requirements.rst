@@ -48,15 +48,6 @@ iproute2                 >= 5.0.0 [#iproute2_foot]_ yes
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
 
-.. hint:: 
-
-    ``cilium kernel-check`` can be invoked as a Kubernetes Job  
-    in order to check whether the machine provides the relevant eBPF capabilities: 
-
-    .. parsed-literal::
-
-       kubectl apply -f |SCM_WEB|/examples/kubernetes/kernel-check/kernel-check.yaml
-
 Linux Distribution Compatibility Matrix
 =======================================
 
@@ -99,9 +90,9 @@ RancherOS_                 >= 1.5.5
           GitHub issue or by creating a pull request that updates this guide.
 
 .. note:: Systemd 245 and above (``systemctl --version``) overrides ``rp_filter`` setting
-          of Cilium network interfaces. This introduces connectivity issues (see
-          `GH-10645 <https://github.com/cilium/cilium/issues/10645>`_ for details). To
-          avoid that, configure ``rp_filter`` in systemd using the following commands:
+          of Cilium network interfaces. This introduces connectivity issues
+          (see :gh-issue:`10645` for details). To avoid that, configure
+          ``rp_filter`` in systemd using the following commands:
 
           .. code:: bash
 
@@ -134,6 +125,8 @@ linked, either choice is valid.
         CONFIG_NET_SCH_INGRESS=y
         CONFIG_CRYPTO_SHA1=y
         CONFIG_CRYPTO_USER_API_HASH=y
+        CONFIG_CGROUPS=y
+        CONFIG_CGROUP_BPF=y
 
 .. note::
 
@@ -178,19 +171,21 @@ additional kernel features continues to progress in the Linux community. Some
 of Cilium's features are dependent on newer kernel versions and are thus
 enabled by upgrading to more recent kernel versions as detailed below.
 
-======================================== ===============================
-Cilium Feature                           Minimum Kernel Version
-======================================== ===============================
-:ref:`concepts_fragmentation`            >= 4.10
-:ref:`cidr_limitations`                  >= 4.11
-:ref:`host-services`                     >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`kubeproxy-free`                    >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`bandwidth-manager`                 >= 5.1
-:ref:`local-redirect-policy`             >= 4.19.57, >= 5.1.16,  >= 5.2
-Full support for :ref:`session-affinity` >= 5.7
-BPF-based proxy redirection              >= 5.7
-BPF-based host routing                   >= 5.10
-======================================== ===============================
+=========================================== ===============================
+Cilium Feature                              Minimum Kernel Version
+=========================================== ===============================
+:ref:`concepts_fragmentation`               >= 4.10
+:ref:`cidr_limitations`                     >= 4.11
+:ref:`encryption_ipsec` in tunneling mode   >= 4.19
+:ref:`encryption_wg`                        >= 5.6
+:ref:`host-services`                        >= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`kubeproxy-free`                       >= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`bandwidth-manager`                    >= 5.1
+:ref:`local-redirect-policy`                >= 4.19.57, >= 5.1.16,  >= 5.2
+Full support for :ref:`session-affinity`    >= 5.7
+BPF-based proxy redirection                 >= 5.7
+BPF-based host routing                      >= 5.10
+=========================================== ===============================
 
 .. _req_kvstore:
 
@@ -324,6 +319,9 @@ Port Range / Protocol    Description
 4240/tcp                 cluster health checks (``cilium-health``)
 4244/tcp                 Hubble server
 4245/tcp                 Hubble Relay
+6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
+6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)
+6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
 6942/tcp                 operator Prometheus metrics
 9090/tcp                 cilium-agent Prometheus metrics
 9876/tcp                 cilium-agent health status API
@@ -331,6 +329,7 @@ Port Range / Protocol    Description
 9891/tcp                 operator gops server (listening on 127.0.0.1)
 9892/tcp                 clustermesh-apiserver gops server (listening on 127.0.0.1)
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
+51871/udp                Wireguard encryption tunnel endpoint
 ======================== ===========================================================
 
 .. _admin_mount_bpffs:

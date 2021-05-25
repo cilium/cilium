@@ -368,7 +368,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 1,
-      "iteration": 1590659986961,
+      "iteration": 1606309591568,
       "links": [],
       "panels": [
         {
@@ -999,9 +999,9 @@ data:
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
-            "h": 5,
-            "w": 8,
-            "x": 8,
+            "h": 6,
+            "w": 12,
+            "x": 0,
             "y": 11
           },
           "hiddenSeries": false,
@@ -1107,13 +1107,110 @@ data:
           }
         },
         {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "description": "Fill percentage of BPF maps, tagged by map name",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 11
+          },
+          "hiddenSeries": false,
+          "id": 194,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
+          "percentage": false,
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "cilium_bpf_map_pressure",
+              "interval": "",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "BPF map pressure",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "$$hashKey": "object:230",
+              "format": "percentunit",
+              "label": null,
+              "logBase": 1,
+              "max": "1.0",
+              "min": null,
+              "show": true
+            },
+            {
+              "$$hashKey": "object:231",
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
           "collapsed": false,
           "datasource": null,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 16
+            "y": 17
           },
           "id": 155,
           "panels": [],
@@ -1138,7 +1235,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 18
           },
           "hiddenSeries": false,
           "id": 152,
@@ -1239,7 +1336,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 18
           },
           "hiddenSeries": false,
           "id": 153,
@@ -1340,7 +1437,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 24
           },
           "hiddenSeries": false,
           "id": 156,
@@ -1441,7 +1538,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 24
           },
           "hiddenSeries": false,
           "id": 157,
@@ -1542,7 +1639,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 29
+            "y": 30
           },
           "hiddenSeries": false,
           "id": 159,
@@ -1643,7 +1740,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 29
+            "y": 30
           },
           "hiddenSeries": false,
           "id": 158,
@@ -1733,7 +1830,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 35
+            "y": 36
           },
           "id": 72,
           "panels": [],
@@ -1753,7 +1850,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 36
+            "y": 37
           },
           "id": 144,
           "links": [],
@@ -1779,7 +1876,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 37
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 146,
@@ -1881,7 +1978,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 37
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 145,
@@ -1983,7 +2080,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 45
+            "y": 46
           },
           "hiddenSeries": false,
           "id": 140,
@@ -2084,7 +2181,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 45
+            "y": 46
           },
           "hiddenSeries": false,
           "id": 148,
@@ -2183,7 +2280,7 @@ data:
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 51
+            "y": 52
           },
           "hiddenSeries": false,
           "id": 142,
@@ -2284,7 +2381,7 @@ data:
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 51
+            "y": 52
           },
           "hiddenSeries": false,
           "id": 147,
@@ -2385,7 +2482,7 @@ data:
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 51
+            "y": 52
           },
           "hiddenSeries": false,
           "id": 143,
@@ -2481,7 +2578,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 57
+            "y": 58
           },
           "id": 182,
           "links": [],
@@ -2508,7 +2605,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 58
+            "y": 59
           },
           "hiddenSeries": false,
           "id": 184,
@@ -2611,7 +2708,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 58
+            "y": 59
           },
           "hiddenSeries": false,
           "id": 186,
@@ -2713,7 +2810,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 63
+            "y": 64
           },
           "hiddenSeries": false,
           "id": 188,
@@ -2814,7 +2911,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 63
+            "y": 64
           },
           "hiddenSeries": false,
           "id": 190,
@@ -2915,7 +3012,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 68
+            "y": 69
           },
           "hiddenSeries": false,
           "id": 192,
@@ -3009,7 +3106,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 74
+            "y": 75
           },
           "id": 47,
           "links": [],
@@ -3035,7 +3132,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 75
+            "y": 76
           },
           "hiddenSeries": false,
           "id": 81,
@@ -3132,7 +3229,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 75
+            "y": 76
           },
           "hiddenSeries": false,
           "id": 111,
@@ -3252,7 +3349,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 81
+            "y": 82
           },
           "hiddenSeries": false,
           "id": 56,
@@ -3418,7 +3515,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 81
+            "y": 82
           },
           "hiddenSeries": false,
           "id": 128,
@@ -3584,7 +3681,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 87
+            "y": 88
           },
           "hiddenSeries": false,
           "id": 129,
@@ -3750,7 +3847,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 87
+            "y": 88
           },
           "hiddenSeries": false,
           "id": 130,
@@ -3902,7 +3999,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 93
+            "y": 94
           },
           "hiddenSeries": false,
           "id": 87,
@@ -4008,7 +4105,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 93
+            "y": 94
           },
           "hiddenSeries": false,
           "id": 79,
@@ -4039,7 +4136,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_datapath_errors_total{k8s_app=\"cilium\"}) by (pod, area, family, name)",
+              "expr": "sum(cilium_datapath_conntrack_dump_resets_total{k8s_app=\"cilium\"}) by (pod, area, family, name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{name}} {{area}} {{family}}",
@@ -4050,7 +4147,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Datapath Errors",
+          "title": "Datapath Conntrack Dump Resets",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -4105,7 +4202,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 98
+            "y": 99
           },
           "hiddenSeries": false,
           "id": 106,
@@ -4202,7 +4299,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 98
+            "y": 99
           },
           "hiddenSeries": false,
           "id": 89,
@@ -4315,7 +4412,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 103
+            "y": 104
           },
           "hiddenSeries": false,
           "id": 39,
@@ -4415,7 +4512,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 103
+            "y": 104
           },
           "hiddenSeries": false,
           "id": 93,
@@ -4475,7 +4572,7 @@ data:
               "expr": "avg(rate(cilium_nodes_all_events_received_total{k8s_app=\"cilium\"}[1m])) by (pod, event_type, source) * 60",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{event_type}} {{source}}",
+              "legendFormat": "{{eventType}} {{source}}",
               "refId": "B"
             }
           ],
@@ -4538,7 +4635,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 108
+            "y": 109
           },
           "hiddenSeries": false,
           "id": 113,
@@ -4638,7 +4735,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 108
+            "y": 109
           },
           "hiddenSeries": false,
           "id": 91,
@@ -4756,7 +4853,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 113
+            "y": 114
           },
           "id": 28,
           "links": [],
@@ -4786,7 +4883,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 114
+            "y": 115
           },
           "hiddenSeries": false,
           "id": 53,
@@ -4906,7 +5003,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 114
+            "y": 115
           },
           "hiddenSeries": false,
           "id": 37,
@@ -5008,7 +5105,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 119
+            "y": 120
           },
           "hiddenSeries": false,
           "id": 94,
@@ -5132,7 +5229,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 119
+            "y": 120
           },
           "hiddenSeries": false,
           "id": 114,
@@ -5234,7 +5331,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 124
+            "y": 125
           },
           "hiddenSeries": false,
           "id": 104,
@@ -5370,7 +5467,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 124
+            "y": 125
           },
           "hiddenSeries": false,
           "id": 66,
@@ -5486,7 +5583,7 @@ data:
             "h": 5,
             "w": 6,
             "x": 0,
-            "y": 129
+            "y": 130
           },
           "hiddenSeries": false,
           "id": 33,
@@ -5595,7 +5692,7 @@ data:
             "h": 5,
             "w": 6,
             "x": 6,
-            "y": 129
+            "y": 130
           },
           "hiddenSeries": false,
           "id": 100,
@@ -5723,7 +5820,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 129
+            "y": 130
           },
           "hiddenSeries": false,
           "id": 102,
@@ -5859,7 +5956,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 134
+            "y": 135
           },
           "hiddenSeries": false,
           "id": 85,
@@ -6001,7 +6098,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 134
+            "y": 135
           },
           "hiddenSeries": false,
           "id": 123,
@@ -6109,7 +6206,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 139
+            "y": 140
           },
           "hiddenSeries": false,
           "id": 117,
@@ -6225,7 +6322,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 144
+            "y": 145
           },
           "id": 73,
           "links": [],
@@ -6252,7 +6349,7 @@ data:
             "h": 9,
             "w": 12,
             "x": 0,
-            "y": 145
+            "y": 146
           },
           "hiddenSeries": false,
           "id": 55,
@@ -6352,7 +6449,7 @@ data:
             "h": 9,
             "w": 12,
             "x": 12,
-            "y": 145
+            "y": 146
           },
           "hiddenSeries": false,
           "id": 115,
@@ -6456,7 +6553,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 154
+            "y": 155
           },
           "hiddenSeries": false,
           "id": 49,
@@ -6566,7 +6663,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 154
+            "y": 155
           },
           "hiddenSeries": false,
           "id": 51,
@@ -6659,7 +6756,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 159
+            "y": 160
           },
           "id": 74,
           "links": [],
@@ -6689,7 +6786,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 160
+            "y": 161
           },
           "hiddenSeries": false,
           "id": 70,
@@ -6810,7 +6907,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 160
+            "y": 161
           },
           "hiddenSeries": false,
           "id": 68,
@@ -6916,7 +7013,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 165
+            "y": 166
           },
           "id": 60,
           "links": [],
@@ -6942,7 +7039,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 166
+            "y": 167
           },
           "hiddenSeries": false,
           "id": 163,
@@ -7043,7 +7140,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 166
+            "y": 167
           },
           "hiddenSeries": false,
           "id": 165,
@@ -7144,7 +7241,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 173
+            "y": 174
           },
           "hiddenSeries": false,
           "id": 168,
@@ -7245,7 +7342,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 173
+            "y": 174
           },
           "hiddenSeries": false,
           "id": 166,
@@ -7346,7 +7443,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 181
+            "y": 182
           },
           "hiddenSeries": false,
           "id": 172,
@@ -7446,7 +7543,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 181
+            "y": 182
           },
           "hiddenSeries": false,
           "id": 174,
@@ -7545,7 +7642,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 187
+            "y": 188
           },
           "hiddenSeries": false,
           "id": 175,
@@ -7644,7 +7741,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 187
+            "y": 188
           },
           "hiddenSeries": false,
           "id": 173,
@@ -7743,7 +7840,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 195
+            "y": 196
           },
           "hiddenSeries": false,
           "id": 108,
@@ -7846,7 +7943,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 195
+            "y": 196
           },
           "hiddenSeries": false,
           "id": 119,
@@ -7949,7 +8046,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 202
+            "y": 203
           },
           "hiddenSeries": false,
           "id": 109,
@@ -8052,7 +8149,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 202
+            "y": 203
           },
           "hiddenSeries": false,
           "id": 122,
@@ -8151,7 +8248,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 209
+            "y": 210
           },
           "hiddenSeries": false,
           "id": 118,
@@ -8250,7 +8347,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 209
+            "y": 210
           },
           "hiddenSeries": false,
           "id": 120,
@@ -8349,7 +8446,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 216
+            "y": 217
           },
           "hiddenSeries": false,
           "id": 121,
@@ -8784,7 +8881,7 @@ data:
           },
           "id": 6,
           "panels": [],
-          "title": "ENI",
+          "title": "IPAM",
           "type": "row"
         },
         {
@@ -8836,7 +8933,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(cilium_operator_eni_ips) by (type)",
+              "expr": "avg(cilium_operator_ipam_ips) by (type)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{type}}",
@@ -8933,7 +9030,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(cilium_operator_eni_aws_api_duration_seconds_sum[1m])/rate(cilium_operator_eni_aws_api_duration_seconds_count[1m])",
+              "expr": "rate(cilium_operator_ec2_api_duration_seconds_sum[1m])/rate(cilium_operator_ec2_api_duration_seconds_count[1m])",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{operation}} {{response_code}}",
@@ -9030,7 +9127,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "cilium_operator_eni_nodes",
+              "expr": "cilium_operator_ipam_nodes",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{category}}",
@@ -9127,10 +9224,10 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "cilium_operator_eni_available",
+              "expr": "cilium_operator_ipam_available",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "ENIs",
+              "legendFormat": "interfaces",
               "refId": "A"
             }
           ],
@@ -9138,7 +9235,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "# ENIs with addresses available",
+          "title": "# interfaces with addresses available",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -9224,7 +9321,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(cilium_operator_eni_resync_total[1m])",
+              "expr": "rate(cilium_operator_ipam_resync_total[1m])",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "operations",
@@ -9321,7 +9418,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(cilium_operator_ec2_rate_limit_duration_seconds_sum[1m])/rate(cilium_operator_ec2_rate_limit_duration_seconds_count[1m])",
+              "expr": "rate(cilium_operator_ec2_api_rate_limit_duration_seconds_sum[1m])/rate(cilium_operator_ec2_api_rate_limit_duration_seconds_count[1m])",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{operation}}",
@@ -9418,7 +9515,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_operator_eni_interface_creation_ops[1m])) by (subnetId, status)",
+              "expr": "avg(rate(cilium_operator_ipam_interface_creation_ops[1m])) by (subnetId, status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{status}} ({{subnetId}})",
@@ -9429,7 +9526,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "ENI Creation",
+          "title": "Interface Creation",
           "tooltip": {
             "shared": true,
             "sort": 0,

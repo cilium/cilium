@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"sync"
@@ -131,7 +130,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 
 	log.Info("Reading old endpoints...")
 
-	dirFiles, err := ioutil.ReadDir(dir)
+	dirFiles, err := os.ReadDir(dir)
 	if err != nil {
 		return state, err
 	}
@@ -278,7 +277,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
-		if err := ep.Expose(d.endpointManager); err != nil {
+		if err := d.endpointManager.RestoreEndpoint(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
 			state.restored = append(state.restored[:i], state.restored[i+1:]...)
@@ -343,7 +342,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	var err error
 
 	if option.Config.EnableIPv6 && ep.IPv6 != nil {
-		err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
+		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
 		if err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv6 address: %s", ep.IPv6.IP(), err)
 		}
@@ -356,7 +355,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	}
 
 	if option.Config.EnableIPv4 && ep.IPv4 != nil {
-		if err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
+		if _, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv4 address: %s", ep.IPv4.IP(), err)
 		}
 	}

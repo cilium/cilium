@@ -224,7 +224,6 @@ func (m *DeploymentManager) DeployRandomNamespace(manifest Manifest) string {
 
 	d, err := manifest.deploy(m.kubectl, namespace)
 	if err != nil {
-		ginkgoext.By("Deleting namespace %s", namespace)
 		m.kubectl.NamespaceDelete(namespace)
 
 		ginkgoext.Failf("Unable to deploy manifest %s: %s", manifest.GetFilename(), err)
@@ -276,7 +275,6 @@ func (m *DeploymentManager) DeleteAll() {
 
 	wg.Add(len(namespaces))
 	for namespace := range namespaces {
-		ginkgoext.By("Deleting namespace %s", namespace)
 		go func(namespace NamespaceName) {
 			m.kubectl.NamespaceDelete(string(namespace))
 			wg.Done()
@@ -322,7 +320,7 @@ func (m *DeploymentManager) DeployCilium(options map[string]string, deploy Ciliu
 
 	ginkgoext.By("Making sure all endpoints are in ready state")
 	if err = m.kubectl.CiliumEndpointWaitReady(); err != nil {
-		ginkgoext.Failf("Failure while waiting for all cilium endpoints to reach ready state: %s", err)
+		Fail(fmt.Sprintf("Failure while waiting for all cilium endpoints to reach ready state: %s", err))
 	}
 
 	m.ciliumDeployed = true

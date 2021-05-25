@@ -37,6 +37,7 @@ coverage-all-tmp.out
 
 .DS_Store
 .idea/
+.vscode/
 *.plist
 
 *_bash_completion
@@ -64,8 +65,6 @@ test/bpf/_results
 test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
-
-examples/getting-started/.env
 
 # generated test files
 test/k8sT/manifests/cnp-second-namespaces.yaml
@@ -100,3 +99,6 @@ GIT_VERSION
 
 # Local developer config to be executed in the dev VM and CI VMs started locally
 .devvmrc
+
+# Generated dockerignore files
+images/*/Dockerfile.dockerignore

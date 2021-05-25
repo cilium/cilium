@@ -1,4 +1,24 @@
 {{- if .Values.etcd.managed }}
+
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
+{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
+
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities.KubeVersion.Major -}}
+{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
+{{- if .Values.Capabilities.KubeVersion.Minor -}}
+{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,6 +46,9 @@ spec:
       labels:
         io.cilium/app: etcd-operator
         name: cilium-etcd-operator
+{{- with .Values.etcd.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
 {{- if .Values.etcd.affinity }}
       affinity:
@@ -37,6 +60,9 @@ spec:
 {{- end }}
       containers:
       - args:
+{{- with .Values.etcd.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
         #- --etcd-node-selector=disktype=ssd,cputype=high
         command:
         - /usr/bin/cilium-etcd-operator
@@ -69,12 +95,12 @@ spec:
         name: cilium-etcd-operator
       dnsPolicy: ClusterFirst
       hostNetwork: true
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")) .Values.enableCriticalPriorityClass }}
+{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-cluster-critical
 {{- end }}
       restartPolicy: Always
-      serviceAccount: cilium-etcd-operator
-      serviceAccountName: cilium-etcd-operator
+      serviceAccount: {{ .Values.serviceAccounts.etcd.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.etcd.name | quote }}
 {{- with .Values.etcd.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}

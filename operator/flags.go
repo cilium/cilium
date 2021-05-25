@@ -98,8 +98,12 @@ func init() {
 	option.BindEnv(option.LogDriver)
 
 	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
-		option.LogOpt, "Log driver options for cilium-operator")
+		option.LogOpt, `Log driver options for cilium-operator, `+
+			`configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}`)
 	option.BindEnv(option.LogOpt)
+
+	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
+	option.BindEnv(option.EnableWireguard)
 
 	var defaultIPAM string
 	switch binaryName {
@@ -109,6 +113,8 @@ func init() {
 		defaultIPAM = ipamOption.IPAMENI
 	case "cilium-operator-azure":
 		defaultIPAM = ipamOption.IPAMAzure
+	case "cilium-operator-alibabacloud":
+		defaultIPAM = ipamOption.IPAMAlibabaCloud
 	case "cilium-operator-generic":
 		defaultIPAM = ipamOption.IPAMClusterPool
 	}
@@ -129,6 +135,8 @@ func init() {
 				return "cilium-operator-aws"
 			case ipamOption.IPAMAzure:
 				return "cilium-operator-azure"
+			case ipamOption.IPAMAlibabaCloud:
+				return "cilium-operator-alibabacloud"
 			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMCRD:
 				return "cilium-operator-generic"
 			default:
@@ -157,9 +165,13 @@ func init() {
 			if ipamFlagValue != ipamOption.IPAMAzure {
 				return unsupporterErr()
 			}
+		case "cilium-operator-alibabacloud":
+			if ipamFlagValue != ipamOption.IPAMAlibabaCloud {
+				return unsupporterErr()
+			}
 		case "cilium-operator-generic":
 			switch ipamFlagValue {
-			case ipamOption.IPAMENI, ipamOption.IPAMAzure:
+			case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 				return unsupporterErr()
 			}
 		}
@@ -248,6 +260,12 @@ func init() {
 	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
 	option.BindEnv(operatorOption.OperatorAPIServeAddr)
 
+	flags.Bool(operatorOption.PProf, false, "Enable pprof debugging endpoint")
+	option.BindEnv(operatorOption.PProf)
+
+	flags.Int(operatorOption.PProfPort, 6061, "Port that the pprof listens on")
+	option.BindEnv(operatorOption.PProfPort)
+
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(operatorOption.SyncK8sServices)
 
@@ -284,6 +302,12 @@ func init() {
 
 	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 	option.BindEnv(option.K8sServiceProxyName)
+
+	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
+	option.BindEnv(option.BGPAnnounceLBIP)
+
+	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
+	option.BindEnv(option.BGPConfigPath)
 
 	viper.BindPFlags(flags)
 }

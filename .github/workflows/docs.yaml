@@ -1,18 +1,49 @@
 name: Documentation Updates
 
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  pull_request:
+    paths:
+      - 'Documentation/**'
+      - 'bugtool/cmd/**'
+      - 'cilium/cmd/**'
+      - 'cilium-health/cmd/**'
+      - 'daemon/cmd/**'
+      - 'hubble-relay/cmd/**'
+      - 'operator/cmd/**'
   push:
     branches:
       - master
+    paths:
+      - 'Documentation/**'
+      - 'bugtool/cmd/**'
+      - 'cilium/cmd/**'
+      - 'cilium-health/cmd/**'
+      - 'daemon/cmd/**'
+      - 'hubble-relay/cmd/**'
+      - 'operator/cmd/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
 
 jobs:
   build-html:
     name: Validate & Build HTML
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - uses: docker://cilium/docs-builder:latest
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

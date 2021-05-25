@@ -7,7 +7,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-MAKER_IMAGE="${MAKER_IMAGE:-docker.io/cilium/image-maker:3e2ea4f151593908c362307a1de22e68610d955c}"
+MAKER_IMAGE="${MAKER_IMAGE:-quay.io/cilium/image-maker:ca3f9135c0c8cb88c979f829d93a167838776615@sha256:b64f9168f52dae5538cd8ca06922e522eb84e36d3f727583c352266e3ed15894}"
 
 with_root_context="${ROOT_CONTEXT:-false}"
 

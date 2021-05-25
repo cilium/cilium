@@ -74,6 +74,7 @@ func (client ServiceAssociationLinksClient) List(ctx context.Context, resourceGr
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ServiceAssociationLinksClient", "List", resp, "Failure responding to request")
+		return
 	}
 
 	return

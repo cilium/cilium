@@ -49,6 +49,7 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 		cidrs     []string
 		macAddr   string
 		masq      bool
+		ifaceNum  string
 		wantRInfo *RoutingInfo
 		wantErr   bool
 	}{
@@ -107,24 +108,35 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 			wantErr:   true,
 		},
 		{
-			name:    "valid IPv4 input",
-			gateway: "192.168.1.1",
-			cidrs:   []string{"192.168.0.0/16"},
-			macAddr: "11:22:33:44:55:66",
-			masq:    true,
+			name:      "invalid interface number",
+			gateway:   "192.168.1.1",
+			cidrs:     []string{"192.168.0.0/16"},
+			macAddr:   "11:22:33:44:55:zz",
+			ifaceNum:  "a",
+			wantRInfo: nil,
+			wantErr:   true,
+		},
+		{
+			name:     "valid IPv4 input",
+			gateway:  "192.168.1.1",
+			cidrs:    []string{"192.168.0.0/16"},
+			macAddr:  "11:22:33:44:55:66",
+			ifaceNum: "1",
 			wantRInfo: &RoutingInfo{
-				IPv4Gateway: net.ParseIP("192.168.1.1"),
-				IPv4CIDRs:   validCIDRs,
-				MasterIfMAC: fakeMAC,
+				IPv4Gateway:     net.ParseIP("192.168.1.1"),
+				IPv4CIDRs:       validCIDRs,
+				MasterIfMAC:     fakeMAC,
+				InterfaceNumber: 1,
 			},
 			wantErr: false,
 		},
 		{
-			name:    "disabled masquerade",
-			gateway: "192.168.1.1",
-			cidrs:   []string{},
-			macAddr: "11:22:33:44:55:66",
-			masq:    false,
+			name:     "disabled masquerade",
+			gateway:  "192.168.1.1",
+			cidrs:    []string{},
+			macAddr:  "11:22:33:44:55:66",
+			masq:     false,
+			ifaceNum: "0",
 			wantRInfo: &RoutingInfo{
 				IPv4Gateway: net.ParseIP("192.168.1.1"),
 				IPv4CIDRs:   []net.IPNet{},
@@ -144,7 +156,7 @@ func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 	}
 	for _, tt := range tests {
 		c.Log(tt.name)
-		rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.masq)
+		rInfo, err := NewRoutingInfo(tt.gateway, tt.cidrs, tt.macAddr, tt.ifaceNum, tt.masq)
 		c.Assert(rInfo, checker.DeepEquals, tt.wantRInfo)
 		c.Assert((err != nil), check.Equals, tt.wantErr)
 	}

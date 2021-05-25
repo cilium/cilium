@@ -46,7 +46,7 @@ func NewIdentityHeartbeatStore(timeout time.Duration) *IdentityHeartbeatStore {
 
 // MarkAlive marks an identity as alive
 func (i *IdentityHeartbeatStore) MarkAlive(identity string, t time.Time) {
-	log.WithField("identity", identity).Debug("Marking identity alive")
+	log.WithField(logfields.Identity, identity).Debug("Marking identity alive")
 	i.mutex.Lock()
 	i.lastLifesign[identity] = t
 	i.mutex.Unlock()
@@ -79,7 +79,7 @@ func (i *IdentityHeartbeatStore) IsAlive(identity string) bool {
 
 // Delete deletes an identity from the store
 func (i *IdentityHeartbeatStore) Delete(identity string) {
-	log.WithField("identity", identity).Debug("Deleting identity in heartbeat lifesign table")
+	log.WithField(logfields.Identity, identity).Debug("Deleting identity in heartbeat lifesign table")
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	delete(i.lastLifesign, identity)
@@ -95,7 +95,7 @@ func (i *IdentityHeartbeatStore) GC() {
 
 	for identity, lifesign := range i.lastLifesign {
 		if time.Since(lifesign) > 10*i.timeout {
-			log.WithField("identity", identity).Debug("Removing unused heartbeat entry")
+			log.WithField(logfields.Identity, identity).Debug("Removing unused heartbeat entry")
 			delete(i.lastLifesign, identity)
 		}
 	}

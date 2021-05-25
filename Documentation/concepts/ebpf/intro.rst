@@ -133,11 +133,3 @@ These components are connected to create the flexible and efficient datapath use
 by Cilium. Below we show the following possible flows connecting endpoints on a single
 node, ingress to an endpoint, and endpoint to egress networking device. In each case
 there is an additional diagram showing the TCP accelerated path available when socket layer enforcement is enabled.
-
-Kubernetes Integration
-======================
-
-The following diagram shows the integration of iptables rules as installed by
-kube-proxy and the iptables rules as installed by Cilium.
-
-.. image:: _static/kubernetes_iptables.svg

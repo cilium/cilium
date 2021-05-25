@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/google/gopacket"
@@ -114,6 +115,10 @@ func decodeLCM(data []byte, p gopacket.PacketBuilder) error {
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (lcm *LCM) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 8 {
+		df.SetTruncated()
+		return errors.New("LCM < 8 bytes")
+	}
 	offset := 0
 
 	lcm.Magic = binary.BigEndian.Uint32(data[offset:4])

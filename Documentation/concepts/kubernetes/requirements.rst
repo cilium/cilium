@@ -18,14 +18,12 @@ with this Cilium version. Older Kubernetes versions not listed here do not have
 Cilium support. Newer Kubernetes versions, while not listed, will depend on the
 backward compatibility offered by Kubernetes.
 
-* 1.13
-* 1.14
-* 1.15
 * 1.16
 * 1.17
 * 1.18
 * 1.19
 * 1.20
+* 1.21
 
 System Requirements
 ===================
@@ -41,18 +39,6 @@ delegate networking configuration. CNI must be enabled in your Kubernetes
 cluster in order to install Cilium. This is done by passing
 ``--network-plugin=cni`` to kubelet on all nodes. For more information, see
 the `Kubernets CNI network-plugins documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
-
-.. _k8s_req_kubedns:
-
-kube-dns
-========
-
-The :ref:`k8s_install_etcd_operator` relies on the etcd-operator to manage an
-etcd cluster. In order for the etcd cluster to be available, the Cilium pod is
-being run with ``dnsPolicy: ClusterFirstWithHostNet`` in order for Cilium to be
-able to look up Kubernetes service names via DNS. This creates a dependency on
-kube-dns. If you would like to avoid running kube-dns, choose a different
-installation method and remove the ``dnsPolicy`` field from the ``DaemonSet``.
 
 Enable automatic node CIDR allocation (Recommended)
 ===================================================

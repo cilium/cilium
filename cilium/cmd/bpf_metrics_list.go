@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -64,17 +62,19 @@ var bpfMetricsListCmd = &cobra.Command{
 	Short: "List BPF datapath traffic metrics",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf metrics list")
-		listMetrics(metricsmap.Metrics)
+		listMetrics(&metricsmap.Metrics)
 	},
 }
 
 func listMetrics(m metricsmap.MetricsMap) {
-	bpfMetricsList := make(map[string]string)
-	callback := func(key bpf.MapKey, value bpf.MapValue) {
-		bpfMetricsList[key.String()] = value.String()
+	bpfMetricsList := []*metricsRow{}
+
+	cb := func(key *metricsmap.Key, values *metricsmap.Values) {
+		bpfMetricsList = append(bpfMetricsList, extractRow(key, values))
 	}
-	if err := m.DumpWithCallback(callback); err != nil {
-		fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
+
+	if err := m.IterateWithCallback(cb); err != nil {
+		fmt.Fprintf(os.Stderr, "error iterating BPF metrics map: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -86,16 +86,10 @@ func listMetrics(m metricsmap.MetricsMap) {
 	listHumanReadableMetrics(bpfMetricsList)
 }
 
-func listJSONMetrics(bpfMetricsList map[string]string) {
+func listJSONMetrics(bpfMetricsList []*metricsRow) {
 	metricsByReason := map[int]jsonMetric{}
 
-	for key, value := range bpfMetricsList {
-		row, err := extractRow(key, value)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			continue
-		}
-
+	for _, row := range bpfMetricsList {
 		if _, ok := metricsByReason[row.reasonCode]; !ok {
 			metricsByReason[row.reasonCode] = jsonMetric{
 				Reason:      uint64(row.reasonCode),
@@ -123,7 +117,7 @@ func listJSONMetrics(bpfMetricsList map[string]string) {
 	}
 }
 
-func listHumanReadableMetrics(bpfMetricsList map[string]string) {
+func listHumanReadableMetrics(bpfMetricsList []*metricsRow) {
 	if len(bpfMetricsList) == 0 {
 		fmt.Fprintf(os.Stderr, "No entries found.\n")
 		return
@@ -135,14 +129,7 @@ func listHumanReadableMetrics(bpfMetricsList map[string]string) {
 	const numColumns = 4
 	rows := [][numColumns]string{}
 
-	for key, value := range bpfMetricsList {
-		row, err := extractRow(key, value)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			continue
-
-		}
-
+	for _, row := range bpfMetricsList {
 		rows = append(rows, [numColumns]string{row.reasonDesc, row.direction, fmt.Sprintf("%d", row.packets), fmt.Sprintf("%d", row.bytes)})
 	}
 
@@ -165,60 +152,8 @@ func listHumanReadableMetrics(bpfMetricsList map[string]string) {
 	w.Flush()
 }
 
-func extractRow(key, value string) (*metricsRow, error) {
-	reasonCodeStr, directionCodeStr, ok := extractTwoValues(key)
-	if !ok {
-		return nil, fmt.Errorf("cannot extract reason and traffic direction from map's key \"%s\"", key)
-	}
-
-	reasonCode, err := strconv.Atoi(reasonCodeStr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse reason: %s", err)
-	}
-
-	directionCode, err := strconv.Atoi(directionCodeStr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse direction: %s", err)
-	}
-
-	packetsStr, bytesStr, ok := extractTwoValues(value)
-	if !ok {
-		return nil, fmt.Errorf("cannot extract packets and bytes counters from map's value \"%s\"", value)
-	}
-
-	packets, err := strconv.Atoi(packetsStr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse packets counter: %s", err)
-	}
-
-	bytes, err := strconv.Atoi(bytesStr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse bytes counter: %s", err)
-	}
-
-	reasonDesc := monitorAPI.DropReason(uint8(reasonCode))
-	direction := metricsmap.MetricDirection(uint8(directionCode))
-
-	return &metricsRow{reasonCode, reasonDesc, direction, packets, bytes}, nil
-}
-
-func extractTwoValues(str string) (string, string, bool) {
-	tmp := strings.Split(str, " ")
-	if len(tmp) != 2 {
-		return "", "", false
-	}
-
-	a := strings.Split(tmp[0], ":")
-	if len(a) != 2 {
-		return "", "", false
-	}
-
-	b := strings.Split(tmp[1], ":")
-	if len(b) != 2 {
-		return "", "", false
-	}
-
-	return a[1], b[1], true
+func extractRow(key *metricsmap.Key, values *metricsmap.Values) *metricsRow {
+	return &metricsRow{int(key.Reason), key.DropForwardReason(), key.Direction(), int(values.Count()), int(values.Bytes())}
 }
 
 func init() {

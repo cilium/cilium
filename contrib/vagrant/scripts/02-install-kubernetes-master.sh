@@ -136,7 +136,8 @@ ExecStart=/usr/bin/kube-controller-manager \\
   --configure-cloud-routes=false \\
   --kubeconfig='/var/lib/kubernetes/controller-manager.kubeconfig' \\
   --leader-elect=true \\
-  --node-cidr-mask-size ${k8s_node_cidr_mask_size} \\
+  --node-cidr-mask-size-ipv4=${k8s_node_cidr_v4_mask_size} \\
+  --node-cidr-mask-size-ipv6=${k8s_node_cidr_v6_mask_size} \\
   --use-service-account-credentials \\
   --service-account-private-key-file='/var/lib/kubernetes/k8s-controller-manager-sa-key.pem' \\
   --service-cluster-ip-range=${k8s_service_cluster_ip_range} \\

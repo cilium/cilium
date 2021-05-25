@@ -18,7 +18,7 @@ package api
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -58,7 +58,7 @@ func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) {
 
 func TestRegister(t *testing.T) {
 	log := logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	r := NewRegistry(log)
 
 	r.Register("test", &testPlugin{})

@@ -25,6 +25,10 @@ install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
+install-binary: install
+
+install-bash-completion:
+
 
 $(SUBDIRS): force
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all

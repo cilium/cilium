@@ -21,13 +21,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -50,15 +51,21 @@ var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func TestL34Decode(t *testing.T) {
 	//SOURCE          					DESTINATION           TYPE   SUMMARY
 	//192.168.33.11:6443(sun-sr-https)  10.16.236.178:54222   L3/4   TCP Flags: ACK
 	d := []byte{
-		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 246, 141, 178, 45, 33, 217, 246, 141, 178,
+		4, 7, 0, 0, 7, 124, 26, 57, 66, 0, 0, 0, 66, 0, 0, 0, // NOTIFY_CAPTURE_HDR
+		1, 0, 0, 0, // source labels
+		0, 0, 0, 0, // destination labels
+		0, 0, // destination ID
+		0x80,       // encrypt  bit
+		0,          // flags
+		0, 0, 0, 0, // ifindex
+		246, 141, 178, 45, 33, 217, 246, 141, 178,
 		45, 33, 217, 8, 0, 69, 0, 0, 52, 234, 28, 64, 0, 64, 6, 120, 49, 192,
 		168, 33, 11, 10, 16, 236, 178, 25, 43, 211, 206, 42, 239, 210, 28, 180,
 		152, 129, 103, 128, 16, 1, 152, 216, 156, 0, 0, 1, 1, 8, 10, 0, 90, 176,
@@ -138,6 +145,7 @@ func TestL34Decode(t *testing.T) {
 
 	assert.Equal(t, []string{"host-192.168.33.11"}, f.GetSourceNames())
 	assert.Equal(t, "192.168.33.11", f.GetIP().GetSource())
+	assert.True(t, f.GetIP().GetEncrypted())
 	assert.Equal(t, uint32(6443), f.L4.GetTCP().GetSourcePort())
 	assert.Equal(t, "pod-192.168.33.11", f.GetSource().GetPodName())
 	assert.Equal(t, "remote", f.GetSource().GetNamespace())
@@ -920,4 +928,74 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	assert.Equal(t, ep.PodNamespace, f.Source.Namespace)
 	assert.Equal(t, ep.Labels, f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
+}
+
+func TestDebugCapture(t *testing.T) {
+	f := &flowpb.Flow{}
+
+	parser, err := New(log, &testutils.NoopEndpointGetter, &testutils.NoopIdentityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	require.NoError(t, err)
+
+	// Obtaining the index for the loopback device might not succeed depending
+	// on the system on which the test is running, therefore we just skip that
+	// part of the test with a warning if it fails.
+	loIfName := "lo"
+	loIfIndex, err := link.GetIfIndex(loIfName)
+	if err != nil {
+		t.Logf("warning: failed to get ifIndex for %q: %s", loIfName, err)
+		loIfIndex = 0
+	}
+
+	dbg := monitor.DebugCapture{
+		Type:    api.MessageTypeCapture,
+		SubType: monitor.DbgCaptureDelivery,
+		Arg1:    loIfIndex,
+	}
+
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP:    net.ParseIP("2.2.2.2"),
+		DstIP:    net.ParseIP("3.3.3.3"),
+		Protocol: layers.IPProtocolTCP,
+	}
+	data, err := testutils.CreateL3L4Payload(dbg, &eth, &ip, &layers.TCP{})
+	require.NoError(t, err)
+
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(dbg.Type), f.EventType.Type)
+	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
+	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_DELIVERY, f.DebugCapturePoint)
+	assert.Equal(t, ip.SrcIP.String(), f.IP.Source)
+	assert.Equal(t, ip.DstIP.String(), f.IP.Destination)
+	assert.NotNil(t, f.L4.GetTCP())
+
+	// Only checked if loIfIndex was populated by the test code above
+	if loIfIndex != 0 {
+		assert.Equal(t, &flowpb.NetworkInterface{
+			Index: loIfIndex,
+			Name:  loIfName,
+		}, f.Interface)
+	}
+
+	dbg = monitor.DebugCapture{
+		Type:    api.MessageTypeCapture,
+		SubType: monitor.DbgCaptureProxyPost,
+		Arg1:    byteorder.HostToNetwork(uint32(1234)).(uint32),
+	}
+	data, err = testutils.CreateL3L4Payload(dbg)
+	require.NoError(t, err)
+
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(dbg.Type), f.EventType.Type)
+	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
+	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_PROXY_POST, f.DebugCapturePoint)
+	assert.Equal(t, uint32(1234), f.ProxyPort)
 }

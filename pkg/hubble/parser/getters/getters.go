@@ -17,11 +17,13 @@ package getters
 import (
 	"net"
 
+	"k8s.io/client-go/tools/cache"
+
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"k8s.io/client-go/tools/cache"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 // DNSGetter ...
@@ -36,6 +38,13 @@ type DNSGetter interface {
 type EndpointGetter interface {
 	// GetEndpointInfo looks up endpoint by IP address.
 	GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	// GetEndpointInfo looks up endpoint by id
+	GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool)
+}
+
+type EndpointsGetter interface {
+	// GetEndpoints returns a map of the current policy.Endpoint(s).
+	GetEndpoints() map[policy.Endpoint]struct{}
 }
 
 // IdentityGetter ...

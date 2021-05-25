@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -61,6 +62,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type configuration struct {
+	clusterName      string
+	serviceProxyName string
+}
+
+func (c configuration) LocalClusterName() string {
+	return c.clusterName
+}
+
+func (c configuration) K8sServiceProxyName() string {
+	return c.serviceProxyName
+}
+
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
 
@@ -85,8 +99,8 @@ var (
 
 	mockFile        string
 	clusterID       int
-	clusterName     string
 	ciliumK8sClient clientset.Interface
+	cfg             configuration
 
 	shutdownSignal = make(chan struct{})
 
@@ -140,7 +154,7 @@ func readMockFile(path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal CiliumEndpoint")
 			} else {
-				updateEndpoint(&endpoint)
+				updateEndpoint(nil, &endpoint)
 			}
 		case strings.Contains(line, "\"Service\""):
 			var service slim_corev1.Service
@@ -187,7 +201,7 @@ func runApiserver() error {
 	flags.IntVar(&clusterID, option.ClusterIDName, 0, "Cluster ID")
 	option.BindEnv(option.ClusterIDName)
 
-	flags.StringVar(&clusterName, option.ClusterName, "default", "Cluster name")
+	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
 	option.BindEnv(option.ClusterName)
 
 	flags.StringVar(&mockFile, "mock-file", "", "Read from mock file")
@@ -206,6 +220,12 @@ func runApiserver() error {
 		option.KVStoreOpt, "Key-value store options")
 	option.BindEnv(option.KVStoreOpt)
 
+	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+	option.BindEnv(option.K8sServiceProxyName)
+
+	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
+	option.BindEnv(option.AllocatorListTimeoutName)
+
 	viper.BindPFlags(flags)
 	option.Config.Populate()
 
@@ -217,8 +237,6 @@ func runApiserver() error {
 }
 
 func main() {
-	log.Infof("Starting Cilium ClusterMesh apiserver...")
-
 	installSigHandler()
 
 	if err := runApiserver(); err != nil {
@@ -351,7 +369,7 @@ func (n nodeStub) GetKeyName() string { return string(n) }
 func updateNode(obj interface{}) {
 	if ciliumNode, ok := obj.(*ciliumv2.CiliumNode); ok {
 		n := nodeTypes.ParseCiliumNode(ciliumNode)
-		n.Cluster = clusterName
+		n.Cluster = cfg.clusterName
 		n.ClusterID = clusterID
 		if err := ciliumNodeStore.UpdateLocalKeySync(context.Background(), &n); err != nil {
 			log.WithError(err).Warning("Unable to insert node into etcd")
@@ -398,14 +416,9 @@ func synchronizeNodes() {
 	go ciliumNodeInformer.Run(wait.NeverStop)
 }
 
-func updateEndpoint(obj interface{}) {
-	e, ok := obj.(*types.CiliumEndpoint)
-	if !ok {
-		log.Warningf("Unknown CiliumEndpoint object type %s received: %+v", reflect.TypeOf(obj), obj)
-		return
-	}
-
-	if n := e.Networking; n != nil {
+func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
+	var ipsAdded []string
+	if n := newEp.Networking; n != nil {
 		for _, address := range n.Addressing {
 			for _, ip := range []string{address.IPV4, address.IPV6} {
 				if ip == "" {
@@ -417,16 +430,16 @@ func updateEndpoint(obj interface{}) {
 					IP:           net.ParseIP(ip),
 					Metadata:     "",
 					HostIP:       net.ParseIP(n.NodeIP),
-					K8sNamespace: e.Namespace,
-					K8sPodName:   e.Name,
+					K8sNamespace: newEp.Namespace,
+					K8sPodName:   newEp.Name,
 				}
 
-				if e.Identity != nil {
-					entry.ID = identity.NumericIdentity(e.Identity.ID)
+				if newEp.Identity != nil {
+					entry.ID = identity.NumericIdentity(newEp.Identity.ID)
 				}
 
-				if e.Encryption != nil {
-					entry.Key = uint8(e.Encryption.Key)
+				if newEp.Encryption != nil {
+					entry.Key = uint8(newEp.Encryption.Key)
 				}
 
 				marshaledEntry, err := json.Marshal(entry)
@@ -439,7 +452,39 @@ func updateEndpoint(obj interface{}) {
 				if err != nil {
 					log.WithError(err).Warningf("Unable to update endpoint %s in etcd", keyPath)
 				} else {
+					ipsAdded = append(ipsAdded, ip)
 					log.Infof("Inserted endpoint into etcd: %v", entry)
+				}
+			}
+		}
+	}
+
+	// Delete the old endpoint IPs from the KVStore in case the endpoint
+	// changed its IP addresses.
+	if oldEp == nil {
+		return
+	}
+	oldNet := oldEp.Networking
+	if oldNet == nil {
+		return
+	}
+	for _, address := range oldNet.Addressing {
+		for _, oldIP := range []string{address.IPV4, address.IPV6} {
+			var found bool
+			for _, newIP := range ipsAdded {
+				if newIP == oldIP {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Delete the old IPs from the kvstore:
+				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, oldIP)
+				if err := kvstore.Client().Delete(context.Background(), keyPath); err != nil {
+					log.WithError(err).
+						WithFields(logrus.Fields{
+							"path": keyPath,
+						}).Warningf("Unable to delete endpoint in etcd")
 				}
 			}
 		}
@@ -449,7 +494,7 @@ func updateEndpoint(obj interface{}) {
 func deleteEndpoint(obj interface{}) {
 	e, ok := obj.(*types.CiliumEndpoint)
 	if !ok {
-		log.Warningf("Unknown CiliumEndpoint object type %s received: %+v", reflect.TypeOf(obj), obj)
+		log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", obj, obj)
 		return
 	}
 
@@ -470,15 +515,32 @@ func deleteEndpoint(obj interface{}) {
 }
 
 func synchronizeCiliumEndpoints() {
-	_, ciliumNodeInformer := informer.NewInformer(
+	_, ciliumEndpointsInformer := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
 			"ciliumendpoints", k8sv1.NamespaceAll, fields.Everything()),
 		&ciliumv2.CiliumEndpoint{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: updateEndpoint,
-			UpdateFunc: func(_, newObj interface{}) {
-				updateEndpoint(newObj)
+			AddFunc: func(obj interface{}) {
+				e, ok := obj.(*types.CiliumEndpoint)
+				if !ok {
+					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", obj, obj)
+					return
+				}
+				updateEndpoint(nil, e)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldEp, ok := oldObj.(*types.CiliumEndpoint)
+				if !ok {
+					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", oldObj, oldObj)
+					return
+				}
+				newEp, ok := newObj.(*types.CiliumEndpoint)
+				if !ok {
+					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", newObj, newObj)
+					return
+				}
+				updateEndpoint(oldEp, newEp)
 			},
 			DeleteFunc: func(obj interface{}) {
 				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -492,10 +554,15 @@ func synchronizeCiliumEndpoints() {
 		k8s.ConvertToCiliumEndpoint,
 	)
 
-	go ciliumNodeInformer.Run(wait.NeverStop)
+	go ciliumEndpointsInformer.Run(wait.NeverStop)
 }
 
 func runServer(cmd *cobra.Command) {
+	log.WithFields(logrus.Fields{
+		"cluster-name": cfg.clusterName,
+		"cluster-id":   clusterID,
+	}).Info("Starting clustermesh-apiserver...")
+
 	if mockFile == "" {
 		k8s.Configure("", "", 0.0, 0)
 		if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
@@ -539,10 +606,12 @@ func runServer(cmd *cobra.Command) {
 		synchronizeIdentities()
 		synchronizeNodes()
 		synchronizeCiliumEndpoints()
-		operatorWatchers.StartSynchronizingServices(false)
+		operatorWatchers.StartSynchronizingServices(false, cfg)
 	}
 
 	go func() {
+		timer, timerDone := inctimer.New()
+		defer timerDone()
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
@@ -550,7 +619,7 @@ func runServer(cmd *cobra.Command) {
 				log.WithError(err).Warning("Unable to update heartbeat key")
 			}
 			cancel()
-			<-time.After(kvstore.HeartbeatWriteInterval)
+			<-timer.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
 

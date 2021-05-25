@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,11 +35,12 @@ var bpfMaglevGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb maglev get")
 
-		svcID, err := strconv.Atoi(args[0])
+		svcIDUint64, err := strconv.ParseUint(args[0], 10, 16)
 		if err != nil {
 			Fatalf("Unable to parse %s: %s", args[0], err)
 		}
-		key := &lbmap.MaglevOuterKey{RevNatID: uint16(svcID)}
+		svcID := uint16(svcIDUint64)
+		key := &lbmap.MaglevOuterKey{RevNatID: svcID}
 		key = key.ToNetwork()
 		val := &lbmap.MaglevOuterVal{}
 

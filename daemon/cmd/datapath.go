@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -56,7 +56,7 @@ import (
 
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
 func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
-	<-d.nodeDiscovery.Registered
+	<-d.nodeDiscovery.LocalStateInitialized
 	return &d.nodeDiscovery.LocalConfig
 }
 
@@ -160,31 +160,6 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	} else {
 		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
 	}
-}
-
-// waitForHostDeviceWhenReady waits the given ifaceName to be up and ready. If
-// ifaceName is not found, then it will wait forever until the device is
-// created.
-func waitForHostDeviceWhenReady(ifaceName string) error {
-	for i := 0; ; i++ {
-		if i%10 == 0 {
-			log.WithField(logfields.Interface, ifaceName).
-				Info("Waiting for the underlying interface to be initialized with containers")
-		}
-		_, err := netlink.LinkByName(ifaceName)
-		if err == nil {
-			log.WithField(logfields.Interface, ifaceName).
-				Info("Underlying interface initialized with containers!")
-			break
-		}
-		select {
-		case <-cleaner.cleanUPSig:
-			return errors.New("clean up signal triggered")
-		default:
-			time.Sleep(time.Second)
-		}
-	}
-	return nil
 }
 
 func endParallelMapMode() {
@@ -341,11 +316,15 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
+	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return err
 	}
 
 	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if _, err := egressmap.EgressMap.OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -395,13 +374,13 @@ func (d *Daemon) initMaps() error {
 	}
 
 	ipv4Nat, ipv6Nat := nat.GlobalMaps(option.Config.EnableIPv4,
-		option.Config.EnableIPv6)
-	if option.Config.EnableIPv4 {
+		option.Config.EnableIPv6, option.Config.EnableNodePort)
+	if ipv4Nat != nil {
 		if _, err := ipv4Nat.Create(); err != nil {
 			return err
 		}
 	}
-	if option.Config.EnableIPv6 {
+	if ipv6Nat != nil {
 		if _, err := ipv6Nat.Create(); err != nil {
 			return err
 		}

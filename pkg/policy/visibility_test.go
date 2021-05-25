@@ -136,7 +136,7 @@ func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 	anno = "<Egress/53/ANY/DNS>"
 	vp, err = NewVisibilityPolicy(anno)
 	c.Assert(err, IsNil)
-	c.Assert(len(vp.Egress), checker.Equals, 2)
+	c.Assert(vp.Egress, HasLen, 2)
 	udp, ok := vp.Egress["53/UDP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(udp.Proto, Equals, u8proto.UDP)

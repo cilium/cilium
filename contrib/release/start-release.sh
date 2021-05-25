@@ -8,11 +8,12 @@ source $DIR/../backporting/common.sh
 
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
 ACTS_YAML=".github/cilium-actions.yml"
+REMOTE="$(get_remote)"
 
 usage() {
     logecho "usage: $0 <VERSION> <GH-PROJECT>"
-    logecho "VERSION    Target release version"
-    logecho "GH-PROJECT Project ID for next release"
+    logecho "VERSION    Target release version (format: X.Y.Z)"
+    logecho "GH-PROJECT Project Number for next (X.Y.Z+1) development release"
     logecho
     logecho "--help     Print this help message"
 }
@@ -51,19 +52,19 @@ handle_args() {
 main() {
     handle_args "$@"
 
-    local old_version="$(cat VERSION)"
     local ersion="$(echo $1 | sed 's/^v//')"
     local version="v$ersion"
     local branch="v$(echo $ersion | sed 's/[^0-9]*\([0-9]\+\.[0-9]\+\).*/\1/')"
-    local remote="origin"
     local new_proj="$2"
 
-    git fetch $remote
-    git checkout -b pr/prepare-$version $remote/$branch
+    git fetch $REMOTE
+    git checkout -b pr/prepare-$version $REMOTE/$branch
+    local old_version="$(cat VERSION)"
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
-    logrun make -C install/kubernetes all
+    sed -i 's/"[^"]*"/""/g' install/kubernetes/Makefile.digests
+    logrun make -C install/kubernetes all USE_DIGESTS=false
     logrun make update-authors
     old_proj=$(grep "projects" $ACTS_YAML | sed "$PROJECTS_REGEX")
     sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML

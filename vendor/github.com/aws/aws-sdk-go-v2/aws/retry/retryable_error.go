@@ -148,13 +148,13 @@ type RetryableHTTPStatusCode struct {
 // IsErrorRetryable return if the passed in error is retryable based on the
 // HTTP status code.
 func (r RetryableHTTPStatusCode) IsErrorRetryable(err error) aws.Ternary {
-	var v interface{ StatusCode() int }
+	var v interface{ HTTPStatusCode() int }
 
 	if !errors.As(err, &v) {
 		return aws.UnknownTernary
 	}
 
-	_, ok := r.Codes[v.StatusCode()]
+	_, ok := r.Codes[v.HTTPStatusCode()]
 	if !ok {
 		return aws.UnknownTernary
 	}
@@ -171,13 +171,13 @@ type RetryableErrorCode struct {
 // IsErrorRetryable return if the error is retryable based on the error codes.
 // Returns unknown if the error doesn't have a code or it is unknown.
 func (r RetryableErrorCode) IsErrorRetryable(err error) aws.Ternary {
-	var v interface{ Code() string }
+	var v interface{ ErrorCode() string }
 
 	if !errors.As(err, &v) {
 		return aws.UnknownTernary
 	}
 
-	_, ok := r.Codes[v.Code()]
+	_, ok := r.Codes[v.ErrorCode()]
 	if !ok {
 		return aws.UnknownTernary
 	}

@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -102,10 +101,10 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
+	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil, nil)
 
 	epsWanted, _ := ds.createEndpoints()
-	tmpDir, err := ioutil.TempDir("", "cilium-tests")
+	tmpDir, err := os.MkdirTemp("", "cilium-tests")
 	defer func() {
 		os.RemoveAll(tmpDir)
 	}()
@@ -172,12 +171,12 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
+	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil, nil)
 
 	eps, _ := ds.createEndpoints()
 	ep := eps[0]
 	c.Assert(ep, NotNil)
-	tmpDir, err := ioutil.TempDir("", "cilium-tests")
+	tmpDir, err := os.MkdirTemp("", "cilium-tests")
 	defer func() {
 		os.RemoveAll(tmpDir)
 	}()
@@ -238,10 +237,10 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
+	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil, nil)
 
 	epsWanted, _ := ds.createEndpoints()
-	tmpDir, err := ioutil.TempDir("", "cilium-tests")
+	tmpDir, err := os.MkdirTemp("", "cilium-tests")
 	defer func() {
 		os.RemoveAll(tmpDir)
 	}()

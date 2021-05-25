@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -109,18 +108,18 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 
-	dir, err := ioutil.TempDir("", "multicluster")
+	dir, err := os.MkdirTemp("", "multicluster")
 	c.Assert(err, IsNil)
 	defer os.RemoveAll(dir)
 
 	etcdConfig := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
 	config1 := path.Join(dir, "cluster1")
-	err = ioutil.WriteFile(config1, etcdConfig, 0644)
+	err = os.WriteFile(config1, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
 	config2 := path.Join(dir, "cluster2")
-	err = ioutil.WriteFile(config2, etcdConfig, 0644)
+	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
 	cm, err := NewClusterMesh(Configuration{

@@ -6,9 +6,10 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source $DIR/lib/common.sh
 source $DIR/../backporting/common.sh
 
+REMOTE="$(get_remote)"
 BRANCH="${1:-""}"
 if [ "$BRANCH" = "" ]; then
-    BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\.[0-9]\).*/\1/')
+    BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')
 fi
 BRANCH=$(echo "$BRANCH" | sed 's/^v//')
 
@@ -20,10 +21,12 @@ if [ "$SUMMARY" = "" ]; then
     GENERATE_SUMMARY=true
 fi
 
-if ! git branch -a | grep -q "origin/v$BRANCH$" || [ ! -e $SUMMARY ]; then
-    echo "usage: $0 [branch version] [release-summary]" 1>&2
+USER_REMOTE=$(get_user_remote ${3:-})
+
+if ! git branch -a | grep -q "$REMOTE/v$BRANCH$" || [ ! -e $SUMMARY ]; then
+    echo "usage: $0 [branch version] [release-summary] [your remote]" 1>&2
     echo 1>&2
-    echo "Ensure 'branch version' is available in 'origin' and the summary file exists" 1>&2
+    echo "Ensure 'branch version' is available in '$REMOTE' and the summary file exists" 1>&2
     exit 1
 fi
 
@@ -55,5 +58,5 @@ echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
 echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git push origin "$PR_BRANCH"
+git push $USER_REMOTE "$PR_BRANCH"
 hub pull-request -b "v$BRANCH" -l kind/release,backport/$BRANCH -F $SUMMARY

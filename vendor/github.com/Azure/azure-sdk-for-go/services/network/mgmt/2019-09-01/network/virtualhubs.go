@@ -65,7 +65,7 @@ func (client VirtualHubsClient) CreateOrUpdate(ctx context.Context, resourceGrou
 
 	result, err = client.CreateOrUpdateSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "CreateOrUpdate", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "CreateOrUpdate", nil, "Failure sending request")
 		return
 	}
 
@@ -104,7 +104,29 @@ func (client VirtualHubsClient) CreateOrUpdateSender(req *http.Request) (future 
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VirtualHubsClient) (vh VirtualHub, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VirtualHubsCreateOrUpdateFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VirtualHubsCreateOrUpdateFuture")
+			return
+		}
+		sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+		if vh.Response.Response, err = future.GetResult(sender); err == nil && vh.Response.Response.StatusCode != http.StatusNoContent {
+			vh, err = client.CreateOrUpdateResponder(vh.Response.Response)
+			if err != nil {
+				err = autorest.NewErrorWithError(err, "network.VirtualHubsCreateOrUpdateFuture", "Result", vh.Response.Response, "Failure responding to request")
+			}
+		}
+		return
+	}
 	return
 }
 
@@ -143,7 +165,7 @@ func (client VirtualHubsClient) Delete(ctx context.Context, resourceGroupName st
 
 	result, err = client.DeleteSender(req)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "Delete", result.Response(), "Failure sending request")
+		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "Delete", nil, "Failure sending request")
 		return
 	}
 
@@ -179,7 +201,23 @@ func (client VirtualHubsClient) DeleteSender(req *http.Request) (future VirtualH
 	if err != nil {
 		return
 	}
-	future.Future, err = azure.NewFutureFromResponse(resp)
+	var azf azure.Future
+	azf, err = azure.NewFutureFromResponse(resp)
+	future.FutureAPI = &azf
+	future.Result = func(client VirtualHubsClient) (ar autorest.Response, err error) {
+		var done bool
+		done, err = future.DoneWithContext(context.Background(), client)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.VirtualHubsDeleteFuture", "Result", future.Response(), "Polling failure")
+			return
+		}
+		if !done {
+			err = azure.NewAsyncOpIncompleteError("network.VirtualHubsDeleteFuture")
+			return
+		}
+		ar.Response = future.Response()
+		return
+	}
 	return
 }
 
@@ -225,6 +263,7 @@ func (client VirtualHubsClient) Get(ctx context.Context, resourceGroupName strin
 	result, err = client.GetResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "Get", resp, "Failure responding to request")
+		return
 	}
 
 	return
@@ -298,6 +337,11 @@ func (client VirtualHubsClient) List(ctx context.Context) (result ListVirtualHub
 	result.lvhr, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "List", resp, "Failure responding to request")
+		return
+	}
+	if result.lvhr.hasNextLink() && result.lvhr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -408,6 +452,11 @@ func (client VirtualHubsClient) ListByResourceGroup(ctx context.Context, resourc
 	result.lvhr, err = client.ListByResourceGroupResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "ListByResourceGroup", resp, "Failure responding to request")
+		return
+	}
+	if result.lvhr.hasNextLink() && result.lvhr.IsEmpty() {
+		err = result.NextWithContext(ctx)
+		return
 	}
 
 	return
@@ -520,6 +569,7 @@ func (client VirtualHubsClient) UpdateTags(ctx context.Context, resourceGroupNam
 	result, err = client.UpdateTagsResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.VirtualHubsClient", "UpdateTags", resp, "Failure responding to request")
+		return
 	}
 
 	return

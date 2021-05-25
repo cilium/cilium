@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -524,6 +524,7 @@ message ServicePort {
 
   // The IP protocol for this port. Supports "TCP", "UDP", and "SCTP".
   // Default is TCP.
+  // +default="TCP"
   // +optional
   optional string protocol = 2;
 
@@ -645,6 +646,14 @@ message ServiceSpec {
   // More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
   // +optional
   optional string sessionAffinity = 7;
+
+  // Only applies to Service Type: LoadBalancer
+  // LoadBalancer will get created with the IP specified in this field.
+  // This feature depends on whether the underlying cloud-provider supports specifying
+  // the loadBalancerIP when a load balancer is created.
+  // This field will be ignored if the cloud-provider does not support the feature.
+  // +optional
+  optional string loadBalancerIP = 8;
 
   // If specified and supported by the platform, this will restrict traffic through the cloud-provider
   // load-balancer will be restricted to the specified client IPs. This field will be ignored if the

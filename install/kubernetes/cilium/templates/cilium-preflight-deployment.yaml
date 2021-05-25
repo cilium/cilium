@@ -19,6 +19,9 @@ spec:
       labels:
         k8s-app: cilium-pre-flight-check-deployment
         kubernetes.io/cluster-service: "true"
+{{- with .Values.preflight.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
       affinity:
         podAffinity:
@@ -37,7 +40,7 @@ spec:
       containers:
 {{- if .Values.preflight.validateCNPs }}
         - name: cnp-validator
-          image: {{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}
+          image: "{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}"
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
@@ -71,8 +74,8 @@ spec:
 {{- end }}
       hostNetwork: true
       restartPolicy: Always
-      serviceAccount: cilium-pre-flight
-      serviceAccountName: cilium-pre-flight
+      serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
       terminationGracePeriodSeconds: 1
 {{- with .Values.preflight.nodeSelector }}
       nodeSelector:

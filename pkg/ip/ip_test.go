@@ -39,14 +39,14 @@ func Test(t *testing.T) {
 
 func (s *IPTestSuite) TestCountIPs(c *C) {
 	tests := map[string]*big.Int{
-		"192.168.0.1/32": big.NewInt(1),
-		"192.168.0.1/31": big.NewInt(1),
-		"192.168.0.1/30": big.NewInt(3),
-		"192.168.0.1/24": big.NewInt(255),
-		"192.168.0.1/16": big.NewInt(65535),
-		"::1/128":        big.NewInt(1),
-		"::1/120":        big.NewInt(255),
-		"fd02:1::/32":    big.NewInt(0).Sub(big.NewInt(2).Exp(big.NewInt(2), big.NewInt(96), nil), big.NewInt(1)),
+		"192.168.0.1/32": big.NewInt(0),
+		"192.168.0.1/31": big.NewInt(0).Sub(big.NewInt(1), big.NewInt(1)),
+		"192.168.0.1/30": big.NewInt(2),
+		"192.168.0.1/24": big.NewInt(254),
+		"192.168.0.1/16": big.NewInt(65534),
+		"::1/128":        big.NewInt(0),
+		"::1/120":        big.NewInt(254),
+		"fd02:1::/32":    big.NewInt(0).Sub(big.NewInt(2).Exp(big.NewInt(2), big.NewInt(96), nil), big.NewInt(2)),
 	}
 	for cidr, nIPs := range tests {
 		_, ipnet, err := net.ParseCIDR(cidr)
@@ -80,6 +80,7 @@ func (s *IPTestSuite) TestFirstIP(c *C) {
 }
 
 func (s *IPTestSuite) testIPNetsEqual(created, expected []*net.IPNet, c *C) {
+	c.Assert(created, HasLen, len(expected))
 	for index := range created {
 		c.Assert(created[index].String(), Equals, expected[index].String())
 		c.Assert(created[index].Mask.String(), Equals, expected[index].Mask.String())
@@ -87,6 +88,7 @@ func (s *IPTestSuite) testIPNetsEqual(created, expected []*net.IPNet, c *C) {
 }
 
 func (s *IPTestSuite) testIPsEqual(created, expected net.IP, c *C) {
+	c.Assert(created, HasLen, len(expected))
 	for k := range created {
 		c.Assert(created[k], Equals, expected[k])
 	}
@@ -102,6 +104,67 @@ func createIPRange(first string, last string) *netWithRange {
 	return &netWithRange{First: &firstIP, Last: &lastIP}
 }
 
+func (s *IPTestSuite) TestRemoveRedundant(c *C) {
+	CIDRs := []*net.IPNet{
+		createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+	}
+	expectedCIDRs := []*net.IPNet{
+		createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs := removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+	}
+	expectedCIDRs = []*net.IPNet{
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	expectedCIDRs = []*net.IPNet{
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+
+	CIDRs = []*net.IPNet{
+		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	expectedCIDRs = []*net.IPNet{
+		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
+		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+	}
+	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
+	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
+}
+
 func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
@@ -111,10 +174,14 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.0.0.0", 10, int(ipv4BitLen)),
 		createIPNet("10.64.0.0", 11, int(ipv4BitLen)),
 		createIPNet("10.120.0.0", 13, int(ipv4BitLen))}
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
-	allowedCIDRs, err := RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, IsNil)
-
+	// Removing superset removes the allowed CIDR
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	expectedCIDRs = []*net.IPNet{}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
@@ -124,7 +191,6 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
 		createIPNet("10.63.0.5", 13, int(ipv4BitLen)),
 	}
-
 	expectedCIDRs = []*net.IPNet{createIPNet("10.128.0.0", 9, int(ipv4BitLen)),
 		createIPNet("10.0.0.0", 11, int(ipv4BitLen)),
 		createIPNet("10.32.0.0", 12, int(ipv4BitLen)),
@@ -150,60 +216,80 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 		createIPNet("10.93.0.8", 29, int(ipv4BitLen)),
 		createIPNet("10.93.0.0", 30, int(ipv4BitLen)),
 	}
-
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, IsNil)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Cannot remove CIDRs that are of a different address family.
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
-	_, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	c.Assert(err, NotNil)
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
+
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("a000::", 8, int(ipv6BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
+
+	allowCIDRs = []*net.IPNet{createIPNet("a000::", 8, int(ipv6BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
 
 	//IPv6 tests
 	allowCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen))}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
-
-	c.Assert(err, IsNil)
+	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	expectedCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, int(ipv6BitLen)),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 }
 
+func (s *IPTestSuite) TestRemoveSameCIDR(c *C) {
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen))}
+
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, allowCIDRs)
+	c.Assert(allowedCIDRs, HasLen, 0)
+}
+
+func (s *IPTestSuite) TestRemoveCIDRsEdgeCases(c *C) {
+	// Remote some /32s
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, int(ipv4BitLen))}
+	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen)), createIPNet("10.96.0.1", 32, int(ipv4BitLen))}
+	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, int(ipv4BitLen))}
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
+
+	// Remove some subnets
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 22, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
+	expectedCIDRs = []*net.IPNet{createIPNet("10.96.2.0", 23, int(ipv4BitLen))}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
+
+	// Remove all subnets
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 23, int(ipv4BitLen))}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
+	expectedCIDRs = []*net.IPNet{}
+	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
+}
+
 func (s *IPTestSuite) TestByteFunctions(c *C) {
-
-	//getByteIndexofBit
-	byteNum := getByteIndexOfBit(0)
-	c.Assert(byteNum, Equals, uint(15))
-	byteNum = getByteIndexOfBit(1)
-	c.Assert(byteNum, Equals, uint(15))
-	byteNum = getByteIndexOfBit(8)
-	c.Assert(byteNum, Equals, uint(14))
-	byteNum = getByteIndexOfBit(9)
-	c.Assert(byteNum, Equals, uint(14))
-
-	//getNthBit
-	testNet := net.IPNet{IP: net.ParseIP("10.96.0.0"), Mask: net.CIDRMask(12, int(ipv4BitLen))}
-	bit := getNthBit(&(testNet.IP), 20)
-	c.Assert(bit, Equals, uint8(0))
-	bit = getNthBit(&(testNet.IP), 22)
-	c.Assert(bit, Equals, uint8(1))
-
-	//flipNthBit
-	testBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x0, 0x0}
-	newBytes := flipNthBit(&testBytes, 10)
-	expectedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x4, 0x0}
+	//flipNthHighestBit
+	testBytes := net.IP{0x0, 0x0, 0x0, 0x0}
+	expectedBytes := net.IP{0x0, 0x0, 0x0, 0x80}
+	flipNthHighestBit(testBytes, 24)
 	for k := range expectedBytes {
-		c.Assert(expectedBytes[k], Equals, (*newBytes)[k])
+		c.Assert(expectedBytes[k], Equals, testBytes[k])
 	}
 
-	newBytes = flipNthBit(&testBytes, 32)
-	expectedBytes = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xfe, 0x0, 0x0, 0x0, 0x0}
+	testBytes = net.IP{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x0, 0x0}
+	expectedBytes = net.IP{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xfe, 0x0, 0x0, 0x0, 0x0}
+	flipNthHighestBit(testBytes, 95)
 	for k := range expectedBytes {
-		c.Assert(expectedBytes[k], Equals, (*newBytes)[k])
+		c.Assert(expectedBytes[k], Equals, testBytes[k])
 	}
-
 }
 
 func (s *IPTestSuite) TestIPNetToRange(c *C) {
@@ -698,39 +784,144 @@ func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
 	}
 }
 
-func (s *IPTestSuite) TestIsIPv4(c *C) {
+func (s *IPTestSuite) TestIPVersion(c *C) {
 	type args struct {
 		ip net.IP
 	}
 	tests := []struct {
 		name string
 		args args
-		want bool
+		v4   bool
+		v6   bool
 	}{
 		{
 			name: "test-1",
 			args: args{
 				ip: nil,
 			},
-			want: false,
+			v4: false,
+			v6: false,
 		},
 		{
 			name: "test-2",
 			args: args{
 				ip: net.ParseIP("1.1.1.1"),
 			},
-			want: true,
+			v4: true,
+			v6: false,
 		},
 		{
 			name: "test-3",
 			args: args{
 				ip: net.ParseIP("fd00::1"),
 			},
-			want: false,
+			v4: false,
+			v6: true,
 		},
 	}
 	for _, tt := range tests {
 		got := IsIPv4(tt.args.ip)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		c.Assert(got, checker.DeepEquals, tt.v4, Commentf("v4 test Name: %s", tt.name))
+
+		got = IsIPv6(tt.args.ip)
+		c.Assert(got, checker.DeepEquals, tt.v6, Commentf("v6 test Name: %s", tt.name))
+	}
+}
+
+func (s *IPTestSuite) TestIPListEquals(c *C) {
+	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
+	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
+
+	sortedIPs := getSortedIPList(ips)
+	c.Assert(SortedIPListsAreEqual(sorted, sortedIPs), checker.Equals, true)
+
+	c.Assert(UnsortedIPListsAreEqual(ips, sorted), checker.Equals, true)
+}
+
+func (s *IPTestSuite) TestGetIPFromListByFamily(c *C) {
+	tests := []struct {
+		name          string
+		ips           []net.IP
+		needsV4Family bool
+		wants         net.IP
+	}{
+		{
+			name:          "test-1",
+			ips:           []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")},
+			needsV4Family: true,
+			wants:         net.ParseIP("1.1.1.1"),
+		},
+		{
+			name:          "test-2",
+			ips:           []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")},
+			needsV4Family: false,
+			wants:         net.ParseIP("fd00::1"),
+		},
+		{
+			name:          "test-2",
+			ips:           []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8")},
+			needsV4Family: false,
+			wants:         nil,
+		},
+	}
+
+	for _, tt := range tests {
+		got := GetIPFromListByFamily(tt.ips, tt.needsV4Family)
+		c.Assert(got.String(), checker.DeepEquals, tt.wants.String(), Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *IPTestSuite) TestGetIPAtIndex(c *C) {
+	type args struct {
+		cidr  string
+		index int64
+		want  net.IP
+	}
+
+	tests := []args{
+		{
+			cidr:  "10.0.0.0/29",
+			index: -1,
+			want:  net.ParseIP("10.0.0.7"),
+		}, {
+			cidr:  "10.0.0.0/29",
+			index: 0,
+			want:  net.ParseIP("10.0.0.0"),
+		}, {
+			cidr:  "10.0.0.0/29",
+			index: 1,
+			want:  net.ParseIP("10.0.0.1"),
+		}, {
+			cidr:  "10.0.0.16/28",
+			index: -3,
+			want:  net.ParseIP("10.0.0.29"),
+		}, {
+			cidr:  "10.0.0.0/29",
+			index: -3,
+			want:  net.ParseIP("10.0.0.5"),
+		}, {
+			cidr:  "10.0.0.0/25",
+			index: -3,
+			want:  net.ParseIP("10.0.0.125"),
+		}, {
+			cidr:  "10.0.0.128/25",
+			index: -3,
+			want:  net.ParseIP("10.0.0.253"),
+		}, {
+			cidr:  "10.0.8.0/21",
+			index: -3,
+			want:  net.ParseIP("10.0.15.253"),
+		}, {
+			cidr:  "fd00::/64",
+			index: -3,
+			want:  net.ParseIP("fd00::ffff:ffff:ffff:fffd"),
+		},
+	}
+	for _, tt := range tests {
+		_, ipNet, _ := net.ParseCIDR(tt.cidr)
+		if got := GetIPAtIndex(*ipNet, tt.index); !got.Equal(tt.want) {
+			c.Errorf("GetIPAtIndex() = %v, want %v", got, tt.want)
+		}
+
 	}
 }

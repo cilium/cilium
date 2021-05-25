@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -268,9 +267,5 @@ func (s *LocalExecutor) RenderTemplateToFile(filename string, tmplt string, perm
 		return err
 	}
 
-	err = ioutil.WriteFile(filename, content.Bytes(), perm)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(filename, content.Bytes(), perm)
 }

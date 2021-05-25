@@ -24,18 +24,20 @@ import (
 )
 
 type LBMockMap struct {
-	BackendByID   map[uint16]*lb.Backend
-	ServiceByID   map[uint16]*lb.SVC
-	AffinityMatch lbmap.BackendIDByServiceIDSet
-	SourceRanges  lbmap.SourceRangeSetByServiceID
+	BackendByID      map[uint16]*lb.Backend
+	ServiceByID      map[uint16]*lb.SVC
+	AffinityMatch    lbmap.BackendIDByServiceIDSet
+	SourceRanges     lbmap.SourceRangeSetByServiceID
+	DummyMaglevTable map[uint16]int // svcID => backends count
 }
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
-		BackendByID:   map[uint16]*lb.Backend{},
-		ServiceByID:   map[uint16]*lb.SVC{},
-		AffinityMatch: lbmap.BackendIDByServiceIDSet{},
-		SourceRanges:  lbmap.SourceRangeSetByServiceID{},
+		BackendByID:      map[uint16]*lb.Backend{},
+		ServiceByID:      map[uint16]*lb.SVC{},
+		AffinityMatch:    lbmap.BackendIDByServiceIDSet{},
+		SourceRanges:     lbmap.SourceRangeSetByServiceID{},
+		DummyMaglevTable: map[uint16]int{},
 	}
 }
 
@@ -61,10 +63,20 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	svc.Backends = backendsList
 	svc.SessionAffinity = p.SessionAffinity
 	svc.SessionAffinityTimeoutSec = p.SessionAffinityTimeoutSec
+	svc.Type = p.Type
 
 	m.ServiceByID[p.ID] = svc
 
 	return nil
+}
+
+func (m *LBMockMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]uint16, ipv6 bool) error {
+	m.DummyMaglevTable[svcID] = len(backends)
+	return nil
+}
+
+func (*LBMockMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
+	return true
 }
 
 func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev bool) error {

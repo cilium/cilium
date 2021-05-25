@@ -23,10 +23,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -55,6 +54,7 @@ var (
 		crdResourceName(v2.CNName),
 		crdResourceName(v2.CIDName),
 		crdResourceName(v2.CLRPName),
+		crdResourceName(v2alpha1.CENPName),
 	}
 	// AllCRDResourceNames is a list of all CRD resource names
 	// Cilium Operator is registering.
@@ -74,42 +74,20 @@ func crdResourceName(crd string) string {
 func SyncCRDs(ctx context.Context, crdNames []string, rs *Resources, ag *APIGroups) error {
 	crds := newCRDState(crdNames)
 
-	var (
-		listerWatcher = newListWatchFromClient(
-			newCRDGetter(k8s.WatcherAPIExtClient()),
-			fields.Everything(),
-			k8sversion.Capabilities().WatchPartialObjectMetadata,
-		)
-
-		crdController cache.Controller
+	listerWatcher := newListWatchFromClient(
+		newCRDGetter(k8s.WatcherAPIExtClient()),
+		fields.Everything(),
 	)
-	if k8sversion.Capabilities().WatchPartialObjectMetadata {
-		_, crdController = informer.NewInformer(
-			listerWatcher,
-			&slim_metav1.PartialObjectMetadata{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { crds.add(obj) },
-				DeleteFunc: func(obj interface{}) { crds.remove(obj) },
-			},
-			nil,
-		)
-	} else {
-		// Note that we are watching for v1beta1 version of the CRD because
-		// support for v1 CRDs was introduced in K8s 1.16. Because support for
-		// watching metav1.POM was only introduced in 1.15, we can safely
-		// assume this apiserver only has v1beta1 CRDs.
-		_, crdController = informer.NewInformer(
-			listerWatcher,
-			&slim_apiextensions_v1beta1.CustomResourceDefinition{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { crds.add(obj) },
-				DeleteFunc: func(obj interface{}) { crds.remove(obj) },
-			},
-			nil,
-		)
-	}
+	_, crdController := informer.NewInformer(
+		listerWatcher,
+		&slim_metav1.PartialObjectMetadata{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { crds.add(obj) },
+			DeleteFunc: func(obj interface{}) { crds.remove(obj) },
+		},
+		nil,
+	)
 
 	// Create a context so that we can timeout after the configured CRD wait
 	// peroid.
@@ -185,34 +163,18 @@ func SyncCRDs(ctx context.Context, crdNames []string, rs *Resources, ag *APIGrou
 }
 
 func (s *crdState) add(obj interface{}) {
-	if k8sversion.Capabilities().WatchPartialObjectMetadata {
-		if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
-			s.Lock()
-			s.m[crdResourceName(pom.GetName())] = true
-			s.Unlock()
-		}
-	} else {
-		if crd := k8s.ObjToV1beta1CRD(obj); crd != nil {
-			s.Lock()
-			s.m[crdResourceName(crd.GetName())] = true
-			s.Unlock()
-		}
+	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
+		s.Lock()
+		s.m[crdResourceName(pom.GetName())] = true
+		s.Unlock()
 	}
 }
 
 func (s *crdState) remove(obj interface{}) {
-	if k8sversion.Capabilities().WatchPartialObjectMetadata {
-		if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
-			s.Lock()
-			s.m[crdResourceName(pom.GetName())] = false
-			s.Unlock()
-		}
-	} else {
-		if crd := k8s.ObjToV1beta1CRD(obj); crd != nil {
-			s.Lock()
-			s.m[crdResourceName(crd.GetName())] = false
-			s.Unlock()
-		}
+	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
+		s.Lock()
+		s.m[crdResourceName(pom.GetName())] = false
+		s.Unlock()
 	}
 }
 
@@ -264,12 +226,9 @@ func newCRDState(crds []string) crdState {
 
 // newListWatchFromClient is a copy of the NewListWatchFromClient from the
 // "k8s.io/client-go/tools/cache" package, with many alterations made to
-// efficiently retrieve Cilium CRDs. If `specialHeader` is true, then efficient
-// retrieval of CRDs is attempted which is only supported in K8s versions 1.14
-// and below. Otherwise, a regular retrieval of the CRD object is attempted.
-// Efficient retrieval is important because we don't want each agent to fetch
-// the full CRDs across the cluster, because they potentially contain large
-// validation schemas.
+// efficiently retrieve Cilium CRDs. Efficient retrieval is important because
+// we don't want each agent to fetch the full CRDs across the cluster, because
+// they potentially contain large validation schemas.
 //
 // This function also removes removes unnecessary calls from the upstream
 // version that set the namespace and the resource when performing `Get`.
@@ -285,7 +244,6 @@ func newCRDState(crds []string) crdState {
 func newListWatchFromClient(
 	c cache.Getter,
 	fieldSelector fields.Selector,
-	canWatchPOM bool,
 ) *cache.ListWatch {
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = fieldSelector.String()
@@ -307,27 +265,7 @@ func newListWatchFromClient(
 		// expects as it wants a list type.
 		getter = getter.SetHeader("Accept", pomListHeader)
 
-		// Because we can perform a watch operation on a POMs, we retrieve them
-		// and return them directly.
-		if canWatchPOM {
-			t := &slim_metav1.PartialObjectMetadataList{}
-			if err := getter.
-				VersionedParams(&options, metav1.ParameterCodec).
-				Do(context.TODO()).
-				Into(t); err != nil {
-				return nil, err
-			}
-
-			return t, nil
-		}
-
-		// Due to being unable to perform a watch operation on POM, we can
-		// still retrieve the objects as POMs in a POM list, but we also must
-		// convert them into individual CRDs in a CRD list. This is because we
-		// can perform a list operation on POMs, but we cannot perform a watch
-		// on them. Therefore, in this path (see canWatchPOM), the controller
-		// and the watcher are expecting the CRD type, hence the conversion.
-		t := &slim_metav1beta1.PartialObjectMetadataList{}
+		t := &slim_metav1.PartialObjectMetadataList{}
 		if err := getter.
 			VersionedParams(&options, metav1.ParameterCodec).
 			Do(context.TODO()).
@@ -335,20 +273,17 @@ func newListWatchFromClient(
 			return nil, err
 		}
 
-		return pomListToCRDList(t), nil
+		return t, nil
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-
 		optionsModifier(&options)
 
 		getter := c.Get()
-		if canWatchPOM {
-			// This watcher will retrieve each CRD that the lister has listed
-			// as individual metav1.PartialObjectMetadata because it is
-			// requesting the apiserver to return objects as such via the
-			// "Accept" header.
-			getter = getter.SetHeader("Accept", pomHeader)
-		}
+		// This watcher will retrieve each CRD that the lister has listed
+		// as individual metav1.PartialObjectMetadata because it is
+		// requesting the apiserver to return objects as such via the
+		// "Accept" header.
+		getter = getter.SetHeader("Accept", pomHeader)
 
 		options.Watch = true
 		return getter.
@@ -356,37 +291,6 @@ func newListWatchFromClient(
 			Watch(context.TODO())
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
-}
-
-// pomListToCRDList converts a POM list to a CRD list. This function only
-// supports the metav1beta1 and apiextensionsv1beta1 versions, respectively,
-// because this function is only used on K8s versions that do not support
-// watching for a POM object.
-func pomListToCRDList(
-	pomList *slim_metav1beta1.PartialObjectMetadataList,
-) *slim_apiextensions_v1beta1.CustomResourceDefinitionList {
-	if pomList == nil {
-		return nil
-	}
-
-	crdList := &slim_apiextensions_v1beta1.CustomResourceDefinitionList{
-		TypeMeta: pomList.TypeMeta,
-		ListMeta: pomList.ListMeta,
-		Items:    make([]slim_apiextensions_v1beta1.CustomResourceDefinition, 0, len(pomList.Items)),
-	}
-
-	for _, p := range pomList.Items {
-		crdList.Items = append(crdList.Items,
-			slim_apiextensions_v1beta1.CustomResourceDefinition{
-				ObjectMeta: slim_metav1.ObjectMeta{ // ObjectMeta in v1 & v1beta1 are identical
-					Name:            p.GetName(),
-					ResourceVersion: pomList.GetResourceVersion(),
-				},
-			},
-		)
-	}
-
-	return crdList
 }
 
 const (

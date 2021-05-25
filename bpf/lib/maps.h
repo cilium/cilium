@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 #ifndef __LIB_MAPS_H_
 #define __LIB_MAPS_H_
@@ -99,6 +99,27 @@ struct bpf_elf_map __section_maps TUNNEL_MAP = {
 
 #endif
 
+#if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
+/* Private per-EP map for tail calls to user-defined programs.
+ * CUSTOM_CALLS_MAP is a per-EP map name, only defined for programs that need
+ * to use the map, so we do not want to compile this definition if
+ * CUSTOM_CALLS_MAP has not been #define-d.
+ */
+struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= CILIUM_MAP_CUSTOM_CALLS,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 4,	/* ingress and egress, IPv4 and IPv6 */
+};
+
+#define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
+#define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
+#define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
+#define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
+#endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
+
 #ifdef HAVE_LPM_TRIE_MAP_TYPE
 #define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
 #else
@@ -164,6 +185,23 @@ struct bpf_elf_map __section_maps ENCRYPT_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= 1,
 };
+
+struct egress_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32 sip;
+	__u32 dip;
+};
+
+#ifdef ENABLE_EGRESS_GATEWAY
+struct bpf_elf_map __section_maps EGRESS_MAP = {
+	.type		= LPM_MAP_TYPE,
+	.size_key	= sizeof(struct egress_key),
+	.size_value	= sizeof(struct egress_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= EGRESS_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx,

@@ -16,7 +16,7 @@ package netns
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -98,7 +98,7 @@ func RemoveNetNSWithName(netNSName string) error {
 // ListNamedNetNSWithPrefix returns list of named network namespaces which name
 // starts with the given prefix.
 func ListNamedNetNSWithPrefix(prefix string) ([]string, error) {
-	entries, err := ioutil.ReadDir(netNSRootDir())
+	entries, err := os.ReadDir(netNSRootDir())
 	if err != nil {
 		return nil, err
 	}

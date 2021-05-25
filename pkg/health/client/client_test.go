@@ -17,7 +17,7 @@
 package client
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/health/models"
@@ -165,7 +165,7 @@ func (s *ClientTestSuite) TestFormatNodeStatus(c *C) {
 
 	// not testing output, just that permutations of NodeStatus don't cause
 	// panics.
-	w := ioutil.Discard
+	w := io.Discard
 
 	connectivityStatusGood := &models.ConnectivityStatus{
 		Latency: 1,

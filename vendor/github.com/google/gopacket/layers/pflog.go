@@ -9,6 +9,7 @@ package layers
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/google/gopacket"
 )
@@ -39,6 +40,10 @@ type PFLog struct {
 }
 
 func (pf *PFLog) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 60 {
+		df.SetTruncated()
+		return errors.New("PFLog data less than 60 bytes")
+	}
 	pf.Length = data[0]
 	pf.Family = ProtocolFamily(data[1])
 	pf.Action = data[2]
@@ -56,6 +61,9 @@ func (pf *PFLog) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 		return errors.New("PFLog header length should be 3 less than multiple of 4")
 	}
 	actualLength := int(pf.Length) + 3
+	if len(data) < actualLength {
+		return fmt.Errorf("PFLog data size < %d", actualLength)
+	}
 	pf.Contents = data[:actualLength]
 	pf.Payload = data[actualLength:]
 	return nil

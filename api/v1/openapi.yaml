@@ -111,6 +111,8 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     put:
       summary: Create endpoint
       description: |
@@ -136,6 +138,8 @@ paths:
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Modify existing endpoint
       deprecated: true
@@ -161,6 +165,8 @@ paths:
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     delete:
       summary: Delete endpoint
       description: |
@@ -194,6 +200,8 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint":
     get:
       summary: Retrieves a list of endpoints that have metadata matching the provided parameters.
@@ -212,6 +220,8 @@ paths:
               "$ref": "#/definitions/Endpoint"
         '404':
           description: Endpoints with provided parameters not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -228,6 +238,8 @@ paths:
             "$ref": "#/definitions/EndpointConfigurationStatus"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Modify mutable endpoint configuration
       description: |
@@ -255,6 +267,8 @@ paths:
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/labels":
     get:
       summary: Retrieves the list of labels associated with an endpoint.
@@ -269,6 +283,8 @@ paths:
             "$ref": "#/definitions/LabelConfiguration"
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Set label configuration of endpoint
       description: |
@@ -293,6 +309,8 @@ paths:
           x-go-name: UpdateFailed
           schema:
             "$ref": "#/definitions/Error"
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/log":
     get:
       summary: Retrieves the status logs associated with this endpoint.
@@ -310,6 +328,8 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
 
   "/endpoint/{id}/healthz":
     get:
@@ -328,6 +348,8 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/identity":
     get:
       summary: Retrieves a list of identities that have metadata matching the provided parameters.
@@ -637,6 +659,77 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+  "/recorder":
+    get:
+      summary: Retrieve list of all recorders
+      tags:
+      - recorder
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/Recorder"
+  "/recorder/masks":
+    get:
+      summary: Retrieve list of all recorder masks
+      tags:
+      - recorder
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/RecorderMask"
+  "/recorder/{id}":
+    get:
+      summary: Retrieve configuration of a recorder
+      tags:
+      - recorder
+      parameters:
+      - "$ref": "#/parameters/recorder-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Recorder"
+        '404':
+          description: Recorder not found
+    put:
+      summary: Create or update recorder
+      tags:
+      - recorder
+      parameters:
+      - "$ref": "#/parameters/recorder-id"
+      - "$ref": "#/parameters/recorder-config"
+      responses:
+        '200':
+          description: Updated
+        '201':
+          description: Created
+        '500':
+          description: Error while creating recorder
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete a recorder
+      tags:
+      - recorder
+      parameters:
+      - "$ref": "#/parameters/recorder-id"
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Recorder not found
+        '500':
+          description: Recorder deletion failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/prefilter":
     get:
       summary: Retrieve list of CIDRs
@@ -937,6 +1030,19 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/ServiceSpec"
+  recorder-id:
+    name: id
+    description: ID of recorder
+    required: true
+    in: path
+    type: integer
+  recorder-config:
+    name: config
+    description: Recorder configuration
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/RecorderSpec"
   prefilter-spec:
     name: prefilter-spec
     description: List of CIDR ranges for filter table
@@ -1096,6 +1202,10 @@ definitions:
         description: >
           Installs a route in the Linux routing table pointing to the device of
           the endpoint's interface.
+        type: boolean
+      disable-sip-verification:
+        description: >
+          Disable source IP verification for the endpoint.
         type: boolean
   EndpointStatus:
     description: The current state and configuration of the endpoint, its policy & datapath, and subcomponents
@@ -1402,6 +1512,12 @@ definitions:
         type: object
         additionalProperties:
           type: string
+      encryption:
+        type: object
+        properties:
+          wireguard:
+            description: Status of the Wireguard agent
+            "$ref": "#/definitions/WireguardStatus"
   IPAMResponse:
     description: IPAM configuration of an endpoint
     type: object
@@ -1440,6 +1556,10 @@ definitions:
         description: |
           The UUID for the expiration timer. Set when expiration has been
           enabled while allocating.
+      interface-number:
+        type: string
+        description: |
+          InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.
   AddressPair:
     description: Addressing information of an endpoint
     type: object
@@ -1652,6 +1772,9 @@ definitions:
       bpf-maps:
         description: Status of BPF maps
         "$ref": "#/definitions/BPFMapStatus"
+      encryption:
+        description: Status of transparent encryption
+        "$ref": "#/definitions/EncryptionStatus"
   Status:
     description: Status of an individual component
     type: object
@@ -1754,6 +1877,10 @@ definitions:
         - Probe
         - Partial
       devices:
+        type: array
+        items:
+          type: string
+      deviceList:
         description: |-
 
 
@@ -2057,6 +2184,8 @@ definitions:
         description: Configured IPAM mode
         type: string
       masquerade:
+        type: boolean
+      masqueradeProtocols:
         description: Status of masquerading feature
         type: object
         properties:
@@ -2066,6 +2195,9 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
+      egress-multi-home-ip-rule-compat:
+        description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
+        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
@@ -2405,6 +2537,98 @@ definitions:
     properties:
       realized:
         "$ref": "#/definitions/ServiceSpec"
+  Recorder:
+    description: Collection of wildcard filters for pcap recorder
+    type: object
+    properties:
+      spec:
+        "$ref": "#/definitions/RecorderSpec"
+      status:
+        "$ref": "#/definitions/RecorderStatus"
+  RecorderMask:
+    description: Individual mask for pcap recorder
+    type: object
+    properties:
+      status:
+        "$ref": "#/definitions/RecorderMaskStatus"
+  RecorderFilter:
+    description: n-tuple filter to match traffic to be recorded
+    type: object
+    properties:
+      src-prefix:
+        description: Layer 3 source CIDR
+        type: string
+      src-port:
+        description: Layer 4 source port, zero (or in future range)
+        type: string
+      dst-prefix:
+        description: Layer 3 destination CIDR
+        type: string
+      dst-port:
+        description: Layer 4 destination port, zero (or in future range)
+        type: string
+      protocol:
+        description: Layer 4 protocol
+        type: string
+        enum:
+        - TCP
+        - UDP
+        - ANY
+  RecorderSpec:
+    description: Configuration of a recorder
+    type: object
+    required:
+    - id
+    - filters
+    properties:
+      id:
+        description: Unique identification
+        type: integer
+      capture-length:
+        description: Maximum packet length or zero for full packet length
+        type: integer
+      filters:
+        description: List of wildcard filters for given recorder
+        type: array
+        items:
+          "$ref": "#/definitions/RecorderFilter"
+  RecorderMaskSpec:
+    description: Configuration of a recorder mask
+    type: object
+    properties:
+      users:
+        description: Number of users of this mask
+        type: integer
+      priority:
+        description: Priority of this mask
+        type: integer
+      src-prefix-mask:
+        description: Layer 3 source IP mask
+        type: string
+      src-port-mask:
+        description: Layer 4 source port mask
+        type: string
+      dst-prefix-mask:
+        description: Layer 3 destination IP mask
+        type: string
+      dst-port-mask:
+        description: Layer 4 destination port mask
+        type: string
+      protocol-mask:
+        description: Layer 4 protocol mask
+        type: string
+  RecorderStatus:
+    description: Configuration of a recorder
+    type: object
+    properties:
+      realized:
+        "$ref": "#/definitions/RecorderSpec"
+  RecorderMaskStatus:
+    description: Configuration of a recorder mask
+    type: object
+    properties:
+      realized:
+        "$ref": "#/definitions/RecorderMaskSpec"
   ProxyStatus:
     description: |-
       Status of proxy
@@ -2516,6 +2740,8 @@ definitions:
     type: object
     properties:
       enabled:
+        type: boolean
+      enabledProtocols:
         description: Is masquerading enabled
         type: object
         properties:
@@ -2533,6 +2759,10 @@ definitions:
       ip-masq-agent:
         description: Is BPF ip-masq-agent enabled
         type: boolean
+      snat-exclusion-cidr:
+        description: |-
+          This field is obsolete, please use snat-exclusion-cidr-v4 or snat-exclusion-cidr-v6.
+        type: string
       snat-exclusion-cidr-v4:
         description: |-
           SnatExclusionCIDRv4 exempts SNAT from being performed on any packet sent to
@@ -2818,3 +3048,82 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Port"
+  EncryptionStatus:
+    description: |-
+      Status of transparent encryption
+
+      +k8s:deepcopy-gen=true
+    properties:
+      mode:
+        type: string
+        enum:
+          - Disabled
+          - IPsec
+          - Wireguard
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+      wireguard:
+        description: Status of the Wireguard agent
+        "$ref": "#/definitions/WireguardStatus"
+  WireguardStatus:
+    description: |-
+      Status of the Wireguard agent
+
+      +k8s:deepcopy-gen=true
+    properties:
+      interfaces:
+        description: Wireguard interfaces managed by this Cilium instance
+        type: array
+        items:
+          "$ref": "#/definitions/WireguardInterface"
+  WireguardInterface:
+    description: |-
+      Status of a Wireguard interface
+
+      +k8s:deepcopy-gen=true
+    properties:
+      name:
+        description: Name of the interface
+        type: string
+      public-key:
+        description: Public key of this interface
+        type: string
+      listen-port:
+        description: Port on which the Wireguard endpoint is exposed
+        type: integer
+      peer-count:
+        description: Number of peers configured on this interface
+        type: integer
+      peers:
+        description: Optional list of wireguard peers
+        type: array
+        items:
+          "$ref": "#/definitions/WireguardPeer"
+  WireguardPeer:
+    description: |-
+      Status of a Wireguard peer
+
+      +k8s:deepcopy-gen=true
+    properties:
+      public-key:
+        description: Public key of this peer
+        type: string
+      endpoint:
+        description: Endpoint on which we are connected to this peer
+        type: string
+      last-handshake-time:
+        description: Timestamp of the last handshake with this peer
+        type: string
+        format: date-time
+      transfer-tx:
+        description: Number of sent bytes
+        type: integer
+      transfer-rx:
+        description: Number of received bytes
+        type: integer
+      allowed-ips:
+        description: List of IPs which may be routed through this peer
+        type: array
+        items:
+          type: string

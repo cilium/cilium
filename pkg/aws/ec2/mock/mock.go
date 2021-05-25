@@ -166,7 +166,10 @@ func (e *API) rateLimit() {
 	}
 }
 
-func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
+// CreateNetworkInterface mocks the interface creation. As with the upstream
+// EC2 API, the number of IP addresses in toAllocate are the number of
+// secondary IPs, a primary IP is always allocated.
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
 	e.delaySim.Delay(CreateNetworkInterface)
 
@@ -182,7 +185,8 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 		return "", nil, fmt.Errorf("subnet %s not found", subnetID)
 	}
 
-	if int(toAllocate) > subnet.AvailableAddresses {
+	numAddresses := int(toAllocate) + 1 // include primary IP
+	if numAddresses > subnet.AvailableAddresses {
 		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnetID)
 	}
 
@@ -196,15 +200,20 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 		SecurityGroups: groups,
 	}
 
-	for i := int64(0); i < toAllocate; i++ {
+	primaryIP, err := e.allocator.AllocateNext()
+	if err != nil {
+		panic("Unable to allocate primary IP from allocator")
+	}
+	eni.IP = primaryIP.String()
+
+	for i := int32(0); i < toAllocate; i++ {
 		ip, err := e.allocator.AllocateNext()
 		if err != nil {
 			panic("Unable to allocate IP from allocator")
 		}
 		eni.Addresses = append(eni.Addresses, ip.String())
 	}
-
-	subnet.AvailableAddresses -= int(toAllocate)
+	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
 	return eniID, eni.DeepCopy(), nil
@@ -231,7 +240,7 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	return fmt.Errorf("ENI ID %s not found", eniID)
 }
 
-func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
+func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AttachNetworkInterface)
 
@@ -274,7 +283,7 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 	return nil
 }
 
-func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
+func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
 	e.rateLimit()
 	e.delaySim.Delay(AssignPrivateIpAddresses)
 
@@ -296,7 +305,7 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 				return fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
 			}
 
-			for i := int64(0); i < addresses; i++ {
+			for i := int32(0); i < addresses; i++ {
 				ip, err := e.allocator.AllocateNext()
 				if err != nil {
 					panic("Unable to allocate IP from allocator")
@@ -376,6 +385,7 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.ID]; ok {
 					eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
+					eni.VPC.CIDRs = vpc.CIDRs
 				}
 			}
 

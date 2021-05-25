@@ -21,6 +21,8 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
+  targetLabels:
+  - k8s-app
 {{- end }}
 {{- if and .Values.hubble.metrics.enabled (.Values.hubble.metrics.serviceMonitor.enabled) }}
 ---
@@ -36,7 +38,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: cilium
+      k8s-app: hubble
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}

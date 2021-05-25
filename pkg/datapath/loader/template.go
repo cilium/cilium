@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ var (
 	elfMapPrefixes = []string{
 		policymap.MapName,
 		callsmap.MapName,
+		callsmap.CustomCallsMapName,
 	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,
@@ -160,6 +161,11 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		if ep.IsHost() && name == callsmap.MapName {
 			name = callsmap.HostMapName
 		}
+		// Custom calls for hosts are not supported yet.
+		if name == callsmap.CustomCallsMapName &&
+			(!option.Config.EnableCustomCalls || ep.IsHost()) {
+			continue
+		}
 		templateStr := bpf.LocalMapName(name, templateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
 		result[templateStr] = desiredStr
@@ -172,9 +178,13 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		}
 	}
 
-	if !ep.IsHost() {
+	// The policy map is only used for the host endpoint is per-endpoint
+	// routes and the host firewall are enabled.
+	if !ep.IsHost() ||
+		(option.Config.EnableEndpointRoutes && option.Config.EnableHostFirewall) {
 		result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
 	}
+
 	return result
 }
 
@@ -235,7 +245,6 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 			}
 		}
 		result["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheDisabled)
-		result["HOST_EP_ID"] = uint32(ep.GetID())
 	} else {
 		result["LXC_ID"] = uint32(ep.GetID())
 	}

@@ -1,5 +1,5 @@
 // Copyright 2019 The Kubernetes Authors.
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.16
-// +k8s:prerelease-lifecycle-gen:deprecated=1.22
+// +k8s:prerelease-lifecycle-gen:deprecated=1.21
+// +k8s:prerelease-lifecycle-gen:removed=1.25
+// +k8s:prerelease-lifecycle-gen:replacement=discovery.k8s.io,v1,EndpointSlice
 
 // EndpointSlice represents a subset of the endpoints that implement a service.
 // For a given service there may be multiple EndpointSlice objects, selected by
@@ -149,7 +151,9 @@ type EndpointPort struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.16
-// +k8s:prerelease-lifecycle-gen:deprecated=1.22
+// +k8s:prerelease-lifecycle-gen:deprecated=1.21
+// +k8s:prerelease-lifecycle-gen:removed=1.25
+// +k8s:prerelease-lifecycle-gen:replacement=discovery.k8s.io,v1,EndpointSlice
 
 // EndpointSliceList represents a list of endpoint slices
 type EndpointSliceList struct {

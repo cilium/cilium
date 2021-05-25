@@ -263,6 +263,7 @@ func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap, usePr
 					if subnet, ok := subnets[addr.Subnet]; ok {
 						if gateway := deriveGatewayIP(subnet.CIDR.IP); gateway != "" {
 							i.GatewayIP = gateway
+							i.Gateway = gateway
 						}
 					}
 				}
@@ -406,14 +407,23 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 		return fmt.Errorf("interface %s does not exist in VM %s", interfaceName, instanceID)
 	}
 
+	// All IPConfigurations on the NIC should reference the same set of Application Security Groups (ASGs).
+	// So we should first fetch the set of ASGs referenced by other IPConfigurations so that it can be
+	// added to the new IPConfigurations.
+	var appSecurityGroups *[]compute.SubResource
+	if ipConfigs := *netIfConfig.IPConfigurations; len(ipConfigs) > 0 {
+		appSecurityGroups = ipConfigs[0].ApplicationSecurityGroups
+	}
+
 	ipConfigurations := make([]compute.VirtualMachineScaleSetIPConfiguration, 0, addresses)
 	for i := 0; i < addresses; i++ {
 		ipConfigurations = append(ipConfigurations,
 			compute.VirtualMachineScaleSetIPConfiguration{
 				Name: to.StringPtr(generateIpConfigName()),
 				VirtualMachineScaleSetIPConfigurationProperties: &compute.VirtualMachineScaleSetIPConfigurationProperties{
-					PrivateIPAddressVersion: compute.IPv4,
-					Subnet:                  &compute.APIEntityReference{ID: to.StringPtr(subnetID)},
+					ApplicationSecurityGroups: appSecurityGroups,
+					PrivateIPAddressVersion:   compute.IPv4,
+					Subnet:                    &compute.APIEntityReference{ID: to.StringPtr(subnetID)},
 				},
 			},
 		)
@@ -441,11 +451,20 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 		return fmt.Errorf("failed to get standalone instance's interface %s: %s", interfaceName, err)
 	}
 
+	// All IPConfigurations on the NIC should reference the same set of Application Security Groups (ASGs).
+	// So we should first fetch the set of ASGs referenced by other IPConfigurations so that it can be
+	// added to the new IPConfigurations.
+	var appSecurityGroups *[]network.ApplicationSecurityGroup
+	if ipConfigs := *iface.IPConfigurations; len(ipConfigs) > 0 {
+		appSecurityGroups = ipConfigs[0].ApplicationSecurityGroups
+	}
+
 	ipConfigurations := make([]network.InterfaceIPConfiguration, 0, addresses)
 	for i := 0; i < addresses; i++ {
 		ipConfigurations = append(ipConfigurations, network.InterfaceIPConfiguration{
 			Name: to.StringPtr(generateIpConfigName()),
 			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+				ApplicationSecurityGroups: appSecurityGroups,
 				PrivateIPAllocationMethod: network.Dynamic,
 				Subnet: &network.Subnet{
 					ID: to.StringPtr(subnetID),

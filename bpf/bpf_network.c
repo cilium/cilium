@@ -8,8 +8,6 @@
 #include <netdev_config.h>
 
 #include "lib/common.h"
-#include "lib/eth.h"
-#include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/encrypt.h"
 

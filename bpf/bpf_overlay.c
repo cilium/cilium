@@ -125,6 +125,9 @@ not_esp:
 					   METRIC_INGRESS, false);
 	}
 
+	/* A packet entering the node from the tunnel and not going to a local
+	 * endpoint has to be going to the local host.
+	 */
 to_host:
 #ifdef HOST_IFINDEX
 	if (1) {
@@ -169,6 +172,16 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
+#ifndef ENABLE_IPV4_FRAGMENTS
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
 		int ret = nodeport_lb4(ctx, *identity);
@@ -234,6 +247,9 @@ not_esp:
 					   METRIC_INGRESS, false);
 	}
 
+	/* A packet entering the node from the tunnel and not going to a local
+	 * endpoint has to be going to the local host.
+	 */
 to_host:
 #ifdef HOST_IFINDEX
 	if (1) {
@@ -267,6 +283,9 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
+/* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
+ * entering the node via the tunnel.
+ */
 __section("from-overlay")
 int from_overlay(struct __ctx_buff *ctx)
 {
@@ -323,6 +342,9 @@ out:
 	return ret;
 }
 
+/* Attached to the egress of cilium_vxlan/cilium_geneve to execute on packets
+ * leaving the node via the tunnel.
+ */
 __section("to-overlay")
 int to_overlay(struct __ctx_buff *ctx)
 {
@@ -353,7 +375,7 @@ int to_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
-	ret = nodeport_nat_fwd(ctx);
+	ret = handle_nat_fwd(ctx);
 #endif
 out:
 	if (IS_ERR(ret))

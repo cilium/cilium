@@ -41,10 +41,10 @@ type AllocatorAWS struct {
 }
 
 // Init sets up ENI limits based on given options
-func (a *AllocatorAWS) Init() error {
+func (a *AllocatorAWS) Init(ctx context.Context) error {
 	var aMetrics ec2shim.MetricsAPI
 
-	cfg, err := ec2shim.NewConfig()
+	cfg, err := ec2shim.NewConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -55,13 +55,13 @@ func (a *AllocatorAWS) Init() error {
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
-	a.client = ec2shim.NewClient(ec2.New(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters)
+	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters, operatorOption.Config.ENITags)
 
 	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
 	}
 	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(context.TODO(), a.client); err != nil {
+		if err := limits.UpdateFromEC2API(ctx, a.client); err != nil {
 			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
 		}
 	}
@@ -81,7 +81,7 @@ func (a *AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (alloca
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	instances := eni.NewInstancesManager(a.client, operatorOption.Config.ENITags)
+	instances := eni.NewInstancesManager(a.client)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs)
 	if err != nil {

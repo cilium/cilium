@@ -5,13 +5,13 @@ chardet==3.0.4
 docutils==0.14
 idna==2.7
 imagesize==1.1.0
-Jinja2==2.10.1
+Jinja2==2.11.3
 jsonschema==2.6.0
 MarkupSafe==1.1.1
 pyenchant==2.0.0
-Pygments==2.4.2
+Pygments==2.7.4
 pytz==2018.7
-PyYAML==5.3.1
+PyYAML==5.4
 recommonmark==0.4.0
 requests==2.20.0
 semver==2.9.0

@@ -25,15 +25,15 @@ import (
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestRingReader_Previous(t *testing.T) {
 	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
-		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
+		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 	tests := []struct {
 		start   uint64
@@ -45,36 +45,36 @@ func TestRingReader_Previous(t *testing.T) {
 			start: 13,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 13}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 13}},
 			},
 		}, {
 			start: 13,
 			count: 2,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 13}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 12}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 13}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 12}},
 			},
 		}, {
 			start: 5,
 			count: 5,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 5}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 4}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 3}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 2}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 1}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 4}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 3}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 2}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 1}},
 			},
 		}, {
 			start: 0,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
 			},
 		}, {
 			start: 0,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
 			},
 		}, {
 			start:   14,
@@ -111,7 +111,7 @@ func TestRingReader_Previous(t *testing.T) {
 func TestRingReader_Next(t *testing.T) {
 	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
-		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
+		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 
 	tests := []struct {
@@ -124,30 +124,30 @@ func TestRingReader_Next(t *testing.T) {
 			start: 0,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
 			},
 		}, {
 			start: 0,
 			count: 2,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 1}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 1}},
 			},
 		}, {
 			start: 5,
 			count: 5,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 5}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 6}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 7}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 8}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 9}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 7}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 8}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 9}},
 			},
 		}, {
 			start: 13,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 13}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 13}},
 			},
 		}, {
 			start:   ^uint64(0),
@@ -189,7 +189,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	ring := NewRing(Capacity15)
 	for i := 0; i < 15; i++ {
-		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
+		ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 	}
 
 	tests := []struct {
@@ -202,30 +202,30 @@ func TestRingReader_NextFollow(t *testing.T) {
 			start: 0,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
 			},
 		}, {
 			start: 0,
 			count: 2,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 1}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 0}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 1}},
 			},
 		}, {
 			start: 5,
 			count: 5,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 5}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 6}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 7}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 8}},
-				{Timestamp: &timestamp.Timestamp{Seconds: 9}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 5}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 6}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 7}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 8}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 9}},
 			},
 		}, {
 			start: 13,
 			count: 1,
 			want: []*v1.Event{
-				{Timestamp: &timestamp.Timestamp{Seconds: 13}},
+				{Timestamp: &timestamppb.Timestamp{Seconds: 13}},
 			},
 		}, {
 			start:       14,

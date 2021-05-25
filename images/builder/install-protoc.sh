@@ -18,4 +18,4 @@ unzip /tmp/protoc.zip -x readme.txt -d /usr/local
 
 # correct permissions for others
 chmod o+rx /usr/local/bin/protoc
-chmod o+rX -R /usr/local/include/google/protobuf
+chmod o+rX -R /usr/local/include/google/

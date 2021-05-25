@@ -17,9 +17,10 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 
+	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -32,13 +33,14 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
-	MTU         int                  `json:"mtu"`
-	Args        Args                 `json:"args"`
-	ENI         eniTypes.ENISpec     `json:"eni,omitempty"`
-	Azure       azureTypes.AzureSpec `json:"azure,omitempty"`
-	IPAM        ipamTypes.IPAMSpec   `json:"ipam,omitempty"`
-	EnableDebug bool                 `json:"enable-debug"`
-	LogFormat   string               `json:"log-format"`
+	MTU          int                    `json:"mtu"`
+	Args         Args                   `json:"args"`
+	ENI          eniTypes.ENISpec       `json:"eni,omitempty"`
+	Azure        azureTypes.AzureSpec   `json:"azure,omitempty"`
+	IPAM         ipamTypes.IPAMSpec     `json:"ipam,omitempty"`
+	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
+	EnableDebug  bool                   `json:"enable-debug"`
+	LogFormat    string                 `json:"log-format"`
 }
 
 // NetConfList is a CNI chaining configuration
@@ -68,7 +70,7 @@ func parsePrevResult(n *NetConf) (*NetConf, error) {
 // ReadNetConf reads a CNI configuration file and returns the corresponding
 // NetConf structure
 func ReadNetConf(path string) (*NetConf, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to read CNI configuration '%s': %s", path, err)
 	}

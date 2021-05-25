@@ -18,20 +18,15 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 
-	"github.com/cilium/cilium/pkg/aws/endpoints"
+	cilium_ec2 "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-)
 
-const (
-	awsLogLevel         = aws.LogOff // For debugging pourposes can be set to aws.LogDebugWithSigning
-	awsDefaultRegionKey = "AWS_DEFAULT_REGION"
-	awsDefaultRegion    = "eu-west-1"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 var (
@@ -53,80 +48,60 @@ func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]net.IP, error)
 	return getInstancesIpsFromFilter(ctx, group.AWS)
 }
 
-// initializeAWSAccount retrieve the env variables from the runtime and it
-// iniliazes the account in the specified region.
-func initializeAWSAccount(region string) (*aws.Config, error) {
-	cfg, err := external.LoadDefaultAWSConfig()
-	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize aws connector: %s", err)
-	}
-	cfg.Region = region
-	cfg.LogLevel = awsLogLevel
-	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
-	return &cfg, nil
-}
-
 // getInstancesFromFilter returns the instances IPs in aws EC2 filter by the
 // given filter
 func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net.IP, error) {
-	region := filter.Region
-	if filter.Region == "" {
-		region = getDefaultRegion()
-	}
+	var result []ec2_types.Reservation
 	input := &ec2.DescribeInstancesInput{}
+
+	cfg, err := cilium_ec2.NewConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
+
 	for labelKey, labelValue := range filter.Labels {
-		newFilter := ec2.Filter{
+		newFilter := ec2_types.Filter{
 			Name:   aws.String(fmt.Sprintf("%s:%s", policyEC2Labelskey, labelKey)),
 			Values: []string{labelValue},
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
 	if len(filter.SecurityGroupsIds) > 0 {
-		newFilter := ec2.Filter{
+		newFilter := ec2_types.Filter{
 			Name:   policySecurityGroupIDKey,
 			Values: filter.SecurityGroupsIds,
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
 	if len(filter.SecurityGroupsNames) > 0 {
-		newFilter := ec2.Filter{
+		newFilter := ec2_types.Filter{
 			Name:   policySecurityGroupName,
 			Values: filter.SecurityGroupsNames,
 		}
 		input.Filters = append(input.Filters, newFilter)
 	}
-	cfg, err := initializeAWSAccount(region)
-	if err != nil {
-		return []net.IP{}, err
+
+	paginator := ec2.NewDescribeInstancesPaginator(ec2Client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot retrieve aws information: %w", err)
+		}
+		result = append(result, output.Reservations...)
 	}
-	svc := ec2.New(*cfg)
-	req := svc.DescribeInstancesRequest(input)
-	result, err := req.Send(ctx)
-	if err != nil {
-		return []net.IP{}, fmt.Errorf("Cannot retrieve aws information: %s", err)
-	}
-	return awsDumpIpsFromRequest(result.DescribeInstancesOutput), nil
+	return extractIPs(result), nil
 }
 
-// getDefaultRegion returns the given region of the default one.
-// @TODO retrieve the region from aws metadata.
-func getDefaultRegion() string {
-	val := os.Getenv(awsDefaultRegionKey)
-	if val != "" {
-		return val
-	}
-	return awsDefaultRegion
-}
-
-func awsDumpIpsFromRequest(req *ec2.DescribeInstancesOutput) []net.IP {
+func extractIPs(reservations []ec2_types.Reservation) []net.IP {
 	result := []net.IP{}
-	for _, reservation := range req.Reservations {
+	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			for _, iface := range instance.NetworkInterfaces {
 				for _, ifaceIP := range iface.PrivateIpAddresses {
-					result = append(result, net.ParseIP(string(*ifaceIP.PrivateIpAddress)))
+					result = append(result, net.ParseIP(aws.ToString(ifaceIP.PrivateIpAddress)))
 					if ifaceIP.Association != nil {
-						result = append(result, net.ParseIP(string(*ifaceIP.Association.PublicIp)))
+						result = append(result, net.ParseIP(aws.ToString(ifaceIP.Association.PublicIp)))
 					}
 				}
 			}

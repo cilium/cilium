@@ -17,10 +17,10 @@
 package mcastmanager
 
 import (
-	"net"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/addressing"
+	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
 )
 
@@ -32,7 +32,7 @@ type McastManagerSuite struct {
 var _ = Suite(&McastManagerSuite{})
 
 func (m *McastManagerSuite) TestAddRemoveEndpoint(c *C) {
-	ifaces, err := net.Interfaces()
+	ifaces, err := netlink.LinkList()
 	c.Assert(err, IsNil)
 
 	if len(ifaces) == 0 {
@@ -43,7 +43,7 @@ func (m *McastManagerSuite) TestAddRemoveEndpoint(c *C) {
 		ok bool
 
 		iface = ifaces[0]
-		mgr   = New(iface.Name)
+		mgr   = New(iface.Attrs().Name)
 	)
 
 	// Add first endpoint
@@ -74,7 +74,7 @@ func (m *McastManagerSuite) TestAddRemoveEndpoint(c *C) {
 }
 
 func (m *McastManagerSuite) TestAddRemoveNil(c *C) {
-	ifaces, err := net.Interfaces()
+	ifaces, err := netlink.LinkList()
 	c.Assert(err, IsNil)
 
 	if len(ifaces) == 0 {
@@ -83,7 +83,7 @@ func (m *McastManagerSuite) TestAddRemoveNil(c *C) {
 
 	var (
 		iface = ifaces[0]
-		mgr   = New(iface.Name)
+		mgr   = New(iface.Attrs().Name)
 	)
 
 	mgr.AddAddress(nil)

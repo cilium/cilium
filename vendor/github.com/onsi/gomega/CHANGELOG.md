@@ -1,3 +1,47 @@
+## 1.10.5
+
+### Fixes
+- fix: collections matchers should display type of expectation (#408) [6b4eb5a]
+- fix(ContainElements): consistently flatten expected values [073b880]
+- fix(ConsistOf): consistently flatten expected values [7266efe]
+
+## 1.10.4
+
+### Fixes
+- update golang net library to more recent version without vulnerability (#406) [817a8b9]
+- Correct spelling: alloted -> allotted (#403) [0bae715]
+- fix a panic in MessageWithDiff with long message (#402) [ea06b9b]
+
+## 1.10.3
+
+### Fixes
+- updates golang/x/net to fix vulnerability detected by snyk (#394) [c479356]
+
+## 1.10.2
+
+### Fixes
+- Add ExpectWithOffset, EventuallyWithOffset and ConsistentlyWithOffset to WithT (#391) [990941a]
+
+## 1.10.1
+
+### Fixes
+- Update dependencies (#389) [9f5eecd]
+
+## 1.10.0
+
+### Features
+- Add HaveHTTPStatusMatcher (#378) [f335c94]
+- Changed matcher for content-type in VerifyJSONRepresenting (#377) [6024f5b]
+- Make ghttp usable with x-unit style tests (#376) [c0be499]
+- Implement PanicWith matcher (#381) [f8032b4]
+
+## 1.9.0
+
+### Features
+- Add ContainElements matcher (#370) [2f57380]
+- Output missing and extra elements in ConsistOf failure message [a31eda7]
+- Document method LargestMatching [7c5a280]
+
 ## 1.8.1
 
 ### Fixes

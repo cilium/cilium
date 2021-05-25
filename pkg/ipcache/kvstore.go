@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -203,10 +203,11 @@ func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore
 type IPIdentityWatcher struct {
-	backend  kvstore.BackendOperations
-	stop     chan struct{}
-	synced   chan struct{}
-	stopOnce sync.Once
+	backend    kvstore.BackendOperations
+	stop       chan struct{}
+	synced     chan struct{}
+	stopOnce   sync.Once
+	syncedOnce sync.Once
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
@@ -271,7 +272,7 @@ restart:
 					listener.OnIPIdentityCacheGC()
 				}
 				IPIdentityCache.Unlock()
-				close(iw.synced)
+				iw.closeSynced()
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 				var ipIDPair identity.IPIdentityPair
@@ -302,6 +303,12 @@ restart:
 					}
 				}
 
+				// There is no need to delete the "old" IP addresses from this
+				// ip ID pair. The only places where the ip ID pair are created
+				// is the clustermesh, where it sends a delete to the KVStore,
+				// and the endpoint-runIPIdentitySync where it bounded to a
+				// lease and a controller which is stopped/removed when the
+				// endpoint is gone.
 				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
 					ID:     ipIDPair.ID,
 					Source: source.KVStore,
@@ -356,6 +363,13 @@ restart:
 func (iw *IPIdentityWatcher) Close() {
 	iw.stopOnce.Do(func() {
 		close(iw.stop)
+	})
+}
+
+//closeSynced the IPIdentityWathcer and case panic
+func (iw *IPIdentityWatcher) closeSynced() {
+	iw.syncedOnce.Do(func() {
+		close(iw.synced)
 	})
 }
 

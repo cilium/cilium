@@ -17,7 +17,6 @@ DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #define NODE_MAC fetch_mac(NODE_MAC)
 
 DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
-#define ENCAP_IFINDEX 1
 #define HOST_IFINDEX 1
 #define CILIUM_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
@@ -43,7 +42,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_SYN_TIMEOUT			60
 #define CT_CLOSE_TIMEOUT		10
 #define CT_REPORT_INTERVAL		5
-#define CT_REPORT_FLAGS			0xff
+#ifndef CT_REPORT_FLAGS
+# define CT_REPORT_FLAGS		0xff
+#endif
 
 #define KERNEL_HZ 250   /* warp: 0 jiffies */
 
@@ -61,6 +62,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
+#define CAPTURE4_RULES cilium_capture4_rules
+#define CAPTURE4_SIZE 16384
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -69,6 +72,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
+#define CAPTURE6_RULES cilium_capture6_rules
+#define CAPTURE6_SIZE 16384
 #endif /* ENABLE_IPV6 */
 
 #define ENCAP_GENEVE 1
@@ -112,16 +117,19 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CILIUM_LB_MAP_MAX_ENTRIES	65536
 #define POLICY_MAP_SIZE 16384
 #define IPCACHE_MAP_SIZE 512000
+#define EGRESS_MAP_SIZE 16384
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define IPV4_FRAG_DATAGRAMS_MAP test_cilium_ipv4_frag_datagrams
 #define CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES 8192
 #ifndef SKIP_DEBUG
 #define LB_DEBUG
 #endif
+#ifndef MONITOR_AGGREGATION
 #define MONITOR_AGGREGATION 5
+#endif
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
-#if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL)
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT46)
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
 #define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
@@ -130,6 +138,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_MAP_SIZE_ANY 4096
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
+#define LB4_HEALTH_MAP test_cilium_lb4_health
+#define LB6_HEALTH_MAP test_cilium_lb6_health
 #endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
 
 #ifdef ENABLE_NODEPORT
@@ -153,6 +163,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
 #  define IPV6_RSS_PREFIX_BITS 128
 # endif
+#define IS_L3_DEV(ifindex) false
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK

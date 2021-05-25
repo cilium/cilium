@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"gopkg.in/ini.v1"
@@ -30,7 +29,7 @@ func (etcNFSConfCheck) Name() string {
 }
 
 func (etcNFSConfCheck) Run() (checkResult, string) {
-	data, err := ioutil.ReadFile("/etc/nfs.conf")
+	data, err := os.ReadFile("/etc/nfs.conf")
 	switch {
 	case os.IsNotExist(err):
 		return checkError, "/etc/nfs.conf does not exist"

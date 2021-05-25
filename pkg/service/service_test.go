@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,6 +37,9 @@ type ManagerTestSuite struct {
 	svcHealth                 *healthserver.MockHealthHTTPServerFactory
 	prevOptionSessionAffinity bool
 	prevOptionLBSourceRanges  bool
+	prevOptionNPAlgo          string
+	prevOptionDPMode          string
+	ipv6                      bool
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -56,6 +60,11 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 
 	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
 	option.Config.EnableSVCSourceRangeCheck = true
+
+	m.prevOptionNPAlgo = option.Config.NodePortAlg
+	m.prevOptionDPMode = option.Config.DatapathMode
+
+	m.ipv6 = option.Config.EnableIPv6
 }
 
 func (m *ManagerTestSuite) TearDownTest(c *C) {
@@ -63,11 +72,15 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 	backendIDAlloc.resetLocalID()
 	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
 	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
+	option.Config.NodePortAlg = m.prevOptionNPAlgo
+	option.Config.DatapathMode = m.prevOptionDPMode
+	option.Config.EnableIPv6 = m.ipv6
 }
 
 var (
 	frontend1 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
 	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
+	frontend3 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("f00d::1"), 80, lb.ScopeExternal, 0)
 	backends1 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
@@ -76,9 +89,22 @@ var (
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080),
 	}
+	backends3 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::2"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("fd00::3"), 8080),
+	}
 )
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
+	m.testUpsertAndDeleteService(c)
+}
+
+func (m *ManagerTestSuite) TestUpsertAndDeleteServiceWithoutIPv6(c *C) {
+	option.Config.EnableIPv6 = false
+	m.testUpsertAndDeleteService(c)
+}
+
+func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	// Should create a new service with two backends and session affinity
 	p := &lb.SVC{
 		Frontend:                  frontend1,
@@ -170,6 +196,44 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
 	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 2)
 
+	// Should add IPv6 service only if IPv6 is enabled
+	c.Assert(err, IsNil)
+	cidr1, err = cidr.ParseCIDR("fd00::/8")
+	c.Assert(err, IsNil)
+	p3 := &lb.SVC{
+		Frontend:                  frontend3,
+		Backends:                  backends3,
+		Type:                      lb.SVCTypeLoadBalancer,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 300,
+		Name:                      "svc3",
+		Namespace:                 "ns3",
+		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1},
+	}
+	created, id3, err := m.svc.UpsertService(p3)
+	if option.Config.EnableIPv6 {
+		c.Assert(err, IsNil)
+		c.Assert(created, Equals, true)
+		c.Assert(id3, Equals, lb.ID(3))
+		c.Assert(len(m.lbmap.ServiceByID[uint16(id3)].Backends), Equals, 2)
+		c.Assert(len(m.lbmap.BackendByID), Equals, 4)
+		c.Assert(m.svc.svcByID[id3].svcName, Equals, "svc3")
+		c.Assert(m.svc.svcByID[id3].svcNamespace, Equals, "ns3")
+		c.Assert(len(m.lbmap.AffinityMatch[uint16(id3)]), Equals, 2)
+		c.Assert(len(m.lbmap.SourceRanges[uint16(id3)]), Equals, 1)
+
+		// Should remove the IPv6 service
+		found, err := m.svc.DeleteServiceByID(lb.ServiceID(id3))
+		c.Assert(err, IsNil)
+		c.Assert(found, Equals, true)
+	} else {
+		c.Assert(err, ErrorMatches, "Unable to upsert service .+ as IPv6 is disabled")
+		c.Assert(created, Equals, false)
+	}
+	c.Assert(len(m.lbmap.ServiceByID), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+
 	// Should remove the service and the backend, but keep another service and
 	// its backends. Also, should remove the affinity match.
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
@@ -227,6 +291,8 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 
 	// Restart service, but keep the lbmap to restore services from
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
@@ -261,7 +327,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(m.svc.svcByID[id2].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id2].sessionAffinityTimeoutSec, Equals, uint32(200))
 
-	// LoadBalancer source ranges
+	// LoadBalancer source ranges too
 	c.Assert(len(m.svc.svcByID[id2].loadBalancerSourceRanges), Equals, 2)
 	for _, cidr := range []*cidr.CIDR{cidr1, cidr2} {
 		found := false
@@ -273,6 +339,10 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 		}
 		c.Assert(found, Equals, true)
 	}
+
+	// Maglev lookup table too
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id2)], Equals, len(backends2))
 
 	// Check that the non-existing affinity matches were removed
 	matches, _ := lbmap.DumpAffinityMatches()

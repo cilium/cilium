@@ -15,20 +15,20 @@
 package main
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
 
 func startKvstoreIdentityGC() {
-	log.Infof("Starting kvstore identity garbage collector with %s interval...", operatorOption.Config.IdentityGCInterval)
+	log.WithField(logfields.Interval, operatorOption.Config.IdentityGCInterval).Info("Starting kvstore identity garbage collector")
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil, kvstore.Client())
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
@@ -39,6 +39,8 @@ func startKvstoreIdentityGC() {
 	failedRuns := 0
 	keysToDelete := map[string]uint64{}
 	go func() {
+		gcTimer, gcTimerDone := inctimer.New()
+		defer gcTimerDone()
 		for {
 			keysToDelete2, gcStats, err := a.RunGC(identityRateLimiter, keysToDelete)
 			if err != nil {
@@ -59,7 +61,7 @@ func startKvstoreIdentityGC() {
 					metrics.IdentityGCSize.WithLabelValues("deleted").Set(float64(gcStats.Deleted))
 				}
 			}
-			<-time.After(operatorOption.Config.IdentityGCInterval)
+			<-gcTimer.After(operatorOption.Config.IdentityGCInterval)
 			log.WithFields(logrus.Fields{
 				"identities-to-delete": keysToDelete,
 			}).Debug("Will delete identities if they are still unused")

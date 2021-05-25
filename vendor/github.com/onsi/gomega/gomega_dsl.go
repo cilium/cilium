@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-const GOMEGA_VERSION = "1.8.1"
+const GOMEGA_VERSION = "1.10.5"
 
 const nilFailHandlerPanic = `You are trying to make an assertion, but Gomega's fail handler is nil.
 If you're using Ginkgo then you probably forgot to put your assertion in an It().
@@ -252,7 +252,7 @@ func Consistently(actual interface{}, intervals ...interface{}) AsyncAssertion {
 	return ConsistentlyWithOffset(0, actual, intervals...)
 }
 
-// ConsistentlyWithOffset operates like Consistnetly but takes an additional
+// ConsistentlyWithOffset operates like Consistently but takes an additional
 // initial argument to indicate an offset in the call stack. This is useful when building helper
 // functions that contain matchers. To learn more, read about `ExpectWithOffset`.
 func ConsistentlyWithOffset(offset int, actual interface{}, intervals ...interface{}) AsyncAssertion {
@@ -376,13 +376,13 @@ func NewGomegaWithT(t types.GomegaTestingT) *GomegaWithT {
 	return NewWithT(t)
 }
 
-// Expect is used to make assertions. See documentation for Expect.
-func (g *WithT) Expect(actual interface{}, extra ...interface{}) Assertion {
-	return assertion.New(actual, testingtsupport.BuildTestingTGomegaFailWrapper(g.t), 0, extra...)
+// ExpectWithOffset is used to make assertions. See documentation for ExpectWithOffset.
+func (g *WithT) ExpectWithOffset(offset int, actual interface{}, extra ...interface{}) Assertion {
+	return assertion.New(actual, testingtsupport.BuildTestingTGomegaFailWrapper(g.t), offset, extra...)
 }
 
-// Eventually is used to make asynchronous assertions. See documentation for Eventually.
-func (g *WithT) Eventually(actual interface{}, intervals ...interface{}) AsyncAssertion {
+// EventuallyWithOffset is used to make asynchronous assertions. See documentation for EventuallyWithOffset.
+func (g *WithT) EventuallyWithOffset(offset int, actual interface{}, intervals ...interface{}) AsyncAssertion {
 	timeoutInterval := defaultEventuallyTimeout
 	pollingInterval := defaultEventuallyPollingInterval
 	if len(intervals) > 0 {
@@ -391,11 +391,11 @@ func (g *WithT) Eventually(actual interface{}, intervals ...interface{}) AsyncAs
 	if len(intervals) > 1 {
 		pollingInterval = toDuration(intervals[1])
 	}
-	return asyncassertion.New(asyncassertion.AsyncAssertionTypeEventually, actual, testingtsupport.BuildTestingTGomegaFailWrapper(g.t), timeoutInterval, pollingInterval, 0)
+	return asyncassertion.New(asyncassertion.AsyncAssertionTypeEventually, actual, testingtsupport.BuildTestingTGomegaFailWrapper(g.t), timeoutInterval, pollingInterval, offset)
 }
 
-// Consistently is used to make asynchronous assertions. See documentation for Consistently.
-func (g *WithT) Consistently(actual interface{}, intervals ...interface{}) AsyncAssertion {
+// ConsistentlyWithOffset is used to make asynchronous assertions. See documentation for ConsistentlyWithOffset.
+func (g *WithT) ConsistentlyWithOffset(offset int, actual interface{}, intervals ...interface{}) AsyncAssertion {
 	timeoutInterval := defaultConsistentlyDuration
 	pollingInterval := defaultConsistentlyPollingInterval
 	if len(intervals) > 0 {
@@ -404,7 +404,22 @@ func (g *WithT) Consistently(actual interface{}, intervals ...interface{}) Async
 	if len(intervals) > 1 {
 		pollingInterval = toDuration(intervals[1])
 	}
-	return asyncassertion.New(asyncassertion.AsyncAssertionTypeConsistently, actual, testingtsupport.BuildTestingTGomegaFailWrapper(g.t), timeoutInterval, pollingInterval, 0)
+	return asyncassertion.New(asyncassertion.AsyncAssertionTypeConsistently, actual, testingtsupport.BuildTestingTGomegaFailWrapper(g.t), timeoutInterval, pollingInterval, offset)
+}
+
+// Expect is used to make assertions. See documentation for Expect.
+func (g *WithT) Expect(actual interface{}, extra ...interface{}) Assertion {
+	return g.ExpectWithOffset(0, actual, extra...)
+}
+
+// Eventually is used to make asynchronous assertions. See documentation for Eventually.
+func (g *WithT) Eventually(actual interface{}, intervals ...interface{}) AsyncAssertion {
+	return g.EventuallyWithOffset(0, actual, intervals...)
+}
+
+// Consistently is used to make asynchronous assertions. See documentation for Consistently.
+func (g *WithT) Consistently(actual interface{}, intervals ...interface{}) AsyncAssertion {
+	return g.ConsistentlyWithOffset(0, actual, intervals...)
 }
 
 func toDuration(input interface{}) time.Duration {
@@ -431,4 +446,33 @@ func toDuration(input interface{}) time.Duration {
 	}
 
 	panic(fmt.Sprintf("%v is not a valid interval.  Must be time.Duration, parsable duration string or a number.", input))
+}
+
+// Gomega describes the essential Gomega DSL. This interface allows libraries
+// to abstract between the standard package-level function implementations
+// and alternatives like *WithT.
+type Gomega interface {
+	Expect(actual interface{}, extra ...interface{}) Assertion
+	Eventually(actual interface{}, intervals ...interface{}) AsyncAssertion
+	Consistently(actual interface{}, intervals ...interface{}) AsyncAssertion
+}
+
+type globalFailHandlerGomega struct{}
+
+// DefaultGomega supplies the standard package-level implementation
+var Default Gomega = globalFailHandlerGomega{}
+
+// Expect is used to make assertions. See documentation for Expect.
+func (globalFailHandlerGomega) Expect(actual interface{}, extra ...interface{}) Assertion {
+	return Expect(actual, extra...)
+}
+
+// Eventually is used to make asynchronous assertions. See documentation for Eventually.
+func (globalFailHandlerGomega) Eventually(actual interface{}, extra ...interface{}) AsyncAssertion {
+	return Eventually(actual, extra...)
+}
+
+// Consistently is used to make asynchronous assertions. See documentation for Consistently.
+func (globalFailHandlerGomega) Consistently(actual interface{}, extra ...interface{}) AsyncAssertion {
+	return Consistently(actual, extra...)
 }

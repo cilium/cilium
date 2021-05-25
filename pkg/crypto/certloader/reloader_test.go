@@ -391,7 +391,11 @@ func TestKeypairAndCACertPool(t *testing.T) {
 			}
 			keypair, caCertPool := r.KeypairAndCACertPool()
 			assert.Equal(t, tt.expectedKeypair, keypair)
-			assert.Equal(t, tt.expectedCaCertPool, caCertPool)
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+			} else {
+				assert.Nil(t, caCertPool)
+			}
 		})
 	}
 }
@@ -461,11 +465,19 @@ func TestReload(t *testing.T) {
 			keypair, caCertPool, err := r.Reload()
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expectedKeypair, keypair)
-			assert.Equal(t, tt.expectedCaCertPool, caCertPool)
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+			} else {
+				assert.Nil(t, caCertPool)
+			}
 
 			keypair, caCertPool = r.KeypairAndCACertPool()
 			assert.Equal(t, tt.expectedKeypair, keypair)
-			assert.Equal(t, tt.expectedCaCertPool, caCertPool)
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+			} else {
+				assert.Nil(t, caCertPool)
+			}
 		})
 	}
 }
@@ -588,11 +600,19 @@ func TestReloadCA(t *testing.T) {
 			}
 			caCertPool, err := r.ReloadCA()
 			assert.Nil(t, err)
-			assert.Equal(t, tt.expectedCaCertPool, caCertPool)
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+			} else {
+				assert.Nil(t, caCertPool)
+			}
 
 			keypair, caCertPool := r.KeypairAndCACertPool()
 			assert.Nil(t, keypair)
-			assert.Equal(t, tt.expectedCaCertPool, caCertPool)
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+			} else {
+				assert.Nil(t, caCertPool)
+			}
 		})
 	}
 }
@@ -618,7 +638,7 @@ func TestReloadError(t *testing.T) {
 
 	keypair, caCertPool := r.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool, caCertPool)
+	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
 
 	// delete one of the keypair file, so that reloading the keypair should
 	// fail.
@@ -632,5 +652,5 @@ func TestReloadError(t *testing.T) {
 	// we expect keypair and caCertPool to not have changed on failed reload.
 	keypair, caCertPool = r.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool, caCertPool)
+	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
 }

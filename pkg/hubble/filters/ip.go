@@ -103,3 +103,37 @@ func (f *IPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]
 
 	return fs, nil
 }
+
+func filterByIPVersion(ipver []flowpb.IPVersion) (FilterFunc, error) {
+	return func(ev *v1.Event) bool {
+		flow := ev.GetFlow()
+		if flow == nil {
+			return false
+		}
+		ver := flow.GetIP().GetIpVersion()
+		for _, v := range ipver {
+			if v == ver {
+				return true
+			}
+		}
+		return false
+	}, nil
+}
+
+// IPVersionFilter implements IP version based filtering
+type IPVersionFilter struct{}
+
+// OnBuildFilter builds an IP version filter
+func (f *IPVersionFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
+	var fs []FilterFunc
+
+	if ff.GetIpVersion() != nil {
+		pf, err := filterByIPVersion(ff.GetIpVersion())
+		if err != nil {
+			return nil, err
+		}
+		fs = append(fs, pf)
+	}
+
+	return fs, nil
+}

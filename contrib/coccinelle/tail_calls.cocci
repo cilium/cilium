@@ -91,7 +91,7 @@ symbol ret;
 p << rule.p;
 @@
 
-print "* file %s: DROP_MISSED_TAIL_CALL missing after tail call on line %s" % (p[0].file, p[0].line)
+print("* file %s: DROP_MISSED_TAIL_CALL missing after tail call on line %s" % (p[0].file, p[0].line))
 cnt += 1
 
 
@@ -99,7 +99,7 @@ cnt += 1
 @@
 
 if cnt > 0:
-  print """Unlogged tail calls found. Please fix and use the following command to check:
+  print("""Unlogged tail calls found. Please fix and use the following command to check:
 docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace \\
     -it docker.io/cilium/coccicheck make -C bpf coccicheck\n
-"""
+""")

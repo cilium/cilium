@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/google/renameio.svg?branch=master)](https://travis-ci.org/google/renameio)
-[![GoDoc](https://godoc.org/github.com/google/renameio?status.svg)](https://godoc.org/github.com/google/renameio)
+[![Build Status](https://github.com/google/renameio/workflows/Test/badge.svg)](https://github.com/google/renameio/actions?query=workflow%3ATest)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/google/renameio)](https://pkg.go.dev/github.com/google/renameio)
 [![Go Report Card](https://goreportcard.com/badge/github.com/google/renameio)](https://goreportcard.com/report/github.com/google/renameio)
 
 The `renameio` Go package provides a way to atomically create or replace a file or
@@ -42,6 +42,16 @@ correct sequence of operations hard to identify:
 
 This package attempts to get all of these details right, provides an intuitive,
 yet flexible API and caters to use-cases where high performance is required.
+
+## Windows support
+
+It is [not possible to reliably write files atomically on
+Windows](https://github.com/golang/go/issues/22397#issuecomment-498856679), and
+[`chmod` is not reliably supported by the Go standard library on
+Windows](https://github.com/google/renameio/issues/17).
+
+As it is not possible to provide a correct implementation, this package does not
+export any functions on Windows.
 
 ## Disclaimer
 

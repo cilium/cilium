@@ -32,9 +32,9 @@ import (
 type baseDeviceMode string
 
 const (
-	flannelMode = baseDeviceMode("flannel")
-	ipvlanMode  = baseDeviceMode("ipvlan")
-	directMode  = baseDeviceMode("direct")
+	ipvlanMode = baseDeviceMode("ipvlan")
+	directMode = baseDeviceMode("direct")
+	tunnelMode = baseDeviceMode("tunnel")
 
 	libbpfFixupMsg = "struct bpf_elf_map fixup performed due to size mismatch!"
 )
@@ -64,11 +64,18 @@ func replaceQdisc(ifName string) error {
 	return nil
 }
 
-// replaceDatapath the qdisc and BPF program for a endpoint
-func (l *Loader) replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string) error {
-	err := replaceQdisc(ifName)
-	if err != nil {
-		return fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
+// replaceDatapath the qdisc and BPF program for a endpoint or XDP program.
+func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string, xdp bool, xdpMode string) error {
+	var (
+		err        error
+		loaderProg string
+		args       []string
+	)
+
+	if !xdp {
+		if err = replaceQdisc(ifName); err != nil {
+			return fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
+		}
 	}
 
 	// FIXME: Replace cilium-map-migrate with Golang map migration
@@ -91,14 +98,21 @@ func (l *Loader) replaceDatapath(ctx context.Context, ifName, objPath, progSec, 
 	}()
 
 	// FIXME: replace exec with native call
-	args := []string{"filter", "replace", "dev", ifName, progDirection,
-		"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
-		"sec", progSec,
+	if xdp {
+		loaderProg = "ip"
+		args = []string{"-force", "link", "set", "dev", ifName, xdpMode,
+			"obj", objPath, "sec", progSec}
+	} else {
+		loaderProg = "tc"
+		args = []string{"filter", "replace", "dev", ifName, progDirection,
+			"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
+			"sec", progSec,
+		}
 	}
-	cmd = exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	cmd = exec.CommandContext(ctx, loaderProg, args...).WithFilters(libbpfFixupMsg)
 	_, err = cmd.CombinedOutput(log, true)
 	if err != nil {
-		return fmt.Errorf("Failed to load tc filter: %s", err)
+		return fmt.Errorf("Failed to load prog with %s: %w", loaderProg, err)
 	}
 
 	return nil
@@ -191,15 +205,6 @@ func setupDev(link netlink.Link) error {
 	return nil
 }
 
-func setupDevs(links ...netlink.Link) error {
-	for _, link := range links {
-		if err := setupDev(link); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func setupVethPair(name, peerName string) error {
 	// Create the veth pair if it doesn't exist.
 	if _, err := netlink.LinkByName(name); err != nil {
@@ -272,16 +277,10 @@ func setupIpvlan(name string, nativeLink netlink.Link) (*netlink.IPVlan, error) 
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-// In flannel mode, it sets up the native interface used by flannel.
 // In ipvlan mode, it creates the cilium_host ipvlan with the native device as a
 // parent.
 func setupBaseDevice(nativeDevs []netlink.Link, mode baseDeviceMode, mtu int) (netlink.Link, netlink.Link, error) {
 	switch mode {
-	case flannelMode:
-		if err := setupDevs(nativeDevs...); err != nil {
-			return nil, nil, err
-		}
-		return nativeDevs[0], nativeDevs[0], nil
 	case ipvlanMode:
 		ipvlan, err := setupIpvlan(defaults.HostDevice, nativeDevs[0])
 		if err != nil {

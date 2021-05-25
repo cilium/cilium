@@ -92,6 +92,10 @@ type NodeOperations interface {
 	// GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
 	// that can be allocated to the instance
 	GetMaximumAllocatableIPv4() int
+
+	// GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
+	// must be allocated to the instance.
+	GetMinimumAllocatableIPv4() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.
@@ -202,7 +206,6 @@ func (n *NodeManager) Start(ctx context.Context) error {
 	// event driven trigger fails, and also release excess IP addresses
 	// if release-excess-ips is enabled
 	go func() {
-		time.Sleep(time.Minute)
 		mngr := controller.NewManager()
 		mngr.UpdateController("ipam-node-interval-refresh",
 			controller.ControllerParams{

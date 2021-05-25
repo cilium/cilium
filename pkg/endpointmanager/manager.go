@@ -24,19 +24,17 @@ import (
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -70,6 +68,23 @@ type EndpointManager struct {
 	// EndpointSynchronizer updates external resources (e.g., Kubernetes) with
 	// up-to-date information about endpoints managed by the endpoint manager.
 	EndpointResourceSynchronizer
+
+	// subscribers are notified when events occur in the EndpointManager.
+	subscribers map[Subscriber]struct{}
+
+	// checkHealth supports endpoint garbage collection by verifying the health
+	// of an endpoint.
+	checkHealth EndpointCheckerFunc
+
+	// deleteEndpoint is the function used to remove the endpoint from the
+	// EndpointManager and clean it up. Always set to RemoveEndpoint.
+	deleteEndpoint endpointDeleteFunc
+
+	// A mark-and-sweep garbage collector may operate on the endpoint list.
+	// This is configured via WithPeriodicEndpointGC() and will mark
+	// endpoints for removal on one run of the controller, then in the
+	// subsequent controller run will remove the endpoints.
+	markedEndpoints []uint16
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -79,6 +94,10 @@ type EndpointResourceSynchronizer interface {
 	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 
+// endpointDeleteFunc is used to abstract away concrete Endpoint Delete
+// functionality from endpoint management for testing purposes.
+type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
+
 // NewEndpointManager creates a new EndpointManager.
 func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointManager {
 	mgr := EndpointManager{
@@ -86,9 +105,24 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
+		subscribers:                  make(map[Subscriber]struct{}),
 	}
+	mgr.deleteEndpoint = mgr.removeEndpoint
 
 	return &mgr
+}
+
+// WithPeriodicEndpointGC runs a controller to periodically garbage collect
+// endpoints that match the specified EndpointCheckerFunc.
+func (mgr *EndpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHealth EndpointCheckerFunc, interval time.Duration) *EndpointManager {
+	mgr.checkHealth = checkHealth
+	controller.NewManager().UpdateController("endpoint-gc",
+		controller.ControllerParams{
+			DoFunc:      mgr.markAndSweep,
+			RunInterval: interval,
+			Context:     ctx,
+		})
+	return mgr
 }
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
@@ -188,11 +222,15 @@ func (mgr *EndpointManager) AllocateID(currID uint16) (uint16, error) {
 	return newID, nil
 }
 
+func (mgr *EndpointManager) removeIDLocked(currID uint16) {
+	delete(mgr.endpoints, currID)
+}
+
 // RemoveID removes the id from the endpoints map in the EndpointManager.
 func (mgr *EndpointManager) RemoveID(currID uint16) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	delete(mgr.endpoints, currID)
+	mgr.removeIDLocked(currID)
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -298,11 +336,60 @@ func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 	return idallocator.Release(ep.ID)
 }
 
-// WaitEndpointRemoved waits until all operations associated with Remove of
-// the endpoint have been completed.
-// Note: only used for unit tests
-func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
-	<-ep.Unexpose(mgr)
+// unexpose removes the endpoint from the endpointmanager, so subsequent
+// lookups will no longer find the endpoint.
+func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
+	// Fetch the identifiers; this will only fail if the endpoint is
+	// already disconnected, in which case we don't need to proceed with
+	// the rest of cleaning up the endpoint.
+	identifiers, err := ep.Identifiers()
+	if err != nil {
+		// Already disconnecting
+		return
+	}
+	previousState := ep.GetState()
+
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	// This must be done before the ID is released for the endpoint!
+	mgr.removeIDLocked(ep.ID)
+	mgr.RemoveIPv6Address(ep.IPv6)
+
+	// We haven't yet allocated the ID for a restoring endpoint, so no
+	// need to release it.
+	if previousState != endpoint.StateRestoring {
+		if err = mgr.ReleaseID(ep); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"state":               previousState,
+				logfields.ContainerID: ep.GetShortContainerID(),
+				logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+			}).Warning("Unable to release endpoint ID")
+		}
+	}
+
+	mgr.removeReferencesLocked(identifiers)
+}
+
+// removeEndpoint stops the active handling of events by the specified endpoint,
+// and prevents the endpoint from being globally acccessible via other packages.
+func (mgr *EndpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	mgr.unexpose(ep)
+	result := ep.Delete(conf)
+
+	mgr.mutex.RLock()
+	for s := range mgr.subscribers {
+		s.EndpointDeleted(ep, conf)
+	}
+	mgr.mutex.RUnlock()
+
+	return result
+}
+
+// RemoveEndpoint stops the active handling of events by the specified endpoint,
+// and prevents the endpoint from being globally acccessible via other packages.
+func (mgr *EndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	return mgr.deleteEndpoint(ep, conf)
 }
 
 // RemoveAll removes all endpoints from the global maps.
@@ -364,35 +451,40 @@ func (mgr *EndpointManager) lookupContainerID(id string) *endpoint.Endpoint {
 	return nil
 }
 
-// UpdateIDReference updates the endpoints map in the EndpointManager for
+// updateIDReferenceLocked updates the endpoints map in the EndpointManager for
 // the given Endpoint.
-func (mgr *EndpointManager) UpdateIDReference(ep *endpoint.Endpoint) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
+func (mgr *EndpointManager) updateIDReferenceLocked(ep *endpoint.Endpoint) {
 	if ep == nil {
 		return
 	}
 	mgr.endpoints[ep.ID] = ep
 }
 
-// UpdateReferences updates maps the contents of mappings to the specified
-// endpoint.
-func (mgr *EndpointManager) UpdateReferences(mappings map[endpointid.PrefixType]string, ep *endpoint.Endpoint) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-	for k := range mappings {
-		id := endpointid.NewID(k, mappings[k])
+func (mgr *EndpointManager) updateReferencesLocked(ep *endpoint.Endpoint, identifiers endpointid.Identifiers) {
+	for k := range identifiers {
+		id := endpointid.NewID(k, identifiers[k])
 		mgr.endpointsAux[id] = ep
-
 	}
 }
 
-// RemoveReferences removes the mappings from the endpointmanager.
-func (mgr *EndpointManager) RemoveReferences(mappings map[endpointid.PrefixType]string) {
+// UpdateReferences updates maps the contents of mappings to the specified endpoint.
+func (mgr *EndpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	for prefix := range mappings {
-		id := endpointid.NewID(prefix, mappings[prefix])
+
+	identifiers, err := ep.Identifiers()
+	if err != nil {
+		return err
+	}
+	mgr.updateReferencesLocked(ep, identifiers)
+
+	return nil
+}
+
+// removeReferencesLocked removes the mappings from the endpointmanager.
+func (mgr *EndpointManager) removeReferencesLocked(identifiers endpointid.Identifiers) {
+	for prefix := range identifiers {
+		id := endpointid.NewID(prefix, identifiers[prefix])
 		delete(mgr.endpointsAux, id)
 	}
 }
@@ -432,6 +524,17 @@ func (mgr *EndpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	return &wg
 }
 
+// OverrideEndpointOpts applies the given options to all endpoints.
+func (mgr *EndpointManager) OverrideEndpointOpts(om option.OptionMap) {
+	for _, ep := range mgr.GetEndpoints() {
+		if _, err := ep.ApplyOpts(om); err != nil && !errors.Is(err, endpoint.ErrEndpointDeleted) {
+			log.WithError(err).WithFields(logrus.Fields{
+				"ep": ep.GetID(),
+			}).Error("Override endpoint options failed")
+		}
+	}
+}
+
 // HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
 func (mgr *EndpointManager) HasGlobalCT() bool {
 	eps := mgr.GetEndpoints()
@@ -466,6 +569,33 @@ func (mgr *EndpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 	return eps
 }
 
+func (mgr *EndpointManager) expose(ep *endpoint.Endpoint) error {
+	newID, err := mgr.AllocateID(ep.ID)
+	if err != nil {
+		return err
+	}
+
+	mgr.mutex.Lock()
+	// Get a copy of the identifiers before exposing the endpoint
+	identifiers := ep.IdentifiersLocked()
+	ep.Start(newID)
+	mgr.AddIPv6Address(ep.IPv6)
+	mgr.updateIDReferenceLocked(ep)
+	mgr.updateReferencesLocked(ep, identifiers)
+	mgr.mutex.Unlock()
+
+	mgr.RunK8sCiliumEndpointSync(ep, option.Config)
+
+	return nil
+}
+
+// RestoreEndpoint exposes the specified endpoint to other subsystems via the
+// manager.
+func (mgr *EndpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
+	ep.SetDefaultConfiguration(true)
+	return mgr.expose(ep)
+}
+
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
 	ep.SetDefaultConfiguration(false)
@@ -473,11 +603,16 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
-	err = ep.Expose(mgr)
+	err = mgr.expose(ep)
 	if err != nil {
 		return err
 	}
-	owner.SendNotification(monitorAPI.EndpointCreateMessage(ep))
+
+	mgr.mutex.RLock()
+	for s := range mgr.subscribers {
+		s.EndpointCreated(ep)
+	}
+	mgr.mutex.RUnlock()
 
 	return nil
 }
@@ -493,23 +628,18 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 		return err
 	}
 
-	epLabels := labels.Labels{}
-	epLabels.MergeLabels(labels.LabelHost)
+	node.SetEndpointID(ep.GetID())
 
-	// Initialize with known node labels.
-	newLabels := labels.Map2Labels(node.GetLabels(), labels.LabelSourceK8s)
-	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
-	epLabels.MergeLabels(newIdtyLabels)
-
-	// Give the endpoint a security identity
-	newCtx, cancel := context.WithTimeout(ctx, launchTime)
-	defer cancel()
-	ep.UpdateLabels(newCtx, epLabels, nil, true)
-	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
-		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
-	}
+	ep.InitWithNodeLabels(ctx, launchTime)
 
 	return nil
+}
+
+// InitHostEndpointLabels initializes the host endpoint's labels with the
+// node's known labels.
+func (mgr *EndpointManager) InitHostEndpointLabels(ctx context.Context) {
+	ep := mgr.GetHostEndpoint()
+	ep.InitWithNodeLabels(ctx, launchTime)
 }
 
 // WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time

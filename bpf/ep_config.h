@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 /*
  * This is just a dummy header with dummy values to allow for test
@@ -16,8 +16,6 @@ DEFINE_U32(LXC_IPV4, 0x10203040);
  */
 DEFINE_U32(LXC_ID, 0x2A);
 #define LXC_ID fetch_u32(LXC_ID)
-DEFINE_U32(HOST_EP_ID, 0x1092);
-#define HOST_EP_ID fetch_u32(HOST_EP_ID)
 DEFINE_U32(SECLABEL, 0xfffff);
 #define SECLABEL fetch_u32(SECLABEL)
 DEFINE_U32(SECLABEL_NB, 0xfffff);
@@ -25,6 +23,8 @@ DEFINE_U32(SECLABEL_NB, 0xfffff);
 
 DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
+
+#define HOST_EP_ID 0x1092
 
 #define POLICY_MAP test_cilium_policy_65535
 
@@ -40,6 +40,7 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
 #define CALLS_MAP test_cilium_calls_65535
+#define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING

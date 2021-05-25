@@ -8,6 +8,25 @@
 {{- $defaultKeepDeprecatedProbes = "false" -}}
 {{- end -}}
 
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
+{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
+
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities.KubeVersion.Major -}}
+{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
+{{- if .Values.Capabilities.KubeVersion.Minor -}}
+{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -39,6 +58,10 @@ spec:
         prometheus.io/port: "{{ .Values.prometheus.port }}"
         prometheus.io/scrape: "true"
 {{- end }}
+{{- if .Values.rollOutCiliumPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
         # This annotation plus the CriticalAddonsOnly toleration makes
         # cilium to be a critical pod in the cluster, which ensures cilium
         # gets priority scheduling.
@@ -51,6 +74,9 @@ spec:
         k8s-app: cilium
 {{- if .Values.keepDeprecatedLabels }}
         kubernetes.io/cluster-service: "true"
+{{- end }}
+{{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
 {{- end }}
     spec:
 {{- if .Values.affinity }}
@@ -76,15 +102,29 @@ spec:
 {{- else }}
       - args:
         - --config-dir=/tmp/cilium/config-map
-{{- range $key, $value := .Values.extraArgs }}
-{{- if $value }}
-        - --{{ $key }}={{ $value }}
-{{- else }}
-        - --{{ $key }}
-{{- end }}
+{{- with .Values.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
 {{- end }}
         command:
         - cilium-agent
+{{- if semverCompare ">=1.20-0" $k8sVersion }}
+        startupProbe:
+          httpGet:
+{{- if .Values.ipv4.enabled }}
+            host: '127.0.0.1'
+{{- else }}
+            host: '::1'
+{{- end }}
+            path: /healthz
+            port: {{ .Values.healthPort }}
+            scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
+          failureThreshold: 24
+          periodSeconds: 2
+          successThreshold: 1
+{{- end }}
         livenessProbe:
 {{- if or .Values.keepDeprecatedProbes (eq $defaultKeepDeprecatedProbes "true") }}
           exec:
@@ -107,10 +147,14 @@ spec:
               value: "true"
 {{- end }}
           failureThreshold: 10
+{{- if semverCompare "<1.20-0" $k8sVersion }}
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
           # bootstrapping takes longer than expected.
+          # Starting from Kubernetes 1.20, we are using startupProbe instead
+          # of this field.
           initialDelaySeconds: 120
+{{- end }}
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 5
@@ -136,7 +180,9 @@ spec:
               value: "true"
 {{- end }}
           failureThreshold: 3
+{{- if semverCompare "<1.20-0" $k8sVersion }}
           initialDelaySeconds: 5
+{{- end }}
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 5
@@ -152,18 +198,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: CILIUM_FLANNEL_MASTER_DEVICE
-          valueFrom:
-            configMapKeyRef:
-              key: flannel-master-device
-              name: cilium-config
-              optional: true
-        - name: CILIUM_FLANNEL_UNINSTALL_ON_EXIT
-          valueFrom:
-            configMapKeyRef:
-              key: flannel-uninstall-on-exit
-              name: cilium-config
-              optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
         - name: CILIUM_CNI_CHAINING_MODE
@@ -189,7 +223,7 @@ spec:
 {{- with .Values.extraEnv }}
 {{ toYaml . | trim | indent 8 }}
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
 {{- if .Values.cni.install }}
         lifecycle:
@@ -197,7 +231,8 @@ spec:
             exec:
               command:
               - "/cni-install.sh"
-              -{{- if .Values.debug.enabled }} "--enable-debug=true"{{- else }} "--enable-debug=false"{{- end }}
+              - "--enable-debug={{- if .Values.debug.enabled }}true{{- else }}false{{- end }}"
+              - "--cni-exclusive={{- if .Values.cni.exclusive }}true{{- else }}false{{- end }}"
           preStop:
             exec:
               command:
@@ -215,10 +250,12 @@ spec:
           hostPort: {{ .Values.prometheus.port }}
           name: prometheus
           protocol: TCP
+{{- if .Values.proxy.prometheus.enabled }}          
         - containerPort: {{ .Values.proxy.prometheus.port }}
           hostPort: {{ .Values.proxy.prometheus.port }}
           name: envoy-metrics
           protocol: TCP
+{{- end }}
 {{- end }}
 {{- if .Values.hubble.metrics.enabled }}
         - containerPort: {{ .Values.hubble.metrics.port }}
@@ -277,13 +314,22 @@ spec:
           readOnly: true
         - mountPath: /run/xtables.lock
           name: xtables-lock
-{{- if .Values.encryption.enabled }}
+{{- if and ( .Values.encryption.enabled ) ( eq .Values.encryption.type "ipsec" ) }}
+  {{- if .Values.encryption.ipsec.mountPath }}
+        - mountPath: {{ .Values.encryption.ipsec.mountPath }}
+  {{- else }}
         - mountPath: {{ .Values.encryption.mountPath }}
+  {{- end }}
           name: cilium-ipsec-secrets
 {{- end }}
 {{- if .Values.kubeConfigPath }}
         - mountPath: {{ .Values.kubeConfigPath }}
           name: kube-config
+          readOnly: true
+{{- end }}
+{{- if .Values.bgp.enabled }}
+        - mountPath: /var/lib/cilium/bgp
+          name: bgp-config-path
           readOnly: true
 {{- end }}
 {{- if and (.Values.hubble.enabled) (hasKey .Values.hubble "listenAddress") (.Values.hubble.tls.enabled) }}
@@ -307,7 +353,7 @@ spec:
 {{- range $type := .Values.monitor.eventTypes }}
         - --type={{ $type }}
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
         - mountPath: /var/run/cilium
@@ -317,7 +363,7 @@ spec:
           {{- toYaml .Values.monitor.resources | trim | nindent 10 }}
 {{- end }}
 {{- end }}
-{{- if .Values.etcd.managed }}
+{{- if (and .Values.etcd.managed (not .Values.etcd.k8sService)) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
@@ -327,7 +373,7 @@ spec:
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
         command: ['sh', '-c', 'until stat {{ .Values.nodeinit.bootstrapFile }} > /dev/null 2>&1; do echo "Waiting on node-init to run..."; sleep 1; done']
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
         - mountPath: {{ .Values.nodeinit.bootstrapFile }}
@@ -365,7 +411,7 @@ spec:
 {{- if .Values.extraEnv }}
 {{ toYaml .Values.extraEnv | indent 8 }}
 {{- end }}
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ if .Values.image.useDigest }}@{{ .Values.image.digest }}{{ end }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: clean-cilium-state
         securityContext:
@@ -388,11 +434,11 @@ spec:
           {{- toYaml .Values.nodeinit.resources | trim | nindent 10 }}
 {{- end }}
       restartPolicy: Always
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")) .Values.enableCriticalPriorityClass }}
+{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-node-critical
 {{- end }}
-      serviceAccount: cilium
-      serviceAccountName: cilium
+      serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.cilium.name | quote }}
       terminationGracePeriodSeconds: 1
 {{- with .Values.tolerations }}
       tolerations:
@@ -488,15 +534,24 @@ spec:
             path: ip-masq-agent
         name: ip-masq-agent
 {{- end }}
-{{- if .Values.encryption.enabled }}
+{{- if and ( .Values.encryption.enabled ) ( eq .Values.encryption.type "ipsec" ) }}
       - name: cilium-ipsec-secrets
         secret:
+  {{- if .Values.encryption.ipsec.secretName }}
+          secretName: {{ .Values.encryption.ipsec.secretName }}
+  {{- else }}
           secretName: {{ .Values.encryption.secretName }}
+  {{- end }}
 {{- end }}
 {{- if .Values.cni.configMap }}
       - name: cni-configuration
         configMap:
           name: {{ .Values.cni.configMap }}
+{{- end }}
+{{- if .Values.bgp.enabled }}
+      - configMap:
+          name: bgp-config
+        name: bgp-config-path
 {{- end }}
 {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls
@@ -505,16 +560,12 @@ spec:
           - secret:
               name: hubble-server-certs
               items:
+                - key: ca.crt
+                  path: client-ca.crt
                 - key: tls.crt
                   path: server.crt
                 - key: tls.key
                   path: server.key
-              optional: true
-          - configMap:
-              name: hubble-ca-cert
-              items:
-                - key: ca.crt
-                  path: client-ca.crt
               optional: true
 {{- end }}
 {{- end }}

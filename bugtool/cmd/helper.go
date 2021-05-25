@@ -17,10 +17,13 @@ package cmd
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -164,4 +167,43 @@ func createGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
 	}
 
 	return target, nil
+}
+
+// hashEncryptionKeys processes the buffer containing the output of `ip -s xfrm state`.
+// It searches for IPsec keys in the output and replaces them by their hash.
+func hashEncryptionKeys(output string) string {
+	var finalOutput []string
+	// Split the result as a slice of strings.
+	lines := strings.Split(output, "\n")
+	// Search for lines containing encryption keys.
+	// Note that `auth-trunc` is also a relevant pattern, but we already match on
+	// the more generic `auth` pattern.
+	for _, line := range lines {
+		r, _ := regexp.Compile("(auth|enc|aead|comp)(.*[[:blank:]](0[xX][[:xdigit:]]+))?")
+		// r.FindStringSubmatchIndex(line) will return:
+		// - [], if the global pattern is not found
+		// - a slice of integers, if the global pattern is found. The
+		//   first two integers are the start and end offsets of the
+		//   global pattern. The remaining integers are the start and
+		//   end offset of each submatch group (delimited in the
+		//   regular expressions by parenthesis).
+		//
+		// If the global pattern is found, the start and end offset of
+		// the hexadecimal string (the third submatch) will be at index
+		// 6 and 7 in the slice. They may be equal to -1 if the
+		// submatch, marked as optional ('?'), is not found.
+		matched := r.FindStringSubmatchIndex(line)
+		if matched != nil && matched[6] > 0 {
+			key := line[matched[6]:matched[7]]
+			h := sha256.New()
+			h.Write([]byte(key))
+			hashedKey := hex.EncodeToString(h.Sum(nil))
+			line = line[:matched[6]] + "[hash:" + hashedKey + "]" + line[matched[7]:]
+		} else if matched != nil && matched[6] < 0 {
+			line = "[redacted]"
+		}
+		finalOutput = append(finalOutput, line)
+	}
+
+	return strings.Join(finalOutput, "\n")
 }

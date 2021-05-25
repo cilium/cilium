@@ -31,13 +31,6 @@ import (
 )
 
 func (d *Daemon) initHealth() {
-	if option.Config.IsFlannelMasterDeviceSet() {
-		// Do not run health endpoint in policy enforcement mode as we can't
-		// allocate an IP address for this endpoint and the datapath is not
-		// controlled by Cilium.
-		return
-	}
-
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
 	if ch, err := health.Launch(); err != nil {

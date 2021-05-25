@@ -23,6 +23,16 @@ const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
 	RouteTableIPSec = 200
 
+	// RouteTableWireguard is the default table ID to use for Wireguard routing
+	// rules
+	RouteTableWireguard = 201
+
+	// RouteTableInterfacesOffset is the offset for the per-ENI routing tables.
+	// Each ENI interface will have its own table starting with this offset. It
+	// is 10 because it is highly unlikely to collide with the main routing
+	// table which is between 253-255. See ip-route(8).
+	RouteTableInterfacesOffset = 10
+
 	// RouteMarkDecrypt is the default route mark to use to indicate datapath
 	// needs to decrypt a packet.
 	RouteMarkDecrypt = 0x0D00
@@ -33,6 +43,15 @@ const (
 
 	// RouteMarkMask is the mask required for the route mark value
 	RouteMarkMask = 0xF00
+
+	// RouteMarkToProxy is the default route mark to use to indicate
+	// datapath needs to send the packet to the proxy.
+	//
+	// Specifically, this is used in the L7 ingress policy tunneling case
+	// where after decryption, the packet is rerouted back into
+	// `cilium_host` with said mark to indicate the destination as the
+	// proxy.
+	RouteMarkToProxy = MagicMarkIsToProxy
 
 	// MarkMultinodeNodeport is used for AWS ENI to mark traffic from
 	// another node, so that it gets routed back through the relevant
@@ -46,6 +65,9 @@ const (
 	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
 	RouteProtocolIPSec = 50
 
+	// RulePriorityWireguard is the priority of the rule used for routing packets to Wireguard device for encryption
+	RulePriorityWireguard = 1
+
 	// RulePriorityIngress is the priority of the rule used for ingress routing
 	// of endpoints. This priority is after encryption and proxy rules, and
 	// before the local table priority.
@@ -54,6 +76,14 @@ const (
 	// RulePriorityEgress is the priority of the rule used for egress routing
 	// of endpoints. This priority is after the local table priority.
 	RulePriorityEgress = 110
+
+	// RulePriorityEgress is the v2 of the priority of the rule used for egress
+	// routing of endpoints. This priority is after the local table priority.
+	//
+	// Because of https://github.com/cilium/cilium/issues/14336, we must use a
+	// new priority value to disambiguate which rules are still under the old
+	// scheme.
+	RulePriorityEgressv2 = 111
 
 	// RulePriorityNodeport is the priority of the rule used with AWS ENI to
 	// make sure that lookups for multi-node NodePort traffic are NOT done
@@ -73,6 +103,9 @@ const (
 
 	// IPsecMarkMaskIn is the mask required for IPsec to lookup encrypt/decrypt bits
 	IPsecMarkMaskIn = 0x0F00
+
+	// IPsecFwdPriority is the priority of the fwd rules placed by IPsec
+	IPsecFwdPriority = 0x0B9F
 
 	// IPsecKeyDeleteDelay is the time to wait before removing old keys when
 	// the IPsec key is changing.

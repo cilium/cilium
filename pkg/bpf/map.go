@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,8 @@ const (
 
 var (
 	mapControllers = controller.NewManager()
+
+	supportedMapTypes *probes.MapTypes
 )
 
 func (t MapType) String() string {
@@ -154,8 +156,12 @@ func (d DesiredAction) String() string {
 // supported, returns a more primitive map type that may be used to implement
 // the map on older implementations. Otherwise, returns the specified map type.
 func GetMapType(t MapType) MapType {
-	pm := probes.NewProbeManager()
-	supportedMapTypes := pm.GetMapTypes()
+	// If the supported map types have not been set, default to the system
+	// prober. This path enables unit tests to mock out the supported map
+	// types.
+	if supportedMapTypes == nil {
+		setMapTypesFromProber(probes.NewProbeManager())
+	}
 	switch t {
 	case MapTypeLPMTrie:
 		fallthrough
@@ -165,6 +171,22 @@ func GetMapType(t MapType) MapType {
 		}
 	}
 	return t
+}
+
+// setMapTypesFromProber initializes the supported map types from the given
+// prober. This function is useful for testing purposes, as we require
+// injecting our own mocked prober.
+func setMapTypesFromProber(prober prober) {
+	features := prober.Probe()
+	supportedMapTypes = &features.MapTypes
+}
+
+// prober abstracts the notion of a kernel feature prober. This is useful for
+// testing purposes as it allows us to mock out the kernel, enabling control
+// control over what features are returned.
+type prober interface {
+	// Probe returns the kernel feaures available on machine.
+	Probe() probes.Features
 }
 
 var commonNameRegexps = []*regexp.Regexp{

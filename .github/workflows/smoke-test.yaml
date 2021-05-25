@@ -1,10 +1,22 @@
 name: Smoke test
 
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
   push:
     branches:
       - master
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
 env:
   KIND_VERSION: v0.9.0
   KIND_CONFIG: .github/kind-config.yaml
@@ -17,6 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
       - name: Check pre-flight clusterrole
         run: |
           cd install/kubernetes/cilium/templates
@@ -33,6 +48,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          persist-credentials: false
 
       - name: Run helm lint
         run: |
@@ -43,35 +60,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          persist-credentials: false
 
       - name: Run helm-docs
         run: |
           make -C install/kubernetes docs
           git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
-  quick-install:
-    strategy:
-      matrix:
-        target:
-          - name: quick-install
-            template: install/kubernetes/quick-install.yaml
-          - name: quick-hubble-install
-            template: install/kubernetes/quick-hubble-install.yaml
-          - name: experimental-install
-            template: install/kubernetes/experimental-install.yaml
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Check ${{ matrix.target.template }}
-        run: |
-          make -C install/kubernetes ${{ matrix.target.name }}
-          git diff --exit-code || (echo "please run 'make -C install/kubernetes ${{ matrix.target.name }}' and submit your changes"; exit 1)
-
   conformance-test:
+    if: ${{ github.repository == 'cilium/cilium' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
 
       - name: Precheck generated connectivity manifest files
         run: |
@@ -79,21 +92,18 @@ jobs:
           make -C examples/kubernetes/connectivity-check all
           git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
 
-      - name: Build docker images
-        run: |
-          make docker-cilium-image
-          make docker-operator-generic-image
-
       - name: Create kind cluster
-        uses: helm/kind-action@v1.0.0
+        uses: helm/kind-action@v1.1.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
-      - name: Load local images into kind cluster
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
         run: |
-          kind load docker-image --name chart-testing quay.io/cilium/cilium:latest
-          kind load docker-image --name chart-testing quay.io/cilium/operator-generic:latest
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
 
       - name: Install cilium chart
         run: |
@@ -108,10 +118,13 @@ jobs:
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
-             --set image.tag=latest \
-             --set image.pullPolicy=Never \
-             --set operator.image.tag=latest \
-             --set operator.image.pullPolicy=Never \
+             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+             --set image.tag=${{ steps.vars.outputs.tag }} \
+             --set image.pullPolicy=IfNotPresent \
+             --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+             --set operator.image.suffix=-ci \
+             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+             --set operator.image.pullPolicy=IfNotPresent \
              --set prometheus.enabled=true \
              --set operator.prometheus.enabled=true \
              --set hubble.enabled=true \
@@ -134,7 +147,7 @@ jobs:
           cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
           kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
-          go get -u github.com/prometheus/prometheus/cmd/promtool
+          GO111MODULE=on go get github.com/prometheus/prometheus/cmd/promtool@e4487274853c587717006eeda8804e597d120340 # This is commit hash for v2.24.1
           cat metrics.prom | $HOME/go/bin/promtool check metrics
 
       - name: Capture cilium-sysdump
@@ -144,8 +157,17 @@ jobs:
           python cilium-sysdump.zip --output cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
+
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

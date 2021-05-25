@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,11 @@ package maglev
 import (
 	"encoding/base64"
 	"fmt"
+	"runtime"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/murmur3"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 const (
@@ -33,9 +36,14 @@ var (
 
 	SeedJhash0 uint32
 	SeedJhash1 uint32
+
+	// permutation is the slice containing the Maglev permutation calculations.
+	permutation []uint64
 )
 
-func InitMaglevSeeds(seed string) error {
+// Init initializes the Maglev subsystem with the seed and the backend table
+// size (m).
+func Init(seed string, m uint64) error {
 	d, err := base64.StdEncoding.DecodeString(seed)
 	if err != nil {
 		return fmt.Errorf("Cannot decode base64 Maglev hash seed %q: %w", seed, err)
@@ -49,6 +57,10 @@ func InitMaglevSeeds(seed string) error {
 	SeedJhash0 = uint32(d[4])<<24 | uint32(d[5])<<16 | uint32(d[6])<<8 | uint32(d[7])
 	SeedJhash1 = uint32(d[8])<<24 | uint32(d[9])<<16 | uint32(d[10])<<8 | uint32(d[11])
 
+	// Allocate this ahead of time to avoid expensive allocations inside
+	// getPermutation().
+	permutation = make([]uint64, derivePermutationSliceLen(m))
+
 	return nil
 }
 
@@ -60,18 +72,48 @@ func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
 	return offset, skip
 }
 
-func getPermutation(backends []string, m uint64) []uint64 {
-	perm := make([]uint64, len(backends)*int(m))
+func getPermutation(backends []string, m uint64, numCPU int) []uint64 {
+	var wg sync.WaitGroup
 
-	for i, backend := range backends {
-		offset, skip := getOffsetAndSkip(backend, m)
-		perm[i*int(m)] = offset % m
-		for j := uint64(1); j < m; j++ {
-			perm[i*int(m)+int(j)] = (perm[i*int(m)+int(j-1)] + skip) % m
-		}
+	// The idea is to split the calculation into batches so that they can be
+	// concurrently executed. We limit the number of concurrent goroutines to
+	// the number of available CPU cores. This is because the calculation does
+	// not block and is completely CPU-bound. Therefore, adding more goroutines
+	// would result into an overhead (allocation of stackframes, stress on
+	// scheduling, etc) instead of a performance gain.
+
+	bCount := len(backends)
+	if size := uint64(bCount) * m; size > uint64(len(permutation)) {
+		// Reallocate slice so we don't have to allocate again on the next
+		// call.
+		permutation = make([]uint64, size)
 	}
 
-	return perm
+	batchSize := bCount / numCPU
+	if batchSize == 0 {
+		batchSize = bCount
+	}
+
+	for g := 0; g < bCount; g += batchSize {
+		wg.Add(1)
+		go func(from int) {
+			to := from + batchSize
+			if to > bCount {
+				to = bCount
+			}
+			for i := from; i < to; i++ {
+				offset, skip := getOffsetAndSkip(backends[i], m)
+				permutation[i*int(m)] = offset % m
+				for j := uint64(1); j < m; j++ {
+					permutation[i*int(m)+int(j)] = (permutation[i*int(m)+int(j-1)] + skip) % m
+				}
+			}
+			wg.Done()
+		}(g)
+	}
+	wg.Wait()
+
+	return permutation[:bCount*int(m)]
 }
 
 // GetLookupTable returns the Maglev lookup table of the size "m" for the given
@@ -81,7 +123,7 @@ func GetLookupTable(backends []string, m uint64) []int {
 		return nil
 	}
 
-	perm := getPermutation(backends, m)
+	perm := getPermutation(backends, m, runtime.NumCPU())
 	next := make([]int, len(backends))
 	entry := make([]int, m)
 
@@ -103,4 +145,34 @@ func GetLookupTable(backends []string, m uint64) []int {
 	}
 
 	return entry
+}
+
+// derivePermutationSliceLen derives the permutations slice length depending on
+// the Maglev table size "m". The formula is (M / 100) * M. The heuristic gives
+// the following slice size for the given M.
+//
+//   251:    0.004806594848632812 MB
+//   509:    0.019766311645507812 MB
+//   1021:   0.07953193664550783 MB
+//   2039:   0.3171936798095703 MB
+//   4093:   1.2781256866455077 MB
+//   8191:   5.118750076293945 MB
+//   16381:  20.472500686645507 MB
+//   32749:  81.82502754211426 MB
+//   65521:  327.5300171661377 MB
+//   131071: 1310.700000076294 MB
+//
+// The heuristic does not apply to nodes with less than or equal to 8GB, as to
+// avoid memory pressure on memory-tight systems.
+//
+// Note, this function does not return the MB, but rather returns the number of
+// uint64 elements in the slice that equal to the total MB (length). To get the
+// MB, multiply by sizeof(uint64).
+func derivePermutationSliceLen(m uint64) uint64 {
+	threshold := uint64(8 * 1024 * 1024 * 1024) // 8GB
+	if vm, err := mem.VirtualMemory(); err != nil || vm == nil || vm.Total <= threshold {
+		return 0
+	}
+
+	return (m / uint64(100)) * m
 }

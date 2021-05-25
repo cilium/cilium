@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -34,7 +35,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("K8sPolicyTest", func() {
+var _ = SkipDescribeIf(func() bool {
+	// We only need to run on 4.9 with kube-proxy and net-next with KPR
+	// and the third node. Other CI jobs are not expected to increase
+	// code coverage.
+	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel()
+}, "K8sPolicyTest", func() {
 
 	var (
 		kubectl *helpers.Kubectl
@@ -157,41 +163,63 @@ var _ = Describe("K8sPolicyTest", func() {
 		)
 
 		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
-			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
-				By("HTTP connectivity to 1.1.1.1")
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
+			var wg sync.WaitGroup
+			for _, appPod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("HTTP connectivity to 1.1.1.1")
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
 
-				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
-					"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
+					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
+						"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
+				}(appPod)
 
-				By("ICMP connectivity to 8.8.8.8")
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.Ping("8.8.8.8"))
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("ICMP connectivity to 8.8.8.8")
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						helpers.Ping("8.8.8.8"))
 
-				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
-					"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
+					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
+						"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
+				}(appPod)
 
-				By("DNS lookup of kubernetes.default.svc.cluster.local")
-				// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("DNS lookup of kubernetes.default.svc.cluster.local")
+					// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
 
-				// kube-dns is always whitelisted so this should always work
-				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
-					"DNS connectivity of kubernetes.default.svc.cluster.local from pod %q", pod)
+					// kube-dns is always whitelisted so this should always work
+					ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
+						"DNS connectivity of kubernetes.default.svc.cluster.local from pod %q", pod)
+				}(appPod)
 
-				By("HTTP connectivity from pod to pod")
-				res = kubectl.ExecPodCmd(
-					namespaceForTest, pod,
-					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+				wg.Add(1)
+				go func(pod string) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("HTTP connectivity from pod to pod")
+					res := kubectl.ExecPodCmd(
+						namespaceForTest, pod,
+						helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 
-				ExpectWithOffset(1, res).To(getMatcher(expectClusterSuccess),
-					"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
+					ExpectWithOffset(1, res).To(getMatcher(expectClusterSuccess),
+						"HTTP connectivity to clusterIP %q of app1 from pod %q", clusterIP, appPods[helpers.App2])
+				}(appPod)
 			}
+			wg.Wait()
 		}
 
 		BeforeAll(func() {
@@ -203,7 +231,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "cannot get CiliumPod")
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
@@ -259,7 +287,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -285,7 +313,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -315,10 +343,13 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, l7Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
+			// Cilium launches Envoy with path normalization enabled by default, so '//public' will be seen as '/public'.
+			// Note that 'hhtpd' performs slash merging and serves '/public' when '//public' is requested.
+			// Policy enforcement will block this if path normalization is not done prior as policy only allows '/public'.
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("http://%s/public", clusterIP))
-			res.ExpectSuccess("Cannot connect from %q to 'http://%s/public'",
+				helpers.CurlFail("http://%s//public", clusterIP))
+			res.ExpectSuccess("Cannot connect from %q to 'http://%s//public'",
 				appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
@@ -391,7 +422,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -417,7 +448,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -593,7 +624,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -626,7 +657,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 0/ANY",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
@@ -1574,30 +1605,51 @@ var _ = Describe("K8sPolicyTest", func() {
 				HostConnectivityAllow       = true
 				RemoteNodeConnectivityDeny  = false
 				RemoteNodeConnectivityAllow = true
+				PodConnectivityDeny         = false
+				PodConnectivityAllow        = true
+				WorldConnectivityDeny       = false
+				WorldConnectivityAllow      = true
 			)
 
 			var (
 				cnpFromEntitiesHost       string
 				cnpFromEntitiesRemoteNode string
 				cnpFromEntitiesWorld      string
-				// TODO: Add fromEntities tests (GH-10979)
-				//cnpFromEntitiesCluster    string
-				//cnpFromEntitiesWorld      string
-				//cnpFromEntitiesAll        string
+				cnpFromEntitiesCluster    string
+				cnpFromEntitiesAll        string
 
 				k8s1Name             string
+				k8s1IP               string
+				k8s1PodName          string
 				k8s1PodIP, k8s2PodIP string
+
+				outsideNodeName string
 			)
 
 			BeforeAll(func() {
 				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
 				cnpFromEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-world.yaml")
-				var err error
-				k8s1Name, err = kubectl.GetNodeNameByLabel(helpers.K8s1)
-				Expect(err).To(BeNil(), "cannot get k8s1 node name")
-				_, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
+				cnpFromEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-cluster.yaml")
+				cnpFromEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-all.yaml")
+
+				k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
+				k8s1PodName, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
 				_, k8s2PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 0)
+
+				if helpers.ExistNodeWithoutCilium() {
+					outsideNodeName, _ = kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+				}
+
+				// Masquerade function should be disabled
+				// because the request will fail if the reply packet's source address is rewritten
+				// when sending a request directly to the Pod from outside the cluster.
+				By("Reconfiguring Cilium to disable ipv4 masquerade")
+				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+					map[string]string{
+						"enableIPv4Masquerade": "false",
+					})
+
 			})
 
 			AfterAll(func() {
@@ -1605,18 +1657,69 @@ var _ = Describe("K8sPolicyTest", func() {
 				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
 			})
 
-			validateNodeConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess bool) {
-				By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
-				res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-					helpers.CurlFail(k8s1PodIP))
-				ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
-					"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
+			testCurlFromOutside := func(url string, outsideNodeName string, expectSuccess bool) {
+				By("Making HTTP requests from outside cluster to %q", url)
+				res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
+				ExpectWithOffset(1, res).To(getMatcher(expectSuccess),
+					"HTTP ingress connectivity to %q from %s host", url, outsideNodeName)
+			}
 
-				By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
-				res = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-					helpers.CurlFail(k8s2PodIP))
-				ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
-					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
+			validateConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool) {
+				var wg sync.WaitGroup
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
+					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+						helpers.CurlFail(k8s1PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
+						"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
+				}()
+
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
+					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+						helpers.CurlFail(k8s2PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
+						"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
+				}()
+
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					By("Checking ingress connectivity from k8s1 pod to k8s2 pod")
+					res := kubectl.ExecPodCmd(testNamespace, k8s1PodName, helpers.CurlFail(k8s2PodIP))
+					ExpectWithOffset(1, res).To(getMatcher(expectPodSuccess),
+						"HTTP ingress connectivity to pod %q from pod %q", k8s2PodIP, k8s1PodIP)
+				}()
+
+				if helpers.ExistNodeWithoutCilium() {
+					wg.Add(1)
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						By("Checking ingress connectivity from world to k8s1 pod")
+						By("Adding a static route to %s on the %s node (outside)", k8s1PodIP, outsideNodeName)
+						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
+						Expect(res).To(getMatcher(true))
+
+						testCurlFromOutside(k8s1PodIP, outsideNodeName, expectWorldSuccess)
+					}()
+				}
+				wg.Wait()
+			}
+
+			installDefaultDenyIngressPolicy := func() {
+				By("Installing default-deny ingress policy")
+				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
+
+				By("Checking that remote-node is disallowed by default")
+				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny, PodConnectivityDeny, WorldConnectivityDeny)
 			}
 
 			Context("with remote-node identity disabled", func() {
@@ -1624,7 +1727,8 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to disable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"remoteNodeIdentity": "false",
+							"remoteNodeIdentity":   "false",
+							"enableIPv4Masquerade": "false",
 						})
 				})
 
@@ -1641,13 +1745,17 @@ var _ = Describe("K8sPolicyTest", func() {
 						By("Installing fromEntities host and world policy")
 						importPolicy(kubectl, testNamespace, cnpFromEntitiesWorld, "from-entities-world")
 						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
+
+						By("Checking policy correctness")
+						validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityAllow)
 					} else {
 						By("Installing fromEntities host policy")
 						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
+
+						By("Checking policy correctness")
+						validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
 					}
 
-					By("Checking policy correctness")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
 				})
 			})
 
@@ -1656,23 +1764,40 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to enable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"remoteNodeIdentity": "true",
+							"remoteNodeIdentity":   "true",
+							"enableIPv4Masquerade": "false",
 						})
 				})
 
 				It("Validates fromEntities remote-node policy", func() {
-					By("Installing default-deny ingress policy")
-					importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
-
-					By("Checking that remote-node is disallowed by default")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny)
+					installDefaultDenyIngressPolicy()
 
 					By("Installing fromEntities remote-node policy")
 					importPolicy(kubectl, testNamespace, cnpFromEntitiesRemoteNode, "from-entities-remote-node")
 
 					By("Checking policy correctness")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
+					validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
 				})
+			})
+
+			It("Validates fromEntities cluster policy", func() {
+				installDefaultDenyIngressPolicy()
+
+				By("Installing fromEntities cluster policy")
+				importPolicy(kubectl, testNamespace, cnpFromEntitiesCluster, "from-entities-cluster")
+
+				By("Checking policy correctness")
+				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityAllow, WorldConnectivityDeny)
+			})
+
+			It("Validates fromEntities all policy", func() {
+				installDefaultDenyIngressPolicy()
+
+				By("Installing fromEntities all policy")
+				importPolicy(kubectl, testNamespace, cnpFromEntitiesAll, "from-entities-all")
+
+				By("Checking policy correctness")
+				validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityAllow, WorldConnectivityAllow)
 			})
 		})
 
@@ -1702,13 +1827,11 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	Context("GuestBook Examples", func() {
 		var (
-			deployment                = "guestbook_deployment.yaml"
-			redisPolicy               = "guestbook-policy-redis.json"
-			redisPolicyName           = "guestbook-policy-redis"
-			redisPolicyDeprecated     = "guestbook-policy-redis-deprecated.json"
-			redisPolicyDeprecatedName = "guestbook-redis-deprecated"
-			webPolicy                 = "guestbook-policy-web.yaml"
-			webPolicyName             = "guestbook-policy-web"
+			deployment      = "guestbook_deployment.yaml"
+			redisPolicy     = "guestbook-policy-redis.json"
+			redisPolicyName = "guestbook-policy-redis"
+			webPolicy       = "guestbook-policy-web.yaml"
+			webPolicyName   = "guestbook-policy-web"
 		)
 
 		var ciliumPods []string
@@ -1731,13 +1854,6 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), webPolicy)).ExpectSuccess(
 				"Web policy cannot be deleted")
-			k8sVersion := helpers.GetCurrentK8SEnv()
-			switch k8sVersion {
-			case "1.10", "1.11", "1.12", "1.13", "1.14", "1.15":
-				kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated)).ExpectSuccess(
-					"Redis deprecated policy cannot be deleted")
-			default:
-			}
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), deployment)).ExpectSuccess(
 				"Guestbook deployment cannot be deleted")
 
@@ -1825,27 +1941,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
-
-			k8sVersion := helpers.GetCurrentK8SEnv()
-			switch k8sVersion {
-			case "1.10", "1.11", "1.12", "1.13", "1.14", "1.15":
-			default:
-				Skip(fmt.Sprintf("K8s %s doesn't support extensions/v1beta1 NetworkPolicies, skipping test", k8sVersion))
-			}
-
-			By("Apply deprecated policy to Redis")
-
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated),
-				helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
-
-			policyCheck = fmt.Sprintf("%s=%s %s=%s",
-				helpers.KubectlPolicyNameLabel, redisPolicyDeprecatedName,
-				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			policyCheckStatus(policyCheck)
-
-			testConnectivitytoRedis()
 		})
 	})
 

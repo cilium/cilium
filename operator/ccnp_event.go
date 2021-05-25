@@ -41,9 +41,9 @@ import (
 func enableCCNPWatcher() error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
-		log.Info("Starting a CCNP Status handover from kvstore to k8s...")
+		log.Info("Starting a CCNP Status handover from kvstore to k8s")
 	}
-	log.Info("Starting CCNP derivative handler...")
+	log.Info("Starting CCNP derivative handler")
 
 	var (
 		ccnpStatusMgr *k8s.CCNPStatusEventHandler

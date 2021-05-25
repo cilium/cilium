@@ -17,7 +17,6 @@
 package types
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -40,12 +39,12 @@ type CNITypesSuite struct{}
 var _ = check.Suite(&CNITypesSuite{})
 
 func testConfRead(c *check.C, confContent string, netconf *NetConf) {
-	dir, err := ioutil.TempDir("", "cilium-cnitype-testsuite")
+	dir, err := os.MkdirTemp("", "cilium-cnitype-testsuite")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir)
 
 	p := path.Join(dir, "conf1")
-	err = ioutil.WriteFile(p, []byte(confContent), 0644)
+	err = os.WriteFile(p, []byte(confContent), 0644)
 	c.Assert(err, check.IsNil)
 
 	netConf, err := ReadNetConf(p)
@@ -260,12 +259,12 @@ func (t *CNITypesSuite) TestReadCNIConfError(c *check.C) {
 }
 `
 
-	dir, err := ioutil.TempDir("", "cilium-cnitype-testsuite")
+	dir, err := os.MkdirTemp("", "cilium-cnitype-testsuite")
 	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(dir)
 
 	p := path.Join(dir, "errorconf")
-	err = ioutil.WriteFile(p, []byte(errorConf), 0644)
+	err = os.WriteFile(p, []byte(errorConf), 0644)
 	c.Assert(err, check.IsNil)
 
 	_, err = ReadNetConf(p)

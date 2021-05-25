@@ -73,6 +73,7 @@ func (client ServiceTagsClient) List(ctx context.Context, location string) (resu
 	result, err = client.ListResponder(resp)
 	if err != nil {
 		err = autorest.NewErrorWithError(err, "network.ServiceTagsClient", "List", resp, "Failure responding to request")
+		return
 	}
 
 	return

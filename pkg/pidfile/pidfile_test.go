@@ -18,7 +18,6 @@ package pidfile
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
@@ -46,7 +45,7 @@ func (s *PidfileTestSuite) TestWrite(c *C) {
 	c.Assert(err, IsNil)
 	defer Remove(path)
 
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	c.Assert(err, IsNil)
 	c.Assert(content, checker.DeepEquals, []byte(fmt.Sprintf("%d\n", os.Getpid())))
 }
@@ -91,7 +90,7 @@ func (s *PidfileTestSuite) TestKillPidfileNotExist(c *C) {
 }
 
 func (s *PidfileTestSuite) TestKillPidfilePermissionDenied(c *C) {
-	err := ioutil.WriteFile(path, []byte("foobar\n"), 0000)
+	err := os.WriteFile(path, []byte("foobar\n"), 0000)
 	c.Assert(err, IsNil)
 	defer Remove(path)
 
@@ -100,7 +99,7 @@ func (s *PidfileTestSuite) TestKillPidfilePermissionDenied(c *C) {
 }
 
 func (s *PidfileTestSuite) TestKillFailedParsePid(c *C) {
-	err := ioutil.WriteFile(path, []byte("foobar\n"), 0644)
+	err := os.WriteFile(path, []byte("foobar\n"), 0644)
 	c.Assert(err, IsNil)
 	defer Remove(path)
 

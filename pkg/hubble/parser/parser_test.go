@@ -17,7 +17,7 @@
 package parser
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
 
@@ -30,17 +30,17 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var log *logrus.Logger
 
 func init() {
 	log = logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 }
 
 func Test_InvalidPayloads(t *testing.T) {
@@ -118,13 +118,13 @@ func Test_EventType_RecordLost(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	protoTimestamp, err := ptypes.TimestampProto(ts)
-	assert.NoError(t, err)
+	protoTimestamp := timestamppb.New(ts)
+	assert.NoError(t, protoTimestamp.CheckValid())
 	assert.Equal(t, &v1.Event{
 		Timestamp: protoTimestamp,
 		Event: &flowpb.LostEvent{
 			NumEventsLost: 1001,
-			Cpu:           &wrappers.Int32Value{Value: 3},
+			Cpu:           &wrapperspb.Int32Value{Value: 3},
 			Source:        flowpb.LostEventSource_PERF_EVENT_RING_BUFFER,
 		},
 	}, ev)

@@ -46,8 +46,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		dbgDone := vm.MonitorDebug(true, "")
 		Expect(dbgDone).Should(BeTrue())
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
@@ -112,8 +111,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			res := vm.ExecInBackground(ctx, "cilium monitor -vv")
 			defer cancel()
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			endpoints, err := vm.GetEndpointsIds()
 			Expect(err).Should(BeNil())
@@ -133,8 +131,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			eventTypes := map[string]string{
 				"drop":    "DROP:",
@@ -171,8 +168,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			By(command)
 			res := vm.ExecInBackground(ctx, command)
 
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
@@ -189,8 +185,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		It("cilium monitor check --from", func() {
 			monitorConfig()
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			endpoints, err := vm.GetEndpointsIds()
 			Expect(err).Should(BeNil())
@@ -215,8 +210,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		It("cilium monitor check --to", func() {
 			monitorConfig()
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			endpoints, err := vm.GetEndpointsIds()
 			Expect(err).Should(BeNil())
@@ -239,8 +233,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		It("cilium monitor check --related-to", func() {
 			monitorConfig()
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			endpoints, err := vm.GetEndpointsIds()
 			Expect(err).Should(BeNil())
@@ -263,8 +256,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		It("delivers the same information to multiple monitors", func() {
 			monitorConfig()
 
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			var monitorRes []*helpers.CmdRes
 			ctx, cancelfn := context.WithCancel(context.Background())

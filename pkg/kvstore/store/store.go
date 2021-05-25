@@ -469,8 +469,8 @@ func (s *SharedStore) deleteSharedKey(name string) {
 			_, ok := s.sharedKeys[name]
 			s.mutex.RUnlock()
 			if ok {
-				log.Warningf("Received node delete event for node %s which re-appeared within %s",
-					name, s.conf.SharedKeyDeleteDelay)
+				s.getLogger().WithFields(logrus.Fields{"key": name, "timeWindow": s.conf.SharedKeyDeleteDelay}).
+					Warning("Received delete event for key which re-appeared within delay time window")
 				return
 			}
 

@@ -17,7 +17,6 @@ package ipmasq
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -228,7 +227,7 @@ func (a *IPMasqAgent) Update() error {
 func (a *IPMasqAgent) readConfig() (bool, error) {
 	var cfg config
 
-	raw, err := ioutil.ReadFile(a.configPath)
+	raw, err := os.ReadFile(a.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.WithField(logfields.Path, a.configPath).Info("Config file not found")

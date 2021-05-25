@@ -66,7 +66,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	)
 
 	if option.Config.DisableCiliumEndpointCRD {
-		scopedLog.Warn("Not running controller. CEP CRD synchronization is disabled")
+		scopedLog.Debug("Not running controller. CEP CRD synchronization is disabled")
 		return
 	}
 
@@ -119,6 +119,15 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				if !e.HaveK8sMetadata() {
 					scopedLog.Debug("Skipping CiliumEndpoint update because k8s metadata is not yet available")
+					return nil
+				}
+
+				identity, err := e.GetSecurityIdentity()
+				if err != nil {
+					return err
+				}
+				if identity == nil {
+					scopedLog.Debug("Skipping CiliumEndpoint update because security identity is not yet available")
 					return nil
 				}
 
@@ -196,7 +205,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					// to init the local endpoint in non-error cases.
 					needInit = false
 				}
-
 				// We have no localCEP copy. We need to fetch it for updates, below.
 				// This is unexpected as there should be only 1 writer per CEP, this
 				// controller, and the localCEP created on startup will be used.
@@ -242,6 +250,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				if err != nil {
 					return err
 				}
+
 				localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
 					ctx, podName,
 					types.JSONPatchType,
@@ -258,6 +267,42 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					needInit = true
 					return nil
 
+				case err != nil && k8serrors.IsNotFound(err):
+					scopedLog.WithError(err).Warn("Cannot update CEP via subresource, trying direct patch")
+					// Tries to update CEP without specifying `status` as subresource.
+					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(
+						ctx, podName,
+						types.JSONPatchType,
+						createStatusPatch,
+						meta_v1.PatchOptions{})
+					// Handle Update errors or return successfully
+					switch {
+					// Return no error when we see a conflict. We want to retry without a
+					// backoff and the Update* calls returned the current localCEP
+					case err != nil && k8serrors.IsConflict(err):
+						scopedLog.WithError(err).Warn("Cannot update CEP due to a revision conflict. The next controller execution will try again")
+						needInit = true
+						return nil
+
+					// Ensure we re-init when we see a generic error. This will recrate the
+					// CEP.
+					case err != nil:
+						// Suppress logging an error if ep backing the pod was terminated
+						// before CEP could be updated and shut down the controller.
+						if errors.Is(err, context.Canceled) {
+							return nil
+						}
+						scopedLog.WithError(err).Error("Cannot update CEP")
+
+						needInit = true
+						return err
+
+					// A successful update means no more updates unless the endpoint status, aka mdl, changes
+					default:
+						lastMdl = mdl
+						return nil
+					}
+
 				// Ensure we re-init when we see a generic error. This will recrate the
 				// CEP.
 				case err != nil:
@@ -266,12 +311,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					if errors.Is(err, context.Canceled) {
 						return nil
 					}
-
 					scopedLog.WithError(err).Error("Cannot update CEP")
+
 					needInit = true
 					return err
 
-				// A successful update means no more updates unless mdl changes
+				// A successful update means no more updates unless the endpoint status, aka mdl, changes
 				default:
 					lastMdl = mdl
 					return nil

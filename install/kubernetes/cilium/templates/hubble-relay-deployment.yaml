@@ -18,12 +18,19 @@ spec:
 {{- end }}
   template:
     metadata:
-{{- with .Values.hubble.relay.podAnnotations }}
       annotations:
-        {{ toYaml . | trim | indent 8 }}
+{{- if .Values.hubble.relay.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/hubble-relay-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-relay-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
+{{- with .Values.hubble.relay.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
 {{- end }}
       labels:
         k8s-app: hubble-relay
+{{- with .Values.hubble.relay.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
       affinity:
         podAffinity:
@@ -41,7 +48,7 @@ spec:
 {{- end }}
       containers:
         - name: hubble-relay
-          image: {{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}
+          image: "{{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}{{ if .Values.hubble.relay.image.useDigest }}@{{ .Values.hubble.relay.image.digest }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
           command:
             - hubble-relay
@@ -76,8 +83,8 @@ spec:
             readOnly: true
 {{- end }}
       restartPolicy: Always
-      serviceAccount: hubble-relay
-      serviceAccountName: hubble-relay
+      serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
       terminationGracePeriodSeconds: 0
 {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:
@@ -104,15 +111,12 @@ spec:
           - secret:
               name: hubble-relay-client-certs
               items:
+                - key: ca.crt
+                  path: hubble-server-ca.crt
                 - key: tls.crt
                   path: client.crt
                 - key: tls.key
                   path: client.key
-          - configMap:
-              name: hubble-ca-cert
-              items:
-                - key: ca.crt
-                  path: hubble-server-ca.crt
 {{- if .Values.hubble.relay.tls.server.enabled }}
           - secret:
               name: hubble-relay-server-certs

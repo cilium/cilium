@@ -17,7 +17,6 @@
 package endpoint
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -28,22 +27,22 @@ import (
 func (s *EndpointSuite) TestMoveNewFilesTo(c *check.C) {
 	oldDir := c.MkDir()
 	newDir := c.MkDir()
-	f1, err := ioutil.TempFile(oldDir, "")
+	f1, err := os.CreateTemp(oldDir, "")
 	c.Assert(err, check.IsNil)
-	f2, err := ioutil.TempFile(oldDir, "")
+	f2, err := os.CreateTemp(oldDir, "")
 	c.Assert(err, check.IsNil)
-	f3, err := ioutil.TempFile(newDir, "")
+	f3, err := os.CreateTemp(newDir, "")
 	c.Assert(err, check.IsNil)
 
 	// Copy the same file in both directories to make sure the same files
 	// are not moved from the old directory into the new directory.
-	err = ioutil.WriteFile(filepath.Join(oldDir, "foo"), []byte(""), os.FileMode(0644))
+	err = os.WriteFile(filepath.Join(oldDir, "foo"), []byte(""), os.FileMode(0644))
 	c.Assert(err, check.IsNil)
-	err = ioutil.WriteFile(filepath.Join(newDir, "foo"), []byte(""), os.FileMode(0644))
+	err = os.WriteFile(filepath.Join(newDir, "foo"), []byte(""), os.FileMode(0644))
 	c.Assert(err, check.IsNil)
 
 	compareDir := func(dir string, wantedFiles []string) {
-		files, err := ioutil.ReadDir(dir)
+		files, err := os.ReadDir(dir)
 		c.Assert(err, check.IsNil)
 		filesNames := make([]string, 0, len(wantedFiles))
 		for _, file := range files {

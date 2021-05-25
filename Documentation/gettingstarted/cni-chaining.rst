@@ -14,8 +14,8 @@ CNI chaining allows to use Cilium in combination with other CNI plugins.
 
 With Cilium CNI chaining, the base network connectivity and IP address management
 is managed by the non-Cilium CNI plugin, but Cilium attaches eBPF programs to the
-network devices created by the non-Cilium plugin to provide L3/L4/L7 network visibility &
-policy enforcement and other advanced features like transparent encryption.
+network devices created by the non-Cilium plugin to provide L3/L4 network
+visibility, policy enforcement and other advanced features.
 
 .. toctree::
    :maxdepth: 1

@@ -52,12 +52,29 @@ func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	panic("OnSend not set")
 }
 
+// FakeGetAgentEventsServer is used for unit tests and implements the
+// observerpb.Observer_GetAgentEventsServer interface.
+type FakeGetAgentEventsServer struct {
+	OnSend func(response *observerpb.GetAgentEventsResponse) error
+	*FakeGRPCServerStream
+}
+
+// Send implements observerpb.Observer_GetAgentEventsServer.Send.
+func (s *FakeGetAgentEventsServer) Send(response *observerpb.GetAgentEventsResponse) error {
+	if s.OnSend != nil {
+		return s.OnSend(response)
+	}
+	panic("OnSend not set")
+}
+
 // FakeObserverClient is used for unit tests and implements the
 // observerpb.ObserverClient interface.
 type FakeObserverClient struct {
-	OnGetFlows     func(ctx context.Context, in *observerpb.GetFlowsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error)
-	OnGetNodes     func(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error)
-	OnServerStatus func(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error)
+	OnGetFlows       func(ctx context.Context, in *observerpb.GetFlowsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error)
+	OnGetAgentEvents func(ctx context.Context, in *observerpb.GetAgentEventsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetAgentEventsClient, error)
+	OnGetDebugEvents func(ctx context.Context, in *observerpb.GetDebugEventsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetDebugEventsClient, error)
+	OnGetNodes       func(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error)
+	OnServerStatus   func(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error)
 }
 
 // GetFlows implements observerpb.ObserverClient.GetFlows.
@@ -66,6 +83,22 @@ func (c *FakeObserverClient) GetFlows(ctx context.Context, in *observerpb.GetFlo
 		return c.OnGetFlows(ctx, in, opts...)
 	}
 	panic("OnGetFlows not set")
+}
+
+// GetAgentEvents implements observerpb.ObserverClient.GetAgentEvents.
+func (c *FakeObserverClient) GetAgentEvents(ctx context.Context, in *observerpb.GetAgentEventsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetAgentEventsClient, error) {
+	if c.OnGetAgentEvents != nil {
+		return c.OnGetAgentEvents(ctx, in, opts...)
+	}
+	panic("OnGetAgentEvents not set")
+}
+
+// GetDebugEvents implements observerpb.ObserverClient.GetDebugEvents.
+func (c *FakeObserverClient) GetDebugEvents(ctx context.Context, in *observerpb.GetDebugEventsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetDebugEventsClient, error) {
+	if c.OnGetDebugEvents != nil {
+		return c.OnGetDebugEvents(ctx, in, opts...)
+	}
+	panic("OnGetDebugEvents not set")
 }
 
 // GetNodes implements observerpb.ObserverClient.GetNodes.
@@ -273,7 +306,8 @@ var NoopDNSGetter = FakeFQDNCache{
 
 // FakeEndpointGetter is used for unit tests that needs EndpointGetter.
 type FakeEndpointGetter struct {
-	OnGetEndpointInfo func(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	OnGetEndpointInfo     func(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	OnGetEndpointInfoByID func(id uint16) (endpoint v1.EndpointInfo, ok bool)
 }
 
 // GetEndpointInfo implements EndpointGetter.GetEndpointInfo.
@@ -284,9 +318,20 @@ func (f *FakeEndpointGetter) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInf
 	panic("OnGetEndpointInfo not set")
 }
 
+// GetEndpointInfoByID implements EndpointGetter.GetEndpointInfoByID.
+func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
+	if f.OnGetEndpointInfoByID != nil {
+		return f.OnGetEndpointInfoByID(id)
+	}
+	panic("GetEndpointInfoByID not set")
+}
+
 // NoopEndpointGetter always returns an empty response.
 var NoopEndpointGetter = FakeEndpointGetter{
 	OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+		return nil, false
+	},
+	OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
 		return nil, false
 	},
 }

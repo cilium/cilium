@@ -3,8 +3,6 @@ package ini
 import (
 	"io"
 	"os"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 )
 
 // OpenFile takes a path to a given file, and will open  and parse
@@ -12,22 +10,22 @@ import (
 func OpenFile(path string) (Sections, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return Sections{}, awserr.New(ErrCodeUnableToReadFile, "unable to open file", err)
+		return Sections{}, &UnableToReadFile{Err: err}
 	}
 	defer f.Close()
 
-	return Parse(f)
+	return Parse(f, path)
 }
 
 // Parse will parse the given file using the shared config
 // visitor.
-func Parse(f io.Reader) (Sections, error) {
+func Parse(f io.Reader, path string) (Sections, error) {
 	tree, err := ParseAST(f)
 	if err != nil {
 		return Sections{}, err
 	}
 
-	v := NewDefaultVisitor()
+	v := NewDefaultVisitor(path)
 	if err = Walk(tree, v); err != nil {
 		return Sections{}, err
 	}
@@ -42,7 +40,7 @@ func ParseBytes(b []byte) (Sections, error) {
 		return Sections{}, err
 	}
 
-	v := NewDefaultVisitor()
+	v := NewDefaultVisitor("")
 	if err = Walk(tree, v); err != nil {
 		return Sections{}, err
 	}

@@ -19,7 +19,6 @@ package clustermesh
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -73,16 +72,16 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil, nil)
-	dir, err := ioutil.TempDir("", "multicluster")
+	dir, err := os.MkdirTemp("", "multicluster")
 	s.testDir = dir
 	c.Assert(err, IsNil)
 
 	config1 := path.Join(dir, s.randomName+"1")
-	err = ioutil.WriteFile(config1, etcdConfig, 0644)
+	err = os.WriteFile(config1, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
 	config2 := path.Join(dir, s.randomName+"2")
-	err = ioutil.WriteFile(config2, etcdConfig, 0644)
+	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
 	cm, err := NewClusterMesh(Configuration{
@@ -239,10 +238,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["10.0.185.196"] != nil &&
-			event.Endpoints.Backends["10.0.185.196"].Ports["http"].Equals(
+			event.Endpoints.Backends["10.0.185.196"].Ports["http"].DeepEqual(
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 80)) &&
 			event.Endpoints.Backends["20.0.185.196"] != nil &&
-			event.Endpoints.Backends["20.0.185.196"].Ports["http2"].Equals(
+			event.Endpoints.Backends["20.0.185.196"].Ports["http2"].DeepEqual(
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
 	})
 

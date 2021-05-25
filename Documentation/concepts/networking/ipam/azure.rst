@@ -6,9 +6,9 @@
 
 .. _ipam_azure:
 
-#################
-Azure IPAM (beta)
-#################
+##########
+Azure IPAM
+##########
 
 The Azure IPAM allocator is specific to Cilium deployments running in the Azure
 cloud and performs IP allocation based on `Azure Private IP addresses
@@ -19,11 +19,6 @@ Azure API to avoid rate-limiting issues in large clusters. A pre-allocation
 watermark allows to maintain a number of IP addresses to be available for use
 on nodes at all time without requiring to contact the Azure API when a new pod
 is scheduled in the cluster.
-
-.. note::
-
-    This is a beta feature. Please provide feedback and file a GitHub issue if
-    you experience any problems.
 
 ************
 Architecture

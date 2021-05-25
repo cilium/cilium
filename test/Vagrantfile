@@ -12,7 +12,7 @@ $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSI
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.20"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.21"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="0"? false : true
 $IPv6=(ENV['IPv6'] || "0")
@@ -74,7 +74,10 @@ SCRIPT
 Vagrant.configure("2") do |config|
     cilium_dir = '../'
     cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'
-    if ENV["SHARE_PARENT"] then
+    if ENV["SHARE_PARENT"] == "2" then
+        cilium_dir = '../../..'
+        cilium_path = '/home/vagrant/go/src/github.com'
+    elsif ENV["SHARE_PARENT"] then
         cilium_dir = '../..'
         cilium_path = '/home/vagrant/go/src/github.com/cilium'
     end

@@ -22,19 +22,19 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
-	resp0 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 1}}
-	resp1 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}}
-	resp2 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 2}}
-	resp3 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 3}}
-	resp4 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 4}}
-	resp5 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 5}}
+	resp0 = &observerpb.GetFlowsResponse{Time: &timestamppb.Timestamp{Seconds: 1}}
+	resp1 = &observerpb.GetFlowsResponse{Time: &timestamppb.Timestamp{Seconds: 1, Nanos: 1}}
+	resp2 = &observerpb.GetFlowsResponse{Time: &timestamppb.Timestamp{Seconds: 2}}
+	resp3 = &observerpb.GetFlowsResponse{Time: &timestamppb.Timestamp{Seconds: 3}}
+	resp4 = &observerpb.GetFlowsResponse{Time: &timestamppb.Timestamp{Seconds: 4}}
+	resp5 = &observerpb.GetFlowsResponse{Time: &timestamppb.Timestamp{Seconds: 5}}
 )
 
 func TestPriorityQueue(t *testing.T) {
@@ -112,48 +112,48 @@ func TestPriorityQueue_PopOlderThan(t *testing.T) {
 		{
 			"some older, some newer",
 			[]*observerpb.GetFlowsResponse{
-				{Time: &timestamp.Timestamp{Seconds: 5}},
-				{Time: &timestamp.Timestamp{Seconds: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 4}},
-				{Time: &timestamp.Timestamp{Seconds: 2}},
-				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 3}},
+				{Time: &timestamppb.Timestamp{Seconds: 5}},
+				{Time: &timestamppb.Timestamp{Seconds: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 4}},
+				{Time: &timestamppb.Timestamp{Seconds: 2}},
+				{Time: &timestamppb.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 3}},
 			},
 			time.Unix(3, 1).UTC(),
 			[]*observerpb.GetFlowsResponse{
-				{Time: &timestamp.Timestamp{Seconds: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 2}},
-				{Time: &timestamp.Timestamp{Seconds: 3}},
+				{Time: &timestamppb.Timestamp{Seconds: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 2}},
+				{Time: &timestamppb.Timestamp{Seconds: 3}},
 			},
 		}, {
 			"all olders",
 			[]*observerpb.GetFlowsResponse{
-				{Time: &timestamp.Timestamp{Seconds: 2}},
-				{Time: &timestamp.Timestamp{Seconds: 5}},
-				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 3}},
-				{Time: &timestamp.Timestamp{Seconds: 4}},
-				{Time: &timestamp.Timestamp{Seconds: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 2}},
+				{Time: &timestamppb.Timestamp{Seconds: 5}},
+				{Time: &timestamppb.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 3}},
+				{Time: &timestamppb.Timestamp{Seconds: 4}},
+				{Time: &timestamppb.Timestamp{Seconds: 1}},
 			},
 			time.Unix(6, 0).UTC(),
 			[]*observerpb.GetFlowsResponse{
-				{Time: &timestamp.Timestamp{Seconds: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 2}},
-				{Time: &timestamp.Timestamp{Seconds: 3}},
-				{Time: &timestamp.Timestamp{Seconds: 4}},
-				{Time: &timestamp.Timestamp{Seconds: 5}},
+				{Time: &timestamppb.Timestamp{Seconds: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 2}},
+				{Time: &timestamppb.Timestamp{Seconds: 3}},
+				{Time: &timestamppb.Timestamp{Seconds: 4}},
+				{Time: &timestamppb.Timestamp{Seconds: 5}},
 			},
 		}, {
 			"all more recent",
 			[]*observerpb.GetFlowsResponse{
-				{Time: &timestamp.Timestamp{Seconds: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 5}},
-				{Time: &timestamp.Timestamp{Seconds: 2}},
-				{Time: &timestamp.Timestamp{Seconds: 4}},
-				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
-				{Time: &timestamp.Timestamp{Seconds: 3}},
+				{Time: &timestamppb.Timestamp{Seconds: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 5}},
+				{Time: &timestamppb.Timestamp{Seconds: 2}},
+				{Time: &timestamppb.Timestamp{Seconds: 4}},
+				{Time: &timestamppb.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamppb.Timestamp{Seconds: 3}},
 			},
 			time.Unix(0, 0).UTC(),
 			[]*observerpb.GetFlowsResponse{},
@@ -178,7 +178,7 @@ func TestPriorityQueue_PopOlderThan(t *testing.T) {
 				got,
 				cmpopts.IgnoreUnexported(
 					observerpb.GetFlowsResponse{},
-					timestamp.Timestamp{},
+					timestamppb.Timestamp{},
 				),
 			); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)

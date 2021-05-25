@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -380,7 +379,7 @@ func (s *SSHMeta) MonitorStart(opts ...string) (*CmdRes, func() error) {
 			return err
 		}
 
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(testPath, MonitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
@@ -660,7 +659,7 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 			s.logger.WithError(err).Error("Cannot create report directory")
 			return
 		}
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
 			[]byte(logs), LogPerm)
 

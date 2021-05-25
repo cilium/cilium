@@ -22,6 +22,10 @@ install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
+install-binary: install
+
+install-bash-completion:
+
 .PHONY: run
 run:
 	./cilium-docker -d

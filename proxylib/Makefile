@@ -25,3 +25,7 @@ install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET).$(VERSION_MAJOR) $(DESTDIR)$(LIBDIR)
 	ln -sf $(TARGET).$(VERSION_MAJOR) $(DESTDIR)$(LIBDIR)/$(TARGET)
+
+install-binary: install
+
+install-bash-completion:

@@ -1,4 +1,24 @@
 {{- if .Values.operator.enabled }}
+
+{{- /* Workaround so that we can set the minimal k8s version that we support */ -}}
+{{- $k8sVersion := .Capabilities.KubeVersion.Version -}}
+{{- $k8sMajor := .Capabilities.KubeVersion.Major -}}
+{{- $k8sMinor := .Capabilities.KubeVersion.Minor -}}
+
+{{- if .Values.Capabilities -}}
+{{- if .Values.Capabilities.KubeVersion -}}
+{{- if .Values.Capabilities.KubeVersion.Version -}}
+{{- $k8sVersion = .Values.Capabilities.KubeVersion.Version -}}
+{{- if .Values.Capabilities.KubeVersion.Major -}}
+{{- $k8sMajor = toString (.Values.Capabilities.KubeVersion.Major) -}}
+{{- if .Values.Capabilities.KubeVersion.Minor -}}
+{{- $k8sMinor = toString (.Values.Capabilities.KubeVersion.Minor) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,14 +28,9 @@ metadata:
   name: cilium-operator
   namespace: {{ .Release.Namespace }}
 spec:
-  # We support HA mode only for Kubernetes version > 1.14
   # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
   # for more details.
-{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
   replicas: {{ .Values.operator.replicas }}
-{{- else }}
-  replicas: 1
-{{- end }}
   selector:
     matchLabels:
       io.cilium/app: operator
@@ -27,6 +42,10 @@ spec:
   template:
     metadata:
       annotations:
+{{- if .Values.operator.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
+{{- end }}
 {{- if and .Values.operator.prometheus.enabled (not .Values.operator.prometheus.serviceMonitor.enabled) }}
         prometheus.io/port: {{ .Values.operator.prometheus.port | quote }}
         prometheus.io/scrape: "true"
@@ -37,15 +56,16 @@ spec:
       labels:
         io.cilium/app: operator
         name: cilium-operator
+{{- with .Values.operator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+{{- end }}
     spec:
-{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
       # In HA mode, cilium-operator pods must not be scheduled on the same
       # node as they will clash with each other.
   {{- if .Values.operator.affinity }}
       affinity:
   {{- toYaml .Values.operator.affinity | trim | nindent 8 }}
   {{- end }}
-{{- end }}
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 6 }}
@@ -54,11 +74,16 @@ spec:
       - args:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
+{{- with .Values.operator.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
         command:
-{{- if .Values.eni }}
+{{- if .Values.eni.enabled }}
         - cilium-operator-aws
 {{- else if .Values.azure.enabled }}
         - cilium-operator-azure
+{{- else if .Values.alibabacloud.enabled}}
+        - cilium-operator-alibabacloud
 {{- else }}
         - cilium-operator-generic
 {{- end }}
@@ -79,7 +104,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-{{- if .Values.eni }}
+{{- if (and .Values.eni.enabled (not .Values.eni.iamRole )) }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -97,6 +122,20 @@ spec:
             secretKeyRef:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
+              optional: true
+{{- end }}
+{{- if .Values.alibabacloud.enabled }}
+        - name: ALIBABA_CLOUD_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: ALIBABA_CLOUD_ACCESS_KEY_ID
+              name: cilium-alibabacloud
+              optional: true
+        - name: ALIBABA_CLOUD_ACCESS_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: ALIBABA_CLOUD_ACCESS_KEY_SECRET
+              name: cilium-alibabacloud
               optional: true
 {{- end }}
 {{- if .Values.k8sServiceHost }}
@@ -131,12 +170,14 @@ spec:
         - name: {{ $key }}
           value: {{ $value }}
 {{- end }}
-{{- if .Values.eni }}
-        image: {{ .Values.operator.image.repository }}-aws:{{ .Values.operator.image.tag }}
+{{- if .Values.eni.enabled }}
+        image: "{{ .Values.operator.image.repository }}-aws{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.awsDigest }}{{ end }}"
 {{- else if .Values.azure.enabled }}
-        image: {{ .Values.operator.image.repository }}-azure:{{ .Values.operator.image.tag }}
+        image: "{{ .Values.operator.image.repository }}-azure{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.azureDigest }}{{ end }}"
+{{- else if .Values.alibabacloud.enabled }}
+        image: "{{ .Values.operator.image.repository }}-alibabacloud{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.alibabacloudDigest }}{{ end }}"
 {{- else }}
-        image: {{ .Values.operator.image.repository }}-generic:{{ .Values.operator.image.tag }}
+        image: "{{ .Values.operator.image.repository }}-generic{{ .Values.operator.image.suffix }}:{{ .Values.operator.image.tag }}{{ if .Values.operator.image.useDigest }}@{{ .Values.operator.image.genericDigest }}{{ end }}"
 {{- end }}
         imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         name: cilium-operator
@@ -191,18 +232,23 @@ spec:
         resources:
           {{- toYaml .Values.operator.resources | trim | nindent 10 }}
 {{- end }}
+{{- if .Values.bgp.enabled }}
+        - mountPath: /var/lib/cilium/bgp
+          name: bgp-config-path
+          readOnly: true
+{{- end }}
       hostNetwork: true
-{{- if .Values.etcd.managed }}
+{{- if (and .Values.etcd.managed (not .Values.etcd.k8sService)) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
 {{- end }}
       restartPolicy: Always
-{{- if and (or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")) .Values.enableCriticalPriorityClass }}
+{{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-cluster-critical
 {{- end }}
-      serviceAccount: cilium-operator
-      serviceAccountName: cilium-operator
+      serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
 {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
@@ -247,5 +293,10 @@ spec:
 {{- if .hostPathType }}
           type: {{ .hostPathType }}
 {{- end }}
+{{- end }}
+{{- if .Values.bgp.enabled }}
+      - configMap:
+          name: bgp-config
+        name: bgp-config-path
 {{- end }}
 {{- end }}

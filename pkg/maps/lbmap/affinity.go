@@ -30,6 +30,14 @@ const (
 )
 
 var (
+	// AffinityMatchMap is the BPF map to implement session affinity.
+	AffinityMatchMap *bpf.Map
+	Affinity4Map     *bpf.Map
+	Affinity6Map     *bpf.Map
+)
+
+// initAffinity creates the BPF maps for implementing session affinity.
+func initAffinity(params InitParams) {
 	AffinityMatchMap = bpf.NewMap(
 		AffinityMatchMapName,
 		bpf.MapTypeHash,
@@ -40,32 +48,38 @@ var (
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
-	).WithCache()
-	Affinity4Map = bpf.NewMap(
-		Affinity4MapName,
-		bpf.MapTypeLRUHash,
-		&Affinity4Key{},
-		int(unsafe.Sizeof(Affinity4Key{})),
-		&AffinityValue{},
-		int(unsafe.Sizeof(AffinityValue{})),
-		MaxEntries,
-		0,
-		0,
-		bpf.ConvertKeyValue,
-	)
-	Affinity6Map = bpf.NewMap(
-		Affinity6MapName,
-		bpf.MapTypeLRUHash,
-		&Affinity6Key{},
-		int(unsafe.Sizeof(Affinity6Key{})),
-		&AffinityValue{},
-		int(unsafe.Sizeof(AffinityValue{})),
-		MaxEntries,
-		0,
-		0,
-		bpf.ConvertKeyValue,
-	)
-)
+	).WithCache().WithPressureMetric()
+
+	if params.IPv4 {
+		Affinity4Map = bpf.NewMap(
+			Affinity4MapName,
+			bpf.MapTypeLRUHash,
+			&Affinity4Key{},
+			int(unsafe.Sizeof(Affinity4Key{})),
+			&AffinityValue{},
+			int(unsafe.Sizeof(AffinityValue{})),
+			MaxEntries,
+			0,
+			0,
+			bpf.ConvertKeyValue,
+		)
+	}
+
+	if params.IPv6 {
+		Affinity6Map = bpf.NewMap(
+			Affinity6MapName,
+			bpf.MapTypeLRUHash,
+			&Affinity6Key{},
+			int(unsafe.Sizeof(Affinity6Key{})),
+			&AffinityValue{},
+			int(unsafe.Sizeof(AffinityValue{})),
+			MaxEntries,
+			0,
+			0,
+			bpf.ConvertKeyValue,
+		)
+	}
+}
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey

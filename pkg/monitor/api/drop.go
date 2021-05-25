@@ -1,4 +1,4 @@
-// Copyright 2018-2020 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,13 +36,14 @@ var errors = map[uint8]string{
 	8:   "LB, sock cgroup: Reverse entry stale",
 	9:   "Fragmented packet",
 	10:  "Fragmented packet entry update failed",
+	11:  "Missed tail call to custom program",
 	130: "Invalid source mac",      // Unused
 	131: "Invalid destination mac", // Unused
 	132: "Invalid source ip",
 	133: "Policy denied",
 	134: "Invalid packet",
 	135: "CT: Truncated or invalid header",
-	136: "CT: Missing TCP ACK flag", // Unused
+	136: "Fragmentation needed",
 	137: "CT: Unknown L4 protocol",
 	138: "CT: Can't create entry from packet", // Unused
 	139: "Unsupported L3 protocol",

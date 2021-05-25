@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,6 +45,10 @@ type ServerCapabilities struct {
 	// EndpointSlice is the ability of k8s server to support endpoint slices
 	EndpointSlice bool
 
+	// EndpointSliceV1 is the ability of k8s server to support endpoint slices
+	// v1. This version was introduced in K8s v1.21.0.
+	EndpointSliceV1 bool
+
 	// LeasesResourceLock is the ability of K8s server to support Lease type
 	// from coordination.k8s.io/v1 API for leader election purposes(currently only in operator).
 	// https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#lease-v1-coordination-k8s-io
@@ -59,19 +63,6 @@ type ServerCapabilities struct {
 	// This capability was introduced in K8s version 1.16, prior to which
 	// apiextensions/v1beta1 CRDs were used exclusively.
 	APIExtensionsV1CRD bool
-
-	// WatchPartialObjectMetadata is set to true when the K8s server supports a
-	// watch operation on the metav1.PartialObjectMetadata (and metav1.Table)
-	// resource.
-	//
-	// This capability was introduced in K8s version 1.15, prior to which
-	// watches cannot be performed on the aforementioned resources.
-	//
-	// Source:
-	//   - KEP:
-	//   https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/20190322-server-side-get-to-ga.md#goals
-	//   - PR: https://github.com/kubernetes/kubernetes/pull/71548
-	WatchPartialObjectMetadata bool
 }
 
 type cachedVersion struct {
@@ -83,16 +74,17 @@ type cachedVersion struct {
 const (
 	// MinimalVersionConstraint is the minimal version that Cilium supports to
 	// run kubernetes.
-	MinimalVersionConstraint = "1.13.0"
+	MinimalVersionConstraint = "1.16.0"
 )
 
 var (
 	cached = cachedVersion{}
 
-	discoveryAPIGroup      = "discovery.k8s.io/v1beta1"
-	coordinationV1APIGroup = "coordination.k8s.io/v1"
-	endpointSliceKind      = "EndpointSlice"
-	leaseKind              = "Lease"
+	discoveryAPIGroupV1beta1 = "discovery.k8s.io/v1beta1"
+	discoveryAPIGroupV1      = "discovery.k8s.io/v1"
+	coordinationV1APIGroup   = "coordination.k8s.io/v1"
+	endpointSliceKind        = "EndpointSlice"
+	leaseKind                = "Lease"
 
 	// Constraint to check support for Lease type from coordination.k8s.io/v1.
 	// Support for Lease resource was introduced in K8s version 1.14.
@@ -102,9 +94,9 @@ var (
 	// v1 CRDs was introduced in K8s version 1.16.
 	isGEThanAPIExtensionsV1CRD = versioncheck.MustCompile(">=1.16.0")
 
-	// Constraint to check support for watching metav1.PartialObjectMetadata
-	// and metav1.Table types. Support was introduced in K8s 1.15.
-	isGEThanWatchPartialObjectMeta = versioncheck.MustCompile(">=1.15.0")
+	// Constraint to check support for discovery/v1 types. Support for v1
+	// discovery was introduced in K8s version 1.21.
+	isGEThanAPIDiscoveryV1 = versioncheck.MustCompile(">=1.21.0")
 
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
@@ -135,7 +127,7 @@ func updateVersion(version semver.Version) {
 
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
-	cached.capabilities.WatchPartialObjectMetadata = isGEThanWatchPartialObjectMeta(version)
+	cached.capabilities.EndpointSliceV1 = isGEThanAPIDiscoveryV1(version)
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
@@ -143,12 +135,22 @@ func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) 
 	defer cached.mutex.Unlock()
 
 	cached.capabilities.EndpointSlice = false
+	cached.capabilities.EndpointSliceV1 = false
 	cached.capabilities.LeasesResourceLock = false
 	for _, rscList := range apiResourceLists {
-		if rscList.GroupVersion == discoveryAPIGroup {
+		if rscList.GroupVersion == discoveryAPIGroupV1beta1 {
 			for _, rsc := range rscList.APIResources {
 				if rsc.Kind == endpointSliceKind {
 					cached.capabilities.EndpointSlice = true
+					break
+				}
+			}
+		}
+		if rscList.GroupVersion == discoveryAPIGroupV1 {
+			for _, rsc := range rscList.APIResources {
+				if rsc.Kind == endpointSliceKind {
+					cached.capabilities.EndpointSlice = true
+					cached.capabilities.EndpointSliceV1 = true
 					break
 				}
 			}
@@ -176,6 +178,16 @@ func Force(version string) error {
 }
 
 func endpointSlicesFallbackDiscovery(client kubernetes.Interface) error {
+	// If a k8s version with discovery v1 is used, then do not even bother
+	// checking for v1beta1
+	cached.mutex.Lock()
+	if cached.capabilities.EndpointSliceV1 {
+		cached.capabilities.EndpointSlice = true
+		cached.mutex.Unlock()
+		return nil
+	}
+	cached.mutex.Unlock()
+
 	// Discovery of API groups requires the API services of the apiserver to be
 	// healthy. Such API services can depend on the readiness of regular pods
 	// which require Cilium to function correctly. By treating failure to

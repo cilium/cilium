@@ -4,7 +4,7 @@ package connectivity_check
 deployment: [ID=_]: {
 	// General pod parameters
 	if ID =~ "^pod-to-.*$" || ID =~ "^host-to-.*$" {
-		_image: "docker.io/byrnedo/alpine-curl:0.1.8"
+		_image: "quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76"
 		_command: ["/bin/ash", "-c", "sleep 1000000000"]
 	}
 

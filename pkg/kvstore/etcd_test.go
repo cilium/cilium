@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"path"
 	"sync"
 	"testing"
@@ -194,7 +194,7 @@ endpoints:
 - https://cilium-etcd-client.kube-system.svc:2379
 `)
 	etcdTempFile := path.Join(temp, "etcd-config.yaml")
-	err := ioutil.WriteFile(etcdTempFile, etcdConfigByte, 0600)
+	err := os.WriteFile(etcdTempFile, etcdConfigByte, 0600)
 	c.Assert(err, IsNil)
 	type args struct {
 		backend      string

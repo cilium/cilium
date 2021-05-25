@@ -292,22 +292,6 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3 impact               | L7 impact                 |
 +=======================+=======================+=========================+===========================+
-| ``1.0.x``             | ``1.1.y``             | N/A                     | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.1.x``             | ``1.2.y``             | Temporary disruption[2] | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.2.x``             | ``1.3.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.2.5``           | ``1.5.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.5.x``             | ``1.6.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.6.6``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.6.7``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.7.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.7.0``             | ``1.7.1``             | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``>=1.7.1``           | ``1.7.y``             | Minimal to None         | Clients must reconnect[1] |
@@ -324,10 +308,6 @@ Annotations:
    Endpoints communicating via the proxy must reconnect to re-establish
    connections.
 
-#. **Temporary disruption**: All traffic may be temporarily disrupted during
-   upgrade. Connections should successfully re-establish without requiring
-   clients to reconnect.
-
 .. _current_release_required_changes:
 
 .. _1.10_upgrade_notes:
@@ -335,7 +315,33 @@ Annotations:
 1.10 Upgrade Notes
 ------------------
 
-* Cilium has bumped the minimal Kubernetes version supported to v1.13.0.
+* Cilium has bumped the minimal Kubernetes version supported to v1.16.0.
+* When using the ENI-based IPAM in conjunction with the ``--eni-tags``, failures
+  to create tags are treated as errors which will result in ENIs not being
+  created. Ensure that the ``ec2:CreateTags`` IAM permissions are granted.
+* Cilium now takes ownership of the ``/etc/cni/net.d/`` directory on the host
+  by default. During agent startup, Cilium replaces all CNI configuration files
+  containing the word ``cilium``, and non-Cilium CNI configuration files are
+  renamed to ``*.cilium_bak``. During agent shutdown, all Cilium CNI configs
+  are removed. To disable the ``*.cilium_bak`` behaviour, set the
+  ``cni.exclusive=false`` Helm flag. To disable CNI config installation and
+  removal altogether, set the ``cni.customConf=true`` Helm flag.
+  This is useful for managing CNI configs externally.
+  See https://github.com/cilium/cilium/pull/14192 for context and related issues.
+* Helm option ``serviceAccounts.certgen`` is removed, please use ``serviceAccounts.clustermeshcertgen``
+  for Clustermesh certificate generation and ``serviceAccounts.hubblecertgen`` for Hubble certificate generation.
+* For AWS ENI IPAM mode, Cilium has changed the ``first-interface-index``
+  default from ``1`` to ``0``. This means that pods will start using IPs of
+  ``eth0`` instead of ``eth1``. This allows using the maximum number of IPs
+  available on an instance by default. Be aware: Depending on your security
+  groups configuration of the ``eth0`` interface, pods may be associated with a
+  different security group all of a sudden. In order to stay with Cilium's
+  current behavior, set the value to ``1`` in the ``CiliumNode`` resource.
+* The legacy flannel integration has been deprecated. If you want to chain on
+  top of flannel, use the standard chaining method.
+* The default setting for ``kubeProxyReplacement`` has been changed from
+  ``probe`` to ``disabled``. For any new installation, if you want to use
+  kube-proxy replacement, set  ``kubeProxyReplacement`` to ``strict``.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -346,7 +352,8 @@ The following metrics have been removed:
 * ``cilium_k8s_client_api_calls_counter`` is removed. Please use ``cilium_k8s_client_api_calls_total`` instead.
 * ``cilium_identity_count`` is removed. Please use ``cilium_identity`` instead.
 * ``cilium_policy_count`` is removed. Please use ``cilium_policy`` instead.
-* ``cilium_policy_import_errors`` removed. Please use ``cilium_policy_import_errors_total`` instead.
+* ``cilium_policy_import_errors`` is removed. Please use ``cilium_policy_import_errors_total`` instead.
+* ``cilium_datapath_errors_total`` is removed. Please use ``cilium_datapth_conntrack_dump_resets_total`` instead.
 * Label ``mapName`` in ``cilium_bpf_map_ops_total`` is removed. Please use label ``map_name`` instead.
 * Label ``eventType`` in ``cilium_nodes_all_events_received_total`` removed. Please use label ``event_type`` instead.
 * Label ``responseCode`` in ``*api_duration_seconds`` removed. Please use label ``response_code`` instead.
@@ -354,6 +361,12 @@ The following metrics have been removed:
 * Label ``subnetId`` in ``cilium_operator_ipam_release_ops`` is removed. Please use label ``subnet_id`` instead.
 * Label ``subnetId`` and ``availabilityZone`` in ``cilium_operator_ipam_available_ips_per_subnet`` are removed. Please
   use label ``subnet_id`` and ``availability_zone`` instead.
+
+New Metrics
+~~~~~~~~~~~
+
+  * ``cilium_datapath_conntrack_dump_resets_total`` Number of conntrack dump resets. Happens when a BPF entry gets removed
+    while dumping the map is in progress.
 
 New Options
 ~~~~~~~~~~~
@@ -363,6 +376,18 @@ New Options
   IPv6 masquerading in the roadmap.
 * ``enable-ipv4-masquerade``: This option enables/disables masquerading for IPv4 traffic
   and has the same desired effect as ``masquerade`` option.
+* ``cni.exclusive``: Use to toggle Cilium installing itself as the only available CNI
+  plugin on all nodes.
+* ``install-no-conntrack-iptables-rules``: This option, by default set to false,
+  installs some extra Iptables rules to skip netfilter connection tracking on all
+  pod traffic. Disabling connection tracking is only possible when Cilium is
+  running in direct routing mode and is using the kube-proxy replacement.
+  Moreover, this option cannot be enabled when Cilium is running in a managed
+  Kubernetes environment or in a chained CNI setup.
+* ``allocator-list-timeout``: This option configures the timeout value for listing
+  allocator state before exiting (default 3m0s).
+* With the deprecation of the legacy flannel integration, the options
+  ``flannel-master-device`` and ``flannel-uninstall-on-exit`` have been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -375,10 +400,14 @@ Removed Options
   now removed.
 * ``crd-wait-timeout``: this option does not have any effect since 1.9 and is
   now removed.
+* ``eni``: this option has been replaced by ``eni.enabled`` option.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
+* ``etcd.managed``: The managed etcd mode is being deprecated. The option and
+  all relevant code will be removed in 1.11. If you are using managed etcd, you
+  will need to run & deploy the etcd-operator yourself.
 * ``bpf-compile-debug``: This option does not have any effect since 1.10
   and is planned to be removed in 1.11.
 * ``k8s-force-json-patch``: This option does not have any effect for
@@ -387,6 +416,10 @@ Deprecated Options
   been deprecated in favor of ``enable-ipv4-masquerade`` and is planned to
   be removed in 1.11. For 1.10 release this option will have the same effect as
   ``enable-ipv4-masquerade`` where both options must not be used simultaneously.
+* Helm options ``encryption.keyFile``, ``encryption.mountPath``,
+  ``encryption.secretName`` and ``encryption.interface`` are now deprecated in
+  favor of ``encryption.ipsec.keyFile``, ``encryption.ipsec.mountPath``,
+  ``encryption.ipsec.secretName`` and ``encryption.ipsec.interface``.
 
 .. _1.9_upgrade_notes:
 
@@ -587,12 +620,6 @@ Full list of updated Helm values:
 | global.etcd.ssl                              | etcd.ssl                                   |
 +----------------------------------------------+--------------------------------------------+
 | global.externalIPs.enabled                   | externalIPs.enabled                        |
-+----------------------------------------------+--------------------------------------------+
-| global.flannel.enabled                       | flannel.enabled                            |
-+----------------------------------------------+--------------------------------------------+
-| global.flannel.masterDevice                  | flannel.masterDevice                       |
-+----------------------------------------------+--------------------------------------------+
-| global.flannel.uninstallOnExit               | flannel.uninstallOnExit                    |
 +----------------------------------------------+--------------------------------------------+
 | global.fragmentTracking                      | fragmentTracking                           |
 +----------------------------------------------+--------------------------------------------+
@@ -801,6 +828,8 @@ Full list of updated Helm values:
 | global.tls.secretsBackend                    | tls.secretsBackend                         |
 +----------------------------------------------+--------------------------------------------+
 | global.tunnel                                | tunnel                                     |
++----------------------------------------------+--------------------------------------------+
+| global.wellKnownIdentities.enabled           | wellKnownIdentities.enabled                |
 +----------------------------------------------+--------------------------------------------+
 
 Renamed Metrics

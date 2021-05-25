@@ -1,5 +1,8 @@
+ACK
+AKS
 Admin
 Alemayhu
+Alibaba
 Ansible
 Apiserver
 Archs
@@ -16,6 +19,7 @@ Brenden
 Broadcom
 Brouer
 Bugtool
+Buildx
 CIDR
 CIDRs
 CRD
@@ -42,6 +46,7 @@ Datapath
 Deathstar
 Dinan
 Dockerfile
+Dockerfiles
 Elasticsearch
 FIt
 Facebook
@@ -51,6 +56,7 @@ Freescale
 Fsnotify
 GCE
 Gartrell
+Gbit
 Geneve
 GiB
 Github
@@ -93,6 +99,7 @@ Lookup
 Lund
 Lx
 Maglev
+Mainboard
 Majkowski
 Marek
 MaskSize
@@ -182,6 +189,7 @@ Viljoen
 Virtualization
 Wakeup
 Wendlandt
+Wireguard
 Wireshark
 XDP
 Xenial
@@ -192,6 +200,7 @@ Zhou
 Zookeeper
 aarch
 admin
+alibabacloud
 allocator
 allocators
 amd
@@ -240,6 +249,7 @@ bpf
 bpfClockProbe
 bpfMasquerade
 bpfTProxy
+bpffs
 bpftool
 bpftrace
 breakpoint
@@ -247,6 +257,8 @@ browsable
 bugfix
 bugfixes
 bugtool
+buildx
+busybox
 bytecode
 cBPF
 callee
@@ -259,6 +271,7 @@ cd
 certValidityDuration
 cgroup
 chainingMode
+changelog
 ci
 cidrs
 classful
@@ -272,6 +285,7 @@ clusterDomain
 clusterPoolIPv
 clusterSize
 clustermesh
+cmdref
 cni
 cnp
 cnpStatusUpdates
@@ -281,6 +295,7 @@ committers
 conf
 confPath
 config
+configs
 conntrack
 conntrackGCInterval
 containerRuntime
@@ -317,6 +332,7 @@ debuginfo
 decapsulate
 decapsulated
 decapsulation
+decrypt
 decrypted
 deletetopic
 demux
@@ -483,6 +499,7 @@ jenkins
 jeq
 jge
 jgt
+jitter
 jle
 jlt
 jne
@@ -554,6 +571,7 @@ lookup
 lookups
 loopback
 lrp
+lsm
 lspci
 luke
 lwt
@@ -611,6 +629,7 @@ netfilter
 netperf
 netsec
 netvsc
+networkpolicy
 newproto
 newprotoparser
 nfp
@@ -636,6 +655,7 @@ openSUSE
 openapi
 openssl
 operatorPrometheus
+optimisations
 optimizations
 orchestrator
 org
@@ -658,6 +678,7 @@ policyEnforcementMode
 policyMapMax
 poller
 portmap
+postcheck
 pprof
 pre
 preallocateMaps
@@ -684,6 +705,7 @@ queryable
 queueing
 rbac
 rc
+rcW
 readinessProbe
 readthedocs
 rebase
@@ -705,6 +727,7 @@ reproducibility
 requireIPv
 retpoline
 retransmission
+retrigger
 retryTimeout
 rn
 roadmap
@@ -818,6 +841,7 @@ udp
 ui
 uid
 uint
+unencrypted
 uninline
 uninstall
 uninstallOnExit
@@ -856,6 +880,7 @@ waitForMount
 waker
 walkthrough
 webservice
+wellKnownIdentities
 whitelist
 whitelisted
 whitelisting

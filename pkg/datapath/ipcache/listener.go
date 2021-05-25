@@ -24,7 +24,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -82,8 +81,8 @@ func NewListener(d datapath, mn monitorNotify) *BPFListener {
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
-	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity,
-	newID identity.NumericIdentity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
+	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 	var (
 		k8sNamespace, k8sPodName string
 		newIdentity, oldIdentity uint32
@@ -99,9 +98,9 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 		k8sPodName = k8sMeta.PodName
 	}
 
-	newIdentity = newID.Uint32()
+	newIdentity = newID.ID.Uint32()
 	if oldID != nil {
-		oldIdentity = (*oldID).Uint32()
+		oldIdentity = oldID.ID.Uint32()
 		oldIdentityPtr = &oldIdentity
 	}
 
@@ -125,7 +124,7 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 // IP->ID mapping will replace any existing contents; knowledge of the old pair
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
-	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity,
+	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
 	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 
 	scopedLog := log
@@ -152,7 +151,7 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	switch modType {
 	case ipcache.Upsert:
 		value := ipcacheMap.RemoteEndpointInfo{
-			SecurityIdentity: uint32(newID),
+			SecurityIdentity: uint32(newID.ID),
 			Key:              encryptKey,
 		}
 
@@ -161,8 +160,8 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 			// the local host, then the ipcache should be populated
 			// with the hostIP so that this traffic can be guided
 			// to a tunnel endpoint destination.
-			externalIP := node.GetExternalIPv4()
-			if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(externalIP) {
+			nodeIPv4 := node.GetIPv4()
+			if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(nodeIPv4) {
 				copy(value.TunnelEndpoint[:], ip4)
 			}
 		}

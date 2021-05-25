@@ -56,9 +56,9 @@ The documentation is divided into the following sections:
    configuration/index
    policy/index
    operations/metrics
-   operations/scalability/index
    operations/performance/index
    operations/troubleshooting
+
 
 .. toctree::
    :maxdepth: 2
@@ -70,12 +70,13 @@ The documentation is divided into the following sections:
    :maxdepth: 3
    :caption: For Developers
 
+   contributing/governance/index
    contributing/development/index
    contributing/release/index
    contributing/testing/index
    bpf
    api
-   hubble
+   internals/index
 
 .. toctree::
    :maxdepth: 2

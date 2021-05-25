@@ -16,10 +16,13 @@ package nodediscovery
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/aws/eni/limits"
+	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
+	alibabaCloudMetadata "github.com/cilium/cilium/pkg/alibabacloud/metadata"
+	"github.com/cilium/cilium/pkg/annotation"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
@@ -45,7 +48,7 @@ import (
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,26 +57,27 @@ const (
 	AutoCIDR = "auto"
 
 	nodeDiscoverySubsys = "nodediscovery"
-	maxRetryCount       = 5
+	maxRetryCount       = 10
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	Manager     *nodemanager.Manager
-	LocalConfig datapath.LocalNodeConfiguration
-	Registrar   nodestore.NodeRegistrar
-	LocalNode   nodeTypes.Node
-	Registered  chan struct{}
-	NetConf     *cnitypes.NetConf
+	Manager               *nodemanager.Manager
+	LocalConfig           datapath.LocalNodeConfiguration
+	Registrar             nodestore.NodeRegistrar
+	LocalNode             nodeTypes.Node
+	Registered            chan struct{}
+	LocalStateInitialized chan struct{}
+	NetConf               *cnitypes.NetConf
 }
 
 func enableLocalNodeRoute() bool {
 	return option.Config.EnableLocalNodeRoute &&
-		!option.Config.IsFlannelMasterDeviceSet() &&
 		option.Config.IPAM != ipamOption.IPAMENI &&
-		option.Config.IPAM != ipamOption.IPAMAzure
+		option.Config.IPAM != ipamOption.IPAMAzure &&
+		option.Config.IPAM != ipamOption.IPAMAlibabaCloud
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
@@ -117,8 +121,9 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		LocalNode: nodeTypes.Node{
 			Source: source.Local,
 		},
-		Registered: make(chan struct{}),
-		NetConf:    netConf,
+		Registered:            make(chan struct{}),
+		LocalStateInitialized: make(chan struct{}),
+		NetConf:               netConf,
 	}
 }
 
@@ -173,13 +178,21 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
+	n.LocalNode.WireguardPubKey = node.GetWireguardPubKey()
 	n.LocalNode.Labels = node.GetLabels()
 	n.LocalNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
 
-	if node.GetExternalIPv4() != nil {
+	if node.GetK8sExternalIPv4() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeExternalIP,
+			IP:   node.GetK8sExternalIPv4(),
+		})
+	}
+
+	if node.GetIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
-			IP:   node.GetExternalIPv4(),
+			IP:   node.GetIPv4(),
 		})
 	}
 
@@ -190,10 +203,10 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
-	if node.GetInternalIPv4() != nil {
+	if node.GetInternalIPv4Router() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetInternalIPv4(),
+			IP:   node.GetInternalIPv4Router(),
 		})
 	}
 
@@ -201,6 +214,13 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
+		})
+	}
+
+	if node.GetK8sExternalIPv6() != nil {
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
+			Type: addressing.NodeExternalIP,
+			IP:   node.GetK8sExternalIPv6(),
 		})
 	}
 
@@ -229,6 +249,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	}()
 
 	n.Manager.NodeUpdated(n.LocalNode)
+	close(n.LocalStateInitialized)
 
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
@@ -269,23 +290,37 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	ciliumClient := k8s.CiliumClient()
 
+	performGet := true
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+		var nodeResource *ciliumv2.CiliumNode
 		performUpdate := true
-		nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
-		if err != nil {
-			performUpdate = false
-			nodeResource = &ciliumv2.CiliumNode{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeTypes.GetName(),
-				},
+		if performGet {
+			var err error
+			nodeResource, err = ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
+			if err != nil {
+				performUpdate = false
+				nodeResource = &ciliumv2.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeTypes.GetName(),
+					},
+				}
+			} else {
+				performGet = false
 			}
 		}
 
-		n.mutateNodeResource(nodeResource)
+		if err := n.mutateNodeResource(nodeResource); err != nil {
+			log.WithError(err).WithField("retryCount", retryCount).Warning("Unable to mutate nodeResource")
+			continue
+		}
 
+		// if we retry after this point, is due to a conflict. We will do
+		// a new GET  to ensure we have the latest information before
+		// updating.
+		performGet = true
 		if performUpdate {
 			if _, err := ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
-				if errors.IsConflict(err) {
+				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
 					continue
 				}
@@ -294,8 +329,8 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 				return
 			}
 		} else {
-			if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
-				if errors.IsConflict(err) {
+			if _, err := ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
+				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
 					continue
 				}
@@ -309,7 +344,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	log.Fatal("Could not create or update CiliumNode resource, despite retries")
 }
 
-func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
+func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) error {
 	var (
 		providerID       string
 		k8sNodeAddresses []nodeTypes.Address
@@ -398,6 +433,13 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
+	if pk := n.LocalNode.WireguardPubKey; pk != "" {
+		if nodeResource.ObjectMeta.Annotations == nil {
+			nodeResource.ObjectMeta.Annotations = make(map[string]string)
+		}
+		nodeResource.ObjectMeta.Annotations[annotation.WireguardPubKey] = pk
+	}
+
 	switch option.Config.IPAM {
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
@@ -407,27 +449,39 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
 		}
 
+		if instanceID == "" {
+			return errors.New("InstanceID of own EC2 instance is empty")
+		}
+
 		// It is important to determine the interface index here because this
-		// function (mutateNodeResource) will be called when the agent is first
-		// coming up and is initializing the IPAM layer (CRD allocator in this
-		// case). Later on, the Operator will adjust this value based on the
-		// PreAllocate value, so to ensure that the agent and the Operator are
-		// not conflicting with each other, we must have similar logic to
+		// function (mutateNodeResource()) will be called when the agent is
+		// first coming up and is initializing the IPAM layer (CRD allocator in
+		// this case). Later on, the Operator will adjust this value based on
+		// the PreAllocate value, so to ensure that the agent and the Operator
+		// are not conflicting with each other, we must have similar logic to
 		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = vpcID
-		nodeResource.Spec.ENI.FirstInterfaceIndex = determineFirstInterfaceIndex(instanceType)
+		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
+				// OBSOLETE: Left for backwards compatibility with <=1.7. Remove in >=1.11
+				nodeResource.Spec.ENI.MinAllocate = c.IPAM.MinAllocate
 			} else if c.ENI.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.ENI.MinAllocate
+				// OBSOLETE: Left for backwards compatibility with <=1.7. Remove in >=1.11
+				nodeResource.Spec.ENI.MinAllocate = c.ENI.MinAllocate
 			}
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+				// OBSOLETE: Left for backwards compatibility with <=1.7. Remove in >=1.11
+				nodeResource.Spec.ENI.PreAllocate = c.IPAM.PreAllocate
 			} else if c.ENI.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.ENI.PreAllocate
+				// OBSOLETE: Left for backwards compatibility with <=1.7. Remove in >=1.11
+				nodeResource.Spec.ENI.PreAllocate = c.ENI.PreAllocate
 			}
 
 			if c.ENI.FirstInterfaceIndex != nil {
@@ -450,6 +504,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 		}
 
 		nodeResource.Spec.InstanceID = instanceID
+		// OBSOLETE: Left for backwards compatibility with <=1.7. Remove in >=1.11
+		nodeResource.Spec.ENI.InstanceID = instanceID
 		nodeResource.Spec.ENI.InstanceType = instanceType
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
 
@@ -478,37 +534,70 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
 			}
 		}
-	}
-}
 
-// determineFirstInterfaceIndex determines the appropriate default interface
-// index for the ENI IPAM mode. The interface index is stored inside the
-// CiliumNode resource. It specifies which device offset (ENI) to start
-// assigning IPs to. It is important to seed the CiliumNode resource with the
-// appropriate value, otherwise pods will fail to come up because they won't
-// have an IP assigned, because the instance limits (depending on the instance
-// type) have a maximum threshold. See
-// Documentation/concepts/networking/ipam/eni.rst for more details on this
-// value.
-//
-// This value is also ensured to stay in place using similar logic in
-// adjustPreAllocateIfNeeded(), inside
-// github.com/cilium/cilium/pkg/ipam.(*Node).syncToAPIServer().
-func determineFirstInterfaceIndex(instanceType string) *int {
-	if option.Config.IPAM != ipamOption.IPAMENI {
-		return nil
-	}
+	case ipamOption.IPAMAlibabaCloud:
+		nodeResource.Spec.AlibabaCloud = alibabaCloudTypes.Spec{}
 
-	// Fallback to default value if we determine below that the instance limits
-	// do not require us to adjust the interface index.
-	idx := defaults.ENIFirstInterfaceIndex
+		instanceID, err := alibabaCloudMetadata.GetInstanceID(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve InstanceID of own ECS instance")
+		}
 
-	if l, ok := limits.Get(instanceType); ok {
-		max := l.Adapters * l.IPv4
-		if defaults.IPAMPreAllocation > max {
-			idx = 0 // Include eth0
+		if instanceID == "" {
+			return errors.New("InstanceID of own ECS instance is empty")
+		}
+
+		instanceType, err := alibabaCloudMetadata.GetInstanceType(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve InstanceType of own ECS instance")
+		}
+		vpcID, err := alibabaCloudMetadata.GetVPCID(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve VPC ID of own ECS instance")
+		}
+		cidrBlock, err := alibabaCloudMetadata.GetCIDRBlock(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve CIDR block of own ECS instance")
+		}
+		zoneID, err := alibabaCloudMetadata.GetZoneID(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve Zone ID of own ECS instance")
+		}
+		nodeResource.Spec.InstanceID = instanceID
+		nodeResource.Spec.AlibabaCloud.InstanceType = instanceType
+		nodeResource.Spec.AlibabaCloud.VPCID = vpcID
+		nodeResource.Spec.AlibabaCloud.CIDRBlock = cidrBlock
+		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
+
+		if c := n.NetConf; c != nil {
+			if c.AlibabaCloud.VPCID != "" {
+				nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
+			}
+			if c.AlibabaCloud.CIDRBlock != "" {
+				nodeResource.Spec.AlibabaCloud.CIDRBlock = c.AlibabaCloud.CIDRBlock
+			}
+
+			if len(c.AlibabaCloud.VSwitches) > 0 {
+				nodeResource.Spec.AlibabaCloud.VSwitches = c.AlibabaCloud.VSwitches
+			}
+
+			if len(c.AlibabaCloud.VSwitchTags) > 0 {
+				nodeResource.Spec.AlibabaCloud.VSwitchTags = c.AlibabaCloud.VSwitchTags
+			}
+
+			if len(c.AlibabaCloud.SecurityGroups) > 0 {
+				nodeResource.Spec.AlibabaCloud.SecurityGroups = c.AlibabaCloud.SecurityGroups
+			}
+
+			if len(c.AlibabaCloud.SecurityGroupTags) > 0 {
+				nodeResource.Spec.AlibabaCloud.SecurityGroupTags = c.AlibabaCloud.SecurityGroupTags
+			}
 		}
 	}
 
-	return &idx
+	return nil
+}
+
+func getInt(i int) *int {
+	return &i
 }

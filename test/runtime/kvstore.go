@@ -90,7 +90,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 			vm.Exec("sudo systemctl restart cilium-docker")
 			helpers.Sleep(2)
 			containers(helpers.Create)
-			vm.WaitEndpointsReady()
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 			eps, err := vm.GetEndpointsNames()
 			Expect(err).Should(BeNil(), "Error getting names of endpoints from cilium")
 			Expect(len(eps)).To(Equal(1), "Number of endpoints in Cilium differs from what is expected")
@@ -111,7 +111,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 			helpers.Sleep(2)
 			containers(helpers.Create)
 
-			vm.WaitEndpointsReady()
+			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
 
 			eps, err := vm.GetEndpointsNames()
 			Expect(err).Should(BeNil(), "Error getting names of endpoints from cilium")

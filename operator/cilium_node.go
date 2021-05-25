@@ -22,6 +22,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -40,7 +41,7 @@ var (
 )
 
 func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
-	log.Info("Starting to synchronize CiliumNode custom resources...")
+	log.Info("Starting to synchronize CiliumNode custom resources")
 
 	// TODO: The operator is currently storing a full copy of the
 	// CiliumNode resource, as the resource grows, we may want to consider
@@ -90,7 +91,7 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
 
 func deleteCiliumNode(nodeManager *allocator.NodeEventHandler, name string) {
 	if err := ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), name, metav1.DeleteOptions{}); err == nil {
-		log.WithField("name", name).Info("Removed CiliumNode after receiving node deletion event")
+		log.WithField(logfields.NodeName, name).Info("Removed CiliumNode after receiving node deletion event")
 	}
 	if nodeManager != nil {
 		(*nodeManager).Delete(name)

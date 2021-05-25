@@ -60,6 +60,12 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services, IPVLAN
       L: https://www.alibabacloud.com/blog/how-does-alibaba-cloud-build-high-performance-cloud-native-pod-networks-in-production-environments_596590
 
+    * N: ArangoDB Oasis
+      D: ArangoDB Oasis is using Cilium in to separate database deployments in our multi-tenant cloud environment
+      U: Networking, CiliumNetworkPolicy(cluster & local), Hubble, IPAM
+      L: https://cloud.arangodb.com
+      Q: @ewoutp @Robert-Stam
+
     * N: Canonical
       D: Canonical's Kubernetes distribution microk8s uses Cilium as CNI plugin
       U: Networking, NetworkPolicy, and Kubernetes services
@@ -101,7 +107,12 @@ Users (Alphabetically)
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
-      
+
+    * N: PostFinance AG
+      D: PostFinance is using Cilium as their CNI for all mission critical, on premise k8s clusters
+      U: Networking, network policies, kube-proxy replacement
+      L: https://github.com/postfinance
+  
     * N: Radio France
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
       U: Mainly Service load-balancing
@@ -142,6 +153,11 @@ Users (Alphabetically)
       U: ENI Networking, Service load-balancing, Direct routing (via Bird)
       L: https://ctripcloud.github.io/cilium/network/2020/01/19/trip-first-step-towards-cloud-native-networking.html
       Q: @ArthurChiao
+      
+    * N: Tailor Brands
+      D: Tailor Brands is using Cilium in their production, staging, and development clusters (AWS EKS)
+      U: CNI (instead of amazon-vpc-cni-k8s), Hubble, Datadog Integration for Prometheus metrics
+      Q: @liorrozen
 
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)

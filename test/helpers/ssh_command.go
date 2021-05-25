@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -76,7 +75,8 @@ func (cfg *SSHConfig) GetSSHClient() *SSHClient {
 		Auth: []ssh.AuthMethod{
 			cfg.GetSSHAgent(),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		// ssh.InsecureIgnoreHostKey is OK in test code.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // lgtm[go/insecure-hostkeycallback]
 		Timeout:         15 * time.Second,
 	}
 
@@ -97,7 +97,7 @@ func (cfg *SSHConfig) String() string {
 
 // GetSSHAgent returns the ssh.AuthMethod corresponding to SSHConfig cfg.
 func (cfg *SSHConfig) GetSSHAgent() ssh.AuthMethod {
-	key, err := ioutil.ReadFile(cfg.identityFile)
+	key, err := os.ReadFile(cfg.identityFile)
 	if err != nil {
 		log.Fatalf("unable to retrieve ssh-key on target '%s': %s", cfg.target, err)
 	}
@@ -338,7 +338,8 @@ func GetSSHClient(host string, port int, user string) *SSHClient {
 		Auth: []ssh.AuthMethod{
 			SSHAgent(),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		// ssh.InsecureIgnoreHostKey is OK in test code.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // lgtm[go/insecure-hostkeycallback]
 		Timeout:         15 * time.Second,
 	}
 

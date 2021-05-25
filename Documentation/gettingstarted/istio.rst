@@ -8,19 +8,28 @@
 Getting Started Using Istio
 ***************************
 
-This document serves as an introduction to using Cilium to enforce
-security policies in Kubernetes micro-services managed with Istio.  It
-is a detailed walk-through of getting a single-node Cilium + Istio
-environment running on your machine.
+This document serves as an introduction to using Cilium Istio
+integration to enforce security policies in Kubernetes micro-services
+managed with Istio.  It is a detailed walk-through of getting a
+single-node Cilium + Istio environment running on your machine.
+
+Cilium's Istio integration allows Cilium to enforce HTTP L7 network
+policies for mTLS protected traffic within the Istio sidecar
+proxies. Note that Istio can also be deployed without Cilium
+integration by running a standard version of ``istioctl``.  In that
+case Cilium will enforce HTTP L7 policies outside of the Istio sidecar
+proxy, but that will only work if mTLS is not used.
 
 .. include:: gsg_requirements.rst
 
 .. note::
 
-   If running on minikube, you may need to up the memory and CPUs
-   available to the minikube VM from the defaults and/or the
-   instructions provided here for the other GSGs. 5 GB and 4 CPUs
-   should be enough for this GSG (``--memory=5120 --cpus=4``).
+   If running on minikube, make sure it is using a VM, as Istio
+   ingress gateway may not be reachable from your host otherwise. You
+   may also need to up the memory and CPUs available to the minikube
+   VM from the defaults and/or the instructions provided here for the
+   other GSGs. 5 GB and 4 CPUs should be enough for this GSG
+   (``--vm=true --memory=5120 --cpus=4``).
 
 Step 2: Install cilium-istioctl
 ===============================
@@ -29,32 +38,31 @@ Step 2: Install cilium-istioctl
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Download the `cilium enhanced istioctl version 1.5.9 <https://github.com/cilium/istio/releases/tag/1.5.9>`_:
+Download the `cilium enhanced istioctl version 1.8.2 <https://github.com/cilium/istio/releases/tag/1.8.2>`_:
 
 .. tabs::
   .. group-tab:: Linux
 
     .. parsed-literal::
 
-     curl -L https://github.com/cilium/istio/releases/download/1.5.9/cilium-istioctl-1.5.9-linux.tar.gz | tar xz
+     curl -L https://github.com/cilium/istio/releases/download/1.8.2/cilium-istioctl-1.8.2-linux-amd64.tar.gz | tar xz
 
   .. group-tab:: OSX
 
     .. parsed-literal::
 
-     curl -L https://github.com/cilium/istio/releases/download/1.5.9/cilium-istioctl-1.5.9-osx.tar.gz | tar xz
+     curl -L https://github.com/cilium/istio/releases/download/1.8.2/cilium-istioctl-1.8.2-osx.tar.gz | tar xz
 
 .. note::
 
    Cilium integration, as presented in this Getting Started Guide, has
-   been tested with Kubernetes releases 1.14, 1.15, 1.16, 1.17, and
-   1.18. Note that this does *not* work with K8s 1.13.
+   been tested with Kubernetes releases 1.16, 1.17, 1.18, 1.19, 1.20 and 1.21.
 
 Deploy the default Istio configuration profile onto Kubernetes:
 
 ::
 
-    ./cilium-istioctl manifest apply -y
+    ./cilium-istioctl install -y
 
 Add a namespace label to instruct Istio to automatically inject Envoy sidecar proxies when you deploy your application later:
 

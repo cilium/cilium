@@ -27,6 +27,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"gopkg.in/check.v1"
@@ -87,14 +88,16 @@ func (s *K8sSuite) TestParseServiceID(c *check.C) {
 }
 
 func (s *K8sSuite) TestParseService(c *check.C) {
-	k8sSvc := &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
-			},
+	objMeta := slim_metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		Labels: map[string]string{
+			"foo": "bar",
 		},
+	}
+
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
 			ClusterIP: "127.0.0.1",
 			Selector: map[string]string{
@@ -108,23 +111,17 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
-		FrontendIP:               net.ParseIP("127.0.0.1"),
+		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
 		Selector:                 map[string]string{"foo": "bar"},
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
 
 	k8sSvc = &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
-			},
-		},
+		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
 			ClusterIP: "none",
 			Type:      slim_corev1.ServiceTypeClusterIP,
@@ -138,19 +135,13 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
 
 	k8sSvc = &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
-			},
-		},
+		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
 			ClusterIP:             "127.0.0.1",
 			Type:                  slim_corev1.ServiceTypeNodePort,
@@ -161,13 +152,73 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	id, svc = ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
-		FrontendIP:               net.ParseIP("127.0.0.1"),
+		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
 		TrafficPolicy:            loadbalancer.SVCTrafficPolicyLocal,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeNodePort,
+	})
+
+	oldNodePort := option.Config.EnableNodePort
+	option.Config.EnableNodePort = true
+	defer func() {
+		option.Config.EnableNodePort = oldNodePort
+	}()
+	k8sSvc = &slim_corev1.Service{
+		ObjectMeta: objMeta,
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeLoadBalancer,
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					NodePort: 31111,
+					Protocol: slim_corev1.ProtocolTCP,
+				},
+				{
+					// NodePort should not be allocated for this entry.
+					Name:     "tftp",
+					Port:     69,
+					NodePort: 0,
+					Protocol: slim_corev1.ProtocolUDP,
+				},
+			},
+		},
+	}
+
+	lbID := loadbalancer.ID(0)
+	tcpProto := loadbalancer.L4Type(slim_corev1.ProtocolTCP)
+	zeroFE := loadbalancer.NewL3n4AddrID(tcpProto, net.IPv4(0, 0, 0, 0), 31111,
+		loadbalancer.ScopeExternal, lbID)
+	internalFE := loadbalancer.NewL3n4AddrID(tcpProto, fakeDatapath.IPv4InternalAddress, 31111,
+		loadbalancer.ScopeExternal, lbID)
+	nodePortFE := loadbalancer.NewL3n4AddrID(tcpProto, fakeDatapath.IPv4NodePortAddress, 31111,
+		loadbalancer.ScopeExternal, lbID)
+
+	id, svc = ParseService(k8sSvc, fakeDatapath.NewIPv4OnlyNodeAddressing())
+	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
+	c.Assert(svc, checker.DeepEquals, &Service{
+		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
+		Labels:      map[string]string{"foo": "bar"},
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+			"http": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolTCP), uint16(80)),
+			"tftp": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolUDP), uint16(69)),
+		},
+		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
+			"http": {
+				zeroFE.String():     zeroFE,
+				internalFE.String(): internalFE,
+				nodePortFE.String(): nodePortFE,
+			},
+		},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		K8sExternalIPs:           map[string]net.IP{},
+		LoadBalancerIPs:          map[string]net.IP{},
+		Type:                     loadbalancer.SVCTypeLoadBalancer,
 	})
 }
 
@@ -228,15 +279,15 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "both equal",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
 						Port:     1,
 					},
 				},
-				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+				NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 					loadbalancer.FEPortName("foo"): {
 						"0.0.0.0:31000": {
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -260,15 +311,15 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
 							Port:     1,
 						},
 					},
-					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 						loadbalancer.FEPortName("foo"): {
 							"0.0.0.0:31000": {
 								L3n4Addr: loadbalancer.L3n4Addr{
@@ -296,8 +347,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "different labels",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -311,8 +362,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -332,8 +383,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "different selector",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -345,8 +396,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -364,8 +415,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "ports different name",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foz"): {
 						Protocol: loadbalancer.NONE,
@@ -377,8 +428,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -394,8 +445,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "ports different content",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -407,8 +458,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -424,8 +475,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "ports different one is bigger",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -437,8 +488,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -458,15 +509,15 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "ports different one is nil",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
-				Labels:     map[string]string{},
-				Selector:   map[string]string{},
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
+				Labels:      map[string]string{},
+				Selector:    map[string]string{},
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -482,15 +533,15 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "nodeports different",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: true,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  true,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
 						Port:     1,
 					},
 				},
-				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+				NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 					loadbalancer.FEPortName("foo"): {
 						"1.1.1.1:31000": {
 							L3n4Addr: loadbalancer.L3n4Addr{
@@ -514,15 +565,15 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: true,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  true,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
 							Port:     1,
 						},
 					},
-					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 						loadbalancer.FEPortName("foo"): {
 							"0.0.0.0:31000": {
 								L3n4Addr: loadbalancer.L3n4Addr{
@@ -550,8 +601,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "external-ip was added",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: false,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  false,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -568,8 +619,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: false,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  false,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -592,8 +643,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "session affinity was added",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: false,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  false,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -610,8 +661,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: false,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  false,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -632,8 +683,8 @@ func TestService_Equals(t *testing.T) {
 		{
 			name: "session affinity timeout changed",
 			fields: &Service{
-				FrontendIP: net.ParseIP("1.1.1.1"),
-				IsHeadless: false,
+				FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+				IsHeadless:  false,
 				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 					loadbalancer.FEPortName("foo"): {
 						Protocol: loadbalancer.NONE,
@@ -651,8 +702,8 @@ func TestService_Equals(t *testing.T) {
 			},
 			args: args{
 				o: &Service{
-					FrontendIP: net.ParseIP("1.1.1.1"),
-					IsHeadless: false,
+					FrontendIPs: []net.IP{net.ParseIP("1.1.1.1")},
+					IsHeadless:  false,
 					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 						loadbalancer.FEPortName("foo"): {
 							Protocol: loadbalancer.NONE,
@@ -680,7 +731,7 @@ func TestService_Equals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			si := tt.fields
-			if got := si.DeepEquals(tt.args.o); got != tt.want {
+			if got := si.DeepEqual(tt.args.o); got != tt.want {
 				t.Errorf("Service.Equals() = %v, want %v", got, tt.want)
 			}
 		})
@@ -688,25 +739,70 @@ func TestService_Equals(t *testing.T) {
 }
 
 func (s *K8sSuite) TestServiceString(c *check.C) {
-	k8sSvc := &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	tests := []struct {
+		name      string
+		service   *slim_corev1.Service
+		svcString string
+		equals    bool
+	}{
+		{
+			name: "k8s-ipv4-only-clusterip-service",
+			service: &slim_corev1.Service{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: slim_corev1.ServiceSpec{
+					ClusterIP: "127.0.0.1",
+					Selector: map[string]string{
+						"foo": "bar",
+					},
+					Type: slim_corev1.ServiceTypeClusterIP,
+				},
 			},
+			svcString: "frontends:[127.0.0.1]/ports=[]/selector=map[foo:bar]",
+			equals:    true,
 		},
-		Spec: slim_corev1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Selector: map[string]string{
-				"foo": "bar",
+
+		{
+			name: "k8s-dual-stack-clusterip-service",
+			service: &slim_corev1.Service{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: slim_corev1.ServiceSpec{
+					ClusterIP: "127.0.0.1",
+					ClusterIPs: []string{
+						"127.0.0.1",
+						"fd00::1",
+					},
+					IPFamilies: []slim_corev1.IPFamily{
+						slim_corev1.IPv4Protocol,
+						slim_corev1.IPv6Protocol,
+					},
+					Selector: map[string]string{
+						"foo": "bar",
+					},
+					Type: slim_corev1.ServiceTypeClusterIP,
+				},
 			},
-			Type: slim_corev1.ServiceTypeClusterIP,
+			svcString: "frontends:[127.0.0.1 fd00::1]/ports=[]/selector=map[foo:bar]",
+			equals:    true,
 		},
 	}
 
-	_, svc := ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
-	c.Assert(svc.String(), check.Equals, "frontend:127.0.0.1/ports=[]/selector=map[foo:bar]")
+	nodeAddressing := fakeDatapath.NewNodeAddressing()
+	for _, tt := range tests {
+		_, svc := ParseService(tt.service, nodeAddressing)
+		c.Assert(svc.String(), check.Equals, tt.svcString)
+	}
 }
 
 func (s *K8sSuite) TestNewClusterService(c *check.C) {
