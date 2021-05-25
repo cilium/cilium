@@ -68,9 +68,44 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
+        stage('Set programmatic env vars') {
+            steps {
+                script {
+                    /* Hack:
+                    Force preload of a specific Vagrant box image from Vagrant
+                    cache depending on chosen Kernel.
+
+                    Context:
+                    The `add_vagrant_box` script preloads Vagrant boxes from our
+                    Vagrant cache over at http://vagrant-cache.ci.cilium.io/.
+                    By default it preloads a list of hardedcoded boxes.
+                    An optional arg can be provided to preload a specific box.
+                    Problem is the box to preload is only known at Vagrant
+                    boot time (determined in Vagrantfile), hence this hack.
+                    */
+                    switch(env.JobKernelVersion) {
+                        case "49":
+                            env.PRELOAD_BOX = "v49_SERVER"
+                            break
+                        case "54":
+                            env.PRELOAD_BOX = "v419_SERVER"
+                            break
+                        case "419":
+                            env.PRELOAD_BOX = "v54_SERVER"
+                            break
+                        case "net-next":
+                            env.PRELOAD_BOX = "NETNEXT_SERVER"
+                            break
+                        default:
+                            env.PRELOAD_BOX = "v419_SERVER"
+                            break
+                    }
+                }
+            }
+        }
         stage('Preload vagrant boxes') {
             steps {
-                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
+                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb ${PRELOAD_BOX}'
             }
             post {
                 unsuccessful {
