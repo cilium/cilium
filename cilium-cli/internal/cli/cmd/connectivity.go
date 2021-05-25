@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"regexp"
@@ -55,9 +56,17 @@ func newCmdConnectivityTest() *cobra.Command {
 
 			for _, test := range tests {
 				if strings.HasPrefix(test, "!") {
-					params.SkipTests = append(params.SkipTests, regexp.MustCompile(strings.TrimPrefix(test, "!")))
+					rgx, err := regexp.Compile(strings.TrimPrefix(test, "!"))
+					if err != nil {
+						return fmt.Errorf("Test filter: %w", err)
+					}
+					params.SkipTests = append(params.SkipTests, rgx)
 				} else {
-					params.RunTests = append(params.RunTests, regexp.MustCompile(test))
+					rgx, err := regexp.Compile(test)
+					if err != nil {
+						return fmt.Errorf("Test filter: %w", err)
+					}
+					params.RunTests = append(params.RunTests, rgx)
 				}
 			}
 
