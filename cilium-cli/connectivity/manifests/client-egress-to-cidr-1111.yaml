@@ -1,0 +1,16 @@
+# This policy allows packets towards 1.1.1.1, but not 1.0.0.1.
+# Both addresses are owned by CloudFlare/APNIC.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: client-egress-to-cidr
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toCIDRSet:
+    - cidr: 1.0.0.0/8
+      except:
+      - 1.0.0.1/32
