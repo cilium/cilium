@@ -15,7 +15,7 @@ on:
   ###
 
 concurrency:
-  group: "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }}"
+  group: "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }} ${{ github.event.comment.body }}"
   cancel-in-progress: true
 
 env:
