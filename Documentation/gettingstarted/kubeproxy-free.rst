@@ -1111,8 +1111,6 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
 In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=probe`` for
 new deployments.
 
-For existing Cilium deployments in version v1.6 or prior, please consult the :ref:`1.7_upgrade_notes`.
-
 The current Cilium kube-proxy replacement mode can also be introspected through the
 ``cilium status`` CLI command:
 
