@@ -61,6 +61,11 @@ func (k *K8sInstaller) createEncryptionSecret(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to create encryption secret %s/%s: %w", k.params.Namespace, defaults.HubbleServerSecretName, err)
 	}
+	k.pushRollbackStep(func(ctx context.Context) {
+		if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.EncryptionSecretName, metav1.DeleteOptions{}); err != nil {
+			k.Log("Cannot delete %s Secret: %w", defaults.EncryptionSecretName, err)
+		}
+	})
 
 	return nil
 }
