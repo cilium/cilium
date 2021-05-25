@@ -56,6 +56,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.PodToWorld(""),
 		tests.PodToHost(""),
 		tests.PodToExternalWorkload(""),
+		tests.PodToCIDR(""),
 	)
 
 	// Test with an allow-all policy.
