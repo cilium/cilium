@@ -765,10 +765,10 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 			if !errors.Is(err, &ipcache.ErrOverwrite{
 				ExistingSrc: source.KVStore,
 				NewSrc:      source.Kubernetes,
-			}) || !errors.Is(err, &ipcache.ErrOverwrite{
+			}) && !errors.Is(err, &ipcache.ErrOverwrite{
 				ExistingSrc: source.Local,
 				NewSrc:      source.Kubernetes,
-			}) || !errors.Is(err, &ipcache.ErrOverwrite{
+			}) && !errors.Is(err, &ipcache.ErrOverwrite{
 				ExistingSrc: source.CustomResource,
 				NewSrc:      source.Kubernetes,
 			}) {
