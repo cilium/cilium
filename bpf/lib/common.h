@@ -563,6 +563,14 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
+/*
+ * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb.
+ * The verifier only exposes the first 5 slots in cb[], so this enum
+ * only contains 5 entries. Aliases are added to the slots to re-use
+ * them under different names in different parts of the datapath.
+ * Take care to not clobber slots used by other functions in the same
+ * code path.
+ */
 /* ctx_{load,store}_meta() usage: */
 enum {
 	CB_SRC_LABEL,

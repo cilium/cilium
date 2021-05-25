@@ -360,7 +360,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int hdrlen, ret;
-	__u32 srcID = 0;
+	__u32 src_id = 0;
 	__u8 nexthdr;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -380,10 +380,10 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
 	}
 
 	/* to-netdev is attached to the egress path of the native device. */
-	srcID = ipcache_lookup_srcid6(ctx);
-	return ipv6_host_policy_egress(ctx, srcID, monitor);
+	src_id = ipcache_lookup_srcid6(ctx);
+	return ipv6_host_policy_egress(ctx, src_id, monitor);
 }
-# endif
+#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -636,6 +636,29 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4(ctx, 0, false);
 }
+
+#ifdef ENABLE_HOST_FIREWALL
+static __always_inline int
+handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 *monitor)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u32 src_id = 0, ipcache_srcid = 0;
+
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
+		src_id = HOST_ID;
+
+	src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	/* We need to pass the srcid from ipcache to host firewall. See
+	 * comment in ipv4_host_policy_egress() for details.
+	 */
+	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, monitor);
+}
+#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPSEC
@@ -993,24 +1016,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
-		void *data, *data_end;
-		struct iphdr *ip4;
-		__u32 ipcache_srcid = 0;
-
-		/* to-netdev is attached to the egress path of the native
-		 * device.
-		 */
-		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
-			src_id = HOST_ID;
-		src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		/* We need to pass the srcid from ipcache to host firewall. See
-		 * comment in ipv4_host_policy_egress() for details.
-		 */
-		ret = ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, &monitor);
+		ret = handle_to_netdev_ipv4(ctx, &monitor);
 		break;
 	}
 # endif
@@ -1040,6 +1046,10 @@ out:
 	 defined(ENABLE_MASQUERADE) || \
 	 defined(ENABLE_EGRESS_GATEWAY))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+		/*
+		 * handle_nat_fwd tail calls in the majority of cases,
+		 * so control might never return to this program.
+		 */
 		ret = handle_nat_fwd(ctx);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
