@@ -39,6 +39,10 @@ type NodeSuite struct{}
 
 var _ = Suite(&NodeSuite{})
 
+func (s *NodeSuite) TearDownTest(c *C) {
+	Uninitialize()
+}
+
 func (s *NodeSuite) TestMaskCheck(c *C) {
 	InitDefaultPrefix("")
 
@@ -48,6 +52,108 @@ func (s *NodeSuite) TestMaskCheck(c *C) {
 	c.Assert(IsHostIPv4(GetInternalIPv4Router()), Equals, true)
 	c.Assert(IsHostIPv4(GetIPv4()), Equals, true)
 	c.Assert(IsHostIPv6(GetIPv6()), Equals, true)
+}
+
+func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
+	tests := []struct {
+		name            string
+		ipv6            bool
+		fromK8s, fromFS net.IP
+		setNodeCIDR     func()
+		expect          net.IP
+		err             error
+	}{
+		{
+			name:        "restore IP from fs (both provided)",
+			ipv6:        false,
+			fromK8s:     net.ParseIP("192.0.2.127"),
+			fromFS:      net.ParseIP("192.0.2.255"),
+			setNodeCIDR: func() { SetIPv4AllocRange(cidr.MustParseCIDR("192.0.2.0/24")) },
+			expect:      net.ParseIP("192.0.2.255"),
+			err:         errMismatch,
+		},
+		{
+			name:        "restore IP from fs",
+			ipv6:        false,
+			fromFS:      net.ParseIP("192.0.2.255"),
+			setNodeCIDR: func() { SetIPv4AllocRange(cidr.MustParseCIDR("192.0.2.0/24")) },
+			expect:      net.ParseIP("192.0.2.255"),
+			err:         nil,
+		},
+		{
+			name:        "restore IP from k8s",
+			ipv6:        false,
+			fromK8s:     net.ParseIP("192.0.2.127"),
+			setNodeCIDR: func() { SetIPv4AllocRange(cidr.MustParseCIDR("192.0.2.0/24")) },
+			expect:      net.ParseIP("192.0.2.127"),
+			err:         nil,
+		},
+		{
+			name:        "IP not part of CIDR",
+			ipv6:        false,
+			fromK8s:     net.ParseIP("192.0.2.127"),
+			setNodeCIDR: func() { SetIPv4AllocRange(cidr.MustParseCIDR("192.1.2.0/24")) },
+			expect:      net.ParseIP("192.0.2.127"),
+			err:         errDoesNotBelong,
+		},
+		{
+			name: "no IPs to restore",
+			ipv6: false,
+			err:  nil,
+		},
+		{
+			name:        "restore IP from fs (both provided)",
+			ipv6:        true,
+			fromK8s:     net.ParseIP("ff02::127"),
+			fromFS:      net.ParseIP("ff02::255"),
+			setNodeCIDR: func() { SetIPv6NodeRange(cidr.MustParseCIDR("ff02::/64")) },
+			expect:      net.ParseIP("ff02::255"),
+			err:         errMismatch,
+		},
+		{
+			name:        "restore IP from fs",
+			ipv6:        true,
+			fromFS:      net.ParseIP("ff02::255"),
+			setNodeCIDR: func() { SetIPv6NodeRange(cidr.MustParseCIDR("ff02::/64")) },
+			expect:      net.ParseIP("ff02::255"),
+			err:         nil,
+		},
+		{
+			name:        "restore IP from k8s",
+			ipv6:        true,
+			fromK8s:     net.ParseIP("ff02::127"),
+			setNodeCIDR: func() { SetIPv6NodeRange(cidr.MustParseCIDR("ff02::/64")) },
+			expect:      net.ParseIP("ff02::127"),
+			err:         nil,
+		},
+		{
+			name: "no IPs to restore",
+			ipv6: true,
+			err:  nil,
+		},
+	}
+	for _, tt := range tests {
+		c.Log("Test: " + tt.name)
+		if tt.setNodeCIDR != nil {
+			tt.setNodeCIDR()
+		}
+		got, err := chooseHostIPsToRestore(tt.ipv6, tt.fromK8s, tt.fromFS)
+		if tt.expect == nil {
+			// If we don't expect to change it, set it to what's currently the
+			// router IP.
+			if tt.ipv6 {
+				tt.expect = GetIPv6Router()
+			} else {
+				tt.expect = GetInternalIPv4Router()
+			}
+		}
+		c.Assert(err, checker.DeepEquals, tt.err)
+		if tt.ipv6 {
+			c.Assert(got, checker.DeepEquals, tt.expect)
+		} else {
+			c.Assert(got, checker.DeepEquals, tt.expect)
+		}
+	}
 }
 
 func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
