@@ -49,7 +49,9 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 			}
 			cmd.SilenceUsage = true
 			if err := installer.Install(context.Background()); err != nil {
-				fatalf("Unable to install Cilium:  %s", err)
+				installer.RollbackInstallation(context.Background())
+
+				fatalf("Unable to install Cilium: %s", err)
 			}
 			return nil
 		},
