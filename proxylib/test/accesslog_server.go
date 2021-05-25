@@ -111,6 +111,11 @@ func StartAccessLogServer(accessLogName string, bufSize int) *AccessLogServer {
 				log.WithError(err).Warn("Failed to accept access log connection")
 				continue
 			}
+
+			if atomic.LoadUint32(&server.closing) != 0 {
+				break
+			}
+
 			log.Debug("Accepted access log connection")
 
 			server.conns = append(server.conns, uc)
