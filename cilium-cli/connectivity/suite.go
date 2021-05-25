@@ -43,6 +43,9 @@ var (
 
 	//go:embed manifests/client-egress-to-entities-world.yaml
 	clientEgressToEntitiesWorldPolicyYAML string
+
+	//go:embed manifests/client-egress-to-cidr-1111.yaml
+	clientEgressToCIDR1111PolicyYAML string
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -146,6 +149,21 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			}
 			// PodToWorld traffic to port 443 will be dropped by the policy
 			return check.ResultDrop, check.ResultNone
+		})
+
+	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
+	// exception of 1.0.0.1.
+	ct.NewTest("to-cidr-1111").
+		WithPolicy(clientEgressToCIDR1111PolicyYAML).
+		WithScenarios(
+			tests.PodToCIDR(""),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address() == "1.0.0.1" {
+				// Expect packets for 1.0.0.1 to be dropped.
+				return check.ResultDrop, check.ResultNone
+			}
+			return check.ResultOK, check.ResultNone
 		})
 
 	// Dummy tests for debugging the testing harness.
