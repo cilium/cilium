@@ -156,7 +156,10 @@ const (
 
 	// CurlConnectTimeout is the timeout for the connect() call that curl
 	// invokes
-	CurlConnectTimeout = 5
+	// FIXME: Revert this back to 5 seconds once the IPCache propagation delay
+	// (which currently can take up to 10  seconds) has been addressed.
+	// Tracking issue: cilium/cilium#16302
+	CurlConnectTimeout = 15
 
 	// CurlMaxTimeout is the hard timeout. It starts when curl is invoked
 	// and interrupts curl regardless of whether curl is currently
