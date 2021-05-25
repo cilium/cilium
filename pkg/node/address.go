@@ -16,6 +16,7 @@ package node
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -349,16 +350,18 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete() error {
 	if option.Config.EnableHostIPRestore {
-		// Read the previous cilium host IPs from node_config.h for backward
-		// compatibility
-		ipv4GW, ipv6Router := getCiliumHostIPs()
+		// Fetch the router (`cilium_host`) IPs in case they were set a priori
+		// from the Kubernetes or CiliumNode resource in the K8s subsystem.
+		router4FromK8s, router6FromK8s := GetInternalIPv4Router(), GetIPv6Router()
+		// At the same time, read the previous cilium_host IPs from
+		// node_config.h for backward compatibility.
+		router4FromFS, router6FromFS := getCiliumHostIPs()
 
-		if ipv4GW != nil && option.Config.EnableIPv4 {
-			SetInternalIPv4Router(ipv4GW)
+		if option.Config.EnableIPv4 {
+			restoreHostIPs(false, router4FromK8s, router4FromFS)
 		}
-
-		if ipv6Router != nil && option.Config.EnableIPv6 {
-			SetIPv6Router(ipv6Router)
+		if option.Config.EnableIPv6 {
+			restoreHostIPs(true, router6FromK8s, router6FromFS)
 		}
 	}
 
@@ -374,6 +377,91 @@ func AutoComplete() error {
 
 	return nil
 }
+
+// restoreHostIPs restores the router IPs (`cilium_host`) from a previous
+// Cilium run. Router IPs from the filesystem are preferred over the IPs found
+// in the Kubernetes resource (Node or CiliumNode), because we consider the
+// filesystem to be the most up-to-date source of truth. The chosen router IP
+// is then checked whether it is contained inside node CIDR (pod CIDR) range.
+// If not, then the router IP is discarded and not restored.
+func restoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP) {
+	var (
+		getter func() *cidr.CIDR
+		setter func(net.IP)
+	)
+	if ipv6 {
+		getter = GetIPv6AllocRange
+		setter = SetIPv6Router
+	} else {
+		getter = GetIPv4AllocRange
+		setter = SetInternalIPv4Router
+	}
+
+	ip, err := chooseHostIPsToRestore(ipv6, fromK8s, fromFS)
+	switch {
+	case err != nil && errors.Is(err, errDoesNotBelong):
+		log.WithFields(logrus.Fields{
+			logfields.CIDR: getter(),
+		}).Infof(
+			"The router IP (%s) considered for restoration does not belong in the Pod CIDR of the node. Discarding old router IP.",
+			ip,
+		)
+		setter(nil)
+	case err != nil && errors.Is(err, errMismatch):
+		log.Warnf(
+			mismatchRouterIPsMsg,
+			fromK8s, fromFS, option.LocalRouterIPv4, option.LocalRouterIPv6,
+		)
+		fallthrough // Above is just a warning; we still want to set the router IP regardless.
+	case err == nil:
+		setter(ip)
+	}
+}
+
+func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP) (ip net.IP, err error) {
+	switch {
+	case fromK8s != nil && fromFS != nil:
+		if fromK8s.Equal(fromFS) {
+			ip = fromK8s
+		} else {
+			ip = fromFS
+			err = errMismatch
+		}
+	case fromK8s == nil && fromFS != nil:
+		ip = fromFS
+	case fromK8s != nil && fromFS == nil:
+		ip = fromK8s
+	case fromK8s == nil && fromFS == nil:
+		// We do nothing in this case because there are no router IPs to
+		// restore.
+		return
+	}
+
+	var getter func() *cidr.CIDR
+	if ipv6 {
+		getter = GetIPv6AllocRange
+	} else {
+		getter = GetIPv4AllocRange
+	}
+
+	// We can assume that the node / pod CIDR has been set already since the
+	// call path to this function (chooseHostIPsToRestore()) comes through
+	// AutoComplete(). In other words, the daemon sets the CIDR before calling
+	// AutoComplete().
+	if cidr := getter(); cidr != nil && cidr.Contains(ip) {
+		return
+	}
+
+	err = errDoesNotBelong
+	return
+}
+
+var (
+	errMismatch      = errors.New("mismatched IPs")
+	errDoesNotBelong = errors.New("IP does not belong to CIDR")
+)
+
+const mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
