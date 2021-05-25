@@ -11,6 +11,9 @@ TEST_TIMEOUT ?= 5s
 RELEASE_UID ?= $(shell id -u)
 RELEASE_GID ?= $(shell id -g)
 
+GOLANGCILINT_WANT_VERSION = 1.40.1
+GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
+
 $(TARGET):
 	$(GO) build $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 		-ldflags "-w -s \
@@ -68,7 +71,12 @@ test:
 bench:
 	go test -timeout=30s -bench=. $$(go list ./...)
 
+ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION),$(GOLANGCILINT_VERSION)))
 check:
-	docker run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v1.40.1 golangci-lint run -v
+	golangci-lint run
+else
+check:
+	docker run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v$(GOLANGCILINT_WANT_VERSION) golangci-lint run
+endif
 
 .PHONY: $(TARGET) release local-release install clean test bench check
