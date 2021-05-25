@@ -23,7 +23,6 @@ jobs:
         uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
         id: changes
         with:
-          base: ${{ github.event.pull_request.base.sha || github.event.before }}
           filters: |
             bpf-tree:
               - 'bpf/**'

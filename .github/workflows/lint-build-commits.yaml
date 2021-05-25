@@ -22,32 +22,32 @@ jobs:
         uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
         with:
           go-version: 1.16.4
-          
+
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@c64c572235d810460d0d6876e9c705ad5002b353
         with:
           path: $HOME/.clang
           key: llvm-10.0
-          
+
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@d0970114d0f720f5eb6a91b9e33cc2699f469f37
         with:
           version: "10.0"
           directory: $HOME/.clang
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-          
+
       - name: Install libelf
         run: |
           sudo apt-get install libelf-dev
-          
+
       - name: Checkout code
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-          
+
       - name: Check if build works for every commit
         run: |
           PR_COMMITS_API_JSON=$(curl \
@@ -62,7 +62,6 @@ jobs:
         uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
         id: bpf-tree
         with:
-          base: ${{ github.event.pull_request.base.sha }}
           filters: |
             src:
               - 'bpf/**'
@@ -78,11 +77,11 @@ jobs:
           PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
           PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
           git rebase --exec "make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
-        
+
       - name: Failed commit during the build
         if: ${{ failure() }}
         run: git --no-pager log --format=%B -n 1
-        
+
       - name: Send slack notification
         if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
