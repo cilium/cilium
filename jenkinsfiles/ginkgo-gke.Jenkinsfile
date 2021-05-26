@@ -194,7 +194,6 @@ pipeline {
                         returnStdout: true,
                         script: 'echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | tr -d \'\n\''
                         )}"""
-                KERNEL="419"
             }
             steps {
                 dir("${TESTDIR}"){
