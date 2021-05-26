@@ -529,7 +529,7 @@ data:
 {{- if hasKey .Values.nodePort "directRoutingDevice" }}
   direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
 {{- end }}
-{{- if .Values.nodePort.enableHealthCheck }}
+{{- if hasKey .Values.nodePort "enableHealthCheck" }}
   enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}
 {{- end }}
   node-port-bind-protection: {{ .Values.nodePort.bindProtection | quote }}
