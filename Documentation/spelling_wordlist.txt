@@ -898,7 +898,6 @@ whitelists
 whitespace
 wildcard
 wildcards
-wireguard
 workflow
 workflows
 workspace
