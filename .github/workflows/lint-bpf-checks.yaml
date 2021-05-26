@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -57,7 +57,7 @@ jobs:
     name: coccicheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           persist-credentials: false
       - uses: docker://cilium/coccicheck:2.0
@@ -80,12 +80,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@v2.1.3
+        uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
         with:
           go-version: 1.16.4
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@1a9e2138d905efd099035b49d8b7a3888c653ca8
         with:
           path: $HOME/.clang
           key: llvm-10.0
@@ -96,7 +96,7 @@ jobs:
           directory: $HOME/.clang
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           persist-credentials: false
           fetch-depth: 0
