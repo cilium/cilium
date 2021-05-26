@@ -88,7 +88,7 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-          az aks delete --yes --name ${{ env.clusterName }} --resource-group cilium-ci
+          az aks delete --yes --name ${{ env.clusterName }} --resource-group cilium-ci --no-wait
         shell: bash {0}
 
       - name: Upload Artifacts

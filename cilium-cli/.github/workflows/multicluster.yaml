@@ -128,8 +128,8 @@ jobs:
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
           gcloud compute firewall-rules delete --quiet $GCP_FW_RULE
-          gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }}
-          gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }}
+          gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }} --async
+          gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }} --async
         shell: bash {0}
 
       - name: Upload Artifacts
