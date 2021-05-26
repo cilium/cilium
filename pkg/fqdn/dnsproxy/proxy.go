@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -148,6 +149,18 @@ type DNSProxy struct {
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int32
+
+	// signal for completion of restoration
+	restoreFinished  chan struct{}
+	restoreCloseOnce sync.Once
+}
+
+// RestoreFinished marks the status of restoration as done
+func (p *DNSProxy) RestoreFinished() {
+	p.restoreCloseOnce.Do(func() {
+		log.Info("DNS Proxy restoration finished, operating using restored rules until policies are synced from k8s.")
+		close(p.restoreFinished)
+	})
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -391,6 +404,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		restoredEPs:              make(restoredEPs),
 		EnableDNSCompression:     enableDNSCompression,
 		maxIPsPerRestoredDNSRule: maxRestoreDNSIPs,
+		restoreFinished:          make(chan struct{}),
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
@@ -509,6 +523,9 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 //  fqdn/NameManager instance).
 //  - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
+	// Wait until DNS rules have been restored
+	<-p.restoreFinished
+
 	stat := ProxyRequestContext{}
 	stat.ProcessingTime.Start()
 	requestID := request.Id // keep the original request ID

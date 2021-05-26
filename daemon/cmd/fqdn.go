@@ -135,7 +135,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
+func (d *Daemon) bootstrapFQDN(preCachePath string) (err error) {
 	cfg := fqdn.Config{
 		MinTTL:          option.Config.ToFQDNsMinTTL,
 		Cache:           fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
@@ -258,35 +258,6 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		}
 	}
 
-	// Prefill the cache with DNS lookups from restored endpoints. This is needed
-	// to maintain continuity of which IPs are allowed. The GC cascade logic
-	// below mimics the logic found in the dns-garbage-collector controller.
-	// Note: This is TTL aware, and expired data will not be used (e.g. when
-	// restoring after a long delay).
-	globalCache := d.dnsNameManager.GetDNSCache()
-	now := time.Now()
-	for _, possibleEP := range possibleEndpoints {
-		// Upgrades from old ciliums have this nil
-		if possibleEP.DNSHistory != nil {
-			globalCache.UpdateFromCache(possibleEP.DNSHistory, []string{})
-
-			// GC any connections that have expired, but propagate it to the zombies
-			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
-			// actual now time because we are checkpointing at restore time.
-			possibleEP.DNSHistory.GC(now, possibleEP.DNSZombies)
-		}
-
-		if possibleEP.DNSZombies != nil {
-			lookupTime := time.Now()
-			alive, _ := possibleEP.DNSZombies.GC()
-			for _, zombie := range alive {
-				for _, name := range zombie.Names {
-					globalCache.Update(lookupTime, name, []net.IP{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
-				}
-			}
-		}
-	}
-
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
@@ -316,15 +287,53 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			log.Infof("Reusing previous DNS proxy port: %d", port)
 		}
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
-		// Restore old rules
-		for _, possibleEP := range possibleEndpoints {
-			// Upgrades from old ciliums have this nil
-			if possibleEP.DNSRules != nil {
-				proxy.DefaultDNSProxy.RestoreRules(possibleEP)
+	}
+	return err // filled by StartDNSProxy or SetProxyPort
+}
+
+// restoreFQDN restores DNS rules and signals DNS proxy to start serving requests.
+func (d *Daemon) restoreFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) {
+	dnsGCJobInterval := 1 * time.Minute
+
+	// Prefill the cache with DNS lookups from restored endpoints. This is needed
+	// to maintain continuity of which IPs are allowed. The GC cascade logic
+	// below mimics the logic found in the dns-garbage-collector controller.
+	// Note: This is TTL aware, and expired data will not be used (e.g. when
+	// restoring after a long delay).
+	globalCache := d.dnsNameManager.GetDNSCache()
+	now := time.Now()
+	for _, possibleEP := range possibleEndpoints {
+		// Upgrades from old ciliums have this nil
+		if possibleEP.DNSHistory != nil {
+			globalCache.UpdateFromCache(possibleEP.DNSHistory, []string{})
+
+			// GC any connections that have expired, but propagate it to the zombies
+			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
+			// actual now time because we are checkpointing at restore time.
+			possibleEP.DNSHistory.GC(now, possibleEP.DNSZombies)
+		}
+
+		if possibleEP.DNSZombies != nil {
+			lookupTime := time.Now()
+			alive, _ := possibleEP.DNSZombies.GC()
+			for _, zombie := range alive {
+				for _, name := range zombie.Names {
+					globalCache.Update(lookupTime, name, []net.IP{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
+				}
 			}
 		}
 	}
-	return err // filled by StartDNSProxy
+
+	// Restore old rules
+	for _, possibleEP := range possibleEndpoints {
+		// Upgrades from old ciliums have this nil
+		if possibleEP.DNSRules != nil {
+			proxy.DefaultDNSProxy.RestoreRules(possibleEP)
+		}
+	}
+
+	// Signal DNS proxy to start serving requests
+	proxy.DefaultDNSProxy.RestoreFinished()
 }
 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be

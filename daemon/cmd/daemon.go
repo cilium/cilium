@@ -371,18 +371,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
 		apiLimiterSet:     apiLimiterSet,
+		endpointManager:   epMgr,
 	}
 
-	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
-	d.configModifyQueue.Run()
-
-	d.svc = service.NewService(&d)
-
-	d.rec, err = recorder.NewRecorder(d.ctx, &d)
-	if err != nil {
-		log.WithError(err).Error("Error while initializing BPF pcap recorder")
-		return nil, nil, err
-	}
+	d.endpointManager.InitMetrics()
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),
@@ -397,8 +389,32 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
-	d.endpointManager = epMgr
-	d.endpointManager.InitMetrics()
+	// Start the proxy support & DNS proxy ASAP
+	bootstrapStats.proxyStart.Start()
+	// FIXME: Make the port range configurable.
+	if option.Config.EnableL7Proxy {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+		err = d.bootstrapFQDN(option.Config.ToFQDNsPreCache)
+		if err != nil {
+			bootstrapStats.proxyStart.EndError(err)
+			return nil, nil, err
+		}
+	} else {
+		log.Info("L7 proxies are disabled")
+	}
+	bootstrapStats.proxyStart.End(true)
+
+	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
+	d.configModifyQueue.Run()
+
+	d.svc = service.NewService(&d)
+
+	d.rec, err = recorder.NewRecorder(d.ctx, &d)
+	if err != nil {
+		log.WithError(err).Error("Error while initializing BPF pcap recorder")
+		return nil, nil, err
+	}
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP {
@@ -501,18 +517,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
 	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
-	// Start the proxy before we restore endpoints so that we can inject the
-	// daemon's proxy into each endpoint.
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
-	} else {
-		log.Info("L7 proxies are disabled")
-	}
-	bootstrapStats.proxyStart.End(true)
-
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
 	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
@@ -522,11 +526,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
-	if err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, restoredEndpoints, err
-	}
+	d.restoreFQDN(restoredEndpoints.possible)
 	bootstrapStats.fqdn.End(true)
 
 	if k8s.IsEnabled() {

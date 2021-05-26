@@ -245,6 +245,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 		return DNSServerListenerAddr.IP, uint16(DNSServerListenerAddr.Port), DNSServerListenerAddr.String(), nil
 	}
 	dstPort = uint16(DNSServerListenerAddr.Port)
+	s.proxy.RestoreFinished()
 }
 
 func (s *DNSProxyTestSuite) TearDownTest(c *C) {
