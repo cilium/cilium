@@ -102,7 +102,7 @@ jobs:
           kubectl get cep --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-          gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }}
+          gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }} --async
           gcloud compute instances delete --quiet ${{ env.vmName }} --zone ${{ env.zone }}
         shell: bash {0}
 
