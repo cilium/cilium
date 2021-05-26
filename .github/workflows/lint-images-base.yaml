@@ -1,16 +1,15 @@
-name: Images
+name: Base Image Lint
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
     branches:
       - master
-      - v[0-9]+.[0-9]+
-    tags:
-      - v[0-9]+.[0-9]+.[0-9]+
-      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
@@ -20,7 +19,7 @@ jobs:
   lint:
     if: github.repository == 'cilium/cilium'
     name: Lint image build logic
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
