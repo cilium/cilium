@@ -282,7 +282,7 @@ jobs:
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet
+          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
 
       - name: Upload artifacts
         if: ${{ failure() }}
