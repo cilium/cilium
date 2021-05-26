@@ -1,0 +1,9 @@
+require-msgs-in-commit:
+  - msg: "Signed-off-by"
+    helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
+    set-labels:
+      - "dont-merge/needs-sign-off"
+block-pr-with:
+  labels-set:
+    - regex-label: "dont-merge/.*"
+      helper: "Blocking mergeability of PR as 'dont-merge/.*' labels are set"
