@@ -3,9 +3,6 @@ name: Multicluster
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request: {}
-  push:
-    branches:
-      - master
   schedule:
     - cron:  '40 */6 * * *'
 
