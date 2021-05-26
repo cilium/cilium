@@ -50,17 +50,9 @@ jobs:
         run: |
           cilium install --config monitor-aggregation=none
 
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
-          # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
-          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
-
       - name: Enable Relay
         run: |
           cilium hubble enable --ui
-
-          # This will fail if Hubble UI cannot come up
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
       - name: Status
         run: |
@@ -86,8 +78,6 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable
-
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
 
       - name: Status
         run: |
