@@ -18,13 +18,13 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
       with:
         persist-credentials: false
         fetch-depth: 1
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@b7dd4a6f2c343e29a9ab8e181b2f540816f28bd7
       with:
         languages: go
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@b7dd4a6f2c343e29a9ab8e181b2f540816f28bd7
