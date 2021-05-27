@@ -93,9 +93,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 		if a.Source().HasLabel("other", "client") {
 			return check.ResultOK, check.ResultOK
-		} else {
-			return check.ResultOK, check.ResultDrop
 		}
+		return check.ResultOK, check.ResultDrop
 	})
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
@@ -108,9 +107,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				// TCP handshake fails both in egress and ingress when
 				// L3(/L4) policy drops at either location.
 				return check.ResultDrop, check.ResultDrop
-			} else {
-				return check.ResultOK, check.ResultOK
 			}
+			return check.ResultOK, check.ResultOK
 		})
 
 	// This policy allows port 8080 from client to echo, so this should succeed

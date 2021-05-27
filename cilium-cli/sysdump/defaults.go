@@ -46,6 +46,9 @@ const (
 )
 
 var (
+	// DefaultWorkerCount is initialized to the machine's available CPUs.
 	DefaultWorkerCount = runtime.NumCPU()
-	DefaultWriter      = os.Stdout //Log to stdout by default
+
+	// DefaultWriter points to os.Stdout by default.
+	DefaultWriter = os.Stdout
 )
