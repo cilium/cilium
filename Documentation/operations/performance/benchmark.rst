@@ -426,10 +426,11 @@ Install ``kubeadm`` and its dependencies:
   $ ansible-playbook -i packet-hosts.ini playbooks/install-kubeadm.yaml
 
 We use `kubenetbench <https://github.com/cilium/kubenetbench>`_ to execute the
-`netperf`_ benchmark in a Kubernetes environment. kubenetbench is a Kubernetes
-benchmarking project that is agnostic to the CNI or networking plugin that the
-cluster is deployed with. In this report we focus on pod-to-pod communication
-between different nodes. To install kubenetbench:
+`netperf <https://github.com/HewlettPackard/netperf>`_ benchmark in a Kubernetes
+environment. kubenetbench is a Kubernetes benchmarking project that is agnostic
+to the CNI or networking plugin that the cluster is deployed with. In this
+report we focus on pod-to-pod communication between different nodes. To install
+kubenetbench:
 
 .. code-block:: shell-session
 

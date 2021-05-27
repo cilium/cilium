@@ -1188,7 +1188,7 @@ only manage services not having ``service.kubernetes.io/service-proxy-name`` lab
 
 For more details on the usage of ``service.kubernetes.io/service-proxy-name`` label and its
 working, take a look at `this KEP
-<https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md>`__.
+<https://github.com/kubernetes/enhancements/blob/3ad891202dab1fd5211946f10f31b48003bf8113/keps/sig-network/2447-Make-kube-proxy-service-abstraction-optional/README.md>`__.
 
 .. note::
 

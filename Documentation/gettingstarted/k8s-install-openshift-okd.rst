@@ -196,8 +196,7 @@ Create the cluster:
    INFO Login to the console with user: "kubeadmin", and password: "<REDACTED>"
    INFO Time elapsed: 32m9s
 
-Next, the firewall configuration must be updated to allow `Cilium ports
-<https://docs.cilium.io/en/v1.8/install/system_requirements/#firewall-rules>`_.
+Next, the firewall configuration must be updated to allow Cilium ports :ref:`firewall_requirements`.
 ``openshift-install`` does not support custom firewall rules, so you will need to
 use one of the following scripts if you are using AWS or GCP. Azure does not
 need additional configuration.
