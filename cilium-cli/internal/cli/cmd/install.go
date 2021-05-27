@@ -27,7 +27,7 @@ import (
 )
 
 func newCmdInstall() *cobra.Command {
-	var params = install.InstallParameters{Writer: os.Stdout}
+	var params = install.Parameters{Writer: os.Stdout}
 
 	cmd := &cobra.Command{
 		Use:   "install",
@@ -116,7 +116,7 @@ func newCmdUninstall() *cobra.Command {
 }
 
 func newCmdUpgrade() *cobra.Command {
-	var params = install.InstallParameters{Writer: os.Stdout}
+	var params = install.Parameters{Writer: os.Stdout}
 
 	cmd := &cobra.Command{
 		Use:   "upgrade",

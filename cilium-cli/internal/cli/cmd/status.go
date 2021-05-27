@@ -38,7 +38,7 @@ func newCmdStatus() *cobra.Command {
 			}
 
 			s, err := collector.Status(context.Background())
-			// Report the most recent status even if an error occured
+			// Report the most recent status even if an error occurred.
 			if s != nil {
 				fmt.Println(s.Format())
 			}

@@ -36,7 +36,7 @@ const (
 	Reset   = "\033[0m"
 )
 
-// MapCount is a map to count number of occurences of a string
+// MapCount is a map to count number of occurrences of a string
 type MapCount map[string]int
 
 // MapMapCount is a map of MapCount indexed by string

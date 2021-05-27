@@ -194,7 +194,7 @@ var operatorClusterRole = &rbacv1.ClusterRole{
 		// For cilium-operator running in HA mode.
 		//
 		// Cilium operator running in HA mode requires the use of
-		// ResourceLock for Leader Election between mulitple running
+		// ResourceLock for Leader Election between multiple running
 		// instances.  The preferred way of doing this is to use
 		// LeasesResourceLock as edits to Leases are less common and
 		// fewer objects in the cluster watch "all Leases".  The
@@ -1003,7 +1003,7 @@ type k8sInstallerImplementation interface {
 
 type K8sInstaller struct {
 	client        k8sInstallerImplementation
-	params        InstallParameters
+	params        Parameters
 	flavor        k8s.Flavor
 	certManager   *certs.CertManager
 	rollbackSteps []rollbackStep
@@ -1028,7 +1028,7 @@ type AzureParameters struct {
 	ClientSecret          string
 }
 
-type InstallParameters struct {
+type Parameters struct {
 	Namespace            string
 	Writer               io.Writer
 	ClusterName          string
@@ -1055,7 +1055,7 @@ type InstallParameters struct {
 
 type rollbackStep func(context.Context)
 
-func (p *InstallParameters) validate() error {
+func (p *Parameters) validate() error {
 	p.configOverwrites = map[string]string{}
 	for _, config := range p.ConfigOverwrites {
 		t := strings.SplitN(config, "=", 2)
@@ -1125,7 +1125,7 @@ func (k *K8sInstaller) operatorCommand() []string {
 	return []string{"cilium-operator-generic"}
 }
 
-func NewK8sInstaller(client k8sInstallerImplementation, p InstallParameters) (*K8sInstaller, error) {
+func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInstaller, error) {
 	if err := (&p).validate(); err != nil {
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}

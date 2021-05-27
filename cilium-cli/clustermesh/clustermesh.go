@@ -876,12 +876,9 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 	if err := k.patchConfig(ctx, k.client, aiRemote); err != nil {
 		return err
 	}
-	k.Log("✨ Connecting cluster %s -> %s...", remoteCluster.ClusterName(), k.client.ClusterName())
-	if err := k.patchConfig(ctx, remoteCluster, aiLocal); err != nil {
-		return err
-	}
 
-	return nil
+	k.Log("✨ Connecting cluster %s -> %s...", remoteCluster.ClusterName(), k.client.ClusterName())
+	return k.patchConfig(ctx, remoteCluster, aiLocal)
 }
 
 func (k *K8sClusterMesh) disconnectCluster(ctx context.Context, src, dst k8sClusterMeshImplementation) error {
@@ -928,11 +925,7 @@ func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
 		return err
 	}
 
-	if err := k.disconnectCluster(ctx, remoteCluster, k.client); err != nil {
-		return err
-	}
-
-	return nil
+	return k.disconnectCluster(ctx, remoteCluster, k.client)
 }
 
 type Status struct {
@@ -1111,7 +1104,7 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 	for _, pod := range pods.Items {
 		s, err := k.statusCollector.ClusterMeshConnectivity(ctx, pod.Name)
 		if err != nil {
-			if err == status.ErrClusterMeshStatusNotAvailable {
+			if errors.Is(err, status.ErrClusterMeshStatusNotAvailable) {
 				continue
 			}
 			return nil, fmt.Errorf("unable to determine status of cilium pod %q: %w", pod.Name, err)

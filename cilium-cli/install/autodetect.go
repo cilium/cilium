@@ -45,7 +45,7 @@ var (
 	clusterNameValidation = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])$`)
 )
 
-func (p InstallParameters) checkDisabled(name string) bool {
+func (p Parameters) checkDisabled(name string) bool {
 	for _, n := range p.DisableChecks {
 		if n == name {
 			return true
