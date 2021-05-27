@@ -1630,7 +1630,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		return err
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
-		if err := k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{}); err != nil {
+		if err := k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{}); err != nil {
 			k.Log("Cannot delete %s Deployment: %w", defaults.OperatorDeploymentName, err)
 		}
 	})
