@@ -908,7 +908,7 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 		c := &deployment.Spec.Template.Spec.Containers[0]
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  "AZURE_SUBSCRIPTION_ID",
-			Value: k.params.Azure.DerivedSubscriptionID,
+			Value: k.params.Azure.SubscriptionID,
 		})
 
 		c.Env = append(c.Env, corev1.EnvVar{
@@ -1021,8 +1021,8 @@ const (
 type AzureParameters struct {
 	ResourceGroupName     string
 	ResourceGroup         string
+	SubscriptionName      string
 	SubscriptionID        string
-	DerivedSubscriptionID string
 	TenantID              string
 	ClientID              string
 	ClientSecret          string
@@ -1518,6 +1518,10 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		if k.params.Azure.ResourceGroupName == "" {
 			k.Log("❌ Azure resource group is required, please specify --azure-resource-group")
 			return fmt.Errorf("missing Azure resource group name")
+		}
+
+		if err := k.retrieveSubscriptionID(ctx); err != nil {
+			return err
 		}
 
 		if err := k.createAzureServicePrincipal(ctx); err != nil {
