@@ -34,7 +34,7 @@ jobs:
 
       - name: Set up QEMU
         id: qemu
-        uses: docker/setup-qemu-action@c308fdd69d26ed66f4506ebd74b180abe5362145
+        uses: docker/setup-qemu-action@27d0a4f181a40b142cce983c5393082c365d1480
 
       - name: Checkout Source Code
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
