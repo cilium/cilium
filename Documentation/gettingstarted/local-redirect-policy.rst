@@ -476,6 +476,8 @@ security credentials for pods.
 Miscellaneous
 =============
 When a Local Redirect Policy is applied, cilium BPF datapath translates frontend
-(ip/port/protocol tuple) from the policy to a node-local backend pod selected
-by the policy. However, such translation is skipped using ``sk_lookup`` BPF
-helpers for traffic that originates from the backend and is destined to the frontend .
+(identified by ip/port/protocol tuple) address from the policy to a node-local backend
+pod selected by the policy. However, when traffic originates from the node-local
+backend pod(s), and is destined to the policy frontend, we skip translating the
+frontend address using ``sk_lookup_`` BPF helpers. This is done in order to avoid
+forming a loop. As a result, traffic in such cases is forwarded to the original frontend.
