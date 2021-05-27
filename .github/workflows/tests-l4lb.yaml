@@ -1,0 +1,75 @@
+name: Cilium L4LB XDP
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  issue_comment:
+    types:
+      - created
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 5/6 * * *'
+  ### FOR TESTING PURPOSES
+  # pull_request:
+  #  types:
+  #    - "labeled"
+  ###
+
+concurrency:
+  # In case of PR comment, we can't simply append the comment to the group name
+  # as that is too long and results in an error. Instead we check if it's a
+  # trigger phrase and append a simple 'trigger-phrase'.
+  group: |
+    "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }}
+     ${{ (startsWith(github.event.comment.body, 'ci-l4lb') ||
+          startsWith(github.event.comment.body, 'test-me-please')) && 'trigger-phrase' }}"
+  cancel-in-progress: true
+
+jobs:
+  setup-and-test:
+    name: Setup & Test
+    if: |
+      (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-l4lb') ||
+        (startsWith(github.event.comment.body, 'test-me-please'))
+      )) ||
+      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event.label.name == 'ci-run/l4lb'
+    # We need nested virtualisation which is supported only by MacOS runner
+    runs-on: macos-10.15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+
+      - name: Boot Fedora
+        run: |
+          ln -sf ./test/l4lb/Vagrantfile ./Vagrantfile
+          # Retry if it fails (download.fedoraproject.org returns 404 sometimes)
+          # Spend up to 10 seconds on this
+          for i in {1..4}; do
+            if vagrant up; then
+              break
+            fi
+            sleep $i
+          done
+          vagrant ssh-config >> ~/.ssh/config
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+          else
+            echo ::set-output name=tag::${{ github.sha }}
+          fi
+
+      - name: Wait for image to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.tag }}/images" &> /dev/null; do sleep 45s; done
+
+      - name: Run tests
+        run: |
+          ssh default "sudo /bin/sh -c 'cd /vagrant/test/l4lb && ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.tag }}'"
