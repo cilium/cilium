@@ -78,7 +78,7 @@ jobs:
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_master
         with:
           context: .
@@ -93,7 +93,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_master_detect_race_condition
         with:
           context: .
@@ -122,7 +122,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_pr
         with:
           context: .
@@ -143,7 +143,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_pr_detect_race_condition
         with:
           context: .
@@ -218,7 +218,7 @@ jobs:
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_master
         with:
           context: .

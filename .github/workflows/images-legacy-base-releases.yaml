@@ -72,7 +72,7 @@ jobs:
 
       - name: Release build ${{ matrix.name }}
         if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_release
         with:
           context: ${{ matrix.context }}
