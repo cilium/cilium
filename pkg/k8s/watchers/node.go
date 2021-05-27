@@ -79,6 +79,10 @@ func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) e
 	}
 	newNodeLabels := newK8sNode.GetLabels()
 
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnUpdateNode(newK8sNode)
+	}
+
 	nodeEP := k.endpointManager.GetHostEndpoint()
 	if nodeEP == nil {
 		log.Debug("Host endpoint not found, updating node labels")
@@ -90,10 +94,5 @@ func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) e
 	if err != nil {
 		return err
 	}
-
-	if option.Config.BGPAnnounceLBIP {
-		k.bgpSpeakerManager.OnUpdateNode(newK8sNode)
-	}
-
 	return nil
 }
