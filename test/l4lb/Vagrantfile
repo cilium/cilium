@@ -1,0 +1,39 @@
+# Vagrant box for testing kind with cgroup v2
+# Adopted from https://github.com/kubernetes-sigs/kind/blob/main/hack/ci/Vagrantfile
+#
+# Currently, there is no Github Action runner which would run cgroupv2-only.
+# The latter is required to test the LB health checks on Kind implemented by
+# bpf_sock. So for now, let's rely on Vagrant to create a Fedora VM which runs
+# with cgroupv2-only.
+Vagrant.configure("2") do |config|
+  config.vm.box = "fedora/34-cloud-base"
+  memory = 2048
+  cpus = 2
+  config.vm.provider :virtualbox do |v|
+    v.memory = memory
+    v.cpus = cpus
+  end
+  config.vm.provider :libvirt do |v|
+    v.memory = memory
+    v.cpus = cpus
+  end
+  config.vm.provision "install-packages", type: "shell", run: "once" do |sh|
+    sh.inline = <<~SHELL
+    set -eux -o pipefail
+    dnf install -y make kubernetes-client clang llvm glibc-devel.i686 libbpf-devel ethtool openssl
+
+    # cgroupv2 requires >= Docker 20.10 from the upstream.
+    curl -fsSL https://get.docker.com | sh
+    systemctl enable --now docker
+
+    # cgroupv2 requires >= Kind 0.11.0
+    curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.0/kind-linux-amd64
+    chmod +x ./kind
+    mv ./kind /usr/local/bin
+
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+    chmod +x ./get_helm.sh
+    ./get_helm.sh
+    SHELL
+  end
+end
