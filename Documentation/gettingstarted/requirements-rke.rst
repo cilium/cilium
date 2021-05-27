@@ -4,10 +4,8 @@ perform the following steps:
 .. note::
 
    If you are using RKE2, Cilium has been directly integrated. Please see
-   `Using Cilium <https://docs.rke2.io/install/network_options/#using-cilium-instead-of-canal>`_
+   `Using Cilium <https://docs.rke2.io/install/network_options/#using-cilium-or-calico-instead-of-canal>`_
    in the RKE2 documentation. You can use either method.
-
-   https://docs.rke2.io/install/network_options/#using-cilium-instead-of-canal
 
 **Default Configuration:**
 

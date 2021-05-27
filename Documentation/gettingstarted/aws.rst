@@ -35,7 +35,7 @@ AWS Access keys and IAM role
 ------------------------------
 
 To create a new access token the `following guide can be used
-<https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration>`_.
+<https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config>`_.
 These keys need to have certain permissions set:
 
 .. code-block:: javascript
