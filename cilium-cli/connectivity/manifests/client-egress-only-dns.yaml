@@ -12,6 +12,9 @@ spec:
     - ports:
       - port: "53"
         protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
     toEndpoints:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
