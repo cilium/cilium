@@ -61,6 +61,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_ipv4_frag_datagrams", // Global
 	"cilium_ipmasq",              // Global
 	"cilium_throttle",            // Global
+	"cilium_egress_v4",           // Global
 	"from-container",             // Prog name
 	"to-container",               // Prog name
 	"from-netdev",                // Prog name
