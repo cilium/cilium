@@ -56,7 +56,7 @@ type accountInfo struct {
 }
 
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
-	if k.params.Azure.TenantID == "" {
+	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
 		k.Log("🚀 Creating service principal for Cilium operator...")
 		args := []string{"ad", "sp", "create-for-rbac"}
 		cmd := azCommand(args...)
@@ -75,6 +75,14 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 		k.params.Azure.ClientID = p.AppID
 		k.params.Azure.ClientSecret = p.Password
 	} else {
+		if k.params.Azure.TenantID == "" || k.params.Azure.ClientID == "" || k.params.Azure.ClientSecret == "" {
+			k.Log(`❌ All three parameters are required for using an existing Azure Service Principal:
+   - Tenant ID (--azure-tenant-id)
+   - Client ID (--azure-client-id)
+   - Client Secret (--azure-client-secret)`)
+			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
+		}
+
 		k.Log("✅ Using manually configured principal for cilium operator with App ID %s and tenant ID %s",
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
