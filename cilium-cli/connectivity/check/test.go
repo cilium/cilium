@@ -197,11 +197,11 @@ func (t *Test) Run(ctx context.Context) error {
 func (t *Test) WithPolicy(policy string) *Test {
 	pl, err := parsePolicyYAML(policy)
 	if err != nil {
-		t.Fatal("Error parsing policy YAML: %w", err)
+		t.Fatalf("Parsing policy YAML: %s", err)
 	}
 
 	if err := t.addCNPs(pl...); err != nil {
-		t.Fatal("adding CNPs to policy context: %w", err)
+		t.Fatalf("Adding CNPs to policy context: %s", err)
 	}
 	return t
 }
