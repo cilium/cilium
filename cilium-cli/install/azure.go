@@ -53,12 +53,35 @@ type aksClusterInfo struct {
 
 type accountInfo struct {
 	ID string `json:"id"`
+	Name string `json:"name"`
+}
+
+func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
+	args := []string{"account", "show"}
+	if k.params.Azure.SubscriptionName != "" {
+		args = append(args, "--subscription", k.params.Azure.SubscriptionName)
+	}
+	cmd := azCommand(args...)
+	bytes, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
+	}
+
+	ai := accountInfo{}
+	if err := json.Unmarshal(bytes, &ai); err != nil {
+		return fmt.Errorf("unable to unmarshal az output: %w", err)
+	}
+
+	k.Log("✅ Derived Azure Subscription ID %s from subscription %s", ai.ID, ai.Name)
+	k.params.Azure.SubscriptionID = ai.ID
+
+	return nil
 }
 
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
-		k.Log("🚀 Creating service principal for Cilium operator...")
-		args := []string{"ad", "sp", "create-for-rbac"}
+		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
+		args := []string{"ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/" + k.params.Azure.SubscriptionID}
 		cmd := azCommand(args...)
 		bytes, err := cmd.Output()
 		if err != nil {
@@ -70,7 +93,7 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 			return fmt.Errorf("unable to unmarshal az output: %w", err)
 		}
 
-		k.Log("✅ Created service principal for cilium operator with App ID %s and tenant ID %s", p.AppID, p.Tenant)
+		k.Log("✅ Created Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s", p.AppID, p.Tenant)
 		k.params.Azure.TenantID = p.Tenant
 		k.params.Azure.ClientID = p.AppID
 		k.params.Azure.ClientSecret = p.Password
@@ -83,31 +106,13 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
 		}
 
-		k.Log("✅ Using manually configured principal for cilium operator with App ID %s and tenant ID %s",
+		k.Log("✅ Using manually configured Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s",
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
 
-	args := []string{"account", "show"}
+	args := []string{"aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName}
 	cmd := azCommand(args...)
 	bytes, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
-	}
-
-	ai := accountInfo{}
-	if err := json.Unmarshal(bytes, &ai); err != nil {
-		return fmt.Errorf("unable to unmarshal az output: %w", err)
-	}
-
-	k.Log("✅ Derived Azure subscription id %s", ai.ID)
-	k.params.Azure.DerivedSubscriptionID = ai.ID
-
-	args = []string{"aks", "show", "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName}
-	if k.params.Azure.SubscriptionID != "" {
-		args = append(args, "--subscription", k.params.Azure.SubscriptionID)
-	}
-	cmd = azCommand(args...)
-	bytes, err = cmd.Output()
 	if err != nil {
 		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
 	}
