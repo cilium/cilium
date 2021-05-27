@@ -268,7 +268,7 @@ skip_host_firewall:
 	if (!from_host)
 		return CTX_ACT_OK;
 
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
@@ -545,7 +545,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	if (!from_host)
 		return CTX_ACT_OK;
 
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
@@ -637,7 +637,7 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPSEC
-#ifndef ENCAP_IFINDEX
+#ifndef TUNNEL_MODE
 static __always_inline int
 do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 {
@@ -787,7 +787,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	return CTX_ACT_OK;
 }
 
-#else /* ENCAP_IFINDEX */
+#else /* TUNNEL_MODE */
 static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx)
 {
 	__u32 seclabel, tunnel_endpoint = 0;
@@ -804,7 +804,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 {
 	return do_netdev_encrypt_encap(ctx);
 }
-#endif /* ENCAP_IFINDEX */
+#endif /* TUNNEL_MODE */
 #endif /* ENABLE_IPSEC */
 
 static __always_inline int

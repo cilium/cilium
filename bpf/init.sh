@@ -421,6 +421,11 @@ else
 	ip link del cilium_sit   2> /dev/null || true
 fi
 
+if [ "$MODE" = "tunnel" ]; then
+	sed -i '/^#.*TUNNEL_MODE.*$/d' $RUNDIR/globals/node_config.h
+	echo "#define TUNNEL_MODE 1" >> $RUNDIR/globals/node_config.h
+fi
+
 if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 	ip link show $ENCAP_DEV || {
