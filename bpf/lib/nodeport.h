@@ -1099,25 +1099,6 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
 
-#if defined(ENABLE_EGRESS_GATEWAY)
-	/* Check if SNAT needs to be applied to the packet. Apply SNAT if there
-	 * is an egress rule in ebpf map, and the packet is not coming out from
-	 * overlay interface. If the packet is coming from an overlay interface
-	 * it means it is forwarded to another node, instead of leaving the
-	 * cluster.
-	 */
-	if (1) {
-		struct egress_info *info;
-
-		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
-		if (info && ctx->ifindex != ENCAP_IFINDEX) {
-			*addr = info->egress_ip;
-			*from_endpoint = true;
-			return true;
-		}
-	}
-#endif
-
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in NodePort and BPF-masq.
@@ -1198,11 +1179,43 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			if (info->sec_label == REMOTE_NODE_ID)
 				return false;
 #endif
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(IS_BPF_OVERLAY)
+	/* If destination is not a remote node, check if egress NAT policy needs
+	 * be applied to the packet. pod to node traffic is considered to be
+	 * in-cluster traffic, which shouldn't be affected by egress NAT policy.
+	 */
+	if (info->sec_label != REMOTE_NODE_ID) {
+		struct egress_info *einfo;
+
+		einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
+		if (einfo) {
+			*addr = einfo->egress_ip;
+			*from_endpoint = true;
+			return true;
+		}
+	}
+#endif
 
 			*addr = IPV4_MASQUERADE;
 			return true;
 		}
 	}
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(IS_BPF_OVERLAY)
+	/* If endpoint is not found on local node, it's from remote node. Also
+	 * check egress rule in ebpf map to see if SNAT needs to apply to the
+	 * packet.
+	 */
+	if (!ep) {
+		struct egress_info *einfo;
+
+		einfo = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
+		if (einfo) {
+			*addr = einfo->egress_ip;
+			*from_endpoint = true;
+			return true;
+		}
+	}
+#endif
 #endif /*ENABLE_MASQUERADE */
 
 	return false;
