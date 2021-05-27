@@ -18,9 +18,10 @@ builder-image: Dockerfile requirements.txt
 	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
 
 READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
+DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
-		--workdir /src/Documentation \
-		--volume $(CURDIR)/..:/src \
+		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
+		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)"
@@ -45,7 +46,28 @@ copy-api:
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api _api
 
-epub latex html: builder-image copy-api
+HELM_VALUES = helm-values.rst
+
+HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
+HELM_DOCS_CHARTS_DIR := $(HELM_DOCS_ROOT_PATH)/install/kubernetes
+HELM_DOCS_OUTPUT_DIR := $(HELM_DOCS_ROOT_PATH)/Documentation
+HELM_DOCS := $(DOCKER_CTR) $(HELM_DOCS_IMAGE)
+
+M2R_VERSION := 0.2.1
+M2R_SHA := a3dc2c3fcdc31260dcb7cd42e39763281a6fdce4ca59b4c150fb3bfff5be9eb7
+M2R_IMAGE := docker.io/bmcustodio/m2r:$(M2R_VERSION)@sha256:$(M2R_SHA)
+M2R := $(DOCKER_CTR) $(M2R_IMAGE) m2r
+
+.PHONY: $(HELM_VALUES)
+$(HELM_VALUES): TMP_FILE := helm-values.tmp
+$(HELM_VALUES): AWK_FILE := helm-values.awk
+$(HELM_VALUES):
+	$(QUIET)$(HELM_DOCS) -d -c $(HELM_DOCS_CHARTS_DIR) -t $(HELM_DOCS_OUTPUT_DIR)/$(TMP_FILE).tmpl > $(TMP_FILE)
+	$(QUIET)awk -F'|' '{print "|"$$2"|"$$5"|"$$3"|"$$4"|"}' $(TMP_FILE) > $(AWK_FILE)
+	$(QUIET)$(M2R) --overwrite $(AWK_FILE)
+	$(QUIET)$(RM) -- $(TMP_FILE) $(AWK_FILE)
+
+epub latex html: builder-image copy-api $(HELM_VALUES)
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 

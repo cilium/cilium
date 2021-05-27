@@ -87,4 +87,4 @@ The documentation is divided into the following sections:
    kvstore
    further_reading
    glossary
-
+   helm-reference
