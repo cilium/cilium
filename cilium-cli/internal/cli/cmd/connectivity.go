@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -29,6 +30,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+var errInternal = errors.New("encountered internal error, exiting")
 
 func newCmdConnectivity() *cobra.Command {
 	cmd := &cobra.Command{
@@ -77,16 +80,34 @@ func newCmdConnectivityTest() *cobra.Command {
 				return err
 			}
 
-			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-			defer cancel()
+			ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 			go func() {
 				<-ctx.Done()
 				cc.Log("Interrupt received, cancelling tests...")
 			}()
 
-			if err := connectivity.Run(ctx, cc); err != nil {
-				fatalf("Connectivity test failed: %s", err)
+			done := make(chan struct{})
+			var finished bool
+
+			// Execute connectivity.Run() in its own goroutine, it might call Fatal()
+			// and end the goroutine without returning.
+			go func() {
+				defer func() { done <- struct{}{} }()
+				err = connectivity.Run(ctx, cc)
+
+				// If Fatal() was called in the test suite, the statement below won't fire.
+				finished = true
+			}()
+			<-done
+
+			if !finished {
+				// Exit with a non-zero return code.
+				return errInternal
+			}
+
+			if err != nil {
+				return fmt.Errorf("Connectivity test failed: %w", err)
 			}
 
 			return nil
