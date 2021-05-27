@@ -155,7 +155,7 @@ Install Cilium
 
           kubectl -n kube-system delete daemonset aws-node
 
-       **Intall Cilium:**
+       **Install Cilium:**
 
        Deploy Cilium release via Helm:
 
