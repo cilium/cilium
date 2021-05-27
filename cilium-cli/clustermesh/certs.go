@@ -214,18 +214,18 @@ func (k *K8sClusterMesh) installCertificates(ctx context.Context) error {
 	}
 
 	k.Log("🔑 Generating certificates for ClusterMesh...")
+
 	if err := k.createClusterMeshServerCertificate(ctx); err != nil {
 		return err
 	}
+
 	if err := k.createClusterMeshAdminCertificate(ctx); err != nil {
 		return err
 	}
+
 	if err := k.createClusterMeshClientCertificate(ctx); err != nil {
 		return err
 	}
-	if err := k.createClusterMeshExternalWorkloadCertificate(ctx); err != nil {
-		return err
-	}
 
-	return nil
+	return k.createClusterMeshExternalWorkloadCertificate(ctx)
 }

@@ -158,7 +158,7 @@ func (e ExternalWorkload) HasLabel(name, value string) bool {
 }
 
 // ICMPEndpoint returns a new ICMP endpoint.
-func ICMPEndpoint(name, host string) icmpEndpoint {
+func ICMPEndpoint(name, host string) TestPeer {
 	return icmpEndpoint{
 		name: name,
 		host: host,
@@ -203,7 +203,7 @@ func (ie icmpEndpoint) HasLabel(name, value string) bool {
 
 // HTTPEndpoint returns a new endpoint with the given name and raw URL.
 // Panics if rawurl cannot be parsed.
-func HTTPEndpoint(name, rawurl string) httpEndpoint {
+func HTTPEndpoint(name, rawurl string) TestPeer {
 	u, err := url.Parse(rawurl)
 	if err != nil {
 		panic(err)

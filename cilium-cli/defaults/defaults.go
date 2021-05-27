@@ -93,22 +93,27 @@ const (
 )
 
 var (
+	// OperatorLabels are the labels set on the Cilium operator by default.
 	OperatorLabels = map[string]string{
 		"io.cilium/app": "operator",
 		"name":          "cilium-operator",
 	}
 
+	// RelayDeploymentLabels are the labels set on the Hubble Relay Deployment by default.
 	RelayDeploymentLabels = map[string]string{
 		"k8s-app": "hubble-relay",
 	}
 
+	// HubbleUIDeploymentLabels are the labels set on the Hubble UI Deployment by default.
+	HubbleUIDeploymentLabels = map[string]string{
+		"k8s-app": "hubble-ui",
+	}
+
+	// ClusterMeshDeploymentLabels are the labels set on the clustermesh API server by default.
 	ClusterMeshDeploymentLabels = map[string]string{
 		"k8s-app": "clustermesh-apiserver",
 	}
 
+	// CiliumPodSelector is the pod selector to be used for the Cilium agents.
 	CiliumPodSelector = "k8s-app=cilium"
-
-	HubbleUIDeploymentLabels = map[string]string{
-		"k8s-app": "hubble-ui",
-	}
 )
