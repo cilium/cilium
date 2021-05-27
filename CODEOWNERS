@@ -253,6 +253,8 @@ Jenkinsfile.nightly @cilium/ci-structure
 /test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
 /test/runtime/kafka.go @cilium/proxy @cilium/ci-structure
 /test/runtime/memcache.go @cilium/proxy @cilium/ci-structure
+# Standalone L4LB tests
+/test/l4lb @cilium/loadbalancer @cilium/ci-structure
 # Misc. tests
 /test/k8sT/cli.go @cilium/cli @cilium/ci-structure
 /test/k8sT/Health.go @cilium/health @cilium/ci-structure
