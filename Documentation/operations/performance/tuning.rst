@@ -189,7 +189,7 @@ Linux Kernel
 In general, we highly recommend using the most recent LTS stable kernel (such
 as >= 5.10) provided by the `kernel community <https://www.kernel.org/category/releases.html>`_
 or by a downstream distribution of your choice. The newer the kernel, the more
-likely it is that various datapath optimisations can be used.
+likely it is that various datapath optimizations can be used.
 
 In our Cilium release blogs, we also regularly highlight some of the eBPF based
 kernel work we conduct which implicitly helps Cilium's datapath performance

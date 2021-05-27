@@ -331,7 +331,7 @@ there may be cases where this doesn't occur:
 L3 ``toFQDNs`` rules are egress only, so we would expect to see an ``Egress``
 entry with Security Identity ``16777217``. The L7 rule, used to redirect to the
 DNS Proxy is also present with a populated ``PROXY PORT``. It has a 0
-``IDENTITY`` as it is an L3 wildcard, ie the policy allows any peer on the
+``IDENTITY`` as it is an L3 wildcard, i.e. the policy allows any peer on the
 specified port.
 
 An identity missing here can be an error in various places:
