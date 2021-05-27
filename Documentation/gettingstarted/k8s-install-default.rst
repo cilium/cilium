@@ -98,6 +98,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        .. code-block:: shell-session
 
           minikube start --network-plugin=cni
+          minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf
 
 Install the Cilium CLI
 ======================
