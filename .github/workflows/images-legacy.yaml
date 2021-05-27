@@ -47,7 +47,7 @@ jobs:
         uses: actions/checkout@v2.3.4
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_v1_8
         with:
           context: .
@@ -72,7 +72,7 @@ jobs:
          ref: ${{ github.event.pull_request.head.sha }}
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@e1b7f96249f2e4c8e4ac1519b9608c0d48944a1f
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         id: docker_build_ci_pr
         with:
           context: .
