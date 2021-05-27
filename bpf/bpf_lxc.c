@@ -797,6 +797,21 @@ ct_recreate4:
 		struct egress_info *info;
 		struct endpoint_key key = {};
 
+#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
+		/* If destination is in cluster, skip egress gateway.
+		 */
+		if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
+				      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
+			goto skip_egress_gateway;
+#endif
+
+		/* If tunnel endpoint is found in ipcache, it means the remote endpoint is
+		 * in cluster. In this case, we should skip egress gateway. If destination
+		 * is either remote node or host node, also skip egress gateway.
+		 */
+		if (tunnel_endpoint != 0 || *dst_id == REMOTE_NODE_ID || *dst_id == HOST_ID)
+			goto skip_egress_gateway;
+
 		info = lookup_ip4_egress_endpoint(ip4->saddr, ip4->daddr);
 		if (!info)
 			goto skip_egress_gateway;
