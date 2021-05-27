@@ -105,6 +105,7 @@ retry:
 	return s, err
 }
 
+// ErrClusterMeshStatusNotAvailable is a sentinel.
 var ErrClusterMeshStatusNotAvailable = errors.New("ClusterMesh status is not available")
 
 func (k *K8sStatusCollector) clusterMeshConnectivity(ctx context.Context, ciliumPod string) (*ClusterMeshAgentConnectivityStatus, error) {

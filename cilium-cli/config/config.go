@@ -61,30 +61,26 @@ func (k *K8sConfig) Set(ctx context.Context, key, value string, params Parameter
 	patch := []byte(`{"data":{"` + key + `":"` + value + `"}}`)
 
 	k.Log("✨ Patching ConfigMap %s with %s=%s...", defaults.ConfigMapName, key, value)
-	_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
+
+	if _, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName,
+		types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
 	}
-	if err = k.restartPodsUponConfigChange(params); err != nil {
-		return err
-	}
 
-	return nil
+	return k.restartPodsUponConfigChange(params)
 }
 
 func (k *K8sConfig) Delete(ctx context.Context, key string, params Parameters) error {
 	patch := []byte(`[{"op": "remove", "path": "/data/` + key + `"}]`)
 
 	k.Log("✨ Removing key %s from ConfigMap %s...", key, defaults.ConfigMapName)
-	_, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.JSONPatchType, patch, metav1.PatchOptions{})
-	if err != nil {
+
+	if _, err := k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName,
+		types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
 	}
-	if err = k.restartPodsUponConfigChange(params); err != nil {
-		return err
-	}
 
-	return nil
+	return k.restartPodsUponConfigChange(params)
 }
 
 func (k *K8sConfig) View(ctx context.Context) (string, error) {
@@ -117,12 +113,13 @@ func (k *K8sConfig) restartPodsUponConfigChange(params Parameters) error {
 		fmt.Println("⚠️  Restart Cilium pods for configmap changes to take effect")
 		return nil
 	}
+
 	if err := k.client.DeletePodCollection(context.Background(), params.Namespace,
 		metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
 		return fmt.Errorf("⚠️  unable to restart Cilium pods: %v", err)
-	} else {
-		fmt.Println("♻️  Restarted Cilium pods")
 	}
+
+	fmt.Println("♻️  Restarted Cilium pods")
 
 	return nil
 }
