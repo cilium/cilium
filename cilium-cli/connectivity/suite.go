@@ -46,6 +46,9 @@ var (
 
 	//go:embed manifests/client-egress-to-cidr-1111.yaml
 	clientEgressToCIDR1111PolicyYAML string
+
+	//go:embed manifests/client-egress-l7-http.yaml
+	clientEgressL7HTTPPolicyYAML string
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -162,6 +165,29 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultDrop, check.ResultNone
 			}
 			return check.ResultOK, check.ResultNone
+		})
+
+	// Test L7 HTTP introspection using an egress policy on the clients.
+	ct.NewTest("client-egress-l7").
+		WithPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithPolicy(clientEgressL7HTTPPolicyYAML).  // L7 allow policy with HTTP introspection
+		WithScenarios(
+			tests.PodToPod(""),
+			tests.PodToWorld(""),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
+				// Outbound HTTP to cilium.io is L7-introspected and allowed.
+				(a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" ||
+					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
+				egress = check.ResultOK
+				// Expect all curls from client2 to be proxied and to be GET calls.
+				egress.HTTP = check.HTTP{
+					Method: "GET",
+				}
+				return egress, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultNone
 		})
 
 	// Dummy tests for debugging the testing harness.
