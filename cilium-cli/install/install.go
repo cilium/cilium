@@ -1020,10 +1020,10 @@ const (
 
 type AzureParameters struct {
 	ResourceGroupName     string
+	ResourceGroup         string
 	SubscriptionID        string
 	DerivedSubscriptionID string
 	TenantID              string
-	ResourceGroup         string
 	ClientID              string
 	ClientSecret          string
 }
@@ -1516,7 +1516,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	case k8s.KindAKS:
 		if k.params.Azure.ResourceGroupName == "" {
-			k.Log("❌ Azure resoure group is required, please specify --azure-resource-group")
+			k.Log("❌ Azure resource group is required, please specify --azure-resource-group")
 			return fmt.Errorf("missing Azure resource group name")
 		}
 

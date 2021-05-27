@@ -117,7 +117,7 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 		return fmt.Errorf("unable to unmarshal az output: %w", err)
 	}
 
-	k.Log("✅ Derived Azure node resource group %s", clusterInfo.NodeResourceGroup)
+	k.Log("✅ Derived Azure node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
 	k.params.Azure.ResourceGroup = clusterInfo.NodeResourceGroup
 
 	return nil
