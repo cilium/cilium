@@ -1393,7 +1393,7 @@ func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.AgentResourceQuota, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ResourceQuota: %w", defaults.AgentResourceQuota, err)
+			k.Log("Cannot delete %s ResourceQuota: %s", defaults.AgentResourceQuota, err)
 		}
 	})
 
@@ -1423,7 +1423,7 @@ func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ResourceQuota: %w", defaults.OperatorResourceQuota, err)
+			k.Log("Cannot delete %s ResourceQuota: %s", defaults.OperatorResourceQuota, err)
 		}
 	})
 
@@ -1531,7 +1531,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.AgentServiceAccountName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ServiceAccount: %w", defaults.AgentServiceAccountName, err)
+			k.Log("Cannot delete %s ServiceAccount: %s", defaults.AgentServiceAccountName, err)
 		}
 	})
 
@@ -1540,7 +1540,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.OperatorServiceAccountName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ServiceAccount: %w", defaults.OperatorServiceAccountName, err)
+			k.Log("Cannot delete %s ServiceAccount: %s", defaults.OperatorServiceAccountName, err)
 		}
 	})
 
@@ -1550,7 +1550,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteClusterRole(ctx, defaults.AgentClusterRoleName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ClusterRole: %w", defaults.AgentClusterRoleName, err)
+			k.Log("Cannot delete %s ClusterRole: %s", defaults.AgentClusterRoleName, err)
 		}
 	})
 
@@ -1559,7 +1559,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteClusterRoleBinding(ctx, defaults.AgentClusterRoleName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ClusterRoleBinding: %w", defaults.AgentClusterRoleName, err)
+			k.Log("Cannot delete %s ClusterRoleBinding: %s", defaults.AgentClusterRoleName, err)
 		}
 	})
 
@@ -1568,7 +1568,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteClusterRole(ctx, defaults.OperatorClusterRoleName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ClusterRole: %w", defaults.OperatorClusterRoleName, err)
+			k.Log("Cannot delete %s ClusterRole: %s", defaults.OperatorClusterRoleName, err)
 		}
 	})
 
@@ -1577,7 +1577,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteClusterRoleBinding(ctx, defaults.OperatorClusterRoleName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ClusterRoleBinding: %w", defaults.OperatorClusterRoleName, err)
+			k.Log("Cannot delete %s ClusterRoleBinding: %s", defaults.OperatorClusterRoleName, err)
 		}
 	})
 
@@ -1598,7 +1598,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ConfigMap: %w", defaults.ConfigMapName, err)
+			k.Log("Cannot delete %s ConfigMap: %s", defaults.ConfigMapName, err)
 		}
 	})
 
@@ -1610,7 +1610,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 		k.pushRollbackStep(func(ctx context.Context) {
 			if err := k.client.DeleteDaemonSet(ctx, k.params.Namespace, gkeInitName, metav1.DeleteOptions{}); err != nil {
-				k.Log("Cannot delete %s DaemonSet: %w", gkeInitName, err)
+				k.Log("Cannot delete %s DaemonSet: %s", gkeInitName, err)
 			}
 		})
 	}
@@ -1621,7 +1621,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s DaemonSet: %w", defaults.AgentDaemonSetName, err)
+			k.Log("Cannot delete %s DaemonSet: %s", defaults.AgentDaemonSetName, err)
 		}
 	})
 
@@ -1631,7 +1631,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s Deployment: %w", defaults.OperatorDeploymentName, err)
+			k.Log("Cannot delete %s Deployment: %s", defaults.OperatorDeploymentName, err)
 		}
 	})
 

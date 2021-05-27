@@ -63,7 +63,7 @@ func (k *K8sInstaller) createEncryptionSecret(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.EncryptionSecretName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s Secret: %w", defaults.EncryptionSecretName, err)
+			k.Log("Cannot delete %s Secret: %s", defaults.EncryptionSecretName, err)
 		}
 	})
 

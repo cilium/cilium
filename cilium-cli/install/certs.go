@@ -100,7 +100,7 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 		}
 		k.pushRollbackStep(func(ctx context.Context) {
 			if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.DeleteOptions{}); err != nil {
-				k.Log("Cannot delete %s Secret: %w", defaults.CASecretName, err)
+				k.Log("Cannot delete %s Secret: %s", defaults.CASecretName, err)
 			}
 		})
 	}
@@ -117,7 +117,7 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 		}
 		k.pushRollbackStep(func(ctx context.Context) {
 			if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.DeleteOptions{}); err != nil {
-				k.Log("Cannot delete %s Secret: %w", defaults.CASecretName, err)
+				k.Log("Cannot delete %s Secret: %s", defaults.CASecretName, err)
 			}
 		})
 	} else {
@@ -130,7 +130,7 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 	}
 	k.pushRollbackStep(func(ctx context.Context) {
 		if err := k.client.DeleteSecret(ctx, k.params.Namespace, defaults.HubbleServerSecretName, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s Secret: %w", defaults.HubbleServerSecretName, err)
+			k.Log("Cannot delete %s Secret: %s", defaults.HubbleServerSecretName, err)
 		}
 	})
 
