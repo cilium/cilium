@@ -169,3 +169,7 @@ GO_LIST = GO111MODULE=off $(GO) list
 ifeq ($(BASE_IMAGE),)
     BASE_IMAGE=scratch
 endif
+
+HELM_DOCS_VERSION ?= "v1.3.0"
+HELM_DOCS_SHA ?= "12f065115654c9a1d6819b938487d327f1fdb5c32bdc2a5c74afef22ed68f5ca"
+HELM_DOCS_IMAGE ?= "docker.io/jnorwood/helm-docs:$(HELM_DOCS_VERSION)@sha256:$(HELM_DOCS_SHA)"
