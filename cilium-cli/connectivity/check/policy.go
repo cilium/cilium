@@ -352,7 +352,7 @@ func parsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err e
 		return nil, nil
 	}
 
-	yamls := strings.Split(policy, "---")
+	yamls := strings.Split(policy, "\n---")
 
 	for _, yaml := range yamls {
 		if strings.TrimSpace(yaml) == "" {
@@ -361,7 +361,7 @@ func parsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err e
 
 		obj, kind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("decoding policy yaml (%w) in: %s", err, yaml)
+			return nil, fmt.Errorf("decoding policy yaml: %s\nerror: %w", yaml, err)
 		}
 
 		switch policy := obj.(type) {
