@@ -36,7 +36,7 @@ GitHub
 **Bug Tracker**: All the issues are addressed in the `GitHub issue tracker
 <https://github.com/cilium/cilium/issues>`_.  If you want to report a bug or a
 new feature please file the issue according to the `GitHub template
-<https://github.com/cilium/cilium/blob/master/.github/ISSUE_TEMPLATE/issue_template.md>`_.
+<https://github.com/cilium/cilium/issues/new/choose>`_.
 
 **Contributing**: If you want to contribute, reading the :ref:`dev_guide` should
 help you.
