@@ -110,9 +110,9 @@ func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desir
 				Msg:   "Error1",
 			},
 			Controllers: []*models.ControllerStatus{
-				&models.ControllerStatus{Name: "c1", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 1, LastFailureMsg: "Error1", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-time.Minute))}},
-				&models.ControllerStatus{Name: "c2", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 4, LastFailureMsg: "Error2", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-2 * time.Minute))}},
-				&models.ControllerStatus{Name: "c3", Status: &models.ControllerStatusStatus{LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-3 * time.Minute))}},
+				{Name: "c1", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 1, LastFailureMsg: "Error1", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-time.Minute))}},
+				{Name: "c2", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 4, LastFailureMsg: "Error2", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-2 * time.Minute))}},
+				{Name: "c3", Status: &models.ControllerStatusStatus{LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-3 * time.Minute))}},
 			},
 		}
 	}
@@ -126,9 +126,9 @@ func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desir
 				Msg:   "Error1",
 			},
 			Controllers: []*models.ControllerStatus{
-				&models.ControllerStatus{Name: "c1", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 1, LastFailureMsg: "Error1", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-time.Minute))}},
-				&models.ControllerStatus{Name: "c2", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 4, LastFailureMsg: "Error2", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-2 * time.Minute))}},
-				&models.ControllerStatus{Name: "c3", Status: &models.ControllerStatusStatus{LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-3 * time.Minute))}},
+				{Name: "c1", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 1, LastFailureMsg: "Error1", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-time.Minute))}},
+				{Name: "c2", Status: &models.ControllerStatusStatus{ConsecutiveFailureCount: 4, LastFailureMsg: "Error2", LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-2 * time.Minute))}},
+				{Name: "c3", Status: &models.ControllerStatusStatus{LastFailureTimestamp: strfmt.DateTime(time.Now().Add(-3 * time.Minute))}},
 			},
 		}
 	}

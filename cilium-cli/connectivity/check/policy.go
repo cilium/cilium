@@ -120,19 +120,19 @@ func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetw
 }
 
 var (
-	// Expect a successful command, don't match any packets.
+	// ResultNone expects a successful command, don't match any packets.
 	ResultNone = Result{None: true}
 
-	// Expect a successful command and a matching flow.
+	// ResultOK expects a successful command and a matching flow.
 	ResultOK = Result{}
 
-	// Expect a successful command, only generating DNS traffic.
+	// ResultDNSOK expects a successful command, only generating DNS traffic.
 	ResultDNSOK = Result{DNSProxy: true}
 
-	// Expect a failed command, generating DNS traffic and a dropped flow.
+	// ResultDNSOKRequestDrop expects a failed command, generating DNS traffic and a dropped flow.
 	ResultDNSOKRequestDrop = Result{DNSProxy: true, Drop: true}
 
-	// Expect a dropped flow and a failed command.
+	// ResultDrop expects a dropped flow and a failed command.
 	ResultDrop = Result{Drop: true}
 )
 
@@ -308,7 +308,7 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 	// Get current policy revisions in all Cilium pods.
 	revs, err := t.Context().getCiliumPolicyRevisions(ctx)
 	if err != nil {
-		return fmt.Errorf("geting policy revisions for Cilium agents: %w", err)
+		return fmt.Errorf("getting policy revisions for Cilium agents: %w", err)
 	}
 	for pod, rev := range revs {
 		t.Debugf("Pod %s's current policy revision: %d", pod.Name(), rev)

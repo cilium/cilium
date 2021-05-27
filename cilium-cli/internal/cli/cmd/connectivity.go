@@ -77,19 +77,18 @@ func newCmdConnectivityTest() *cobra.Command {
 				return err
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			s := make(chan os.Signal)
-			signal.Notify(s, os.Interrupt, syscall.SIGTERM)
+			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer cancel()
 
 			go func() {
-				<-s
+				<-ctx.Done()
 				cc.Log("Interrupt received, cancelling tests...")
-				cancel()
 			}()
 
 			if err := connectivity.Run(ctx, cc); err != nil {
 				fatalf("Connectivity test failed: %s", err)
 			}
+
 			return nil
 		},
 	}
