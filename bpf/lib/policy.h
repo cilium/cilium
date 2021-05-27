@@ -99,6 +99,10 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 		.egress = !dir,
 		.pad = 0,
 	};
+    printk("MDEBUG:=PACKET_VALUE remoteId:%d dport:%d\n",
+            remoteID, dport);
+    printk("proto: %d direction:%d\n", proto, dir);
+            
 
 #ifdef ALLOW_ICMP_FRAG_NEEDED
 	/* When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
@@ -131,10 +135,17 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 			cilium_dbg3(ctx, DBG_L4_CREATE, remoteID, localID,
 				    dport << 16 | proto);
 
+            printk("MDEBUG:=POLICY_MATCH_L3_L4 proxy_port:%d deny:%d\n",
+                    policy->proxy_port, policy->deny);
+            printk("packets: %llu bytes:%llu\n",
+                    policy->packets, policy->bytes);
 			account(ctx, policy);
 			*match_type = POLICY_MATCH_L3_L4;
-			if (unlikely(policy->deny))
+			if (unlikely(policy->deny)) {
+                printk("DROP_POLICY_DENY\n");
 				return DROP_POLICY_DENY;
+            }
+            printk("MDEBUG:= Return PROXY\n");
 			return policy->proxy_port;
 		}
 
@@ -143,9 +154,16 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
 			account(ctx, policy);
+            printk("MDEBUG:=POLICY_MATCH_L4_ONLY proxy_port:%d deny:%d\n",
+                    policy->proxy_port, policy->deny);
+            printk("packets: %llu bytes:%llu\n",
+                    policy->packets, policy->bytes);
 			*match_type = POLICY_MATCH_L4_ONLY;
-			if (unlikely(policy->deny))
+			if (unlikely(policy->deny)) {
+                printk("MDEBUG:= DROP_POLICY_DENY\n");
 				return DROP_POLICY_DENY;
+            }
+            printk("MDEBUG:= Return PROXY\n");
 			return policy->proxy_port;
 		}
 		key.sec_label = remoteID;
@@ -156,10 +174,17 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
+        printk("MDEBUG:=POLICY_MATCH_L3_ONLY proxy_port:%d deny:%d\n",
+                policy->proxy_port, policy->deny);
+        printk("packets: %llu bytes:%llu\n",
+                policy->packets, policy->bytes);
 		account(ctx, policy);
 		*match_type = POLICY_MATCH_L3_ONLY;
-		if (unlikely(policy->deny))
+		if (unlikely(policy->deny)) {
+            printk("MDEBUG:= DROP_POLICY_DENY\n");
 			return DROP_POLICY_DENY;
+        }
+        printk("MDEBUG:= CTX_ACT_OK\n");
 		return CTX_ACT_OK;
 	}
 
@@ -167,19 +192,31 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (policy) {
+        printk("MDEBUG:=POLICY_MATCH_ALL proxy_port:%d deny:%d\n",
+                policy->proxy_port, policy->deny);
+        printk("packets: %llu bytes:%llu\n",
+                policy->packets, policy->bytes);
 		account(ctx, policy);
 		*match_type = POLICY_MATCH_ALL;
-		if (unlikely(policy->deny))
+		if (unlikely(policy->deny)) {
+            printk("MDEBUG:= DROP_POLICY_DENY\n");
 			return DROP_POLICY_DENY;
+        }
+        printk("MDEBUG:= CTX_ACT_OK\n");
 		return CTX_ACT_OK;
 	}
 
-	if (ctx_load_meta(ctx, CB_POLICY))
+	if (ctx_load_meta(ctx, CB_POLICY)) {
+        printk("MDEBUG:= CTX_ACT_OK\n");
 		return CTX_ACT_OK;
+    }
 
-	if (is_untracked_fragment)
+	if (is_untracked_fragment) {
+        printk("MDEBUG:= DROP_FRAG_NOSUPPORT\n");
 		return DROP_FRAG_NOSUPPORT;
+    }
 
+    printk("MDEBUG:= DROP_POLICY_DENY\n");
 	return DROP_POLICY;
 }
 
@@ -205,6 +242,7 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 			  __u8 *match_type, __u8 *audited)
 {
 	int ret;
+    //printk("MDEBUG:= policy_can_access_ingress\n");
 
 	ret = __policy_can_access(&POLICY_MAP, ctx, dstID, srcID, dport,
 				  proto, CT_INGRESS, is_untracked_fragment,

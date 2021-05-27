@@ -1170,6 +1170,9 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	}
 
 	var err error
+	fmt.Println("MDEBUG: Identity:", keyToAdd.Identity, "dPort:", keyToAdd.DestPort)
+	fmt.Printf("MDBEUG: policykey: %v\n", policymapKey)
+	fmt.Printf("MDBEUG: entry : %v\n", entry)
 	if entry.IsDeny {
 		err = e.policyMap.DenyKey(policymapKey)
 	} else {
