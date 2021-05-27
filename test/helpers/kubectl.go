@@ -4244,6 +4244,24 @@ func (kub *Kubectl) WaitForIPCacheEntry(node, ipAddr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+func (kub *Kubectl) WaitForEgressPolicyEntry(node, ipAddr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`cilium bpf egress list | grep -q %s`, ipAddr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("egress policy entry for %s was not found in time", ipAddr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // RepeatCommandInBackground runs command on repeat in goroutine until quit channel
 // is closed and closes run channel when command is first run
 func (kub *Kubectl) RepeatCommandInBackground(cmd string) (quit, run chan struct{}) {
@@ -4391,6 +4409,7 @@ func GenerateNamespaceForTest(seed string) string {
 	replaced := strings.Replace(lowered, " ", "", -1)
 	replaced = strings.Replace(replaced, "_", "", -1)
 	replaced = strings.Replace(replaced, "/", "", -1)
+	replaced = strings.Replace(replaced, "-", "", -1)
 
 	timestamped := time.Now().Format("200601021504") + seed + replaced
 
