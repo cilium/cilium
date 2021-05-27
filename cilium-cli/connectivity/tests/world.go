@@ -47,45 +47,32 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	chttps := check.HTTPEndpoint("cilium-io-https", "https://cilium.io")
 	jhttp := check.HTTPEndpoint("jenkins-cilium-io-http", "http://jenkins.cilium.io")
 
-	// With https, over port 443.
-	if client := t.Context().RandomClientPod(); client != nil {
-		cmd := curl(chttps)
-
-		t.NewAction(s, "https-to-cilium-io", client, chttps).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, cmd)
-
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
-				DNSRequired: true,
-				RSTAllowed:  true,
-			}))
-		})
+	fp := check.FlowParameters{
+		DNSRequired: true,
+		RSTAllowed:  true,
 	}
 
-	// With http, over port 80.
-	if client := t.Context().RandomClientPod(); client != nil {
-		cmd := curl(chttp)
+	var i int
 
-		t.NewAction(s, "http-to-cilium-io", client, chttp).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, cmd)
-
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
-				DNSRequired: true,
-				RSTAllowed:  true,
-			}))
+	for _, client := range t.Context().ClientPods() {
+		// With https, over port 443.
+		t.NewAction(s, fmt.Sprintf("https-to-cilium-io-%d", i), &client, chttps).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(chttps))
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
-	}
 
-	// With http to jenkins.cilium.io
-	if client := t.Context().RandomClientPod(); client != nil {
-		cmd := curl(jhttp)
-
-		t.NewAction(s, "http-to-jenkins-cilium", client, jhttp).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, cmd)
-
-			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
-				DNSRequired: true,
-				RSTAllowed:  true,
-			}))
+		// With http, over port 80.
+		t.NewAction(s, fmt.Sprintf("http-to-cilium-io-%d", i), &client, chttp).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(chttp))
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
+
+		// With http to jenkins.cilium.io.
+		t.NewAction(s, fmt.Sprintf("http-to-jenkins-cilium-%d", i), &client, jhttp).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(jhttp))
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+		})
+
+		i++
 	}
 }
