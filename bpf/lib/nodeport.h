@@ -629,7 +629,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	bool l2_hdr_required = true;
 
 	target.addr = tmp;
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 	if (dir == NAT_DIR_EGRESS) {
 		struct remote_endpoint_info *info;
 		union v6addr *dst;
@@ -686,7 +686,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
 	}
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 	if (fib_params.l.ifindex == ENCAP_IFINDEX)
 		goto out_send;
 #endif
@@ -961,7 +961,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 		bpf_mark_snat_done(ctx);
 
 		*ifindex = ct_state.ifindex;
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 		{
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
 			struct remote_endpoint_info *info;
@@ -1069,7 +1069,7 @@ declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 		    CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
-#if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr addr = { .p1 = 0 };
 	BPF_V6(addr, ROUTER_IP);
 #else
@@ -1122,7 +1122,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in NodePort and BPF-masq.
 	 */
-#if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	if (ip4->saddr == IPV4_GATEWAY) {
 		*addr = IPV4_GATEWAY;
 		return true;
@@ -1143,7 +1143,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 		return true;
 	}
 # endif
-#endif /* defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY) */
+#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
@@ -1185,7 +1185,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 			if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 				return false;
 #endif
-#ifndef ENCAP_IFINDEX
+#ifndef TUNNEL_MODE
 			/* In the tunnel mode, a packet from a local ep
 			 * to a remote node is not encap'd, and is sent
 			 * via a native dev. Therefore, such packet has
@@ -1612,7 +1612,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	bool l2_hdr_required = true;
 
 	target.addr = IPV4_DIRECT_ROUTING;
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 	if (dir == NAT_DIR_EGRESS) {
 		struct remote_endpoint_info *info;
 
@@ -1671,7 +1671,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
 	}
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 	if (fib_params.l.ifindex == ENCAP_IFINDEX)
 		goto out_send;
 #endif
@@ -1957,7 +1957,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		bpf_mark_snat_done(ctx);
 
 		*ifindex = ct_state.ifindex;
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 		{
 			struct remote_endpoint_info *info;
 

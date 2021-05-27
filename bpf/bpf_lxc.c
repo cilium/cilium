@@ -352,7 +352,7 @@ ct_recreate6:
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* The packet goes to a peer not managed by this agent instance */
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 # ifdef ENABLE_WIREGUARD
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
@@ -418,7 +418,7 @@ pass_to_stack:
 	if (dst_remote_ep)
 		set_encrypt_mark(ctx);
 	else
-#elif !defined(ENCAP_IFINDEX)
+#elif !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
@@ -440,7 +440,7 @@ pass_to_stack:
 #endif
 	}
 
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
@@ -812,7 +812,7 @@ ct_recreate4:
 skip_egress_gateway:
 #endif
 
-#ifdef ENCAP_IFINDEX
+#ifdef TUNNEL_MODE
 # ifdef ENABLE_WIREGUARD
 	/* In the tunnel mode we encapsulate pod2pod traffic only via Wireguard
 	 * device, i.e. we do not encapsulate twice.
@@ -840,7 +840,7 @@ skip_egress_gateway:
 		else
 			return ret;
 	}
-#endif /* ENCAP_IFINDEX */
+#endif /* TUNNEL_MODE */
 	if (is_defined(ENABLE_REDIRECT_FAST))
 		return redirect_direct_v4(ctx, l3_off, ip4);
 
@@ -866,7 +866,7 @@ pass_to_stack:
 	if (dst_remote_ep)
 		set_encrypt_mark(ctx);
 	else /* Wireguard and identity mark are mutually exclusive */
-#elif !defined(ENCAP_IFINDEX)
+#elif !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
@@ -888,7 +888,7 @@ pass_to_stack:
 #endif
 	}
 
-#ifdef ENCAP_IFINDEX
+#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
@@ -1146,14 +1146,14 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
-#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 	/* See comment in IPv4 path. */
 	ctx_change_type(ctx, PACKET_HOST);
 #else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
@@ -1448,7 +1448,7 @@ skip_policy_enforcement:
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
-#if !defined(ENABLE_ROUTING) && defined(ENCAP_IFINDEX) && !defined(ENABLE_NODEPORT)
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
 	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
 	 * redirect() because that would bypass conntrack and the reverse DNAT.
@@ -1462,7 +1462,7 @@ skip_policy_enforcement:
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_ep(ctx, ifindex, from_host);
-#endif /* ENABLE_ROUTING && ENCAP_IFINDEX && !ENABLE_NODEPORT */
+#endif /* ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
 }
