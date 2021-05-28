@@ -70,10 +70,10 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   repository: quay.io/cilium/cilium
-  tag: v1.9.7
+  tag: v1.9.8
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: "sha256:fe81537bc5df109e85f7f14487750c73fa1d802c72654a9bf392f1700d5ef512"
+  digest: ""
   useDigest: false
 
 # -- Pod affinity for cilium-agent.
@@ -550,10 +550,10 @@ hubble:
     # -- Hubble-relay container image.
     image:
       repository: quay.io/cilium/hubble-relay
-      tag: v1.9.7
+      tag: v1.9.8
       pullPolicy: IfNotPresent
        # hubble-relay-digest
-      digest: "sha256:cae0d25c445c1462a2d2efd639da746caab8b5d7d8cb06b1b00723bcd2b00fcd"
+      digest: ""
       useDigest: false
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1076,15 +1076,15 @@ operator:
   # -- cilium-operator image.
   image:
     repository: quay.io/cilium/operator
-    tag: v1.9.7
+    tag: v1.9.8
     pullPolicy: IfNotPresent
     suffix: ""
     # operator-generic-digest
-    genericDigest: "sha256:8f121bf312654de62eeec0076755411b088ce4c48843b174d206ea1b141fbb7c"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:79ea03a1670cbae124aa32654d4e43ea69bcdaa330725875786c21cb48ffb362"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:3bcc3b5815d8b70ada058071b1cdecaf99d0e11b4a628938a07d481d8805a1da"
+    awsDigest: ""
     useDigest: false
 
   # -- Number of replicas to run for the cilium-operator deployment
@@ -1285,10 +1285,10 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.9.7
+    tag: v1.9.8
     pullPolicy: IfNotPresent
     # cilium-digest
-    digest: "sha256:fe81537bc5df109e85f7f14487750c73fa1d802c72654a9bf392f1700d5ef512"
+    digest: ""
     useDigest: false
 
   priorityClassName: ""
@@ -1394,10 +1394,10 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: v1.9.7
+      tag: v1.9.8
       pullPolicy: IfNotPresent
       # clustermesh-apiserver-digest
-      digest: "sha256:930997952d88ca053c858b651a6dadcaa3868aca1d63ebd2fc0261976b89ad64"
+      digest: ""
       useDigest: false
 
     etcd:
