@@ -16,6 +16,7 @@
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/maintainers @cilium/ci-structure
 /cmd/ @cilium/cli
+/connectivity/ @cilium/policy
 /hubble/ @cilium/hubble
 /install/azure.go @cilium/azure
 /internal/cli/ @cilium/cli
