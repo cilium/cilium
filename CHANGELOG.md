@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.9.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Update k8s libraries to 1.19.11 (#16248, @nathanjsweet)
+* helm: add back 'wellKnownIdentities' (Backport PR #16224, Upstream PR #16142, @bmcustodio)
+
+**Bugfixes:**
+* daemon: Ignore cilium_* interfaces when deriving NodePort device (Backport PR #16270, Upstream PR #16104, @eyanulis)
+* Fixed bug causing policy realization being skipped in some scenarios with endpoint identity churn. (Backport PR #16339, Upstream PR #16271, @jrajahalme)
+* Ignore K8s namespace events that have the same labels (Backport PR #16339, Upstream PR #16268, @aanm)
+* loader: Revert incorrect initialization of endpoints in chaining mode (Backport PR #16339, Upstream PR #16227, @pchaigno)
+
+**CI Changes:**
+* ci: add slack notification to GH actions (Backport PR #16270, Upstream PR #16218, @nebril)
+* examples, connectivity-check, test: Use even-numbered nodePort (Backport PR #16270, Upstream PR #16158, @christarazi)
+* Improve ipsec compile-time testing in CI (Backport PR #16224, Upstream PR #15872, @joestringer)
+* node-neigh: Fix unit test flake (Backport PR #16224, Upstream PR #16072, @brb)
+* test: add e2e tests for fromEntities: cluster and all (Backport PR #16224, Upstream PR #15398, @chez-shanpu)
+* test: Extend coverage for host policies enforcement (Backport PR #16224, Upstream PR #14822, @pchaigno)
+* test: Fix the search for VIPs in `cilium service list` (Backport PR #16224, Upstream PR #15968, @pchaigno)
+* test: Mark GKE CI pipeline as running Linux 4.19 (Backport PR #16224, Upstream PR #14639, @pchaigno)
+* test: Misc improvements (Backport PR #16224, Upstream PR #16064, @pchaigno)
+
+**Misc Changes:**
+* contrib: Make upstream commit check more generic (Backport PR #16224, Upstream PR #16160, @joestringer)
+* docs, gsg: add link to plumbers talk on service lb mechanisms (Backport PR #16224, Upstream PR #16171, @borkmann)
+* docs, gsg: minor edits to kpr guide and note on hybrid use (Backport PR #16224, Upstream PR #16169, @borkmann)
+* docs: gsg/operations - use parsed-literal for all blocks referring SCM_WEB (Backport PR #16173, Upstream PR #15963, @ti-mo)
+* docs: add ids to the list of special identities (Backport PR #16224, Upstream PR #16123, @bmcustodio)
+* docs: add information about ConfigMap updates (Backport PR #16224, Upstream PR #16141, @aanm)
+* docs: Clarify coordination for backporting process (Backport PR #16270, Upstream PR #15989, @christarazi)
+* Improve author attribution scripts (Backport PR #16224, Upstream PR #15899, @joestringer)
+* Specify scrape interval for Hubble metrics (Backport PR #16224, Upstream PR #16214, @christian-2)
+
+**Other Changes:**
+* install: Update image digests for v1.9.7 (#16133, @joestringer)
+* v1.9: Revert broken tests (#16333, @twpayne)
+
 ## v1.9.7
 
 Summary of Changes
