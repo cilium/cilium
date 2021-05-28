@@ -107,7 +107,10 @@ jobs:
             --azure-client-secret ${{ secrets.AZURE_PR_SP_CLIENT_SECRET }} \
             --wait=false \
             --config monitor-aggregation=none"
+          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --relay-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
+          echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -175,7 +178,7 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cilium hubble enable
+          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -202,7 +205,7 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cilium hubble enable
+          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |

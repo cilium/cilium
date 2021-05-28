@@ -103,7 +103,10 @@ jobs:
             --version=${SHA} \
             --wait=false \
             --config monitor-aggregation=none"
+          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --relay-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
+          echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -191,8 +194,8 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cilium hubble enable --context ${{ steps.contexts.outputs.context1 }}
-          cilium hubble enable --context ${{ steps.contexts.outputs.context2 }}
+          cilium hubble enable --context ${{ steps.contexts.outputs.context1 }} ${{ steps.vars.outputs.hubble_enable_defaults }}
+          cilium hubble enable --context ${{ steps.contexts.outputs.context2 }} ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
