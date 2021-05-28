@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/k8s"
 )
 
@@ -98,10 +97,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
-	if k.params.Version == "" {
-		k.Log("ℹ️  Cilium version not set, using default version %q", defaults.Version)
-		k.params.Version = defaults.Version
-	}
+	k.Log("ℹ️  using Cilium version %q", k.params.Version)
 
 	if k.params.ClusterName == "" {
 		if f.ClusterName != "" {

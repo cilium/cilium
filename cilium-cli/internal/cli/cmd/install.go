@@ -60,7 +60,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace to install Cilium into")
 	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
-	cmd.Flags().StringVar(&params.Version, "version", "", "Cilium version to install")
+	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use")
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
 	cmd.Flags().StringVar(&params.NativeRoutingCIDR, "native-routing-cidr", "", "CIDR within which native routing is possible")
@@ -146,7 +146,7 @@ cilium upgrade --version v1.9.8
 	}
 
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace to install Cilium into")
-	cmd.Flags().StringVar(&params.Version, "version", "", "Cilium version to install")
+	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait for status")
