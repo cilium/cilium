@@ -509,8 +509,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
 			}
 		}
-
-		ctmap.WriteBPFMacros(fw, nil)
 	}
 
 	if option.Config.AllowICMPFragNeeded {
