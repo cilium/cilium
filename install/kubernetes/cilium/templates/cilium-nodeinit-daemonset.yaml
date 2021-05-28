@@ -243,7 +243,14 @@ spec:
                 done
               else
                 # COS-beta (with containerd). Some versions of COS have crictl in /home/kubernetes/bin.
-                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do PATH="${PATH}:/home/kubernetes/bin" crictl stopp "$(sed 's/\r//;1q' $f)" || true; done
+                echo "Checking /var/lib/cni/networks/"
+                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0 2>/dev/null || true`; do PATH="${PATH}:/home/kubernetes/bin" crictl stopp "$(sed 's/\r//;1q' $f)" || true; done
+                # AKS 1.18.X uses /var/lib/cni/cache/results and docker
+                echo "Checking /var/lib/cni/cache/results/"
+                for f in `find /var/lib/cni/cache/results/ -type f ! -name "cilium-*" ! -name "cni-loopback-*" -printf "%f\n" 2>/dev/null || true`; do IFS="-" read -a id <<<"$f" ; docker kill ${id[1]} || true; done
+                # AKS 1.19.X and higher uses /var/lib/cni/results. Tested with: AKS 1.19.X, 1.20.X, 1.21.X
+                echo "Checking /var/lib/cni/results/"
+                for f in `find /var/lib/cni/results/ -type f ! -name "cilium-*" ! -name "cni-loopback-*" 2>/dev/null || true`; do PATH="${PATH}:/home/kubernetes/bin" crictl stopp "$(sed 's/\r//;1q' $f | jq .containerId | tr -d '"')" || true; done
               fi
 {{- end }}
 
