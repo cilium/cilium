@@ -15,7 +15,13 @@ on:
   ###
 
 concurrency:
-  group: "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }} ${{ github.event.comment.body }}"
+  # In case of PR comment, we can't simply append the comment to the group name
+  # as that is too long and results in an error. Instead we check if it's a
+  # trigger phrase and append a simple 'trigger-phrase'.
+  group: |
+    "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }}
+     ${{ (startsWith(github.event.comment.body, 'ci-aks') ||
+          startsWith(github.event.comment.body, 'test-me-please')) && 'trigger-phrase' }}"
   cancel-in-progress: true
 
 env:
