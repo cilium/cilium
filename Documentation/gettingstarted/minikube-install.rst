@@ -39,9 +39,10 @@
 .. note::
 
    From minikube v1.12.1+, cilium networking plugin can be enabled directly with
-   ``--network-plugin=cilium`` parameter in ``minikube start`` command. With this
+   ``--cni=cilium`` parameter in ``minikube start`` command. With this
    flag enabled, ``minikube`` will not only mount eBPF file system but also
-   deploy ``quick-install.yaml`` automatically.
+   deploy ``quick-install.yaml`` automatically. However, this may not install
+   the latest version of cilium.
 
 4. Mount the eBPF filesystem
 
