@@ -49,6 +49,9 @@ var (
 
 	//go:embed manifests/client-egress-l7-http.yaml
 	clientEgressL7HTTPPolicyYAML string
+
+	//go:embed manifests/echo-ingress-l7-http.yaml
+	echoIngressL7HTTPPolicyYAML string
 )
 
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
@@ -180,6 +183,24 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				// Outbound HTTP to cilium.io is L7-introspected and allowed.
 				(a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" ||
 					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
+				egress = check.ResultOK
+				// Expect all curls from client2 to be proxied and to be GET calls.
+				egress.HTTP = check.HTTP{
+					Method: "GET",
+				}
+				return egress, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultNone
+		})
+
+	// Test L7 HTTP introspection using an ingress policy on echo pods.
+	ct.NewTest("echo-ingress-l7").
+		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
+		WithScenarios(
+			tests.PodToPod(""),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
 				egress = check.ResultOK
 				// Expect all curls from client2 to be proxied and to be GET calls.
 				egress.HTTP = check.HTTP{
