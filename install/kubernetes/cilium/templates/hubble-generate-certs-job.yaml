@@ -1,10 +1,19 @@
 {{- if and .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") }}
+{{/*
+Because Kubernetes job specs are immutable, Helm will fail patch this job if
+the spec changes between releases. To avoid breaking the upgrade path, we
+generate a name for the job here which is based on the checksum of the spec.
+This will cause the name of the job to change if its content changes,
+and in turn cause Helm to do delete the old job and replace it with a new one.
+*/}}
+{{- $jobSpec := include "hubble-generate-certs.job.spec" . -}}
+{{- $checkSum := $jobSpec | sha256sum | trunc 10 -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: hubble-generate-certs
+  name: hubble-generate-certs-{{$checkSum}}
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: hubble-generate-certs
-{{ include "hubble-generate-certs.job.spec" . }}
+{{ $jobSpec }}
 {{- end }}
