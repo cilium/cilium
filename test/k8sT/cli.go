@@ -160,7 +160,8 @@ var _ = Describe("K8sCLI", func() {
 				countAfterK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Policy denied by denylist", "ingress")
 				countAfterK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Policy denied by denylist", "ingress")
 
-				Expect((countAfterK8s1 + countAfterK8s2) - (countBeforeK8s1 + countBeforeK8s2)).To(Equal(3))
+				Expect((countAfterK8s1 + countAfterK8s2) - (countBeforeK8s1 + countBeforeK8s2)).
+					To(BeNumerically(">", 0))
 
 				_, err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3L4DenyPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
