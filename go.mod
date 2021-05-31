@@ -41,7 +41,7 @@ require (
 	github.com/go-openapi/validate v0.20.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.6
 	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.18
 	github.com/google/renameio v1.0.0
