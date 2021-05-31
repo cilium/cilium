@@ -25,7 +25,7 @@ jobs:
           
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@26968a09c0ea4f3e233fdddbafd1166051a095f6
+        uses: actions/cache@v2.1.6
         with:
           path: $HOME/.clang
           key: llvm-10.0
