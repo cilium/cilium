@@ -1,0 +1,25 @@
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  namespace: cilium-test
+  name: echo-ingress-l7-http
+spec:
+  description: "Allow other client to GET / on echo"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  # Only allow 'other' client to make a GET / request.
+  # Disallow L3 traffic for now, flow matcher doesn't yet support L7 drops.
+  - fromEndpoints:
+    - matchLabels:
+        k8s:other: client
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
