@@ -91,8 +91,6 @@ var (
 		},
 	}
 
-	// Deprecated: remove in 1.9
-	apiServerPort  uint16
 	shutdownSignal = make(chan struct{})
 
 	ciliumK8sClient clientset.Interface
@@ -205,7 +203,7 @@ func kvstoreEnabled() bool {
 
 func getAPIServerAddr() []string {
 	if operatorOption.Config.OperatorAPIServeAddr == "" {
-		return []string{fmt.Sprintf("127.0.0.1:%d", apiServerPort), fmt.Sprintf("[::1]:%d", apiServerPort)}
+		return []string{"127.0.0.1:0", "[::1]:0"}
 	}
 	return []string{operatorOption.Config.OperatorAPIServeAddr}
 }
