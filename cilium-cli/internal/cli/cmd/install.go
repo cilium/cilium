@@ -124,11 +124,11 @@ func newCmdUpgrade() *cobra.Command {
 		Long: `Upgrade Cilium in a Kubernetes cluster
 
 Examples:
-# Upgrade Cilium to the latest micro release:
+# Upgrade Cilium to the latest patch release:
 cilium upgrade
 
 # Upgrade Cilium to a specific version
-cilium upgrade --version v1.9.7
+cilium upgrade --version v1.9.8
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			installer, err := install.NewK8sInstaller(k8sClient, params)
