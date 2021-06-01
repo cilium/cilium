@@ -1,8 +1,16 @@
 name: codeql
 
 on:
-  push: {}
-  pull_request: {}
+  push:
+    paths:
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+  pull_request:
+    paths:
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
   schedule:
     - cron: "45 6 * * 3"
 
