@@ -9,9 +9,9 @@ on:
   schedule:
     - cron:  '0 4/6 * * *'
   ### FOR TESTING PURPOSES
-  # pull_request:
-  #  types:
-  #    - "labeled"
+  pull_request:
+   types:
+     - "labeled"
   ###
 
 concurrency:
@@ -100,14 +100,6 @@ jobs:
   # When the test-me-please trigger is used, this job is skipped if the only
   # modified files were under test/ or Documentation/.
   installation-and-connectivity:
-    needs: check_changes
-    if: |
-      (github.event.issue.pull_request && (
-        startsWith(github.event.comment.body, 'ci-external-workloads') ||
-        (startsWith(github.event.comment.body, 'test-me-please'))
-      )) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
-      github.event.label.name == 'ci-run/external-workloads'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -265,8 +257,8 @@ jobs:
       - name: Clean up GKE cluster and VM
         if: ${{ always() }}
         run: |
-          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
-          gcloud compute instances delete ${{ env.vmName }} --zone ${{ env.zone }} --quiet
+          echo "gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async"
+          echo "gcloud compute instances delete ${{ env.vmName }} --zone ${{ env.zone }} --quiet"
         shell: bash {0}
 
       - name: Upload artifacts
