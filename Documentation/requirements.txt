@@ -29,5 +29,5 @@ sphinxcontrib-websupport==1.1.0
 sphinx-tabs==1.1.13
 sphinx-version-warning==1.1.2
 typing==3.6.6
-urllib3==1.24.2
+urllib3==1.26.5
 yamllint==1.22.0
