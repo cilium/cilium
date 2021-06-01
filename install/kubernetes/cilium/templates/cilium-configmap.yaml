@@ -540,15 +540,22 @@ data:
   enable-auto-protect-node-port-range: {{ .Values.nodePort.autoProtectPortRange | quote }}
 {{- end }}
 {{- if hasKey .Values "loadBalancer" }}
+{{- if .Values.loadBalancer.standalone }}
+  datapath-mode: lb-only
+{{- end }}
 {{- if hasKey .Values.loadBalancer "mode" }}
-  node-port-mode: {{ .Values.loadBalancer.mode | quote }}
+  bpf-lb-mode: {{ .Values.loadBalancer.mode | quote }}
 {{- end }}
 {{- if hasKey .Values.loadBalancer "algorithm" }}
   bpf-lb-algorithm: {{ .Values.loadBalancer.algorithm | quote }}
 {{- end }}
 {{- if hasKey .Values.loadBalancer "acceleration" }}
-  node-port-acceleration: {{ .Values.loadBalancer.acceleration | quote }}
+  bpf-lb-acceleration: {{ .Values.loadBalancer.acceleration | quote }}
 {{- end }}
+{{- if hasKey .Values.loadBalancer "dsrDispatch" }}
+  bpf-lb-dsr-dispatch: {{ .Values.loadBalancer.dsrDispatch | quote }}
+{{- end }}
+
 {{- end }}
 {{- if hasKey .Values.maglev "tableSize" }}
   bpf-lb-maglev-table-size: {{ .Values.maglev.tableSize | quote}}

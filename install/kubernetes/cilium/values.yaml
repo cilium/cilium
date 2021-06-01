@@ -952,18 +952,27 @@ monitor:
 
 # -- Configure service load balancing
 # loadBalancer:
-  # algorithm is the name of the load balancing algorithm for backend
-  # selection e.g. random or maglev
-  # algorithm: "random"
+  # -- standalone enables the standalone L4LB which does not connect to
+  # kube-apiserver.
+  # standalone: false
 
-  # mode is the operation mode of load balancing for remote backends
+  # -- algorithm is the name of the load balancing algorithm for backend
+  # selection e.g. random or maglev
+  # algorithm: random
+
+  # -- mode is the operation mode of load balancing for remote backends
   # e.g. snat, dsr, hybrid
   # mode: snat
 
-  # acceleration is the option to accelerate service handling via XDP
+  # -- acceleration is the option to accelerate service handling via XDP
   # e.g. native, disabled
   # acceleration: disabled
 
+  # -- dsrDispatch configures whether IP option or IPIP encapsulation is
+  # used to pass a service IP and port to remote backend
+  # dsrDispatch: opt
+
+# -- Configure N-S k8s service loadbalancing
 nodePort:
   # -- Enable the Cilium NodePort service implementation.
   enabled: false
