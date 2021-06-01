@@ -255,6 +255,11 @@ type PodSpec struct {
 	// +k8s:conversion-gen=false
 	// +optional
 	HostNetwork bool `json:"hostNetwork,omitempty" protobuf:"varint,11,opt,name=hostNetwork"`
+	// NodeName is a request to schedule this pod onto a specific node. If it is non-empty,
+	// the scheduler simply schedules this pod onto that node, assuming that it fits resource
+	// requirements.
+	// +optional
+	NodeName string `json:"nodeName,omitempty" protobuf:"bytes,10,opt,name=nodeName"`
 }
 
 // IP address information for entries in the (plural) PodIPs field.
