@@ -58,7 +58,7 @@ contributors across the globe, there is almost always someone available to help.
 | alibabacloud.enabled | bool | `false` | Enable AlibabaCloud ENI integration |
 | autoDirectNodeRoutes | bool | `false` |  |
 | azure.enabled | bool | `false` | Enable Azure integration |
-| bandwidthManager | bool | `true` | Optimize TCP and UDP workloads and enable rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
+| bandwidthManager | bool | `false` | Optimize TCP and UDP workloads and enable rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
 | bgp | object | `{"announce":{"loadbalancerIP":false},"enabled":false}` | Configure BGP |
 | bgp.announce.loadbalancerIP | bool | `false` | Enable allocation and announcement of service LoadBalancer IPs |
 | bgp.enabled | bool | `false` | Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside cilium-agent and cilium-operator |
