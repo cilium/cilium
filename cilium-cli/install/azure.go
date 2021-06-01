@@ -52,7 +52,7 @@ type aksClusterInfo struct {
 }
 
 type accountInfo struct {
-	ID string `json:"id"`
+	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
