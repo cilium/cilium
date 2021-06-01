@@ -7,7 +7,7 @@ on:
     - cron:  '30 */6 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || 'scheduled' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'scheduled' }}
   cancel-in-progress: true
 
 env:
