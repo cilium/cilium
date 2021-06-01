@@ -1,0 +1,72 @@
+name: RST checks
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths:
+      - '**.rst'
+  workflow_dispatch:
+    inputs:
+      reportType:
+        description: 'rstcheck report type'
+        required: true
+        default: 'error'
+      rstfiles:
+        description: "RST files to find e.g.: -name 'README.rst' -o -name 'kind*.rst'"
+        required: true
+        default: "-name '*.rst'"
+      rstpaths:
+        description: "Paths to find e.g.: ./Documentation ./bpf"
+        required: true
+        default: "./"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  check-rst:
+    name: Validate RST files
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set RST files for checking (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "RST_FILES<<EOF" >> $GITHUB_ENV
+          find ${{ github.event.inputs.rstpaths }} -type f \( ${{ github.event.inputs.rstfiles }} \) >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Set RST files for checking (pull_request)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          echo "RST_FILES<<EOF" >> $GITHUB_ENV
+          git diff --name-only --diff-filter=ACMRT ${{ github.event.before }} ${{ github.event.after }} | grep '\.rst$' >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: RST files not found
+        if: ${{ env.RST_FILES == '' }}
+        run: |
+          echo "RST files not found." && false
+
+      - name: Install rstcheck and dependencies
+        run: |
+          sudo apt-get install python3-setuptools
+          sudo python -m pip install --upgrade pip
+          sudo pip install rstcheck
+
+      - name: Check RST files (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "${{ env.RST_FILES }}" | xargs rstcheck --report ${{ github.event.inputs.reporttype }}
+
+      - name: Check RST files (pull_request)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          echo "${{ env.RST_FILES }}" | xargs rstcheck --report error
+
