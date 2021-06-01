@@ -72,24 +72,12 @@ func (f *fakeDatapath) InstallProxyRules(uint16, bool, string) error {
 	return nil
 }
 
-func (f *fakeDatapath) RemoveProxyRules(uint16, bool, string) error {
-	return nil
-}
-
 func (f *fakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (f *fakeDatapath) RemoveRules(quiet bool) {}
-
-func (f *fakeDatapath) InstallRules(ifName string) error {
+func (f *fakeDatapath) InstallRules(ifName string, quiet, install bool) error {
 	return nil
-}
-func (f *fakeDatapath) TransientRulesStart(ifName string) error {
-	return nil
-}
-func (f *fakeDatapath) TransientRulesEnd(quiet bool) {
-	return
 }
 
 func (m *fakeDatapath) GetProxyPort(name string) uint16 {

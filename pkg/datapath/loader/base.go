@@ -453,25 +453,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if option.Config.InstallIptRules {
-		if err := iptMgr.TransientRulesStart(option.Config.HostDevice); err != nil {
-			log.WithError(err).Warning("failed to install transient iptables rules")
-		}
+	if err := iptMgr.InstallRules(option.Config.HostDevice, firstInitialization, option.Config.InstallIptRules); err != nil {
+		return err
 	}
-	// The iptables rules are only removed on the first initialization to
-	// remove stale rules or when iptables is enabled. The first invocation
-	// is silent as rules may not exist.
-	if firstInitialization || option.Config.InstallIptRules {
-		iptMgr.RemoveRules(firstInitialization)
-	}
-	if option.Config.InstallIptRules {
-		err := iptMgr.InstallRules(option.Config.HostDevice)
-		iptMgr.TransientRulesEnd(false)
-		if err != nil {
-			return err
-		}
-	}
-	// Reinstall proxy rules for any running proxies
+
+	// Reinstall proxy rules for any running proxies if needed
 	if p != nil {
 		p.ReinstallRules()
 	}
