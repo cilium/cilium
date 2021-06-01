@@ -1246,7 +1246,6 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			"install-no-conntrack-iptables-rules": "false",
 
 			"auto-direct-node-routes":             "false",
-			"enable-bandwidth-manager":            "true",
 			"enable-local-redirect-policy":        "false",
 			"enable-health-check-nodeport":        "true",
 			"node-port-bind-protection":           "true",
