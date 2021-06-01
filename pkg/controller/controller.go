@@ -149,6 +149,7 @@ type Controller struct {
 	uuid              string
 	stop              chan struct{}
 	update            chan struct{}
+	trigger           chan struct{}
 	ctxDoFunc         context.Context
 	cancelDoFunc      context.CancelFunc
 
@@ -178,6 +179,14 @@ func (c *Controller) GetLastError() error {
 	defer c.mutex.RUnlock()
 
 	return c.lastError
+}
+
+// Trigger triggers the controller
+func (c *Controller) Trigger() {
+	select {
+	case c.trigger <- struct{}{}:
+	default:
+	}
 }
 
 // GetLastErrorTimestamp returns the last error returned
@@ -283,6 +292,7 @@ func (c *Controller) runController() {
 			runFunc = true
 
 		case <-runTimer.After(interval):
+		case <-c.trigger:
 		}
 
 	}
