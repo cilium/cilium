@@ -341,9 +341,8 @@ func GetMasqIPv4AddrsWithDevices() map[string]net.IP {
 }
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
-func SetIPv6NodeRange(net *net.IPNet) {
-	copy := *net
-	ipv6AllocRange = cidr.NewCIDR(&copy)
+func SetIPv6NodeRange(net *cidr.CIDR) {
+	ipv6AllocRange = net
 }
 
 // AutoComplete completes the parts of addressing that can be auto derived

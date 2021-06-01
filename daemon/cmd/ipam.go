@@ -386,12 +386,12 @@ func (d *Daemon) configureIPAM() {
 	}
 
 	if option.Config.IPv6Range != AutoCIDR {
-		_, net, err := net.ParseCIDR(option.Config.IPv6Range)
+		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv6Range)
 		if err != nil {
 			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
 		}
 
-		node.SetIPv6NodeRange(net)
+		node.SetIPv6NodeRange(allocCIDR)
 	}
 
 	if err := node.AutoComplete(); err != nil {
