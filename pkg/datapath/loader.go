@@ -64,18 +64,11 @@ type IptablesManager interface {
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
 
-	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
-	// rules for redirecting host proxy traffic on a specific ProxyPort)
-	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
-
 	// SupportsOriginalSourceAddr tells if the datapath supports
 	// use of original source addresses in proxy upstream
 	// connections.
 	SupportsOriginalSourceAddr() bool
-	RemoveRules(quiet bool)
-	InstallRules(ifName string) error
-	TransientRulesStart(ifName string) error
-	TransientRulesEnd(quiet bool)
+	InstallRules(ifName string, quiet, install bool) error
 
 	// GetProxyPort fetches the existing proxy port configured for the
 	// specified listener. Used early in bootstrap to reopen proxy ports.
