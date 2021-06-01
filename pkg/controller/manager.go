@@ -101,6 +101,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 			uuid:       uuid.New().String(),
 			stop:       make(chan struct{}),
 			update:     make(chan struct{}, 1),
+			trigger:    make(chan struct{}, 1),
 			terminated: make(chan struct{}),
 		}
 		ctrl.updateParamsLocked(params)
@@ -245,6 +246,16 @@ func (m *Manager) GetStatusModel() models.ControllerStatuses {
 	return statuses
 }
 
+// TriggerController triggers the controller with the specified name.
+func (m *Manager) TriggerController(name string) {
+	controller := m.lookup(name)
+	if controller == nil {
+		return
+	}
+
+	controller.Trigger()
+}
+
 // FakeManager returns a fake controller manager with the specified number of
 // failing controllers. The returned manager is identical in any regard except
 // for internal pointers.
@@ -259,6 +270,7 @@ func FakeManager(failingControllers int) *Manager {
 			uuid:              fmt.Sprintf("%d", i),
 			stop:              make(chan struct{}),
 			update:            make(chan struct{}, 1),
+			trigger:           make(chan struct{}, 1),
 			terminated:        make(chan struct{}),
 			lastError:         fmt.Errorf("controller failed"),
 			failureCount:      1,
