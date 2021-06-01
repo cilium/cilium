@@ -36,26 +36,26 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"github.com/sirupsen/logrus"
 
 	"github.com/blang/semver"
 	"github.com/mattn/go-shellwords"
 )
 
 const (
-	ciliumPrefix                = "CILIUM_"
-	ciliumInputChain            = "CILIUM_INPUT"
-	ciliumOutputChain           = "CILIUM_OUTPUT"
-	ciliumOutputRawChain        = "CILIUM_OUTPUT_raw"
-	ciliumPostNatChain          = "CILIUM_POST_nat"
-	ciliumOutputNatChain        = "CILIUM_OUTPUT_nat"
-	ciliumPreNatChain           = "CILIUM_PRE_nat"
-	ciliumPostMangleChain       = "CILIUM_POST_mangle"
-	ciliumPreMangleChain        = "CILIUM_PRE_mangle"
-	ciliumPreRawChain           = "CILIUM_PRE_raw"
-	ciliumForwardChain          = "CILIUM_FORWARD"
-	ciliumTransientForwardChain = "CILIUM_TRANSIENT_FORWARD"
-	feederDescription           = "cilium-feeder:"
-	xfrmDescription             = "cilium-xfrm-notrack:"
+	oldCiliumPrefix       = "OLD_CILIUM_"
+	ciliumInputChain      = "CILIUM_INPUT"
+	ciliumOutputChain     = "CILIUM_OUTPUT"
+	ciliumOutputRawChain  = "CILIUM_OUTPUT_raw"
+	ciliumPostNatChain    = "CILIUM_POST_nat"
+	ciliumOutputNatChain  = "CILIUM_OUTPUT_nat"
+	ciliumPreNatChain     = "CILIUM_PRE_nat"
+	ciliumPostMangleChain = "CILIUM_POST_mangle"
+	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
+	ciliumPreRawChain     = "CILIUM_PRE_raw"
+	ciliumForwardChain    = "CILIUM_FORWARD"
+	feederDescription     = "cilium-feeder:"
+	xfrmDescription       = "cilium-xfrm-notrack:"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -189,9 +189,6 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 	for scanner.Scan() {
 		rule := scanner.Text()
 		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering removing %s rule", prog)
-		if match != ciliumTransientForwardChain && strings.Contains(rule, ciliumTransientForwardChain) {
-			continue
-		}
 
 		// All rules installed by cilium either belong to a chain with
 		// the name CILIUM_ or call a chain with the name CILIUM_:
@@ -203,8 +200,7 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 			// disabled chains
 			skipFeeder := false
 			for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-				// we skip if the match is ciliumTransientForwardChain since we don't want to touch it
-				if match != ciliumTransientForwardChain && strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
+				if strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
 					log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
 					skipFeeder = true
 					break
@@ -232,21 +228,29 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 	}
 }
 
+func (c *customChain) doRename(prog iptablesInterface, waitArgs []string, name string, quiet bool) {
+	args := append(waitArgs, "-t", c.table, "-E", c.name, name)
+	operation := "rename"
+	combinedOutput, err := prog.runProgCombinedOutput(args, true)
+	if err != nil && !quiet {
+		log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s %s chain %s: %s", operation, prog, c.name, string(combinedOutput))
+	}
+}
+
+func (c *customChain) rename(waitArgs []string, name string, quiet bool) {
+	if option.Config.EnableIPv4 {
+		c.doRename(ip4tables, waitArgs, name, quiet)
+	}
+	if option.Config.EnableIPv6 && c.ipv6 {
+		c.doRename(ip6tables, waitArgs, name, quiet)
+	}
+}
+
 func (c *customChain) remove(waitArgs []string, quiet bool) {
 	doProcess := func(c *customChain, prog iptablesInterface, args []string, operation string, quiet bool) {
 		combinedOutput, err := prog.runProgCombinedOutput(args, true)
-		if err != nil {
-			// If the chain is for transient rules and deletion
-			// fails for a reason other than the chain not being
-			// present, log the error.
-			// This is to help debug #11276.
-			msgChainNotFound := ": No chain/target/match by that name.\n"
-			debugTransientRules := c.name == ciliumTransientForwardChain &&
-				string(combinedOutput) != prog.getProg()+msgChainNotFound
-			if !quiet || debugTransientRules {
-				log.Warnf(string(combinedOutput))
-				log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to process chain %s with %s (%s)", c.name, prog, operation)
-			}
+		if err != nil && !quiet {
+			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s %s chain %s: %s", operation, prog.getProg(), c.name, string(combinedOutput))
 		}
 	}
 	doRemove := func(c *customChain, prog iptablesInterface, waitArgs []string, quiet bool) {
@@ -361,13 +365,6 @@ var ciliumChains = []customChain{
 	},
 }
 
-var transientChain = customChain{
-	name:       ciliumTransientForwardChain,
-	table:      "filter",
-	hook:       "FORWARD",
-	feederArgs: []string{""},
-}
-
 // IptablesManager manages the iptables-related configuration for Cilium.
 type IptablesManager struct {
 	haveIp6tables        bool
@@ -466,31 +463,32 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
 }
 
-// RemoveRules removes iptables rules installed by Cilium.
-func (m *IptablesManager) RemoveRules(quiet bool) {
+// removeOldRules removes iptables rules installed by Cilium.
+func (m *IptablesManager) removeOldRules(quiet bool) {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		m.removeCiliumRules(t, ip4tables, ciliumPrefix)
+		m.removeCiliumRules(t, ip4tables, oldCiliumPrefix)
 	}
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.haveIp6tables {
 		tables6 := []string{"mangle", "raw", "filter"}
 		for _, t := range tables6 {
-			m.removeCiliumRules(t, ip6tables, ciliumPrefix)
+			m.removeCiliumRules(t, ip6tables, oldCiliumPrefix)
 		}
 	}
 
 	for _, c := range ciliumChains {
+		c.name = "OLD_" + c.name
 		c.remove(m.waitArgs, quiet)
 	}
 }
 
-func (m *IptablesManager) ingressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string {
+func (m *IptablesManager) ingressProxyRule(l4Match, markMatch, mark, port, name string) []string {
 	return append(m.waitArgs,
 		"-t", "mangle",
-		cmd, ciliumPreMangleChain,
+		"-A", ciliumPreMangleChain,
 		"-p", l4Match,
 		"-m", "mark", "--mark", markMatch,
 		"-m", "comment", "--comment", "cilium: TPROXY to host "+name+" proxy",
@@ -519,7 +517,7 @@ func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
 		"--set-mark", toProxyMark)
 }
 
-func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
+func (m *IptablesManager) iptIngressProxyRule(rules string, prog iptablesInterface, l4proto string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
 	ingressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
@@ -527,26 +525,17 @@ func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyP
 	ingressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
 	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
 
-	var err error
-	if option.Config.EnableIPv4 {
-		err = ip4tables.runProg(
-			m.ingressProxyRule(cmd, l4proto, ingressMarkMatch,
-				ingressProxyMark, ingressProxyPort, name),
-			false)
+	if strings.Contains(rules, fmt.Sprintf("CILIUM_PRE_mangle -p %s -m mark --mark %s", l4proto, ingressMarkMatch)) {
+		return nil
 	}
-	if err == nil && option.Config.EnableIPv6 {
-		err = ip6tables.runProg(
-			m.ingressProxyRule(cmd, l4proto, ingressMarkMatch,
-				ingressProxyMark, ingressProxyPort, name),
-			false)
-	}
-	return err
+
+	return prog.runProg(m.ingressProxyRule(l4proto, ingressMarkMatch, ingressProxyMark, ingressProxyPort, name), false)
 }
 
-func (m *IptablesManager) egressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string {
+func (m *IptablesManager) egressProxyRule(l4Match, markMatch, mark, port, name string) []string {
 	return append(m.waitArgs,
 		"-t", "mangle",
-		cmd, ciliumPreMangleChain,
+		"-A", ciliumPreMangleChain,
 		"-p", l4Match,
 		"-m", "mark", "--mark", markMatch,
 		"-m", "comment", "--comment", "cilium: TPROXY to host "+name+" proxy",
@@ -555,7 +544,7 @@ func (m *IptablesManager) egressProxyRule(cmd, l4Match, markMatch, mark, port, n
 		"--on-port", port)
 }
 
-func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
+func (m *IptablesManager) iptEgressProxyRule(rules string, prog iptablesInterface, l4proto string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
 	egressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
@@ -563,20 +552,11 @@ func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPo
 	egressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
 	egressProxyPort := fmt.Sprintf("%d", proxyPort)
 
-	var err error
-	if option.Config.EnableIPv4 {
-		err = ip4tables.runProg(
-			m.egressProxyRule(cmd, l4proto, egressMarkMatch,
-				egressProxyMark, egressProxyPort, name),
-			false)
+	if strings.Contains(rules, fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s", l4proto, egressMarkMatch)) {
+		return nil
 	}
-	if err == nil && option.Config.EnableIPv6 {
-		err = ip6tables.runProg(
-			m.egressProxyRule(cmd, l4proto, egressMarkMatch,
-				egressProxyMark, egressProxyPort, name),
-			false)
-	}
-	return err
+
+	return prog.runProg(m.egressProxyRule(l4proto, egressMarkMatch, egressProxyMark, egressProxyPort, name), false)
 }
 
 func (m *IptablesManager) installStaticProxyRules() error {
@@ -693,26 +673,111 @@ func (m *IptablesManager) installStaticProxyRules() error {
 	return err
 }
 
-// install or remove rules for a single proxy port
-func (m *IptablesManager) iptProxyRules(cmd string, proxyPort uint16, ingress bool, name string) error {
-	// Redirect packets to the host proxy via TPROXY, as directed by the Cilium
-	// datapath bpf programs via skb marks (egress) or DSCP (ingress).
+func (m *IptablesManager) doCopyProxyRules(prog iptablesInterface, table string, re *regexp.Regexp, match, oldChain, newChain string) {
+	output, err := prog.runProgCombinedOutput(append(m.waitArgs, "-t", table, "-S"), true)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"table": table,
+			"prog":  prog.getProg(),
+		}).WithError(err).Warning("Cannot list rules in table. Layer 7 proxy port may get reallocated, which could cause disruption for traffic selected by L7 policy", prog.getProg(), table)
+		return
+	}
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		rule := scanner.Text()
+		if re.MatchString(rule) && strings.Contains(rule, match) {
+			log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering copying %s TPROXY rule from %s to %s", prog, oldChain, newChain)
+			args, err := shellwords.Parse(strings.Replace(rule, oldChain, newChain, 1))
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"table":          table,
+					"prog":           prog.getProg(),
+					logfields.Object: rule,
+				}).WithError(err).Warn("Unable to parse TPROXY rule, disruption to traffic selected by L7 policy possible")
+				continue
+			}
+			copyRule := append(append(m.waitArgs, "-t", table), args...)
+			log.WithField(logfields.Object, logfields.Repr(copyRule)).Debugf("Copying %s TPROXY rule from %s to %s", prog, oldChain, newChain)
+			err = prog.runProg(copyRule, true)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"table":          table,
+					"prog":           prog.getProg(),
+					logfields.Object: rule,
+				}).WithError(err).Warn("Unable to copy TPROXY rule, disruption to traffic selected by L7 policy possible")
+			}
+		}
+	}
+}
+
+var tproxyMatch = regexp.MustCompile("CILIUM_PRE_mangle .*cilium: TPROXY")
+
+// copies old proxy rules
+func (m *IptablesManager) copyProxyRules(oldChain string, match string) {
+	if option.Config.EnableIPv4 {
+		m.doCopyProxyRules(ip4tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain)
+	}
+	if option.Config.EnableIPv6 {
+		m.doCopyProxyRules(ip6tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain)
+	}
+}
+
+// Redirect packets to the host proxy via TPROXY, as directed by the Cilium
+// datapath bpf programs via skb marks (egress) or DSCP (ingress).
+func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16, ingress bool, name string) error {
+	output, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-S"}, true)
+	if err != nil {
+		log.WithError(err).Warnf("Unable to list %s TPROXY rules: %s", prog, string(output))
+	}
+	rules := string(output)
 	if ingress {
-		if err := m.iptIngressProxyRule(cmd, "tcp", proxyPort, name); err != nil {
+		if err := m.iptIngressProxyRule(rules, prog, "tcp", proxyPort, name); err != nil {
 			return err
 		}
-		if err := m.iptIngressProxyRule(cmd, "udp", proxyPort, name); err != nil {
+		if err := m.iptIngressProxyRule(rules, prog, "udp", proxyPort, name); err != nil {
 			return err
 		}
 	} else {
-		if err := m.iptEgressProxyRule(cmd, "tcp", proxyPort, name); err != nil {
+		if err := m.iptEgressProxyRule(rules, prog, "tcp", proxyPort, name); err != nil {
 			return err
 		}
-		if err := m.iptEgressProxyRule(cmd, "udp", proxyPort, name); err != nil {
+		if err := m.iptEgressProxyRule(rules, prog, "udp", proxyPort, name); err != nil {
 			return err
 		}
 	}
+	// Delete all other rules for this same proxy name
+	// These may accumulate if there is a bind failure on a previously used port
+	portMatch := fmt.Sprintf("TPROXY --on-port %d ", proxyPort)
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		rule := scanner.Text()
+		if strings.Contains(rule, "-A CILIUM_PRE_mangle ") && strings.Contains(rule, "cilium: TPROXY to host "+name) && !strings.Contains(rule, portMatch) {
+			args, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
+			if err != nil {
+				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s TPROXY rule", prog)
+				continue
+			}
+			deleteRule := append(append(m.waitArgs, "-t", "mangle"), args...)
+			log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debugf("Deleting stale %s TPROXY rule from mangle table", prog)
+			err = prog.runProg(deleteRule, true)
+			if err != nil {
+				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to delete %s TPROXY rule", prog)
+			}
+		}
+	}
+
 	return nil
+}
+
+// install or remove rules for a single proxy port
+func (m *IptablesManager) iptProxyRules(proxyPort uint16, ingress bool, name string) (err error) {
+	if option.Config.EnableIPv4 {
+		err = m.addProxyRules(ip4tables, proxyPort, ingress, name)
+	}
+	if err == nil && option.Config.EnableIPv6 {
+		err = m.addProxyRules(ip6tables, proxyPort, ingress, name)
+	}
+	return err
 }
 
 func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
@@ -721,7 +786,7 @@ func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name
 			Debug("Skipping proxy rule install due to BPF support")
 		return nil
 	}
-	return m.iptProxyRules("-A", proxyPort, ingress, name)
+	return m.iptProxyRules(proxyPort, ingress, name)
 }
 
 // GetProxyPort finds a proxy port used for redirect 'name' installed earlier with InstallProxyRules.
@@ -733,24 +798,28 @@ func (m *IptablesManager) GetProxyPort(name string) uint16 {
 		prog = ip6tables
 	}
 
+	return m.doGetProxyPort(prog, name)
+}
+
+func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) uint16 {
 	res, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain}, true)
 	if err != nil {
 		return 0
 	}
 
-	re := regexp.MustCompile(name + ".*TPROXY redirect 0.0.0.0:([1-9][0-9]*) mark")
-	str := re.FindString(string(res))
-	portStr := re.ReplaceAllString(str, "$1")
-	portInt, err := strconv.Atoi(portStr)
+	re := regexp.MustCompile(name + ".*TPROXY redirect (0.0.0.0|::):([1-9][0-9]*) mark")
+	strs := re.FindAllString(string(res), -1)
+	if len(strs) == 0 {
+		return 0
+	}
+	// Pick the port number from the last match, as rules are appended to the end (-A)
+	portStr := re.ReplaceAllString(strs[len(strs)-1], "$2")
+	portUInt64, err := strconv.ParseUint(portStr, 10, 16)
 	if err != nil {
 		log.WithError(err).Debugf("Port number cannot be parsed: %s", portStr)
 		return 0
 	}
-	return uint16(portInt)
-}
-
-func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
-	return m.iptProxyRules("-D", proxyPort, ingress, name)
+	return uint16(portUInt64)
 }
 
 func getDeliveryInterface(ifName string) string {
@@ -775,11 +844,6 @@ func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterfac
 }
 
 func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, ifName, localDeliveryInterface, forwardChain string) error {
-	transient := ""
-	if forwardChain == ciliumTransientForwardChain {
-		transient = " (transient)"
-	}
-
 	// While kube-proxy does change the policy of the iptables FORWARD chain
 	// it doesn't seem to handle all cases, e.g. host network pods that use
 	// the node IP which would still end up in default DENY. Similarly, for
@@ -805,7 +869,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 		m.waitArgs,
 		"-A", forwardChain,
 		"-o", ifName,
-		"-m", "comment", "--comment", "cilium"+transient+": any->cluster on "+ifName+" forward accept",
+		"-m", "comment", "--comment", "cilium: any->cluster on "+ifName+" forward accept",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
@@ -813,7 +877,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 		m.waitArgs,
 		"-A", forwardChain,
 		"-i", ifName,
-		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+ifName+" forward accept (nodeport)",
+		"-m", "comment", "--comment", "cilium: cluster->any on "+ifName+" forward accept (nodeport)",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
@@ -821,7 +885,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 		m.waitArgs,
 		"-A", forwardChain,
 		"-i", "lxc+",
-		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on lxc+ forward accept",
+		"-m", "comment", "--comment", "cilium: cluster->any on lxc+ forward accept",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
@@ -833,7 +897,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 			m.waitArgs,
 			"-A", forwardChain,
 			"-i", ifPeerName,
-			"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+ifPeerName+" forward accept (nodeport)",
+			"-m", "comment", "--comment", "cilium: cluster->any on "+ifPeerName+" forward accept (nodeport)",
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
@@ -846,7 +910,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 			m.waitArgs,
 			"-A", forwardChain,
 			"-o", localDeliveryInterface,
-			"-m", "comment", "--comment", "cilium"+transient+": any->cluster on "+localDeliveryInterface+" forward accept",
+			"-m", "comment", "--comment", "cilium: any->cluster on "+localDeliveryInterface+" forward accept",
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
@@ -854,7 +918,7 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 			m.waitArgs,
 			"-A", forwardChain,
 			"-i", localDeliveryInterface,
-			"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
+			"-m", "comment", "--comment", "cilium: cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
@@ -862,40 +926,40 @@ func (m *IptablesManager) installForwardChainRulesIpX(prog iptablesInterface, if
 	return nil
 }
 
-// TransientRulesStart installs iptables rules for Cilium that need to be
-// kept in-tact during agent restart which removes/installs its main rules.
-// Transient rules are then removed once iptables rule update cycle has
-// completed. This is mainly due to interactions with kube-proxy.
-func (m *IptablesManager) TransientRulesStart(ifName string) error {
-	if option.Config.EnableIPv4 {
-		localDeliveryInterface := getDeliveryInterface(ifName)
+// InstallRules installs iptables rules for Cilium in specific use-cases
+// (most specifically, interaction with kube-proxy).
+func (m *IptablesManager) InstallRules(ifName string, firstInitialization, install bool) (err error) {
+	quiet := firstInitialization
 
-		m.TransientRulesEnd(true)
+	// Make sure we have no old "backups"
+	m.removeOldRules(true)
 
-		if err := transientChain.add(m.waitArgs); err != nil {
-			return fmt.Errorf("cannot add custom chain %s: %s", transientChain.name, err)
-		}
-		if err := m.installForwardChainRulesIpX(ip4tables, ifName, localDeliveryInterface, transientChain.name); err != nil {
-			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
-		}
-		if err := transientChain.installFeeder(m.waitArgs); err != nil {
-			return fmt.Errorf("cannot install feeder rule %s: %s", transientChain.feederArgs, err)
-		}
+	// Rename any old chains we may have
+	for _, c := range ciliumChains {
+		c.rename(m.waitArgs, "OLD_"+c.name, quiet)
 	}
-	return nil
-}
 
-// TransientRulesEnd removes Cilium related rules installed from TransientRulesStart.
-func (m *IptablesManager) TransientRulesEnd(quiet bool) {
-	if option.Config.EnableIPv4 {
-		m.removeCiliumRules("filter", ip4tables, ciliumTransientForwardChain)
-		transientChain.remove(m.waitArgs, quiet)
+	// install rules if needed
+	if install {
+		err = m.installRules(ifName)
+		// copy old proxy rules over
+		match := ""
+		if firstInitialization {
+			match = "cilium-dns-egress"
+		}
+		m.copyProxyRules("OLD_"+ciliumPreMangleChain, match)
 	}
+
+	// only remove old rules if new ones were successfully installed
+	if err == nil {
+		m.removeOldRules(quiet)
+	}
+	return err
 }
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func (m *IptablesManager) InstallRules(ifName string) error {
+func (m *IptablesManager) installRules(ifName string) error {
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
@@ -929,7 +993,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	localDeliveryInterface := getDeliveryInterface(ifName)
 
 	if err := m.installForwardChainRules(ifName, localDeliveryInterface, ciliumForwardChain); err != nil {
-		return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
+		return fmt.Errorf("cannot install forward chain rules to %s: %w", ciliumForwardChain, err)
 	}
 
 	if option.Config.EnableIPv4 {
