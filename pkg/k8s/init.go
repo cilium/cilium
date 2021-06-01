@@ -139,7 +139,7 @@ func useNodeCIDR(n *nodeTypes.Node) {
 		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
 	}
 	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
-		node.SetIPv6NodeRange(n.IPv6AllocCIDR.IPNet)
+		node.SetIPv6NodeRange(n.IPv6AllocCIDR)
 	}
 }
 

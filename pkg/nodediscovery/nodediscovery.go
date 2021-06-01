@@ -162,7 +162,7 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) {
 		node.SetIPv4AllocRange(resp.IPv4AllocCIDR)
 	}
 	if resp.IPv6AllocCIDR != nil {
-		node.SetIPv6NodeRange(resp.IPv6AllocCIDR.IPNet)
+		node.SetIPv6NodeRange(resp.IPv6AllocCIDR)
 	}
 	identity.SetLocalNodeID(resp.NodeIdentity)
 }
