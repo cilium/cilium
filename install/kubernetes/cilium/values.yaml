@@ -214,7 +214,7 @@ alibabacloud:
 # -- Optimize TCP and UDP workloads and enable rate-limiting traffic from
 # individual Pods with EDT (Earliest Departure Time)
 # through the "kubernetes.io/egress-bandwidth" Pod annotation.
-bandwidthManager: true
+bandwidthManager: false
 
 # -- Configure BGP
 bgp:
