@@ -1,14 +1,8 @@
 name: codeql
 
 on:
-  push:
-    branches:
-    - v1.10
-    - v1.9
-    - v1.8
-  pull_request:
-    branches:
-    - master
+  push: {}
+  pull_request: {}
   schedule:
     - cron: "45 6 * * 3"
 
