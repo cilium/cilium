@@ -305,6 +305,7 @@ func SetIPv4AllocRange(net *cidr.CIDR) {
 func Uninitialize() {
 	ipv4AllocRange = nil
 	ipv6AllocRange = nil
+	ipv4RouterAddress, ipv6RouterAddress = nil, nil
 }
 
 // GetNodePortIPv4Addrs returns the node-port IPv4 address for NAT
