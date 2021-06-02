@@ -592,8 +592,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	k.Log("✨ Deploying clustermesh-apiserver...")
-
+	k.Log("✨ Deploying clustermesh-apiserver from %s...", k.apiserverImage())
 	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
