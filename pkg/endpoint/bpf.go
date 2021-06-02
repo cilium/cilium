@@ -955,20 +955,20 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 		// Always execute the finalization code, even if the endpoint is
 		// terminating, in order to properly release resources.
 		e.unconditionalLock()
+		defer e.unlock() // In case Finalize() panics
 		e.getLogger().Debug("Finalizing successful endpoint regeneration")
 		datapathRegenCtx.finalizeList.Finalize()
-		e.unlock()
 	} else {
 		if err := e.lockAlive(); err != nil {
 			e.getLogger().WithError(err).Debug("Skipping unnecessary reverting of endpoint regeneration changes")
 			return
 		}
+		defer e.unlock() // In case Revert() panics
 		e.getLogger().Debug("Reverting endpoint changes after BPF regeneration failed")
 		if err := datapathRegenCtx.revertStack.Revert(); err != nil {
 			e.getLogger().WithError(err).Error("Reverting endpoint regeneration changes failed")
 		}
 		e.getLogger().Debug("Finished reverting endpoint changes after BPF regeneration failed")
-		e.unlock()
 	}
 }
 
