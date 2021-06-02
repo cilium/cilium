@@ -276,7 +276,7 @@ func (k *K8sHubble) enableRelay(ctx context.Context) error {
 
 	//	k.Log("✨ Generating certificates...")
 
-	k.Log("✨ Deploying Relay...")
+	k.Log("✨ Deploying Relay from %s...", k.relayImage())
 	if _, err := k.client.CreateConfigMap(ctx, k.params.Namespace, k.generateRelayConfigMap(), metav1.CreateOptions{}); err != nil {
 		return err
 	}
