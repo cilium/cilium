@@ -322,8 +322,8 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 		dstIP = ""
 	}
 
-	ipResponse := filters.IP(dstIP, srcIP)
 	ipRequest := filters.IP(srcIP, dstIP)
+	ipResponse := filters.IP(dstIP, srcIP)
 
 	switch p.Protocol {
 	case ICMP:
@@ -408,16 +408,24 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 	reqs = append(reqs, egress)
 
 	if p.DNSRequired || a.expEgress.DNSProxy {
+		// Override to allow for any DNS server
+		ipRequest := filters.IP(srcIP, "")
+		ipResponse := filters.IP("", srcIP)
+
 		dnsRequest := filters.Or(filters.UDP(0, 53), filters.TCP(0, 53))
 		dnsResponse := filters.Or(filters.UDP(53, 0), filters.TCP(53, 0))
 
 		dns := filters.FlowSetRequirement{First: filters.FlowRequirement{Filter: filters.And(ipRequest, dnsRequest), Msg: "DNS request"}}
 		if a.expEgress.DNSProxy {
+			qname := a.dst.Address() + "."
 			dns.Middle = []filters.FlowRequirement{{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"}}
-			dns.Last = filters.FlowRequirement{Filter: filters.And(ipResponse, dnsResponse, filters.DNS(a.dst.Address()+".", 0)), Msg: "DNS proxy"}
+			dns.Last = filters.FlowRequirement{Filter: filters.And(ipResponse, dnsResponse, filters.DNS(qname, 0)), Msg: "DNS proxy"}
+			// 5 is the default rcode returned on error such as policy deny
+			dns.Except = []filters.FlowRequirement{{Filter: filters.And(ipResponse, dnsResponse, filters.DNS(qname, 5)), Msg: "DNS proxy DROP"}}
 		} else {
 			dns.Last = filters.FlowRequirement{Filter: filters.And(ipResponse, dnsResponse), Msg: "DNS response"}
 		}
+
 		reqs = append(reqs, dns)
 	}
 
