@@ -4447,3 +4447,19 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 	}
 	return nil
 }
+
+// NslookupInPod executes 'nslookup' in the given pod until it succeeds or times out.
+func (kub *Kubectl) NslookupInPod(namespace, pod string, target string) (err error) {
+	err2 := WithTimeout(func() bool {
+		res := kub.ExecPodCmd(namespace, pod, fmt.Sprintf("nslookup %s", target))
+		if res.WasSuccessful() {
+			return true
+		}
+		err = fmt.Errorf("error looking up %s from %s/%s: %s", target, namespace, pod, res.CombineOutput().String())
+		return false
+	}, "Could not resolve target name", &TimeoutConfig{Timeout: HelperTimeout})
+	if err2 != nil {
+		return err
+	}
+	return nil
+}
