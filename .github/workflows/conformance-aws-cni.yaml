@@ -1,0 +1,275 @@
+name: Conformance AWS-CNI (ci-awscni)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  issue_comment:
+    types:
+      - created
+  # Run every 6 hours
+  schedule:
+    - cron:  '30 0/6 * * *'
+  ### FOR TESTING PURPOSES
+  # pull_request:
+  #  types:
+  #    - "labeled"
+  ###
+
+concurrency:
+  # In case of PR comment, we can't simply append the comment to the group name
+  # as that is too long and results in an error. Instead we check if it's a
+  # trigger phrase and append a simple 'trigger-phrase'.
+  group: |
+    "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }}
+     ${{ (startsWith(github.event.comment.body, 'ci-awscni') ||
+          startsWith(github.event.comment.body, 'test-me-please')) && 'trigger-phrase' }}"
+  cancel-in-progress: true
+
+env:
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
+  region: us-east-2
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    if: |
+      (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-awscni') ||
+        (startsWith(github.event.comment.body, 'test-me-please'))
+      )) ||
+      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event.label.name == 'ci-run/awscni'
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
+          echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          persist-credentials: false
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+  # When the test-me-please trigger is used, this job is skipped if the only
+  # modified files were under test/ or Documentation/.
+  installation-and-connectivity:
+    needs: check_changes
+    if: |
+      (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-awscni') ||
+        (startsWith(github.event.comment.body, 'test-me-please') && (needs.check_changes.outputs.tested == 'true'))
+      )) ||
+      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
+      github.event.label.name == 'ci-run/awscni'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
+            --agent-image=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --operator-image=quay.io/${{ github.repository_owner }}/operator-aws-ci \
+            --version=${SHA} \
+            --wait=false \
+            --config monitor-aggregation=none"
+          echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
+          echo ::set-output name=sha::${SHA}
+          echo ::set-output name=owner::${OWNER}
+
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+      - name: Install Cilium CLI
+        run: |
+          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.6/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@0309c38ebd10f90dfbb3889431bcf4ea38088012
+        with:
+          aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
+          aws-region: ${{ env.region }}
+
+      - name: Create EKS cluster without nodegroup
+        run: |
+          eksctl create cluster \
+            --name ${{ env.clusterName }} \
+            --tags "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --without-nodegroup
+
+      - name: Update AWS VPC CNI plugin
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/v1.7/aws-k8s-cni.yaml
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/cilium-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+          until curl --silent -f -lSL "https://quay.io/api/v1/repository/${{ github.repository_owner }}/operator-generic-ci/tag/${{ steps.vars.outputs.sha }}/images" &> /dev/null; do sleep 45s; done
+
+      - name: Install Cilium
+        run: |
+          curl -LO https://github.com/cilium/cilium/archive/master.tar.gz
+          tar xzf master.tar.gz
+          cd cilium-master/install/kubernetes
+          helm install cilium ./cilium \
+            --namespace kube-system \
+            --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --set image.tag=${{ steps.vars.outputs.sha }} \
+            --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --set operator.image.suffix="-ci" \
+            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
+            --set cni.chainingMode=aws-cni \
+            --set enableIPv4Masquerade=false \
+            --set tunnel=disabled \
+            --set nodeinit.enabled=true \
+            --set bpf.monitorAggregation=none \
+            --set bandwidthManager=false
+
+      - name: Add managed spot nodegroup
+        run: |
+          eksctl create nodegroup \
+            --cluster ${{ env.clusterName }} \
+            --nodes 2 \
+            --instance-types "t3.medium,t3a.medium" \
+            --node-volume-type gp3 \
+            --node-volume-size 10 \
+            --managed \
+            --spot \
+            --node-private-networking
+
+      - name: Enable Relay
+        run: |
+          cd cilium-master/install/kubernetes
+          helm upgrade cilium ./cilium \
+            --namespace kube-system \
+            --reuse-values \
+            --set hubble.relay.enabled=true \
+            --set hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --set hubble.relay.image.tag=${{ steps.vars.outputs.sha }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Port forward Relay
+        run: |
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          sleep 10s
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test \
+            --flow-validation=disabled \
+            --test '!pod-to-world-toFQDNs' # L7 policies are not supported in chaining mode.
+
+      - name: Post-test information gathering
+        if: ${{ failure() }}
+        run: |
+          cilium status
+          kubectl get pods --all-namespaces -o wide
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+        shell: bash {0}
+
+      - name: Clean up EKS
+        if: ${{ always() }}
+        run: |
+          eksctl delete cluster --name ${{ env.clusterName }}
+
+      - name: Upload artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
+
+      - name: Set commit status to success
+        if: ${{ success() }}
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+      - name: Set commit status to failure
+        if: ${{ failure() }}
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+      - name: Set commit status to cancelled
+        if: ${{ cancelled() }}
+        uses: Sibz/github-status-action@67af1f4042a5a790681aad83c44008ca6cfab83d
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test cancelled
+          state: pending
+          target_url: ${{ env.check_url }}
+
+      - name: Send slack notification
+        if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
+        uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
