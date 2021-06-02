@@ -9,6 +9,10 @@ data:
       - peer-address: {{ .RouterIP }}
         peer-asn: 64512
         my-asn: 64512
+        node-selectors:
+        - match-expressions:
+          - key: cilium.io/ci-node
+            operator: Exists
     address-pools:
       - name: default
         protocol: bgp
