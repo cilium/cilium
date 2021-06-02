@@ -62,7 +62,7 @@ const (
 	ClusterMeshDeploymentName             = "clustermesh-apiserver"
 	ClusterMeshServiceAccountName         = "clustermesh-apiserver"
 	ClusterMeshClusterRoleName            = "clustermesh-apiserver"
-	ClusterMeshApiserverImage             = "quay.io/cilium/clustermesh-apiserver:" + Version
+	ClusterMeshApiserverImage             = "quay.io/cilium/clustermesh-apiserver"
 	ClusterMeshServiceName                = "clustermesh-apiserver"
 	ClusterMeshSecretName                 = "cilium-clustermesh" // Secret which contains the clustermesh configuration
 	ClusterMeshServerSecretName           = "clustermesh-apiserver-server-certs"
