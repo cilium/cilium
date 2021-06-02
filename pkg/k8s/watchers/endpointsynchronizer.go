@@ -43,12 +43,6 @@ const (
 	subsysEndpointSync = "endpointsynchronizer"
 )
 
-// controllerNameOf returns the controller name to synchronize endpoint in to
-// kubernetes.
-func controllerNameOf(epID uint16) string {
-	return fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", epID)
-}
-
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
 // of CiliumEndpoint resources.
 type EndpointSynchronizer struct{}
@@ -61,7 +55,7 @@ type EndpointSynchronizer struct{}
 func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 	var (
 		endpointID     = e.ID
-		controllerName = controllerNameOf(endpointID)
+		controllerName = endpoint.EndpointSyncControllerName(endpointID)
 		scopedLog      = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 	)
 
@@ -332,7 +326,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 // CEP from Kubernetes once the endpoint is stopped / removed from the
 // Cilium agent.
 func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-	controllerName := controllerNameOf(e.ID)
+	controllerName := endpoint.EndpointSyncControllerName(e.ID)
 
 	scopedLog := e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 
