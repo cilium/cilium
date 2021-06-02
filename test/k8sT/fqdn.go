@@ -86,6 +86,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		Expect(err).Should(BeNil(), "Testapp is not ready after timeout")
 
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+
+		// Validate that coredns is reachable from test pods
+		err = kubectl.NslookupInPod(helpers.DefaultNamespace, appPods[helpers.App2], "kube-dns.kube-system.svc.cluster.local")
+		Expect(err).Should(BeNil(), "Error reaching kube-dns before test: %s", err)
 	})
 
 	AfterFailed(func() {
