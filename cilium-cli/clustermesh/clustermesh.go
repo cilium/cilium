@@ -462,6 +462,15 @@ type Parameters struct {
 	Retries              int
 }
 
+func (p Parameters) validateParams() error {
+	if p.ApiserverImage != defaults.ClusterMeshApiserverImage {
+		return nil
+	} else if !utils.CheckVersion(p.ApiserverVersion) && p.ApiserverVersion != "" {
+		return fmt.Errorf("invalid syntax %q for image tag", p.ApiserverVersion)
+	}
+	return nil
+}
+
 func (p Parameters) waitTimeout() time.Duration {
 	if p.WaitDuration != time.Duration(0) {
 		return p.WaitDuration
@@ -542,6 +551,10 @@ func (p Parameters) validateForEnable() error {
 }
 
 func (k *K8sClusterMesh) Enable(ctx context.Context) error {
+	if err := k.params.validateParams(); err != nil {
+		return err
+	}
+
 	if err := k.params.validateForEnable(); err != nil {
 		return err
 	}
@@ -566,6 +579,7 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 	}
 
 	k.Log("✨ Deploying clustermesh-apiserver...")
+
 	if _, err := k.client.CreateServiceAccount(ctx, k.params.Namespace, k8s.NewServiceAccount(defaults.ClusterMeshServiceAccountName), metav1.CreateOptions{}); err != nil {
 		return err
 	}
