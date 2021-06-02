@@ -68,6 +68,7 @@ func newCmdClusterMeshEnable() *cobra.Command {
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes service to expose control plane { ClusterIP | LoadBalancer | NodePort }")
 	cmd.Flags().StringVar(&params.ApiserverImage, "apiserver-image", "", "Container image for clustermesh-apiserver")
+	cmd.Flags().StringVar(&params.ApiserverVersion, "apiserver-version", "", "Container image version for clustermesh-apiserver")
 	cmd.Flags().BoolVar(&params.CreateCA, "create-ca", false, "Automatically create CA if needed")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 
