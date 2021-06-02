@@ -451,6 +451,7 @@ type Parameters struct {
 	SourceEndpoints      []string
 	SkipServiceCheck     bool
 	ApiserverImage       string
+	ApiserverVersion     string
 	CreateCA             bool
 	Writer               io.Writer
 	Labels               map[string]string
