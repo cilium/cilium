@@ -1561,7 +1561,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			}
 		}
 
-		SkipContextIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
+		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "Tests NodePort (kube-proxy)", func() {
 			SkipItIf(helpers.DoesNotRunOn419OrLaterKernel, "with IPSec and externalTrafficPolicy=Local", func() {
 				deploymentManager.SetKubectl(kubectl)
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
@@ -1849,9 +1849,17 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							options := map[string]string{
 								"hostFirewall": "true",
-							})
+							}
+							// We can't rely on gke.enabled because it enables
+							// per-endpoint routes which are incompatible with
+							// the host firewall.
+							if helpers.RunsOnGKE() {
+								options["gke.enabled"] = "false"
+								options["tunnel"] = "disabled"
+							}
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
@@ -1969,11 +1977,19 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 						var ccnpHostPolicy string
 
 						BeforeAll(func() {
-							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							options := map[string]string{
 								"tunnel":               "disabled",
 								"autoDirectNodeRoutes": "true",
 								"hostFirewall":         "true",
-							})
+							}
+							// We can't rely on gke.enabled because it enables
+							// per-endpoint routes which are incompatible with
+							// the host firewall.
+							if helpers.RunsOnGKE() {
+								options["gke.enabled"] = "false"
+								options["tunnel"] = "disabled"
+							}
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
