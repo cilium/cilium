@@ -13,7 +13,7 @@ Pygments==2.7.4
 pytz==2018.7
 PyYAML==5.4
 recommonmark==0.4.0
-requests==2.20.0
+requests==2.25.1
 semver==2.9.0
 six==1.15.0
 snowballstemmer==1.2.1
@@ -29,5 +29,5 @@ sphinxcontrib-websupport==1.1.0
 sphinx-tabs==1.1.13
 sphinx-version-warning==1.1.2
 typing==3.6.6
-urllib3==1.24.2
+urllib3==1.26.5
 yamllint==1.22.0
