@@ -561,6 +561,13 @@ func DoesNotRunOnEKS() bool {
 	return !RunsOnEKS()
 }
 
+// RunsWithKubeProxyReplacement returns true if the kernel supports our
+// kube-proxy replacement. Note that kube-proxy may still be running
+// alongside Cilium.
+func RunsWithKubeProxyReplacement() bool {
+	return RunsOnGKE() || RunsOnNetNextKernel() || RunsOn419Kernel() || RunsOn54Kernel()
+}
+
 // DoesNotHaveHosts returns a function which returns true if a CI job
 // has less VMs than the given count.
 func DoesNotHaveHosts(count int) func() bool {
