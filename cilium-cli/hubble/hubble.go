@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
+	"github.com/cilium/cilium-cli/internal/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -83,6 +84,15 @@ type Parameters struct {
 
 func (p *Parameters) Log(format string, a ...interface{}) {
 	fmt.Fprintf(p.Writer, format+"\n", a...)
+}
+
+func (p *Parameters) validateParams() error {
+	if p.RelayImage != defaults.RelayImage {
+		return nil
+	} else if !utils.CheckVersion(p.RelayVersion) && p.RelayVersion != "" {
+		return fmt.Errorf("invalid syntax %q for image tag", p.RelayVersion)
+	}
+	return nil
 }
 
 func NewK8sHubble(client k8sHubbleImplementation, p Parameters) *K8sHubble {
@@ -219,6 +229,10 @@ func (k *K8sHubble) enableHubble(ctx context.Context) error {
 }
 
 func (k *K8sHubble) Enable(ctx context.Context) error {
+	if err := k.params.validateParams(); err != nil {
+		return err
+	}
+
 	err := k.certManager.LoadCAFromK8s(ctx)
 	if err != nil {
 		if !k.params.CreateCA {
