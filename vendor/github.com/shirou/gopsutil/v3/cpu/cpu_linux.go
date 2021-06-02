@@ -141,9 +141,44 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 			c.CPU = int32(t)
 		case "vendorId", "vendor_id":
 			c.VendorID = value
+		case "CPU implementer":
+			if v, err := strconv.ParseUint(value, 0, 8); err == nil {
+				switch v {
+				case 0x41:
+					c.VendorID = "ARM"
+				case 0x42:
+					c.VendorID = "Broadcom"
+				case 0x43:
+					c.VendorID = "Cavium"
+				case 0x44:
+					c.VendorID = "DEC"
+				case 0x46:
+					c.VendorID = "Fujitsu"
+				case 0x48:
+					c.VendorID = "HiSilicon"
+				case 0x49:
+					c.VendorID = "Infineon"
+				case 0x4d:
+					c.VendorID = "Motorola/Freescale"
+				case 0x4e:
+					c.VendorID = "NVIDIA"
+				case 0x50:
+					c.VendorID = "APM"
+				case 0x51:
+					c.VendorID = "Qualcomm"
+				case 0x56:
+					c.VendorID = "Marvell"
+				case 0x61:
+					c.VendorID = "Apple"
+				case 0x69:
+					c.VendorID = "Intel"
+				case 0xc0:
+					c.VendorID = "Ampere"
+				}
+			}
 		case "cpu family":
 			c.Family = value
-		case "model":
+		case "model", "CPU part":
 			c.Model = value
 		case "model name", "cpu":
 			c.ModelName = value
@@ -153,7 +188,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 				c.Family = "POWER"
 				c.VendorID = "IBM"
 			}
-		case "stepping", "revision":
+		case "stepping", "revision", "CPU revision":
 			val := value
 
 			if key == "revision" {
@@ -287,7 +322,10 @@ func CountsWithContext(ctx context.Context, logical bool) (int, error) {
 			for _, line := range lines {
 				line = strings.ToLower(line)
 				if strings.HasPrefix(line, "processor") {
-					ret++
+					_, err = strconv.Atoi(strings.TrimSpace(line[strings.IndexByte(line, ':')+1:]))
+					if err == nil {
+						ret++
+					}
 				}
 			}
 		}
