@@ -164,11 +164,7 @@ etcdctl auth enable;
 exit`}
 
 func (k *K8sClusterMesh) apiserverImage() string {
-	if k.params.ApiserverImage != "" {
-		return k.params.ApiserverImage
-	}
-
-	return defaults.ClusterMeshApiserverImage
+	return utils.BuildImagePath(k.params.ApiserverImage, defaults.ClusterMeshApiserverImage, k.params.ApiserverVersion, defaults.Version)
 }
 
 func (k *K8sClusterMesh) generateDeployment() *appsv1.Deployment {
