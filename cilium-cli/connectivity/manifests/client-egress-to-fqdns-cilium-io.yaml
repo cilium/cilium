@@ -25,7 +25,6 @@ spec:
       rules:
         dns:
         - matchPattern: "*"
-        - matchPattern: "*.-name.com"
     toEndpoints:
     - matchLabels:
         k8s:io.kubernetes.pod.namespace: kube-system
