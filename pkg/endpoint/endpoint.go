@@ -345,6 +345,12 @@ type Endpoint struct {
 	isHost bool
 }
 
+// EndpointSyncControllerName returns the controller name to synchronize
+// endpoint in to kubernetes.
+func EndpointSyncControllerName(epID uint16) string {
+	return fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", epID)
+}
+
 // SetAllocator sets the identity allocator for this endpoint.
 func (e *Endpoint) SetAllocator(allocator cache.IdentityAllocator) {
 	e.unconditionalLock()
@@ -2051,6 +2057,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
 	e.forcePolicyComputation()
+
+	// Trigger the sync-to-k8s-ciliumendpoint controller to sync the new
+	// endpoint's identity.
+	e.controllers.TriggerController(EndpointSyncControllerName(e.ID))
 
 	e.unlock()
 
