@@ -224,7 +224,7 @@ const (
 	// test/Vagrantfile.
 	SecondaryIface = "enp0s9"
 
-	// Logs messages that should not be in the cilium logs.
+	// Logs messages that should not be in the cilium logs...
 	panicMessage        = "panic:"
 	deadLockHeader      = "POTENTIAL DEADLOCK:"                                      // from github.com/sasha-s/go-deadlock/deadlock.go:header
 	segmentationFault   = "segmentation fault"                                       // from https://github.com/cilium/cilium/issues/3233
@@ -240,6 +240,14 @@ const (
 	uninitializedRegen  = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
 	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
+	// ...and their exceptions.
+	lrpExists            = "local-redirect service exists for frontend"                  // cf. https://github.com/cilium/cilium/issues/16400
+	opCannotBeFulfilled  = "Operation cannot be fulfilled on leases.coordination.k8s.io" // cf. https://github.com/cilium/cilium/issues/16402
+	lockDeletedEp        = "lock failed: endpoint is in the process of being removed"    // cf. https://github.com/cilium/cilium/issues/16422
+	listenAndServeFailed = "ListenAndServe failed for service health server"             // cf. https://github.com/cilium/cilium/pull/16477
+	globalDataSupport    = "kernel doesn't support global data"                          // cf. https://github.com/cilium/cilium/issues/16418
+	removingInexistantID = "removing identity not added to the identity manager!"        // cf. https://github.com/cilium/cilium/issues/16419
+	failedToListCRDs     = "the server could not find the requested resource"            // cf. https://github.com/cilium/cilium/issues/16425
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -305,6 +313,7 @@ var badLogMessages = map[string][]string{
 	unstableStat:        nil,
 	removeTransientRule: nil,
 	"DATA RACE":         nil,
+	"level=error":       {lrpExists, opCannotBeFulfilled, lockDeletedEp, listenAndServeFailed, globalDataSupport, removingInexistantID, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{
