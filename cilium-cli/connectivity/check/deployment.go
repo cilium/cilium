@@ -462,7 +462,47 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	// Set the timeout for all DNS lookup retries
+	dnsCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
+	defer cancel()
+	for _, cp := range ct.clientPods {
+		err := ct.waitForDNS(dnsCtx, cp)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// Validate that kube-dns responds and knows about cluster services
+func (ct *ConnectivityTest) waitForDNS(ctx context.Context, pod Pod) error {
+	ct.Logf("⌛ [%s] Waiting for pod %s to reach kube-dns service...", ct.client.ClusterName(), pod.Name())
+
+	for {
+		// Don't retry lookups more often than once per second.
+		r := time.After(time.Second)
+
+		target := "kube-dns.kube-system.svc.cluster.local"
+		// Warning: ExecInPod ignores ctx. Don't pass it here so we don't
+		// falsely expect the function to be able to be cancelled.
+		stdout, _, err := pod.K8sClient.ExecInPodWithStderr(context.TODO(), pod.Pod.Namespace, pod.Pod.Name,
+			"", []string{"nslookup", target})
+		if err == nil {
+			return nil
+		}
+
+		ct.Debugf("Error looking up %s from pod %s: %s", target, pod.Name(), stdout.String())
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to succeed", target, pod.Name())
+		default:
+		}
+
+		// Wait for the pace timer to avoid busy polling.
+		<-r
+	}
 }
 
 func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
