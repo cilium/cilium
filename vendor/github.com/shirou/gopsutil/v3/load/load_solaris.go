@@ -1,9 +1,11 @@
-// +build !darwin,!linux,!freebsd,!openbsd,!windows,!solaris
+// +build solaris
 
 package load
 
 import (
 	"context"
+	"os/exec"
+	"strings"
 
 	"github.com/shirou/gopsutil/v3/internal/common"
 )
@@ -21,5 +23,22 @@ func Misc() (*MiscStat, error) {
 }
 
 func MiscWithContext(ctx context.Context) (*MiscStat, error) {
-	return nil, common.ErrNotImplementedError
+	bin, err := exec.LookPath("ps")
+	if err != nil {
+		return nil, err
+	}
+	out, err := invoke.CommandWithContext(ctx, bin, "-efo", "s")
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(string(out), "\n")
+
+	ret := MiscStat{}
+	for _, l := range lines {
+		if l == "O" {
+			ret.ProcsRunning++
+		}
+	}
+
+	return &ret, nil
 }

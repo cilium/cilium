@@ -1,10 +1,12 @@
-// +build !darwin,!linux,!freebsd,!openbsd,!windows,!solaris
-
 package process
 
 import (
+	"bytes"
 	"context"
-	"syscall"
+	"io/ioutil"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/internal/common"
@@ -29,15 +31,26 @@ type MemoryInfoExStat struct {
 }
 
 func pidsWithContext(ctx context.Context) ([]int32, error) {
-	return nil, common.ErrNotImplementedError
+	return readPidsFromDir(common.HostProc())
 }
 
 func ProcessesWithContext(ctx context.Context) ([]*Process, error) {
-	return nil, common.ErrNotImplementedError
-}
+	out := []*Process{}
 
-func PidExistsWithContext(ctx context.Context, pid int32) (bool, error) {
-	return false, common.ErrNotImplementedError
+	pids, err := PidsWithContext(ctx)
+	if err != nil {
+		return out, err
+	}
+
+	for _, pid := range pids {
+		p, err := NewProcessWithContext(ctx, pid)
+		if err != nil {
+			continue
+		}
+		out = append(out, p)
+	}
+
+	return out, nil
 }
 
 func (p *Process) PpidWithContext(ctx context.Context) (int32, error) {
@@ -53,15 +66,19 @@ func (p *Process) TgidWithContext(ctx context.Context) (int32, error) {
 }
 
 func (p *Process) ExeWithContext(ctx context.Context) (string, error) {
-	return "", common.ErrNotImplementedError
+	exe, err := p.fillFromPathAOutWithContext(ctx)
+	if os.IsNotExist(err) {
+		exe, err = p.fillFromExecnameWithContext(ctx)
+	}
+	return exe, err
 }
 
 func (p *Process) CmdlineWithContext(ctx context.Context) (string, error) {
-	return "", common.ErrNotImplementedError
+	return p.fillFromCmdlineWithContext(ctx)
 }
 
 func (p *Process) CmdlineSliceWithContext(ctx context.Context) ([]string, error) {
-	return nil, common.ErrNotImplementedError
+	return p.fillSliceFromCmdlineWithContext(ctx)
 }
 
 func (p *Process) createTimeWithContext(ctx context.Context) (int64, error) {
@@ -69,7 +86,7 @@ func (p *Process) createTimeWithContext(ctx context.Context) (int64, error) {
 }
 
 func (p *Process) CwdWithContext(ctx context.Context) (string, error) {
-	return "", common.ErrNotImplementedError
+	return p.fillFromPathCwdWithContext(ctx)
 }
 
 func (p *Process) ParentWithContext(ctx context.Context) (*Process, error) {
@@ -125,7 +142,8 @@ func (p *Process) NumCtxSwitchesWithContext(ctx context.Context) (*NumCtxSwitche
 }
 
 func (p *Process) NumFDsWithContext(ctx context.Context) (int32, error) {
-	return 0, common.ErrNotImplementedError
+	_, fnames, err := p.fillFromfdListWithContext(ctx)
+	return int32(len(fnames)), err
 }
 
 func (p *Process) NumThreadsWithContext(ctx context.Context) (int32, error) {
@@ -176,26 +194,112 @@ func (p *Process) MemoryMapsWithContext(ctx context.Context, grouped bool) (*[]M
 	return nil, common.ErrNotImplementedError
 }
 
-func (p *Process) SendSignalWithContext(ctx context.Context, sig syscall.Signal) error {
-	return common.ErrNotImplementedError
+/**
+** Internal functions
+**/
+
+func (p *Process) fillFromfdListWithContext(ctx context.Context) (string, []string, error) {
+	pid := p.Pid
+	statPath := common.HostProc(strconv.Itoa(int(pid)), "fd")
+	d, err := os.Open(statPath)
+	if err != nil {
+		return statPath, []string{}, err
+	}
+	defer d.Close()
+	fnames, err := d.Readdirnames(-1)
+	return statPath, fnames, err
 }
 
-func (p *Process) SuspendWithContext(ctx context.Context) error {
-	return common.ErrNotImplementedError
+func (p *Process) fillFromPathCwdWithContext(ctx context.Context) (string, error) {
+	pid := p.Pid
+	cwdPath := common.HostProc(strconv.Itoa(int(pid)), "path", "cwd")
+	cwd, err := os.Readlink(cwdPath)
+	if err != nil {
+		return "", err
+	}
+	return cwd, nil
 }
 
-func (p *Process) ResumeWithContext(ctx context.Context) error {
-	return common.ErrNotImplementedError
+func (p *Process) fillFromPathAOutWithContext(ctx context.Context) (string, error) {
+	pid := p.Pid
+	cwdPath := common.HostProc(strconv.Itoa(int(pid)), "path", "a.out")
+	exe, err := os.Readlink(cwdPath)
+	if err != nil {
+		return "", err
+	}
+	return exe, nil
 }
 
-func (p *Process) TerminateWithContext(ctx context.Context) error {
-	return common.ErrNotImplementedError
+func (p *Process) fillFromExecnameWithContext(ctx context.Context) (string, error) {
+	pid := p.Pid
+	execNamePath := common.HostProc(strconv.Itoa(int(pid)), "execname")
+	exe, err := ioutil.ReadFile(execNamePath)
+	if err != nil {
+		return "", err
+	}
+	return string(exe), nil
 }
 
-func (p *Process) KillWithContext(ctx context.Context) error {
-	return common.ErrNotImplementedError
+func (p *Process) fillFromCmdlineWithContext(ctx context.Context) (string, error) {
+	pid := p.Pid
+	cmdPath := common.HostProc(strconv.Itoa(int(pid)), "cmdline")
+	cmdline, err := ioutil.ReadFile(cmdPath)
+	if err != nil {
+		return "", err
+	}
+	ret := strings.FieldsFunc(string(cmdline), func(r rune) bool {
+		if r == '\u0000' {
+			return true
+		}
+		return false
+	})
+
+	return strings.Join(ret, " "), nil
 }
 
-func (p *Process) UsernameWithContext(ctx context.Context) (string, error) {
-	return "", common.ErrNotImplementedError
+func (p *Process) fillSliceFromCmdlineWithContext(ctx context.Context) ([]string, error) {
+	pid := p.Pid
+	cmdPath := common.HostProc(strconv.Itoa(int(pid)), "cmdline")
+	cmdline, err := ioutil.ReadFile(cmdPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(cmdline) == 0 {
+		return nil, nil
+	}
+	if cmdline[len(cmdline)-1] == 0 {
+		cmdline = cmdline[:len(cmdline)-1]
+	}
+	parts := bytes.Split(cmdline, []byte{0})
+	var strParts []string
+	for _, p := range parts {
+		strParts = append(strParts, string(p))
+	}
+
+	return strParts, nil
+}
+
+func readPidsFromDir(path string) ([]int32, error) {
+	var ret []int32
+
+	d, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer d.Close()
+
+	fnames, err := d.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+	for _, fname := range fnames {
+		pid, err := strconv.ParseInt(fname, 10, 32)
+		if err != nil {
+			// if not numeric name, just skip
+			continue
+		}
+		ret = append(ret, int32(pid))
+	}
+
+	return ret, nil
 }
