@@ -6,7 +6,7 @@
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/janitors
-.github/workflows/ @cilium/maintainers
+.github/workflows/ @cilium/github-sec @cilium/ci-structure
 api/ @cilium/api
 pkg/apisocket/ @cilium/api
 pkg/monitor/payload @cilium/api
