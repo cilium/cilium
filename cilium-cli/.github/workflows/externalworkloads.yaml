@@ -131,7 +131,7 @@ jobs:
         run: |
           kubectl logs -n kube-system job/cilium-cli
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
           kubectl get pods --all-namespaces -o wide
           kubectl get cew --all-namespaces -o wide
           kubectl get cep --all-namespaces -o wide
