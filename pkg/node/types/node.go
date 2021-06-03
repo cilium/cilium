@@ -92,6 +92,7 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 		podCIDRs               []string
 		ipAddrs                []ciliumv2.NodeAddress
 		healthIPv4, healthIPv6 string
+		annotations            = map[string]string{}
 	)
 
 	if n.IPv4AllocCIDR != nil {
@@ -114,10 +115,15 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 		})
 	}
 
+	if n.WireguardPubKey != "" {
+		annotations[annotation.WireguardPubKey] = n.WireguardPubKey
+	}
+
 	return &ciliumv2.CiliumNode{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   n.Name,
-			Labels: n.Labels,
+			Name:        n.Name,
+			Labels:      n.Labels,
+			Annotations: annotations,
 		},
 		Spec: ciliumv2.NodeSpec{
 			Addresses: ipAddrs,
@@ -196,6 +202,7 @@ type Node struct {
 	// NodeIdentity is the numeric identity allocated for the node
 	NodeIdentity uint32
 
+	// WireguardPubKey is the WireGuard public key of this node
 	WireguardPubKey string
 }
 
