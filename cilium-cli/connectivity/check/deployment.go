@@ -86,6 +86,11 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Command:         p.Command,
 							ReadinessProbe:  p.ReadinessProbe,
+							SecurityContext: &corev1.SecurityContext{
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"NET_RAW"},
+								},
+							},
 						},
 					},
 					Affinity: p.Affinity,
