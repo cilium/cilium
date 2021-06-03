@@ -128,6 +128,19 @@ func (ct *ConnectivityTest) Fatalf(format string, a ...interface{}) {
 // should always call the methods implemented on Test.
 //
 
+// progress outputs an unbuffered progress indicator if logging is buffered.
+func (t *Test) progress() {
+	t.logMu.RLock()
+	defer t.logMu.RUnlock()
+
+	// Skip progress indicator if logging is not buffered.
+	if t.logBuf == nil {
+		return
+	}
+
+	fmt.Fprint(t.ctx.params.Writer, ".")
+}
+
 // log takes out a read lock and logs a message to the Test's internal buffer.
 // If the internal log buffer is nil, write to user-specified writer instead.
 // Prefix is an optional prefix to the message.
@@ -175,6 +188,9 @@ func (t *Test) flush() {
 	if t.logBuf == nil {
 		return
 	}
+
+	// Terminate progress so far.
+	fmt.Fprintln(t.ctx.params.Writer)
 
 	// Flush internal buffer to user-specified writer.
 	if _, err := io.Copy(t.ctx.params.Writer, t.logBuf); err != nil {
