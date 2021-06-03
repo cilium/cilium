@@ -4,6 +4,7 @@
 # @cilium/ci-structure       Continuous integration, testing
 # @cilium/cli                Commandline interfaces
 # @cilium/contributing       Developer documentation & tools
+# @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
 # @cilium/hubble             Hubble integration
 # @cilium/kubernetes         K8s integration, K8s CNI plugin
 # @cilium/vendor             Vendoring, dependency management
@@ -20,7 +21,7 @@
 /.github/in-cluster-test-scripts/ @cilium/ci-structure
 /.github/kind-config*.yaml @cilium/ci-structure
 /.github/tools/ @cilium/ci-structure
-/.github/workflows/ @cilium/maintainers @cilium/ci-structure
+/.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /cmd/ @cilium/cli
 /connectivity/ @cilium/policy
 /hubble/ @cilium/hubble
