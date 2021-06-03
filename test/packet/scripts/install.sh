@@ -6,9 +6,8 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 
 GOLANG_VERSION="1.16.4"
-VAGRANT_VERSION="2.2.4"
+VAGRANT_VERSION="2.2.16"
 PACKER_VERSION="1.3.5"
-VIRTUALBOX_VERSION="6.0"
 
 #repositories
 
@@ -26,11 +25,11 @@ sudo add-apt-repository \
 sudo --preserve-env=DEBIAN_FRONTEND apt-get update
 sudo --preserve-env=DEBIAN_FRONTEND apt-get install -y \
     curl jq apt-transport-https htop bmon zip \
+    nfs-common nfs-kernel-server \
     linux-tools-common linux-tools-generic \
     ca-certificates software-properties-common \
     git openjdk-8-jdk gcc make perl unzip awscli \
-    linux-headers-`uname -r` \
-    virtualbox-${VIRTUALBOX_VERSION} docker-ce
+    linux-headers-`uname -r` virtualbox docker-ce
 
 cd /tmp/
 wget https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_x86_64.deb
