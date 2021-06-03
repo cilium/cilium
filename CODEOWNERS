@@ -12,6 +12,7 @@
 # @cilium/docker             Docker plugin
 # @cilium/docs-structure     Documentation, examples
 # @cilium/endpoint           Endpoint package
+# @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
 # @cilium/health             Cilium cluster health tool
 # @cilium/hubble             Hubble integration
 # @cilium/ipam               IPAM
@@ -31,7 +32,7 @@
 * @cilium/janitors
 /CODEOWNERS @cilium/contributing
 /.github/ @cilium/contributing
-/.github/workflows/ @cilium/maintainers @cilium/ci-structure
+/.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.travis/ @cilium/ci-structure
 /.travis.yml @cilium/ci-structure
 /api/ @cilium/api
