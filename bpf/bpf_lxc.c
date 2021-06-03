@@ -103,6 +103,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	bool __maybe_unused dst_remote_ep = false;
+    __u16       rule_id = 0;
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -221,12 +222,12 @@ skip_service_lookup:
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dstID,
-				     &policy_match_type, &audited);
+				     &policy_match_type, &audited, &rule_id);
 
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 && !audited) {
 		send_policy_verdict_notify(ctx, *dstID, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
-					   verdict, policy_match_type, audited);
+					   verdict, policy_match_type, audited, rule_id);
 		return verdict;
 	}
 
@@ -236,7 +237,11 @@ skip_policy_enforcement:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dstID, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
-						   verdict, policy_match_type, audited);
+						   verdict, policy_match_type, audited, rule_id);
+        if (audited) {
+            verdict = CTX_ACT_OK;
+        }
+
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -255,7 +260,11 @@ ct_recreate6:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dstID, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
-						   verdict, policy_match_type, audited);
+						   verdict, policy_match_type, audited, rule_id);
+        if (audited) {
+            verdict = CTX_ACT_OK;
+        }
+
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
@@ -527,6 +536,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u8 audited = 0;
 	bool has_l4_header = false;
 	bool __maybe_unused dst_remote_ep = false;
+    __u16       rule_id = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -652,12 +662,12 @@ skip_service_lookup:
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
 	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dstID,
-				     &policy_match_type, &audited);
+				     &policy_match_type, &audited, &rule_id);
 
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 && !audited) {
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
-					   verdict, policy_match_type, audited);
+					   verdict, policy_match_type, audited, rule_id);
 		return verdict;
 	}
 
@@ -667,7 +677,12 @@ skip_policy_enforcement:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dstID, tuple.dport,
 						   tuple.nexthdr, POLICY_EGRESS, 0,
-						   verdict, policy_match_type, audited);
+						   verdict, policy_match_type, audited, rule_id);
+
+        if (audited) {
+            verdict = CTX_ACT_OK;
+        }
+
 ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -688,7 +703,12 @@ ct_recreate4:
 		if (!hairpin_flow)
 			send_policy_verdict_notify(ctx, *dstID, tuple.dport,
 						   tuple.nexthdr, POLICY_EGRESS, 0,
-						   verdict, policy_match_type, audited);
+						   verdict, policy_match_type, audited, rule_id);
+
+        if (audited) {
+            verdict = CTX_ACT_OK;
+        }
+
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
@@ -1030,6 +1050,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+    __u16       rule_id = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1086,15 +1107,15 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple.dport, tuple.nexthdr, false,
-					    &policy_match_type, &audited);
+					    &policy_match_type, &audited, &rule_id);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy.
 	 */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 && !audited) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
-					   verdict, policy_match_type, audited);
+					   verdict, policy_match_type, audited, rule_id);
 		return verdict;
 	}
 
@@ -1104,8 +1125,12 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
-					   verdict, policy_match_type, audited);
-	}
+					   verdict, policy_match_type, audited, rule_id);
+    }
+
+    if (audited) {
+        verdict = CTX_ACT_OK;
+    }
 
 	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
@@ -1303,9 +1328,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+    __u16       rule_id = 0;
 
-    printk("MDEBUG:= ipv4_policy\n");
-    //bpf_trace_printk("MDEBUG:= ipv4_policy Value:%d\n", 123);
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 	has_l4_header = ipv4_has_l4_header(ip4);
@@ -1383,19 +1407,18 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		goto skip_policy_enforcement;
 #endif /* !ENABLE_HOST_SERVICES_FULL && !DISABLE_LOOPBACK_LB */
 
-    printk("MDEBUG:= Calling policy_can_access_ingress\n");
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple.dport, tuple.nexthdr,
 					    is_untracked_fragment,
-					    &policy_match_type, &audited);
+					    &policy_match_type, &audited, &rule_id);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy.
 	 */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 && !audited) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
-					   verdict, policy_match_type, audited);
+					   verdict, policy_match_type, audited, rule_id);
 		return verdict;
 	}
 
@@ -1405,8 +1428,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
-					   verdict, policy_match_type, audited);
+					   verdict, policy_match_type, audited, rule_id);
 	}
+
+    if (audited) {
+        verdict = CTX_ACT_OK;
+    }
 
 #if !defined(ENABLE_HOST_SERVICES_FULL) && !defined(DISABLE_LOOPBACK_LB)
 skip_policy_enforcement:
@@ -1485,7 +1512,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-    printk("MDEBUG:= calling ipv4_policy\n");
 	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &tuple,
 			  &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
@@ -1528,7 +1554,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	__u8 reason;
 	int ret;
 
-    printk("MDEBUG:=tail_ipv4_to_endpoint\n");
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto out;
@@ -1566,7 +1591,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-    printk("MDEBUG:= Calling ipv4_policy");
 	ret = ipv4_policy(ctx, 0, src_identity, &reason, NULL,
 			  &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
@@ -1615,7 +1639,6 @@ int handle_policy(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
-    printk("MDEBUG:= handle_policy\n");
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
@@ -1630,7 +1653,6 @@ int handle_policy(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-        printk("MDEBUG:= tail_ipv4_policy\n");
 		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 				   CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY, tail_ipv4_policy);
 		break;
@@ -1711,8 +1733,6 @@ int handle_to_container(struct __ctx_buff *ctx)
 	int ret, trace = TRACE_FROM_STACK;
 	__u32 identity = 0;
 	__u16 proto;
-    //bpf_trace_printk("MDEBUG:= handle_to_container\n");
-    printk("MDEBUG:=handle_to_container\n");
 
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;

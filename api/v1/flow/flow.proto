@@ -98,6 +98,11 @@ message Flow {
     // proxy_port indicates the port of the proxy to which the flow was forwarded
     uint32 proxy_port = 29;
 
+    // policy_name gives you the matching name for this flow
+    string policy_name = 30;
+
+    // Audit action indicates that verdict is ALLOWED, DENIED, REDIRECT
+    string audit_type = 31;
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.

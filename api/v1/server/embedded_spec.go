@@ -1138,6 +1138,30 @@ func init() {
         }
       }
     },
+    "/policy/{id}": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieve policy name of policy using id",
+        "parameters": [
+          {
+            "$ref": "#/parameters/policy-id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PolicyID"
+            }
+          },
+          "404": {
+            "description": "Policy id not found"
+          }
+        }
+      }
+    },
     "/prefilter": {
       "get": {
         "tags": [
@@ -3322,6 +3346,23 @@ func init() {
         }
       }
     },
+    "PolicyID": {
+      "description": "Policy ID of a policy rule",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "description": "policy id",
+          "type": "integer"
+        },
+        "name": {
+          "description": "policy name",
+          "type": "string"
+        }
+      }
+    },
     "PolicyRule": {
       "description": "A policy rule including the rule labels it derives from\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -4106,6 +4147,13 @@ func init() {
       "type": "string",
       "description": "K8s pod name\n",
       "name": "pod",
+      "in": "path",
+      "required": true
+    },
+    "policy-id": {
+      "type": "integer",
+      "description": "ID of policy",
+      "name": "id",
       "in": "path",
       "required": true
     },
@@ -5415,6 +5463,34 @@ func init() {
             "schema": {
               "$ref": "#/definitions/SelectorCache"
             }
+          }
+        }
+      }
+    },
+    "/policy/{id}": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieve policy name of policy using id",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of policy",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PolicyID"
+            }
+          },
+          "404": {
+            "description": "Policy id not found"
           }
         }
       }
@@ -7954,6 +8030,23 @@ func init() {
         }
       }
     },
+    "PolicyID": {
+      "description": "Policy ID of a policy rule",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "description": "policy id",
+          "type": "integer"
+        },
+        "name": {
+          "description": "policy name",
+          "type": "string"
+        }
+      }
+    },
     "PolicyRule": {
       "description": "A policy rule including the rule labels it derives from\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -8777,6 +8870,13 @@ func init() {
       "type": "string",
       "description": "K8s pod name\n",
       "name": "pod",
+      "in": "path",
+      "required": true
+    },
+    "policy-id": {
+      "type": "integer",
+      "description": "ID of policy",
+      "name": "id",
       "in": "path",
       "required": true
     },

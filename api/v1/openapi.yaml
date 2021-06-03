@@ -578,6 +578,21 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/SelectorCache"
+  "/policy/{id}":
+    get:
+      summary: Retrieve policy name of policy using id
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/policy-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/PolicyID"
+        '404':
+          description: Policy id not found
+
   "/lrp":
     get:
       summary: Retrieve list of all local redirect policies
@@ -998,6 +1013,12 @@ parameters:
     in: body
     schema:
       type: string
+  policy-id:
+    name: id
+    description: ID of policy
+    required: true
+    in: path
+    type: integer
   pod-name:
     name: pod
     description: |
@@ -2314,6 +2335,18 @@ definitions:
       verdict:
         type: string
       log:
+        type: string
+  PolicyID:
+    description: Policy ID of a policy rule
+    type: object
+    required:
+    - id
+    properties:
+      id:
+        description: policy id
+        type: integer
+      name:
+        description: policy name
         type: string
   Port:
     description: |-

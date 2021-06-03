@@ -320,6 +320,7 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 	retRule.Labels = ParseToCiliumLabels(namespace, name, uid, r.Labels)
 
 	retRule.Description = r.Description
+	retRule.AuditMode = r.AuditMode
 
 	return retRule
 }

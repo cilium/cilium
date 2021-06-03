@@ -736,6 +736,31 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	return NewPutPolicyOK().WithPayload(policy)
 }
 
+type getPolicyId struct {
+	repo *policy.Repository
+}
+
+func newGetPolicyNamesHandler(r *policy.Repository) GetPolicyIDHandler {
+	return &getPolicyId{repo: r}
+}
+
+func (h *getPolicyId) Handle(params GetPolicyIDParams) middleware.Responder {
+	repository := h.repo
+	repository.Mutex.RLock()
+	defer repository.Mutex.RUnlock()
+
+	policyName := repository.GetPolicyNameByRuleID(uint16(params.ID))
+
+	if len(policyName) == 0 {
+		return NewGetPolicyIDNotFound()
+	}
+
+	policyIDName := &models.PolicyID{
+		Name: policyName,
+	}
+	return NewGetPolicyIDOK().WithPayload(policyIDName)
+}
+
 type getPolicy struct {
 	repo *policy.Repository
 }

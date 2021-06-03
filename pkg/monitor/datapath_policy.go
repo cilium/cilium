@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"os"
 
+	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -65,7 +67,10 @@ type PolicyVerdictNotify struct {
 	DstPort     uint16
 	Proto       uint8
 	Flags       uint8
-	Pad1        uint32
+	Pad1        uint16
+	RuleId      uint16
+	Packtes     uint64
+	Bytes       uint64
 	// data
 }
 
@@ -91,10 +96,29 @@ func (n *PolicyVerdictNotify) IsTrafficAudited() bool {
 	return (n.Flags&PolicyVerdictNotifyFlagIsAudited > 0)
 }
 
+func GetPolicyVerdictAction(verdict int32) string {
+	if verdict < 0 {
+		//DENIED
+		return "deny"
+	} else if verdict > 0 {
+		// REDIRECT
+		return "redirect"
+	} else {
+		// ALLOWED
+		return "allow"
+	}
+}
+
 // GetPolicyActionString returns the action string corresponding to the action
 func GetPolicyActionString(verdict int32, audit bool) string {
 	if audit {
-		return "audit"
+		if verdict < 0 {
+			return "audit(deny)"
+		} else if verdict > 0 {
+			return "audit(redirect)"
+		} else {
+			return "audit(allow)"
+		}
 	}
 
 	if verdict < 0 {
@@ -105,6 +129,31 @@ func GetPolicyActionString(verdict int32, audit bool) string {
 	return "allow"
 }
 
+var (
+	policyIDNames = make(map[uint16]string)
+	client        *clientPkg.Client
+)
+
+func GetPolicyName(RuleID uint16) (string, error) {
+	if RuleID != 0 {
+		if policyIDNames[uint16(RuleID)] == "" {
+			if cl, err := clientPkg.NewClient(viper.GetString("host")); err != nil {
+				fmt.Println("Error while creating client: ", err)
+			} else {
+				client = cl
+			}
+			if result, err := client.PolicyIDGet(uint16(RuleID)); err != nil {
+				return "", err
+			} else if result != nil && len(result.Name) != 0 {
+				policyIDNames[uint16(RuleID)] = result.Name
+			}
+		}
+	} else {
+		return "implicit-default-deny", nil
+	}
+	return policyIDNames[uint16(RuleID)], nil
+}
+
 // DumpInfo prints a summary of the policy notify messages.
 func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
@@ -112,7 +161,14 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	if n.IsTrafficIngress() {
 		dir = "ingress"
 	}
-	fmt.Fprintf(buf, "Policy verdict log: flow %#x local EP ID %d", n.Hash, n.Source)
+	fmt.Fprintf(buf, "Policy verdict log: flow %#x", n.Hash)
+	if policyName, err := GetPolicyName(n.RuleId); err == nil {
+		fmt.Fprintf(buf, ", PolicyName %s, local EP ID %d", policyName, n.Source)
+	} else if n.RuleId == 0 {
+		fmt.Fprintf(buf, ", PolicyName implicit-default-deny, local EP ID %d", n.Source)
+	} else {
+		fmt.Fprintf(buf, ", local EP ID %d", n.Source)
+	}
 	if numeric {
 		fmt.Fprintf(buf, ", remote ID %d", n.RemoteLabel)
 	} else {

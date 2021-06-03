@@ -55,6 +55,7 @@ type policyFlag uint8
 
 const (
 	policyFlagDeny = 1 << iota
+	policyFlagAuditMode
 )
 
 // PolicyEntryFlags is a new type used to define the flags used in the policy
@@ -74,6 +75,10 @@ func (pef PolicyEntryFlags) IsDeny() bool {
 	return pef.is(policyFlagDeny)
 }
 
+func (pef PolicyEntryFlags) IsAuditMode() bool {
+	return pef.is(policyFlagAuditMode)
+}
+
 // String returns the string implementation of PolicyEntryFlags.
 func (pef PolicyEntryFlags) String() string {
 	if pef.IsDeny() {
@@ -91,14 +96,6 @@ var (
 	MaxEntries = 16384
 )
 
-type PolicyMap struct {
-	*bpf.Map
-}
-
-func (pe *PolicyEntry) String() string {
-	return fmt.Sprintf("%d %d %d", pe.ProxyPort, pe.Packets, pe.Bytes)
-}
-
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
 // match the layout of policy_key in bpf/lib/common.h.
 // +k8s:deepcopy-gen=true
@@ -108,6 +105,14 @@ type PolicyKey struct {
 	DestPort         uint16 `align:"dport"` // In network byte-order
 	Nexthdr          uint8  `align:"protocol"`
 	TrafficDirection uint8  `align:"egress"`
+}
+
+type PolicyMap struct {
+	*bpf.Map
+}
+
+func (pe *PolicyEntry) String() string {
+	return fmt.Sprintf("%d %d %d", pe.ProxyPort, pe.Packets, pe.Bytes)
 }
 
 // SizeofPolicyKey is the size of type PolicyKey.
@@ -121,7 +126,7 @@ type PolicyEntry struct {
 	ProxyPort uint16 `align:"proxy_port"` // In network byte-order
 	Flags     uint8  `align:"deny"`
 	Pad0      uint8  `align:"pad0"`
-	Pad1      uint16 `align:"pad1"`
+	RuleId    uint16 `align:"rule_id"`
 	Pad2      uint16 `align:"pad2"`
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
@@ -148,7 +153,8 @@ func (pe *PolicyEntry) GetFlags() uint8 {
 }
 
 type PolicyEntryFlagParam struct {
-	IsDeny bool
+	IsDeny      bool
+	IsAuditMode bool
 }
 
 // NewPolicyEntryFlag returns a PolicyEntryFlags from the PolicyEntryFlagParam.
@@ -157,6 +163,10 @@ func NewPolicyEntryFlag(p *PolicyEntryFlagParam) PolicyEntryFlags {
 
 	if p.IsDeny {
 		flags |= policyFlagDeny
+	}
+
+	if p.IsAuditMode {
+		flags |= policyFlagAuditMode
 	}
 
 	return flags
@@ -289,42 +299,43 @@ func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection tra
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
+func newEntry(proxyPort uint16, flags PolicyEntryFlags, ruleId uint16) PolicyEntry {
 	return PolicyEntry{
 		ProxyPort: byteorder.HostToNetwork16(proxyPort),
 		Flags:     flags.UInt8(),
+		RuleId:    ruleId,
 	}
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(k PolicyKey, proxyPort uint16) error {
-	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection), proxyPort)
+func (pm *PolicyMap) AllowKey(k PolicyKey, proxyPort, ruleId uint16, auditMode bool) error {
+	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection), proxyPort, ruleId, auditMode)
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
-func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, proxyPort uint16) error {
+func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, proxyPort, ruleId uint16, auditMode bool) error {
 	key := newKey(id, dport, proto, trafficDirection)
-	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{})
-	entry := newEntry(proxyPort, pef)
+	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{IsAuditMode: auditMode})
+	entry := newEntry(proxyPort, pef, ruleId)
 	return pm.Update(&key, &entry)
 }
 
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) DenyKey(k PolicyKey) error {
-	return pm.Deny(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection))
+func (pm *PolicyMap) DenyKey(k PolicyKey, auditMode bool, ruleId uint16) error {
+	return pm.Deny(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection), auditMode, ruleId)
 }
 
 // Deny pushes an entry into the PolicyMap to deny traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`. It is assumed that `dport` is in host byte-order.
-func (pm *PolicyMap) Deny(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection) error {
+func (pm *PolicyMap) Deny(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, auditMode bool, ruleId uint16) error {
 	key := newKey(id, dport, proto, trafficDirection)
-	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true})
-	entry := newEntry(0, pef)
+	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true, IsAuditMode: auditMode})
+	entry := newEntry(0, pef, ruleId)
 	return pm.Update(&key, &entry)
 }
 

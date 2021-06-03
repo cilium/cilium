@@ -111,6 +111,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var pvn *monitor.PolicyVerdictNotify
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
+	var policyName string
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
 		packetOffset = monitor.DropNotifyLen
@@ -142,6 +143,11 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
+		policyName, _ = monitor.GetPolicyName(pvn.RuleId)
+		decoded.AuditType = monitor.GetPolicyVerdictAction(pvn.Verdict)
+		if len(policyName) > 0 {
+			decoded.PolicyName = policyName
+		}
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
 		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dbg); err != nil {
@@ -403,11 +409,11 @@ func decodeVerdict(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor
 	case tn != nil:
 		return pb.Verdict_FORWARDED
 	case pvn != nil:
-		if pvn.Verdict < 0 {
-			return pb.Verdict_DROPPED
-		}
 		if pvn.IsTrafficAudited() {
 			return pb.Verdict_AUDIT
+		}
+		if pvn.Verdict < 0 {
+			return pb.Verdict_DROPPED
 		}
 		return pb.Verdict_FORWARDED
 	}

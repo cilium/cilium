@@ -86,138 +86,125 @@ account(struct __ctx_buff *ctx, struct policy_entry *policy)
 	__sync_fetch_and_add(&policy->bytes, ctx_full_len(ctx));
 }
 
+
 static __always_inline int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 		    __u32 remoteID, __u16 dport, __u8 proto, int dir,
-		    bool is_untracked_fragment, __u8 *match_type)
+		    bool is_untracked_fragment, __u8 *match_type, __u8 *is_audited,
+            __u16 *rule_id)
 {
-	struct policy_entry *policy;
-	struct policy_key key = {
-		.sec_label = remoteID,
-		.dport = dport,
-		.protocol = proto,
-		.egress = !dir,
-		.pad = 0,
-	};
-    printk("MDEBUG:=PACKET_VALUE remoteId:%d dport:%d\n",
-            remoteID, dport);
-    printk("proto: %d direction:%d\n", proto, dir);
-            
+    struct policy_entry *policy;
+    struct policy_key key = {
+        .sec_label = remoteID,
+        .dport = dport,
+        .protocol = proto,
+        .egress = !dir,
+        .pad = 0,
+    };
 
 #ifdef ALLOW_ICMP_FRAG_NEEDED
-	/* When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
-	 * of ICMP type 3 code 4 - Fragmentation Needed.
-	 */
-	if (proto == IPPROTO_ICMP) {
-		void *data, *data_end;
-		struct icmphdr icmphdr __align_stack_8;
-		struct iphdr *ip4;
-		__u32 off;
+    /* When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
+     * of ICMP type 3 code 4 - Fragmentation Needed.
+     */
+    if (proto == IPPROTO_ICMP) {
+        void *data, *data_end;
+        struct icmphdr icmphdr __align_stack_8;
+        struct iphdr *ip4;
+        __u32 off;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
+        if (!revalidate_data(ctx, &data, &data_end, &ip4))
+            return DROP_INVALID;
 
-		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-			return DROP_INVALID;
+        off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+        if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+            return DROP_INVALID;
 
-		if (icmphdr.type == ICMP_DEST_UNREACH &&
-		    icmphdr.code == ICMP_FRAG_NEEDED)
-			return CTX_ACT_OK;
-	}
+        if (icmphdr.type == ICMP_DEST_UNREACH &&
+                icmphdr.code == ICMP_FRAG_NEEDED)
+            return CTX_ACT_OK;
+    }
 #endif /* ALLOW_ICMP_FRAG_NEEDED */
 
-	/* L4 lookup can't be done on untracked fragments. */
-	if (!is_untracked_fragment) {
-		/* Start with L3/L4 lookup. */
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			cilium_dbg3(ctx, DBG_L4_CREATE, remoteID, localID,
-				    dport << 16 | proto);
-
-            printk("MDEBUG:=POLICY_MATCH_L3_L4 proxy_port:%d deny:%d\n",
-                    policy->proxy_port, policy->deny);
-            printk("packets: %llu bytes:%llu\n",
-                    policy->packets, policy->bytes);
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_L3_L4;
-			if (unlikely(policy->deny)) {
-                printk("DROP_POLICY_DENY\n");
-				return DROP_POLICY_DENY;
+    /* L4 lookup can't be done on untracked fragments. */
+    if (!is_untracked_fragment) {
+        /* Start with L3/L4 lookup. */
+        policy = map_lookup_elem(map, &key);
+        if (likely(policy)) {
+            *match_type = POLICY_MATCH_ALL;
+            account(ctx, policy);
+            *rule_id = policy->rule_id;
+            if (unlikely(policy->audit)) {
+                *is_audited = true;
             }
-            printk("MDEBUG:= Return PROXY\n");
-			return policy->proxy_port;
-		}
+            cilium_dbg3(ctx, DBG_L4_CREATE, remoteID, localID,
+                    dport << 16 | proto);
 
-		/* L4-only lookup. */
-		key.sec_label = 0;
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			account(ctx, policy);
-            printk("MDEBUG:=POLICY_MATCH_L4_ONLY proxy_port:%d deny:%d\n",
-                    policy->proxy_port, policy->deny);
-            printk("packets: %llu bytes:%llu\n",
-                    policy->packets, policy->bytes);
-			*match_type = POLICY_MATCH_L4_ONLY;
-			if (unlikely(policy->deny)) {
-                printk("MDEBUG:= DROP_POLICY_DENY\n");
-				return DROP_POLICY_DENY;
+            if (unlikely(policy->deny)) {
+                return DROP_POLICY_DENY;
             }
-            printk("MDEBUG:= Return PROXY\n");
-			return policy->proxy_port;
-		}
-		key.sec_label = remoteID;
-	}
-
-	/* If L4 policy check misses, fall back to L3. */
-	key.dport = 0;
-	key.protocol = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-        printk("MDEBUG:=POLICY_MATCH_L3_ONLY proxy_port:%d deny:%d\n",
-                policy->proxy_port, policy->deny);
-        printk("packets: %llu bytes:%llu\n",
-                policy->packets, policy->bytes);
-		account(ctx, policy);
-		*match_type = POLICY_MATCH_L3_ONLY;
-		if (unlikely(policy->deny)) {
-            printk("MDEBUG:= DROP_POLICY_DENY\n");
-			return DROP_POLICY_DENY;
+            return policy->proxy_port;
         }
-        printk("MDEBUG:= CTX_ACT_OK\n");
-		return CTX_ACT_OK;
-	}
 
-	/* Final fallback if allow-all policy is in place. */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (policy) {
-        printk("MDEBUG:=POLICY_MATCH_ALL proxy_port:%d deny:%d\n",
-                policy->proxy_port, policy->deny);
-        printk("packets: %llu bytes:%llu\n",
-                policy->packets, policy->bytes);
-		account(ctx, policy);
-		*match_type = POLICY_MATCH_ALL;
-		if (unlikely(policy->deny)) {
-            printk("MDEBUG:= DROP_POLICY_DENY\n");
-			return DROP_POLICY_DENY;
+        /* L4-only lookup. */
+        key.sec_label = 0;
+        policy = map_lookup_elem(map, &key);
+        if (likely(policy)) {
+            *match_type = POLICY_MATCH_ALL;
+            account(ctx, policy);
+            *rule_id = policy->rule_id;
+            if (unlikely(policy->audit)) {
+                *is_audited = true;
+            }
+            if (unlikely(policy->deny)) {
+                return DROP_POLICY_DENY;
+            }
+            return policy->proxy_port;
         }
-        printk("MDEBUG:= CTX_ACT_OK\n");
-		return CTX_ACT_OK;
-	}
-
-	if (ctx_load_meta(ctx, CB_POLICY)) {
-        printk("MDEBUG:= CTX_ACT_OK\n");
-		return CTX_ACT_OK;
+        key.sec_label = remoteID;
     }
 
-	if (is_untracked_fragment) {
-        printk("MDEBUG:= DROP_FRAG_NOSUPPORT\n");
-		return DROP_FRAG_NOSUPPORT;
+    /* If L4 policy check misses, fall back to L3. */
+    key.dport = 0;
+    key.protocol = 0;
+    policy = map_lookup_elem(map, &key);
+    if (likely(policy)) {
+        *match_type = POLICY_MATCH_ALL;
+        account(ctx, policy);
+        *rule_id = policy->rule_id;
+        if (unlikely(policy->audit)) {
+            *is_audited = true;
+        }
+        if (unlikely(policy->deny)) {
+            return DROP_POLICY_DENY;
+        }
+        return CTX_ACT_OK;
     }
 
-    printk("MDEBUG:= DROP_POLICY_DENY\n");
-	return DROP_POLICY;
+    /* Final fallback if allow-all policy is in place. */
+    key.sec_label = 0;
+    policy = map_lookup_elem(map, &key);
+    if (likely(policy)) {
+        *match_type = POLICY_MATCH_ALL;
+        account(ctx, policy);
+        *rule_id = policy->rule_id;
+        if (unlikely(policy->audit)) {
+            *is_audited = true;
+        }
+        if (unlikely(policy->deny)) {
+            return DROP_POLICY_DENY;
+        }
+        return CTX_ACT_OK;
+    }
+
+    if (ctx_load_meta(ctx, CB_POLICY)) {
+        return CTX_ACT_OK;
+    }
+
+    if (is_untracked_fragment) {
+        return DROP_FRAG_NOSUPPORT;
+    }
+
+    return DROP_POLICY;
 }
 
 /**
@@ -239,26 +226,18 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 static __always_inline int
 policy_can_access_ingress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 			  __u16 dport, __u8 proto, bool is_untracked_fragment,
-			  __u8 *match_type, __u8 *audited)
+			  __u8 *match_type, __u8 *audited, __u16 *rule_id)
 {
 	int ret;
-    //printk("MDEBUG:= policy_can_access_ingress\n");
 
 	ret = __policy_can_access(&POLICY_MAP, ctx, dstID, srcID, dport,
 				  proto, CT_INGRESS, is_untracked_fragment,
-				  match_type);
+				  match_type, audited, rule_id);
+
 	if (ret >= CTX_ACT_OK)
 		return ret;
 
-	cilium_dbg(ctx, DBG_POLICY_DENIED, srcID, dstID);
-
-	*audited = 0;
-#ifdef POLICY_AUDIT_MODE
-	if (IS_ERR(ret)) {
-		ret = CTX_ACT_OK;
-		*audited = 1;
-	}
-#endif
+    cilium_dbg(ctx, DBG_POLICY_DENIED, srcID, dstID);
 
 	return ret;
 }
@@ -275,7 +254,8 @@ static __always_inline bool is_encap(__u16 dport, __u8 proto)
 
 static __always_inline int
 policy_can_egress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
-		  __u16 dport, __u8 proto, __u8 *match_type, __u8 *audited)
+		  __u16 dport, __u8 proto, __u8 *match_type, __u8 *audited,
+          __u16 *rule_id)
 {
 	int ret;
 
@@ -284,36 +264,32 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 		return DROP_ENCAP_PROHIBITED;
 #endif
 	ret = __policy_can_access(&POLICY_MAP, ctx, srcID, dstID, dport, proto,
-				  CT_EGRESS, false, match_type);
+				  CT_EGRESS, false, match_type, audited, rule_id);
+
 	if (ret >= 0)
 		return ret;
-	cilium_dbg(ctx, DBG_POLICY_DENIED, srcID, dstID);
-	*audited = 0;
-#ifdef POLICY_AUDIT_MODE
-	if (IS_ERR(ret)) {
-		ret = CTX_ACT_OK;
-		*audited = 1;
-	}
-#endif
+
+    cilium_dbg(ctx, DBG_POLICY_DENIED, srcID, dstID);
+
 	return ret;
 }
 
 static __always_inline int policy_can_egress6(struct __ctx_buff *ctx,
 					      const struct ipv6_ct_tuple *tuple,
 					      __u32 srcID, __u32 dstID,
-					      __u8 *match_type, __u8 *audited)
+					      __u8 *match_type, __u8 *audited, __u16 *rule_id)
 {
 	return policy_can_egress(ctx, srcID, dstID, tuple->dport,
-				 tuple->nexthdr, match_type, audited);
+				 tuple->nexthdr, match_type, audited, rule_id);
 }
 
 static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
 					      const struct ipv4_ct_tuple *tuple,
 					      __u32 srcID, __u32 dstID,
-					      __u8 *match_type, __u8 *audited)
+					      __u8 *match_type, __u8 *audited, __u16 *rule_id)
 {
 	return policy_can_egress(ctx, srcID, dstID, tuple->dport,
-				 tuple->nexthdr, match_type, audited);
+				 tuple->nexthdr, match_type, audited, rule_id);
 }
 
 /**
