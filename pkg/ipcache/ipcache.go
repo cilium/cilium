@@ -597,13 +597,6 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 	return cidrs
 }
 
-// GetIPIdentityMapModel returns all known endpoint IP to security identity mappings
-// stored in the key-value store.
-func GetIPIdentityMapModel() {
-	// TODO (ianvernon) return model of ip to identity mapping. For use in CLI.
-	// see GH-2555
-}
-
 // Equal returns true if two K8sMetadata pointers contain the same data or are
 // both nil.
 func (m *K8sMetadata) Equal(o *K8sMetadata) bool {

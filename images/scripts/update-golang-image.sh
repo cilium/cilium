@@ -19,7 +19,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-go_version=1.16.4
+go_version=1.16.5
 # Do not upgrade to alpine 3.13 as its nslookup tool returns 1, instead of 0
 # for domain name lookups.
 go_version_alpine=${go_version}-alpine3.12
