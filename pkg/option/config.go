@@ -2015,7 +2015,7 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
-		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
+		EnableWellKnownIdentities:    defaults.EnableWellKnownIdentities,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 
