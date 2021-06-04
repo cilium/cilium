@@ -127,6 +127,17 @@ Example ``kind-cluster2.yaml``:
       podSubnet: "10.2.0.0/16"
       serviceSubnet: "10.3.0.0/16"
 
+.. note::
+
+   Running a kind cluster of more then 2 worker nodes will typically
+   result in fsnotify limits being reached on Linux.
+
+   These issues will cause our Cilium connectivity test to fail with
+   the error "too many files".
+
+   This is a known issue with Kind and is addressed here:
+   https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files
+
 Create Kind Clusters
 --------------------
 
