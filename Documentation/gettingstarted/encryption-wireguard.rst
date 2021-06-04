@@ -83,39 +83,39 @@ commands:
 1. Check that WireGuard has been enabled (number of peers should correspond to
    a number of nodes subtracted by one):
 
-.. code-block:: shell-session
+   .. code-block:: shell-session
 
-   cilium status | grep Encryption
+      cilium status | grep Encryption
 
-   Encryption: Wireguard [cilium_wg0 (Pubkey: <..>, Port: 51871, Peers: 2)]
+      Encryption: Wireguard [cilium_wg0 (Pubkey: <..>, Port: 51871, Peers: 2)]
 
 2. Install tcpdump
 
-.. code-block:: shell-session
+   .. code-block:: shell-session
 
-    apt-get update
-    apt-get -y install tcpdump
+      apt-get update
+      apt-get -y install tcpdump
 
 3. Check that traffic is sent via the ``cilium_wg0`` tunnel device:
 
-.. code-block:: shell-session
+   .. code-block:: shell-session
 
-    tcpdump -n -i cilium_wg0
+      tcpdump -n -i cilium_wg0
 
-    tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-    listening on cilium_wg0, link-type RAW (Raw IP), capture size 262144 bytes
-    15:05:24.643427 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [S], seq 476474887, win 64860, options [mss 1410,sackOK,TS val 648097391 ecr 0,nop,wscale 7], length 0
-    15:05:24.644185 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [S.], seq 4032860634, ack 476474888, win 64308, options [mss 1410,sackOK,TS val 4004186138 ecr 648097391,nop,wscale 7], length 0
-    15:05:24.644238 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 1, win 507, options [nop,nop,TS val 648097391 ecr 4004186138], length 0
-    15:05:24.644277 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [P.], seq 1:81, ack 1, win 507, options [nop,nop,TS val 648097392 ecr 4004186138], length 80: HTTP: GET / HTTP/1.1
-    15:05:24.644370 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [.], ack 81, win 502, options [nop,nop,TS val 4004186139 ecr 648097392], length 0
-    15:05:24.645536 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [.], seq 1:1369, ack 81, win 502, options [nop,nop,TS val 4004186140 ecr 648097392], length 1368: HTTP: HTTP/1.1 200 OK
-    15:05:24.645569 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 1369, win 502, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
-    15:05:24.645578 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [P.], seq 1369:2422, ack 81, win 502, options [nop,nop,TS val 4004186140 ecr 648097392], length 1053: HTTP
-    15:05:24.645644 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 2422, win 494, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
-    15:05:24.645752 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [F.], seq 81, ack 2422, win 502, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
-    15:05:24.646431 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [F.], seq 2422, ack 82, win 502, options [nop,nop,TS val 4004186141 ecr 648097393], length 0
-    15:05:24.646484 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 2423, win 502, options [nop,nop,TS val 648097394 ecr 4004186141], length 0
+      tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+      listening on cilium_wg0, link-type RAW (Raw IP), capture size 262144 bytes
+      15:05:24.643427 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [S], seq 476474887, win 64860, options [mss 1410,sackOK,TS val 648097391 ecr 0,nop,wscale 7], length 0
+      15:05:24.644185 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [S.], seq 4032860634, ack 476474888, win 64308, options [mss 1410,sackOK,TS val 4004186138 ecr 648097391,nop,wscale 7], length 0
+      15:05:24.644238 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 1, win 507, options [nop,nop,TS val 648097391 ecr 4004186138], length 0
+      15:05:24.644277 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [P.], seq 1:81, ack 1, win 507, options [nop,nop,TS val 648097392 ecr 4004186138], length 80: HTTP: GET / HTTP/1.1
+      15:05:24.644370 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [.], ack 81, win 502, options [nop,nop,TS val 4004186139 ecr 648097392], length 0
+      15:05:24.645536 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [.], seq 1:1369, ack 81, win 502, options [nop,nop,TS val 4004186140 ecr 648097392], length 1368: HTTP: HTTP/1.1 200 OK
+      15:05:24.645569 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 1369, win 502, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
+      15:05:24.645578 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [P.], seq 1369:2422, ack 81, win 502, options [nop,nop,TS val 4004186140 ecr 648097392], length 1053: HTTP
+      15:05:24.645644 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 2422, win 494, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
+      15:05:24.645752 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [F.], seq 81, ack 2422, win 502, options [nop,nop,TS val 648097393 ecr 4004186140], length 0
+      15:05:24.646431 IP 10.244.3.78.8080 > 10.244.1.35.51116: Flags [F.], seq 2422, ack 82, win 502, options [nop,nop,TS val 4004186141 ecr 648097393], length 0
+      15:05:24.646484 IP 10.244.1.35.51116 > 10.244.3.78.8080: Flags [.], ack 2423, win 502, options [nop,nop,TS val 648097394 ecr 4004186141], length 0
 
 Troubleshooting
 ===============

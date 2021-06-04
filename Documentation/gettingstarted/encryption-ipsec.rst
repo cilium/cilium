@@ -165,28 +165,28 @@ commands:
 
 1. Install tcpdump
 
-.. code-block:: shell-session
+   .. code-block:: shell-session
 
-    $ apt-get update
-    $ apt-get -y install tcpdump
+       $ apt-get update
+       $ apt-get -y install tcpdump
 
 2. Check that traffic is encrypted. In the example below, this can be verified
    by the fact that packets carry the IP Encapsulating Security Payload (ESP).
    In the example below, ``eth0`` is the interface used for pod-to-pod
    communication. Replace this interface with ``cilium_vxlan`` if tunneling is enabled.
 
-.. code-block:: shell-session
+   .. code-block:: shell-session
 
-    tcpdump -n -i eth0 esp
-    tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-    listening on cilium_vxlan, link-type EN10MB (Ethernet), capture size 262144 bytes
-    15:16:21.626416 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e2), length 180
-    15:16:21.626473 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e3), length 180
-    15:16:21.627167 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579d), length 100
-    15:16:21.627296 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579e), length 100
-    15:16:21.627523 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579f), length 180
-    15:16:21.627699 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e4), length 100
-    15:16:21.628408 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e5), length 100
+       tcpdump -n -i eth0 esp
+       tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+       listening on cilium_vxlan, link-type EN10MB (Ethernet), capture size 262144 bytes
+       15:16:21.626416 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e2), length 180
+       15:16:21.626473 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e3), length 180
+       15:16:21.627167 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579d), length 100
+       15:16:21.627296 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579e), length 100
+       15:16:21.627523 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579f), length 180
+       15:16:21.627699 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e4), length 100
+       15:16:21.628408 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e5), length 100
 
 Key Rotation
 ============
