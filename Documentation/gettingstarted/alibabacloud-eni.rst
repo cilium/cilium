@@ -117,7 +117,7 @@ These keys need to have certain `RAM Permissions
         {
           "Action": [
             "vpc:DescribeVSwitches",
-            "vpc:ListTagResources",
+            "vpc:ListTagResources"
           ],
           "Resource": [
             "*"
