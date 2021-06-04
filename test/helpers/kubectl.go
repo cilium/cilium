@@ -692,6 +692,10 @@ func (kub *Kubectl) GetCiliumEndpoint(namespace string, pod string) (*cnpv2.Endp
 		return nil, fmt.Errorf("unable to unmarshal CiliumEndpoint %s: %s", fullName, err)
 	}
 
+	if data == nil {
+		return nil, fmt.Errorf("CiliumEndpoint does not have a status yet")
+	}
+
 	return data, nil
 }
 
