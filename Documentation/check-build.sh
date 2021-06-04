@@ -85,4 +85,11 @@ fi
 # fi
 
 echo "Building documentation (${target})..."
-exec sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@
+sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@ -q 2> >(tee "${warnings}" >&2)
+
+# We can have warnings but no errors here, or sphinx-build would return non-0
+# and we would have exited because of "set -o errexit".
+if [ -s "${warnings}" ] ; then
+    echo "Please fix the above documentation warnings"
+    exit 1
+fi
