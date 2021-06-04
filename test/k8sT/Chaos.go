@@ -233,7 +233,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sChaosTest", func() {
 			res := kubectl.ExecPodCmdBackground(
 				ctx,
 				helpers.DefaultNamespace,
-				netperfClient,
+				netperfClient, "",
 				fmt.Sprintf("netperf -l 60 -t TCP_STREAM -H %s", podsIps[netperfServer]))
 
 			restartCilium()
@@ -250,7 +250,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sChaosTest", func() {
 			res := kubectl.ExecPodCmdBackground(
 				ctx,
 				helpers.DefaultNamespace,
-				netperfClient,
+				netperfClient, "",
 				fmt.Sprintf("netperf -l 60 -t TCP_STREAM -H %s", podsIps[netperfServer]))
 
 			By("Installing the L3-L4 Policy")
