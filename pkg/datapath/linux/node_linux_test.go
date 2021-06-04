@@ -1201,6 +1201,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 	}
 	// Cleanup
 	close(done)
+	wg.Wait()
 	now = time.Now()
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	c.Assert(err, check.IsNil)
