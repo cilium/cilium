@@ -17,6 +17,8 @@
 package policy
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -356,6 +358,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
+	time.Sleep(100 * time.Millisecond)
 	c.Assert(policy.policyMapChanges.changes, HasLen, 0)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -433,12 +436,14 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	testSelectorCache.UpdateIdentities(added1, nil)
 	// Cleanup the identities from the testSelectorCache
 	defer testSelectorCache.UpdateIdentities(nil, added1)
+	time.Sleep(100 * time.Millisecond)
 	c.Assert(policy.policyMapChanges.changes, HasLen, 3)
 
 	deleted1 := cache.IdentityCache{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
 	testSelectorCache.UpdateIdentities(nil, deleted1)
+	time.Sleep(100 * time.Millisecond)
 	c.Assert(policy.policyMapChanges.changes, HasLen, 4)
 
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
