@@ -31,3 +31,4 @@ sphinx-version-warning==1.1.2
 typing==3.6.6
 urllib3==1.24.2
 yamllint==1.22.0
+rstcheck==3.3.1
