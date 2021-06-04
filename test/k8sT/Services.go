@@ -2558,6 +2558,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							bgpConfigMap string
 
 							lbSVC string
+
+							ciliumPodK8s1, ciliumPodK8s2 string
+							testStartTime                time.Time
 						)
 
 						applyFRRTemplate := func() string {
@@ -2628,13 +2631,47 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 								map[string]string{
 									"bgp.enabled":                 "true",
 									"bgp.announce.loadbalancerIP": "true",
+
+									"debug.verbose": "datapath", // https://github.com/cilium/cilium/issues/16399
 								})
 
 							lbSVC = helpers.ManifestGet(kubectl.BasePath(), "test_lb_with_ip.yaml")
 							kubectl.ApplyDefault(lbSVC).ExpectSuccess("Unable to apply %s", lbSVC)
+
+							var err error
+							ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
+							ExpectWithOffset(1, err).ShouldNot(HaveOccurred(), "Cannot determine cilium pod name")
+							ciliumPodK8s2, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
+							ExpectWithOffset(1, err).ShouldNot(HaveOccurred(), "Cannot determine cilium pod name")
+							testStartTime = time.Now()
 						})
 
 						AfterAll(func() {
+							res := kubectl.CiliumExecContext(
+								context.TODO(),
+								ciliumPodK8s1,
+								fmt.Sprintf(
+									"hubble observe debug-events --since %v -o json",
+									testStartTime.Format(time.RFC3339),
+								),
+							)
+							helpers.WriteToReportFile(
+								res.CombineOutput().Bytes(),
+								"tests-loadbalancer-hubble-observe-debug-events-k8s1.log",
+							)
+							res = kubectl.CiliumExecContext(
+								context.TODO(),
+								ciliumPodK8s2,
+								fmt.Sprintf(
+									"hubble observe debug-events --since %v -o json",
+									testStartTime.Format(time.RFC3339),
+								),
+							)
+							helpers.WriteToReportFile(
+								res.CombineOutput().Bytes(),
+								"tests-loadbalancer-hubble-observe-debug-events-k8s2.log",
+							)
+
 							kubectl.Delete(frr)
 							kubectl.Delete(bgpConfigMap)
 							kubectl.Delete(lbSVC)
