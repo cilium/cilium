@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/contexthelpers"
@@ -84,7 +85,8 @@ var (
 	// versionCheckTimeout is the time we wait trying to verify the version
 	// of an etcd endpoint. The timeout can be encountered on network
 	// connectivity problems.
-	versionCheckTimeout = 30 * time.Second
+	// This field needs to be accessed with the atomic library.
+	versionCheckTimeout = int64(30 * time.Second)
 
 	// statusCheckTimeout is the timeout when performing status checks with
 	// all etcd endpoints
@@ -853,7 +855,8 @@ func (e *etcdClient) checkMinVersion(ctx context.Context) error {
 	eps := e.client.Endpoints()
 
 	for _, ep := range eps {
-		v, err := getEPVersion(ctx, e.client.Maintenance, ep, versionCheckTimeout)
+		vcTimeout := atomic.LoadInt64(&versionCheckTimeout)
+		v, err := getEPVersion(ctx, e.client.Maintenance, ep, time.Duration(vcTimeout))
 		if err != nil {
 			e.getLogger().WithError(Hint(err)).WithField(fieldEtcdEndpoint, ep).
 				Warn("Unable to verify version of etcd endpoint")
