@@ -116,7 +116,7 @@ Reference steps for the template
    #. Copy the official docker manifests for the release from the previous step
       into the end of the Github release announcement.
 
-#. Prepare Helm changes for the release using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`_
+#. Prepare Helm changes for the release using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`__
    and push the changes into that repository (not the main cilium repository):
 
    .. code-block:: shell-session
@@ -124,7 +124,7 @@ Reference steps for the template
       ./prepare_artifacts.sh /path/to/cilium/repository/checked/out/to/release/commit
       git push
 
-#. Prepare Helm changes for the dev version of the branch using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`_
+#. Prepare Helm changes for the dev version of the branch using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`__
    for the vX.Y helm charts, and push the changes into that repository (not the main cilium repository):
 
    In the ``cilium/cilium`` repository:
