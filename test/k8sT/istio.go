@@ -113,6 +113,15 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 		By("Deploying Istio")
 		res = kubectl.Exec("./cilium-istioctl install -y" + istioctlParams)
 		res.ExpectSuccess("unable to deploy Istio")
+		if !res.WasSuccessful() {
+			// AfterAll() is not called if BeforeAll() fails, have to clean up here explicitly
+			By("Deleting default namespace sidecar injection label")
+			_ = kubectl.NamespaceLabel(helpers.DefaultNamespace, "istio-injection-")
+			By("Deleting the Istio resources")
+			_ = kubectl.Exec(fmt.Sprintf("./cilium-istioctl manifest generate | %s delete -f -", helpers.KubectlCmd))
+			By("Deleting the istio-system namespace")
+			_ = kubectl.NamespaceDelete(istioSystemNamespace)
+		}
 	})
 
 	AfterAll(func() {
