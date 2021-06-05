@@ -393,6 +393,10 @@ var (
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
 
+	// FQDNGarbageCollectorDeletedEntriesTotal is the number of name entries deleted
+	// by GC job.
+	FQDNGarbageCollectorDeletedEntriesTotal = NoOpCounter
+
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
 
@@ -449,69 +453,70 @@ var (
 )
 
 type Configuration struct {
-	APIInteractionsEnabled                  bool
-	EndpointRegenerationCountEnabled        bool
-	EndpointStateCountEnabled               bool
-	EndpointRegenerationTimeStatsEnabled    bool
-	PolicyCountEnabled                      bool
-	PolicyRegenerationCountEnabled          bool
-	PolicyRegenerationTimeStatsEnabled      bool
-	PolicyRevisionEnabled                   bool
-	PolicyImportErrorsEnabled               bool
-	PolicyEndpointStatusEnabled             bool
-	PolicyImplementationDelayEnabled        bool
-	IdentityCountEnabled                    bool
-	EventTSK8sEnabled                       bool
-	EventLagK8sEnabled                      bool
-	EventTSContainerdEnabled                bool
-	EventTSAPIEnabled                       bool
-	ProxyRedirectsEnabled                   bool
-	ProxyPolicyL7Enabled                    bool
-	ProxyParseErrorsEnabled                 bool
-	ProxyForwardedEnabled                   bool
-	ProxyDeniedEnabled                      bool
-	ProxyReceivedEnabled                    bool
-	NoOpObserverVecEnabled                  bool
-	DropCountEnabled                        bool
-	DropBytesEnabled                        bool
-	NoOpCounterVecEnabled                   bool
-	ForwardBytesEnabled                     bool
-	ConntrackGCRunsEnabled                  bool
-	ConntrackGCKeyFallbacksEnabled          bool
-	ConntrackGCSizeEnabled                  bool
-	ConntrackGCDurationEnabled              bool
-	ConntrackDumpResetsEnabled              bool
-	SignalsHandledEnabled                   bool
-	ServicesCountEnabled                    bool
-	ErrorsWarningsEnabled                   bool
-	ControllerRunsEnabled                   bool
-	ControllerRunsDurationEnabled           bool
-	SubprocessStartEnabled                  bool
-	KubernetesEventProcessedEnabled         bool
-	KubernetesEventReceivedEnabled          bool
-	KubernetesAPIInteractionsEnabled        bool
-	KubernetesAPICallsEnabled               bool
-	KubernetesCNPStatusCompletionEnabled    bool
-	IpamEventEnabled                        bool
-	KVStoreOperationsDurationEnabled        bool
-	KVStoreEventsQueueDurationEnabled       bool
-	KVStoreQuorumErrorsEnabled              bool
-	FQDNGarbageCollectorCleanedTotalEnabled bool
-	BPFSyscallDurationEnabled               bool
-	BPFMapOps                               bool
-	BPFMapPressure                          bool
-	TriggerPolicyUpdateTotal                bool
-	TriggerPolicyUpdateFolds                bool
-	TriggerPolicyUpdateCallDuration         bool
-	VersionMetric                           bool
-	APILimiterWaitHistoryDuration           bool
-	APILimiterWaitDuration                  bool
-	APILimiterProcessingDuration            bool
-	APILimiterRequestsInFlight              bool
-	APILimiterRateLimit                     bool
-	APILimiterAdjustmentFactor              bool
-	APILimiterProcessedRequests             bool
-	ArpingRequestsTotalEnabled              bool
+	APIInteractionsEnabled                         bool
+	EndpointRegenerationCountEnabled               bool
+	EndpointStateCountEnabled                      bool
+	EndpointRegenerationTimeStatsEnabled           bool
+	PolicyCountEnabled                             bool
+	PolicyRegenerationCountEnabled                 bool
+	PolicyRegenerationTimeStatsEnabled             bool
+	PolicyRevisionEnabled                          bool
+	PolicyImportErrorsEnabled                      bool
+	PolicyEndpointStatusEnabled                    bool
+	PolicyImplementationDelayEnabled               bool
+	IdentityCountEnabled                           bool
+	EventTSK8sEnabled                              bool
+	EventLagK8sEnabled                             bool
+	EventTSContainerdEnabled                       bool
+	EventTSAPIEnabled                              bool
+	ProxyRedirectsEnabled                          bool
+	ProxyPolicyL7Enabled                           bool
+	ProxyParseErrorsEnabled                        bool
+	ProxyForwardedEnabled                          bool
+	ProxyDeniedEnabled                             bool
+	ProxyReceivedEnabled                           bool
+	NoOpObserverVecEnabled                         bool
+	DropCountEnabled                               bool
+	DropBytesEnabled                               bool
+	NoOpCounterVecEnabled                          bool
+	ForwardBytesEnabled                            bool
+	ConntrackGCRunsEnabled                         bool
+	ConntrackGCKeyFallbacksEnabled                 bool
+	ConntrackGCSizeEnabled                         bool
+	ConntrackGCDurationEnabled                     bool
+	ConntrackDumpResetsEnabled                     bool
+	SignalsHandledEnabled                          bool
+	ServicesCountEnabled                           bool
+	ErrorsWarningsEnabled                          bool
+	ControllerRunsEnabled                          bool
+	ControllerRunsDurationEnabled                  bool
+	SubprocessStartEnabled                         bool
+	KubernetesEventProcessedEnabled                bool
+	KubernetesEventReceivedEnabled                 bool
+	KubernetesAPIInteractionsEnabled               bool
+	KubernetesAPICallsEnabled                      bool
+	KubernetesCNPStatusCompletionEnabled           bool
+	IpamEventEnabled                               bool
+	KVStoreOperationsDurationEnabled               bool
+	KVStoreEventsQueueDurationEnabled              bool
+	KVStoreQuorumErrorsEnabled                     bool
+	FQDNGarbageCollectorCleanedTotalEnabled        bool
+	FQDNGarbageCollectorDeletedEntriesTotalEnabled bool
+	BPFSyscallDurationEnabled                      bool
+	BPFMapOps                                      bool
+	BPFMapPressure                                 bool
+	TriggerPolicyUpdateTotal                       bool
+	TriggerPolicyUpdateFolds                       bool
+	TriggerPolicyUpdateCallDuration                bool
+	VersionMetric                                  bool
+	APILimiterWaitHistoryDuration                  bool
+	APILimiterWaitDuration                         bool
+	APILimiterProcessingDuration                   bool
+	APILimiterRequestsInFlight                     bool
+	APILimiterRateLimit                            bool
+	APILimiterAdjustmentFactor                     bool
+	APILimiterProcessedRequests                    bool
+	ArpingRequestsTotalEnabled                     bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -1098,9 +1103,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "fqdn_gc_deletions_total",
 				Help:      "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
 			})
-
 			collectors = append(collectors, FQDNGarbageCollectorCleanedTotal)
 			c.FQDNGarbageCollectorCleanedTotalEnabled = true
+
+		case Namespace + "_fqdn_gc_deleted_name_entries":
+			FQDNGarbageCollectorDeletedEntriesTotal = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Name:      "fqdn_gc_deleted_name_entries",
+				Help:      "Number of name entries that have been deleted on FQDN Garbage collector job",
+			})
+			collectors = append(collectors, FQDNGarbageCollectorDeletedEntriesTotal)
+			c.FQDNGarbageCollectorDeletedEntriesTotalEnabled = true
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{

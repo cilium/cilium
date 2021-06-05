@@ -231,14 +231,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToClean)
-			namesCount := len(namesToClean)
-			// Limit the amount of info level logging to some sane amount
-			if namesCount > 20 {
-				// namedsToClean is only used for logging after this so we can reslice it in place
-				namesToClean = namesToClean[:20]
-			}
-			log.WithField(logfields.Controller, dnsGCJobName).Infof(
-				"FQDN garbage collector work deleted %d name entries: %s", namesCount, strings.Join(namesToClean, ","))
+			metrics.FQDNGarbageCollectorDeletedEntriesTotal.Add(float64(len(namesToClean)))
 			return err
 		},
 		Context: d.ctx,
