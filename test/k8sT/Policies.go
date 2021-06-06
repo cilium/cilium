@@ -1614,7 +1614,6 @@ var _ = SkipDescribeIf(func() bool {
 			var (
 				cnpFromEntitiesHost       string
 				cnpFromEntitiesRemoteNode string
-				cnpFromEntitiesWorld      string
 				cnpFromEntitiesCluster    string
 				cnpFromEntitiesAll        string
 
@@ -1629,7 +1628,6 @@ var _ = SkipDescribeIf(func() bool {
 			BeforeAll(func() {
 				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
-				cnpFromEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-world.yaml")
 				cnpFromEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-cluster.yaml")
 				cnpFromEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-all.yaml")
 
@@ -1733,29 +1731,12 @@ var _ = SkipDescribeIf(func() bool {
 				})
 
 				It("Allows from all hosts with cnp fromEntities host policy", func() {
-					if helpers.NativeRoutingEnabled() {
-						// When running native-routing mode,
-						// the source IP from host traffic is
-						// unlikely the IP assigned to the
-						// cilium-host interface. In the
-						// remote-node identity legacy mode,
-						// only the IP of the cilium-host
-						// interface is considered host. All
-						// other IPs are considered world.
-						By("Installing fromEntities host and world policy")
-						importPolicy(kubectl, testNamespace, cnpFromEntitiesWorld, "from-entities-world")
-						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
 
-						By("Checking policy correctness")
-						validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityAllow)
-					} else {
-						By("Installing fromEntities host policy")
-						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
+					By("Installing fromEntities host policy")
+					importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
 
-						By("Checking policy correctness")
-						validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
-					}
-
+					By("Checking policy correctness")
+					validateConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow, PodConnectivityDeny, WorldConnectivityDeny)
 				})
 			})
 
