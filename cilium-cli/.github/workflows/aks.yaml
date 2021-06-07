@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: cilium-cli-ci-${{ github.run_number }}
+  name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
+  location: westeurope
 
 jobs:
   installation-and-connectivity:
@@ -35,64 +36,103 @@ jobs:
       - name: Build and install cilium CLI binary
         run: sudo make install
 
-      - name: Azure Login
+      - name: Login to Azure
         uses: azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Azure CLI info
+      - name: Display Azure CLI info
         uses: azure/CLI@4b58c946a0f48d82cc2b6e31c0d15a6604859554
         with:
           azcliversion: 2.0.72
           inlineScript: |
             az account show
 
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+
+          echo ::set-output name=sha::${SHA}
+          echo ::set-output name=owner::${OWNER}
+
       - name: Create AKS cluster
         run: |
+          az group create \
+            --name ${{ env.name }} \
+            --location ${{ env.location }} \
+            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
           az aks create \
-            --resource-group cilium-ci \
-            --name ${{ env.clusterName }} \
-            --location westeurope \
-            --node-count 2 \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }} \
+            --location ${{ env.location }} \
             --network-plugin azure \
+            --node-count 2 \
+            --node-vm-size Standard_B2s \
+            --node-osdisk-size 30 \
+            --load-balancer-sku basic \
             --generate-ssh-keys
 
-      - name: Get Credentials
+      - name: Get cluster credentials
         run: |
-          az aks get-credentials --name ${{ env.clusterName }} --resource-group cilium-ci
+          az aks get-credentials \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }}
 
-      - name: Install cilium
+      - name: Install Cilium
         run: |
-          cilium install --cluster-name ${{ env.clusterName }} --azure-resource-group cilium-ci --azure-tenant-id ${{ secrets.AZURE_TENANT_ID}} --azure-client-id ${{ secrets.AZURE_CLIENT_ID }} --azure-client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --config monitor-aggregation=none
+          cilium install \
+            --cluster-name=${{ env.name }} \
+            --azure-resource-group ${{ env.name }} \
+            --azure-tenant-id ${{ secrets.AZURE_TENANT_ID }} \
+            --azure-client-id ${{ secrets.AZURE_CLIENT_ID }} \
+            --azure-client-secret ${{ secrets.AZURE_CLIENT_SECRET }} \
+            --wait=false \
+            --config monitor-aggregation=none
 
-      - name: Enable relay
+      - name: Enable Relay
         run: |
           cilium hubble enable
 
-      - name: Status
+      - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait
 
-      - name: Relay Port Forward
+      - name: Port forward Relay
         run: |
           cilium hubble port-forward&
           sleep 5s
 
-      - name: Connectivity Test
+      - name: Run connectivity test
         run: |
           cilium connectivity test --all-flows
 
-      - name: Cleanup
-        if: ${{ always() }}
+      - name: Post-test information gathering
+        if: ${{ failure() }}
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-          az aks delete --yes --name ${{ env.clusterName }} --resource-group cilium-ci --no-wait
-        shell: bash {0}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Upload Artifacts
+      - name: Clean up AKS
+        if: ${{ always() }}
+        run: |
+          az group delete --name ${{ env.name }} --yes --no-wait
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:

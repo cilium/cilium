@@ -12,9 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
+  vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
-  clusterName: cilium-cli-ci-${{ github.run_number }}
-  vmName: cilium-cli-ci-vm-${{ github.run_number }}
   vmStartupScript: .github/gcp-vm-startup.sh
 
 jobs:
@@ -25,27 +25,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
-      - name: Set up gcloud
+      - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@daadedc81d5f9d3c06d2c92f49202a3cc2b919ba
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
 
-      - name: gcloud info
+      - name: Display gcloud CLI info
         run: |
           gcloud info
 
-      - name: Create GKE cluster
-        run: |
-          gcloud container clusters create ${{ env.clusterName }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }}
-          gcloud container clusters get-credentials ${{ env.clusterName}} --zone ${{ env.zone }}
-
-      - name: Set job vars
+      - name: Set up job variables
         id: vars
         run: |
-          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
-          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
           if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
             PR_API_JSON=$(curl \
               -H "Accept: application/vnd.github.v3+json" \
@@ -53,16 +46,46 @@ jobs:
               ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
             SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
             OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
-            IS_PR=true
           else
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
           fi
+
           echo ::set-output name=sha::${SHA}
+          echo ::set-output name=owner::${OWNER}
+
+      - name: Create GKE cluster
+        id: cluster
+        run: |
+          gcloud container clusters create ${{ env.clusterName }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.zone }} \
+            --image-type COS_CONTAINERD \
+            --num-nodes 2 \
+            --machine-type e2-custom-2-4096 \
+            --disk-type pd-standard \
+            --disk-size 10GB \
+            --preemptible
+          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
+
+      - name: Get cluster credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ env.zone }}
 
       - name: Create GCP VM
         run: |
-          gcloud compute instances create ${{ env.vmName }} --image-project ubuntu-os-cloud --image-family ubuntu-2010 --machine-type n1-standard-4 --zone ${{ env.zone }} --metadata hostname=${{ env.vmName }} --metadata-from-file startup-script=${{ env.vmStartupScript }}
+          gcloud compute instances create ${{ env.vmName }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.zone }} \
+            --machine-type e2-custom-2-4096 \
+            --boot-disk-type pd-standard \
+            --boot-disk-size 10GB \
+            --preemptible \
+            --image-project ubuntu-os-cloud \
+            --image-family ubuntu-2010 \
+            --metadata hostname=${{ env.vmName }} \
+            --metadata-from-file startup-script=${{ env.vmStartupScript}}
 
       - name: Create gcloud-free kubeconfig and load it in configmap
         run: |
@@ -75,13 +98,14 @@ jobs:
 
       - name: Create cilium-cli install job
         run: |
-          helm install .github/cilium-cli-test-job-chart --generate-name \
-          --set tag=${{ steps.vars.outputs.sha }} \
-          --set cluster_name=${{ env.clusterName }} \
-          --set job_name=cilium-cli-install \
-          --set test_script_cm=cilium-cli-test-script-install \
-          --set vm_name=${{ env.vmName }} \
-          --set cluster_cidr=${{ steps.vars.outputs.cluster_cidr }}
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name \
+            --set tag=${{ steps.vars.outputs.sha }} \
+            --set cluster_name=${{ env.clusterName }} \
+            --set job_name=cilium-cli-install \
+            --set test_script_cm=cilium-cli-test-script-install \
+            --set vm_name=${{ env.vmName }} \
+            --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }}
 
       - name: Wait for install job
         run: |
@@ -92,20 +116,24 @@ jobs:
           kubectl -n kube-system get configmap install-external-workload-script -o go-template='{{ .data.script }}' > install-external-workload.sh
           chmod +x install-external-workload.sh
 
-      - name: Install cilium on external workload
+      - name: Install Cilium on VM
         run: |
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "~/install-external-workload.sh"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+            --command "~/install-external-workload.sh"
           sleep 5s
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+            --command "cilium status"
 
-      - name: Verify cluster DNS on external workload
+      - name: Verify cluster DNS on VM
         run: |
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "nslookup -norecurse clustermesh-apiserver.kube-system.svc.cluster.local"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+            --command "nslookup -norecurse clustermesh-apiserver.kube-system.svc.cluster.local"
 
-      - name: Ping clustermesh-apiserver from external workload
+      - name: Ping clustermesh-apiserver from VM
         run: |
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
+          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+            --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
       - name: Load cilium test script in configmap
         run: |
@@ -113,10 +141,11 @@ jobs:
 
       - name: Create cilium-cli test job
         run: |
-          helm install .github/cilium-cli-test-job-chart --generate-name \
-          --set tag=${{ steps.vars.outputs.sha }} \
-          --set job_name=cilium-cli \
-          --set test_script_cm=cilium-cli-test-script \
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name \
+            --set tag=${{ steps.vars.outputs.sha }} \
+            --set job_name=cilium-cli \
+            --set test_script_cm=cilium-cli-test-script
 
       - name: Wait for test job
         run: |
@@ -138,16 +167,16 @@ jobs:
           kubectl get cep --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-        shell: bash {0}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Cleanup
+      - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          gcloud container clusters delete --quiet ${{ env.clusterName }} --zone ${{ env.zone }} --async
-          gcloud compute instances delete --quiet ${{ env.vmName }} --zone ${{ env.zone }}
-        shell: bash {0}
+          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
+          gcloud compute instances delete ${{ env.vmName }} --zone ${{ env.zone }} --quiet
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
