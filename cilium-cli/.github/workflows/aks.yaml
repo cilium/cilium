@@ -19,10 +19,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
         with:
           go-version: 1.16.4
 
@@ -35,12 +35,12 @@ jobs:
         run: sudo make install
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@77f1b2e3fb80c0e8645114159d17008b8a2e475a
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Azure CLI info
-        uses: azure/CLI@v1
+        uses: azure/CLI@4b58c946a0f48d82cc2b6e31c0d15a6604859554
         with:
           azcliversion: 2.0.72
           inlineScript: |
@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload Artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
