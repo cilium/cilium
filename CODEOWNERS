@@ -202,6 +202,7 @@ Jenkinsfile.nightly @cilium/ci-structure
 /pkg/mountinfo @cilium/bpf
 /pkg/mtu @cilium/bpf
 /pkg/multicast @cilium/bpf
+/pkg/node @cilium/agent
 /pkg/option @cilium/agent @cilium/cli
 /pkg/pidfile @cilium/agent
 /pkg/policy @cilium/policy
