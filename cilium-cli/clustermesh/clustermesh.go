@@ -457,6 +457,7 @@ type Parameters struct {
 	IPv4AllocCIDR        string
 	IPv6AllocCIDR        string
 	All                  bool
+	ConfigOverwrites     []string
 }
 
 func (p Parameters) waitTimeout() time.Duration {
@@ -1278,6 +1279,7 @@ func (k *K8sClusterMesh) DeleteExternalWorkload(ctx context.Context, names []str
 var installScriptFmt = `#!/bin/bash
 CILIUM_IMAGE=${1:-%[1]s}
 CLUSTER_ADDR=${2:-%[2]s}
+CONFIG_OVERWRITES=${3:-%[3]s}
 
 set -e
 shopt -s extglob
@@ -1348,11 +1350,11 @@ esac
 
 ${SUDO} mkdir -p /var/lib/cilium/etcd
 ${SUDO} tee /var/lib/cilium/etcd/ca.crt <<EOF >/dev/null
-%[3]sEOF
-${SUDO} tee /var/lib/cilium/etcd/tls.crt <<EOF >/dev/null
 %[4]sEOF
-${SUDO} tee /var/lib/cilium/etcd/tls.key <<EOF >/dev/null
+${SUDO} tee /var/lib/cilium/etcd/tls.crt <<EOF >/dev/null
 %[5]sEOF
+${SUDO} tee /var/lib/cilium/etcd/tls.key <<EOF >/dev/null
+%[6]sEOF
 ${SUDO} tee /var/lib/cilium/etcd/config.yaml <<EOF >/dev/null
 ---
 trusted-ca-file: /var/lib/cilium/etcd/ca.crt
@@ -1367,8 +1369,8 @@ CILIUM_OPTS+=" --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/con
 if [ -n "$HOST_IP" ] ; then
     CILIUM_OPTS+=" --ipv4-node $HOST_IP"
 fi
-if [ -n "$DEBUG" ] ; then
-    CILIUM_OPTS+=" --debug --restore=false"
+if [ -n "$CONFIG_OVERWRITES" ] ; then
+    CILIUM_OPTS+=" $CONFIG_OVERWRITES"
 fi
 
 DOCKER_OPTS=" -d --log-driver local --restart always"
@@ -1475,8 +1477,18 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 	clusterAddr := fmt.Sprintf("%s:%d", ai.ServiceIPs[0], ai.ServicePort)
 	k.Log("✅ Using clustermesh-apiserver service address: %s", clusterAddr)
 
+	configOverwrites := ""
+	if len(k.params.ConfigOverwrites) > 0 {
+		for i, opt := range k.params.ConfigOverwrites {
+			if !strings.HasPrefix(opt, "--") {
+				k.params.ConfigOverwrites[i] = "--" + opt
+			}
+		}
+		configOverwrites = strings.Join(k.params.ConfigOverwrites, " ")
+	}
 	fmt.Fprintf(writer, installScriptFmt,
 		daemonSet.Spec.Template.Spec.Containers[0].Image, clusterAddr,
+		configOverwrites,
 		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey))
 	return nil
 }
