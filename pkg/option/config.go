@@ -752,6 +752,9 @@ const (
 	// IPAM is the IPAM method to use
 	IPAM = "ipam"
 
+	// ExternalIPAMAddress is the external IPAM address
+	ExternalIPAMAddress = "external-ipam-address"
+
 	// XDPModeNative for loading progs with XDPModeLinkDriver
 	XDPModeNative = "native"
 
@@ -1770,6 +1773,9 @@ type DaemonConfig struct {
 	// IPAM is the IPAM method to use
 	IPAM string
 
+	// ExternalIPAMAddressStr is the external IPAM address
+	ExternalIPAMAddressStr string
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
@@ -2122,6 +2128,11 @@ func (c *DaemonConfig) IPAMMode() string {
 	return strings.ToLower(c.IPAM)
 }
 
+// ExternalIPAMAddress returns the external IPAM address
+func (c *DaemonConfig) ExternalIPAMAddress() string {
+	return c.ExternalIPAMAddressStr
+}
+
 // TracingEnabled returns if tracing policy (outlining which rules apply to a
 // specific set of labels) is enabled.
 func (c *DaemonConfig) TracingEnabled() bool {
@@ -2436,6 +2447,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
 	c.IPAM = viper.GetString(IPAM)
+	c.ExternalIPAMAddressStr = viper.GetString(ExternalIPAMAddress)
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)
 	c.IPv4ServiceRange = viper.GetString(IPv4ServiceRange)

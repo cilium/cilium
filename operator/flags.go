@@ -137,7 +137,7 @@ func init() {
 				return "cilium-operator-azure"
 			case ipamOption.IPAMAlibabaCloud:
 				return "cilium-operator-alibabacloud"
-			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMCRD:
+			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMCRD, ipamOption.IPAMExternal:
 				return "cilium-operator-generic"
 			default:
 				return ""

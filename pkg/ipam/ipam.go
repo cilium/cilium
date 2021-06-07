@@ -71,6 +71,10 @@ type Configuration interface {
 	// IPv4NativeRoutingCIDR is called by the IPAM module retrieve
 	// the native IPv4 routing CIDR if it exists
 	IPv4NativeRoutingCIDR() *cidr.CIDR
+
+	// ExternalIPAMAddress returns the external IPAM address.
+	// Only available when IPAM mode is external.
+	ExternalIPAMAddress() string
 }
 
 // Owner is the interface the owner of an IPAM allocator has to implement
@@ -129,6 +133,22 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, k8sEventReg, mtuConfig)
+		}
+	case ipamOption.IPAMExternal:
+		log.Info("Initializing external IPAM")
+		var err error
+		if c.IPv6Enabled() {
+			ipam.IPv6Allocator, err = newExternal(c.ExternalIPAMAddress(), IPv6)
+			if err != nil {
+				log.Fatalf("failed to init external IPAM, err: %v", err)
+			}
+		}
+
+		if c.IPv4Enabled() {
+			ipam.IPv4Allocator, err = newExternal(c.ExternalIPAMAddress(), IPv4)
+			if err != nil {
+				log.Fatalf("failed to init external IPAM, err: %v", err)
+			}
 		}
 	default:
 		log.Fatalf("Unknown IPAM backend %s", c.IPAMMode())
