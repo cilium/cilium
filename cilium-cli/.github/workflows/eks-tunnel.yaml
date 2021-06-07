@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: cilium-cli-ci-eks-tunnel-${{ github.run_number }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-tunnel
   region: us-east-2
 
 jobs:
@@ -23,7 +23,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
-      - name: Set job vars
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@0309c38ebd10f90dfbb3889431bcf4ea38088012
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.region }}
+
+      - name: Set up job variables
         id: vars
         run: |
           if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
@@ -33,29 +46,20 @@ jobs:
               ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
             SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
             OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
-            IS_PR=true
           else
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
           fi
+          
           echo ::set-output name=sha::${SHA}
+          echo ::set-output name=owner::${OWNER}
 
-      - name: Install eksctl
+      - name: Create EKS cluster without nodegroup
         run: |
-          curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-          mv /tmp/eksctl .
-          chmod +x eksctl
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@0309c38ebd10f90dfbb3889431bcf4ea38088012
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.region }}
-
-      - name: Create EKS cluster
-        run: |
-          ./eksctl create cluster --name ${{ env.clusterName }} --without-nodegroup
+          eksctl create cluster \
+            --name ${{ env.clusterName }} \
+            --tags "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --without-nodegroup
 
       - name: Create kubeconfig and load it in configmap
         run: |
@@ -68,15 +72,24 @@ jobs:
 
       - name: Create cilium-cli install job
         run: |
-          helm install .github/cilium-cli-test-job-chart --generate-name \
-          --set tag=${{ steps.vars.outputs.sha }} \
-          --set cluster_name=${{ env.clusterName }} \
-          --set job_name=cilium-cli-install \
-          --set test_script_cm=cilium-cli-test-script-install
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name \
+            --set tag=${{ steps.vars.outputs.sha }} \
+            --set cluster_name=${{ env.clusterName }} \
+            --set job_name=cilium-cli-install \
+            --set test_script_cm=cilium-cli-test-script-install
 
-      - name: Add nodegroup
+      - name: Add managed spot nodegroup
         run: |
-          ./eksctl create nodegroup --cluster ${{ env.clusterName }} --nodes 2 --node-private-networking --spot --managed
+          eksctl create nodegroup \
+            --cluster ${{ env.clusterName }} \
+            --nodes 2 \
+            --instance-types "t3.medium,t3a.medium" \
+            --node-volume-type gp3 \
+            --node-volume-size 10 \
+            --managed \
+            --spot \
+            --node-private-networking
 
       - name: Load cilium cli script in configmap
         run: |
@@ -84,35 +97,32 @@ jobs:
 
       - name: Create cilium-cli test job
         run: |
-          helm install .github/cilium-cli-test-job-chart --generate-name \
-          --set tag=${{ steps.vars.outputs.sha }} \
-          --set cluster_name=${{ env.clusterName }}
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name \
+            --set tag=${{ steps.vars.outputs.sha }} \
+            --set cluster_name=${{ env.clusterName }}
 
-      - name: Wait for install job
+      - name: Wait for test job
         run: |
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
-
-      - name: Post-test installation logs
-        if: ${{ failure() }}
-        run: |
-          kubectl logs -n kube-system job/cilium-cli-install
 
       - name: Post-test information gathering
         if: ${{ failure() }}
         run: |
+          kubectl logs -n kube-system job/cilium-cli-install
           kubectl logs -n kube-system job/cilium-cli
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-        shell: bash {0}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Cleanup
+      - name: Clean up EKS
         if: ${{ always() }}
         run: |
-          ./eksctl delete cluster --name ${{ env.clusterName }}
-        shell: bash {0}
+          eksctl delete cluster --name ${{ env.clusterName }}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
