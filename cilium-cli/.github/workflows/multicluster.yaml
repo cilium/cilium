@@ -119,7 +119,7 @@ jobs:
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=20m
 
       - name: Post-test information gathering
-        if: ${{ always() }}
+        if: ${{ failure() }}
         run: |
           kubectl logs -n kube-system job/cilium-cli
           kubectl get pods --all-namespaces -o wide
@@ -136,7 +136,7 @@ jobs:
         shell: bash {0}
 
       - name: Upload Artifacts
-        if: ${{ always() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip
