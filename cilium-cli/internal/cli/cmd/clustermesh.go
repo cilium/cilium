@@ -307,6 +307,7 @@ func newCmdExternalWorkloadInstall() *cobra.Command {
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait until status is successful")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait")
+	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "Cilium agent config entries (key=value)")
 
 	return cmd
 }
