@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName1: cilium-cli-ci-multicluster-1-${{ github.run_number }}
-  clusterName2: cilium-cli-ci-multicluster-2-${{ github.run_number }}
+  clusterName1: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-1
+  clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
 
 jobs:
@@ -24,30 +24,53 @@ jobs:
       - name: Checkout
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
-      - name: Set up Go
-        uses: actions/setup-go@37335c7bb261b353407cff977110895fa0b4f7d8
-        with:
-          go-version: 1.16.2
-
-      - name: Set up Go for root
-        run: |
-          sudo ln -sf `which go` `sudo which go` || true
-          sudo go version
-
-      - name: Set up gcloud
+      - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@daadedc81d5f9d3c06d2c92f49202a3cc2b919ba
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
 
-      - name: gcloud info
+      - name: Display gcloud CLI info
         run: |
           gcloud info
 
-      - name: Create GKE cluster2
+      - name: Set up job variables
+        id: vars
         run: |
-          gcloud container clusters create ${{ env.clusterName2 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+
+          echo ::set-output name=sha::${SHA}
+          echo ::set-output name=owner::${OWNER}
+
+      - name: Create GKE cluster 2
+        id: cluster2
+        run: |
+          gcloud container clusters create ${{ env.clusterName2 }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.zone }} \
+            --image-type COS_CONTAINERD \
+            --num-nodes 2 \
+            --machine-type e2-custom-2-4096 \
+            --disk-type pd-standard \
+            --disk-size 10GB \
+            --preemptible \
+            --enable-ip-alias
+          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName2 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
+
+      - name: Get cluster 2 credentials
+        run: |
           gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
 
       - name: Create gcloud-free kubeconfig for cluster 2
@@ -55,9 +78,24 @@ jobs:
           .github/get-kubeconfig.sh
           mv kubeconfig kubeconfig-cluster2
 
-      - name: Create GKE cluster1
+      - name: Create GKE cluster 1
+        id: cluster1
         run: |
-          gcloud container clusters create ${{ env.clusterName1 }} --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone ${{ env.zone }} --enable-ip-alias
+          gcloud container clusters create ${{ env.clusterName1 }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.zone }} \
+            --image-type COS_CONTAINERD \
+            --num-nodes 2 \
+            --machine-type e2-custom-2-4096 \
+            --disk-type pd-standard \
+            --disk-size 10GB \
+            --preemptible \
+            --enable-ip-alias
+          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName1 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
+          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
+
+      - name: Get cluster 1 credentials
+        run: |
           gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
 
       - name: Allow cross-cluster traffic
@@ -70,28 +108,6 @@ jobs:
           gcloud compute firewall-rules create $GCP_FW_RULE --allow tcp,udp,icmp,sctp,esp,ah --priority=999 --source-ranges=10.0.0.0/9 --target-tags=${TAG1/-all/-node},${TAG2/-all/-node}
           gcloud compute firewall-rules describe $GCP_FW_RULE
           echo "GCP_FW_RULE=$GCP_FW_RULE" >> $GITHUB_ENV
-
-      - name: Set job vars
-        id: vars
-        run: |
-          CLUSTER_CIDR_1=$(gcloud container clusters describe ${{ env.clusterName1 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
-          echo ::set-output name=cluster_cidr_1::${CLUSTER_CIDR_1}
-          CLUSTER_CIDR_2=$(gcloud container clusters describe ${{ env.clusterName2 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
-          echo ::set-output name=cluster_cidr_2::${CLUSTER_CIDR_2}
-
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
-            IS_PR=true
-          else
-            SHA=${{ github.sha }}
-            OWNER=${{ github.sha }}
-          fi
-          echo ::set-output name=sha::${SHA}
 
       - name: Create gcloud-free kubeconfig for cluster 1, merge kubeconfigs and put them in configmap
         run: |
@@ -106,14 +122,15 @@ jobs:
 
       - name: Create cilium-cli test job
         run: |
-          helm install .github/cilium-cli-test-job-chart --generate-name \
-          --set tag=${{ steps.vars.outputs.sha }} \
-          --set job_name=cilium-cli \
-          --set test_script_cm=cilium-cli-test-script \
-          --set cluster_name_1=${{ env.clusterName1 }} \
-          --set cluster_cidr_1=${{ steps.vars.outputs.cluster_cidr_1 }} \
-          --set cluster_name_2=${{ env.clusterName2 }} \
-          --set cluster_cidr_2=${{ steps.vars.outputs.cluster_cidr_2 }}
+          helm install .github/cilium-cli-test-job-chart \
+            --generate-name \
+            --set tag=${{ steps.vars.outputs.sha }} \
+            --set job_name=cilium-cli \
+            --set test_script_cm=cilium-cli-test-script \
+            --set cluster_name_1=${{ env.clusterName1 }} \
+            --set cluster_cidr_1=${{ steps.cluster1.outputs.cluster_cidr }} \
+            --set cluster_name_2=${{ env.clusterName2 }} \
+            --set cluster_cidr_2=${{ steps.cluster2.outputs.cluster_cidr }}
 
       - name: Wait for test job
         run: |
@@ -126,17 +143,17 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
           python cilium-sysdump.zip --output cilium-sysdump-out
-        shell: bash {0}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Cleanup
+      - name: Clean up GKE
         if: ${{ always() }}
         run: |
           gcloud compute firewall-rules delete --quiet $GCP_FW_RULE
-          gcloud container clusters delete --quiet ${{ env.clusterName1 }} --zone ${{ env.zone }} --async
-          gcloud container clusters delete --quiet ${{ env.clusterName2 }} --zone ${{ env.zone }} --async
-        shell: bash {0}
+          gcloud container clusters delete ${{ env.clusterName1 }} --zone ${{ env.zone }} --quiet --async
+          gcloud container clusters delete ${{ env.clusterName2 }} --zone ${{ env.zone }} --quiet --async
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
