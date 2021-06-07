@@ -458,6 +458,7 @@ type Parameters struct {
 	IPv6AllocCIDR        string
 	All                  bool
 	ConfigOverwrites     []string
+	Retries              int
 }
 
 func (p Parameters) waitTimeout() time.Duration {
@@ -1383,34 +1384,44 @@ DOCKER_OPTS+=" --volume /sys/fs/bpf:/sys/fs/bpf"
 DOCKER_OPTS+=" --volume /run/xtables.lock:/run/xtables.lock"
 DOCKER_OPTS+=" --add-host clustermesh-apiserver.cilium.io:$CLUSTER_IP"
 
-if [ -n "$(${SUDO} docker ps -a -q -f name=cilium)" ]; then
-    echo "Shutting down running Cilium agent"
-    ${SUDO} docker rm -f cilium || true
-fi
-
-echo "Launching Cilium agent $CILIUM_IMAGE..."
-${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
-
-# Copy Cilium CLI
-${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/cilium
-
-# Wait for cilium agent to become available
 cilium_started=false
-for ((i = 0 ; i < 24; i++)); do
-    if cilium status --brief > /dev/null 2>&1; then
-        cilium_started=true
-        break
+retries=%[7]s
+while [ $cilium_started = false ]; do
+    if [ -n "$(${SUDO} docker ps -a -q -f name=cilium)" ]; then
+        echo "Shutting down running Cilium agent"
+        ${SUDO} docker rm -f cilium || true
     fi
-    sleep 5s
-    echo "Waiting for Cilium daemon to come up..."
-done
 
-if [ "$cilium_started" = true ] ; then
-    echo 'Cilium successfully started!'
-else
-    >&2 echo 'Timeout waiting for Cilium to start.'
-    exit 1
-fi
+    echo "Launching Cilium agent $CILIUM_IMAGE..."
+    ${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE cilium-agent $CILIUM_OPTS
+
+    # Copy Cilium CLI
+    ${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/cilium
+
+    # Wait for cilium agent to become available
+    for ((i = 0 ; i < 12; i++)); do
+        if cilium status --brief > /dev/null 2>&1; then
+            cilium_started=true
+            break
+        fi
+        sleep 5s
+        echo "Waiting for Cilium daemon to come up..."
+    done
+
+    echo "Cilium status:"
+    cilium status || true
+
+    if [ "$cilium_started" = true ] ; then
+        echo 'Cilium successfully started!'
+    else
+        if [ $retries -eq 0 ]; then
+            >&2 echo 'Timeout waiting for Cilium to start, retries exhausted.'
+            exit 1
+        fi
+        ((retries--))
+        echo "Restarting Cilium..."
+    fi
+done
 
 # Wait for kube-dns service to become available
 kubedns=""
@@ -1486,10 +1497,16 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		}
 		configOverwrites = strings.Join(k.params.ConfigOverwrites, " ")
 	}
+
+	if k.params.Retries <= 0 {
+		k.params.Retries = 1
+	}
+
 	fmt.Fprintf(writer, installScriptFmt,
 		daemonSet.Spec.Template.Spec.Containers[0].Image, clusterAddr,
 		configOverwrites,
-		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey))
+		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey),
+		strconv.Itoa(k.params.Retries))
 	return nil
 }
 
