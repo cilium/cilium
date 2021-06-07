@@ -3,14 +3,23 @@
 set -x
 set -e
 
-cilium install --cluster-name "${CLUSTER_NAME}" --restart-unmanaged-pods=false --config monitor-aggregation=none --config tunnel=vxlan --native-routing-cidr="${CLUSTER_CIDR}"
+# Install Cilium in cluster
+cilium install \
+  --cluster-name "${CLUSTER_NAME}" \
+  --config monitor-aggregation=none \
+  --config tunnel=vxlan \
+  --native-routing-cidr="${CLUSTER_CIDR}"
 
+# Enable cluster mesh
 cilium clustermesh enable
-cilium clustermesh status --wait --wait-duration 5m
 
+# Wait for cluster mesh status to be ready
+cilium clustermesh status --wait
+
+# Add VM to cluster mesh
 cilium clustermesh vm create "${VM_NAME}" -n default --ipv4-alloc-cidr 10.192.1.0/30
 cilium clustermesh vm status
 
+# Start installing Cilium on VM
 cilium clustermesh vm install install-external-workload.sh
-
 kubectl -n kube-system create cm install-external-workload-script --from-file=script=install-external-workload.sh
