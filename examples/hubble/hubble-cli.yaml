@@ -1,0 +1,51 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-cli
+  labels:
+    app.kubernetes.io/name: hubble-cli
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hubble-cli
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hubble-cli
+    spec:
+      containers:
+      - name: hubble-cli
+        image: quay.io/cilium/hubble:v0.8.0
+        imagePullPolicy: Always
+        command:
+          - tail
+        args:
+          - -f
+          - /dev/null
+        volumeMounts:
+          - mountPath: /var/run/cilium
+            name: hubble-sock-dir
+            readOnly: true
+          - mountPath: /var/lib/hubble-relay/tls
+            name: tls
+            readOnly: true
+      restartPolicy: Always
+      volumes:
+      - hostPath:
+          path: /var/run/cilium
+          type: Directory
+        name: hubble-sock-dir
+      - name: tls
+        projected:
+          sources:
+          - secret:
+              name: hubble-relay-client-certs
+              items:
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+                - key: ca.crt
+                  path: hubble-server-ca.crt
