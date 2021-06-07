@@ -111,12 +111,12 @@ jobs:
         run: |
           kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=10m
 
-      - name: Copy vm install script from cilium-cli-install pod
+      - name: Copy VM install script from cilium-cli-install pod
         run: |
           kubectl -n kube-system get configmap install-external-workload-script -o go-template='{{ .data.script }}' > install-external-workload.sh
           chmod +x install-external-workload.sh
 
-      - name: Install Cilium on VM
+      - name: Finish installing Cilium on VM
         run: |
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
