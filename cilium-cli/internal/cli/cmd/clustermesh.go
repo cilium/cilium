@@ -308,6 +308,7 @@ func newCmdExternalWorkloadInstall() *cobra.Command {
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait until status is successful")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait")
 	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "Cilium agent config entries (key=value)")
+	cmd.Flags().IntVar(&params.Retries, "retries", 4, "Number of Cilium agent start retries")
 
 	return cmd
 }
