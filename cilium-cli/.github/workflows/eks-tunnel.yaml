@@ -3,8 +3,9 @@ name: EKS (tunnel)
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request_target: {}
+  # Run every 6 hours
   schedule:
-    - cron:  '50 */6 * * *'
+    - cron:  '30 1/6 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'scheduled' }}
