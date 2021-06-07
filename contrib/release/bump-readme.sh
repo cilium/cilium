@@ -13,10 +13,16 @@ PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
 ACTS_YAML=".github/cilium-actions.yml"
 REMOTE="$(get_remote)"
 
+latest_stable=""
 for release in $(grep "General Announcement" README.rst \
                  | sed 's/.*tree\/\(v'"$MAJ_REGEX"'\).*/\1/'); do
     latest=$(git describe --tags $REMOTE/$release \
              | sed 's/v//' | sed 's/\('"$MIN_REGEX"'\).*/\1/')
+    if [ -z "$latest_stable" ]; then
+        # the first release in the list is the latest stable
+        latest_stable=$latest
+        echo "v$latest_stable" > stable.txt
+    fi
     if grep -q -F $latest README.rst; then
         continue
     fi
@@ -39,5 +45,10 @@ for release in $(grep "General Announcement" README.rst \
     sed -i 's/\(projects\/\)'$old_proj'/\1'$new_proj'/g' $ACTS_YAML
 done
 
-git add README.rst $ACTS_YAML
-git commit -s -m "Update stable releases"
+git add README.rst stable.txt $ACTS_YAML
+if ! git diff-index --quiet HEAD -- README.rst stable.txt $ACTS_YAML; then
+    git commit -s -m "Update stable releases"
+    echo "README.rst and stable.txt updated, submit the PR now."
+else
+    echo "No new releases found."
+fi

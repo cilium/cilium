@@ -39,6 +39,12 @@ On Freeze date
         pkg/policy/api/ @cilium/api
         pkg/proxy/accesslog @cilium/api
 
+#. Delete the ``stable.txt`` file.
+
+   .. code-block:: shell-session
+
+        git rm stable.txt
+
 #. Create a new project named "X.Y.Z" to automatically track the backports
    for that particular release. `Direct Link: <https://github.com/cilium/cilium/projects/new>`_
 
