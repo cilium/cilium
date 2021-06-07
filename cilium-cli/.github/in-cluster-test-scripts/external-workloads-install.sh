@@ -24,6 +24,6 @@ cilium clustermesh status --wait
 cilium clustermesh vm create "${VM_NAME}" -n default --ipv4-alloc-cidr 10.192.1.0/30
 cilium clustermesh vm status
 
-# Start installing Cilium on VM
-cilium clustermesh vm install install-external-workload.sh
+# Create install script for VMs
+cilium clustermesh vm install install-external-workload.sh --config debug
 kubectl -n kube-system create cm install-external-workload-script --from-file=script=install-external-workload.sh
