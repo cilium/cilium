@@ -92,7 +92,7 @@ jobs:
         shell: bash {0}
 
       - name: Upload Artifacts
-        if: ${{ always() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip
