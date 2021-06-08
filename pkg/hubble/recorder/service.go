@@ -238,9 +238,6 @@ func (s *Service) startRecording(ctx context.Context, req *recorderpb.StartRecor
 		// clean up the recording if any of the subsequent steps fails
 		if err != nil {
 			_, _ = s.recorder.DeleteRecorder(recorder.ID(r.ruleID))
-			// if the sink has not been registered, UnregisterSink will just
-			// return an error which we can ignore here
-			_, _ = s.dispatch.UnregisterSink(ctx, r.ruleID)
 			// remove the created pcap file
 			_ = f.Close()
 			_ = os.Remove(r.filePath)
@@ -254,13 +251,16 @@ func (s *Service) startRecording(ctx context.Context, req *recorderpb.StartRecor
 		"filePath": r.filePath,
 	}).Debug("starting new recording")
 
-	pcapWriter := pcap.NewWriter(f)
-	pcapHeader := pcap.Header{
-		SnapshotLength: capLen,
-		Datalink:       pcap.Ethernet,
+	config := sink.PcapSink{
+		RuleID: ruleID,
+		Header: pcap.Header{
+			SnapshotLength: capLen,
+			Datalink:       pcap.Ethernet,
+		},
+		Writer: pcap.NewWriter(f),
 	}
 
-	r.handle, err = s.dispatch.RegisterSink(ctx, ruleID, pcapWriter, pcapHeader)
+	r.handle, err = s.dispatch.StartSink(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -291,10 +291,16 @@ func (s *Service) stopRecording(ctx context.Context, r *recording) (*recorderpb.
 		return nil, err
 	}
 
-	stats, err := s.dispatch.UnregisterSink(ctx, r.ruleID)
-	if err != nil {
-		return nil, err
+	r.handle.Stop()
+	select {
+	case <-r.handle.Done:
+		if err = r.handle.Err(); err != nil {
+			return nil, err
+		}
+	case <-ctx.Done():
+		return nil, fmt.Errorf("timed out waiting for sink to close: %w", ctx.Err())
 	}
+	stats := r.handle.Stats()
 
 	s.ruleIDs.Release(idpool.ID(r.ruleID))
 
@@ -333,7 +339,7 @@ func (s *Service) watchRecording(ctx context.Context, h *sink.Handle, stream rec
 		}
 
 		select {
-		case _, ok := <-h.C:
+		case _, ok := <-h.StatsUpdated:
 			if !ok {
 				// sink closed
 				return
