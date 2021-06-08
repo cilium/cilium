@@ -5,6 +5,7 @@ package sink
 
 import (
 	"context"
+	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
 	"github.com/cilium/cilium/pkg/lock"
@@ -28,6 +29,7 @@ type sink struct {
 // startSink creates a queue and go routine for the sink. The spawned go
 // routine will run until one of the following happens:
 //  - sink.stop is called
+//  - a p.StopCondition is reached
 //  - ctx is cancelled
 //  - an error occurred
 func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
@@ -58,6 +60,16 @@ func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 			close(s.done)
 		}()
 
+		stop := p.StopCondition
+		var stopAfter <-chan time.Time
+		if stop.DurationElapsed != 0 {
+			stopTimer := time.NewTimer(stop.DurationElapsed)
+			defer func() {
+				stopTimer.Stop()
+			}()
+			stopAfter = stopTimer.C
+		}
+
 		if err = p.Writer.WriteHeader(p.Header); err != nil {
 			return
 		}
@@ -76,11 +88,18 @@ func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 					return
 				}
 
-				s.addToStatistics(Statistics{
+				stats := s.addToStatistics(Statistics{
 					PacketsWritten: 1,
 					BytesWritten:   uint64(rec.inclLen),
 				})
+				if (stop.PacketsCaptured > 0 && stats.PacketsWritten >= stop.PacketsCaptured) ||
+					(stop.BytesCaptured > 0 && stats.BytesWritten >= stop.BytesCaptured) {
+					return
+				}
 			case <-s.shutdown:
+				return
+			case <-stopAfter:
+				// duration of stop condition has been reached
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -97,12 +116,15 @@ func (s *sink) stop() {
 	close(s.shutdown)
 }
 
-func (s *sink) addToStatistics(add Statistics) {
+// addToStatistics adds add to the current statistics and returns the resulting
+// value.
+func (s *sink) addToStatistics(add Statistics) (result Statistics) {
 	s.mutex.Lock()
 	s.stats.BytesWritten += add.BytesWritten
 	s.stats.PacketsWritten += add.PacketsWritten
 	s.stats.BytesLost += add.BytesLost
 	s.stats.PacketsLost += add.PacketsLost
+	result = s.stats
 	s.mutex.Unlock()
 
 	// non-blocking send
@@ -110,6 +132,8 @@ func (s *sink) addToStatistics(add Statistics) {
 	case s.trigger <- struct{}{}:
 	default:
 	}
+
+	return result
 }
 
 // enqueue submits a new record to this sink. If the sink is not keeping up,
