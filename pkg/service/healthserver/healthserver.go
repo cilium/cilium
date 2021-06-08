@@ -196,7 +196,7 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 					logfields.ServiceName:                svc.Service.Name,
 					logfields.ServiceNamespace:           svc.Service.Namespace,
 					logfields.ServiceHealthCheckNodePort: port,
-				}).Errorf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if '--%s' is set to '%s'", option.EnableHealthCheckNodePort, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+				}).Errorf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", option.EnableHealthCheckNodePort)
 			}
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.ServiceName:                svc.Service.Name,
