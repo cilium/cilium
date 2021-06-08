@@ -145,6 +145,12 @@ and if so, change the label to ``backport-done/X.Y``.
 Creating the Backports Branch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#. Check whether there are any `outstanding backport PRs for the target branch
+   <https://github.com/cilium/cilium/pulls?q=is%3Aopen+is%3Apr+label%3Akind%2Fbackports>`__.
+   If there are already backports for that branch, create a thread in the
+   #launchpad channel in Slack and reach out to the author to coordinate
+   triage, review and merge of the existing PR into the target branch.
+
 #. Run ``contrib/backporting/start-backport`` for the release version that
    you intend to backport PRs for. This will pull the latest repository commits
    from the Cilium repository (assumed to be the git remote ``origin``), create
