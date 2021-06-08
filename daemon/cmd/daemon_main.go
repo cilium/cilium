@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
@@ -1199,6 +1200,7 @@ func initEnv(cmd *cobra.Command) {
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
 	bpf.CheckOrMountFS(option.Config.BPFRoot, k8s.IsEnabled())
+	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, debugDatapath)
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
