@@ -297,6 +297,7 @@ dev
 devel
 dialTimeout
 diff
+disableEndpointCRD
 disableEnvoyVersionCheck
 disableIptablesFeederRules
 disassembly
@@ -311,6 +312,7 @@ droid
 dropdown
 dryRun
 dsr
+dsrDispatch
 dst
 dwarfris
 eBPF
@@ -765,6 +767,7 @@ sha
 sidecarImageRegex
 sig
 skb
+skipCRDCreation
 skipteardown
 sleepAfterInit
 snat

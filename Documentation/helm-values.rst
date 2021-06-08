@@ -29,7 +29,7 @@
    * - bandwidthManager
      - Optimize TCP and UDP workloads and enable rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
      - bool
-     - ``true``
+     - ``false``
    * - bgp
      - Configure BGP
      - object
@@ -258,6 +258,10 @@
      - Enable debug logging
      - bool
      - ``false``
+   * - disableEndpointCRD
+     - Disable the usage of CiliumEndpoint CRD
+     - string
+     - ``"false"``
    * - egressGateway
      - Enables egress gateway (beta) to redirect and SNAT the traffic that leaves the cluster.
      - object
@@ -827,7 +831,7 @@
      - string
      - ``"cilium"``
    * - nodePort
-     - Configure service load balancing loadBalancer: algorithm is the name of the load balancing algorithm for backend selection e.g. random or maglev algorithm: "random" mode is the operation mode of load balancing for remote backends e.g. snat, dsr, hybrid mode: snat acceleration is the option to accelerate service handling via XDP e.g. native, disabled acceleration: disabled
+     - Configure service load balancing loadBalancer: -- standalone enables the standalone L4LB which does not connect to kube-apiserver. standalone: false -- algorithm is the name of the load balancing algorithm for backend selection e.g. random or maglev algorithm: random -- mode is the operation mode of load balancing for remote backends e.g. snat, dsr, hybrid mode: snat -- acceleration is the option to accelerate service handling via XDP e.g. native, disabled acceleration: disabled -- dsrDispatch configures whether IP option or IPIP encapsulation is used to pass a service IP and port to remote backend dsrDispatch: opt -- Configure N-S k8s service loadbalancing
      - object
      - ``{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enabled":false}``
    * - nodePort.autoProtectPortRange
@@ -1002,6 +1006,10 @@
      - For using with an existing serviceAccount.
      - string
      - ``"cilium-operator"``
+   * - operator.skipCRDCreation
+     - Skip CRDs creation for cilium-operator
+     - bool
+     - ``false``
    * - operator.tolerations
      - Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
