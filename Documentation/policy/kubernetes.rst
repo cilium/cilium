@@ -127,7 +127,7 @@ admission controller
 or can be directly specified in the Pod, Deployment, ReplicationController
 resource like this:
 
-.. code:: bash
+.. code-block:: yaml
 
         apiVersion: v1
         kind: Pod

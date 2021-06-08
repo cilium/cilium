@@ -35,7 +35,7 @@ desired CNI chaining configuration. This ConfigMap will be installed as the CNI
 configuration file on all nodes and defines the chaining configuration. In the
 example below, the Azure CNI, portmap, and Cilium are chained together.
 
-.. code:: yaml
+.. code-block:: yaml
 
     apiVersion: v1
     kind: ConfigMap
@@ -69,7 +69,7 @@ example below, the Azure CNI, portmap, and Cilium are chained together.
 
 Deploy the `ConfigMap`:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl apply -f chaining.yaml
 

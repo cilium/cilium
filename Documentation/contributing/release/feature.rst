@@ -17,7 +17,7 @@ On Freeze date
 
 #. Fork a new release branch from master:
 
-   ::
+   .. code-block:: shell-session
 
        git checkout master; git pull origin master
        git checkout -b v1.2
@@ -55,7 +55,7 @@ On Freeze date
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 
-   ::
+   .. code-block:: shell-session
 
        git checkout -b pr/prepare-v1.2
        git add [...]
@@ -78,13 +78,13 @@ On Freeze date
    * A new section is added for the upcoming release that is being prepared, and
    * The section for the oldest release is removed.
 
-   ::
+   .. code-block:: shell-session
 
-       git checkout -b pr/master-cilium-actions-update origin/master
-       # modify .github/cilium-actions.yml
-       git add .github/cilium-actions.yml
-       git commit
-       git push
+       $ git checkout -b pr/master-cilium-actions-update origin/master
+       $ # modify .github/cilium-actions.yml
+       $ git add .github/cilium-actions.yml
+       $ git commit
+       $ git push
 
 #. Continue with the next step only after the previous steps are merged into
    master.
@@ -107,7 +107,7 @@ On Freeze date
 
 #. Prepare the master branch for the next development cycle:
 
-   ::
+   .. code-block:: shell-session
 
        git checkout master; git pull
 

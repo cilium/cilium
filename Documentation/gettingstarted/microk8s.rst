@@ -23,7 +23,7 @@ Install microk8s
 
 #. Enable the microk8s Cilium service
 
-   ::
+   .. code-block:: shell-session
 
       microk8s enable cilium
 

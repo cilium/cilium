@@ -71,7 +71,7 @@ Alternatively, the ``k8s-cilium-exec.sh`` script can be used to run ``cilium
 status`` on all nodes. This will provide detailed status and health information
 of all nodes in the cluster:
 
-.. code:: bash
+.. code-block:: shell-session
 
    curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-cilium-exec.sh
    chmod +x ./k8s-cilium-exec.sh
@@ -105,7 +105,7 @@ Logs
 To retrieve log files of a cilium pod, run (replace ``cilium-1234`` with a pod
 name returned by ``kubectl -n kube-system get pods -l k8s-app=cilium``)
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl -n kube-system logs --timestamps cilium-1234
 
@@ -113,7 +113,7 @@ If the cilium pod was already restarted due to the liveness problem after
 encountering an issue, it can be useful to retrieve the logs of the pod before
 the last restart:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl -n kube-system logs --timestamps -p cilium-1234
 
@@ -255,7 +255,7 @@ machine.
 
 You may access the Hubble Relay service by port-forwarding it locally:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl -n kube-system port-forward service/hubble-relay --address 0.0.0.0 --address :: 4245:80
 
@@ -265,13 +265,13 @@ on port ``4245`` on all of it's IP addresses.
 You can verify that Hubble Relay can be reached by using the Hubble CLI and
 running the following command from your local machine:
 
-.. code:: bash
+.. code-block:: shell-session
 
    hubble status
 
 This command should return an output similar to the following:
 
-.. code-block:: shell-session
+::
 
    Healthcheck (via localhost:4245): Ok
    Current/Max Flows: 16380/16380 (100.00%)
@@ -281,7 +281,7 @@ This command should return an output similar to the following:
 You may see details about nodes that Hubble Relay is connected to by running
 the following command:
 
-.. code-block:: bash
+.. code-block:: shell-session
 
    hubble list nodes
 
@@ -499,14 +499,14 @@ Start by finding the endpoint you are debugging from the following list. There
 are several cross references for you to use in this list, including the IP
 address and pod labels:
 
-.. code:: bash
+.. code-block:: shell-session
 
     kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint list
 
 When you find the correct endpoint, the first column of every row is the
 endpoint ID. Use that to dump the full endpoint information:
 
-.. code:: bash
+.. code-block:: shell-session
 
     kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint get 59084
 
@@ -584,9 +584,7 @@ Understanding etcd status
 -------------------------
 
 The etcd status is reported when running ``cilium status``. The following line
-represents the status of etcd:
-
-.. code:: bash
+represents the status of etcd::
 
    KVStore:  Ok  etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=true: https://192.168.33.11:2379 - 3.4.9 (Leader)
 
@@ -644,15 +642,11 @@ cluster size. The larger the cluster, the longer the `interval
    more consecutive failures.
 
 Example of a status with a quorum failure which has not yet reached the
-threshold:
-
-.. code:: bash
+threshold::
 
     KVStore: Ok   etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=2m2.778966915s since last heartbeat update has been received, consecutive-errors=1: https://192.168.33.11:2379 - 3.4.9 (Leader)
 
-Example of a status with the number of quorum failures exceeding the threshold:
-
-.. code:: bash
+Example of a status with the number of quorum failures exceeding the threshold::
 
     KVStore: Failure   Err: quorum check failed 8 times in a row: 4m28.446600949s since last heartbeat update has been received
 
@@ -688,9 +682,7 @@ Manual Verification of Setup
 ----------------------------
 
  #. Validate that the ClusterMesh subsystem is initialized by looking for a
-    ``cilium-agent`` log message like this:
-
-    .. code-block:: shell-session
+    ``cilium-agent`` log message like this::
 
        level=info msg="Initializing ClusterMesh routing" path=/var/lib/cilium/clustermesh/ subsys=daemon
 
@@ -721,15 +713,11 @@ Manual Verification of Setup
 
  #. Validate that the connection to the remote cluster could be established.
     You will see a log message like this in the ``cilium-agent`` logs for each
-    remote cluster:
-
-    .. code-block:: shell-session
+    remote cluster::
 
        level=info msg="Connection to remote cluster established"
 
-    If the connection failed, you will see a warning like this:
-
-    .. code-block:: shell-session
+    If the connection failed, you will see a warning like this::
 
        level=warning msg="Unable to establish etcd connection to remote cluster"
 
@@ -842,7 +830,7 @@ State Propagation
       cluster.  It will also have a section ``externalEndpoints`` which must
       list all endpoints of remote clusters.
 
-      .. code-block:: shell-session
+      ::
 
           #### k8s-service-cache
 
@@ -923,13 +911,13 @@ Retrieve Cilium pod managing a particular pod
 
 Identifies the Cilium pod that is managing a particular pod in a namespace:
 
-.. code:: bash
+.. code-block:: shell-session
 
     k8s-get-cilium-pod.sh <pod> <namespace>
 
 **Example:**
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-get-cilium-pod.sh
     $ chmod +x k8s-get-cilium-pod.sh
@@ -943,13 +931,13 @@ Execute a command in all Kubernetes Cilium pods
 
 Run a command within all Cilium pods of a cluster
 
-.. code:: bash
+.. code-block:: shell-session
 
     k8s-cilium-exec.sh <command>
 
 **Example:**
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-cilium-exec.sh
     $ chmod +x k8s-cilium-exec.sh
@@ -966,7 +954,7 @@ Lists all Kubernetes pods in the cluster for which Cilium does *not* provide
 networking. This includes pods running in host-networking mode and pods that
 were started before Cilium was deployed.
 
-.. code:: bash
+.. code-block:: shell-session
 
    k8s-unmanaged.sh
 
@@ -1003,7 +991,7 @@ The script has the following list of prerequisites:
 You can download the latest version of the ``cilium-sysdump`` tool using the
 following command:
 
-.. code:: bash
+.. code-block:: shell-session
 
    curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
    python cilium-sysdump.zip
@@ -1012,7 +1000,7 @@ You can specify from which nodes to collect the system dumps by passing
 node IP addresses via the ``--nodes`` argument and the duration of the time
 window for collecting logs via the ``--since`` argument (e.g. ``2m``, ``3h``).
 
-.. code:: bash
+.. code-block:: shell-session
 
    python cilium-sysdump.zip --nodes $NODE1_IP,$NODE2_IP2 --since $LOG_DURATION
 
@@ -1040,7 +1028,7 @@ large, consider ``--size-limit``.
 
 Use ``--help`` to see more options:
 
-.. code:: bash
+.. code-block:: shell-session
 
    python cilium-sysdump.zip --help
 
@@ -1059,7 +1047,7 @@ default, it writes to the ``tmp`` directory.
 
 Note that the command needs to be run from inside the Cilium pod/container.
 
-.. code:: bash
+.. code-block:: shell-session
 
    cilium-bugtool
 
@@ -1073,7 +1061,7 @@ bit different
 
 .. code-block:: shell-session
 
-   # First we need to get the Cilium pod
+   $ # First we need to get the Cilium pod
    $ kubectl get pods --namespace kube-system
    NAME                          READY     STATUS    RESTARTS   AGE
    cilium-kg8lv                  1/1       Running   0          13m
@@ -1081,11 +1069,11 @@ bit different
    kube-dns-6fc954457d-sf2nk     3/3       Running   0          1h
    kubernetes-dashboard-6xvc7    1/1       Running   0          1h
 
-   # Run the bugtool from this pod
+   $ # Run the bugtool from this pod
    $ kubectl -n kube-system exec cilium-kg8lv -- cilium-bugtool
    [...]
 
-   # Copy the archive from the pod
+   $ # Copy the archive from the pod
    $ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-20180411-155146.166+0000-UTC-266836983.tar /tmp/cilium-bugtool-20180411-155146.166+0000-UTC-266836983.tar
    [...]
 
@@ -1134,7 +1122,7 @@ format is in Markdown format so this can be used when reporting a bug on the
 `issue tracker`_.  Running without arguments will print to standard output, but
 you can also redirect to a file like
 
-.. code:: bash
+.. code-block:: shell-session
 
    cilium debuginfo -f debuginfo.md
 

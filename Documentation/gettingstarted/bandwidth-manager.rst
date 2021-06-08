@@ -62,9 +62,9 @@ on all Cilium managed nodes.
 
 Verify that the Cilium Pod has come up correctly:
 
-.. code:: bash
+.. code-block:: shell-session
 
-    kubectl -n kube-system get pods -l k8s-app=cilium
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 
@@ -73,16 +73,16 @@ the ``cilium status`` CLI command provides visibility through the ``BandwidthMan
 info line. It also dumps a list of devices on which the egress bandwidth limitation
 is enforced:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep BandwidthManager
+    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep BandwidthManager
     BandwidthManager:       EDT with BPF   [eth0]
 
 Assuming we have a multi-node cluster, in the next step, we deploy a netperf Pod on
 the node named foobar. The following example deployment yaml limits the egress
 bandwidth of the netperf Pod on the node's physical device:
 
-.. parsed-literal::
+.. code-block:: yaml
 
     apiVersion: apps/v1
     kind: Deployment
@@ -111,9 +111,9 @@ Once up and running, ``netperf`` client can be invoked from a different node in 
 cluster using the Pod's IP (in this case ``10.217.0.254``) directly. The test streaming
 direction is from the netperf deployment towards the client, hence ``TCP_MAERTS``:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-  netperf -t TCP_MAERTS -H 10.217.0.254
+  $ netperf -t TCP_MAERTS -H 10.217.0.254
   MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.217.0.254 () port 0 AF_INET
   Recv   Send    Send
   Socket Socket  Message  Elapsed
@@ -127,9 +127,9 @@ As can be seen, egress traffic of the netperf Pod has been limited to 10Mbit per
 In order to introspect current endpoint bandwidth settings from BPF side, the following
 command can be run:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium bpf bandwidth list
+    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium bpf bandwidth list
     IDENTITY   EGRESS BANDWIDTH (BitsPerSec)
     491        10M
 
