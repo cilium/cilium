@@ -81,7 +81,7 @@ Upon defining a custom list of labels in the ConfigMap, Cilium add the provided
 list of labels to the default list of labels. After saving the ConfigMap,
 restart the Cilium Agents to pickup the new labels setting.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     kubectl delete pods -n kube-system -l k8s-app=cilium
 
@@ -100,7 +100,7 @@ Including Labels
 Labels can be defined as a list of labels to include. Only the labels specified
 and the default inclusive labels will be used to evaluate Cilium identities:
 
-.. code-block:: bash
+.. code-block:: yaml
 
     labels: "k8s:io.kubernetes.pod.namespace k8s:k8s-app k8s:app k8s:name"
 
@@ -139,7 +139,7 @@ an exclamation mark after colon separating the prefix and label. When defined as
 list of exclusions, Cilium will include the set of default labels, but will
 exclude any matches in the provided list when evaluating Cilium identities:
 
-.. code-block:: bash
+.. code-block:: yaml
 
     labels: "k8s:!controller-uid k8s:!job-name"
 

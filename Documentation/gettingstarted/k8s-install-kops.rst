@@ -40,7 +40,7 @@ Installing kops
 .. tabs::
   .. group-tab:: Linux
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
         curl -LO https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
         chmod +x kops-linux-amd64
@@ -48,7 +48,7 @@ Installing kops
 
   .. group-tab:: MacOS
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
         brew update && brew install kops
 
@@ -59,18 +59,18 @@ Setting up IAM Group and User
 Assuming you have all the prerequisites, run the following commands to create
 the kops user and group:
 
-.. code:: bash
+.. code-block:: shell-session
 
-        # Create IAM group named kops and grant access
-        aws iam create-group --group-name kops
-        aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess --group-name kops
-        aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonRoute53FullAccess --group-name kops
-        aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess --group-name kops
-        aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/IAMFullAccess --group-name kops
-        aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonVPCFullAccess --group-name kops
-        aws iam create-user --user-name kops
-        aws iam add-user-to-group --user-name kops --group-name kops
-        aws iam create-access-key --user-name kops
+        $ # Create IAM group named kops and grant access
+        $ aws iam create-group --group-name kops
+        $ aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess --group-name kops
+        $ aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonRoute53FullAccess --group-name kops
+        $ aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess --group-name kops
+        $ aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/IAMFullAccess --group-name kops
+        $ aws iam attach-group-policy --policy-arn arn:aws:iam::aws:policy/AmazonVPCFullAccess --group-name kops
+        $ aws iam create-user --user-name kops
+        $ aws iam add-user-to-group --user-name kops --group-name kops
+        $ aws iam create-access-key --user-name kops
 
 
 kops requires the creation of a dedicated S3 bucket in order to store the
@@ -79,10 +79,10 @@ name and provide your unique bucket name (for example a reverse of FQDN added
 with short description of the cluster). Also make sure to use the region where
 you will be deploying the cluster.
 
-.. code:: bash
+.. code-block:: shell-session
 
-        aws s3api create-bucket --bucket prefix-example-com-state-store --region us-west-2 --create-bucket-configuration LocationConstraint=us-west-2
-        export KOPS_STATE_STORE=s3://prefix-example-com-state-store
+        $ aws s3api create-bucket --bucket prefix-example-com-state-store --region us-west-2 --create-bucket-configuration LocationConstraint=us-west-2
+        $ export KOPS_STATE_STORE=s3://prefix-example-com-state-store
 
 The above steps are sufficient for getting a working cluster installed. Please
 consult `kops aws documentation
@@ -113,17 +113,17 @@ Creating a Cluster
   ``com-company-emailid-``.
 
 
-.. code:: bash
+.. code-block:: shell-session
 
-        export NAME=com-company-emailid-cilium.k8s.local
-        kops create cluster --state=${KOPS_STATE_STORE} --node-count 3 --topology private --master-zones us-west-2a,us-west-2b,us-west-2c --zones us-west-2a,us-west-2b,us-west-2c --networking cilium --cloud-labels "Team=Dev,Owner=Admin" ${NAME} --yes
+        $ export NAME=com-company-emailid-cilium.k8s.local
+        $ kops create cluster --state=${KOPS_STATE_STORE} --node-count 3 --topology private --master-zones us-west-2a,us-west-2b,us-west-2c --zones us-west-2a,us-west-2b,us-west-2c --networking cilium --cloud-labels "Team=Dev,Owner=Admin" ${NAME} --yes
 
 
 You may be prompted to create a ssh public-private key pair.
 
-.. code:: bash
+.. code-block:: shell-session
 
-        ssh-keygen
+        $ ssh-keygen
 
 
 (Please see :ref:`appendix_kops`)
@@ -140,9 +140,9 @@ To undo the dependencies and other deployment features in AWS from the kops
 cluster creation, use kops to destroy a cluster *immediately* with the
 parameter ``--yes``:
 
-.. code:: bash
+.. code-block:: shell-session
 
-        kops delete cluster ${NAME} --yes
+        $ kops delete cluster ${NAME} --yes
 
 
 Further reading on using Cilium with Kops

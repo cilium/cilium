@@ -15,7 +15,7 @@ Verifying Your Development Setup
 Assuming you have Go installed, you can quickly verify many elements of your
 development setup by running:
 
-::
+.. code-block:: shell-session
 
     $ make dev-doctor
 
@@ -81,7 +81,7 @@ Option 1 - Using the Provided Vagrantfiles (Recommended)
 
 To bring up a Vagrant VM with Cilium plus dependencies installed, run:
 
-::
+.. code-block:: shell-session
 
     $ contrib/vagrant/start.sh [vm_name]
 
@@ -89,7 +89,7 @@ This will create and run a vagrant VM based on the base box ``cilium/ubuntu``.
 The ``vm_name`` argument is optional and allows you to add new nodes to an
 existing cluster. For example, to add a net-next VM to a one-node cluster:
 
-::
+.. code-block:: shell-session
 
     $ K8S=1 NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
 
@@ -103,7 +103,7 @@ etc.
 
 For example, you could have something like this in your ``.devvmrc``:
 
-::
+.. code-block:: bash
 
     #!/usr/bin/env bash
 
@@ -181,20 +181,21 @@ brought up by vagrant:
 If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
 
-::
+.. code-block:: shell-session
 
-	$ RUNTIME=containerd K8S=1 NWORKERS=1 contrib/vagrant/start.sh
+    $ RUNTIME=containerd K8S=1 NWORKERS=1 contrib/vagrant/start.sh
 
 If you want to get VM status, run:
-::
 
-  $ RUNTIME=containerd K8S=1 NWORKERS=1 vagrant status
+.. code-block:: shell-session
+
+    $ RUNTIME=containerd K8S=1 NWORKERS=1 vagrant status
 
 If you want to connect to the Kubernetes cluster running inside the developer VM via ``kubectl`` from your host machine, set ``KUBECONFIG`` environment variable to include new kubeconfig file:
 
-::
+.. code-block:: shell-session
 
-$ export KUBECONFIG=$KUBECONFIG:$GOPATH/src/github.com/cilium/cilium/vagrant.kubeconfig
+    $ export KUBECONFIG=$KUBECONFIG:$GOPATH/src/github.com/cilium/cilium/vagrant.kubeconfig
 
 and add ``127.0.0.1 k8s1`` to your hosts file.
 
@@ -217,7 +218,7 @@ from the main Vagrantfile, for example:
 
 To start a local k8s 1.18 cluster with one CI VM locally, run:
 
-::
+.. code-block:: shell-session
 
     $ cd test
     $ K8S_VERSION=1.18 K8S_NODES=1 ./vagrant-local-start.sh
@@ -231,7 +232,7 @@ can run ``make clean`` in ``tests`` to delete the cached vagrant box.
 
 To start the CI runtime VM locally, run:
 
-::
+.. code-block:: shell-session
 
     $ cd test
     $ ./vagrant-local-start-runtime.sh
@@ -248,7 +249,7 @@ Option 2 - Manual Installation
 Alternatively you can import the vagrant box ``cilium/ubuntu``
 directly and manually install Cilium:
 
-::
+.. code-block:: shell-session
 
         $ vagrant init cilium/ubuntu
         $ vagrant up
@@ -314,7 +315,7 @@ to enable NFS.
 
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
-::
+.. code-block:: shell-session
 
     $ vagrant halt
 
@@ -335,7 +336,7 @@ Build Cilium
 When you make changes, the tree is automatically kept in sync via NFS.
 You can issue a build as follows:
 
-::
+.. code-block:: shell-session
 
     $ make
 
@@ -344,7 +345,7 @@ Install to dev environment
 
 After a successful build and test you can re-install Cilium by:
 
-::
+.. code-block:: shell-session
 
     $ sudo -E make install
 
@@ -353,14 +354,14 @@ Restart Cilium service
 
 To run the newly installed version of Cilium, restart the service:
 
-::
+.. code-block:: shell-session
 
     $ sudo systemctl restart cilium
 
 You can verify the service and cilium-agent status by the following
 commands, respectively:
 
-::
+.. code-block:: shell-session
 
     $ sudo systemctl status cilium
     $ cilium status
@@ -372,7 +373,7 @@ After Cilium daemon has been restarted, you may want to verify that it
 boots up properly and integration with Envoy still works. To do this,
 run this bash test script:
 
-::
+.. code-block:: shell-session
 
     $ tests/envoy-smoke-test.sh
 
@@ -388,13 +389,13 @@ Making Changes
 
 #. Make sure the ``master`` branch of your fork is up-to-date:
 
-   ::
+   .. code-block:: shell-session
 
       git fetch upstream master:master
 
 #. Create a PR branch with a descriptive name, branching from ``master``:
 
-   ::
+   .. code-block:: shell-session
 
       git switch -c pr/changes-to-something master
 
@@ -437,7 +438,7 @@ Add/update a golang dependency
 
 Let's assume we want to add ``github.com/containernetworking/cni`` version ``v0.5.2``:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ go get github.com/containernetworking/cni@v0.5.2
     $ go mod tidy
@@ -450,7 +451,7 @@ your local cache but the remaining runs will be faster.
 Updating k8s is a special case which requires updating k8s libraries in a single
 change:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ # get the tag we are updating (for example ``v0.17.3`` corresponds to k8s ``v1.17.3``)
     $ # open go.mod and search and replace all ``v0.17.3`` with the version
@@ -534,28 +535,28 @@ If you'd like IPv6 addresses, you will need to follow these steps:
 
 1) Edit ``/etc/docker/daemon.json`` and set the ``ipv6`` key to ``true``.
 
-::
+   .. code-block:: json
 
-    {
-      "ipv6": true
-    }
-
-
-If that doesn't work alone, try assigning a fixed range. Many people have
-reported trouble with IPv6 and Docker. `Source here.
-<https://github.com/moby/moby/issues/29443#issuecomment-495808871>`_
-
-::
-
-    {
-      "ipv6": true,
-      "fixed-cidr-v6": "2001:db8:1::/64"
-    }
+      {
+        "ipv6": true
+      }
 
 
-And then:
+   If that doesn't work alone, try assigning a fixed range. Many people have
+   reported trouble with IPv6 and Docker. `Source here.
+   <https://github.com/moby/moby/issues/29443#issuecomment-495808871>`_
 
-::
+   .. code-block:: json
+
+      {
+        "ipv6": true,
+        "fixed-cidr-v6": "2001:db8:1::/64"
+      }
+
+
+   And then:
+
+   .. code-block:: shell-session
 
     ip -6 route add 2001:db8:1::/64 dev docker0
     sysctl net.ipv6.conf.default.forwarding=1
@@ -566,9 +567,9 @@ And then:
 
 3) The new command for creating a network managed by Cilium:
 
-::
+   .. code-block:: shell-session
 
-    $ docker network create --ipv6 --driver cilium --ipam-driver cilium cilium-net
+      $ docker network create --ipv6 --driver cilium --ipam-driver cilium cilium-net
 
 
 Now new containers will have an IPv6 address assigned to them.
@@ -673,7 +674,7 @@ One of the most common issues when developing datapath code is that the eBPF
 code cannot be loaded into the kernel. This frequently manifests as the
 endpoints appearing in the "not-ready" state and never switching out of it:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ cilium endpoint list
     ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                     IPv4            STATUS
@@ -693,7 +694,7 @@ Current eBPF map state for particular programs is held under ``/sys/fs/bpf/``,
 and the `bpf-map <https://github.com/cilium/bpf-map>`_ utility can be useful
 for debugging what is going on inside them, for example:
 
-.. code:: bash
+.. code-block:: shell-session
 
     # ls /sys/fs/bpf/tc/globals/
     cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_25729  cilium_policy_60670       cilium_proxy6

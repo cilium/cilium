@@ -18,7 +18,7 @@ Developer images
 Run ``make dev-docker-image`` to build a cilium-agent Docker image that
 contains your local changes.
 
-::
+.. code-block:: shell-session
 
     ARCH=amd64 DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
 
@@ -26,7 +26,7 @@ Run ``make docker-operator-generic-image`` (respectively,
 ``docker-operator-aws-image`` or ``docker-operator-azure-image``) to build the
 cilium-operator Docker image:
 
-::
+.. code-block:: shell-session
 
     ARCH=amd64 DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make docker-operator-generic-image
 
@@ -44,7 +44,7 @@ Official release images
 
 Anyone can build official release images using the make target below.
 
-::
+.. code-block:: shell-session
 
     DOCKER_IMAGE_TAG=v1.4.0 make docker-images-all
 
@@ -55,14 +55,14 @@ Docker BuildKit allows build artifact caching between builds and
 generally results in faster builds for the developer. Support can be
 enabled by:
 
-::
+.. code-block:: shell-session
 
     export DOCKER_BUILDKIT=1
 
 Multi-arch image build support for arm64 (aka aarch64) and amd64 (aka
 x86-64) can be enabled by defining:
 
-::
+.. code-block:: shell-session
 
     export DOCKER_BUILDX=1
 
@@ -76,7 +76,7 @@ is "default".
 Buildx targets push images automatically, so you must also have
 DOCKER_REGISTRY and DOCKER_DEV_ACCOUNT defined, e.g.:
 
-::
+.. code-block:: shell-session
 
     export DOCKER_REGISTRY=docker.io
     export DOCKER_DEV_ACCOUNT=your-account
@@ -85,7 +85,7 @@ Currently the cilium-runtime and cilium-builder images are released
 for amd64 only (see the table below). This means that you have to
 build your own cilium-runtime and cilium-builder images:
 
-::
+.. code-block:: shell-session
 
     make docker-image-runtime
 
@@ -93,7 +93,7 @@ After the build finishes update the runtime image references in other
 Dockerfiles (``docker buildx imagetools inspect`` is useful for finding
 image information). Then proceed to build the cilium-builder:
 
-::
+.. code-block:: shell-session
 
     make docker-image-builder
 
@@ -103,7 +103,7 @@ github.com/cilium/hubble. Hubble builds via buildx QEMU based
 emulation, unless you have an ARM machine added to your buildx
 builder:
 
-::
+.. code-block:: shell-session
 
     export IMAGE_REPOSITORY=${DOCKER_REGISTRY}/${DOCKER_DEV_ACCOUNT}/hubble
     CONTAINER_ENGINE="docker buildx" DOCKER_FLAGS="--push --platform=linux/arm64,linux/amd64" make image
@@ -111,7 +111,7 @@ builder:
 Update the main Cilium Dockerfile with the new Hubble reference and
 build the multi-arch versions of the Cilium images:
 
-::
+.. code-block:: shell-session
 
     make docker-images-all
 

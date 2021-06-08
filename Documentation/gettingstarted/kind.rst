@@ -97,7 +97,7 @@ We will explicitly configure their ``pod-network-cidr`` and ``service-cidr`` to 
 
 Example ``kind-cluster1.yaml``:
 
-.. code:: yaml
+.. code-block:: yaml
 
     kind: Cluster
     apiVersion: kind.x-k8s.io/v1alpha4
@@ -113,7 +113,7 @@ Example ``kind-cluster1.yaml``:
 
 Example ``kind-cluster2.yaml``:
 
-.. code:: yaml
+.. code-block:: yaml
 
     kind: Cluster
     apiVersion: kind.x-k8s.io/v1alpha4
@@ -132,7 +132,7 @@ Create Kind Clusters
 
 We can now create the respective clusters:
 
-.. code:: bash
+.. code-block:: shell-session
 
     kind create cluster --name=cluster1 --config=kind-cluster1.yaml
     kind create cluster --name=cluster2 --config=kind-cluster2.yaml
@@ -146,7 +146,7 @@ we're enabling managed etcd and setting both ``cluster-name`` and
 
 Make sure context is set to ``kind-cluster2`` cluster.
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl config use-context kind-cluster2
 
@@ -165,7 +165,7 @@ Make sure context is set to ``kind-cluster2`` cluster.
 
 Change the kubectl context to ``kind-cluster1`` cluster:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl config use-context kind-cluster1
 

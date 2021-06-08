@@ -16,7 +16,7 @@ Verifying the installation
 Check the status of the `DaemonSet` and verify that all desired instances are in
 "ready" state:
 
-.. code:: bash
+.. code-block:: shell-session
 
         $ kubectl --namespace kube-system get ds
         NAME      DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
@@ -27,7 +27,7 @@ a problem. The next step is to list all cilium pods by matching on the label
 ``k8s-app=cilium`` and also sort the list by the restart count of each pod to
 easily identify the failing pods:
 
-.. code:: bash
+.. code-block:: shell-session
 
         $ kubectl --namespace kube-system get pods --selector k8s-app=cilium \
                   --sort-by='.status.containerStatuses[0].restartCount'
@@ -37,7 +37,7 @@ easily identify the failing pods:
 Pod ``cilium-813gf`` is failing and has already been restarted 2 times. Let's
 print the logfile of that pod to investigate the cause:
 
-.. code:: bash
+.. code-block:: shell-session
 
         $ kubectl --namespace kube-system logs cilium-813gf
         INFO      _ _ _

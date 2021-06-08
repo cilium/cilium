@@ -121,7 +121,7 @@ It is easiest to start Cilium development by following the :ref:`dev_guide`
 
 After cloning Cilium: 
 
-::
+.. code-block:: shell-session
 
     $ cd cilium 
     $ contrib/vagrant/start.sh 
@@ -137,7 +137,7 @@ Step 5: Create New Proxy Skeleton
 From inside the proxylib directory, copy the rd2d directory and rename the files. 
 Replace ''newproto'' with your protocol: 
 
-:: 
+.. code-block:: shell-session
 
     $ mkdir newproto
     $ cd newproto
@@ -252,7 +252,7 @@ cassandra/cassandraparser_test.go for an example of this).
 
 To run the unit tests, go to proxylib/newproto and run: 
 
-:: 
+.. code-block:: shell-session
 
   $ go test
 
@@ -289,12 +289,12 @@ First, create a Go object that will represent a single rule in the policy langua
 this is the rule for the r2d2 protocol, which performs exact match on the command string, and a regex
 on the filename:  
 
-:: 
+.. code-block:: go
 
- type R2d2Rule struct {
-    cmdExact   string
-    fileRegexCompiled *regexp.Regexp
- }
+    type R2d2Rule struct {
+       cmdExact   string
+       fileRegexCompiled *regexp.Regexp
+    }
 
 There are two key methods to update: 
 
@@ -318,7 +318,7 @@ Once you add the logic to call Matches() and return DROP in OnData, you will nee
 unit tests to have policies that allow the traffic you expect to be passed.   The following 
 is an example of how r2d2/r2d2parser_test.go adds an allow-all policy for a given test: 
 
-:: 
+.. code-block:: go
 
     s.ins.CheckInsertPolicyText(c, "1", []string{`
         name: "cp1"
@@ -334,7 +334,7 @@ is an example of how r2d2/r2d2parser_test.go adds an allow-all policy for a give
 The following is an example of a policy that would allow READ commands with a file 
 regex of ".*": 
 
-:: 
+.. code-block:: go
 
     s.ins.CheckInsertPolicyText(c, "1", []string{`
         name: "cp2"
@@ -370,7 +370,7 @@ an HTTP proxy would return a ''403 Access Denied'' error.  Look back at the prot
 understand what an access denied message looks like for this protocol, and use the p.connection.Inject() method 
 to send this error reply back to the client.   See r2d2/r2d2parser.go for an example. 
 
-:: 
+.. code-block:: go
 
     p.connection.Inject(true, []byte("ERROR\r\n"))
 
@@ -392,7 +392,7 @@ and indicates whether the request was allowed or denied.
 A call to ''p.connection.Log()'' implements access logging. See the OnData function in r2d2/r2d2parser.go 
 as an example: 
 
-:: 
+.. code-block:: go
 
       p.connection.Log(access_log_entry_type,
         &cilium.LogEntry_GenericL7{
@@ -412,7 +412,7 @@ Find the standard docker container for running the protocol server.  Often the s
 
 Start both a server and client container running in the cilium dev VM, and attach them to the already created “cilium-net”.  For example, with Cassandra, we run:
 
-:: 
+.. code-block:: shell-session
 
     docker run --name cass-server -l id=cass-server -d --net cilium-net cassandra
 
@@ -425,7 +425,7 @@ access the client CLI.
 
 Use ''cilium endpoint list'' to identify the IP address of the protocol server.  
 
-:: 
+.. code-block:: shell-session
 
   $ cilium endpoint list
   ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS   
@@ -436,15 +436,15 @@ Use ''cilium endpoint list'' to identify the IP address of the protocol server.
 
 One can then invoke the client CLI using that server IP address (10.11.51.247 in the above example):
 
-:: 
+.. code-block:: shell-session
 
- docker exec -it cass-client sh -c 'cqlsh 10.11.51.247 -e "select * from system.local"'
+    docker exec -it cass-client sh -c 'cqlsh 10.11.51.247 -e "select * from system.local"'
 
 Note that in the above example, ingress policy is not enforced for the Cassandra server endpoint, so no data will flow through the
 Cassandra parser.  A simple ''allow all'' L7 Cassandra policy can be used to send all data to the Cassandra server through the 
 Go Cassandra parser.  This policy has a single empty rule, which matches all requests.  An allow all policy looks like: 
 
-:: 
+.. code-block:: json
 
   [ { 
     "endpointSelector": {"matchLabels":{"id":"cass-server"}}, 
@@ -464,7 +464,7 @@ A policy can be imported into cilium using ''cilium policy import'', after which
 confirms that ingress policy is now in place on the server.  If the above policy was saved to a file cass-allow-all.json, 
 one would run: 
 
-:: 
+.. code-block:: shell-session
 
     $ cilium policy import cass-allow-all.json
     Revision: 1
@@ -479,14 +479,14 @@ Note that policy is now showing as ''Enabled'' for the Cassandra server on ingre
 
 To remove this or any other policy, run: 
 
-:: 
+.. code-block:: shell-session
 
     $ cilium policy delete --all 
 
 To install a new policy, first delete, and then run ''cilium policy import'' again.  For example, the following policy would allow
 select statements on a specific set of tables to this Cassandra server, but deny all other queries. 
 
-:: 
+.. code-block:: json
 
   [ {
     "endpointSelector": {"matchLabels":{"id":"cass-server"}},
@@ -505,12 +505,12 @@ select statements on a specific set of tables to this Cassandra server, but deny
   } ]
 
 When performing manual testing, remember that each time you change your Go proxy code, you must
-re-run ''make'' and ''sudo make install'' and then restart the cilium-agent process.  If the only changes
+re-run ``make`` and ``sudo make install`` and then restart the cilium-agent process.  If the only changes
 you have made since last compiling cilium are in your cilium/proxylib directory, you can safely 
-just run ''make'' and ''sudo make install''  in that directory, which saves time.  
+just run ``make`` and ``sudo make install``  in that directory, which saves time.  
 For example: 
 
-:: 
+.. code-block:: shell-session
 
   $ cd proxylib  // only safe is this is the only directory that has changed
   $ make  
@@ -525,7 +525,7 @@ the ''--debug-verbose=flow'' flag, which is critical to getting visibility in tr
 So it is easiest to stop the cilium service and run the cilium-agent directly as a command in a terminal window, 
 and adding the ''--debug-verbose=flow'' flag. 
 
-:: 
+.. code-block:: shell-session
 
   $ sudo service cilium stop 
   

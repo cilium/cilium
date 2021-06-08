@@ -30,9 +30,9 @@ Enable CRD IPAM mode
 
 #. Validate that the CRD has been registered:
 
-   ::
+   .. code-block:: shell-session
 
-	   kubectl get crds
+	   $ kubectl get crds
 	   NAME                              CREATED AT
 	   [...]
 	   ciliumnodes.cilium.io             2019-06-08T12:26:41Z
@@ -58,9 +58,9 @@ Create a CiliumNode CR
 
 #. Validate that Cilium has started up correctly
 
-   ::
+   .. code-block:: shell-session
 
-           cilium status --all-addresses
+           $ cilium status --all-addresses
            KVStore:                Ok   etcd: 1/1 connected, has-quorum=true: https://192.168.33.11:2379 - 3.3.12 (Leader)
            [...]
            IPAM:                   IPv4: 2/4 allocated,
@@ -70,9 +70,9 @@ Create a CiliumNode CR
 
 #. Validate the ``status.IPAM.used`` section:
 
-   ::
+   .. code-block:: shell-session
 
-       kubectl get cn k8s1 -o yaml
+       $ kubectl get cn k8s1 -o yaml
        apiVersion: cilium.io/v2
        kind: CiliumNode
        metadata:

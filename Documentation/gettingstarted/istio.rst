@@ -43,15 +43,15 @@ Download the `cilium enhanced istioctl version 1.8.2 <https://github.com/cilium/
 .. tabs::
   .. group-tab:: Linux
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
-     curl -L https://github.com/cilium/istio/releases/download/1.8.2/cilium-istioctl-1.8.2-linux-amd64.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.8.2/cilium-istioctl-1.8.2-linux-amd64.tar.gz | tar xz
 
   .. group-tab:: OSX
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
-     curl -L https://github.com/cilium/istio/releases/download/1.8.2/cilium-istioctl-1.8.2-osx.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.8.2/cilium-istioctl-1.8.2-osx.tar.gz | tar xz
 
 .. note::
 
@@ -60,13 +60,13 @@ Download the `cilium enhanced istioctl version 1.8.2 <https://github.com/cilium/
 
 Deploy the default Istio configuration profile onto Kubernetes:
 
-::
+.. code-block:: shell-session
 
     ./cilium-istioctl install -y
 
 Add a namespace label to instruct Istio to automatically inject Envoy sidecar proxies when you deploy your application later:
 
-::
+.. code-block:: shell-session
 
     kubectl label namespace default istio-injection=enabled
 
@@ -115,9 +115,9 @@ To deploy the application with manual sidecar injection, run:
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
 
-::
+.. code-block:: shell-session
 
-    watch "kubectl get deployments"
+    $ watch "kubectl get deployments"
     NAME             READY   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1/1     1            1           12s
     productpage-v1   1/1     1            1           13s
@@ -145,7 +145,7 @@ Create an Istio ingress gateway for the productpage service:
 
 To obtain the URL to the frontend productpage service, run:
 
-::
+.. code-block:: shell-session
 
     export GATEWAY_URL=http://$(minikube ip):$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
     export PRODUCTPAGE_URL=${GATEWAY_URL}/productpage
@@ -194,9 +194,9 @@ Deploy the ``ratings v1`` and ``reviews v2`` services:
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
 
-::
+.. code-block:: shell-session
 
-    watch "kubectl get deployments"
+    $ watch "kubectl get deployments"
     NAME             READY   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1/1     1            1           17m
     productpage-v1   1/1     1            1           17m
@@ -227,10 +227,10 @@ running ``curl`` from within the pod:
    All traffic from ``reviews v1`` to ``ratings`` is blocked, so the
    connection attempt fails after the connection timeout.
 
-::
+.. code-block:: shell-session
 
-    export POD_REVIEWS_V1=`kubectl get pods -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
-    kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
+    $ export POD_REVIEWS_V1=`kubectl get pods -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
     curl: (28) Connection timed out after 5001 milliseconds
     command terminated with exit code 28
 
@@ -305,14 +305,14 @@ REST API, under the ``/api/v1`` HTTP URI path:
 Check that the full REST API is currently accessible in ``v1`` and
 returns valid JSON data:
 
-::
+.. code-block:: shell-session
 
     for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${GATEWAY_URL}${APIPATH}" ; echo ; done
 
 
 The output will be similar to this:
 
-::
+.. code-block:: json
 
     [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
 
@@ -345,16 +345,16 @@ deploy a Kafka broker:
 Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
 ``READY`` count of ``1/1``:
 
-::
+.. code-block:: shell-session
 
-    watch "kubectl get pods -l app=kafka"
+    $ watch "kubectl get pods -l app=kafka"
     NAME         READY     STATUS    RESTARTS   AGE
     kafka-v1-0   1/1       Running   0          21m
 
 Create the ``authaudit`` Kafka topic, which will be used by
 ``productpage v2``:
 
-::
+.. code-block:: shell-session
 
     kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic authaudit --partitions 1 --replication-factor 1'
 
@@ -392,9 +392,9 @@ this service:
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
 
-::
+.. code-block:: shell-session
 
-    watch "kubectl get deployments"
+    $ watch "kubectl get deployments"
     NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
     authaudit-logger-v1   1/1     1            1           41s
     details-v1            1/1     1            1           37m
@@ -406,13 +406,13 @@ Check the progress of the deployment (every service should have an
 Check that the product REST API is still accessible, and that Cilium
 now denies at Layer-7 any access to the reviews and ratings REST API:
 
-::
+.. code-block:: shell-session
 
     for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${GATEWAY_URL}${APIPATH}" ; echo ; done
 
 The output will be similar to this:
 
-::
+.. code-block:: json
 
     [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
 
@@ -433,13 +433,13 @@ this service's log. Note that you need to log in/out using the ``sign
 in``/``sign out`` element on the bookinfo web page. When you do, you
 can observe these kind of audit logs:
 
-::
+.. code-block:: shell-session
 
     export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
 
-::
+.. code-block:: shell-session
 
-    kubectl logs ${POD_LOGGER_V1} -c authaudit-logger
+    $ kubectl logs ${POD_LOGGER_V1} -c authaudit-logger
     ...
     {"timestamp": "2017-12-04T09:34:24.341668", "remote_addr": "10.15.28.238", "event": "login", "user": "richard"}
     {"timestamp": "2017-12-04T09:34:40.943772", "remote_addr": "10.15.28.238", "event": "logout", "user": "richard"}
@@ -470,9 +470,9 @@ ENTER, e.g. ``test message``)
 
    You can terminate the command with a single ``<CTRL>-d``.
 
-::
+.. code-block:: shell-session
 
-    kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-producer.sh --broker-list=kafka:9092 --topic=authaudit
+    $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-producer.sh --broker-list=kafka:9092 --topic=authaudit
     test message
     [2017-12-07 02:13:47,020] ERROR Error when sending message to topic authaudit with key: null, value: 12 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
     org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [authaudit]
@@ -483,16 +483,16 @@ error for any ``Produce`` request from this service.
 Create another topic named ``credit-card-payments``, meant to transmit
 highly-sensitive credit card payment requests:
 
-::
+.. code-block:: shell-session
 
-    kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic credit-card-payments --partitions 1 --replication-factor 1'
+    $ kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic credit-card-payments --partitions 1 --replication-factor 1'
 
 Check that Cilium prevents the ``authaudit-logger`` service from
 fetching messages from this topic:
 
-::
+.. code-block:: shell-session
 
-    kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh --bootstrap-server=kafka:9092 --topic=credit-card-payments
+    $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh --bootstrap-server=kafka:9092 --topic=credit-card-payments
     [2017-12-07 03:08:54,513] WARN Not authorized to read from topic credit-card-payments. (org.apache.kafka.clients.consumer.internals.Fetcher)
     [2017-12-07 03:08:54,517] ERROR Error processing message, terminating consumer process:  (kafka.tools.ConsoleConsumer$)
     org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [credit-card-payments]
@@ -513,7 +513,7 @@ You have now installed Cilium and Istio, deployed a demo app, and
 tested both Cilium's L3-L7 network security policies and Istio's
 service route rules.  To clean up, run:
 
-::
+.. code-block:: shell-session
 
     minikube delete
 

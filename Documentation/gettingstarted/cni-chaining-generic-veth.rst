@@ -24,7 +24,7 @@ Validate that the current CNI plugin is using veth
    able spot network devices representing the pods running on that node.
 3. A network device might look something like this:
 
-   .. code:: bash
+   .. code-block:: shell-session
 
        103: lxcb3901b7f9c02@if102: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
            link/ether 3a:39:92:17:75:6f brd ff:ff:ff:ff:ff:ff link-netnsid 18 promiscuity 0
@@ -43,7 +43,7 @@ Create a ``chaining.yaml`` file based on the following template to specify the
 desired CNI chaining configuration:
 
 
-.. code:: yaml
+.. code-block:: yaml
 
     apiVersion: v1
     kind: ConfigMap
@@ -68,7 +68,7 @@ desired CNI chaining configuration:
 
 Deploy the `ConfigMap`:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubectl apply -f chaining.yaml
 

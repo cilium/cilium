@@ -105,9 +105,9 @@ masquerading all traffic leaving the node:
 
 Verify that it has come up correctly:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    kubectl -n kube-system get pods -l k8s-app=cilium
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 

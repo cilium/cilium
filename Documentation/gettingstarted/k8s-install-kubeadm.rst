@@ -25,7 +25,7 @@ Create the cluster
 
 Initialize the control plane via executing on it:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubeadm init
 
@@ -34,7 +34,7 @@ Initialize the control plane via executing on it:
    the kube-proxy deployment phase, so it has to be executed with the
    ``--skip-phases=addon/kube-proxy`` option:
 
-   .. code:: bash
+   .. code-block:: shell-session
 
       kubeadm init --skip-phases=addon/kube-proxy
 
@@ -43,7 +43,7 @@ Initialize the control plane via executing on it:
 Afterwards, join worker nodes by specifying the control-plane node IP address
 and the token returned by ``kubeadm init``:
 
-.. code:: bash
+.. code-block:: shell-session
 
    kubeadm join <..>
 

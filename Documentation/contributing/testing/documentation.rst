@@ -10,7 +10,7 @@ Documentation
 First, start a local document server that automatically refreshes when you save files for
 real-time preview. It relies on the ``cilium/docs-builder`` Docker container.
 
-::
+.. code-block:: shell-session
 
     $ make render-docs-live-preview
 
@@ -19,7 +19,7 @@ Cilium documentation you should check that you did not introduce any new warning
 check that your changes look as you intended one last time before opening a pull request. To do this
 you can build the docs:
 
-::
+.. code-block:: shell-session
 
     $ make render-docs
 
@@ -34,5 +34,6 @@ http://localhost:9081 in a browser.
    not been released) regardless of which Cilium branch you are in. You can target a specific
    branch by specifying ``READTHEDOCS_VERSION`` environment variable:
 
-   .. parsed-literal::
+   .. code-block:: shell-session
+
       READTHEDOCS_VERSION=v1.7 make render-docs-live-preview

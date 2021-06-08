@@ -41,9 +41,7 @@ Configuration
 =============
 
 The ``api-rate-limit`` option can be used to overwrite individual settings of the
-default configuration:
-
-.. code::
+default configuration::
 
    --api-rate-limit endpoint-create=rate-limit:2/s,rate-burst:4
 
@@ -132,9 +130,7 @@ values should typically adjust slower than ``rate-limit``:
 Metrics
 =======
 
-All API calls subject to rate limiting will expose :ref:`metrics_api_rate_limiting`. Example:
-
-.. code::
+All API calls subject to rate limiting will expose :ref:`metrics_api_rate_limiting`. Example::
 
     cilium_api_limiter_adjustment_factor                  api_call="endpoint-create"                               0.695787
     cilium_api_limiter_processed_requests_total           api_call="endpoint-create" outcome="success"             7.000000
@@ -152,15 +148,13 @@ Understanding the log output
 ============================
 
 The API rate limiter logs under the ``rate`` subsystem. An example message can
-be seen below:
-
-.. code::
+be seen below::
 
    level=info msg="API call has been processed" name=endpoint-create processingDuration=772.847247ms subsys=rate totalDuration=14.923958916s uuid=d34a2e1f-1ac9-11eb-8663-42010a8a0fe1 waitDurationTotal=14.151023084s
 
 The following is an explanation for all the API rate limiting messages:
 
-.. code::
+::
 
    "Processing API request with rate limiter"
 
@@ -169,7 +163,7 @@ The request was admitted into the rate limiter. The associated HTTP context
 according to the configuration of the rate limiter. It will enter the waiting
 stage according to the computed waiting duration.
 
-.. code::
+::
 
    "API request released by rate limiter"
 
@@ -182,7 +176,7 @@ code.
 This is a common message when the requests are being processed within the
 configured bounds of the rate limiter.
 
-.. code::
+::
 
    "API call has been processed":
 
@@ -191,7 +185,7 @@ action has finished. This means the request is no longer actively waiting or in
 other words, no longer being rate-limited. This does not mean the underlying
 HTTP action has succeeded; only that this request has been dealt with.
 
-.. code::
+::
 
    "Not processing API request due to cancelled context"
 
@@ -200,7 +194,7 @@ has given up on the request. This most likely means that the HTTP request timed
 out. A 429 HTTP response status code is returned to the caller, which may or
 may not receive it anyway.
 
-.. code::
+::
 
    "Not processing API request. Wait duration for maximum parallel requests exceeds maximum"
 
@@ -211,7 +205,7 @@ response.
 This is a common message when the rate limiter is doing its job of preventing
 too many parallel requests at once.
 
-.. code::
+::
 
    "Not processing API request. Wait duration exceeds maximum"
 
@@ -224,7 +218,7 @@ thrown out. A 429 HTTP response status code would be returned to the caller.
 This is the most common message when the rate limiter is doing its job of
 pacing the incoming requests into Cilium.
 
-.. code::
+::
 
    "Not processing API request due to cancelled context while waiting"
 

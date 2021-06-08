@@ -177,16 +177,12 @@ Ingress
    represented on the node as interface ``ethN``.
 
 2. An IP routing rule ensures that traffic to all local pod IPs is done using
-   the main routing table:
-
-   .. code-block:: bash
+   the main routing table::
 
        20:	from all to 192.168.105.44 lookup main
 
 3. The main routing table contains an exact match route to steer traffic into a
-   veth pair which is hooked into the pod:
-
-   .. code-block:: bash
+   veth pair which is hooked into the pod::
 
        192.168.105.44 dev lxc5a4def8d96c5
 
@@ -209,16 +205,12 @@ Egress
 
 3. An IP routing rule ensures that traffic from individual endpoints are using
    a routing table specific to the ENI from which the endpoint IP was
-   allocated:
-
-   .. code-block:: bash
+   allocated::
 
        30:	from 192.168.105.44 to 192.168.0.0/16 lookup 92
 
 4. The ENI specific routing table contains a default route which redirects
-   to the router of the VPC via the ENI interface:
-
-   .. code-block:: bash
+   to the router of the VPC via the ENI interface::
 
        default via 192.168.0.1 dev eth2
        192.168.0.1 dev eth2

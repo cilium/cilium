@@ -52,9 +52,9 @@ and therefore no additional lower layer NAT is required.
 
 Verify that it has come up correctly:
 
-.. code:: bash
+.. code-block:: shell-session
 
-    kubectl -n kube-system get pods -l k8s-app=cilium
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 

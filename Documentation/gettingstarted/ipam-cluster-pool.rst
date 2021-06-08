@@ -42,9 +42,9 @@ Validate installation
 
 #. Validate that Cilium has started up correctly
 
-   ::
+   .. code-block:: shell-session
 
-           cilium status --all-addresses
+           $ cilium status --all-addresses
            KVStore:                Ok   etcd: 1/1 connected, has-quorum=true: https://192.168.33.11:2379 - 3.3.12 (Leader)
            [...]
            IPAM:                   IPv4: 2/256 allocated,
@@ -54,9 +54,9 @@ Validate installation
 
 #. Validate the ``spec.ipam.podCIDRs`` section:
 
-   ::
+   .. code-block:: shell-session
 
-       kubectl get cn k8s1 -o yaml
+       $ kubectl get cn k8s1 -o yaml
        apiVersion: cilium.io/v2
        kind: CiliumNode
        metadata:

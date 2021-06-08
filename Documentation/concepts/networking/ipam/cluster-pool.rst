@@ -54,6 +54,6 @@ Look for allocation errors
 
 Check the ``Error`` field in the ``Status.Operator`` field:
 
-.. code:: bash
+.. code-block:: shell-session
 
     kubectl get ciliumnodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.operator.error}{"\n"}{end}'

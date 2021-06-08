@@ -48,7 +48,7 @@ Running all of the Ginkgo tests may take an hour or longer. To run all the
 ginkgo tests, invoke the make command as follows from the root of the cilium
 repository:
 
-::
+.. code-block:: shell-session
 
     $ sudo make -C test/ test
 
@@ -62,7 +62,7 @@ Running Runtime Tests
 
 To run all of the runtime tests, execute the following command from the ``test`` directory:
 
-::
+.. code-block:: shell-session
 
     ginkgo --focus="Runtime"
 
@@ -70,7 +70,7 @@ Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
 here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
-::
+.. code-block:: shell-session
 
     $ ginkgo --focus="Runtime" -dryRun
     Running Suite: runtime
@@ -113,14 +113,14 @@ Running Kubernetes Tests
 
 To run all of the Kubernetes tests, run the following command from the ``test`` directory:
 
-::
+.. code-block:: shell-session
 
     ginkgo --focus="K8s"
 
 To run a specific test from the Kubernetes tests suite, run the following command
 from the ``test`` directory:
 
-::
+.. code-block:: shell-session
 
     ginkgo --focus="K8s.*Check iptables masquerading with random-fully"
 
@@ -140,7 +140,7 @@ The Kubernetes tests support the following Kubernetes versions:
 By default, the Vagrant VMs are provisioned with Kubernetes 1.20. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
-::
+.. code-block:: shell-session
 
     K8S_VERSION=<version> ginkgo --focus="K8s"
 
@@ -156,16 +156,16 @@ supported version of Kubernetes, run the test suite with the following format:
    To avoid this, one can prevent Vagrant from installing the Additions by
    putting the following into ``$HOME/.vagrant.d/Vagrantfile``:
 
-   .. code:: ruby
+   .. code-block:: ruby
 
       Vagrant.configure('2') do |config|
-	if Vagrant.has_plugin?("vagrant-vbguest") then
-	  config.vbguest.auto_update = false
-	end
+        if Vagrant.has_plugin?("vagrant-vbguest") then
+          config.vbguest.auto_update = false
+        end
 
-	config.vm.provider :virtualbox do |vbox|
-	  vbox.check_guest_additions = false
-	end
+        config.vm.provider :virtualbox do |vbox|
+          vbox.check_guest_additions = false
+        end
       end
 
 Running Nightly Tests
@@ -173,7 +173,7 @@ Running Nightly Tests
 
 To run all of the Nightly tests, run the following command from the ``test`` directory:
 
-::
+.. code-block:: shell-session
 
     ginkgo --focus="Nightly"
 
@@ -188,7 +188,7 @@ Available CLI Options
 For more advanced workflows, check the list of available custom options for the Cilium
 framework in the ``test/`` directory and interact with ginkgo directly:
 
-::
+.. code-block:: shell-session
 
     $ cd test/
     $ ginkgo . -- -cilium.help
@@ -251,22 +251,22 @@ If you want to run one specified test, there are a few options:
   "focused" test. For more information, consult the `Focused Specs`_
   documentation from Ginkgo.
 
-::
+  .. code-block:: go
 
-    It("Example test", func(){
-        Expect(true).Should(BeTrue())
-    })
+      It("Example test", func(){
+          Expect(true).Should(BeTrue())
+      })
 
-    FIt("Example focused test", func(){
-        Expect(true).Should(BeTrue())
-    })
+      FIt("Example focused test", func(){
+          Expect(true).Should(BeTrue())
+      })
 
 
 * From the command line: specify a more granular focus if you want to focus on, say, Runtime L7 tests:
 
-::
+  .. code-block:: shell-session
 
-    ginkgo --focus "Runtime.*L7"
+      ginkgo --focus "Runtime.*L7"
 
 
 This will focus on tests that contain "Runtime", followed by any
@@ -282,9 +282,9 @@ Compiling the tests without running them
 To validate that the Go code you've written for testing is correct without
 needing to run the full test, you can build the test directory:
 
-::
+.. code-block:: shell-session
 
-	make -C test/ build
+    make -C test/ build
 
 Test Reports
 ~~~~~~~~~~~~
@@ -302,7 +302,7 @@ Best Practices for Writing Tests
 * Leave the testing environment in the same state that it was in when the test started by deleting resources, resetting configuration, etc.
 * Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an ``AfterFailed`` method:
 
-::
+.. code-block:: go
 
 	AfterFailed(func() {
 		vm.ReportFailed()
@@ -362,8 +362,7 @@ Example Test Layout
 Here is an example layout of how a test may be written with the aforementioned
 constructs:
 
-Test description diagram:
-::
+Test description diagram::
 
     Describe
         BeforeAll(A)
@@ -385,8 +384,7 @@ Test description diagram:
             TESTB3
 
 
-Test execution flow:
-::
+Test execution flow::
 
     Describe
         BeforeAll
@@ -418,7 +416,7 @@ You can retrieve all run commands and their output in the report directory
 a file called log where all information is saved, in case of a failing
 test an exhaustive data will be added.
 
-::
+.. code-block:: shell-session
 
 	$ head test/test_results/RuntimeKafkaKafkaPolicyIngress/logs
 	level=info msg=Starting testName=RuntimeKafka
@@ -444,7 +442,7 @@ code, and run ginkgo using ``dlv``.
 
 Example how to run ginkgo using ``dlv``:
 
-::
+.. code-block:: shell-session
 
 	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
 
@@ -479,7 +477,7 @@ This mode expects:
 
 An example invocation is
 
-::
+.. code-block:: shell-session
 
   CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
 
@@ -503,7 +501,7 @@ cluster.
           the value of the cluster IPv4 CIDR returned by the ``gcloud container
           clusters describe`` command.
 
-::
+.. code-block:: shell-session
 
   export CLUSTER_NAME=cluster1
   export CLUSTER_ZONE=us-west2-a
@@ -522,17 +520,17 @@ Not all tests can succeed on EKS. Many do, however and may be useful.
 :gh-issue:`9678#issuecomment-749350425` contains a list of tests that are still
 failing.
 
-1- Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
-cluster.
+1. Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
+   cluster.
 
-2- Source the testing integration script from ``cilium/contrib/testing/integrations.sh``.
+2. Source the testing integration script from ``cilium/contrib/testing/integrations.sh``.
 
-3- Invoke the ``gks`` function by passing which ``cilium`` docker image to run and the test focus. The command also
-accepts additional ginkgo arguments.
+3. Invoke the ``gks`` function by passing which ``cilium`` docker image to run
+   and the test focus. The command also accepts additional ginkgo arguments.
 
-::
+.. code-block:: shell-session
 
-  gks quay.io/cilium/cilium:latest K8sDemo
+    gks quay.io/cilium/cilium:latest K8sDemo
 
 
 Adding new Managed Kubernetes providers
@@ -543,22 +541,23 @@ file.  This isn't always adequate, however, and adding defaults specific to
 each provider is possible. The `commit adding GKE <https://github.com/cilium/cilium/commit/c2d8445fd725c515a635c8c3ad3be901a08084eb>`_
 support is a good reference.
 
-1- Add a map of helm settings to act as an override for this provider in
-`test/helpers/kubectl.go <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L80-L102>`_.
-These should be the helm settings used when generating cilium specs for this provider.
+1. Add a map of helm settings to act as an override for this provider in
+   `test/helpers/kubectl.go <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L80-L102>`_.
+   These should be the helm settings used when generating cilium specs for this
+   provider.
 
-2- Add a unique `CI Integration constant <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L66-L67>`_.
-This value is passed in when invoking ginkgo via the ``CNI_INTEGRATON``
-environment variable.
+2. Add a unique `CI Integration constant <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L66-L67>`_.
+   This value is passed in when invoking ginkgo via the ``CNI_INTEGRATON``
+   environment variable.
 
-3- Update the `helm overrides <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L138-L147>`_
-mapping with the constant and the helm settings.
+3. Update the `helm overrides <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L138-L147>`_
+   mapping with the constant and the helm settings.
 
-4- For cases where a test should be skipped use the ``SkipIfIntegration``. To
-skip whole contexts, use ``SkipContextIf``. More complex logic can be expressed
-with functions like ``IsIntegration``. These functions are all part of the
-`test/helpers <https://github.com/cilium/cilium/tree/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_
-package.
+4. For cases where a test should be skipped use the ``SkipIfIntegration``. To
+   skip whole contexts, use ``SkipContextIf``. More complex logic can be
+   expressed with functions like ``IsIntegration``. These functions are all
+   part of the `test/helpers <https://github.com/cilium/cilium/tree/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_
+   package.
 
 Running End-To-End Tests In Other Environments via SSH
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -595,7 +594,7 @@ An example ``ssh-config`` can be the following:
 
 To run this you can use the following command:
 
-::
+.. code-block:: shell-session
 
     ginkgo -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 

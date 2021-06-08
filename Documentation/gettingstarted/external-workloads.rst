@@ -234,7 +234,7 @@ From the external workload, ping the backend IP of ``clustermesh-apiserver`` ser
 
 The ping should keep running also when the following CCNP is applied in your cluster:
 
-.. parsed-literal::
+.. code-block:: yaml
 
     apiVersion: cilium.io/v2
     kind: CiliumClusterwideNetworkPolicy
@@ -256,7 +256,7 @@ The ping should keep running also when the following CCNP is applied in your clu
 
 The ping should stop if you delete these lines from the policy (e.g., ``kubectl edit ccnp test-ccnp``):
 
-.. parsed-literal::
+.. code-block:: yaml
 
       - fromEndpoints:
         - matchLabels:

@@ -23,13 +23,13 @@ Please consult `Kubespray Prerequisites <https://github.com/kubernetes-sigs/kube
 Installing Kubespray
 ====================
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ git clone --branch v2.6.0 https://github.com/kubernetes-sigs/kubespray
 
 Install dependencies from ``requirements.txt``
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ cd kubespray
   $ sudo pip install -r requirements.txt
@@ -45,7 +45,7 @@ Configure AWS credentials
 
 Export the variables for your AWS credentials 
 
-.. code:: bash
+.. code-block:: shell-session
 
   export AWS_ACCESS_KEY_ID="www"
   export AWS_SECRET_ACCESS_KEY ="xxx"
@@ -57,7 +57,7 @@ Configure Terraform Variables
 
 We will start by specifying the infrastructure needed for the Kubernetes cluster.
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ cd contrib/terraform/aws
   $ cp contrib/terraform/aws/terraform.tfvars.example terraform.tfvars`
@@ -75,7 +75,7 @@ By default, this tutorial will create:
 
 Example ``terraform.tfvars`` file:
 
-.. code:: bash
+.. code-block:: bash
 
   #Global Vars
   aws_cluster_name = "kubespray"
@@ -116,20 +116,20 @@ Apply the configuration
   - ``module.aws-elb``
   - ``module.aws-iam``
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ terraform init
 
 Once initialized , execute:
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ terraform plan -out=aws_kubespray_plan
 
 This will generate a file, ``aws_kubespray_plan``, depicting an execution
 plan of the infrastructure that will be created on AWS. To apply, execute:
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ terraform init
   $ terraform apply "aws_kubespray_plan"
@@ -144,7 +144,7 @@ Kubespray uses Ansible as its substrate for provisioning and orchestration. Once
 We recommend using the `latest released Cilium version`_ by editing ``roles/download/defaults/main.yml``. Open the file, search for ``cilium_version``, and replace the version with the latest released. As an example, the updated version entry will look like: ``cilium_version: "v1.2.0"``.
 
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ ansible-playbook -i ./inventory/hosts ./cluster.yml -e ansible_user=core -e bootstrap_os=coreos -e kube_network_plugin=cilium -b --become-user=root --flush-cache  -e ansible_ssh_private_key_file=<path to EC2 SSH private key file>
 
@@ -155,11 +155,11 @@ Validate Cluster
 
 To check if cluster is created successfully, ssh into the bastion host with the user ``core``. 
 
-.. code:: bash
+.. code-block:: shell-session
 
-  # Get information about the basiton host 
-  $ cat ssh-bastion.conf    
-  $ ssh -i ~/path/to/ec2-key-file.pem core@public_ip_of_bastion_host 
+  $ # Get information about the basiton host
+  $ cat ssh-bastion.conf
+  $ ssh -i ~/path/to/ec2-key-file.pem core@public_ip_of_bastion_host
 
 Execute the commands below from the bastion host. If ``kubectl`` isn't installed on the bastion host, you can login to the master node to test the below commands. You may need to copy the private key to the bastion host to access the master node.
 
@@ -168,7 +168,7 @@ Execute the commands below from the bastion host. If ``kubectl`` isn't installed
 Delete Cluster
 ==============
 
-.. code:: bash
+.. code-block:: shell-session
 
   $ cd contrib/terraform/aws
   $ terraform destroy

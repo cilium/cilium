@@ -68,7 +68,7 @@ The following `ConfigMap` is an example where the etcd cluster is running in 2
 nodes, ``node-1`` and ``node-2`` with TLS, and client to server authentication
 enabled.
 
-.. code:: yaml
+.. code-block:: yaml
 
     apiVersion: v1
     kind: ConfigMap
@@ -148,7 +148,7 @@ Manually installing CNI
 This step is typically already included in all Kubernetes distributions or
 Kubernetes installers but can be performed manually:
 
-.. code:: bash
+.. code-block:: shell-session
 
     sudo mkdir -p /opt/cni
     wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
@@ -168,7 +168,7 @@ If you want to provide your own custom CNI configuration file, set the
 configuration file by adding the following to the ``env:`` section of the
 ``cilium`` DaemonSet:
 
-.. code:: bash
+.. code-block:: yaml
 
         - name: CILIUM_CUSTOM_CNI_CONF
           value: "true"
@@ -176,7 +176,7 @@ configuration file by adding the following to the ``env:`` section of the
 The CNI installation can be configured with environment variables. These
 environment variables can be specified in the `DaemonSet` file like this:
 
-.. code:: bash
+.. code-block:: yaml
 
     env:
       - name: "CNI_CONF_NAME"
@@ -197,7 +197,7 @@ The following variables are supported:
 If you want to further adjust the CNI configuration you may do so by creating
 the CNI configuration ``/etc/cni/net.d/05-cilium.conf`` manually:
 
-.. code:: bash
+.. code-block:: shell-session
 
     sudo mkdir -p /etc/cni/net.d
     sudo sh -c 'echo "{
@@ -239,9 +239,9 @@ the following command:
 
 ``kubectl get crd ciliumnetworkpolicies.cilium.io -o json``
 
-.. code:: bash
+.. code-block:: shell-session
 
-	kubectl get crd ciliumnetworkpolicies.cilium.io -o json | grep -A 12 openAPIV3Schema
+    $ kubectl get crd ciliumnetworkpolicies.cilium.io -o json | grep -A 12 openAPIV3Schema
             "openAPIV3Schema": {
                 "oneOf": [
                     {
@@ -259,7 +259,7 @@ the following command:
 In case the user writes a policy that does not conform to the schema, Kubernetes
 will return an error, e.g.:
 
-.. code:: bash
+.. code-block:: shell-session
 
 	cat <<EOF > ./bad-cnp.yaml
 	apiVersion: "cilium.io/v2"
@@ -305,7 +305,7 @@ Due to how systemd `mounts
 <https://unix.stackexchange.com/questions/283442/systemd-mount-fails-where-setting-doesnt-match-unit-name>`__
 filesystems, the mount point path must be reflected in the unit filename.
 
-.. code:: bash
+.. code-block:: shell-session
 
         cat <<EOF | sudo tee /etc/systemd/system/sys-fs-bpf.mount
         [Unit]
@@ -354,15 +354,15 @@ Cilium CNI configuration.
 
 First make sure cilium is running:
 
-::
+.. code-block:: shell-session
 
-    kubectl get pods -n kube-system -o wide
+    $ kubectl get pods -n kube-system -o wide
     NAME               READY     STATUS    RESTARTS   AGE       IP          NODE
     cilium-mqtdz       1/1       Running   0          3m       10.0.2.15   minikube
 
 After that you can restart CRI-O:
 
-::
+.. code-block:: shell-session
 
     minikube ssh -- sudo systemctl restart crio
 
@@ -375,9 +375,7 @@ Some CRI-O environments automatically mount the bpf filesystem in the pods,
 which is something that Cilium avoids doing when
 ``--set containerRuntime.integration=crio`` is set. However, some
 CRI-O environments do not mount the bpf filesystem automatically which causes
-Cilium to print the follow message:
-
-.. parsed-literal::
+Cilium to print the following message::
 
         level=warning msg="BPF system config check: NOT OK." error="CONFIG_BPF kernel parameter is required" subsys=linux-datapath
         level=warning msg="================================= WARNING ==========================================" subsys=bpf

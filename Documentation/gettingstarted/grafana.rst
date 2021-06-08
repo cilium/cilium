@@ -87,7 +87,7 @@ How to access Grafana
 
 Expose the port on your local machine
 
-.. code:: bash
+.. code-block:: shell-session
 
     kubectl -n cilium-monitoring port-forward service/grafana --address 0.0.0.0 --address :: 3000:3000
 
@@ -98,7 +98,7 @@ How to access Prometheus
 
 Expose the port on your local machine
 
-.. code:: bash
+.. code-block:: shell-session
 
     kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9090:9090
 

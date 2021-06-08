@@ -17,7 +17,7 @@ Clone and Provision Environment
 #. Fork the Cilium repository to your GitHub user or organization.
 #. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork into your ``GOPATH``, and setup the base repository as ``upstream`` remote:
 
-   ::
+   .. code-block:: shell-session
 
       mkdir -p "${GOPATH}/src/github.com/cilium"
       cd "${GOPATH}/src/github.com/cilium"
@@ -416,7 +416,7 @@ steps 1 to 2 times per day. Works best if done first thing in the working day.
 
 #. If the PR is a backport PR, update the labels of cherry-picked PRs with the command included at the end of the original post. For example:
 
-   .. code-block:: bash
+   .. code-block:: shell-session
    
        $ for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
 

@@ -42,7 +42,7 @@ Deploy the app using command below, which will create
     pod "empire-hq" created
     pod "spaceship" created
 
-::
+.. code-block:: shell-session
 
     $ kubectl get svc,pods
     NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                           AGE
@@ -65,7 +65,7 @@ For Elasticsearch clusters the **least privilege security** challenge is to give
 
 ``outpost`` client uploading troop logs 
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec outpost -- python upload_logs.py 
     Uploading Stormtroopers Performance Logs
@@ -73,7 +73,7 @@ For Elasticsearch clusters the **least privilege security** challenge is to give
 
 ``spaceship`` uploading diagnostics
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec spaceship -- python upload_diagnostics.py 
     Uploading Spaceship Diagnostics
@@ -81,7 +81,7 @@ For Elasticsearch clusters the **least privilege security** challenge is to give
 
 ``empire-hq`` running search queries for logs and diagnostics
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec empire-hq -- python search.py 
     Searching for Spaceship Diagnostics
@@ -98,7 +98,7 @@ For Elasticsearch clusters the **least privilege security** challenge is to give
 
 Now imagine an outpost captured by the rebels. In the commands below, the rebels first search all the indices and then manipulate the diagnostics data from a compromised outpost. 
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec outpost -- python search.py 
     Searching for Spaceship Diagnostics
@@ -115,7 +115,7 @@ Now imagine an outpost captured by the rebels. In the commands below, the rebels
 Rebels manipulate spaceship diagnostics data so that the spaceship defects are not known to the empire-hq! (Hint: Rebels have changed the ``stats`` for the tiefighter spaceship, a change hard to detect but with adverse impact!)
 
 
-:: 
+.. code-block:: shell-session
 
     $ kubectl exec outpost -- python update.py 
     Uploading Spaceship Diagnostics
@@ -158,7 +158,7 @@ Apply this Elasticsearch-aware network security policy using ``kubectl``:
 
 Let's test the security policies. Firstly, the search access is blocked for both outpost and spaceship. So from a compromised outpost, rebels will not be able to search and obtain knowledge about troops and spaceship diagnostics. Secondly, the outpost clients don't have access to create or update the ``index: spaceship_diagnostics``. 
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec outpost -- python search.py 
     GET http://elasticsearch:9200/spaceship_diagnostics/_search [status:403 request:0.008s]
@@ -167,7 +167,7 @@ Let's test the security policies. Firstly, the search access is blocked for both
     elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
     command terminated with exit code 1
 
-:: 
+.. code-block:: shell-session
 
     $ kubectl exec outpost -- python update.py 
     PUT http://elasticsearch:9200/spaceship_diagnostics/stats/1 [status:403 request:0.006s]
@@ -178,7 +178,7 @@ Let's test the security policies. Firstly, the search access is blocked for both
 
 We can re-run any of the below commands to show that the security policy still allows all legitimate requests (i.e., no 403 errors are returned).
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec outpost -- python upload_logs.py 
     ...

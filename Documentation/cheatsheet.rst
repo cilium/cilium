@@ -12,7 +12,7 @@ Cilium is controlled via an easy command-line interface. This CLI is a single
 application that takes subcommands that you can find in the command reference
 guide.
 
-::
+.. code-block:: shell-session
 
     $ cilium
     CLI for interacting with the local Cilium Agent
@@ -57,7 +57,7 @@ All the list commands will return a pretty printed list with the information
 retrieved from Cilium Daemon. If you need something more detailed you can use JSON
 output, to get the JSON output you can use the global option ``-o json``
 
-::
+.. code-block:: shell-session
 
     $ cilium endpoint list -o json
 
@@ -66,7 +66,7 @@ Moreover, Cilium also provides a `JSONPath
 be extracted. JSONPath template reference can be found in `Kubernetes
 documentation <https://kubernetes.io/docs/reference/kubectl/jsonpath/>`_
 
-::
+.. code-block:: shell-session
 
     $ cilium endpoint list -o jsonpath='{[*].id}'
     29898 38939 56326
@@ -83,14 +83,14 @@ If you use bash or zsh, Cilium CLI can provide tab completion for subcommands.
 If you want to install tab completion, you should run the following command in
 your terminal.
 
-::
+.. code-block:: shell-session
 
    $ source <(cilium completion)
 
 If you want to have Cilium completion always loaded, you can install using the
 following:
 
-::
+.. code-block:: shell-session
 
     $ echo "source <(cilium completion)" >> ~/.bashrc
 
@@ -102,7 +102,8 @@ Basics
 ------
 
 Check the status of the agent
-::
+
+.. code-block:: shell-session
 
     $ cilium status
     KVStore:                Ok         Consul: 172.17.0.3:8300
@@ -117,7 +118,8 @@ Check the status of the agent
     $
 
 Get a detailed status of the agent:
-::
+
+.. code-block:: shell-session
 
     $ cilium status --all-controllers --all-health --all-redirects
     KVStore:                Ok         Consul: 172.17.0.3:8300
@@ -141,7 +143,8 @@ Get a detailed status of the agent:
     $
 
 Get the current agent configuration
-::
+
+.. code-block:: shell-session
 
     cilium config
 
@@ -150,20 +153,23 @@ Policy management
 
 
 Importing a Cilium Network Policy
-::
+
+.. code-block:: shell-session
 
     cilium policy import my-policy.json
 
 
 Get list of all imported policy rules
-::
 
-	cilium policy get
+.. code-block:: shell-session
+
+    cilium policy get
 
 Remove all policies
-::
 
-	cilium policy delete --all
+.. code-block:: shell-session
+
+    cilium policy delete --all
 
 
 Tracing
@@ -171,18 +177,21 @@ Tracing
 
 
 Check policy enforcement between two labels on port 80:
-::
 
-	cilium policy trace -s <app.from> -d <app.to> --dport 80
+.. code-block:: shell-session
+
+    cilium policy trace -s <app.from> -d <app.to> --dport 80
 
 
 Check policy enforcement between two identities
-::
+
+.. code-block:: shell-session
 
     cilium policy trace --src-identity <from-id> --dst-identity <to-id>
 
 Check policy enforcement between two pods:
-::
+
+.. code-block:: shell-session
 
     cilium policy trace --src-k8s-pod <namespace>:<pod.from> --dst-k8s-pod <namespace>:<pod.to>
 
@@ -192,42 +201,49 @@ Monitoring
 
 
 Monitor cilium datapath notifications
-::
+
+.. code-block:: shell-session
 
     cilium monitor
 
 
 Verbose output (including debug if enabled)
-::
+
+.. code-block:: shell-session
 
     cilium monitor -v
 
 Extra verbose output (including packet dissection)
-::
+
+.. code-block:: shell-session
 
     cilium monitor -v -v
 
 
 Filter for only the events related to endpoint
-::
+
+.. code-block:: shell-session
 
     cilium monitor --related-to=<id>
 
 
 Filter for only events on layer 7
-::
+
+.. code-block:: shell-session
 
     cilium monitor -t L7
 
 
 Show notifications only for dropped packet events
-::
+
+.. code-block:: shell-session
 
     cilium monitor --type drop
 
 
 Don't dissect packet payload, display payload in hex information
-::
+
+.. code-block:: shell-session
 
     cilium monitor -v -v --hex
 
@@ -237,9 +253,10 @@ Connectivity
 ------------
 
 Check cluster Connectivity
-::
 
-	cilium-health status
+.. code-block:: shell-session
+
+    cilium-health status
 
 There is also a `blog post
 <https://cilium.io/blog/2018/2/6/cilium-troubleshooting-cluster-health-monitor/>`_
@@ -249,22 +266,26 @@ Endpoints
 ---------
 
 Get list of all local endpoints
-::
+
+.. code-block:: shell-session
 
     cilium endpoint list
 
 Get detailed view of endpoint properties and state
-::
+
+.. code-block:: shell-session
 
     cilium endpoint get <id>
 
 Show recent endpoint specific log entries
-::
+
+.. code-block:: shell-session
 
     cilium endpoint log <id>
 
 Enable debugging output on the cilium monitor for this endpoint
-::
+
+.. code-block:: shell-session
 
     cilium endpoint config <id> Debug=true
 
@@ -273,19 +294,22 @@ Loadbalancing
 -------------
 
 Get list of loadbalancer services
-::
+
+.. code-block:: shell-session
 
     cilium service list
 
 
 Or you can get the loadbalancer information using bpf list
-:::
+
+.. code-block:: shell-session
 
     cilium bpf lb list
 
 
 Add a new loadbalancer
-::
+
+.. code-block:: shell-session
 
     cilium service update --frontend 127.0.0.1:80 \
         --backends 127.0.0.2:90,127.0.0.3:90 \
@@ -295,22 +319,26 @@ eBPF
 ----
 
 List node tunneling mapping information
-::
+
+.. code-block:: shell-session
 
     cilium bpf tunnel list
 
 Checking logs for verifier issue
-::
+
+.. code-block:: shell-session
 
     journalctl -u cilium | grep -B20 -F10 Verifier
 
 List connection tracking entries:
-::
+
+.. code-block:: shell-session
 
     sudo cilium bpf ct list global
 
 Flush connection tracking entries:
-::
+
+.. code-block:: shell-session
 
     sudo cilium bpf ct flush
 
@@ -328,13 +356,13 @@ Policies
 In Kubernetes you can use two kinds of policies, Kubernetes Network Policies or
 Cilium Network Policies. Both can be retrieved from the ``kubectl`` command:
 
-.. code-block:: bash
+.. code-block:: shell-session
    :name: Kubernetes Network Policies
    :caption: Kubernetes Network Policies
 
     kubectl get netpol
 
-.. code-block:: bash
+.. code-block:: shell-session
    :name: Kubernetes Cilium Policies
    :caption: Kubernetes Cilium Policies
 
@@ -353,7 +381,7 @@ Endpoints
 To retrieve a list of all endpoints managed by cilium, ``Cilium Endpoint``
 resource can be used.
 
-::
+.. code-block:: shell-session
 
     $ kubectl get cep
     NAME                AGE

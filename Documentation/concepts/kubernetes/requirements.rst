@@ -49,7 +49,7 @@ easiest method to handle IP allocation in a Kubernetes cluster. To enable this
 feature, simply add the following flag when starting
 ``kube-controller-manager``:
 
-.. code:: bash
+.. code-block:: shell-session
 
         --allocate-node-cidrs
 

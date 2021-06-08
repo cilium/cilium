@@ -36,7 +36,7 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
 
     Currently, there is no support for tracing L7 policies via this tool.
 
-.. code:: bash
+.. code-block:: shell-session
 
     # Policy trace using pod name and service labels
 
@@ -55,10 +55,10 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
     Ingress verdict: denied
 
     Final verdict: DENIED
-    
-.. code:: bash
-    
-    # Get the Cilium security id
+
+.. code-block:: shell-session
+
+    $ # Get the Cilium security id
 
     $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium endpoint list | egrep  'deathstar|xwing|tiefighter'
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                              IPv6                 IPv4            STATUS   
@@ -68,7 +68,7 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
     33633      Disabled           Disabled          53208      k8s:class=xwing                                          f00d::a0f:0:0:8361   10.15.151.230   ready   
     38654      Disabled           Disabled          22962      k8s:class=tiefighter                                     f00d::a0f:0:0:96fe   10.15.88.156    ready   
 
-    # Policy trace using Cilium security ids
+    $ # Policy trace using Cilium security ids
 
     $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium policy trace --src-identity 53208 --dst-identity 22133  --dport 80
     ----------------------------------------------------------------
@@ -99,16 +99,16 @@ be returned together.
 
 In the above example, for one of the ``deathstar`` pods the endpoint id is 568. We can print all policies applied to it with:
 
-.. code:: bash
+.. code-block:: shell-session
 
-    # Get a shell on the Cilium pod
+    $ # Get a shell on the Cilium pod
 
     $ kubectl exec -ti cilium-88k78 -n kube-system -- /bin/bash
 
-    # print out the ingress labels
-    # clean up the data
-    # fetch each policy via each set of labels
-    # (Note that while the structure is "...l4.ingress...", it reflects all L3, L4 and L7 policy.
+    $ # print out the ingress labels
+    $ # clean up the data
+    $ # fetch each policy via each set of labels
+    $ # (Note that while the structure is "...l4.ingress...", it reflects all L3, L4 and L7 policy.
 
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.l4.ingress[*].derived-from-rules}{@}{"\n"}{end}'|tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
     Labels: k8s:io.cilium.k8s.policy.name=rule1 k8s:io.cilium.k8s.policy.namespace=default
@@ -168,7 +168,7 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
     Revision: 217
 
 
-    # repeat for egress
+    $ # repeat for egress
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.l4.egress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
 
 Troubleshooting ``toFQDNs`` rules

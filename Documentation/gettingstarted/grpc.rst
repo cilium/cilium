@@ -17,7 +17,8 @@ minutes.
 
 It is important for this demo that ``kube-dns`` is working correctly. To know the
 status of ``kube-dns`` you can run the following command:
-::
+
+.. code-block:: shell-session
 
     $ kubectl get deployment kube-dns -n kube-system
     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
@@ -106,7 +107,7 @@ Kubernetes will deploy the pods and service in the background. Running
 Each pod will go through several states until it reaches ``Running`` at which
 point the setup is ready.
 
-::
+.. code-block:: shell-session
 
     $ kubectl get pods,svc
     NAME                                 READY     STATUS    RESTARTS   AGE
@@ -127,7 +128,7 @@ exists in the *terminal-87* container.
 We'll invoke the 'cc_door_client' with the name of the gRPC method to call, and any
 parameters (in this case, the door-id):
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec terminal-87 -- python3 /cloudcity/cc_door_client.py GetName 1
     Door name is: Spaceport Door #1
@@ -146,7 +147,8 @@ the fine-grained nature of gRPC calls that R2-D2 exploited to override the secur
 and help the rebels escape.
 
 To see this, run:
-::
+
+.. code-block:: shell-session
 
     $ kubectl exec terminal-87 -- python3 /cloudcity/cc_door_client.py SetAccessCode 1 999
     Successfully set AccessCode to 999
@@ -196,7 +198,7 @@ Apply this gRPC-aware network security policy using ``kubectl`` in the main wind
 After this security policy is in place, access to the innocuous calls like ``GetLocation``
 still works as intended:
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec terminal-87 -- python3 /cloudcity/cc_door_client.py GetLocation 1
     Door location is lat = 10.222200393676758 long = 68.87879943847656
@@ -204,7 +206,7 @@ still works as intended:
 
 However, if we then again try to invoke ``SetAccessCode``, it is denied:
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec terminal-87 -- python3 /cloudcity/cc_door_client.py SetAccessCode 1 999
 

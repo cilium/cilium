@@ -71,7 +71,7 @@ with each empty string replaced by the associated value as a base64-encoded stri
 
 The base64 command line utility can be used to generate each value, for example:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ echo -n "eu-west-1"  | base64
     ZXUtd2VzdC0x
@@ -79,7 +79,7 @@ The base64 command line utility can be used to generate each value, for example:
 This secret stores the AWS credentials, which will be used to connect the AWS
 API.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl create -f cilium-secret.yaml
 
@@ -120,7 +120,7 @@ for debugging purposes:
 
 To list all of the available AWS instances, the following command can be used:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
    $ kubectl  -n kube-system exec -ti testing-aws-pod -- aws ec2 describe-instances
 
@@ -129,7 +129,7 @@ restarted in order to pick up the credentials in the secret.
 To do this, identify and delete the existing cilium-operator pod, which will be
 recreated automatically:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl get pods -l name=cilium-operator -n kube-system
     NAME                              READY   STATUS    RESTARTS   AGE
@@ -141,7 +141,8 @@ recreated automatically:
 
 It is important for this demo that ``coredns`` is working correctly. To know the
 status of ``coredns`` you can run the following command:
-::
+
+.. code-block:: shell-session
 
     $ kubectl get deployment kube-dns -n kube-system
     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
@@ -194,7 +195,7 @@ get pods,svc`` will inform you about the progress of the operation.  Each pod
 will go through several states until it reaches ``Running`` at which point the
 pod is ready.
 
-::
+.. code-block:: shell-session
 
     $ kubectl get pods,svc
     NAME                             READY     STATUS    RESTARTS   AGE
@@ -247,7 +248,7 @@ set of CIDRs that correspond to the specification in ToGroups, e.g., the IPs of
 all instances that are part of a specified security group. The list of IPs will
 be updated periodically.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl get cnp
     NAME                                                             AGE
@@ -256,7 +257,7 @@ be updated periodically.
 
 Eventually, the derivative policy will contain IPs in the ToCIDR section:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
    $ kubectl get cnp to-groups-sample-togroups-044ba7d1-f491-11e8-ad2e-080027d2d952
 
@@ -331,7 +332,7 @@ The derivative rule should contain the following information:
 The Cilium Endpoint status for the *xwing* should have policy enforcement
 enabled only for egress connectivity:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl get cep xwing
     NAME    ENDPOINT ID   IDENTITY ID   POLICY ENFORCEMENT   ENDPOINT STATE   IPV4         IPV6

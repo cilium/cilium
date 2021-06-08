@@ -73,7 +73,7 @@ And set ``networkType: Cilium``:
 
 The resulting configuration will look like this:
 
-.. code:: yaml
+.. code-block:: yaml
 
    apiVersion: v1
    baseDomain: ilya-openshift-test-1.cilium.rocks

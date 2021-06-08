@@ -17,7 +17,7 @@ Check Current Access
 ====================
 From the perspective of the *deathstar* service, only the ships with label ``org=empire`` are allowed to connect and request landing. Since we have no rules enforced, both *xwing* and *tiefighter* will be able to request landing. To test this, use the commands below.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
@@ -61,13 +61,15 @@ To apply this L3/L4 policy, run:
 
 Now if we run the landing requests again, only the *tiefighter* pods with the label ``org=empire`` will succeed. The *xwing* pods will be blocked!
 
-.. parsed-literal::
+.. code-block:: shell-session
+
     $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 This works as expected. Now the same request run from an *xwing* pod will fail:
 
-.. parsed-literal::
+.. code-block:: shell-session
+
     $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
 
 This request will hang, so press Control-C to kill the curl request, or wait for it to time out.
@@ -77,7 +79,7 @@ Inspecting the Policy
 
 If we run ``cilium endpoint list`` again we will see that the pods with the label ``org=empire`` and ``class=deathstar`` now have ingress policy enforcement enabled as per the policy above.
 
-::
+.. code-block:: shell-session
 
     $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4         STATUS
@@ -116,7 +118,7 @@ If we run ``cilium endpoint list`` again we will see that the pods with the labe
 
 You can also inspect the policy details via ``kubectl``
 
-::
+.. code-block:: shell-session
 
     $ kubectl get cnp
     NAME    AGE
@@ -181,7 +183,7 @@ operation.
 
 For example, consider that the *deathstar* service exposes some maintenance APIs which should not be called by random empire ships. To see this run:
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Panic: deathstar exploded
@@ -219,7 +221,7 @@ Update the existing rule to apply L7-aware policy to protect *deathstar* using:
 
 We can now re-run the same test as above, but we will see a different outcome:
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
@@ -227,7 +229,7 @@ We can now re-run the same test as above, but we will see a different outcome:
 
 and
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Access denied
@@ -235,7 +237,8 @@ and
 As this rule builds on the identity-aware rule, traffic from pods without the label
 ``org=empire`` will continue to be dropped causing the connection to time out:
 
-.. parsed-literal::
+.. code-block:: shell-session
+
     $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
 
 
@@ -245,13 +248,13 @@ implementing a "least privilege" security approach for communication between
 microservices. Note that ``path`` matches the exact url, if for example you want
 to allow anything under /v1/, you need to use a regular expression:
 
-::
+.. code-block:: yaml
 
     path: "/v1/.*"
 
 You can observe the L7 policy via ``kubectl``:
 
-::
+.. code-block:: shell-session
 
     $ kubectl describe ciliumnetworkpolicies
     Name:         rule1
@@ -308,7 +311,7 @@ You can observe the L7 policy via ``kubectl``:
 
 and ``cilium`` CLI:
 
-::
+.. code-block:: shell-session
 
     $ kubectl -n kube-system exec cilium-qh5l2 -- cilium policy get
     [
@@ -378,7 +381,7 @@ and ``cilium`` CLI:
 
 It is also possible to monitor the HTTP requests live by using ``cilium monitor``:
 
-::
+.. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system cilium-kzgdx -- cilium monitor -v --type l7
     <- Response http to 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) from 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Forwarded POST http://deathstar.default.svc.cluster.local/v1/request-landing => 200
