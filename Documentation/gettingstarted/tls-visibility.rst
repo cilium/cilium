@@ -27,14 +27,14 @@ for example, understanding which S3 buckets are being accessed by an given appli
 Edit the ClusterRole for Cilium to give it access to Kubernetes secrets
 
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl edit clusterrole cilium -n kube-system
 
 Add the following section at the end of the file:
 
 
-.. parsed-literal::
+.. code-block:: yaml
 
   - apiGroups:
     - ""
@@ -145,7 +145,7 @@ Create an Internal Certificate Authority (CA)
 
 Generate CA private key named 'myCA.key':
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ openssl genrsa -des3 -out myCA.key 2048
 
@@ -153,7 +153,7 @@ Enter any password, just remember it for some of the later steps.
 
 Generate CA certificate from the private key:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ openssl req -x509 -new -nodes -key myCA.key -sha256 -days 1825 -out myCA.crt
 
@@ -168,14 +168,14 @@ of the destination service to be intercepted for inspection (in this example, us
 
 First create the private key:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ openssl genrsa -out internal-artii.key 2048
 
 Next, create a certificate signing request, specifying the DNS name of the destination service
 for the common name field when prompted.  All other prompts can be filled with any value.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ openssl req -new -key internal-artii.key -out internal-artii.csr
 
@@ -192,13 +192,13 @@ Use CA to Generate a Signed Certificate for the DNS Name
 
 Use the internal CA private key to create a signed certificate for artii.herokuapp.com named ``internal-artii.crt``.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ openssl x509 -req -days 360 -in internal-artii.csr -CA myCA.crt -CAkey myCA.key -CAcreateserial -out internal-artii.crt -sha256
 
 Next we create a Kubernetes secret that includes both the private key and signed certificates for the destination service:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl create secret tls artii-tls-data -n kube-system --cert=internal-artii.crt --key=internal-artii.key
 
@@ -214,14 +214,15 @@ for more details.
 
 For Ubuntu, we first copy the additional CA certificate to the client pod filesystem
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl cp myCA.crt default/mediabot:/usr/local/share/ca-certificates/myCA.crt
 
 Then run the Ubuntu-specific utility that adds this certificate to the global set of trusted certificate authorities in /etc/ssl/certs/ca-certificates.crt .
 
 
-.. parsed-literal::
+.. code-block:: shell-session
+
     $ kubectl exec mediabot -- update-ca-certificates
 
 This command will issue a WARNING, but this can be ignored.
@@ -237,7 +238,7 @@ To keep things simple, in this example we will simply copy this list out of the 
 important to understand that this list of trusted CAs is not specific to a particular TLS client or server, and so this step need only
 be performed once regardless of how many TLS clients or servers are involved in TLS inspection.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl cp default/mediabot:/etc/ssl/certs/ca-certificates.crt ca-certificates.crt
 
@@ -245,7 +246,7 @@ We then will create a Kubernetes secret using this certificate bundle so that Ci
 certificate bundle and use it to validate outgoing TLS connections.
 
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl create secret generic tls-orig-data -n kube-system --from-file=ca.crt=./ca-certificates.crt
 
@@ -296,13 +297,13 @@ cilium pod (e.g, cilium-97s78) that is running on the same Kubernetes worker nod
 
 Then start running cilium monitor in "L7 mode" to monitor for HTTP requests being reported by Cilium:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
-    kubectl exec -it -n kube-system cilium-d5x8v -- cilium monitor -t l7
+    $ kubectl exec -it -n kube-system cilium-d5x8v -- cilium monitor -t l7
 
 Next in the original window, from the ``mediabot`` pod we can access ``artii.herokuapp.com`` via HTTPS:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec -it mediabot -- curl -sL 'https://artii.herokuapp.com/fonts_list'
     ...
@@ -312,10 +313,7 @@ Next in the original window, from the ``mediabot`` pod we can access ``artii.her
     ...
     ...
 
-Looking back at the cilium monitor window, you will see each individual HTTP request and response.  For example:
-
-
-.. parsed-literal::
+Looking back at the cilium monitor window, you will see each individual HTTP request and response.  For example::
 
     -> Request http from 2585 ([k8s:class=mediabot k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default]) to 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 0
     -> Response http to 2585 ([k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=mediabot k8s:org=empire]) from 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 200

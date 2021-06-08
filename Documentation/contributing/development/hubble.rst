@@ -18,7 +18,7 @@ Bumping the vendored Cilium dependency
 Hubble vendors Cilium using Go modules. You can bump the dependency by first
 running:
 
-    ::
+.. code-block:: shell-session
 
         go get github.com/cilium/cilium@master
 
@@ -28,7 +28,7 @@ by ``go get`` and ``go mod``. Therefore you must also manually copy any updated
 
 Once you have done this you can tidy up, vendor the modules, and verify them:
 
-    ::
+.. code-block:: shell-session
 
         go mod tidy
         go mod vendor

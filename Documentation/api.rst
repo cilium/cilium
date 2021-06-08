@@ -37,7 +37,7 @@ can be pointed to an arbitrary API address.
 Example
 -------
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ cilium -H unix:///var/run/cilium/cilium.sock
     [...]
@@ -61,7 +61,7 @@ Example
 
 The full example can be found in the `cilium/client-example`_ repository.
 
-.. code:: go
+.. code-block:: go
 
     import (
             "fmt"

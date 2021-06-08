@@ -47,9 +47,8 @@ specific certificate authority (CA) is required.
 In order to use custom TLS certificates ``hubble.tls.auto.enabled`` must
 be set to ``false`` and TLS certificates manually provided.
 
-This can be done by specifying the options below to Helm at install or upgrade time:
+This can be done by specifying the options below to Helm at install or upgrade time::
 
-.. parsed-literal::
     --set hubble.tls.auto.enabled=false                          # disable automatic TLS certificate generation
     --set-file hubble.tls.ca.cert=ca.crt.b64                     # certificate of the CA that signs all certificates
     --set-file hubble.tls.server.cert=server.crt.b64             # certificate for Hubble server

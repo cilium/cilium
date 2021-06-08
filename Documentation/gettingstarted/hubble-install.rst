@@ -4,7 +4,7 @@
 
       Download the latest hubble release:
 
-      .. parsed-literal::
+      .. code-block:: shell-session
 
          export HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
          curl -L --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-linux-amd64.tar.gz{,.sha256sum}
@@ -16,7 +16,7 @@
 
       Download the latest hubble release:
 
-      .. parsed-literal::
+      .. code-block:: shell-session
 
          export HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
          curl -L --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-darwin-amd64.tar.gz{,.sha256sum}
@@ -28,7 +28,7 @@
 
       Download the latest hubble release:
 
-      .. parsed-literal::
+      .. code-block:: shell-session
 
          curl -LO "https://raw.githubusercontent.com/cilium/hubble/master/stable.txt"
          set /p HUBBLE_VERSION=<stable.txt

@@ -29,7 +29,7 @@ Kubernetes will deploy the pods and service in the background.  Running
 Each pod will go through several states until it reaches ``Running`` at which
 point the pod is ready.
 
-::
+.. code-block:: shell-session
 
     $ kubectl get pods,svc
     NAME                             READY   STATUS    RESTARTS   AGE
@@ -45,7 +45,7 @@ point the pod is ready.
 Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
 ``cilium`` tool inside the Cilium pod to list them:
 
-::
+.. code-block:: shell-session
 
     $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME           READY   STATUS    RESTARTS   AGE

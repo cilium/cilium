@@ -78,7 +78,7 @@ Running ``kubectl get svc,pods`` will inform you about the progress of the opera
 Each pod will go through several states until it reaches ``Running`` at which
 point the setup is ready.
 
-::
+.. code-block:: shell-session
 
     $ kubectl get svc,pods
     NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
@@ -105,22 +105,26 @@ For consistency, we recommend opening them in the pattern shown in the image bel
 In each window, use copy-paste to have each terminal provide a shell inside each pod.
 
 empire-hq terminal:
-::
+
+.. code-block:: shell-session
 
    $ HQ_POD=$(kubectl get pods -l app=empire-hq -o jsonpath='{.items[0].metadata.name}') && kubectl exec -it $HQ_POD -- sh -c "PS1=\"empire-hq $\" /bin/bash"
 
 empire-backup terminal:
-::
+
+.. code-block:: shell-session
 
    $ BACKUP_POD=$(kubectl get pods -l app=empire-backup -o jsonpath='{.items[0].metadata.name}') && kubectl exec -it $BACKUP_POD -- sh -c "PS1=\"empire-backup $\" /bin/bash"
 
 outpost-8888 terminal:
-::
+
+.. code-block:: shell-session
 
    $ OUTPOST_8888_POD=$(kubectl get pods -l outpostid=8888 -o jsonpath='{.items[0].metadata.name}') && kubectl exec -it $OUTPOST_8888_POD -- sh -c "PS1=\"outpost-8888 $\" /bin/bash"
 
 outpost-9999 terminal:
-::
+
+.. code-block:: shell-session
 
    $ OUTPOST_9999_POD=$(kubectl get pods -l outpostid=9999 -o jsonpath='{.items[0].metadata.name}') && kubectl exec -it $OUTPOST_9999_POD -- sh -c "PS1=\"outpost-9999 $\" /bin/bash"
 
@@ -133,25 +137,25 @@ commands below will hang intentionally, waiting to print data they consume from 
 
 In the *empire-backup* window, start listening on the top-secret *deathstar-plans* topic:
 
-::
+.. code-block:: shell-session
 
     $ ./kafka-consume.sh --topic deathstar-plans
 
 In the *outpost-8888* window, start listening to *empire-announcement*:
 
-::
+.. code-block:: shell-session
 
     $ ./kafka-consume.sh --topic empire-announce
 
 Do the same in the *outpost-9999* window:
 
-::
+.. code-block:: shell-session
 
     $ ./kafka-consume.sh --topic empire-announce
 
 Now from the *empire-hq*, first produce a message to the *empire-announce* topic:
 
-::
+.. code-block:: shell-session
 
    $ echo "Happy 40th Birthday to General Tagge" | ./kafka-produce.sh --topic empire-announce
 
@@ -160,7 +164,7 @@ This message will be posted to the *empire-announce* topic, and shows up in both
 
 *empire-hq* can also post a version of the top-secret deathstar plans to the *deathstar-plans* topic:
 
-::
+.. code-block:: shell-session
 
    $ echo "deathstar reactor design v3" | ./kafka-produce.sh --topic deathstar-plans
 
@@ -179,7 +183,7 @@ sending "malicious" data to all other consumers on the topic.
 To prove this, kill the existing ``kafka-consume.sh`` command in the outpost-9999 window
 by typing control-C and instead run:
 
-::
+.. code-block:: shell-session
 
   $ echo "Vader Booed at Empire Karaoke Party" | ./kafka-produce.sh --topic empire-announce
 
@@ -190,7 +194,7 @@ on the kafka-broker.
 
 In the outpost-9999 container, run:
 
-::
+.. code-block:: shell-session
 
   $ ./kafka-consume.sh --topic deathstar-plans
   "deathstar reactor design v3"
@@ -244,7 +248,7 @@ Apply this Kafka-aware network security policy using ``kubectl`` in the main win
 If we then again try to produce a message from outpost-9999 to *empire-annnounce*, it is denied.
 Type control-c and then run:
 
-::
+.. code-block:: shell-session
 
   $ echo "Vader Trips on His Own Cape" | ./kafka-produce.sh --topic empire-announce
   >>[2018-04-10 23:50:34,638] ERROR Error when sending message to topic empire-announce with key: null, value: 27 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
@@ -260,7 +264,7 @@ role = consume is only allowed for topic *empire-announce*.
 
 To test, from the outpost-9999 terminal, run:
 
-::
+.. code-block:: shell-session
 
   $./kafka-consume.sh --topic deathstar-plans
   [2018-04-10 23:51:12,956] WARN Error while fetching metadata with correlation id 2 : {deathstar-plans=TOPIC_AUTHORIZATION_FAILED} (org.apache.kafka.clients.NetworkClient)

@@ -18,9 +18,8 @@ each node. See the
 documentation for more information.
 
 .. tip::
-    By default, kind uses the following pod and service subnets:
+    By default, kind uses the following pod and service subnets::
 
-    .. parsed-literal::
         Networking.PodSubnet     = "10.244.0.0/16"
         Networking.ServiceSubnet = "10.96.0.0/12"
 

@@ -72,7 +72,7 @@ Running ``kubectl get svc,pods`` will inform you about the progress of the opera
 Each pod will go through several states until it reaches ``Running`` at which
 point the setup is ready.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl get svc,pods
     NAME                       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)     AGE
@@ -97,7 +97,7 @@ In **all three** terminal windows, set some handy environment variables for the 
 
 In the terminal window dedicated for the A-wing pod, exec in, use python to import the binary memcached library and set the client connection to the memcached server:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec -ti $AWING_POD -- sh
     # python
@@ -109,7 +109,7 @@ In the terminal window dedicated for the A-wing pod, exec in, use python to impo
 
 In the terminal window dedicated for the Alliance-Tracker, exec in, use python to import the binary memcached library and set the client connection to the memcached server:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec -ti $TRACKER_POD -- sh
     # python
@@ -128,7 +128,7 @@ Let's show that each client is able to access the memcached server. Execute the 
 
 A-wing will access the memcached-server using the *binary protocol*. In your terminal window for A-Wing, set A-wing's coordinates:
 
-.. parsed-literal::
+.. code-block:: python
 
     >>> client.set("awing-coord","4309.432,918.980",time=2400)
     True
@@ -138,7 +138,7 @@ A-wing will access the memcached-server using the *binary protocol*. In your ter
 
 In your main terminal window, have X-wing starfighter set their coordinates using the text-based protocol to the memcached server.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$SETXC\\" | nc memcached-server 11211"
     STORED
@@ -149,7 +149,7 @@ In your main terminal window, have X-wing starfighter set their coordinates usin
 
 Check that the Alliance Fleet Tracker is able to get all starfighters' coordinates in your terminal window for the Alliance-Tracker:
 
-.. parsed-literal::
+.. code-block:: python
 
     >>> client.get("awing-coord")
     '4309.432,918.980'
@@ -165,7 +165,7 @@ If every client has access to the Memcached API on port 11211, all have over-pri
 
 With L4 port access to the memcached server, all starfighters could write to any key/ship and read all ship coordinates. In your main terminal, execute:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec $XWING_POD sh -- -c "echo -en \\"$GETAC\\" | nc memcached-server 11211"
     VALUE awing-coord 0 16
@@ -174,7 +174,7 @@ With L4 port access to the memcached server, all starfighters could write to any
 
 In your A-Wing terminal window, confirm the over-privileged access:
 
-.. parsed-literal::
+.. code-block:: python
 
     >>> client.get("xwing-coord")
     '8893.34,234.3290'
@@ -185,7 +185,7 @@ In your A-Wing terminal window, confirm the over-privileged access:
 
 From A-Wing, set the X-Wing coordinates back to their proper position:
 
-.. parsed-literal::
+.. code-block:: python
 
     >>> client.set("xwing-coord","8893.34,234.3290",time=2400)
     True
@@ -226,14 +226,14 @@ Apply this Memcached-aware network security policy using ``kubectl`` in your mai
 
 If we then try to perform the attacks from the *X-wing* pod from the main terminal window, we'll see that they are denied:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$GETAC\\" | nc memcached-server 11211"
     CLIENT_ERROR access denied
 
 From the A-Wing terminal window, we can confirm that if *A-wing* goes outside of the bounds of its allowed calls. You may need to run the ``client.get`` command twice for the python call:
 
-.. parsed-literal::
+.. code-block:: python
 
     >>> client.get("awing-coord")
     '4309.432,918.980'
@@ -248,7 +248,7 @@ From the A-Wing terminal window, we can confirm that if *A-wing* goes outside of
 
 Similarly, the Alliance-Tracker cannot set any coordinates, which you can attempt from the Alliance-Tracker terminal window:
 
-.. parsed-literal::
+.. code-block:: python
 
     >>> client.get("xwing-coord")
     '8893.34,234.3290'
@@ -269,7 +269,7 @@ With the CiliumNetworkPolicy in place, the allowed Memcached calls are still all
 
 In the main terminal window, execute:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
   $ kubectl exec $XWING_POD -- sh -c "echo -en \\"$GETXC\\" | nc memcached-server 11211"
   VALUE xwing-coord 0 16
@@ -285,7 +285,7 @@ In the main terminal window, execute:
 
 In the A-Wing terminal window, execute:
 
-.. parsed-literal::
+.. code-block:: python
 
   >>> client.set("awing-coord","9852.542,892.1318",time=1200)
   True
@@ -296,7 +296,7 @@ In the A-Wing terminal window, execute:
 
 In the Alliance-Tracker terminal window, execute:
 
-.. parsed-literal::
+.. code-block:: python
 
   >>> client.get("awing-coord")
   '9852.542,892.1318'
