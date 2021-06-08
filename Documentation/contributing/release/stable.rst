@@ -53,7 +53,7 @@ Reference steps for the template
 
        contrib/release/start-release.sh
 
-  .. note::
+   .. note::
 
        Check to see if the ``AUTHORS`` file has any formatting errors (for
        instance, indentation mismatches) as well as duplicate contributor
