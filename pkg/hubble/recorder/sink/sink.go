@@ -57,8 +57,6 @@ func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 			closeErr := p.Writer.Close()
 
 			s.mutex.Lock()
-			close(s.trigger)
-			s.trigger = nil
 			if err == nil {
 				s.lastError = closeErr
 			} else {
