@@ -194,7 +194,23 @@ Creating the Backports Branch
    the changes made in the commit message and collect these to add to the
    backport PR description when creating the PR below. This helps to direct
    backport reviewers towards which changes may deviate from the original
-   commits to ensure that the changes are correctly backported.
+   commits to ensure that the changes are correctly backported. This can be
+   fairly simple, for example inside the commit message of the modified commit::
+
+       commit f0f09158ae7f84fc8d888605aa975ce3421e8d67
+       Author: Joe Stringer <joe@cilium.io>
+       Date:   Tue Apr 20 16:48:18 2021 -0700
+
+           contrib: Automate digest PR creation
+
+           [ upstream commit 893d0e7ec5766c03da2f0e7b8c548f7c4d89fcd7 ]
+
+           [ Backporter's notes: Dropped conflicts in .github/ issue template ]
+
+           There's still some interactive bits here just for safety, but one less
+           step in the template.
+
+           Signed-off-by: Joe Stringer <joe@cilium.io>
 
    **It is the backporter's responsibility to check that the backport commits
    they are preparing are identical to the original commits**. This can be
