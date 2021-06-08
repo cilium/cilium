@@ -13,7 +13,7 @@
 
    Setup Helm repository:
 
-   .. code:: bash
+   .. code-block:: shell-session
 
       helm repo add cilium https://helm.cilium.io/
 

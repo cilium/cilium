@@ -48,7 +48,7 @@ pod started immediately after will have networking managed by Cilium.  In a
 production deployment, this step could be performed as a rolling update of
 kube-dns pods to avoid downtime of the DNS service.
 
-::
+.. code-block:: shell-session
 
         $ kubectl --namespace kube-system delete pods -l k8s-app=kube-dns
         pod "kube-dns-268032401-t57r2" deleted
@@ -56,7 +56,7 @@ kube-dns pods to avoid downtime of the DNS service.
 Running ``kubectl get pods`` will show you that Kubernetes started a new set of
 ``kube-dns`` pods while at the same time terminating the old pods:
 
-::
+.. code-block:: shell-session
 
         $ kubectl --namespace kube-system get pods
         NAME                          READY     STATUS        RESTARTS   AGE

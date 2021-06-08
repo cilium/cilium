@@ -240,14 +240,14 @@ Use the following list of steps to troubleshoot issues with ClusterMesh:
  #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx`` pods
     are healthy and ready. 
 
-    .. code:: bash
+    .. code-block:: shell-session
 
        cilium status --context $CLUSTER1
        cilium status --context $CLUSTER2
 
  #. Validate the Cluster Mesh is enabled correctly and operational:
 
-    .. code:: bash
+    .. code-block:: shell-session
 
        cilium clustermesh status --context $CLUSTER1
        cilium clustermesh status --context $CLUSTER2

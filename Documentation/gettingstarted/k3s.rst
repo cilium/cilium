@@ -23,7 +23,7 @@ Install a Master Node
 The first step is to install a K3s master node making sure to disable support
 for the default CNI plugin:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none' sh -
 
@@ -38,7 +38,7 @@ node using a node-token which can be found on the master node at
 Install K3s on agent nodes and join them to the master node making sure to
 replace the variables with values from your environment:
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     curl -sfL https://get.k3s.io | K3S_URL='https://${MASTER_IP}:6443' K3S_TOKEN=${NODE_TOKEN} sh -
 
@@ -51,7 +51,8 @@ you need to configure your Kubernetes cluster to operate with Cilium.
 Mount the eBPF Filesystem
 =========================
 On each node, run the following to mount the eBPF Filesystem:
-::
+
+.. code-block:: shell-session
 
      sudo mount bpffs -t bpf /sys/fs/bpf
 

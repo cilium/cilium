@@ -21,15 +21,15 @@ Deploy kube-router
 
 Download the kube-router DaemonSet template:
 
-.. code:: bash
+.. code-block:: shell-session
 
     curl -LO https://raw.githubusercontent.com/cloudnativelabs/kube-router/v1.2/daemonset/generic-kuberouter-only-advertise-routes.yaml
 
 Open the file ``generic-kuberouter-only-advertise-routes.yaml`` and edit the
-``args:`` section. The following arguments are **requried** to be set to
+``args:`` section. The following arguments are **required** to be set to
 exactly these values:
 
-.. code:: bash
+.. code-block:: yaml
 
     - "--run-router=true"
     - "--run-firewall=false"
@@ -44,7 +44,7 @@ being used which require the least preparations in your cluster. Please see the
 <https://github.com/cloudnativelabs/kube-router/blob/master/docs/user-guide.md>`_
 for more information.
 
-.. code:: bash
+.. code-block:: yaml
 
     - "--enable-ibgp=true"
     - "--enable-overlay=true"
@@ -57,7 +57,7 @@ with an external router. This is useful if you want externally routable Kubernet
 Pod and Service IPs. Note the values used here should be changed to
 whatever IPs and ASNs are configured on your external router.
 
-.. code:: bash
+.. code-block:: yaml
 
     - "--cluster-asn=65001"
     - "--peer-router-ips=10.0.0.1,10.0.2"
@@ -66,7 +66,7 @@ whatever IPs and ASNs are configured on your external router.
 Apply the DaemonSet file to deploy kube-router and verify it has come up
 correctly:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl apply -f generic-kuberouter-only-advertise-routes.yaml
     $ kubectl -n kube-system get pods -l k8s-app=kube-router
@@ -86,7 +86,7 @@ ConfigMap ``cilium-config`` or by adjusting the DaemonSet to run the
 same ConfigMap, we must explicitly set ``ipam: kubernetes`` since kube-router
 pulls the pod CIDRs directly from K8s:
 
-.. code:: bash
+.. code-block:: yaml
 
     # Encapsulation mode for communication between nodes
     # Possible values:
@@ -101,7 +101,7 @@ You can then install Cilium according to the instructions in section
 
 Ensure that Cilium is up and running:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME           READY     STATUS    RESTARTS   AGE
@@ -115,7 +115,7 @@ Verify Installation
 
 Verify that kube-router has installed routes:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl -n kube-system exec -ti cilium-fhpk2 -- ip route list scope global
     default via 172.0.32.1 dev eth0 proto dhcp src 172.0.50.227 metric 1024

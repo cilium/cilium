@@ -52,7 +52,7 @@ Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
 
 Verify that Cilium agent pod is running.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME           READY   STATUS    RESTARTS   AGE
@@ -61,7 +61,7 @@ Verify that Cilium agent pod is running.
 
 Validate that the Cilium Local Redirect Policy CRD has been registered.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
 	   $ kubectl get crds
 	   NAME                              CREATED AT
@@ -85,7 +85,7 @@ resources that will be created in the next step.
 
 Verify that the pod is running.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl get pods | grep lrp-pod
     lrp-pod                      1/1     Running   0          46s
@@ -134,7 +134,7 @@ configuration.
 
 Verify that the custom resource is created.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl get ciliumlocalredirectpolicies | grep lrp-addr
     NAME           AGE
@@ -145,12 +145,12 @@ service entry with the backend IP address of that of the ``lrp-pod`` that was
 selected by the policy. Make sure that ``cilium service list`` is run
 in Cilium pod running on the same node as ``lrp-pod``.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl describe pod lrp-pod  | grep 'IP:'
     IP:           10.16.70.187
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium service list
     ID   Frontend               Service Type   Backend
@@ -160,7 +160,7 @@ in Cilium pod running on the same node as ``lrp-pod``.
 Invoke a curl command from the client pod to the IP address and port
 configuration specified in the ``lrp-addr`` custom resource above.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl exec mediabot -- curl -I -s http://169.254.169.254:8080/index.html
     HTTP/1.1 200 OK
@@ -176,7 +176,7 @@ configuration specified in the ``lrp-addr`` custom resource above.
 Verify that the traffic was redirected to the ``lrp-pod`` that was deployed.
 ``tcpdump`` should be run on the same node that ``lrp-pod`` is running on.
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ sudo tcpdump -i any -n port 80
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -224,7 +224,7 @@ Deploy the Kubernetes service for which traffic needs to be redirected.
 
 Verify that the service is created.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl get service | grep 'my-service'
     my-service   ClusterIP   172.20.0.51   <none>        80/TCP     2d7h
@@ -232,7 +232,7 @@ Verify that the service is created.
 Verify that Cilium's eBPF kube-proxy replacement created a ``ClusterIP``
 service entry.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system ds/cilium -- cilium service list
     ID   Frontend               Service Type   Backend
@@ -250,7 +250,7 @@ configuration.
 
 Verify that the custom resource is created.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl get ciliumlocalredirectpolicies | grep svc
     NAME               AGE
@@ -261,7 +261,7 @@ service entry with type ``LocalRedirect`` and the node-local backend
 selected by the policy. Make sure to run ``cilium service list`` in Cilium pod
 running on the same node as ``lrp-pod``.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium service list
     ID   Frontend               Service Type       Backend
@@ -271,7 +271,7 @@ running on the same node as ``lrp-pod``.
 Invoke a curl command from the client pod to the Cluster IP address and port of
 ``my-service`` specified in the ``lrp-svc`` custom resource above.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl exec mediabot -- curl -I -s http://172.20.0.51/index.html
     HTTP/1.1 200 OK
@@ -287,12 +287,12 @@ Invoke a curl command from the client pod to the Cluster IP address and port of
 Verify that the traffic was redirected to the ``lrp-pod`` that was deployed.
 ``tcpdump`` should be run on the same node that ``lrp-pod`` is running on.
 
-.. code-block:: bash
+.. code-block:: shell-session
 
     $ kubectl describe pod lrp-pod  | grep 'IP:'
     IP:           10.16.70.187
 
-.. parsed-literal::
+.. code-block:: shell-session
 
     $ sudo tcpdump -i any -n port 80
     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -415,7 +415,7 @@ security credentials for pods.
 
 - Deploy `kiam <https://github.com/uswitch/kiam>`_ using helm charts.
 
-  .. code-block:: bash
+  .. code-block:: shell-session
 
       $ helm repo add uswitch https://uswitch.github.io/kiam-helm-charts/charts/
       $ helm repo update
@@ -465,7 +465,7 @@ security credentials for pods.
       identity-credentials/
       (...)
 
-  .. code-block:: bash
+  .. code-block:: shell-session
 
       $ sudo tcpdump -i any -enn "(port 8181) and (host 192.168.33.99 and 192.168.98.118)"
       tcpdump: verbose output suppressed, use -v or -vv for full protocol decode

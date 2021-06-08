@@ -158,7 +158,7 @@ The contents stored in the kvstore can be queued and manipulate using the
 
 Example:
 
-.. code:: bash
+.. code-block:: shell-session
 
-        $ cilium kvstore get --recursive cilium/state/nodes/
-        cilium/state/nodes/v1/default/runtime1 => {"Name":"runtime1","IPAddresses":[{"AddressType":"InternalIP","IP":"10.0.2.15"}],"IPv4AllocCIDR":{"IP":"10.11.0.0","Mask":"//8AAA=="},"IPv6AllocCIDR":{"IP":"f00d::a0f:0:0:0","Mask":"//////////////////8AAA=="},"IPv4HealthIP":"","IPv6HealthIP":""}
+    $ cilium kvstore get --recursive cilium/state/nodes/
+    cilium/state/nodes/v1/default/runtime1 => {"Name":"runtime1","IPAddresses":[{"AddressType":"InternalIP","IP":"10.0.2.15"}],"IPv4AllocCIDR":{"IP":"10.11.0.0","Mask":"//8AAA=="},"IPv6AllocCIDR":{"IP":"f00d::a0f:0:0:0","Mask":"//////////////////8AAA=="},"IPv4HealthIP":"","IPv6HealthIP":""}

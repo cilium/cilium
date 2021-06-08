@@ -134,7 +134,7 @@ which is then associated with the endpoint. The label is prefixed with
 ``container:`` to indicate that the label was derived from the container
 runtime.
 
-::
+.. code-block:: shell-session
 
     $ docker run --net cilium -d -l app=benchmark tgraf/netperf
     aaff7190f47d071325e7af06577f672beff64ccc91d2b53c42262635c063cf1c
