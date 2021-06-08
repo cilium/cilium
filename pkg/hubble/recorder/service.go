@@ -59,12 +59,6 @@ type Service struct {
 	opts     recorderoption.Options
 }
 
-type recording struct {
-	ruleID   uint16
-	filePath string
-	handle   *sink.Handle
-}
-
 func NewService(r *recorder.Recorder, d *sink.Dispatch, options ...recorderoption.Option) (*Service, error) {
 	opts := recorderoption.Default
 	for _, o := range options {
@@ -89,52 +83,143 @@ func NewService(r *recorder.Recorder, d *sink.Dispatch, options ...recorderoptio
 	}, nil
 }
 
+func recordingStoppedResponse(stats sink.Statistics, filePath string) *recorderpb.RecordResponse {
+	return &recorderpb.RecordResponse{
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
+		Time:     timestamppb.Now(),
+		ResponseType: &recorderpb.RecordResponse_Stopped{
+			Stopped: &recorderpb.RecordingStoppedResponse{
+				Stats: &recorderpb.RecordingStatistics{
+					BytesCaptured:   stats.BytesWritten,
+					PacketsCaptured: stats.PacketsWritten,
+					BytesLost:       stats.BytesLost,
+					PacketsLost:     stats.PacketsLost,
+				},
+				Filesink: &recorderpb.FileSinkResult{
+					FilePath: filePath,
+				},
+			},
+		},
+	}
+}
+
+func recordingRunningResponse(stats sink.Statistics) *recorderpb.RecordResponse {
+	return &recorderpb.RecordResponse{
+		NodeName: nodeTypes.GetAbsoluteNodeName(),
+		Time:     timestamppb.Now(),
+		ResponseType: &recorderpb.RecordResponse_Running{
+			Running: &recorderpb.RecordingRunningResponse{
+				Stats: &recorderpb.RecordingStatistics{
+					BytesCaptured:   stats.BytesWritten,
+					PacketsCaptured: stats.PacketsWritten,
+					BytesLost:       stats.BytesLost,
+					PacketsLost:     stats.PacketsLost,
+				},
+			},
+		},
+	}
+}
+
 func (s *Service) Record(stream recorderpb.Recorder_RecordServer) error {
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	req, err := stream.Recv()
-	if err != nil {
+	// Spawn a go routine that forwards any received messages in order to be
+	// able to use select on it
+	reqCh := make(chan *recorderpb.RecordRequest)
+	errCh := make(chan error, 1)
+	go func() {
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				errCh <- fmt.Errorf("failed to receive from recorder client: %w", err)
+				return
+			}
+
+			select {
+			case reqCh <- req:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	var (
+		recording *sink.Handle
+		filePath  string
+		err       error
+	)
+
+	// Wait for the initial StartRecording message
+	select {
+	case req := <-reqCh:
+		startRecording := req.GetStart()
+		if startRecording == nil {
+			return fmt.Errorf("received invalid request %q, expected start request", req)
+		}
+
+		// The startRecording helper spawns a clean up go routine to remove all
+		// state associated with this recording when the context ctx is cancelled.
+		recording, filePath, err = s.startRecording(ctx, startRecording)
+		if err != nil {
+			return err
+		}
+	case err = <-errCh:
 		return err
-	}
-	startRecording := req.GetStart()
-	if startRecording == nil {
-		return fmt.Errorf("received invalid request %q, expected start request", req)
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
-	rec, err := s.startRecording(ctx, startRecording)
+	// Send back a confirmation that the recording has started
+	err = stream.Send(recordingRunningResponse(recording.Stats()))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to confirmation response: %w", err)
 	}
 
-	go s.watchRecording(ctx, rec.handle, stream)
+	for {
+		select {
+		// This case happens when the client has sent us a new request.
+		// We expect a start request if recording is nil, and a stop request
+		// otherwise.
+		case req := <-reqCh:
+			if req.GetStop() != nil {
+				recording.Stop()
+			} else {
+				return fmt.Errorf("received invalid request %q, expected stop request", req)
+			}
+		// This case is hit whenever the recording has updated the statistics (i.e.
+		// packets have been captured). We fetch the latest statistics and forward
+		// them to the client
+		case <-recording.StatsUpdated:
+			err = stream.Send(recordingRunningResponse(recording.Stats()))
+			if err != nil {
+				return fmt.Errorf("failed to send recording running response: %w", err)
+			}
+		// This case happens when the recording has stopped (i.e. due to the above
+		// explicit shutdown or because an error has occurred). If no error has
+		// occurred, we assemble the final RecordingStoppedResponse and exit.
+		// If an error occurred, we propagate it by returning it from this stub.
+		case <-recording.Done:
+			err = recording.Err()
+			if err != nil {
+				return fmt.Errorf("recorder recording error: %w", err)
+			}
 
-	req, err = stream.Recv()
-	if err != nil {
-		return err
+			err = stream.Send(recordingStoppedResponse(recording.Stats(), filePath))
+			if err != nil {
+				return fmt.Errorf("failed to send recording stopped response: %w", err)
+			}
+
+			return nil
+		// The following two cases happen when the client stream is either
+		// closed or cancelled. Simply return an error such that it is logged,
+		// and exit.
+		case err = <-errCh:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
-
-	if req.GetStop() == nil {
-		return fmt.Errorf("received invalid request %q, expected stop request", req)
-	}
-
-	resp, err := s.stopRecording(ctx, rec)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Send(&recorderpb.RecordResponse{
-		NodeName: nodeTypes.GetAbsoluteNodeName(),
-		Time:     timestamppb.Now(),
-		ResponseType: &recorderpb.RecordResponse_Stopped{
-			Stopped: resp,
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 const fileExistsRetries = 100
@@ -206,7 +291,12 @@ func parseFilters(include []*recorderpb.Filter) ([]recorder.RecorderTuple, error
 
 var fileSinkPrefixRegex = regexp.MustCompile("^[a-z][a-z0-9]{0,19}$")
 
-func (s *Service) startRecording(ctx context.Context, req *recorderpb.StartRecording) (*recording, error) {
+// startRecording starts a new recording. It will clean up any state
+// associated with the recording if ctx is cancelled or handle.Stop is called.
+func (s *Service) startRecording(
+	ctx context.Context,
+	req *recorderpb.StartRecording,
+) (handle *sink.Handle, filePath string, err error) {
 	capLen := req.GetMaxCaptureLength()
 	prefix := req.GetFilesink().GetFilePrefix()
 	if prefix == "" {
@@ -214,42 +304,43 @@ func (s *Service) startRecording(ctx context.Context, req *recorderpb.StartRecor
 	}
 
 	if !fileSinkPrefixRegex.MatchString(prefix) {
-		return nil, fmt.Errorf("invalid file sink prefix: %q", prefix)
+		return nil, "", fmt.Errorf("invalid file sink prefix: %q", prefix)
 	}
 
 	filters, err := parseFilters(req.GetInclude())
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	leaseID := s.ruleIDs.LeaseAvailableID()
 	ruleID := uint16(leaseID)
 	if leaseID == idpool.NoID {
-		return nil, errors.New("unable to allocate capture rule id")
+		return nil, "", errors.New("unable to allocate capture rule id")
 	}
 
-	f, filePath, err := createPcapFile(s.opts.StoragePath, prefix)
+	var f *os.File
+	f, filePath, err = createPcapFile(s.opts.StoragePath, prefix)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	r := &recording{ruleID: ruleID, filePath: filePath}
 	defer func() {
 		// clean up the recording if any of the subsequent steps fails
 		if err != nil {
-			_, _ = s.recorder.DeleteRecorder(recorder.ID(r.ruleID))
+			_, _ = s.recorder.DeleteRecorder(recorder.ID(ruleID))
 			// remove the created pcap file
 			_ = f.Close()
-			_ = os.Remove(r.filePath)
+			_ = os.Remove(filePath)
 			// release will also invalidate the lease
-			_ = s.ruleIDs.Release(idpool.ID(r.ruleID))
+			_ = s.ruleIDs.Release(idpool.ID(ruleID))
 		}
 	}()
 
-	log.WithFields(logrus.Fields{
-		"ruleID":   r.ruleID,
-		"filePath": r.filePath,
-	}).Debug("starting new recording")
+	scopedLog := log.WithFields(logrus.Fields{
+		"ruleID":   ruleID,
+		"filePath": filePath,
+	})
+	scopedLog.Debug("starting new recording")
 
 	config := sink.PcapSink{
 		RuleID: ruleID,
@@ -260,9 +351,9 @@ func (s *Service) startRecording(ctx context.Context, req *recorderpb.StartRecor
 		Writer: pcap.NewWriter(f),
 	}
 
-	r.handle, err = s.dispatch.StartSink(ctx, config)
+	handle, err = s.dispatch.StartSink(ctx, config)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	recInfo := &recorder.RecInfo{
@@ -272,78 +363,21 @@ func (s *Service) startRecording(ctx context.Context, req *recorderpb.StartRecor
 	}
 	_, err = s.recorder.UpsertRecorder(recInfo)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
+	// Ensure to delete the above recorder when the sink has stopped
+	go func() {
+		<-handle.Done
+		scopedLog.Debug("stopping recording")
+		_, err := s.recorder.DeleteRecorder(recorder.ID(ruleID))
+		if err != nil {
+			scopedLog.WithError(err).Warning("failed to delete recorder")
+		}
+		s.ruleIDs.Release(idpool.ID(ruleID))
+	}()
 
 	s.ruleIDs.Use(leaseID)
 
-	return r, nil
-}
-
-func (s *Service) stopRecording(ctx context.Context, r *recording) (*recorderpb.RecordingStoppedResponse, error) {
-	log.WithFields(logrus.Fields{
-		"ruleID":   r.ruleID,
-		"filePath": r.filePath,
-	}).Debug("stopping recording")
-
-	_, err := s.recorder.DeleteRecorder(recorder.ID(r.ruleID))
-	if err != nil {
-		return nil, err
-	}
-
-	r.handle.Stop()
-	select {
-	case <-r.handle.Done:
-		if err = r.handle.Err(); err != nil {
-			return nil, err
-		}
-	case <-ctx.Done():
-		return nil, fmt.Errorf("timed out waiting for sink to close: %w", ctx.Err())
-	}
-	stats := r.handle.Stats()
-
-	s.ruleIDs.Release(idpool.ID(r.ruleID))
-
-	return &recorderpb.RecordingStoppedResponse{
-		Stats: &recorderpb.RecordingStatistics{
-			BytesCaptured:   stats.BytesWritten,
-			PacketsCaptured: stats.PacketsWritten,
-			BytesLost:       stats.BytesLost,
-			PacketsLost:     stats.PacketsLost,
-		},
-		Filesink: &recorderpb.FileSinkResult{FilePath: r.filePath},
-	}, nil
-}
-
-func (s *Service) watchRecording(ctx context.Context, h *sink.Handle, stream recorderpb.Recorder_RecordServer) {
-	for {
-		stats := h.Stats()
-		err := stream.Send(&recorderpb.RecordResponse{
-			NodeName: nodeTypes.GetAbsoluteNodeName(),
-			Time:     timestamppb.Now(),
-			ResponseType: &recorderpb.RecordResponse_Running{
-				Running: &recorderpb.RecordingRunningResponse{
-					Stats: &recorderpb.RecordingStatistics{
-						BytesCaptured:   stats.BytesWritten,
-						PacketsCaptured: stats.PacketsWritten,
-						BytesLost:       stats.BytesLost,
-						PacketsLost:     stats.PacketsLost,
-					}},
-			},
-		})
-		if err != nil {
-			// errors are expected if the client disconnects early, therefore
-			// we do not log this as an error or warning
-			log.WithError(err).Debug("failed to send recording update")
-			return
-		}
-
-		select {
-		case <-h.StatsUpdated:
-		case <-h.Done:
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
+	return handle, filePath, nil
 }
