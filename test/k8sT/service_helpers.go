@@ -189,9 +189,9 @@ func testCurlFromPodsFail(kubectl *helpers.Kubectl, clientPodLabel, url string) 
 	}
 }
 
-func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, serviceName, insideNode, outsideNode string) *helpers.CmdRes {
-	clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", serviceName)
+func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, insideNode, outsideNode string) *helpers.CmdRes {
+	clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
+	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", appServiceName)
 	ExpectWithOffset(1, govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 	httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
 
@@ -317,8 +317,7 @@ func testCurlFromOutside(kubectl *helpers.Kubectl, url string, count int, checkS
 // dstIP:      Target endpoint IP for sending the datagram
 // dstPort:    Target endpoint port for sending the datagram
 // hasDNAT:    True if DNAT is used for target IP and port
-// testDS:     Label of test DaemonSet
-func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, hasDNAT bool, testDS string) {
+func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, hasDNAT bool) {
 	var (
 		blockSize  = 5120
 		blockCount = 1
@@ -441,8 +440,7 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 	primaryK8s1IPv6, primaryK8s2IPv6 string,
 	secondaryK8s1IPv4, secondaryK8s2IPv4 string,
 	secondaryK8s1IPv6, secondaryK8s2IPv6 string,
-	k8s1NodeName, outsideNodeName string,
-	testDSClient string) {
+	k8s1NodeName, outsideNodeName string) {
 	var (
 		err          error
 		data, v6Data v1.Service
@@ -671,7 +669,7 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 // routable IPV6 addresses reachable from other nodes.
 // This is not required when dual stack support is enabled for the cluster.
 func testNodePortIPv6(kubectl *helpers.Kubectl, k8s1IPv6, k8s2IPv6 string, testFromOutside bool, data *v1.Service,
-	testDSClient, k8s1NodeName, k8s2NodeName, outsideNodeName string) {
+	k8s1NodeName, k8s2NodeName, outsideNodeName string) {
 
 	var wg sync.WaitGroup
 
@@ -719,7 +717,7 @@ func testNodePortIPv6(kubectl *helpers.Kubectl, k8s1IPv6, k8s2IPv6 string, testF
 }
 
 func testExternalIPs(kubectl *helpers.Kubectl,
-	k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6, testDSClient string) {
+	k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6 string) {
 
 	var (
 		data                v1.Service
@@ -798,7 +796,7 @@ func testFailBind(kubectl *helpers.Kubectl, k8s1NodeName string) {
 }
 
 func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
-	outsideNodeName, k8s1NodeName, testDSClient string,
+	outsideNodeName, k8s1NodeName string,
 	k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6 string,
 	secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6 string,
 	outsideIP, outsideIPv6 string) {
@@ -835,7 +833,7 @@ func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
 		// Make sure all the rest works as expected as well
 		testNodePort(kubectl, true, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 			secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-			k8s1NodeName, outsideNodeName, testDSClient)
+			k8s1NodeName, outsideNodeName)
 
 		// Clear CT tables on both Cilium nodes
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -851,7 +849,6 @@ func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
 // fromOutside=true tests session affinity implementation from lb.h, while
 // fromOutside=false tests from  bpf_sock.c.
 func testSessionAffinity(kubectl *helpers.Kubectl, fromOutside, vxlan bool,
-	testDS, testDSClient, testDSK8s2 string,
 	outsideNodeName, k8s1IP, primaryK8s1IPv6 string) {
 
 	var (
@@ -1196,7 +1193,7 @@ func testHealthCheckNodePort(kubectl *helpers.Kubectl,
 }
 
 func testIPv4FragmentSupport(kubectl *helpers.Kubectl,
-	testDSClient, testDS, k8s1IP, k8s2IP string) {
+	k8s1IP, k8s2IP string) {
 
 	var (
 		data    v1.Service
@@ -1222,13 +1219,13 @@ func testIPv4FragmentSupport(kubectl *helpers.Kubectl,
 	serverPort := data.Spec.Ports[1].TargetPort.IntValue()
 
 	// With ClusterIP
-	doFragmentedRequest(kubectl, clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true, testDS)
+	doFragmentedRequest(kubectl, clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true)
 
 	// From pod via node IPs
-	doFragmentedRequest(kubectl, clientPod, srcPort+1, serverPort, k8s1IP, nodePort, hasDNAT, testDS)
-	doFragmentedRequest(kubectl, clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT, testDS)
-	doFragmentedRequest(kubectl, clientPod, srcPort+3, serverPort, k8s2IP, nodePort, hasDNAT, testDS)
-	doFragmentedRequest(kubectl, clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT, testDS)
+	doFragmentedRequest(kubectl, clientPod, srcPort+1, serverPort, k8s1IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+3, serverPort, k8s2IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT)
 }
 
 func testMaglev(kubectl *helpers.Kubectl, outsideNodeName, k8s1IP, k8s2IP string) {

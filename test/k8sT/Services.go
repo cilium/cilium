@@ -31,6 +31,25 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+const (
+	appServiceName           = "app1-service"
+	appServiceNameIPv6       = "app1-service-ipv6"
+	echoServiceName          = "echo"
+	echoServiceNameDualStack = "echo-dualstack"
+	echoPodLabel             = "name=echo"
+	app2PodLabel             = "id=app2"
+	// echoServiceNameIPv6 = "echo-ipv6"
+
+	testDSClient = "zgroup=testDSClient"
+	testDS       = "zgroup=testDS"
+	testDSK8s2   = "zgroup=test-k8s2"
+
+	testDSServiceIPv4 = "testds-service"
+	testDSServiceIPv6 = "testds-service-ipv6"
+
+	lbSvcName = "test-lb-with-ip"
+)
+
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
 var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
@@ -136,16 +155,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 	})
 
 	Context("Checks ClusterIP Connectivity", func() {
-		const (
-			serviceName              = "app1-service"
-			serviceNameIPv6          = "app1-service-ipv6"
-			echoServiceName          = "echo"
-			echoServiceNameDualStack = "echo-dualstack"
-			echoPodLabel             = "name=echo"
-			app2PodLabel             = "id=app2"
-			// echoServiceNameIPv6 = "echo-ipv6"
-		)
-
 		var (
 			demoYAML             string
 			demoYAMLV6           string
@@ -209,9 +218,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 
 		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service on same node", func() {
-			serviceNames := []string{serviceName}
+			serviceNames := []string{appServiceName}
 			if helpers.DualStackSupported() {
-				serviceNames = append(serviceNames, serviceNameIPv6)
+				serviceNames = append(serviceNames, appServiceNameIPv6)
 			}
 
 			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -421,7 +430,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		SkipItIf(func() bool { return helpers.DoesNotExistNodeWithoutCilium() },
 			"ClusterIP cannot be accessed externally when access is disabled",
 			func() {
-				Expect(curlClusterIPFromExternalHost(kubectl, serviceName, k8s1NodeName, outsideNodeName)).
+				Expect(curlClusterIPFromExternalHost(kubectl, k8s1NodeName, outsideNodeName)).
 					ShouldNot(helpers.CMDSuccess(),
 						"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", outsideNodeName)
 			})
@@ -434,9 +443,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"bpf.lbExternalClusterIP": "true",
 				})
-				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 				svcIP = clusterIP
-				Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
+				Expect(err).Should(BeNil(), "Cannot get service %s", appServiceName)
 				res := kubectl.AddIPRoute(outsideNodeName, svcIP, k8s1IP, false)
 				Expect(res).Should(helpers.CMDSuccess(), "Error adding IP route for %s via %s", svcIP, k8s1IP)
 			})
@@ -448,21 +457,13 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 			})
 
 			It("ClusterIP can be accessed when external access is enabled", func() {
-				Expect(curlClusterIPFromExternalHost(kubectl, serviceName, k8s1NodeName, outsideNodeName)).
+				Expect(curlClusterIPFromExternalHost(kubectl, k8s1NodeName, outsideNodeName)).
 					Should(helpers.CMDSuccess(), "Could not curl ClusterIP %s from external host", svcIP)
 			})
 		})
 	})
 
 	Context("Checks service across nodes", func() {
-		const (
-			testDSClient = "zgroup=testDSClient"
-			testDS       = "zgroup=testDS"
-			testDSK8s2   = "zgroup=test-k8s2"
-
-			testDSServiceIPv4 = "testds-service"
-			testDSServiceIPv6 = "testds-service-ipv6"
-		)
 
 		var (
 			demoYAML   string
@@ -658,7 +659,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			It("", func() {
 				testNodePort(kubectl, false, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 					secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-					k8s1NodeName, outsideNodeName, testDSClient)
+					k8s1NodeName, outsideNodeName)
 			})
 		})
 
@@ -703,7 +704,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 			It("Test IPv6 connectivity to NodePort service", func() {
 				testNodePortIPv6(kubectl, primaryK8s1IPv6, primaryK8s2IPv6, helpers.ExistNodeWithoutCilium(), &data,
-					testDSClient, k8s1NodeName, k8s2NodeName, outsideNodeName)
+					k8s1NodeName, k8s2NodeName, outsideNodeName)
 			})
 		})
 
@@ -821,7 +822,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				applyPolicy(kubectl, demoPolicy)
 				testNodePort(kubectl, false, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 					secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-					k8s1NodeName, outsideNodeName, testDSClient)
+					k8s1NodeName, outsideNodeName)
 			})
 		})
 
@@ -849,7 +850,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				applyPolicy(kubectl, demoPolicyL7)
 				testNodePort(kubectl, false, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 					secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-					k8s1NodeName, outsideNodeName, testDSClient)
+					k8s1NodeName, outsideNodeName)
 			})
 		})
 
@@ -859,7 +860,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					It("Tests NodePort", func() {
 						testNodePort(kubectl, true, false, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 							secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-							k8s1NodeName, outsideNodeName, testDSClient)
+							k8s1NodeName, outsideNodeName)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -871,13 +872,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					It("Tests NodePort with sessionAffinity", func() {
 						testSessionAffinity(kubectl, false, true,
-							testDS, testDSClient, testDSK8s2,
 							outsideNodeName, k8s1IP, primaryK8s1IPv6)
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
 						testSessionAffinity(kubectl, true, true,
-							testDS, testDSClient, testDSK8s2,
 							outsideNodeName, k8s1IP, primaryK8s1IPv6)
 					})
 
@@ -895,7 +894,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
 						testExternalIPs(kubectl,
-							k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6, testDSClient)
+							k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6)
 					})
 
 					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
@@ -925,7 +924,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, true, false, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 								secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-								k8s1NodeName, outsideNodeName, testDSClient)
+								k8s1NodeName, outsideNodeName)
 						})
 					})
 
@@ -936,7 +935,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							applyPolicy(kubectl, demoPolicyL7)
 							testNodePort(kubectl, false, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 								secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-								k8s1NodeName, outsideNodeName, testDSClient)
+								k8s1NodeName, outsideNodeName)
 						})
 					})
 
@@ -968,7 +967,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, true, false, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 								secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-								k8s1NodeName, outsideNodeName, testDSClient)
+								k8s1NodeName, outsideNodeName)
 						})
 
 						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
@@ -989,7 +988,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 						testNodePort(kubectl, true, true, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 							secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-							k8s1NodeName, outsideNodeName, testDSClient)
+							k8s1NodeName, outsideNodeName)
 					})
 				})
 
@@ -1007,7 +1006,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					It("Tests NodePort", func() {
 						testNodePort(kubectl, true, false, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 							secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-							k8s1NodeName, outsideNodeName, testDSClient)
+							k8s1NodeName, outsideNodeName)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -1019,13 +1018,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					It("Tests NodePort with sessionAffinity", func() {
 						testSessionAffinity(kubectl, false, false,
-							testDS, testDSClient, testDSK8s2,
 							outsideNodeName, k8s1IP, primaryK8s1IPv6)
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
 						testSessionAffinity(kubectl, true, false,
-							testDS, testDSClient, testDSK8s2,
 							outsideNodeName, k8s1IP, primaryK8s1IPv6)
 					})
 
@@ -1043,7 +1040,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
 						testExternalIPs(kubectl,
-							k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6, testDSClient)
+							k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6)
 					})
 
 					SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
@@ -1078,7 +1075,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, true, false, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 								secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-								k8s1NodeName, outsideNodeName, testDSClient)
+								k8s1NodeName, outsideNodeName)
 						})
 					})
 
@@ -1089,7 +1086,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							applyPolicy(kubectl, demoPolicyL7)
 							testNodePort(kubectl, false, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 								secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-								k8s1NodeName, outsideNodeName, testDSClient)
+								k8s1NodeName, outsideNodeName)
 						})
 					})
 
@@ -1123,7 +1120,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Tests NodePort", func() {
 							testNodePort(kubectl, true, false, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 								secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-								k8s1NodeName, outsideNodeName, testDSClient)
+								k8s1NodeName, outsideNodeName)
 						})
 
 						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
@@ -1157,8 +1154,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 
 					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests LoadBalancer", func() {
-						const svcName = "test-lb-with-ip"
-
 						var (
 							frr      string // BGP router
 							routerIP string
@@ -1243,7 +1238,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						It("Connectivity to endpoint via LB", func() {
 							By("Waiting until the Operator has assigned the LB IP")
 							lbIP, err := kubectl.GetLoadBalancerIP(
-								helpers.DefaultNamespace, svcName, 30*time.Second)
+								helpers.DefaultNamespace, lbSvcName, 30*time.Second)
 							Expect(err).Should(BeNil(), "Cannot retrieve LB IP for test-lb")
 
 							By("Waiting until the Agents have announced the LB IP via BGP")
@@ -1262,12 +1257,12 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 							// Patch service to add a LB source range to disallow requests
 							// from the outsideNode
-							kubectl.Patch(helpers.DefaultNamespace, "service", svcName,
+							kubectl.Patch(helpers.DefaultNamespace, "service", lbSvcName,
 								`{"spec": {"loadBalancerSourceRanges": ["1.1.1.0/24"]}}`)
 							time.Sleep(5 * time.Second)
 							testCurlFailFromOutside(kubectl, url, 1, outsideNodeName)
 							// Patch again, but this time add outsideNode IP addr
-							kubectl.Patch(helpers.DefaultNamespace, "service", svcName,
+							kubectl.Patch(helpers.DefaultNamespace, "service", lbSvcName,
 								fmt.Sprintf(
 									`{"spec": {"loadBalancerSourceRanges": ["1.1.1.0/24", "%s/32"]}}`,
 									outsideIP))
@@ -1396,7 +1391,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 					testNodePort(kubectl, true, true, helpers.ExistNodeWithoutCilium(), 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-						k8s1NodeName, outsideNodeName, testDSClient)
+						k8s1NodeName, outsideNodeName)
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
@@ -1409,7 +1404,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					testDSR(kubectl, 64000, outsideNodeName, outsideIP, outsideIPv6, k8s1IP)
 					testNodePort(kubectl, true, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6, // no need to test from outside, as testDSR did it
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-						k8s1NodeName, outsideNodeName, testDSClient)
+						k8s1NodeName, outsideNodeName)
 				})
 
 				// GKE COS image does not support sctp module.
@@ -1461,7 +1456,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(kubectl, false, false,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1481,7 +1476,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"hostFirewall": "false",
 					})
 					testNodePortExternal(kubectl, false, false,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1497,7 +1492,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(kubectl, true, false,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1517,7 +1512,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"hostFirewall": "false",
 					})
 					testNodePortExternal(kubectl, true, false,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1533,7 +1528,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(kubectl, true, true,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1553,7 +1548,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"hostFirewall": "false",
 					})
 					testNodePortExternal(kubectl, true, true,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1569,7 +1564,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 						"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
 					})
 					testNodePortExternal(kubectl, true, false,
-						outsideNodeName, k8s1NodeName, testDSClient,
+						outsideNodeName, k8s1NodeName,
 						k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
 						secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
 						outsideIP, outsideIPv6)
@@ -1590,7 +1585,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				options["tunnel"] = "disabled"
 			}
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
-			testIPv4FragmentSupport(kubectl, testDSClient, testDS, k8s1IP, k8s2IP)
+			testIPv4FragmentSupport(kubectl, k8s1IP, k8s2IP)
 		})
 	})
 
