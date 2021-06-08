@@ -123,8 +123,14 @@ func (d *Dispatch) UnregisterSink(ctx context.Context, ruleID uint16) (stats Sta
 		return Statistics{}, fmt.Errorf("no sink found for rule id %d", ruleID)
 	}
 
-	if err = s.close(ctx); err != nil {
-		return Statistics{}, err
+	s.stop()
+	select {
+	case <-s.done:
+		if err = s.err(); err != nil {
+			return Statistics{}, err
+		}
+	case <-ctx.Done():
+		return Statistics{}, fmt.Errorf("timed out waiting for sink to close: %w", ctx.Err())
 	}
 
 	return s.copyStats(), nil
