@@ -235,17 +235,19 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, "", newImageVersion, "")
 
 		By("Cleaning Cilium state (%s)", oldImageVersion)
-		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "quay.io/cilium/cilium", oldImageVersion, "")
+		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "quay.io/cilium/cilium-ci", oldImageVersion, "")
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
 
 		opts := map[string]string{
-			"image.tag":                     oldImageVersion,
-			"operator.image.tag":            oldImageVersion,
-			"hubble.relay.image.tag":        oldImageVersion,
-			"image.repository":              "quay.io/cilium/cilium",
-			"operator.image.repository":     "quay.io/cilium/operator",
-			"hubble.relay.image.repository": "quay.io/cilium/hubble-relay",
+			"image.tag":                              oldImageVersion,
+			"operator.image.tag":                     oldImageVersion,
+			"hubble.relay.image.tag":                 oldImageVersion,
+			"clustermesh.apiserver.image.tag":        oldImageVersion,
+			"image.repository":                       "quay.io/cilium/cilium-ci",
+			"operator.image.repository":              "quay.io/cilium/operator",
+			"hubble.relay.image.repository":          "quay.io/cilium/hubble-relay-ci",
+			"clustermesh.apiserver.image.repository": "quay.io/cilium/clustermesh-apiserver-ci",
 		}
 
 		// Eventually allows multiple return values, and performs the assertion
