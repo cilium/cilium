@@ -339,11 +339,9 @@ func (s *Service) watchRecording(ctx context.Context, h *sink.Handle, stream rec
 		}
 
 		select {
-		case _, ok := <-h.StatsUpdated:
-			if !ok {
-				// sink closed
-				return
-			}
+		case <-h.StatsUpdated:
+		case <-h.Done:
+			return
 		case <-ctx.Done():
 			return
 		}
