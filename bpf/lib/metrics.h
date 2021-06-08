@@ -24,7 +24,7 @@
 static __always_inline void update_metrics(__u64 bytes, __u8 direction,
 					   __u8 reason)
 {
-	struct metrics_value *entry, newEntry = {};
+	struct metrics_value *entry, new_entry = {};
 	struct metrics_key key = {};
 
 	key.reason = reason;
@@ -36,9 +36,9 @@ static __always_inline void update_metrics(__u64 bytes, __u8 direction,
 		entry->count += 1;
 		entry->bytes += bytes;
 	} else {
-		newEntry.count = 1;
-		newEntry.bytes = bytes;
-		map_update_elem(&METRICS_MAP, &key, &newEntry, 0);
+		new_entry.count = 1;
+		new_entry.bytes = bytes;
+		map_update_elem(&METRICS_MAP, &key, &new_entry, 0);
 	}
 }
 

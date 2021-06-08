@@ -44,7 +44,7 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 	struct remote_endpoint_info *info;
 	__u64 flags = BPF_F_INGRESS;
 	struct sock_key key = {};
-	__u32 dstID = 0;
+	__u32 dst_id = 0;
 	int verdict;
 
 	sk_msg_extract4_key(msg, &key);
@@ -56,11 +56,11 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 	 */
 	info = lookup_ip4_remote_endpoint(key.dip4);
 	if (info != NULL && info->sec_label)
-		dstID = info->sec_label;
+		dst_id = info->sec_label;
 	else
-		dstID = WORLD_ID;
+		dst_id = WORLD_ID;
 
-	verdict = policy_sk_egress(dstID, key.sip4, key.dport);
+	verdict = policy_sk_egress(dst_id, key.sip4, key.dport);
 	if (verdict >= 0)
 		msg_redirect_hash(msg, &SOCK_OPS_MAP, &key, flags);
 	return SK_PASS;
