@@ -67,11 +67,20 @@ type Statistics struct {
 	BytesLost      uint64
 }
 
+// StopConditions defines a set of values which cause the sink to stop
+// recording if any of them are hit. Zero-valued conditions are ignored.
+type StopConditions struct {
+	PacketsCaptured uint64
+	BytesCaptured   uint64
+	DurationElapsed time.Duration
+}
+
 // PcapSink defines the parameters of a sink which writes to a pcap.RecordWriter
 type PcapSink struct {
-	RuleID uint16
-	Header pcap.Header
-	Writer pcap.RecordWriter
+	RuleID        uint16
+	Header        pcap.Header
+	Writer        pcap.RecordWriter
+	StopCondition StopConditions
 }
 
 // Dispatch implements consumer.MonitorConsumer and dispatches incoming
@@ -110,6 +119,7 @@ func NewDispatch(sinkQueueSize int) (*Dispatch, error) {
 // The sink is unregistered automatically when it stops. A sink is stopped for
 // one of the following four reasons. In all cases, Handle.Done will be closed.
 //  - Explicitly via Handle.Stop (Handle.Err() == nil)
+//  - When one of the p.StopCondition is hit (Handle.Err() == nil)
 //  - When the context ctx is cancelled (Handle.Err() != nil)
 //  - When an error occurred (Handle.Err() != nil)
 func (d *Dispatch) StartSink(ctx context.Context, p PcapSink) (*Handle, error) {
