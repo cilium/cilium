@@ -2551,89 +2551,6 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 	return nil
 }
 
-// convertOptionsToLegacyOptions maps current helm values to old helm Values
-// TODO: When Cilium 1.10 branch is created, remove this function
-func (kub *Kubectl) convertOptionsToLegacyOptions(options map[string]string) map[string]string {
-
-	result := make(map[string]string)
-
-	legacyMappings := map[string]string{
-		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key",
-		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator",
-		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": "global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]",
-		"bpf.preallocateMaps":           "global.bpf.preallocateMaps",
-		"bpf.masquerade":                "config.bpfMasquerade",
-		"cleanState":                    "global.cleanState",
-		"cni.binPath":                   "global.cni.binPath",
-		"cni.chainingMode":              "global.cni.chainingMode",
-		"cni.confPath":                  "global.cni.confPath",
-		"cni.customConf":                "global.cni.customConf",
-		"daemon.runPath":                "global.daemon.runPath",
-		"debug.enabled":                 "global.debug.enabled",
-		"devices":                       "global.devices", // Override "eth0 eth0\neth0"
-		"enableCnpStatusUpdates":        "config.enableCnpStatusUpdates",
-		"etcd.leaseTTL":                 "global.etcd.leaseTTL",
-		"externalIPs.enabled":           "global.externalIPs.enabled",
-		"gke.enabled":                   "global.gke.enabled",
-		"hostFirewall":                  "global.hostFirewall",
-		"hostPort.enabled":              "global.hostPort.enabled",
-		"hostServices.enabled":          "global.hostServices.enabled",
-		"hubble.enabled":                "global.hubble.enabled",
-		"hubble.listenAddress":          "global.hubble.listenAddress",
-		"hubble.relay.image.repository": "hubble-relay.image.repository",
-		"hubble.relay.image.tag":        "hubble-relay.image.tag",
-		"image.tag":                     "global.tag",
-		"ipam.mode":                     "config.ipam",
-		"ipv4.enabled":                  "global.ipv4.enabled",
-		"ipv6.enabled":                  "global.ipv6.enabled",
-		"k8s.requireIPv4PodCIDR":        "global.k8s.requireIPv4PodCIDR",
-		"k8sServiceHost":                "global.k8sServiceHost",
-		"k8sServicePort":                "global.k8sServicePort",
-		"kubeProxyReplacement":          "global.kubeProxyReplacement",
-		"loadBalancer.mode":             "global.nodePort.mode",
-		"logSystemLoad":                 "global.logSystemLoad",
-		"masquerade":                    "global.masquerade",
-		"nativeRoutingCIDR":             "global.nativeRoutingCIDR",
-		"nodeinit.enabled":              "global.nodeinit.enabled",
-		"nodeinit.reconfigureKubelet":   "global.nodeinit.reconfigureKubelet",
-		"nodeinit.removeCbrBridge":      "global.nodeinit.removeCbrBridge",
-		"nodeinit.restartPods":          "globalnodeinit.restartPods",
-		"nodePort.enabled":              "global.nodePort.enabled",
-		"operator.enabled":              "operator.enabled",
-		"pprof.enabled":                 "global.pprof.enabled",
-		"sessionAffinity":               "config.sessionAffinity",
-		"sleepAfterInit":                "agent.sleepAfterInit",
-		"tunnel":                        "global.tunnel",
-	}
-
-	for newKey, v := range options {
-		if oldKey, ok := legacyMappings[newKey]; ok {
-			result[oldKey] = v
-		} else if !ok {
-			if newKey == "image.repository" {
-				result["agent.image"] = v + ":" + options["image.tag"]
-			} else if newKey == "operator.image.repository" {
-				if options["eni.enabled"] == "true" {
-					result["operator.image"] = v + "-aws:" + options["image.tag"]
-				} else if options["azure.enabled"] == "true" {
-					result["operator.image"] = v + "-azure:" + options["image.tag"]
-				} else {
-					result["operator.image"] = v + "-generic:" + options["image.tag"]
-				}
-			} else if newKey == "preflight.image.repository" {
-				result["preflight.image"] = v + ":" + options["image.tag"]
-			} else if strings.HasSuffix(newKey, ".tag") {
-				// Already handled in the if statement above
-				continue
-			} else {
-				log.Warningf("Skipping option %s", newKey)
-			}
-		}
-	}
-	result["ci.kubeCacheMutationDetector"] = "true"
-	return result
-}
-
 // RunHelm runs the helm command with the given options.
 func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
 	err := kub.overwriteHelmOptions(options)
@@ -2641,11 +2558,6 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		return nil, err
 	}
 	optionsString := ""
-
-	//TODO: In 1.10 dev cycle, remove this
-	if version == "1.8-dev" {
-		options = kub.convertOptionsToLegacyOptions(options)
-	}
 
 	for k, v := range options {
 		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
