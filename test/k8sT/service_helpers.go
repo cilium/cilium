@@ -189,7 +189,7 @@ func testCurlFromPodsFail(kubectl *helpers.Kubectl, clientPodLabel, url string) 
 	}
 }
 
-func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, insideNode, outsideNode string) *helpers.CmdRes {
+func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, ni *nodesInfo) *helpers.CmdRes {
 	clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", appServiceName)
 	ExpectWithOffset(1, govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
@@ -197,10 +197,10 @@ func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, insideNode, outside
 
 	By("testing external connectivity via cluster IP %s", clusterIP)
 
-	status := kubectl.ExecInHostNetNS(context.TODO(), insideNode, helpers.CurlFail(httpSVCURL))
+	status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName, helpers.CurlFail(httpSVCURL))
 	ExpectWithOffset(1, status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
 
-	return kubectl.ExecInHostNetNS(context.TODO(), outsideNode, helpers.CurlFail(httpSVCURL))
+	return kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, helpers.CurlFail(httpSVCURL))
 }
 
 func waitPodsDs(kubectl *helpers.Kubectl, groups []string) {
@@ -267,7 +267,7 @@ func testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl *helpers.Kubectl, url s
 	}
 }
 
-func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, url string, count int, checkSourceIP bool, fromPort int, outsideNodeName, outsideIP, outsideIPv6 string) {
+func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *nodesInfo, url string, count int, checkSourceIP bool, fromPort int) {
 	var cmd string
 
 	By("Making %d HTTP requests from outside cluster to %q", count, url)
@@ -280,7 +280,7 @@ func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, url string, coun
 		if checkSourceIP {
 			cmd += " | grep client_address="
 		}
-		res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+		res := kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, cmd)
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 			"Can not connect to service %q from outside cluster (%d/%d)", url, i, count)
 		if checkSourceIP {
@@ -288,26 +288,26 @@ func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, url string, coun
 			sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
 			var outIP net.IP
 			if sourceIP.To4() != nil {
-				outIP = net.ParseIP(outsideIP)
+				outIP = net.ParseIP(ni.outsideIP)
 			} else {
-				outIP = net.ParseIP(outsideIPv6)
+				outIP = net.ParseIP(ni.outsideIPv6)
 			}
 			ExpectWithOffset(1, sourceIP).To(Equal(outIP))
 		}
 	}
 }
 
-func testCurlFailFromOutside(kubectl *helpers.Kubectl, url string, count int, outsideNodeName string) {
+func testCurlFailFromOutside(kubectl *helpers.Kubectl, ni *nodesInfo, url string, count int) {
 	By("Making %d HTTP requests from outside cluster to %q", count, url)
 	for i := 1; i <= count; i++ {
-		res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
+		res := kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, helpers.CurlFail(url))
 		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-			"%s host unexpectedly connected to service %q, it should fail", outsideNodeName, url)
+			"%s host unexpectedly connected to service %q, it should fail", ni.outsideNodeName, url)
 	}
 }
 
-func testCurlFromOutside(kubectl *helpers.Kubectl, url string, count int, checkSourceIP bool, outsideNodeName, outsideIP, outsideIPv6 string) {
-	testCurlFromOutsideWithLocalPort(kubectl, url, count, checkSourceIP, 0, outsideNodeName, outsideIP, outsideIPv6)
+func testCurlFromOutside(kubectl *helpers.Kubectl, ni *nodesInfo, url string, count int, checkSourceIP bool) {
+	testCurlFromOutsideWithLocalPort(kubectl, ni, url, count, checkSourceIP, 0)
 }
 
 // srcPod:     Name of pod sending the datagram
@@ -435,12 +435,7 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	), "Failed to account for INGRESS IPv4 fragments in BPF metrics", dstIP)
 }
 
-func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP, testFromOutside bool, fails int,
-	k8s1IP, k8s2IP string,
-	primaryK8s1IPv6, primaryK8s2IPv6 string,
-	secondaryK8s1IPv4, secondaryK8s2IPv4 string,
-	secondaryK8s1IPv6, secondaryK8s2IPv6 string,
-	k8s1NodeName, outsideNodeName string) {
+func testNodePort(kubectl *helpers.Kubectl, ni *nodesInfo, bpfNodePort, testSecondaryNodePortIP, testFromOutside bool, fails int) {
 	var (
 		err          error
 		data, v6Data v1.Service
@@ -463,17 +458,17 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 		getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port),
 		getTFTPLink(data.Spec.ClusterIP, data.Spec.Ports[1].Port),
 
-		getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink(ni.k8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.k8s1IP, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink("::ffff:"+ni.k8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.k8s1IP, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink(ni.k8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.k8s2IP, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink("::ffff:"+ni.k8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.k8s2IP, data.Spec.Ports[1].NodePort),
 	}
 
 	if helpers.DualStackSupported() {
@@ -481,11 +476,11 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 			getHTTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[0].Port),
 			getTFTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[1].Port),
 
-			getHTTPLink(primaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-			getTFTPLink(primaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.primaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.primaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
 
-			getHTTPLink(primaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-			getTFTPLink(primaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.primaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.primaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
 		)
 	}
 
@@ -500,17 +495,17 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 		getHTTPLink("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort),
 		getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort),
 
-		getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink(ni.k8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.k8s1IP, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink("::ffff:"+ni.k8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.k8s1IP, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink(ni.k8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.k8s2IP, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort),
-		getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort),
+		getHTTPLink("::ffff:"+ni.k8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.k8s2IP, data.Spec.Ports[1].NodePort),
 	}
 
 	if helpers.DualStackSupported() {
@@ -518,30 +513,30 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 			getHTTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[0].Port),
 			getTFTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[1].Port),
 
-			getHTTPLink(primaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-			getTFTPLink(primaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.primaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.primaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
 
-			getHTTPLink(primaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-			getTFTPLink(primaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.primaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.primaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
 		)
 	}
 
 	if testSecondaryNodePortIP {
 		testURLsFromHosts = append(testURLsFromHosts,
-			getHTTPLink(secondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
-			getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.secondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.secondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
 
-			getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
-			getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
 		)
 
 		if helpers.DualStackSupported() {
 			testURLsFromHosts = append(testURLsFromHosts,
-				getHTTPLink(secondaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(secondaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+				getHTTPLink(ni.secondaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.secondaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
 
-				getHTTPLink(secondaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(secondaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+				getHTTPLink(ni.secondaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.secondaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
 			)
 		}
 	}
@@ -578,39 +573,39 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 		// These are tested from external node which does not run
 		// cilium-agent (so it's not a subject to bpf_sock)
 		testURLsFromOutside = []string{
-			getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort),
-			getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.k8s1IP, data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.k8s1IP, data.Spec.Ports[1].NodePort),
 
-			getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort),
-			getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort),
+			getHTTPLink(ni.k8s2IP, data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.k8s2IP, data.Spec.Ports[1].NodePort),
 		}
 
 		if helpers.DualStackSupported() {
 			testURLsFromOutside = append(testURLsFromOutside,
-				getHTTPLink(primaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(primaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+				getHTTPLink(ni.primaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.primaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
 
-				getHTTPLink(primaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(primaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+				getHTTPLink(ni.primaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.primaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
 			)
 		}
 
 		if testSecondaryNodePortIP {
 			testURLsFromOutside = append(testURLsFromOutside,
-				getHTTPLink(secondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
-				getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
+				getHTTPLink(ni.secondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.secondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
 
-				getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
-				getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
+				getHTTPLink(ni.secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
 			)
 
 			if helpers.DualStackSupported() {
 				testURLsFromOutside = append(testURLsFromOutside,
-					getHTTPLink(secondaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-					getTFTPLink(secondaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+					getHTTPLink(ni.secondaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+					getTFTPLink(ni.secondaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
 
-					getHTTPLink(secondaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-					getTFTPLink(secondaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+					getHTTPLink(ni.secondaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+					getTFTPLink(ni.secondaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
 				)
 			}
 		}
@@ -630,7 +625,7 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 		go func(url string) {
 			defer GinkgoRecover()
 			defer wg.Done()
-			testCurlFromPodInHostNetNS(kubectl, url, count, fails, k8s1NodeName)
+			testCurlFromPodInHostNetNS(kubectl, url, count, fails, ni.k8s1NodeName)
 		}(url)
 	}
 	for _, url := range testURLsFromOutside {
@@ -638,7 +633,7 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 		go func(url string) {
 			defer GinkgoRecover()
 			defer wg.Done()
-			testCurlFromOutside(kubectl, url, count, false, outsideNodeName, "", "")
+			testCurlFromOutside(kubectl, ni, url, count, false)
 		}(url)
 	}
 	// TODO: IPv6
@@ -668,17 +663,15 @@ func testNodePort(kubectl *helpers.Kubectl, bpfNodePort, testSecondaryNodePortIP
 // It is the job of the caller to make sure that all the node have assigned
 // routable IPV6 addresses reachable from other nodes.
 // This is not required when dual stack support is enabled for the cluster.
-func testNodePortIPv6(kubectl *helpers.Kubectl, k8s1IPv6, k8s2IPv6 string, testFromOutside bool, data *v1.Service,
-	k8s1NodeName, k8s2NodeName, outsideNodeName string) {
-
+func testNodePortIPv6(kubectl *helpers.Kubectl, ni *nodesInfo, testFromOutside bool, data *v1.Service) {
 	var wg sync.WaitGroup
 
 	testURLs := []string{
-		getHTTPLink(k8s1IPv6, data.Spec.Ports[0].NodePort),
-		getTFTPLink(k8s1IPv6, data.Spec.Ports[1].NodePort),
+		getHTTPLink(ni.primaryK8s1IPv6, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.primaryK8s1IPv6, data.Spec.Ports[1].NodePort),
 
-		getHTTPLink(k8s2IPv6, data.Spec.Ports[0].NodePort),
-		getTFTPLink(k8s2IPv6, data.Spec.Ports[1].NodePort),
+		getHTTPLink(ni.primaryK8s2IPv6, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.primaryK8s2IPv6, data.Spec.Ports[1].NodePort),
 	}
 
 	count := 10
@@ -696,8 +689,8 @@ func testNodePortIPv6(kubectl *helpers.Kubectl, k8s1IPv6, k8s2IPv6 string, testF
 		go func(url string) {
 			defer GinkgoRecover()
 			defer wg.Done()
-			testCurlFromPodInHostNetNS(kubectl, url, count, 0, k8s1NodeName)
-			testCurlFromPodInHostNetNS(kubectl, url, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(kubectl, url, count, 0, ni.k8s1NodeName)
+			testCurlFromPodInHostNetNS(kubectl, url, count, 0, ni.k8s2NodeName)
 		}(url)
 	}
 
@@ -708,7 +701,7 @@ func testNodePortIPv6(kubectl *helpers.Kubectl, k8s1IPv6, k8s2IPv6 string, testF
 			go func(url string) {
 				defer GinkgoRecover()
 				defer wg.Done()
-				testCurlFromOutside(kubectl, url, count, false, outsideNodeName, "", "")
+				testCurlFromOutside(kubectl, ni, url, count, false)
 			}(url)
 		}
 	}
@@ -716,9 +709,7 @@ func testNodePortIPv6(kubectl *helpers.Kubectl, k8s1IPv6, k8s2IPv6 string, testF
 	wg.Wait()
 }
 
-func testExternalIPs(kubectl *helpers.Kubectl,
-	k8s1NodeName, k8s2NodeName, outsideNodeName, k8s1IP, primaryK8s1IPv6 string) {
-
+func testExternalIPs(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var (
 		data                v1.Service
 		nodePortService     = "test-external-ips"
@@ -727,10 +718,10 @@ func testExternalIPs(kubectl *helpers.Kubectl,
 	count := 10
 
 	services := map[string]string{
-		nodePortService: k8s1IP,
+		nodePortService: ni.k8s1IP,
 	}
 	if helpers.DualStackSupported() {
-		services[nodePortServiceIPv6] = primaryK8s1IPv6
+		services[nodePortServiceIPv6] = ni.primaryK8s1IPv6
 	}
 
 	for svcName, nodeIP := range services {
@@ -748,28 +739,28 @@ func testExternalIPs(kubectl *helpers.Kubectl,
 		tftpURL := getTFTPLink(svcExternalIP, data.Spec.Ports[1].Port)
 
 		// Add the route on the outside node to the external IP addr
-		res = kubectl.AddIPRoute(outsideNodeName, svcExternalIP, nodeIP, false)
+		res = kubectl.AddIPRoute(ni.outsideNodeName, svcExternalIP, nodeIP, false)
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", svcExternalIP, nodeIP)
 		defer func(externalIP, nodeIP string) {
-			res := kubectl.DelIPRoute(outsideNodeName, externalIP, nodeIP)
+			res := kubectl.DelIPRoute(ni.outsideNodeName, externalIP, nodeIP)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", externalIP, nodeIP)
 		}(svcExternalIP, nodeIP)
 
 		// Should work from outside via the external IP
-		testCurlFromOutside(kubectl, httpURL, count, false, outsideNodeName, "", "")
-		testCurlFromOutside(kubectl, tftpURL, count, false, outsideNodeName, "", "")
+		testCurlFromOutside(kubectl, ni, httpURL, count, false)
+		testCurlFromOutside(kubectl, ni, tftpURL, count, false)
 		// Should fail from inside a pod & hostns
 		testCurlFromPodsFail(kubectl, testDSClient, httpURL)
 		testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
-		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s1NodeName)
-		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s1NodeName)
-		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s2NodeName)
-		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s2NodeName)
+		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s1NodeName)
+		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s1NodeName)
+		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s2NodeName)
+		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s2NodeName)
 		// However, it should work via the k8s1 IP addr
 		httpURL = getHTTPLink(nodeIP, data.Spec.Ports[0].Port)
 		tftpURL = getTFTPLink(nodeIP, data.Spec.Ports[1].Port)
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s1NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s1NodeName)
 		// TODO(fristonio): fix IPv6 access issue for external IP from non k8s1
 		// pod.
 		if svcName != nodePortServiceIPv6 {
@@ -779,28 +770,23 @@ func testExternalIPs(kubectl *helpers.Kubectl,
 	}
 }
 
-func testFailBind(kubectl *helpers.Kubectl, k8s1NodeName string) {
+func testFailBind(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var data v1.Service
 
 	err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
 	// Ensure the NodePort cannot be bound from any redirected address
-	failBind(kubectl, "127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-	failBind(kubectl, "127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
-	failBind(kubectl, "", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-	failBind(kubectl, "", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
+	failBind(kubectl, "127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", ni.k8s1NodeName)
+	failBind(kubectl, "127.0.0.1", data.Spec.Ports[1].NodePort, "udp", ni.k8s1NodeName)
+	failBind(kubectl, "", data.Spec.Ports[0].NodePort, "tcp", ni.k8s1NodeName)
+	failBind(kubectl, "", data.Spec.Ports[1].NodePort, "udp", ni.k8s1NodeName)
 
-	failBind(kubectl, "::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-	failBind(kubectl, "::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
+	failBind(kubectl, "::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", ni.k8s1NodeName)
+	failBind(kubectl, "::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", ni.k8s1NodeName)
 }
 
-func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
-	outsideNodeName, k8s1NodeName string,
-	k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6 string,
-	secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6 string,
-	outsideIP, outsideIPv6 string) {
-
+func testNodePortExternal(kubectl *helpers.Kubectl, ni *nodesInfo, checkTCP, checkUDP bool) {
 	var (
 		data                v1.Service
 		nodePortService     = "test-nodeport"
@@ -808,10 +794,10 @@ func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
 	)
 
 	services := map[string]string{
-		nodePortService: k8s1IP,
+		nodePortService: ni.k8s1IP,
 	}
 	if helpers.DualStackSupported() {
-		services[nodePortServiceIPv6] = primaryK8s1IPv6
+		services[nodePortServiceIPv6] = ni.primaryK8s1IPv6
 	}
 
 	for svcName, nodeIP := range services {
@@ -827,13 +813,11 @@ func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
 		//   won't have the client IP but the service IP (given the request comes
 		//   from the Cilium node to the backend, not from the client directly).
 		//   Same in case of Hybrid mode for UDP.
-		testCurlFromOutside(kubectl, httpURL, 10, checkTCP, outsideNodeName, outsideIP, outsideIPv6)
-		testCurlFromOutside(kubectl, tftpURL, 10, checkUDP, outsideNodeName, outsideIP, outsideIPv6)
+		testCurlFromOutside(kubectl, ni, httpURL, 10, checkTCP)
+		testCurlFromOutside(kubectl, ni, tftpURL, 10, checkUDP)
 
 		// Make sure all the rest works as expected as well
-		testNodePort(kubectl, true, false, false, 0, k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6,
-			secondaryK8s1IPv4, secondaryK8s2IPv4, secondaryK8s1IPv6, secondaryK8s2IPv6,
-			k8s1NodeName, outsideNodeName)
+		testNodePort(kubectl, ni, true, false, false, 0)
 
 		// Clear CT tables on both Cilium nodes
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -848,9 +832,7 @@ func testNodePortExternal(kubectl *helpers.Kubectl, checkTCP, checkUDP bool,
 
 // fromOutside=true tests session affinity implementation from lb.h, while
 // fromOutside=false tests from  bpf_sock.c.
-func testSessionAffinity(kubectl *helpers.Kubectl, fromOutside, vxlan bool,
-	outsideNodeName, k8s1IP, primaryK8s1IPv6 string) {
-
+func testSessionAffinity(kubectl *helpers.Kubectl, ni *nodesInfo, fromOutside, vxlan bool) {
 	var (
 		data   v1.Service
 		dstPod string
@@ -864,10 +846,10 @@ func testSessionAffinity(kubectl *helpers.Kubectl, fromOutside, vxlan bool,
 	)
 
 	services := map[string]string{
-		serviceAffinityServiceIPv4: k8s1IP,
+		serviceAffinityServiceIPv4: ni.k8s1IP,
 	}
 	if helpers.DualStackSupported() {
-		services[serviceAffinityServiceIPv6] = primaryK8s1IPv6
+		services[serviceAffinityServiceIPv6] = ni.primaryK8s1IPv6
 	}
 
 	for svcName, nodeIP := range services {
@@ -878,7 +860,7 @@ func testSessionAffinity(kubectl *helpers.Kubectl, fromOutside, vxlan bool,
 		cmd := helpers.CurlFail(httpURL) + " | grep 'Hostname:' " // pod name is in the hostname
 
 		if fromOutside {
-			from = outsideNodeName
+			from = ni.outsideNodeName
 		} else {
 			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, testDSClient)
 			ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
@@ -955,11 +937,7 @@ func testSessionAffinity(kubectl *helpers.Kubectl, fromOutside, vxlan bool,
 	}
 }
 
-func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl,
-	outsideNodeName, outsideIP, outsideIPv6 string,
-	k8s1NodeName, k8s2NodeName string,
-	k8s1IP, k8s2IP, primaryK8s1IPv6, primaryK8s2IPv6 string) {
-
+func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var (
 		data    v1.Service
 		httpURL string
@@ -979,16 +957,16 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl,
 
 	services := []nodeInfo{
 		{
-			k8s1IP,
-			k8s2IP,
+			ni.k8s1IP,
+			ni.k8s2IP,
 			localNodePortSvcIPv4,
 			localNodePortK8s2SvcIpv4,
 		},
 	}
 	if helpers.DualStackSupported() {
 		services = append(services, nodeInfo{
-			primaryK8s1IPv6,
-			primaryK8s2IPv6,
+			ni.primaryK8s1IPv6,
+			ni.primaryK8s2IPv6,
 			localNodePortSvcIPv6,
 			localNodePortK8s2SvcIpv6,
 		})
@@ -1007,8 +985,8 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl,
 		if helpers.ExistNodeWithoutCilium() {
 			httpURL = getHTTPLink(node.node1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(node.node1IP, data.Spec.Ports[1].NodePort)
-			testCurlFromOutside(kubectl, httpURL, count, true, outsideNodeName, outsideIP, outsideIPv6)
-			testCurlFromOutside(kubectl, tftpURL, count, true, outsideNodeName, outsideIP, outsideIPv6)
+			testCurlFromOutside(kubectl, ni, httpURL, count, true)
+			testCurlFromOutside(kubectl, ni, tftpURL, count, true)
 		} else {
 			GinkgoPrint("Skipping externalTrafficPolicy=Local test from external node")
 		}
@@ -1019,13 +997,13 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl,
 		// Checks that requests to k8s2 succeed where Pod is also running
 		httpURL = getHTTPLink(node.node2IP, data.Spec.Ports[0].NodePort)
 		tftpURL = getTFTPLink(node.node2IP, data.Spec.Ports[1].NodePort)
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s1NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s1NodeName)
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 		if helpers.ExistNodeWithoutCilium() {
-			testCurlFromOutside(kubectl, httpURL, count, true, outsideNodeName, outsideIP, outsideIPv6)
-			testCurlFromOutside(kubectl, tftpURL, count, true, outsideNodeName, outsideIP, outsideIPv6)
+			testCurlFromOutside(kubectl, ni, httpURL, count, true)
+			testCurlFromOutside(kubectl, ni, tftpURL, count, true)
 		}
 
 		// Local requests should be load-balanced on kube-proxy 1.15+.
@@ -1033,8 +1011,8 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl,
 		// behavior on the iptables-backend for kube-proxy.
 		httpURL = getHTTPLink(node.node1IP, data.Spec.Ports[0].NodePort)
 		tftpURL = getTFTPLink(node.node1IP, data.Spec.Ports[1].NodePort)
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s1NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s1NodeName)
 		// In-cluster connectivity from k8s2 to k8s1 IP will still work with
 		// HostReachableServices (regardless of if we are running with or
 		// without kube-proxy) since we'll hit the wildcard rule in bpf_sock
@@ -1053,26 +1031,24 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl,
 		hostReachableServicesUDP := kubectl.HasHostReachableServices(ciliumPodK8s2, false, true)
 		bpfNodePort := kubectl.HasBPFNodePort(ciliumPodK8s2)
 		if hostReachableServicesTCP && bpfNodePort {
-			testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
 		} else {
-			testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s2NodeName)
+			testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s2NodeName)
 		}
 		if hostReachableServicesUDP && bpfNodePort {
-			testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 		} else {
-			testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, k8s2NodeName)
+			testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, ni.k8s2NodeName)
 		}
 
 		// Requests from a non-Cilium node to k8s1 IP will fail though.
 		if helpers.ExistNodeWithoutCilium() {
-			testCurlFailFromOutside(kubectl, tftpURL, 1, outsideNodeName)
+			testCurlFailFromOutside(kubectl, ni, tftpURL, 1)
 		}
 	}
 }
 
-func testHostPort(kubectl *helpers.Kubectl,
-	k8s1NodeName, k8s2NodeName, k8s2IP, primaryK8s2IPv6 string) {
-
+func testHostPort(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var (
 		httpURL string
 		tftpURL string
@@ -1089,90 +1065,88 @@ func testHostPort(kubectl *helpers.Kubectl,
 	pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 
-	res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
-	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
+	res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+ni.k8s2IP+":"+httpHostPortStr+" | grep HostPort")
+	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+ni.k8s2IP+":"+httpHostPortStr)
 
-	res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
-	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
+	res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+ni.k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
+	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+ni.k8s2IP+":"+tftpHostPortStr)
 
 	if helpers.DualStackSupported() {
-		res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep ["+primaryK8s2IPv6+"]:"+httpHostPortStr+" | grep HostPort")
-		ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for ["+primaryK8s2IPv6+"]:"+httpHostPortStr)
+		res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep ["+ni.primaryK8s2IPv6+"]:"+httpHostPortStr+" | grep HostPort")
+		ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for ["+ni.primaryK8s2IPv6+"]:"+httpHostPortStr)
 
-		res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep ["+primaryK8s2IPv6+"]:"+tftpHostPortStr+" | grep HostPort")
-		ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for ["+primaryK8s2IPv6+"]:"+tftpHostPortStr)
+		res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep ["+ni.primaryK8s2IPv6+"]:"+tftpHostPortStr+" | grep HostPort")
+		ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for ["+ni.primaryK8s2IPv6+"]:"+tftpHostPortStr)
 	}
 
 	// Cluster-internal connectivity via node address to HostPort
-	httpURL = getHTTPLink(k8s2IP, httpHostPort)
-	tftpURL = getTFTPLink(k8s2IP, tftpHostPort)
+	httpURL = getHTTPLink(ni.k8s2IP, httpHostPort)
+	tftpURL = getTFTPLink(ni.k8s2IP, tftpHostPort)
 
 	// ... from same node
-	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 
 	// ... from different node
-	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s1NodeName)
-	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s1NodeName)
+	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s1NodeName)
+	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s1NodeName)
 
 	// Cluster-internal connectivity via loopback to HostPort
 	httpURL = getHTTPLink("127.0.0.1", httpHostPort)
 	tftpURL = getTFTPLink("127.0.0.1", tftpHostPort)
 
 	// ... from same node
-	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 
 	// ... from different node
-	testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s1NodeName)
-	testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, k8s1NodeName)
+	testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s1NodeName)
+	testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, ni.k8s1NodeName)
 
 	// Cluster-internal connectivity via v4-in-v6 node address to HostPort
-	httpURL = getHTTPLink("::ffff:"+k8s2IP, httpHostPort)
-	tftpURL = getTFTPLink("::ffff:"+k8s2IP, tftpHostPort)
+	httpURL = getHTTPLink("::ffff:"+ni.k8s2IP, httpHostPort)
+	tftpURL = getTFTPLink("::ffff:"+ni.k8s2IP, tftpHostPort)
 
 	// ... from same node
-	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 
 	// Cluster-internal connectivity via v4-in-v6 loopback to HostPort
 	httpURL = getHTTPLink("::ffff:127.0.0.1", httpHostPort)
 	tftpURL = getTFTPLink("::ffff:127.0.0.1", tftpHostPort)
 
 	// ... from same node
-	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+	testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 
 	if helpers.DualStackSupported() {
 		// Cluster-internal connectivity via node address to HostPort
-		httpURL = getHTTPLink(primaryK8s2IPv6, httpHostPort)
-		tftpURL = getTFTPLink(primaryK8s2IPv6, tftpHostPort)
+		httpURL = getHTTPLink(ni.primaryK8s2IPv6, httpHostPort)
+		tftpURL = getTFTPLink(ni.primaryK8s2IPv6, tftpHostPort)
 
 		// ... from same node
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 
 		// ... from different node
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s1NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s1NodeName)
 
 		// Cluster-internal connectivity via loopback to HostPort
 		httpURL = getHTTPLink("::1", httpHostPort)
 		tftpURL = getTFTPLink("::1", tftpHostPort)
 
 		// ... from same node
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, k8s2NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, k8s2NodeName)
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.k8s2NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.k8s2NodeName)
 
 		// ... from different node
-		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, k8s1NodeName)
-		testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, k8s1NodeName)
+		testCurlFailFromPodInHostNetNS(kubectl, httpURL, 1, ni.k8s1NodeName)
+		testCurlFailFromPodInHostNetNS(kubectl, tftpURL, 1, ni.k8s1NodeName)
 	}
 }
 
-func testHealthCheckNodePort(kubectl *helpers.Kubectl,
-	k8s1NodeName, k8s2NodeName, k8s1IP, k8s2IP string) {
-
+func testHealthCheckNodePort(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var data v1.Service
 
 	// Service with HealthCheckNodePort that only has backends on k8s2
@@ -1182,19 +1156,17 @@ func testHealthCheckNodePort(kubectl *helpers.Kubectl,
 	count := 10
 
 	// Checks that requests to k8s2 return 200
-	url := getHTTPLink(k8s2IP, data.Spec.HealthCheckNodePort)
-	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "200", k8s1NodeName)
-	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "200", k8s2NodeName)
+	url := getHTTPLink(ni.k8s2IP, data.Spec.HealthCheckNodePort)
+	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "200", ni.k8s1NodeName)
+	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "200", ni.k8s2NodeName)
 
 	// Checks that requests to k8s1 return 503 Service Unavailable
-	url = getHTTPLink(k8s1IP, data.Spec.HealthCheckNodePort)
-	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "503", k8s1NodeName)
-	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "503", k8s2NodeName)
+	url = getHTTPLink(ni.k8s1IP, data.Spec.HealthCheckNodePort)
+	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "503", ni.k8s1NodeName)
+	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "503", ni.k8s2NodeName)
 }
 
-func testIPv4FragmentSupport(kubectl *helpers.Kubectl,
-	k8s1IP, k8s2IP string) {
-
+func testIPv4FragmentSupport(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var (
 		data    v1.Service
 		srcPort = 12345
@@ -1222,13 +1194,13 @@ func testIPv4FragmentSupport(kubectl *helpers.Kubectl,
 	doFragmentedRequest(kubectl, clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true)
 
 	// From pod via node IPs
-	doFragmentedRequest(kubectl, clientPod, srcPort+1, serverPort, k8s1IP, nodePort, hasDNAT)
-	doFragmentedRequest(kubectl, clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT)
-	doFragmentedRequest(kubectl, clientPod, srcPort+3, serverPort, k8s2IP, nodePort, hasDNAT)
-	doFragmentedRequest(kubectl, clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+1, serverPort, ni.k8s1IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+2, serverPort, "::ffff:"+ni.k8s1IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+3, serverPort, ni.k8s2IP, nodePort, hasDNAT)
+	doFragmentedRequest(kubectl, clientPod, srcPort+4, serverPort, "::ffff:"+ni.k8s2IP, nodePort, hasDNAT)
 }
 
-func testMaglev(kubectl *helpers.Kubectl, outsideNodeName, k8s1IP, k8s2IP string) {
+func testMaglev(kubectl *helpers.Kubectl, ni *nodesInfo) {
 	var (
 		data  v1.Service
 		count = 10
@@ -1252,14 +1224,14 @@ func testMaglev(kubectl *helpers.Kubectl, outsideNodeName, k8s1IP, k8s2IP string
 		// Send requests from the same IP and port to different nodes, and check
 		// that the same backend is selected
 
-		for _, host := range []string{k8s1IP, k8s2IP} {
+		for _, host := range []string{ni.k8s1IP, ni.k8s2IP} {
 			url := getTFTPLink(host, data.Spec.Ports[1].NodePort)
 			cmd := helpers.CurlFail("--local-port %d %s", port, url) + " | grep 'Hostname:' " // pod name is in the hostname
 
-			By("Making %d HTTP requests from %s:%d to %q", count, outsideNodeName, port, url)
+			By("Making %d HTTP requests from %s:%d to %q", count, ni.outsideNodeName, port, url)
 
 			for i := 1; i <= count; i++ {
-				res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+				res := kubectl.ExecInHostNetNS(context.TODO(), ni.outsideNodeName, cmd)
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"Cannot connect to service %q (%d/%d)", url, i, count)
 				pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
@@ -1273,7 +1245,7 @@ func testMaglev(kubectl *helpers.Kubectl, outsideNodeName, k8s1IP, k8s2IP string
 	}
 }
 
-func applyFRRTemplate(kubectl *helpers.Kubectl, outsideNodeName, k8s1IP, k8s2IP string) string {
+func applyFRRTemplate(kubectl *helpers.Kubectl, ni *nodesInfo) string {
 	tmpl := helpers.ManifestGet(kubectl.BasePath(), "frr.yaml.tmpl")
 	content, err := os.ReadFile(tmpl)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -1288,8 +1260,8 @@ func applyFRRTemplate(kubectl *helpers.Kubectl, outsideNodeName, k8s1IP, k8s2IP 
 		OutsideNodeName string
 		Nodes           []string
 	}{
-		OutsideNodeName: outsideNodeName,
-		Nodes:           []string{k8s1IP, k8s2IP},
+		OutsideNodeName: ni.outsideNodeName,
+		Nodes:           []string{ni.k8s1IP, ni.k8s2IP},
 	})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -1321,15 +1293,12 @@ func applyBGPCMTemplate(kubectl *helpers.Kubectl, ip string) string {
 	return path
 }
 
-func testDSR(kubectl *helpers.Kubectl, sourcePortForCTGCtest int,
-	outsideNodeName, outsideIP, outsideIPv6 string,
-	k8s1IP string) {
-
+func testDSR(kubectl *helpers.Kubectl, ni *nodesInfo, sourcePortForCTGCtest int) {
 	var data v1.Service
 	err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	url := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
-	testCurlFromOutside(kubectl, url, 10, true, outsideNodeName, outsideIP, outsideIPv6)
+	url := getHTTPLink(ni.k8s1IP, data.Spec.Ports[0].NodePort)
+	testCurlFromOutside(kubectl, ni, url, 10, true)
 
 	// Test whether DSR NAT entries are evicted by GC
 
@@ -1339,9 +1308,9 @@ func testDSR(kubectl *helpers.Kubectl, sourcePortForCTGCtest int,
 	// client -> k8s1 -> endpoint @ k8s2.
 	err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
+	url = getHTTPLink(ni.k8s1IP, data.Spec.Ports[0].NodePort)
 
-	testCurlFromOutsideWithLocalPort(kubectl, url, 1, true, sourcePortForCTGCtest, outsideNodeName, outsideIP, outsideIPv6)
+	testCurlFromOutsideWithLocalPort(kubectl, ni, url, 1, true, sourcePortForCTGCtest)
 	res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
 	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
 	// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
