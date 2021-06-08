@@ -19,7 +19,7 @@
      - bool
      - ``false``
    * - autoDirectNodeRoutes
-     - 
+     - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
      - ``false``
    * - azure.enabled
@@ -47,11 +47,11 @@
      - bool
      - ``false``
    * - bpf.lbMapMax
-     - Configure the maximum number of entries in the TCP connection tracking table. ctTcpMax: '524288' -- Configure the maximum number of entries for the non-TCP connection tracking table. ctAnyMax: '262144' -- Configure the maximum number of service entries in the load balancer maps.
+     - Configure the maximum number of service entries in the load balancer maps.
      - int
      - ``65536``
    * - bpf.monitorAggregation
-     - Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/v1.9/concepts/ebpf/maps/#ebpf-maps -- Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum
+     - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum
      - string
      - ``"medium"``
    * - bpf.monitorFlags
@@ -63,7 +63,7 @@
      - string
      - ``"5s"``
    * - bpf.policyMapMax
-     - Configure the maximum number of entries for the NAT table. natMax: 524288 -- Configure the maximum number of entries for the neighbor table. neighMax: 524288 -- Configure the maximum number of entries in endpoint policy map. (per endpoint)
+     - Configure the maximum number of entries in endpoint policy map. (per endpoint)
      - int
      - ``16384``
    * - bpf.preallocateMaps
@@ -109,7 +109,7 @@
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:c5dbcb2708529e4a3ccc007183d99c5171df5ee1db7e7218d48d7660c8158193","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.0","useDigest":true}``
+     - ``{"digest":"sha256:a201c1bfdc67b7e583f476a1a4b95f28cec692f58a1eef30046b4c0bfd3e5a08","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.10.1","useDigest":true}``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -211,7 +211,7 @@
      - string
      - ``"/etc/cni/net.d"``
    * - cni.configMapKey
-     - Specify the path to a CNI config to read from on agent start. This can be useful if you want to manage your CNI configuration outside of a Kubernetes environment. This parameter is mutually exclusive with the 'cni.configMap' parameter. readCniConf: /host/etc/cni/net.d/05-cilium.conf -- When defined, configMap will mount the provided value as ConfigMap and interpret the cniConf variable as CNI configuration file and write it when the agent starts up configMap: cni-configuration -- Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from.
+     - Configure the key in the CNI ConfigMap to read the contents of the CNI configuration from.
      - string
      - ``"cni-config"``
    * - cni.customConf
@@ -231,13 +231,17 @@
      - bool
      - ``true``
    * - containerRuntime
-     - Configure how frequently garbage collection should occur for the datapath connection tracking table. conntrackGCInterval: "0s" -- Configure container runtime specific integration.
+     - Configure container runtime specific integration.
      - object
      - ``{"integration":"none"}``
    * - containerRuntime.integration
      - Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime)
      - string
      - ``"none"``
+   * - customCalls
+     - Tail call hooks for custom eBPF programs.
+     - object
+     - ``{"enabled":false}``
    * - customCalls.enabled
      - Enable tail call hooks for custom eBPF programs.
      - bool
@@ -267,7 +271,7 @@
      - bool
      - ``true``
    * - enableIPv4Masquerade
-     - hashSeed is the cluster-wide base64 encoded seed for the hashing hashSeed: -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
+     - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
      - ``true``
    * - enableIPv6Masquerade
@@ -279,7 +283,7 @@
      - bool
      - ``false``
    * - enableXTSocketFallback
-     - 
+     - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: http://docs.cilium.io/en/stable/install/system_requirements/#admin-kernel-version.
      - bool
      - ``true``
    * - encryption.enabled
@@ -523,7 +527,7 @@
      - string
      - ``":4244"``
    * - hubble.metrics
-     - Buffer size of the channel Hubble uses to receive monitor events. If this value is not set, the queue size is set to the default monitor queue size. eventQueueSize: "" -- Number of recent flows for Hubble to cache. Defaults to 4095. Possible values are:   1, 3, 7, 15, 31, 63, 127, 255, 511, 1023,   2047, 4095, 8191, 16383, 32767, 65535 eventBufferCapacity: "4095" -- Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
+     - Hubble metrics configuration. See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
      - ``{"enabled":null,"port":9091,"serviceMonitor":{"enabled":false}}``
    * - hubble.metrics.enabled
@@ -553,7 +557,7 @@
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:e92e6778c71aa9e181618d61e9403761ad061c3960a9203aa2cf8e6cde95c9d7","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.0","useDigest":true}``
+     - ``{"digest":"sha256:6f0d6b5698ab87b58923237caa071b5d7eb3e83ffd688e5e70a8edeca7a06cf4","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.10.1","useDigest":true}``
    * - hubble.relay.listenHost
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -733,13 +737,13 @@
    * - image
      - Agent container image.
      - object
-     - ``{"digest":"sha256:587627d909ffe0418c0bd907516496844867a21812946af82096d367760e4c1e","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.0","useDigest":true}``
+     - ``{"digest":"sha256:f5fcdfd4929af5a8903b02da61332eea41dcdb512420b8c807e2e2904270561c","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.1","useDigest":true}``
    * - imagePullSecrets
      - Configure image pull secrets for pulling container images
      - string
      - ``nil``
    * - installIptablesRules
-     - 
+     - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool
      - ``true``
    * - installNoConntrackIptablesRules
@@ -787,7 +791,7 @@
      - object
      - ``{}``
    * - keepDeprecatedLabels
-     - requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR range via the Kubernetes node resource requireIPv6PodCIDR: false -- Keep the deprecated selector labels when deploying Cilium DaemonSet
+     - Keep the deprecated selector labels when deploying Cilium DaemonSet
      - bool
      - ``false``
    * - keepDeprecatedProbes
@@ -795,7 +799,7 @@
      - bool
      - ``false``
    * - kubeProxyReplacementHealthzBindAddr
-     - Configure the kube-proxy replacement in Cilium BPF datapath Valid options are "disabled", "probe", "partial", "strict". ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/ -- healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled.
+     - healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled.
      - string
      - ``""``
    * - l7Proxy
@@ -807,7 +811,7 @@
      - bool
      - ``false``
    * - logSystemLoad
-     - 
+     - Enables periodic logging of system load
      - bool
      - ``false``
    * - maglev
@@ -815,7 +819,7 @@
      - object
      - ``{}``
    * - monitor
-     - Specify the CIDR for native routing (ie to avoid IP masquerade for). This value corresponds to the configured cluster-cidr. nativeRoutingCIDR: -- Configure cilium-monitor sidecar
+     - Configure cilium-monitor sidecar
      - object
      - ``{"enabled":false}``
    * - name
@@ -823,7 +827,7 @@
      - string
      - ``"cilium"``
    * - nodePort
-     - Configure service load balancing loadBalancer: -- standalone enables the standalone L4LB which does not connect to kube-apiserver. standalone: false -- algorithm is the name of the load balancing algorithm for backend selection e.g. random or maglev algorithm: random -- mode is the operation mode of load balancing for remote backends e.g. snat, dsr, hybrid mode: snat -- acceleration is the option to accelerate service handling via XDP e.g. native, disabled acceleration: disabled -- dsrDispatch configures whether IP option or IPIP encapsulation is used to pass a service IP and port to remote backend dsrDispatch: opt -- Configure N-S k8s service loadbalancing
+     - Configure N-S k8s service loadbalancing
      - object
      - ``{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enabled":false}``
    * - nodePort.autoProtectPortRange
@@ -831,7 +835,7 @@
      - bool
      - ``true``
    * - nodePort.bindProtection
-     - Port range to use for NodePort services. range: "30000,32767" -- Set to true to prevent applications binding to service ports.
+     - Set to true to prevent applications binding to service ports.
      - bool
      - ``true``
    * - nodePort.enableHealthCheck
@@ -949,7 +953,7 @@
    * - operator.image
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:ab68157bd70c6158ec5fc03f17de81639d5a3ee7acd64120c2788354fa6f1cfc","awsDigest":"sha256:c704c40862aa8eecd6ba66d456701f7514b9db57ae956a8e22f640eea89003ed","azureDigest":"sha256:eed06e79fd5efed2fc9ccebd98e5c38c610429334389a3da939a40f701c1f399","genericDigest":"sha256:65143311a62a95dbe23c69ff2f624e0fdf030eb225e6375d889da66a955dd828","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.0","useDigest":true}``
+     - ``{"alibabacloudDigest":"sha256:07d692a357252f04f49bab97c47fe30a75d08d8f9f0896dc1452b335101b8938","awsDigest":"sha256:16c186f8909c6fcdc6c2db7e5ce31fa0616bb44c4b134bee52b005b9ee827b9f","azureDigest":"sha256:ae751480d95d7cd53c130821bc69f11662bc0a2aa283bc1efbe9a10ebdd4ed24","genericDigest":"sha256:a1588ee00a15f2f2b419e4acd36bd57d64a5f10eb52d0fd4de689e558a913cd8","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.10.1","useDigest":true}``
    * - operator.nodeSelector
      - Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1023,7 +1027,7 @@
      - object
      - ``{}``
    * - policyEnforcementMode
-     - 
+     - The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
      - string
      - ``"default"``
    * - pprof.enabled
@@ -1053,7 +1057,7 @@
    * - preflight.image
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:587627d909ffe0418c0bd907516496844867a21812946af82096d367760e4c1e","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.0","useDigest":true}``
+     - ``{"digest":"sha256:f5fcdfd4929af5a8903b02da61332eea41dcdb512420b8c807e2e2904270561c","pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.10.1","useDigest":true}``
    * - preflight.nodeSelector
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/
      - object
@@ -1159,21 +1163,17 @@
      - object
      - ``{"annotations":{},"create":true,"name":"hubble-generate-certs"}``
    * - sleepAfterInit
-     - 
+     - Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node.
      - bool
      - ``false``
    * - sockops
      - Configure BPF socket operations configuration
      - object
      - ``{"enabled":false}``
-   * - tls.enabled
-     - 
-     - bool
-     - ``true``
-   * - tls.secretsBackend
-     - 
-     - string
-     - ``"local"``
+   * - tls
+     - Configure TLS configuration in the agent.
+     - object
+     - ``{"enabled":true,"secretsBackend":"local"}``
    * - tolerations
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
