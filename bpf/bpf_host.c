@@ -451,7 +451,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	    __u32 ipcache_srcid __maybe_unused, const bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
-	__u32 __maybe_unused remoteID = 0;
+	__u32 __maybe_unused remote_id = 0;
 	__u32 __maybe_unused monitor = 0;
 	struct ipv4_ct_tuple tuple = {};
 	bool skip_redirect = false;
@@ -508,7 +508,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
 		/* We're on the ingress path of the native device. */
-		ret = ipv4_host_policy_ingress(ctx, &remoteID);
+		ret = ipv4_host_policy_ingress(ctx, &remote_id);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1084,12 +1084,12 @@ int to_host(struct __ctx_buff *ctx)
 	__u16 __maybe_unused proto = 0;
 	int ret = CTX_ACT_OK;
 	bool traced = false;
-	__u32 srcID = 0;
+	__u32 src_id = 0;
 
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
-		srcID = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-		set_identity_mark(ctx, srcID);
+		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+		set_identity_mark(ctx, src_id);
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
@@ -1114,7 +1114,7 @@ int to_host(struct __ctx_buff *ctx)
 #endif
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, srcID, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, src_id, 0, 0,
 				  CILIUM_IFINDEX, ret, 0);
 
 #ifdef ENABLE_HOST_FIREWALL
@@ -1133,12 +1133,12 @@ int to_host(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_ingress(ctx, &srcID);
+		ret = ipv6_host_policy_ingress(ctx, &src_id);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = ipv4_host_policy_ingress(ctx, &srcID);
+		ret = ipv4_host_policy_ingress(ctx, &src_id);
 		break;
 # endif
 	default:
@@ -1151,7 +1151,7 @@ int to_host(struct __ctx_buff *ctx)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
 
 	return ret;
@@ -1163,12 +1163,12 @@ declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6))
 			 is_defined(DEBUG)), CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
 int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 {
-	__u32 srcID = 0;
+	__u32 src_id = 0;
 	int ret;
 
-	ret = ipv6_host_policy_ingress(ctx, &srcID);
+	ret = ipv6_host_policy_ingress(ctx, &src_id);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
 	return ret;
 }
@@ -1179,12 +1179,12 @@ declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6))
 			 is_defined(DEBUG)), CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {
-	__u32 srcID = 0;
+	__u32 src_id = 0;
 	int ret;
 
-	ret = ipv4_host_policy_ingress(ctx, &srcID);
+	ret = ipv4_host_policy_ingress(ctx, &src_id);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
 	return ret;
 }

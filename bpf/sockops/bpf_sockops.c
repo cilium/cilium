@@ -55,7 +55,7 @@ static __always_inline bool redirect_to_proxy(int verdict)
 static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 {
 	struct lb4_key lb4_key = {};
-	__u32 dip4, dport, dstID = 0;
+	__u32 dip4, dport, dst_id = 0;
 	struct endpoint_info *exists;
 	struct lb4_service *svc;
 	struct sock_key key = {};
@@ -77,12 +77,12 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 
 		info = lookup_ip4_remote_endpoint(key.dip4);
 		if (info != NULL && info->sec_label)
-			dstID = info->sec_label;
+			dst_id = info->sec_label;
 		else
-			dstID = WORLD_ID;
+			dst_id = WORLD_ID;
 	}
 
-	verdict = policy_sk_egress(dstID, key.sip4, key.dport);
+	verdict = policy_sk_egress(dst_id, key.sip4, key.dport);
 	if (redirect_to_proxy(verdict)) {
 		__be32 host_ip = IPV4_GATEWAY;
 
