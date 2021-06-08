@@ -2360,6 +2360,12 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			"kubeProxyReplacement": "strict",
 		}
 
+		if RunsWithKubeProxy() {
+			// If kube-proxy is running, we need to disable NodePort health
+			// checks to avoid an error message.
+			opts["nodePort.enableHealthCheck"] = "false"
+		}
+
 		if DoesNotRunOnGKE() {
 			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 			if err != nil {
