@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -577,11 +576,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// which can be modified after the device detection.
 	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
-
-	// Cgroup v2 hierarchy root used for attachment is different when running on Kind.
-	runsOnKind := option.Config.EnableHostReachableServices &&
-		strings.HasPrefix(node.GetProviderID(), "kind://")
-	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot, runsOnKind)
 
 	// Launch the K8s watchers in parallel as we continue to process other
 	// daemon options.

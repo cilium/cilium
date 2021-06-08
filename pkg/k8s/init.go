@@ -101,12 +101,6 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 
 		}
 
-		// This is going to be used to detect whether cilium-agent is running on KIND
-		// to set a cgroup v2 root. The provider ID cannot be retrieved from CiliumNode
-		// object (a case above for IPAM == ClusterPool). This is fine, as long as
-		// we recommend to use IPAM = Kubernetes in the KIND getting started guide.
-		node.SetProviderID(k8sNode.Spec.ProviderID)
-
 		nodeInterface := ConvertToNode(k8sNode)
 		if nodeInterface == nil {
 			// This will never happen and the GetNode on line 63 will be soon
