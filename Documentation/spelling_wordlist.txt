@@ -297,6 +297,7 @@ dev
 devel
 dialTimeout
 diff
+disableEndpointCRD
 disableEnvoyVersionCheck
 disableIptablesFeederRules
 disassembly
@@ -912,6 +913,7 @@ xfrm
 xml
 xor
 xoring
+xt
 xwing
 xxxxx
 yaml
