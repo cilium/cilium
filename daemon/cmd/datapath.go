@@ -207,7 +207,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	if option.Config.EnableIPv6 {
 		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
 		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
+			log.WithError(err).Warning("Unable to list local IPv6 addresses")
 		}
 
 		addrs = append(addrs, node.GetIPv6Router())
