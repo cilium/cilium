@@ -1483,7 +1483,7 @@ preflight:
   # -- Annotations to be added to preflight pods
   podAnnotations: {}
 
-  # -- Labels to be added to thee preflight pod.
+  # -- Labels to be added to the preflight pod.
   podLabels: {}
 
   # -- PodDisruptionBudget settings
