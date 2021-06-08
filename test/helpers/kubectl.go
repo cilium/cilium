@@ -675,7 +675,7 @@ func (kub *Kubectl) labelNodes() error {
 // GetCiliumEndpoint returns the CiliumEndpoint for the specified pod.
 func (kub *Kubectl) GetCiliumEndpoint(namespace string, pod string) (*cnpv2.EndpointStatus, error) {
 	fullName := namespace + "/" + pod
-	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.status'", KubectlCmd, namespace, pod)
+	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.status | select (.!=null)'", KubectlCmd, namespace, pod)
 	res := kub.ExecShort(cmd)
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("unable to run command '%s' to retrieve CiliumEndpoint %s: %s",
