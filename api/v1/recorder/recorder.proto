@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 
 package recorder;
 
@@ -49,6 +50,26 @@ message StartRecording {
     // max_capture_length specifies the maximum packet length.
     // Full packet length will be captured if absent/zero.
     uint32 max_capture_length = 3;
+
+    // stop_condition defines conditions which will cause the recording to
+    // stop early after any of the stop conditions has been hit
+    StopCondition stop_condition = 4;
+}
+
+// StopCondition defines one or more conditions which cause the recording to
+// stop after they have been hit. Stop conditions are ignored if they are
+// absent or zero-valued. If multiple conditions are defined, the recording
+// stops after the first one is hit.
+message StopCondition {
+    // bytes_captured_count stops the recording after at least this many bytes
+    // have been captured. Note: The resulting file might be slightly larger due
+    // to added pcap headers.
+    uint64 bytes_captured_count = 1;
+    // packets_captured_count stops the recording after at least this many packets have
+    // been captured.
+    uint64 packets_captured_count = 2;
+    // time_elapsed stops the recording after this duration has elapsed.
+    google.protobuf.Duration time_elapsed = 3;
 }
 
 // FileSinkConfiguration configures the file output. Possible future additions
