@@ -30,7 +30,7 @@
      - bool
      - ``false``
    * - bpf.clockProbe
-     - 
+     - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
      - ``false``
    * - bpf.lbMapMax
@@ -38,7 +38,7 @@
      - int
      - ``65536``
    * - bpf.monitorAggregation
-     - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum
+     - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum.
      - string
      - ``"medium"``
    * - bpf.monitorFlags
@@ -50,7 +50,7 @@
      - string
      - ``"5s"``
    * - bpf.policyMapMax
-     - Configure the maximum number of entries in endpoint policy map. (per endpoint)
+     - Configure the maximum number of entries in endpoint policy map (per endpoint).
      - int
      - ``16384``
    * - bpf.preallocateMaps
@@ -126,11 +126,11 @@
      - int
      - ``32379``
    * - clustermesh.apiserver.service.type
-     - 
+     - The type of service used for apiserver access.
      - string
      - ``"NodePort"``
    * - clustermesh.apiserver.tls.admin
-     - base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key Used if 'auto' is not enabled.
+     - base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
    * - clustermesh.apiserver.tls.auto
@@ -158,15 +158,15 @@
      - string
      - ``""``
    * - clustermesh.apiserver.tls.client
-     - base64 encoded PEM values for the clustermesh-apiserver client certificate and private key Used if 'auto' is not enabled.
+     - base64 encoded PEM values for the clustermesh-apiserver client certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
    * - clustermesh.apiserver.tls.remote
-     - base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key Used if 'auto' is not enabled.
+     - base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
    * - clustermesh.apiserver.tls.server
-     - base64 encoded PEM values for the clustermesh-apiserver server certificate and private key Used if 'auto' is not enabled.
+     - base64 encoded PEM values for the clustermesh-apiserver server certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
    * - clustermesh.apiserver.tolerations
@@ -234,7 +234,7 @@
      - bool
      - ``false``
    * - enableCnpStatusUpdates
-     - Specify which network interfaces can run the eBPF datapath. This means that a packet sent from a pod to a destination outside the cluster will be masqueraded (to an output device IPv4 address), if the output device runs the program. When not specified, probing will automatically detect devices. devices: "" TODO: Add documentation disableIptablesFeederRules: "" TODO: Add documentation egressMasqueradeInterfaces: ""
+     - Whether to enable CNP status updates.
      - bool
      - ``false``
    * - enableCriticalPriorityClass
@@ -266,7 +266,7 @@
      - string
      - ``"cilium-ipsec-keys"``
    * - endpointHealthChecking.enabled
-     - 
+     - Enable connectivity health checking between virtual endpoints.
      - bool
      - ``true``
    * - endpointRoutes.enabled
@@ -294,19 +294,19 @@
      - list
      - ``["https://CHANGE-ME:2379"]``
    * - etcd.extraArgs
-     - Additional cilium-etcd-operator container arguments
+     - Additional cilium-etcd-operator container arguments.
      - object
      - ``{}``
    * - etcd.extraConfigmapMounts
-     - Additional cilium-etcd-operator ConfigMap mounts
+     - Additional cilium-etcd-operator ConfigMap mounts.
      - list
      - ``[]``
    * - etcd.extraHostPathMounts
-     - Additional cilium-etcd-operator hostPath mounts
+     - Additional cilium-etcd-operator hostPath mounts.
      - list
      - ``[]``
    * - etcd.extraInitContainers
-     - Additional InitContainers to initialize the pod
+     - Additional InitContainers to initialize the pod.
      - list
      - ``[]``
    * - etcd.image
@@ -374,7 +374,7 @@
      - bool
      - ``false``
    * - extraArgs
-     - Additional agent container arguments
+     - Additional agent container arguments.
      - object
      - ``{}``
    * - extraConfig
@@ -382,19 +382,19 @@
      - object
      - ``{}``
    * - extraConfigmapMounts
-     - Additional agent ConfigMap mounts
+     - Additional agent ConfigMap mounts.
      - list
      - ``[]``
    * - extraEnv
-     - Additional agent container environment variables
+     - Additional agent container environment variables.
      - object
      - ``{}``
    * - extraHostPathMounts
-     - Additional agent hostPath mounts
+     - Additional agent hostPath mounts.
      - list
      - ``[]``
    * - extraInitContainers
-     - Additional InitContainers to initialize the pod
+     - Additional InitContainers to initialize the pod.
      - list
      - ``[]``
    * - flannel.enabled
@@ -414,7 +414,7 @@
      - bool
      - ``false``
    * - healthChecking
-     - 
+     - Enable connectivity health checking.
      - bool
      - ``true``
    * - healthPort
@@ -465,10 +465,6 @@
      - Create ServiceMonitor resources for Prometheus Operator. This requires the prometheus CRDs to be available. ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
      - bool
      - ``false``
-   * - hubble.metricsServer
-     - 
-     - string
-     - ``""``
    * - hubble.relay.dialTimeout
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
@@ -594,11 +590,11 @@
      - object
      - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.7.3"}``
    * - hubble.ui.backend.resources
-     - 
+     - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
      - ``{}``
    * - hubble.ui.enabled
-     - 
+     - Whether to enable the Hubble UI.
      - bool
      - ``false``
    * - hubble.ui.frontend.image
@@ -606,7 +602,7 @@
      - object
      - ``{"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.7.3"}``
    * - hubble.ui.frontend.resources
-     - 
+     - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
      - ``{}``
    * - hubble.ui.ingress
@@ -630,11 +626,11 @@
      - object
      - ``{"pullPolicy":"IfNotPresent","repository":"docker.io/envoyproxy/envoy","tag":"v1.14.5"}``
    * - hubble.ui.proxy.resources
-     - 
+     - Resource requests and limits for the 'proxy' container of the 'hubble-ui' deployment.
      - object
      - ``{}``
    * - hubble.ui.replicas
-     - 
+     - The number of replicas of Hubble UI to deploy.
      - int
      - ``1``
    * - hubble.ui.rollOutPods
@@ -642,7 +638,7 @@
      - bool
      - ``false``
    * - hubble.ui.securityContext.enabled
-     - 
+     - Whether to set the security context on the Hubble UI pods.
      - bool
      - ``true``
    * - hubble.ui.tolerations
@@ -654,7 +650,7 @@
      - object
      - ``{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}``
    * - identityAllocationMode
-     - 
+     - Method to use for identity allocation (\ ``crd`` or ``kvstore``\ ).
      - string
      - ``"crd"``
    * - image
@@ -710,7 +706,7 @@
      - object
      - ``{}``
    * - keepDeprecatedLabels
-     - Keep the deprecated selector labels when deploying Cilium DaemonSet
+     - Keep the deprecated selector labels when deploying Cilium DaemonSet.
      - bool
      - ``false``
    * - keepDeprecatedProbes
@@ -730,7 +726,7 @@
      - bool
      - ``true``
    * - localRedirectPolicy
-     - 
+     - Enable Local Redirect Policy.
      - bool
      - ``false``
    * - logSystemLoad
@@ -746,9 +742,13 @@
      - bool
      - ``true``
    * - monitor
-     - Configure cilium-monitor sidecar
+     - Specify the CIDR for native routing (ie to avoid IP masquerade for). This value corresponds to the configured cluster-cidr. nativeRoutingCIDR:
      - object
      - ``{"enabled":false}``
+   * - monitor.enabled
+     - Enable the cilium-monitor sidecar.
+     - bool
+     - ``false``
    * - name
      - Agent container name.
      - string
@@ -782,23 +782,23 @@
      - bool
      - ``false``
    * - nodeinit.extraArgs
-     - 
+     - Additional nodeinit arguments.
      - object
      - ``{}``
    * - nodeinit.extraConfigmapMounts
-     - 
+     - Additional nodeinit ConfigMap mounts.
      - list
      - ``[]``
    * - nodeinit.extraEnv
-     - 
+     - Additional nodeinit environment variables.
      - object
      - ``{}``
    * - nodeinit.extraHostPathMounts
-     - 
+     - Additional nodeinit host path mounts.
      - list
      - ``[]``
    * - nodeinit.extraInitContainers
-     - 
+     - Additional nodeinit init containers.
      - list
      - ``[]``
    * - nodeinit.image
@@ -810,7 +810,7 @@
      - object
      - ``{}``
    * - nodeinit.podAnnotations
-     - Annotations to be added to node-init pods
+     - Annotations to be added to node-init pods.
      - object
      - ``{}``
    * - nodeinit.podDisruptionBudget
@@ -818,11 +818,11 @@
      - object
      - ``{"enabled":true,"maxUnavailable":2}``
    * - nodeinit.podLabels
-     - Labels to be added to node-init pods
+     - Labels to be added to node-init pods.
      - object
      - ``{}``
    * - nodeinit.priorityClassName
-     - 
+     - The priority class to use for the nodeinit pod.
      - string
      - ``""``
    * - nodeinit.resources
@@ -830,7 +830,7 @@
      - object
      - ``{"requests":{"cpu":"100m","memory":"100Mi"}}``
    * - nodeinit.securityContext
-     - Security context to be added to nodeinit pods
+     - Security context to be added to nodeinit pods.
      - object
      - ``{}``
    * - nodeinit.tolerations
@@ -850,35 +850,35 @@
      - bool
      - ``true``
    * - operator.endpointGCInterval
-     - 
+     - Interval for endpoint garbage collection.
      - string
      - ``"5m0s"``
    * - operator.extraArgs
-     - Additional cilium-etcd-operator container arguments
+     - Additional cilium-operator container arguments
      - object
      - ``{}``
    * - operator.extraConfigmapMounts
-     - 
+     - Additional cilium-operator ConfigMap mounts.
      - list
      - ``[]``
    * - operator.extraEnv
-     - 
+     - Additional cilium-operator environment variables.
      - object
      - ``{}``
    * - operator.extraHostPathMounts
-     - Additional cilium-operator hostPath mounts
+     - Additional cilium-operator hostPath mounts.
      - list
      - ``[]``
    * - operator.extraInitContainers
-     - Additional InitContainers to initialize the pod
+     - Additional InitContainers to initialize the pod.
      - list
      - ``[]``
    * - operator.identityGCInterval
-     - 
+     - Interval for identity garbage collection.
      - string
      - ``"15m0s"``
    * - operator.identityHeartbeatTimeout
-     - 
+     - Timeout for identity heartbeats.
      - string
      - ``"30m0s"``
    * - operator.image
@@ -962,23 +962,23 @@
      - bool
      - ``false``
    * - preflight.extraArgs
-     - 
+     - Additional preflight arguments.
      - object
      - ``{}``
    * - preflight.extraConfigmapMounts
-     - 
+     - Additional preflight ConfigMap mounts.
      - list
      - ``[]``
    * - preflight.extraEnv
-     - 
+     - Additional preflight environment variables.
      - object
      - ``{}``
    * - preflight.extraHostPathMounts
-     - 
+     - Additional preflight host path mounts.
      - list
      - ``[]``
    * - preflight.extraInitContainers
-     - 
+     - Additional preflight init containers.
      - list
      - ``[]``
    * - preflight.image
@@ -998,11 +998,11 @@
      - object
      - ``{"enabled":true,"maxUnavailable":2}``
    * - preflight.podLabels
-     - 
+     - Labels to be added to thee preflight pod.
      - object
      - ``{}``
    * - preflight.priorityClassName
-     - 
+     - The priority class to use for the preflight pod.
      - string
      - ``""``
    * - preflight.resources
@@ -1014,7 +1014,7 @@
      - object
      - ``{}``
    * - preflight.tofqdnsPreCache
-     - 
+     - Path to write the ``--tofqdns-pre-cache`` file to.
      - string
      - ``""``
    * - preflight.tolerations
@@ -1030,7 +1030,7 @@
      - bool
      - ``true``
    * - priorityClassName
-     - 
+     - The priority class to use for cilium-agent.
      - string
      - ``""``
    * - prometheus
