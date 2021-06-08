@@ -19,7 +19,8 @@ were suitable for our testing:
 Setup
 =====
 
-.. parsed-literal::
+.. code-block:: shell-session
+
  helm template cilium \\
      --namespace kube-system \\
      --set endpointHealthChecking.enabled=false \\
@@ -223,7 +224,7 @@ selected all pods on this namespace and was allowed to send traffic to another
 pod on this namespace. Each of the 250 policies allows access to a disjoint set
 of ports. In the end we will have 250 different policies selecting 10000 pods.
 
-::
+.. code-block:: yaml
 
     apiVersion: "cilium.io/v2"
     kind: CiliumNetworkPolicy

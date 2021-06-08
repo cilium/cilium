@@ -113,13 +113,13 @@ you can delete the cilium-preflight and proceed with the upgrade.
 .. tabs::
   .. group-tab:: kubectl
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       kubectl delete -f cilium-preflight.yaml
 
   .. group-tab:: Helm
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm delete cilium-preflight --namespace=kube-system
 
@@ -249,13 +249,13 @@ or something went wrong during upgrade. To undo the rollout run:
 .. tabs::
   .. group-tab:: kubectl
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       kubectl rollout undo daemonset/cilium -n kube-system
 
   .. group-tab:: Helm
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm history cilium --namespace=kube-system
       helm rollback cilium [REVISION] --namespace=kube-system
@@ -957,7 +957,7 @@ IMPORTANT: Changes required before upgrading to 1.8.0
 .. tabs::
   .. group-tab:: kubectl
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm template cilium \
       --namespace=kube-system \
@@ -969,7 +969,7 @@ IMPORTANT: Changes required before upgrading to 1.8.0
 
   .. group-tab:: Helm
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm upgrade cilium --namespace=kube-system \
       --set agent.keepDeprecatedProbes=true
@@ -1053,7 +1053,7 @@ Upgrading from >=1.7.0 to 1.8.y
   To check whether any action is required the following command can be used to
   check the currently configured maximum number of TCP conntrack entries:
 
-  .. code:: bash
+  .. code-block:: shell-session
 
      sudo grep -R CT_MAP_SIZE_TCP /var/run/cilium/state/templates/
 
@@ -1064,7 +1064,7 @@ Upgrading from >=1.7.0 to 1.8.y
 .. tabs::
   .. group-tab:: kubectl
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm template cilium \\
       --namespace=kube-system \\
@@ -1076,7 +1076,7 @@ Upgrading from >=1.7.0 to 1.8.y
 
   .. group-tab:: Helm
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm upgrade cilium --namespace=kube-system \\
       --set global.bpf.ctTcpMax=100000
@@ -1097,7 +1097,7 @@ Upgrading from >=1.7.0 to 1.8.y
   To check whether any adjustment is required the following command can be used
   to check the currently configured maximum number of NAT table entries:
 
-  .. code:: bash
+  .. code-block:: shell-session
 
      sudo grep -R SNAT_MAPPING_IPV[46]_SIZE /var/run/cilium/state/globals/
 
@@ -1109,7 +1109,7 @@ Upgrading from >=1.7.0 to 1.8.y
 .. tabs::
   .. group-tab:: kubectl
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm template cilium \\
       --namespace=kube-system \\
@@ -1121,7 +1121,7 @@ Upgrading from >=1.7.0 to 1.8.y
 
   .. group-tab:: Helm
 
-    .. parsed-literal::
+    .. code-block:: shell-session
 
       helm upgrade cilium --namespace=kube-system \\
       --set global.bpf.natMax=841429
@@ -1333,7 +1333,7 @@ and the etcd is set up to have `client to server authentication <https://etcd.io
 Generate the latest ConfigMap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code:: bash
+.. code-block:: shell-session
 
     helm template cilium \
       --namespace=kube-system \
@@ -1392,7 +1392,7 @@ Apply new ConfigMap
 After adding the options, manually save the file with your changes and install
 the `ConfigMap` in the ``kube-system`` namespace of your cluster.
 
-::
+.. code-block:: shell-session
 
         $ kubectl apply -n kube-system -f ./cilium-cm-old.yaml
 
@@ -1517,7 +1517,7 @@ allocating identities in a way that conflicts with older ones in the kvstore.
 
 The cilium preflight manifest requires etcd support and can be built with:
 
-.. code:: bash
+.. code-block:: shell-session
 
     helm template cilium \
       --namespace=kube-system \
@@ -1569,7 +1569,7 @@ Example migration
     ``cilium`` CLI options with the preflight command. The default is to derive the
     configuration as cilium-agent does.
 
-  .. parsed-literal::
+  .. code-block:: shell-session
 
         cilium preflight migrate-identity --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml
 

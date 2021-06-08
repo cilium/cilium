@@ -36,7 +36,7 @@ for TLS authentication:
 
 Example of the consul configuration file:
 
-.. code:: yaml
+.. code-block:: yaml
 
     ---
     cafile: '/var/lib/cilium/consul-ca.pem'
@@ -64,7 +64,7 @@ etcd endpoints:
 
 Example of the etcd configuration file:
 
-.. code:: yaml
+.. code-block:: yaml
 
     ---
     endpoints:

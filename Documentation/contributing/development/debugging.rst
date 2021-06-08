@@ -54,7 +54,7 @@ toFQDNs rules and events relating to those rules are also relevant.
 
     Be sure to run cilium monitor on the same node as the pod being debugged!
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium monitor --related-to 3459
     Listening for events on 4 CPUs with 64x4096 of shared memory
@@ -111,7 +111,7 @@ the issue. This can be verified with ``cilium fqdn cache list``. The IPs in the
 response should appear in the cache for the appropriate endpoint. The lookup
 time is included in the json output of the command.
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium fqdn cache list
     Endpoint   Source   FQDN         TTL    ExpirationTime             IPs
@@ -190,7 +190,7 @@ If an IP exists in the FQDN cache (check with ``cilium fqdn cache list``) then
 ``matchName`` or via ``matchPattern``, should cause IPs for that domain to have
 allocated Security Identities. These can be listed with:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium identity list
     ID         LABELS
@@ -218,7 +218,7 @@ represents each ``toFQDNs:`` rule with a ``FQDNSelector`` instance. These
 receive updates from a global ``NameManage`` in the daemon.
 They can be listed along with other selectors (roughly corresponding to any L3 rule):
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium policy selectors
     SELECTOR                                                                                                         USERS   IDENTITIES
@@ -243,7 +243,7 @@ They can be listed along with other selectors (roughly corresponding to any L3 r
 In this example 16777217 is used by two selectors, one with ``matchPattern: "*"``
 and another empty one. This is because of the policy in use:
 
-.. code:: yaml
+.. code-block:: yaml
 
     apiVersion: cilium.io/v2
     kind: CiliumNetworkPolicy
@@ -303,7 +303,7 @@ propagate from the selectors to the Endpoint specific policy. Unless a new
 policy is being added, this often only involves updating the Policy Map of the
 Endpoint with the new CIDR Identity of the IP. This can be verified:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get 3459
     DIRECTION   LABELS (source:key[=value])   PORT/PROTO   PROXY PORT   BYTES   PACKETS
@@ -317,7 +317,7 @@ Endpoint with the new CIDR Identity of the IP. This can be verified:
 Note that the labels for identities are resolved here. This can be skipped, or
 there may be cases where this doesn't occur:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get -n 3459
     DIRECTION   IDENTITY   PORT/PROTO   PROXY PORT   BYTES   PACKETS
@@ -370,7 +370,7 @@ Race detection
 
 To compile a Cilium binary with race detection, you can do:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ make RACE=1
 
@@ -382,7 +382,7 @@ To compile a Cilium binary with race detection, you can do:
 
 To run unit tests with race detection, you can do:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ make RACE=1 unit-tests
 
@@ -397,7 +397,7 @@ action is required, besides building the binary with this tag.
 
 For example:
 
-.. code:: bash
+.. code-block:: shell-session
 
     $ make LOCKDEBUG=1
     $ # Deadlock detection during unit tests:

@@ -34,7 +34,7 @@ Enable Hubble in Cilium
 
         .. code-block:: shell-session
 
-            cilium hubble enable
+            $ cilium hubble enable
             🔑 Found existing CA in secret cilium-ca
             ✨ Patching ConfigMap cilium-config to enable Hubble...
             ♻️  Restarted Cilium pods
@@ -61,7 +61,7 @@ Enable Hubble in Cilium
 
         .. code-block:: shell-session
 
-            cilium status
+            $ cilium status
                 /¯¯\
              /¯¯\__/¯¯\    Cilium:         OK
              \__/¯¯\__/    Operator:       OK
@@ -111,15 +111,15 @@ cluster. For more information on this method, see `Use Port Forwarding to Access
 
 .. code-block:: shell-session
 
-    cilium hubble port-forward&
+    $ cilium hubble port-forward&
     Forwarding from 0.0.0.0:4245 -> 4245
     Forwarding from [::]:4245 -> 4245
 
 Now you can validate that you can access the Hubble API via the installed CLI:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
-    hubble status
+    $ hubble status
     Healthcheck (via localhost:4245): Ok
     Current/Max Flows: 11917/12288 (96.98%)
     Flows/s: 11.74
@@ -127,9 +127,9 @@ Now you can validate that you can access the Hubble API via the installed CLI:
 
 You can also query the flow API and look for flows:
 
-.. code:: bash
+.. code-block:: shell-session
 
-   hubble observe
+   $ hubble observe
 
 .. note::
 

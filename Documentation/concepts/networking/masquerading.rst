@@ -60,9 +60,9 @@ specified, the program will be automatically attached to the devices selected by
 To manually change this, use the ``devices`` helm option. Use ``cilium status``
 to determine which devices the program is running on:
 
-::
+.. code-block:: shell-session
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep Masquerading
+    $ kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep Masquerading
     Masquerading:   BPF (ip-masq-agent)   [eth0, eth1]  10.0.0.0/16
 
 From the output above, the program is running on the ``eth0`` and ``eth1`` devices.
@@ -106,20 +106,20 @@ The agent uses Fsnotify to track updates to the configuration file, so the origi
 
 The example below shows how to configure the agent via `ConfigMap` and to verify it:
 
-::
+.. code-block:: shell-session
 
-    cat agent-config/config
+    $ cat agent-config/config
     nonMasqueradeCIDRs:
     - 10.0.0.0/8
     - 172.16.0.0/12
     - 192.168.0.0/16
     masqLinkLocal: false
 
-    kubectl create configmap ip-masq-agent --from-file=agent-config --namespace=kube-system
+    $ kubectl create configmap ip-masq-agent --from-file=agent-config --namespace=kube-system
 
-    # Wait ~60s until the ConfigMap is mounted into a cilium pod
+    $ # Wait ~60s until the ConfigMap is mounted into a cilium pod
 
-    kubectl -n kube-system exec -ti cilium-xxxxx -- cilium bpf ipmasq list
+    $ kubectl -n kube-system exec -ti cilium-xxxxx -- cilium bpf ipmasq list
     IP PREFIX/ADDRESS
     10.0.0.0/8
     169.254.0.0/16

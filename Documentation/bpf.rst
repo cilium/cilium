@@ -298,7 +298,7 @@ tc and XDP programs.
 Each helper function is implemented with a commonly shared function signature
 similar to system calls. The signature is defined as:
 
-::
+.. code-block:: c
 
     u64 fn(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 
@@ -310,7 +310,7 @@ which are similar to those of system calls. The following example is an extract
 from a helper function which updates map elements by calling into the
 corresponding map implementation callbacks:
 
-::
+.. code-block:: c
 
     BPF_CALL_4(bpf_map_update_elem, struct bpf_map *, map, void *, key,
                void *, value, u64, flags)
@@ -482,7 +482,7 @@ such that when LLVM compiles and generates the BPF object file all these
 functions were inlined and therefore duplicated many times in the resulting
 object file, artificially inflating its code size:
 
-  ::
+.. code-block:: c
 
     #include <linux/bpf.h>
 
@@ -515,7 +515,7 @@ with Linux kernel 4.16 and LLVM 6.0 this restriction got lifted and BPF programs
 no longer need to use ``always_inline`` everywhere. Thus, the prior shown BPF
 example code can then be rewritten more naturally as:
 
-  ::
+.. code-block:: c
 
     #include <linux/bpf.h>
 
@@ -599,7 +599,7 @@ and 32 bit ``arm``, ``x86_32`` architectures are all shipped with an in-kernel
 eBPF JIT compiler, also all of them are feature equivalent and can be enabled
 through:
 
-::
+.. code-block:: shell-session
 
     # echo 1 > /proc/sys/net/core/bpf_jit_enable
 
@@ -611,7 +611,7 @@ compiler at all need to run eBPF programs through the in-kernel interpreter.
 In the kernel's source tree, eBPF JIT support can be easily determined through
 issuing a grep for ``HAVE_EBPF_JIT``:
 
-::
+.. code-block:: shell-session
 
     # git grep HAVE_EBPF_JIT arch/
     arch/arm/Kconfig:       select HAVE_EBPF_JIT   if !CPU_ENDIAN_BE32
@@ -644,7 +644,7 @@ crash the kernel instead of allowing the corruption to happen silently.
 Architectures that support setting the image memory as read-only can be
 determined through:
 
-::
+.. code-block:: shell-session
 
     $ git grep ARCH_HAS_SET_MEMORY | grep select
     arch/arm/Kconfig:    select ARCH_HAS_SET_MEMORY
@@ -686,7 +686,7 @@ operation, but really all generic operations are blinded.
 
 Example of JITing a program with hardening disabled:
 
-::
+.. code-block:: shell-session
 
     # echo 0 > /proc/sys/net/core/bpf_jit_harden
 
@@ -705,7 +705,7 @@ Example of JITing a program with hardening disabled:
 The same program gets constant blinded when loaded through BPF
 as an unprivileged user in the case hardening is enabled:
 
-::
+.. code-block:: shell-session
 
     # echo 1 > /proc/sys/net/core/bpf_jit_harden
 
@@ -760,7 +760,7 @@ set only ``CAP_SYS_ADMIN`` privileged processes out of the initial
 namespace are allowed to use the ``bpf(2)`` system call from that
 point onwards. Upon start, Cilium sets this knob to ``1`` as well.
 
-::
+.. code-block:: shell-session
 
     # echo 1 > /proc/sys/kernel/unprivileged_bpf_disabled
 
@@ -806,7 +806,7 @@ Fedora
 
 The following applies to Fedora 25 or later:
 
-::
+.. code-block:: shell-session
 
     $ sudo dnf install -y git gcc ncurses-devel elfutils-libelf-devel bc \
       openssl-devel libcap-devel clang llvm graphviz bison flex glibc-static
@@ -819,7 +819,7 @@ Ubuntu
 
 The following applies to Ubuntu 17.04 or later:
 
-::
+.. code-block:: shell-session
 
     $ sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
       clang gcc-multilib llvm libncurses5-dev git pkg-config libmnl-dev bison flex \
@@ -830,9 +830,9 @@ openSUSE Tumbleweed
 
 The following applies to openSUSE Tumbleweed and openSUSE Leap 15.0 or later:
 
-::
+.. code-block:: shell-session
 
-   $ sudo  zypper install -y git gcc ncurses-devel libelf-devel bc libopenssl-devel \
+   $ sudo zypper install -y git gcc ncurses-devel libelf-devel bc libopenssl-devel \
    libcap-devel clang llvm graphviz bison flex glibc-devel-static
 
 Compiling the Kernel
@@ -842,7 +842,7 @@ Development of new BPF features for the Linux kernel happens inside the ``net-ne
 git tree, latest BPF fixes in the ``net`` tree. The following command will obtain
 the kernel source for the ``net-next`` tree through git:
 
-::
+.. code-block:: shell-session
 
     $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git
 
@@ -851,7 +851,7 @@ tree much faster by truncating the git history only to the most recent commit.
 
 In case the ``net`` tree is of interest, it can be cloned from this url:
 
-::
+.. code-block:: shell-session
 
     $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git
 
@@ -890,7 +890,7 @@ After you have booted into the newly compiled kernel, navigate to the BPF selfte
 suite in order to test BPF functionality (current working directory points to
 the root of the cloned git tree):
 
-::
+.. code-block:: shell-session
 
     $ cd tools/testing/selftests/bpf/
     $ make
@@ -915,7 +915,7 @@ failures:
 
 In order to run through all BPF selftests, the following command is needed:
 
-::
+.. code-block:: shell-session
 
     $ sudo make run_tests
 
@@ -933,20 +933,20 @@ in header files can be synchronized in the iproute2 tree.
 In order to clone the iproute2 ``master`` branch, the following command can
 be used:
 
-::
+.. code-block:: shell-session
 
     $ git clone https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
 Similarly, to clone into mentioned ``net-next`` branch of iproute2, run the
 following:
 
-::
+.. code-block:: shell-session
 
     $ git clone -b net-next https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
 
 After that, proceed with the build and installation:
 
-::
+.. code-block:: shell-session
 
     $ cd iproute2/
     $ ./configure --prefix=/usr
@@ -980,7 +980,7 @@ and maps. It is part of the kernel tree and available under ``tools/bpf/bpftool/
 Make sure to have cloned either the ``net`` or ``net-next`` kernel tree as described
 earlier. In order to build and install bpftool, the following steps are required:
 
-::
+.. code-block:: shell-session
 
     $ cd <kernel-tree>/tools/bpf/bpftool/
     $ make
@@ -1036,7 +1036,7 @@ program to hardware (e.g. NIC).
 
 For LLVM, BPF target support can be checked, for example, through the following:
 
-::
+.. code-block:: shell-session
 
     $ llc --version
     LLVM (http://llvm.org/):
@@ -1073,7 +1073,7 @@ scripts triggering a compilation also do not have to be endian aware.
 A minimal, stand-alone XDP drop program might look like the following example
 (``xdp-example.c``):
 
-::
+.. code-block:: c
 
     #include <linux/bpf.h>
 
@@ -1092,7 +1092,7 @@ A minimal, stand-alone XDP drop program might look like the following example
 
 It can then be compiled and loaded into the kernel as follows:
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -Wall -target bpf -c xdp-example.c -o xdp-example.o
     # ip link set dev em1 xdp obj xdp-example.o
@@ -1105,7 +1105,7 @@ that is, ``EM_BPF`` (decimal: ``247`` / hex: ``0xf7``). In this example, the pro
 has been compiled with ``bpf`` target under ``x86_64``, therefore ``LSB`` (as opposed
 to ``MSB``) is shown regarding endianness:
 
-::
+.. code-block:: shell-session
 
     $ file xdp-example.o
     xdp-example.o: ELF 64-bit LSB relocatable, *unknown arch 0xf7* version 1 (SYSV), not stripped
@@ -1117,7 +1117,7 @@ and the symbol table.
 In the unlikely case where clang and LLVM need to be compiled from scratch, the
 following commands can be used:
 
-::
+.. code-block:: shell-session
 
     $ git clone https://github.com/llvm/llvm-project.git
     $ cd llvm-project
@@ -1147,7 +1147,7 @@ significantly increase (e.g. by 10x or more).
 
 For debugging, clang can generate the assembler output as follows:
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -S -Wall -target bpf -c xdp-example.c -o xdp-example.S
     $ cat xdp-example.S
@@ -1170,7 +1170,7 @@ program using BPF assembler directly, then use llvm-mc to assemble it into an
 object file. For example, you can assemble the xdp-example.S listed above back
 into object file using:
 
-::
+.. code-block:: shell-session
 
     $ llvm-mc -triple bpf -filetype=obj -o xdp-example.o xdp-example.S
 
@@ -1178,7 +1178,7 @@ Furthermore, more recent LLVM versions (>= 4.0) can also store debugging
 information in dwarf format into the object file. This can be done through
 the usual workflow by adding ``-g`` for compilation.
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -g -Wall -target bpf -c xdp-example.c -o xdp-example.o
     $ llvm-objdump -S -no-show-raw-insn xdp-example.o
@@ -1201,7 +1201,7 @@ This means that in case BPF programs get rejected by the verifier, ``llvm-objdum
 can help to correlate the instructions back to the original C code, which is
 highly useful for analysis.
 
-::
+.. code-block:: shell-session
 
     # ip link set dev em1 xdp obj xdp-example.o verb
 
@@ -1222,7 +1222,7 @@ the same BPF assembler code as the kernel.
 Leaving out the ``-no-show-raw-insn`` option will also dump the raw
 ``struct bpf_insn`` as hex in front of the assembly:
 
-::
+.. code-block:: shell-session
 
     $ llvm-objdump -S xdp-example.o
 
@@ -1239,14 +1239,14 @@ For LLVM IR debugging, the compilation process for BPF can be split into
 two steps, generating a binary LLVM IR intermediate file ``xdp-example.bc``, which
 can later on be passed to llc:
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -filetype=obj -o xdp-example.o
 
 The generated LLVM IR can also be dumped in human readable format through:
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -Wall -emit-llvm -S -c xdp-example.c -o -
 
@@ -1271,7 +1271,7 @@ In order to generate BTF from DWARF debugging information, elfutils (>= 0.173)
 is needed. If that is not available, then adding the ``-mattr=dwarfris`` option
 to the ``llc`` command is required during compilation:
 
-::
+.. code-block:: shell-session
 
     $ llc -march=bpf -mattr=help |& grep dwarfris
       dwarfris - Disable MCAsmInfo DwarfUsesRelocationsAcrossSections.
@@ -1293,7 +1293,7 @@ For converting DWARF into BTF, a recent pahole version (>= 1.12) is required.
 A recent pahole version can also be obtained from its official git repository
 if not available from one of the distribution packages:
 
-::
+.. code-block:: shell-session
 
     $ git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git
 
@@ -1302,7 +1302,7 @@ object file. ``pahole`` can be probed for BTF support as follows (note that
 the ``llvm-objcopy`` tool is required for ``pahole`` as well, so check its
 presence, too):
 
-::
+.. code-block:: shell-session
 
     $ pahole --help | grep BTF
     -J, --btf_encode           Encode as BTF
@@ -1312,7 +1312,7 @@ source level debug information by passing ``-g`` to the ``clang`` command
 line. Note that ``-g`` is needed independently of whether ``llc``'s
 ``dwarfris`` option is used. Full example for generating the object file:
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -g -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mattr=dwarfris -filetype=obj -o xdp-example.o
@@ -1321,14 +1321,14 @@ Alternatively, by using clang only to build a BPF program with debugging
 information (again, the dwarfris flag can be omitted when having proper
 elfutils version):
 
-::
+.. code-block:: shell-session
 
     $ clang -target bpf -O2 -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
 
 After successful compilation ``pahole`` can be used to properly dump structures
 of the BPF program based on the DWARF information:
 
-::
+.. code-block:: shell-session
 
     $ pahole xdp-example.o
     struct xdp_md {
@@ -1344,14 +1344,14 @@ Through the option ``-J`` ``pahole`` can eventually generate the BTF from
 DWARF. In the object file DWARF data will still be retained alongside the
 newly added BTF data. Full ``clang`` and ``pahole`` example combined:
 
-::
+.. code-block:: shell-session
 
     $ clang -target bpf -O2 -Wall -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
     $ pahole -J xdp-example.o
 
 The presence of a ``.BTF`` section can be seen through ``readelf`` tool:
 
-::
+.. code-block:: shell-session
 
     $ readelf -a xdp-example.o
     [...]
@@ -1372,7 +1372,7 @@ more efficient and smaller code.
 
 Available ``-mcpu`` options can be queried through:
 
-::
+.. code-block:: shell-session
 
     $ llc -march bpf -mcpu=help
     Available CPUs for this target:
@@ -1397,7 +1397,7 @@ them for compiling the BPF program whenever appropriate.
 
 A full command line example with llc's ``-mcpu=probe``:
 
-::
+.. code-block:: shell-session
 
     $ clang -O2 -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mcpu=probe -filetype=obj -o xdp-example.o
@@ -1447,7 +1447,7 @@ when there are operations on 32-bit types. The associated ALU instructions with
 32-bit subregisters will become ALU32 instructions. For example, for the
 following sample code:
 
-::
+.. code-block:: shell-session
 
     $ cat 32-bit-example.c
         void cal(unsigned int *a, unsigned int *b, unsigned int *c)
@@ -1458,7 +1458,7 @@ following sample code:
 
 At default code generation, the assembler will looks like:
 
-::
+.. code-block:: shell-session
 
     $ clang -target bpf -emit-llvm -S 32-bit-example.c
     $ llc -march=bpf 32-bit-example.ll
@@ -1474,7 +1474,7 @@ At default code generation, the assembler will looks like:
 enable the new 32-bit subregisters support by specifying ``-mattr=+alu32``, then
 the assembler will looks like:
 
-::
+.. code-block:: shell-session
 
     $ llc -march=bpf -mattr=+alu32 32-bit-example.ll
     $ cat 32-bit-example.s
@@ -1524,7 +1524,7 @@ describe some of the differences for the BPF model:
    will thus produce an error since only BPF maps are valid relocation entries
    which loaders can process.
 
-   ::
+   .. code-block:: c
 
     #include <linux/bpf.h>
 
@@ -1575,7 +1575,7 @@ describe some of the differences for the BPF model:
    ``acc_map``, which has two map slots, one for traffic accounted on the
    ingress hook, one on the egress hook.
 
-   ::
+   .. code-block:: c
 
     #include <linux/bpf.h>
     #include <linux/pkt_cls.h>
@@ -1705,7 +1705,7 @@ describe some of the differences for the BPF model:
 
   The code can be compiled and loaded via iproute2 as follows:
 
-  ::
+  .. code-block:: shell-session
 
     $ clang -O2 -Wall -target bpf -c tc-example.c -o tc-example.o
 
@@ -1767,7 +1767,7 @@ describe some of the differences for the BPF model:
 
   Helper functions such as ``trace_printk()`` can be worked around as follows:
 
-  ::
+  .. code-block:: c
 
     static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 
@@ -1806,7 +1806,7 @@ describe some of the differences for the BPF model:
   addition, also LLVM provides some built-ins that the programs can use for
   constant sizes (here: ``n``) which will then always get inlined:
 
-  ::
+  .. code-block:: c
 
     #ifndef memset
     # define memset(dest, chr, n)   __builtin_memset((dest), (chr), (n))
@@ -1834,7 +1834,7 @@ describe some of the differences for the BPF model:
   A very limited form of looping is available for constant upper loop bounds
   by using ``#pragma unroll`` directive. Example code that is compiled to BPF:
 
-  ::
+  .. code-block:: c
 
     #pragma unroll
         for (i = 0; i < IPV6_MAX_HEADERS; i++) {
@@ -1902,7 +1902,7 @@ describe some of the differences for the BPF model:
 
   Minimal example extract of using tail calls:
 
-  ::
+  .. code-block:: c
 
     [...]
 
@@ -1971,7 +1971,7 @@ describe some of the differences for the BPF model:
   The generated elf contains section headers describing the map id and the
   entry within that map:
 
-  ::
+  .. code-block:: shell-session
 
     $ llvm-objdump -S --no-show-raw-insn prog_array.o | less
     prog_array.o:   file format ELF64-BPF
@@ -2011,7 +2011,7 @@ describe some of the differences for the BPF model:
 
   Example for tc to perform tail call map updates:
 
-  ::
+  .. code-block:: shell-session
 
     # tc exec bpf graft m:globals/jmp_map key 0 obj new.o sec foo
 
@@ -2035,7 +2035,7 @@ describe some of the differences for the BPF model:
   as well as ``test/CodeGen/BPF/`` might be helpful for providing some additional
   examples. Test code:
 
-  ::
+  .. code-block:: c
 
     #include <linux/bpf.h>
 
@@ -2079,7 +2079,7 @@ describe some of the differences for the BPF model:
   size, and padding is added for the proper alignment. Because of this, the size
   of struct may often grow larger than expected.
 
-  ::
+  .. code-block:: c
 
     struct called_info {
         u64 start;  // 8-byte
@@ -2106,7 +2106,7 @@ describe some of the differences for the BPF model:
 
   Example code:
 
-  ::
+  .. code-block:: c
 
     struct called_info {
         u64 start;
@@ -2156,7 +2156,7 @@ describe some of the differences for the BPF model:
   and the message says reading a data from +20 is an invalid indirect read.
   And as we discussed earlier, the address 0x14(20) is the place where PADDING is.
 
-  ::
+  .. code-block:: c
 
     // Actual compiled composition of struct called_info
     // 0x10(16)    0x14(20)    0x18(24)
@@ -2172,7 +2172,7 @@ describe some of the differences for the BPF model:
 
   Removing the padding by using ``#pragma pack(n)`` directive:
 
-  ::
+  .. code-block:: c
 
     #pragma pack(4)
     struct called_info {
@@ -2207,7 +2207,7 @@ describe some of the differences for the BPF model:
   explicit padding ``u32 pad`` member at the end will resolve the same problem without
   packing of the structure.
 
-  ::
+  .. code-block:: c
 
     struct called_info {
         u64 start;  // 8-byte
@@ -2238,7 +2238,7 @@ describe some of the differences for the BPF model:
 
   To illustrate this, consider the following snippet:
 
-  ::
+  .. code-block:: c
 
     struct iphdr *ip4 = (struct iphdr *) skb->data + ETH_HLEN;
 
@@ -2266,7 +2266,7 @@ describe some of the differences for the BPF model:
 
   To fix this, the reference to ``ip4`` has to be updated:
 
-  ::
+  .. code-block:: c
 
     struct iphdr *ip4 = (struct iphdr *) skb->data + ETH_HLEN;
 
@@ -2315,7 +2315,7 @@ of all details, but enough for getting started.
   through ``ip`` to a XDP-supported netdevice called ``em1`` with the following
   command:
 
-  ::
+  .. code-block:: shell-session
 
     # ip link set dev em1 xdp obj prog.o
 
@@ -2324,7 +2324,7 @@ of all details, but enough for getting started.
   section is named differently, for example, ``foobar``, then the program needs
   to be loaded as:
 
-  ::
+  .. code-block:: shell-session
 
     # ip link set dev em1 xdp obj prog.o sec foobar
 
@@ -2332,7 +2332,7 @@ of all details, but enough for getting started.
   Changing the minimal, stand-alone XDP drop program by removing the ``__section()``
   annotation from the ``xdp_drop`` entry point would look like the following:
 
-  ::
+  .. code-block:: c
 
     #include <linux/bpf.h>
 
@@ -2350,7 +2350,7 @@ of all details, but enough for getting started.
 
   And can be loaded as follows:
 
-  ::
+  .. code-block:: shell-session
 
     # ip link set dev em1 xdp obj prog.o sec .text
 
@@ -2359,7 +2359,7 @@ of all details, but enough for getting started.
   order to replace the currently running XDP program with a new one, the ``-force``
   option must be used:
 
-  ::
+  .. code-block:: shell-session
 
     # ip -force link set dev em1 xdp obj prog.o
 
@@ -2380,7 +2380,7 @@ of all details, but enough for getting started.
   In order to remove the existing XDP program from the interface, the following
   command must be issued:
 
-  ::
+  .. code-block:: shell-session
 
     # ip link set dev em1 xdp off
 
@@ -2428,7 +2428,7 @@ of all details, but enough for getting started.
   Example for enforcing a BPF/XDP program to be loaded in native XDP mode,
   dumping the link details and unloading the program again:
 
-  ::
+  .. code-block:: shell-session
 
      # ip -force link set dev em1 xdpdrv obj prog.o
      # ip link show
@@ -2443,7 +2443,7 @@ of all details, but enough for getting started.
   native XDP, and additionally dumping the BPF instructions of the attached
   dummy program through bpftool:
 
-  ::
+  .. code-block:: shell-session
 
     # ip -force link set dev em1 xdpgeneric obj prog.o
     # ip link show
@@ -2460,7 +2460,7 @@ of all details, but enough for getting started.
   And last but not least offloaded XDP, where we additionally dump program
   information via bpftool for retrieving general metadata:
 
-  ::
+  .. code-block:: shell-session
 
      # ip -force link set dev em1 xdpoffload obj prog.o
      # ip link show
@@ -2483,7 +2483,7 @@ of all details, but enough for getting started.
   versa is not atomically possible. Only switching programs within a specific
   operation mode is:
 
-  ::
+  .. code-block:: shell-session
 
      # ip -force link set dev em1 xdpgeneric obj prog.o
      # ip -force link set dev em1 xdpoffload obj prog.o
@@ -2496,7 +2496,7 @@ of all details, but enough for getting started.
   Switching between modes requires to first leave the current operation mode
   in order to then enter the new one:
 
-  ::
+  .. code-block:: shell-session
 
      # ip -force link set dev em1 xdpgeneric obj prog.o
      # ip -force link set dev em1 xdpgeneric off
@@ -2517,7 +2517,7 @@ of all details, but enough for getting started.
   ``em1``, and with the following command the program can be attached to the networking
   ``ingress`` path of ``em1``:
 
-  ::
+  .. code-block:: shell-session
 
     # tc qdisc add dev em1 clsact
     # tc filter add dev em1 ingress bpf da obj prog.o
@@ -2534,7 +2534,7 @@ of all details, but enough for getting started.
 
   The equivalent for attaching the program to the ``egress`` hook looks as follows:
 
-  ::
+  .. code-block:: shell-session
 
     # tc filter add dev em1 egress bpf da obj prog.o
 
@@ -2554,7 +2554,7 @@ of all details, but enough for getting started.
   the device. Like in XDP, should the default section name not be used, then it
   can be specified during load, for example, in case of section ``foobar``:
 
-  ::
+  .. code-block:: shell-session
 
     # tc filter add dev em1 egress bpf da obj prog.o sec foobar
 
@@ -2564,7 +2564,7 @@ of all details, but enough for getting started.
 
   The attached programs can be listed through the following commands:
 
-  ::
+  .. code-block:: shell-session
 
     # tc filter show dev em1 ingress
     filter protocol all pref 49152 bpf
@@ -2603,7 +2603,7 @@ of all details, but enough for getting started.
   a priori on initial load, so that they do not have to be queried at a later
   point in time for the ``replace`` operation. Thus, creation becomes:
 
-  ::
+  .. code-block:: shell-session
 
     # tc filter add dev em1 ingress pref 1 handle 1 bpf da obj prog.o sec foobar
 
@@ -2615,14 +2615,14 @@ of all details, but enough for getting started.
   existing program at ``ingress`` hook with the new BPF program from the file
   ``prog.o`` in section ``foobar``:
 
-  ::
+  .. code-block:: shell-session
 
     # tc filter replace dev em1 ingress pref 1 handle 1 bpf da obj prog.o sec foobar
 
   Last but not least, in order to remove all attached programs from the ``ingress``
   respectively ``egress`` hook, the following can be used:
 
-  ::
+  .. code-block:: shell-session
 
     # tc filter del dev em1 ingress
     # tc filter del dev em1 egress
@@ -2631,7 +2631,7 @@ of all details, but enough for getting started.
   removes all attached programs from the ``ingress`` and ``egress`` hooks, the
   below command is provided:
 
-  ::
+  .. code-block:: shell-session
 
     # tc qdisc del dev em1 clsact
 
@@ -2639,7 +2639,7 @@ of all details, but enough for getting started.
   similarly as with XDP BPF programs. Netronome's nfp supported NICs offer both
   types of BPF offload.
 
-  ::
+  .. code-block:: shell-session
 
     # tc qdisc add dev em1 clsact
     # tc filter replace dev em1 ingress pref 1 handle 1 bpf skip_sw da obj prog.o
@@ -2649,7 +2649,7 @@ of all details, but enough for getting started.
   If the above error is shown, then tc hardware offload first needs to be enabled
   for the device through ethtool's ``hw-tc-offload`` setting:
 
-  ::
+  .. code-block:: shell-session
 
     # ethtool -K em1 hw-tc-offload on
     # tc qdisc add dev em1 clsact
@@ -2672,7 +2672,7 @@ of all details, but enough for getting started.
 
   A netdevsim device can be created as follows:
 
-  ::
+  .. code-block:: shell-session
 
     # modprobe netdevsim
     // [ID] [PORT_COUNT]
@@ -2689,7 +2689,7 @@ of all details, but enough for getting started.
   After that step, XDP BPF or tc BPF programs can be test loaded as shown
   in the various examples earlier:
 
-  ::
+  .. code-block:: shell-session
 
     # ip -force link set dev eth0 xdpoffload obj prog.o
     # ip l
@@ -2710,7 +2710,7 @@ simplicity.
   The option ``verb`` can be appended for loading programs in order to dump the
   verifier log, even if no error occurred:
 
-  ::
+  .. code-block:: shell-session
 
     # ip link set dev em1 xdp obj xdp-example.o verb
 
@@ -2731,14 +2731,14 @@ simplicity.
   the program from the BPF file system in case some external entity pinned it
   there and attach it to the device:
 
-  ::
+  .. code-block:: shell-session
 
   # ip link set dev em1 xdp pinned /sys/fs/bpf/prog
 
   iproute2 can also use the short form that is relative to the detected mount
   point of the BPF file system:
 
-  ::
+  .. code-block:: shell-session
 
   # ip link set dev em1 xdp pinned m:prog
 
@@ -2750,7 +2750,7 @@ to the default location under ``/sys/fs/bpf/``.
 In case an instance has already been found, then it will be used and no additional
 mount will be performed:
 
-  ::
+.. code-block:: shell-session
 
     # mkdir /var/run/bpf
     # mount --bind /var/run/bpf /var/run/bpf
@@ -2778,7 +2778,7 @@ As briefly covered in the previous LLVM section, iproute2 will install a
 header file upon installation which can be included through the standard
 include path by BPF programs:
 
-  ::
+.. code-block:: c
 
     #include <iproute2/bpf_elf.h>
 
@@ -2821,7 +2821,7 @@ into the BPF file system.
 For a quick overview of all BPF programs currently loaded on the host
 invoke the following command:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog
      398: sched_cls  tag 56207908be8ad877
@@ -2840,7 +2840,7 @@ invoke the following command:
 
 Similarly, to get an overview of all active maps:
 
-  ::
+.. code-block:: shell-session
 
     # bpftool map
     5: hash  flags 0x0
@@ -2859,7 +2859,7 @@ Note that for each command, bpftool also supports json based output by
 appending ``--json`` at the end of the command line. An additional
 ``--pretty`` improves the output to be more human readable.
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog --json --pretty
 
@@ -2867,7 +2867,7 @@ For dumping the post-verifier BPF instruction image of a specific BPF
 program, one starting point could be to inspect a specific program, e.g.
 attached to the tc ingress hook:
 
-  ::
+.. code-block:: shell-session
 
      # tc filter show dev cilium_host egress
      filter protocol all pref 1 bpf chain 0
@@ -2878,7 +2878,7 @@ The program from the object file ``bpf_host.o``, section ``from-netdev`` has
 a BPF program ID of ``406`` as denoted in ``id 406``. Based on this information
 bpftool can provide some high-level metadata specific to the program:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog show id 406
      406: sched_cls  tag e0362f5bd9163a0a
@@ -2897,7 +2897,7 @@ be used to get information or dump the map themselves.
 Additionally, bpftool can issue a dump request of the BPF instructions the
 program runs:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 406
       0: (b7) r7 = 0
@@ -2923,7 +2923,7 @@ verifier. Since the program was JITed and therefore the actual JIT image
 that was generated out of above ``xlated`` instructions is executed, it
 can be dumped as well through bpftool:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump jited id 406
       0:        push   %rbp
@@ -2942,7 +2942,7 @@ can be dumped as well through bpftool:
 Mainly for BPF JIT developers, the option also exists to interleave the
 disassembly with the actual native opcodes:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump jited id 406 opcodes
       0:        push   %rbp
@@ -2966,7 +2966,7 @@ disassembly with the actual native opcodes:
 The same interleaving can be done for the normal BPF instructions which
 can sometimes be useful for debugging in the kernel:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 406 opcodes
       0: (b7) r7 = 0
@@ -2988,7 +2988,7 @@ The basic blocks of a program can also be visualized with the help of
 generates a dot file instead of the plain BPF ``xlated`` instruction
 dump that can later be converted to a png file:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 406 visual &> output.dot
      $ dot -Tpng output.dot -o output.png
@@ -3010,7 +3010,7 @@ One example of rewrites is the inlining of helper functions in order to
 improve runtime performance, here in the case of a map lookup for hash
 tables:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 3
       0: (b7) r1 = 2
@@ -3032,7 +3032,7 @@ kallsyms. Therefore, make sure that JITed BPF programs are exposed to
 kallsyms (``bpf_jit_kallsyms``) and that kallsyms addresses are not
 obfuscated (calls are otherwise shown as ``call bpf_unspec#0``):
 
-  ::
+.. code-block:: shell-session
 
      # echo 0 > /proc/sys/kernel/kptr_restrict
      # echo 1 > /proc/sys/net/core/bpf_jit_kallsyms
@@ -3042,7 +3042,7 @@ as JIT case. In the latter, the tag of the subprogram is shown as
 call target. In each case, the ``pc+2`` is the pc-relative offset of
 the call target, which denotes the subprogram.
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 1
      0: (85) call pc+2#__bpf_prog_run_args32
@@ -3053,7 +3053,7 @@ the call target, which denotes the subprogram.
 
 JITed variant of the dump:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 1
      0: (85) call pc+2#bpf_prog_3b185187f1855c4c_F
@@ -3066,7 +3066,7 @@ In the case of tail calls, the kernel maps them into a single instruction
 internally, bpftool will still correlate them as a helper call for ease
 of debugging:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog dump xlated id 2
      [...]
@@ -3092,7 +3092,7 @@ value pairs.
 If no BTF (BPF Type Format) data is available for a given map, then
 the key / value pairs are dumped as hex:
 
-  ::
+.. code-block:: shell-session
 
      # bpftool map dump id 5
      key:
@@ -3121,7 +3121,7 @@ BPF maps and the BPF_ANNOTATE_KV_PAIR() macro from iproute2 will
 result in the following dump (``test_xdp_noinline.o`` from kernel
 selftests):
 
-  ::
+.. code-block:: shell-session
 
      # cat tools/testing/selftests/bpf/test_xdp_noinline.c
        [...]
@@ -3152,7 +3152,7 @@ corresponding types out of the BTF for loading the map.
 Compiling through LLVM and generating BTF through debugging information
 by ``pahole``:
 
-  ::
+.. code-block:: shell-session
 
      # clang [...] -O2 -target bpf -g -emit-llvm -c test_xdp_noinline.c -o - |
        llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=obj -o test_xdp_noinline.o
@@ -3160,7 +3160,7 @@ by ``pahole``:
 
 Now loading into kernel and dumping the map via bpftool:
 
-  ::
+.. code-block:: shell-session
 
      # ip -force link set dev lo xdp obj test_xdp_noinline.o sec xdp-test
      # ip a
@@ -3203,7 +3203,7 @@ keys can be performed through bpftool as well.
 If the BPF program has been successfully loaded with BTF debugging information,
 the BTF ID will be shown in ``prog show`` command result denoted in ``btf_id``.
 
-  ::
+.. code-block:: shell-session
 
      # bpftool prog show id 72
      72: xdp  name balancer_ingres  tag acf44cabb48385ed  gpl
@@ -3214,7 +3214,7 @@ the BTF ID will be shown in ``prog show`` command result denoted in ``btf_id``.
 This can also be confirmed with ``btf show`` command which dumps all BTF
 objects loaded on a system.
 
-  ::
+.. code-block:: shell-session
 
      # bpftool btf show
      60: size 12243B  prog_ids 72  map_ids 126,130,131,127,129,128
@@ -3223,7 +3223,7 @@ And the subcommand ``btf dump`` can be used to check which debugging information
 is included in the BTF. With this command, BTF dump can be formatted either
 'raw' or 'c', the one that is used in C code.
 
-  ::
+.. code-block:: shell-session
 
      # bpftool btf dump id 60 format c
        [...]
@@ -3311,7 +3311,7 @@ Kernel Testing
 The Linux kernel ships a BPF selftest suite, which can be found in the kernel
 source tree under ``tools/testing/selftests/bpf/``.
 
-::
+.. code-block:: shell-session
 
     $ cd tools/testing/selftests/bpf/
     $ make
@@ -3328,7 +3328,7 @@ JIT Debugging
 For JIT developers performing audits or writing extensions, each compile run
 can output the generated JIT image into the kernel log through:
 
-::
+.. code-block:: shell-session
 
     # echo 2 > /proc/sys/net/core/bpf_jit_enable
 
@@ -3355,7 +3355,7 @@ compilation process. The dump output for eBPF and cBPF JITs is the same format.
 In the kernel tree under ``tools/bpf/``, there is a tool called ``bpf_jit_disasm``. It
 reads out the latest dump and prints the disassembly for further inspection:
 
-::
+.. code-block:: shell-session
 
     # ./bpf_jit_disasm
     70 bytes emitted from JIT compiler (pass:3, flen:6)
@@ -3383,7 +3383,7 @@ reads out the latest dump and prints the disassembly for further inspection:
 
 Alternatively, the tool can also dump related opcodes along with the disassembly.
 
-::
+.. code-block:: shell-session
 
     # ./bpf_jit_disasm -o
     70 bytes emitted from JIT compiler (pass:3, flen:6)
@@ -3437,7 +3437,7 @@ For performance analysis of JITed BPF programs, ``perf`` can be used as
 usual. As a prerequisite, JITed programs need to be exported through kallsyms
 infrastructure.
 
-::
+.. code-block:: shell-session
 
     # echo 1 > /proc/sys/net/core/bpf_jit_enable
     # echo 1 > /proc/sys/net/core/bpf_jit_kallsyms
@@ -3450,7 +3450,7 @@ Due to the use of direct write, ``bpf_try_make_head_writable()`` failed, which
 would then release the cloned ``skb`` again and return with an error message.
 ``perf`` thus records all ``kfree_skb`` events.
 
-::
+.. code-block:: shell-session
 
     # tc qdisc add dev em1 clsact
     # tc filter add dev em1 ingress bpf da obj prog.o sec main
@@ -3498,7 +3498,7 @@ of user space programs with the bpf system call.
 
 Tracepoints for BPF:
 
-::
+.. code-block:: shell-session
 
     # perf list | grep bpf:
     bpf:bpf_map_create                                 [Tracepoint event]
@@ -3517,7 +3517,7 @@ Tracepoints for BPF:
 Example usage with ``perf`` (alternatively to ``sleep`` example used here,
 a specific application like ``tc`` could be used here instead, of course):
 
-::
+.. code-block:: shell-session
 
     # perf record -a -e bpf:* sleep 10
     # perf script
@@ -3533,7 +3533,7 @@ For the BPF programs, their individual program tag is displayed.
 
 For debugging, XDP also has a tracepoint that is triggered when exceptions are raised:
 
-::
+.. code-block:: shell-session
 
     # perf list | grep xdp:
     xdp:xdp_exception                                  [Tracepoint event]
@@ -3558,7 +3558,7 @@ When a BPF program makes a call to ``bpf_trace_printk()``, the output is sent
 to the kernel tracing pipe. Users may read from this file to consume events
 that are traced to this buffer:
 
-::
+.. code-block:: shell-session
 
    # tail -f /sys/kernel/debug/tracing/trace_pipe
    ...
@@ -3658,7 +3658,7 @@ writes from there into the packet.
 The packet representation in XDP that is passed to the BPF program as
 the BPF context looks as follows:
 
-::
+.. code-block:: c
 
     struct xdp_buff {
         void *data;
@@ -3692,7 +3692,7 @@ packet pointers: ``data_hard_start`` <= ``data_meta`` <= ``data`` < ``data_end``
 The ``rxq`` field points to some additional per receive queue metadata which
 is populated at ring setup time (not at XDP runtime):
 
-::
+.. code-block:: c
 
     struct xdp_rxq_info {
         struct net_device *dev;
@@ -3709,7 +3709,7 @@ After running the XDP BPF program, a verdict is returned from the program in
 order to tell the driver how to process the packet next. In the ``linux/bpf.h``
 system header file all available return verdicts are enumerated:
 
-::
+.. code-block:: c
 
     enum xdp_action {
         XDP_ABORTED = 0,
@@ -4124,7 +4124,7 @@ Both the tc ingress and egress hook share the same action return verdicts
 that tc BPF programs can use. They are defined in the ``linux/pkt_cls.h``
 system header:
 
-::
+.. code-block:: c
 
     #define TC_ACT_UNSPEC         (-1)
     #define TC_ACT_OK               0
