@@ -346,17 +346,22 @@ func (s *Service) startRecording(
 		},
 	}
 
-	handle, err = s.dispatch.StartSink(ctx, config)
-	if err != nil {
-		return nil, "", err
-	}
-
+	// Upserting a new recorder can take up to a few seconds due to datapath
+	// regeneration. To avoid having the stop condition timer on the sink
+	// already running while the recorder is still being upserted, we install
+	// the recorder before the sink. This is safe, as sink.Dispatch silently
+	// ignores recordings for unknown sinks.
 	recInfo := &recorder.RecInfo{
 		ID:      recorder.ID(ruleID),
 		CapLen:  uint16(capLen),
 		Filters: filters,
 	}
 	_, err = s.recorder.UpsertRecorder(recInfo)
+	if err != nil {
+		return nil, "", err
+	}
+
+	handle, err = s.dispatch.StartSink(ctx, config)
 	if err != nil {
 		return nil, "", err
 	}
