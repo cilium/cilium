@@ -290,6 +290,7 @@ dev
 devel
 dialTimeout
 diff
+disableEndpointCRD
 disableEnvoyVersionCheck
 disableIptablesFeederRules
 disassembly
@@ -755,6 +756,7 @@ sha
 sidecarImageRegex
 sig
 skb
+skipCRDCreation
 skipteardown
 sleepAfterInit
 snat
@@ -898,6 +900,7 @@ xfrm
 xml
 xor
 xoring
+xt
 xwing
 xxxxx
 yaml
