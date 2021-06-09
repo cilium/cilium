@@ -154,7 +154,7 @@ func (a *Allocator) Assign(svc string, ip net.IP, ports []Port, sharingKey, back
 				}
 			}
 			if len(otherSvcs) > 0 {
-				return fmt.Errorf("can't change sharing key for %q, address also in use by %s", svc, strings.Join(otherSvcs, ","))
+				return fmt.Errorf("can't change sharing key for %q, address also in use by %s: %w", svc, strings.Join(otherSvcs, ","), err)
 			}
 		}
 
@@ -368,18 +368,6 @@ func poolFor(pools map[string]*config.Pool, ip net.IP) string {
 		}
 	}
 	return ""
-}
-
-func portsEqual(a, b []Port) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // ipConfusesBuggyFirmwares returns true if ip is an IPv4 address ending in 0 or 255.

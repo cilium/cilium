@@ -83,36 +83,14 @@ newPeers:
 	return c.syncPeers(l)
 }
 
-// nodeHasHealthyEndpoint return true if this node has at least one healthy endpoint.
-func nodeHasHealthyEndpoint(eps *Endpoints, node string) bool {
+// hasHealthyEndpoint return true if this node has at least one healthy endpoint.
+// It only checks nodes matching the given filterNode function.
+func hasHealthyEndpoint(eps *Endpoints, filterNode func(*string) bool) bool {
 	ready := map[string]bool{}
 	for _, ep := range eps.Ready {
-		if ep.NodeName == nil || *ep.NodeName != node {
+		if filterNode(ep.NodeName) {
 			continue
 		}
-		if _, ok := ready[ep.IP]; !ok {
-			// Only set true if nothing else has expressed an
-			// opinion. This means that false will take precedence
-			// if there's any unready ports for a given endpoint.
-			ready[ep.IP] = true
-		}
-	}
-	for _, ep := range eps.NotReady {
-		ready[ep.IP] = false
-	}
-
-	for _, r := range ready {
-		if r {
-			// At least one fully healthy endpoint on this machine.
-			return true
-		}
-	}
-	return false
-}
-
-func healthyEndpointExists(eps *Endpoints) bool {
-	ready := map[string]bool{}
-	for _, ep := range eps.Ready {
 		if _, ok := ready[ep.IP]; !ok {
 			// Only set true if nothing else has expressed an
 			// opinion. This means that false will take precedence
@@ -139,9 +117,16 @@ func (c *BGPController) ShouldAnnounce(l log.Logger, name string, policyType str
 	//  Cluster && any healthy endpoint exists
 	// or
 	//  Local && there's a ready local endpoint.
-	if v1.ServiceExternalTrafficPolicyType(policyType) == v1.ServiceExternalTrafficPolicyTypeLocal && !nodeHasHealthyEndpoint(eps, c.MyNode) {
+	filterNode := func(toFilter *string) bool {
+		if toFilter == nil || *toFilter != c.MyNode {
+			return true
+		}
+		return false
+	}
+
+	if v1.ServiceExternalTrafficPolicyType(policyType) == v1.ServiceExternalTrafficPolicyTypeLocal && !hasHealthyEndpoint(eps, filterNode) {
 		return "noLocalEndpoints"
-	} else if !healthyEndpointExists(eps) {
+	} else if !hasHealthyEndpoint(eps, func(toFilter *string) bool { return false }) {
 		return "noEndpoints"
 	}
 	return ""
