@@ -2138,7 +2138,8 @@ describe some of the differences for the BPF model:
         return 0;
     }
 
-    // On bpf_load_program
+  Corresponding output on ``bpf_load_program()``::
+
     bpf_load_program() err=13
     0: (bf) r6 = r1
     ...
