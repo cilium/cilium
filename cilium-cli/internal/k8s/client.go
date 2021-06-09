@@ -33,9 +33,12 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -47,6 +50,7 @@ import (
 
 type Client struct {
 	Clientset        kubernetes.Interface
+	DynamicClientset dynamic.Interface
 	CiliumClientset  ciliumClientset.Interface
 	Config           *rest.Config
 	RawConfig        clientcmdapi.Config
@@ -84,6 +88,11 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		return nil, err
 	}
 
+	dynamicClientset, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	if contextName == "" {
 		contextName = rawConfig.CurrentContext
 	}
@@ -92,6 +101,7 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		CiliumClientset:  ciliumClientset,
 		Clientset:        clientset,
 		Config:           config,
+		DynamicClientset: dynamicClientset,
 		RawConfig:        rawConfig,
 		restClientGetter: &restClientGetter,
 		contextName:      contextName,
@@ -596,6 +606,13 @@ func (c *Client) GetPodsTable(ctx context.Context) (*metav1.Table, error) {
 		return nil, fmt.Errorf("expected a single kind of resource (got %d)", len(i))
 	}
 	return unstructuredToTable(i[0].Object)
+}
+
+func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionResource, namespace *string, o metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	if namespace == nil {
+		return c.DynamicClientset.Resource(gvr).List(ctx, o)
+	}
+	return c.DynamicClientset.Resource(gvr).Namespace(*namespace).List(ctx, o)
 }
 
 func (c *Client) ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {

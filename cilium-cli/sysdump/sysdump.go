@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/workerpool"
 	"github.com/hashicorp/go-multierror"
@@ -355,7 +356,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetSecret(ctx, c.options.CiliumNamespace, ciliumEtcdSecretsSecretName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.options.CiliumNamespace)
+						c.logDebug("secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
@@ -405,7 +406,7 @@ func (c *Collector) Run() error {
 				v, err := c.client.GetDaemonSet(ctx, c.options.HubbleNamespace, hubbleDaemonSetName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logWarn("daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.options.HubbleNamespace)
+						c.logDebug("daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.options.HubbleNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect the Hubble daemonset: %w", err)
@@ -619,6 +620,23 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting platform-specific data",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				f, err := c.client.AutodetectFlavor(ctx)
+				if err != nil {
+					c.logWarn("Failed to autodetect Kubernetes flavor: %v", err)
+					return nil
+				}
+				c.logDebug("Detected flavor %q", f.Kind)
+				if err := c.submitFlavorSpecificTasks(ctx, f, absoluteTempPath); err != nil {
+					return fmt.Errorf("failed to collect platform-specific data: %w", err)
+				}
+				return nil
+			},
+		},
 	}
 
 	// Add the tasks to the worker pool.
@@ -822,6 +840,51 @@ func (c *Collector) submitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 		}
 	}
 	return nil
+}
+
+func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor, path func(string) string) error {
+	switch f.Kind {
+	case k8s.KindEKS:
+		if err := c.pool.Submit(awsNodeDaemonSetName, func(ctx context.Context) error {
+			// Collect the 'kube-system/aws-node' DaemonSet.
+			d, err := c.client.GetDaemonSet(ctx, awsNodeDaemonSetNamespace, awsNodeDaemonSetName, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					c.logDebug("DaemonSet %q not found in namespace %q - this is expected when running in ENI mode", awsNodeDaemonSetName, awsNodeDaemonSetNamespace)
+					return nil
+				}
+				return fmt.Errorf("failed to collect daemonset %q in namespace %q: %w", awsNodeDaemonSetName, awsNodeDaemonSetNamespace, err)
+			}
+			if err := writeYaml(path(awsNodeDaemonSetFileName), d); err != nil {
+				return fmt.Errorf("failed to collect daemonset %q in namespace %q: %w", awsNodeDaemonSetName, awsNodeDaemonSetNamespace, err)
+			}
+			// Only if the 'kube-system/aws-node' Daemonset is present...
+			// ... collect any "SecurityGroupPolicy" resources.
+			n := corev1.NamespaceAll
+			l, err := c.client.ListUnstructured(ctx, awsSecurityGroupPoliciesGVR, &n, metav1.ListOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to collect security group policies: %w", err)
+			}
+			if err := writeYaml(path(securityGroupPoliciesFileName), l); err != nil {
+				return fmt.Errorf("failed to collect security group policies: %w", err)
+			}
+			// ... collect any "ENIConfigs" resources.
+			l, err = c.client.ListUnstructured(ctx, awsENIConfigsGVR, nil, metav1.ListOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to collect ENI configs: %w", err)
+			}
+			if err := writeYaml(path(eniconfigsFileName), l); err != nil {
+				return fmt.Errorf("failed to collect ENI configs: %w", err)
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit %q task: %w", awsNodeDaemonSetName, err)
+		}
+		return nil
+	default:
+		c.logDebug("No flavor-specific data to collect for %q", f.Kind.String())
+		return nil
+	}
 }
 
 func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) {
