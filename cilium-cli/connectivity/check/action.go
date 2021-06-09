@@ -143,8 +143,8 @@ func (a *Action) fail() {
 }
 
 func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
-	if isDone(ctx) {
-		a.Fatal("Skipping command execution:", context.Canceled)
+	if err := ctx.Err(); err != nil {
+		a.Fatal("Skipping command execution:", ctx.Err())
 	}
 
 	// Tests need a source Pod to execute in.
