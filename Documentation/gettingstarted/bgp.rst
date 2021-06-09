@@ -155,14 +155,3 @@ Verify that traffic to the external IP is directed to the backends:
 
    $ # Exec / SSH into BGP router
    $ curl 192.0.2.154
-
-Limitations
-===========
-
-BGP support relies on MetalLB. Due to the `lack of upstream support
-<https://github.com/metallb/metallb/issues/811>`_ for ``EndpointSlices`` in
-MetalLB, Cilium will fallback to using the original ``Endpoints`` resource.
-
-The Kubernetes documentation provides a simple `explanation
-<https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/>`_ of
-the advantages of ``EndpointSlices`` and the issues with ``Endpoints``.
