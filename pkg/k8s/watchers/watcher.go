@@ -34,6 +34,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -159,6 +161,8 @@ type bgpSpeakerManager interface {
 	OnDeleteService(svc *slim_corev1.Service)
 
 	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
+	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice)
+	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice)
 
 	OnUpdateNode(node *corev1.Node)
 }

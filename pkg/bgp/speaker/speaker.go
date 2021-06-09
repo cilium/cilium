@@ -24,6 +24,8 @@ import (
 	bgplog "github.com/cilium/cilium/pkg/bgp/log"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -143,6 +145,38 @@ func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
 	}
 }
 
+// OnUpdateEndpointSliceV1 notifies the Speaker of an update to the backends of
+// a service as endpoint slices.
+func (s *Speaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) {
+	sliceID, _ := k8s.ParseEndpointSliceV1(eps)
+
+	s.Lock()
+	defer s.Unlock()
+	if svc, ok := s.services[sliceID.ServiceID]; ok {
+		s.queue.Add(epEvent{
+			id:  sliceID.ServiceID,
+			svc: convertService(svc),
+			eps: convertEndpointSliceV1(eps),
+		})
+	}
+}
+
+// OnUpdateEndpointSliceV1Beta1 is the same as OnUpdateEndpointSliceV1() but for
+// the v1beta1 variant.
+func (s *Speaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) {
+	sliceID, _ := k8s.ParseEndpointSliceV1Beta1(eps)
+
+	s.Lock()
+	defer s.Unlock()
+	if svc, ok := s.services[sliceID.ServiceID]; ok {
+		s.queue.Add(epEvent{
+			id:  sliceID.ServiceID,
+			svc: convertService(svc),
+			eps: convertEndpointSliceV1Beta1(eps),
+		})
+	}
+}
+
 // OnUpdateNode notifies the Speaker of an update to a node.
 func (s *Speaker) OnUpdateNode(node *v1.Node) {
 	s.queue.Add(nodeEvent(&node.Labels))
@@ -211,6 +245,42 @@ func convertEndpoints(in *slim_corev1.Endpoints) *metallbspr.Endpoints {
 		// include NotReadyAddresses inside its slim version of Endpoints. This
 		// is still compatible with MetalLB because the information is
 		// equivalent.
+	}
+	return out
+}
+
+func convertEndpointSliceV1(in *slim_discover_v1.EndpointSlice) *metallbspr.Endpoints {
+	if in == nil {
+		return nil
+	}
+	out := new(metallbspr.Endpoints)
+	for _, ep := range in.Endpoints {
+		for _, addr := range ep.Addresses {
+			out.Ready = append(out.Ready, metallbspr.Endpoint{
+				IP:       addr,
+				NodeName: ep.NodeName,
+			})
+		}
+		// See above comment in convertEndpoints() for why we only append
+		// "ready" endpoints.
+	}
+	return out
+}
+
+func convertEndpointSliceV1Beta1(in *slim_discover_v1beta1.EndpointSlice) *metallbspr.Endpoints {
+	if in == nil {
+		return nil
+	}
+	out := new(metallbspr.Endpoints)
+	for _, ep := range in.Endpoints {
+		for _, addr := range ep.Addresses {
+			out.Ready = append(out.Ready, metallbspr.Endpoint{
+				IP:       addr,
+				NodeName: ep.NodeName,
+			})
+		}
+		// See above comment in convertEndpoints() for why we only append
+		// "ready" endpoints.
 	}
 	return out
 }
