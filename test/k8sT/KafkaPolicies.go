@@ -15,7 +15,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -30,9 +29,7 @@ import (
 var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sKafkaPolicyTest", func() {
 
 	var (
-		kubectl          *helpers.Kubectl
-		backgroundCancel context.CancelFunc = func() {}
-		backgroundError  error
+		kubectl *helpers.Kubectl
 
 		// these two are set in BeforeAll
 		l7Policy       string
@@ -106,14 +103,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sKafkaPolicyTest", func() {
 			return err
 		}
 
-		JustBeforeEach(func() {
-			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-		})
-
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-			backgroundCancel()
 		})
 
 		AfterEach(func() {

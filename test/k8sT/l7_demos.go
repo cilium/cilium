@@ -15,7 +15,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 
@@ -32,9 +31,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDemosTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
-
-		backgroundCancel context.CancelFunc = func() {}
-		backgroundError  error
 
 		deathStarYAMLLink, xwingYAMLLink, l7PolicyYAMLLink string
 	)
@@ -54,14 +50,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDemosTest", func() {
 		kubectl.CiliumReport("cilium endpoint list", "cilium service list")
 	})
 
-	JustBeforeEach(func() {
-		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-	})
-
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		backgroundCancel()
 	})
 
 	AfterEach(func() {
