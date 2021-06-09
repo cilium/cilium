@@ -2,33 +2,41 @@ name: Documentation Updates
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request:
-    paths:
-      - 'Documentation/**'
-      - 'bugtool/cmd/**'
-      - 'cilium/cmd/**'
-      - 'cilium-health/cmd/**'
-      - 'daemon/cmd/**'
-      - 'hubble-relay/cmd/**'
-      - 'operator/cmd/**'
+  pull_request: {}
   push:
     branches:
       - master
-    paths:
-      - 'Documentation/**'
-      - 'bugtool/cmd/**'
-      - 'cilium/cmd/**'
-      - 'cilium-health/cmd/**'
-      - 'daemon/cmd/**'
-      - 'hubble-relay/cmd/**'
-      - 'operator/cmd/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
   cancel-in-progress: true
 
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-18.04
+    outputs:
+      docs-tree: ${{ steps.docs-tree.outputs.src }}
+    steps:
+      - name: Check code changes
+        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        id: docs-tree
+        with:
+          filters: |
+            src:
+              - 'Documentation/**'
+              - 'bugtool/cmd/**'
+              - 'cilium/cmd/**'
+              - 'cilium-health/cmd/**'
+              - 'daemon/cmd/**'
+              - 'hubble-relay/cmd/**'
+              - 'operator/cmd/**'
+
+  # Runs only if code under Documentation or */cmd/ is changed as the docs
+  # should be unaffected otherwise.
   build-html:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.docs-tree == 'true' }}
     name: Validate & Build HTML
     runs-on: ubuntu-18.04
     steps:
