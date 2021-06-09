@@ -16,9 +16,13 @@ package sysdump
 
 import (
 	"regexp"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
+	awsNodeDaemonSetName         = "aws-node"
+	awsNodeDaemonSetNamespace    = "kube-system"
 	ciliumAgentContainerName     = "cilium-agent"
 	ciliumConfigConfigMapName    = "cilium-config"
 	ciliumDaemonSetName          = "cilium"
@@ -33,6 +37,7 @@ const (
 )
 
 const (
+	awsNodeDaemonSetFileName                 = "aws-node-daemonset-<ts>.yaml"
 	ciliumBugtoolFileName                    = "cilium-bugtool-%s-<ts>.tar"
 	ciliumClusterWideNetworkPoliciesFileName = "ciliumclusterwidenetworkpolicies-<ts>.yaml"
 	ciliumConfigMapFileName                  = "cilium-config-configmap-<ts>.yaml"
@@ -45,6 +50,7 @@ const (
 	ciliumNetworkPoliciesFileName            = "ciliumnetworkpolicies-<ts>.yaml"
 	ciliumNodesFileName                      = "ciliumnodes-<ts>.yaml"
 	ciliumOperatorDeploymentFileName         = "cilium-operator-deployment-<ts>.yaml"
+	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
 	hubbleRelayDeploymentFileName            = "hubble-relay-deployment-<ts>.yaml"
@@ -57,24 +63,35 @@ const (
 	kubernetesPodsSummaryFileName            = "k8s-pods-<ts>.txt"
 	kubernetesServicesFileName               = "k8s-services-<ts>.yaml"
 	kubernetesVersionInfoFileName            = "k8s-version-<ts>.txt"
+	securityGroupPoliciesFileName            = "aws-securitygrouppolicies-<ts>.yaml"
 	timestampPlaceholderFileName             = "<ts>"
 )
 
 const (
-	dirMode    = 0700
-	fileMode   = 0600
-	timeFormat = "20060102-150405"
+	ciliumBugtoolCommand = "cilium-bugtool"
+	dirMode              = 0700
+	fileMode             = 0600
+	gopsCommand          = "/bin/gops"
+	gopsPID              = "1"
+	rmCommand            = "rm"
+	timeFormat           = "20060102-150405"
 )
 
 var (
+	awsENIConfigsGVR = schema.GroupVersionResource{
+		Group:    "crd.k8s.amazonaws.com",
+		Resource: "eniconfigs",
+		Version:  "v1alpha1",
+	}
+	awsSecurityGroupPoliciesGVR = schema.GroupVersionResource{
+		Group:    "vpcresources.k8s.aws",
+		Resource: "securitygrouppolicies",
+		Version:  "v1beta1",
+	}
 	ciliumBugtoolFileNameRegex = regexp.MustCompile("ARCHIVE at (.*)\n")
-	ciliumBugtoolCommand       = "cilium-bugtool"
-	gopsCommand                = "/bin/gops"
-	gopsPID                    = "1"
 	gopsStats                  = []string{
 		"memstats",
 		"stack",
 		"stats",
 	}
-	rmCommand = "rm"
 )
