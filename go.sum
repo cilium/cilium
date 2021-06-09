@@ -172,8 +172,8 @@ github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6 h1:FhiaMJPUHPEw5pjoTfC
 github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
-github.com/cilium/metallb v0.1.1-0.20210520171949-40d425d20241 h1:6m6Nh2xOlmjaLacBUoOrs1SAGFygoDgyjNery9DOkpk=
-github.com/cilium/metallb v0.1.1-0.20210520171949-40d425d20241/go.mod h1:HTQ4n8ZdoOg8+j+txkXsFVKmHHc2PaXirzW5d4Sw7Qw=
+github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7 h1:HcvwigeOAXg+GJDAA7gKgpo8m0X+p/WL7wYdGIYIPuQ=
+github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7/go.mod h1:HTQ4n8ZdoOg8+j+txkXsFVKmHHc2PaXirzW5d4Sw7Qw=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32 h1:8imv/jHGU2g796+N6VEwSZcU8H6MQ0z33VTNeFeKMpQ=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
 github.com/clbanning/x2j v0.0.0-20191024224557-825249438eec/go.mod h1:jMjuTZXRI4dUb/I5gc9Hdhagfvm9+RyrPryS/auMzxE=
