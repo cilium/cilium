@@ -22,6 +22,7 @@ import (
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -165,8 +166,16 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 
 func (k *K8sWatcher) updateK8sEndpointSliceV1(eps *slim_discover_v1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
 	k.K8sSvcCache.UpdateEndpointSlicesV1(eps, swgEps)
+
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnUpdateEndpointSliceV1(eps)
+	}
 }
 
 func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
 	k.K8sSvcCache.UpdateEndpointSlicesV1Beta1(eps, swgEps)
+
+	if option.Config.BGPAnnounceLBIP {
+		k.bgpSpeakerManager.OnUpdateEndpointSliceV1Beta1(eps)
+	}
 }
