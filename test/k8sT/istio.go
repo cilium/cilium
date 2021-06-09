@@ -15,7 +15,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"runtime"
 	"time"
@@ -77,8 +76,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 		wgetCommand = fmt.Sprintf("wget --tries=2 --connect-timeout %d", helpers.CurlConnectTimeout)
 		curlCommand = fmt.Sprintf("curl --retry 2 --retry-connrefused --connect-timeout %d", helpers.CurlConnectTimeout)
 
-		kubectl      *helpers.Kubectl
-		uptimeCancel context.CancelFunc
+		kubectl *helpers.Kubectl
 
 		teardownTimeout = 10 * time.Minute
 
@@ -133,15 +131,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sIstioTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
-	JustBeforeEach(func() {
-		var err error
-		uptimeCancel, err = kubectl.BackgroundReport("uptime")
-		Expect(err).To(BeNil(), "Cannot start background report process")
-	})
-
 	JustAfterEach(func() {
-		uptimeCancel()
-
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 

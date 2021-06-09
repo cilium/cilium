@@ -15,7 +15,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"net"
 
@@ -29,9 +28,7 @@ import (
 // doesn't need to execute this test suite.
 var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 	var (
-		kubectl          *helpers.Kubectl
-		backgroundCancel context.CancelFunc = func() {}
-		backgroundError  error
+		kubectl *helpers.Kubectl
 
 		demoManifest   = ""
 		ciliumFilename string
@@ -98,16 +95,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
-	})
-
-	JustBeforeEach(func() {
-		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-	})
-
-	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		backgroundCancel()
 	})
 
 	AfterEach(func() {

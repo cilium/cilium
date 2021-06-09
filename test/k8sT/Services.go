@@ -43,10 +43,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
 
-		backgroundCancel       context.CancelFunc = func() {}
-		backgroundError        error
-		enableBackgroundReport = true
-
 		k8s1NodeName    string
 		k8s2NodeName    string
 		outsideNodeName string
@@ -115,16 +111,8 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
-	JustBeforeEach(func() {
-		if enableBackgroundReport {
-			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-		}
-	})
-
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		backgroundCancel()
 	})
 
 	AfterEach(func() {
@@ -2273,14 +2261,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Tests NodePort BPF",
 			func() {
-				BeforeAll(func() {
-					enableBackgroundReport = false
-				})
-
-				AfterAll(func() {
-					enableBackgroundReport = true
-				})
-
 				Context("Tests with vxlan", func() {
 					It("Tests NodePort", func() {
 						testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)

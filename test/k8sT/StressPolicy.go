@@ -26,25 +26,15 @@ import (
 
 var _ = Describe("NightlyPolicyStress", func() {
 
-	var (
-		kubectl          *helpers.Kubectl
-		backgroundCancel context.CancelFunc = func() {}
-		backgroundError  error
-	)
+	var kubectl *helpers.Kubectl
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		deploymentManager.SetKubectl(kubectl)
 	})
 
-	JustBeforeEach(func() {
-		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-	})
-
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		backgroundCancel()
 	})
 
 	AfterEach(func() {
