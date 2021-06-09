@@ -1442,17 +1442,6 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.BGPAnnounceLBIP {
 		option.Config.EnableNodePort = true
 		log.Infof("Auto-set BPF NodePort (%q) because LB IP announcements via BGP depend on it.", option.EnableNodePort)
-
-		if option.Config.K8sEnableK8sEndpointSlice {
-			option.Config.K8sEnableK8sEndpointSlice = false
-			log.WithFields(logrus.Fields{
-				logfields.URL: "https://github.com/metallb/metallb/issues/811",
-			}).Warnf(
-				"Disabling EndpointSlice support (%q) due to incompatibility with BGP mode. "+
-					"Cilium will fallback to using the original Endpoint resource.",
-				option.K8sEnableEndpointSlice,
-			)
-		}
 	}
 }
 
