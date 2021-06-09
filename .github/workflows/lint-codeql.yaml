@@ -1,22 +1,31 @@
 name: codeql
 
 on:
-  push:
-    paths:
-      - '*.go'
-      - 'go.mod'
-      - 'go.sum'
-  pull_request:
-    paths:
-      - '*.go'
-      - 'go.mod'
-      - 'go.sum'
+  push: {}
+  pull_request: {}
   schedule:
     - cron: "45 6 * * 3"
 
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-18.04
+    outputs:
+      go-changes: ${{ steps.go-changes.outputs.src }}
+    steps:
+      - name: Check code changes
+        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        id: go-changes
+        with:
+          filters: |
+            src:
+              - '*.go'
+              - 'go.mod'
+              - 'go.sum'
+
   analyze:
-    if: github.repository == 'cilium/cilium'
+    needs: check_changes
+    if: github.repository == 'cilium/cilium' && needs.check_changes.outputs.go-changes == 'true'
     runs-on: ubuntu-18.04
     steps:
     - name: Checkout repo
