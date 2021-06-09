@@ -2,16 +2,10 @@ name: Smoke test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request:
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+  pull_request: {}
   push:
     branches:
       - master
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
@@ -25,6 +19,20 @@ env:
   LOG_TIME: 30m
 
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-18.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Check code changes
+        uses: dorny/paths-filter@78ab00f87740f82aec8ed8826eb4c3c851044126
+        id: tested-tree
+        with:
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
   preflight-clusterrole:
     runs-on: ubuntu-latest
     steps:
@@ -69,7 +77,8 @@ jobs:
           git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
   conformance-test:
-    if: ${{ github.repository == 'cilium/cilium' }}
+    needs: check_changes
+    if: ${{ github.repository == 'cilium/cilium' && needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
