@@ -32,6 +32,10 @@ const (
 )
 
 var (
+	// SupportedPrimes are all the primes that are supported as Maglev table
+	// sizes.
+	SupportedPrimes = []int{251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071}
+
 	seedMurmur uint32
 
 	SeedJhash0 uint32
@@ -40,6 +44,20 @@ var (
 	// permutation is the slice containing the Maglev permutation calculations.
 	permutation []uint64
 )
+
+// IsValidPrime checks whether the given m is a valid prime value for the
+// Maglev lookup table.
+func IsValidPrime(m int) bool {
+	// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
+	// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
+	// backends." (from Maglev paper, page 6)
+	for _, prime := range SupportedPrimes {
+		if m == prime {
+			return true
+		}
+	}
+	return false
+}
 
 // Init initializes the Maglev subsystem with the seed and the backend table
 // size (m).
