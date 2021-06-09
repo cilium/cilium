@@ -140,8 +140,8 @@ func (t *Test) finalize() {
 
 // Run executes all Scenarios registered to the Test.
 func (t *Test) Run(ctx context.Context) error {
-	if isDone(ctx) {
-		return context.Canceled
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	// Steps to execute when all Scenarios have finished executing,
@@ -178,8 +178,8 @@ func (t *Test) Run(ctx context.Context) error {
 	}
 
 	for s := range t.scenarios {
-		if isDone(ctx) {
-			return context.Canceled
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 
 		sn := t.scenarioName(s)

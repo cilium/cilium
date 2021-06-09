@@ -202,8 +202,8 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 // Run kicks off execution of all Tests registered to the ConnectivityTest.
 // Each Test's Run() method is called within its own goroutine.
 func (ct *ConnectivityTest) Run(ctx context.Context) error {
-	if isDone(ctx) {
-		return context.Canceled
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	if err := ct.initClients(ctx); err != nil {
@@ -234,8 +234,8 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 
 	// Execute all tests in the order they were registered by the test suite.
 	for _, t := range ct.tests {
-		if isDone(ctx) {
-			return context.Canceled
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 
 		done := make(chan bool)
@@ -250,7 +250,7 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 			}
 
 			// Exit immediately if context was cancelled.
-			if isDone(ctx) {
+			if err := ctx.Err(); err != nil {
 				return
 			}
 
