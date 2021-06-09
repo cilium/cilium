@@ -57,7 +57,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 			defer func() { k.K8sEventReceived(metricEndpointSlice, metricCreate, valid, equal) }()
 			if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
 				valid = true
-				k.K8sSvcCache.UpdateEndpointSlicesV1(k8sEP, swgEps)
+				k.updateK8sEndpointSliceV1(k8sEP, swgEps)
 				k.K8sEventProcessed(metricEndpointSlice, metricCreate, true)
 			}
 		}
@@ -72,7 +72,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 						return
 					}
 
-					k.K8sSvcCache.UpdateEndpointSlicesV1(newk8sEP, swgEps)
+					k.updateK8sEndpointSliceV1(newk8sEP, swgEps)
 					k.K8sEventProcessed(metricEndpointSlice, metricUpdate, true)
 				}
 			}
@@ -102,7 +102,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 			defer func() { k.K8sEventReceived(metricEndpointSlice, metricCreate, valid, equal) }()
 			if k8sEP := k8s.ObjToV1Beta1EndpointSlice(obj); k8sEP != nil {
 				valid = true
-				k.K8sSvcCache.UpdateEndpointSlicesV1Beta1(k8sEP, swgEps)
+				k.updateK8sEndpointSliceV1Beta1(k8sEP, swgEps)
 				k.K8sEventProcessed(metricEndpointSlice, metricCreate, true)
 			}
 		}
@@ -117,7 +117,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 						return
 					}
 
-					k.K8sSvcCache.UpdateEndpointSlicesV1Beta1(newk8sEP, swgEps)
+					k.updateK8sEndpointSliceV1Beta1(newk8sEP, swgEps)
 					k.K8sEventProcessed(metricEndpointSlice, metricUpdate, true)
 				}
 			}
@@ -161,4 +161,12 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 	k.k8sAPIGroups.RemoveAPI(apiGroup)
 	close(ecr)
 	return false
+}
+
+func (k *K8sWatcher) updateK8sEndpointSliceV1(eps *slim_discover_v1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
+	k.K8sSvcCache.UpdateEndpointSlicesV1(eps, swgEps)
+}
+
+func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
+	k.K8sSvcCache.UpdateEndpointSlicesV1Beta1(eps, swgEps)
 }
