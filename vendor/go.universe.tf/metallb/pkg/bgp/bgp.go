@@ -189,7 +189,10 @@ func (s *Session) connect() error {
 
 	routerID := s.routerID
 	if routerID == nil {
-		routerID = getRouterID(s.defaultNextHop, s.myNode)
+		routerID, err = getRouterID(s.defaultNextHop, s.myNode)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err = sendOpen(conn, s.asn, routerID, s.holdTime); err != nil {
@@ -241,17 +244,20 @@ func (s *Session) connect() error {
 	return nil
 }
 
-func hashRouterId(hostname string) net.IP {
+func hashRouterId(hostname string) (net.IP, error) {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, crc32.ChecksumIEEE([]byte(hostname)))
-	return net.IP(buf.Bytes())
+	err := binary.Write(buf, binary.LittleEndian, crc32.ChecksumIEEE([]byte(hostname)))
+	if err != nil {
+		return nil, err
+	}
+	return net.IP(buf.Bytes()), nil
 }
 
 // Ipv4; Use the address as-is.
 // Ipv6; Pick the first ipv4 address on the same interface as the address
-func getRouterID(addr net.IP, myNode string) net.IP {
+func getRouterID(addr net.IP, myNode string) (net.IP, error) {
 	if addr.To4() != nil {
-		return addr
+		return addr, nil
 	}
 
 	ifaces, err := net.Interfaces()
@@ -284,7 +290,7 @@ func getRouterID(addr net.IP, myNode string) net.IP {
 						ip = v.IP
 					}
 					if ip.To4() != nil {
-						return ip
+						return ip, nil
 					}
 				}
 				return hashRouterId(myNode)

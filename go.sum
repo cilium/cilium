@@ -182,8 +182,8 @@ github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6 h1:FhiaMJPUHPEw5pjoTfC
 github.com/cilium/ipam v0.0.0-20201106170308-4184bc4bf9d6/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
-github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7 h1:HcvwigeOAXg+GJDAA7gKgpo8m0X+p/WL7wYdGIYIPuQ=
-github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7/go.mod h1:HTQ4n8ZdoOg8+j+txkXsFVKmHHc2PaXirzW5d4Sw7Qw=
+github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f h1:5IFq1y2Ptz45Cfuu0rHjy5+vOxs/pkwkKiOzatf92rg=
+github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f/go.mod h1:3/7XqsnwanF+NM3mwSxXi2qPPLIvaLY4CbrNe/YzArk=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32 h1:8imv/jHGU2g796+N6VEwSZcU8H6MQ0z33VTNeFeKMpQ=
 github.com/cilium/proxy v0.0.0-20210511221533-82a70d56bf32/go.mod h1:mvauc94lqkyJunRsU9Ef5FIsixi8vBeDoxuMYoGBemk=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
@@ -768,6 +768,7 @@ github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtP
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pelletier/go-toml v1.4.0/go.mod h1:PN7xzY2wHTK0K9p34ErDQMlFxa51Fk0OUruD3k1mMwo=
 github.com/pelletier/go-toml v1.7.0/go.mod h1:vwGMzjaWMwyfHwgIBhI2YUM4fB6nL6lVAvS1LBMMhTE=
+github.com/pelletier/go-toml v1.8.1/go.mod h1:T2/BmBdy8dvIRq1a/8aqjN41wvWlN4lrapLU/GW4pbc=
 github.com/pelletier/go-toml v1.9.3 h1:zeC5b1GviRUyKYd6OJPvBU/mcVDVoL1OhT17FCt5dSQ=
 github.com/pelletier/go-toml v1.9.3/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=

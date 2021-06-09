@@ -82,7 +82,7 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.uber.org/goleak v1.1.10
-	go.universe.tf/metallb v0.9.6
+	go.universe.tf/metallb v0.10.0
 	golang.org/x/crypto v0.0.0-20210503195802-e9a32991a82e
 	golang.org/x/net v0.0.0-20210504132125-bbd867fde50d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -117,7 +117,7 @@ replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 
-	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20210607221240-b4c60b959dd7
+	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20210609003938-62cef75b3c9f
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.

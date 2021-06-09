@@ -88,7 +88,7 @@ type Proto string
 // MetalLB supported protocols.
 const (
 	BGP    Proto = "bgp"
-	Layer2       = "layer2"
+	Layer2 Proto = "layer2"
 )
 
 // Peer is the configuration of a BGP peering session.
@@ -475,12 +475,4 @@ func cidrContainsCIDR(outer, inner *net.IPNet) bool {
 		return true
 	}
 	return false
-}
-
-func isIPv4(ip net.IP) bool {
-	return ip.To16() != nil && ip.To4() != nil
-}
-
-func isIPv6(ip net.IP) bool {
-	return ip.To16() != nil && ip.To4() == nil
 }
