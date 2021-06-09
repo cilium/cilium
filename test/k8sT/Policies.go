@@ -75,11 +75,9 @@ var _ = SkipDescribeIf(func() bool {
 		cnpMatchExpressionDeny   string
 		connectivityCheckYml     string
 
-		app1Service                         = "app1-service"
-		backgroundCancel context.CancelFunc = func() {}
-		backgroundError  error
-		apps             = []string{helpers.App1, helpers.App2, helpers.App3}
-		daemonCfg        map[string]string
+		app1Service = "app1-service"
+		apps        = []string{helpers.App1, helpers.App2, helpers.App3}
+		daemonCfg   map[string]string
 	)
 
 	BeforeAll(func() {
@@ -135,14 +133,8 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl.CloseSSHClient()
 	})
 
-	JustBeforeEach(func() {
-		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
-	})
-
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		backgroundCancel()
 	})
 
 	// getMatcher returns a helper.CMDSucess() matcher for success or
