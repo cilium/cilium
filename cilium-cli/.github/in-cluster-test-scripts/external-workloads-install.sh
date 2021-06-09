@@ -10,6 +10,9 @@ cilium install \
   --config tunnel=vxlan \
   --native-routing-cidr="${CLUSTER_CIDR}"
 
+# Wait for Cilium status to be ready
+cilium status --wait
+
 # Enable cluster mesh
 cilium clustermesh enable
 
