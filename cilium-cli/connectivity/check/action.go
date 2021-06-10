@@ -228,7 +228,7 @@ func (a *Action) printFlows(pod string, f flowsSet, r FlowRequirementResults) {
 
 		//nolint:staticcheck // Summary is deprecated but there is no real alternative yet
 		//lint:ignore SA1019 Summary is deprecated but there is no real alternative yet
-		a.Logf("%s %s: %s -> %s %s %s (%s)", flowPrefix, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
+		a.Logf("%s [%d] %s: %s -> %s %s %s (%s)", flowPrefix, index, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
 	}
 
 	a.Log()
@@ -252,8 +252,8 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 
 		if match != expect {
 			msgSuffix := "not found"
-			if !expect {
-				msgSuffix = "found"
+			if match {
+				msgSuffix = fmt.Sprintf("found at %d", offset+index)
 			}
 
 			a.Infof("%s %s %s", f.Msg, f.Filter.String(fc), msgSuffix)
@@ -261,9 +261,9 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 			// Record the failure in the results of the current match attempt.
 			r.Failures++
 		} else {
-			msgSuffix := "found"
-			if !expect {
-				msgSuffix = "not found"
+			msgSuffix := "not found"
+			if match {
+				msgSuffix = fmt.Sprintf("found at %d", offset+index)
 			}
 
 			a.Logf("✅ %s %s", f.Msg, msgSuffix)
@@ -272,10 +272,10 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 		return index, match, flow
 	}
 
-	a.Logf("📄 Matching flows for pod %s:", pod)
-
 	if index, match, _ := match(true, req.First, &flowCtx); !match {
 		r.NeedMoreFlows = true
+		// No point trying to match more if First does not match.
+		return
 	} else {
 		r.FirstMatch = offset + index
 	}
@@ -506,6 +506,7 @@ func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []fi
 	if hubbleClient == nil {
 		return
 	}
+	a.Logf("📄 Matching flows for pod %s", pod)
 
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{
 		Timeout:         defaults.FlowWaitTimeout,
