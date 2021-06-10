@@ -54,7 +54,6 @@ jobs:
           echo ::set-output name=owner::${OWNER}
 
       - name: Create GKE cluster 2
-        id: cluster2
         run: |
           gcloud container clusters create ${{ env.clusterName2 }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
@@ -66,8 +65,6 @@ jobs:
             --disk-size 10GB \
             --preemptible \
             --enable-ip-alias
-          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName2 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
-          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
 
       - name: Get cluster 2 credentials
         run: |
@@ -79,7 +76,6 @@ jobs:
           mv kubeconfig kubeconfig-cluster2
 
       - name: Create GKE cluster 1
-        id: cluster1
         run: |
           gcloud container clusters create ${{ env.clusterName1 }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
@@ -91,8 +87,6 @@ jobs:
             --disk-size 10GB \
             --preemptible \
             --enable-ip-alias
-          CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName1 }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
-          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
 
       - name: Get cluster 1 credentials
         run: |
@@ -128,9 +122,7 @@ jobs:
             --set job_name=cilium-cli \
             --set test_script_cm=cilium-cli-test-script \
             --set cluster_name_1=${{ env.clusterName1 }} \
-            --set cluster_cidr_1=${{ steps.cluster1.outputs.cluster_cidr }} \
             --set cluster_name_2=${{ env.clusterName2 }} \
-            --set cluster_cidr_2=${{ steps.cluster2.outputs.cluster_cidr }}
 
       - name: Wait for test job
         run: |
