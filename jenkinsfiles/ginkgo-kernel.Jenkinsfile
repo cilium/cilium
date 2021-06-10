@@ -176,7 +176,7 @@ pipeline {
                         retry(25) {
                             sleep(time: 60)
                             sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/cilium-ci/tag/${DOCKER_TAG}/images"'
-                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/operator-ci/tag/${DOCKER_TAG}/images"'
+                            sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/operator-generic-ci/tag/${DOCKER_TAG}/images"'
                             sh 'curl --silent -f -lSL "https://quay.io/api/v1/repository/cilium/hubble-relay-ci/tag/${DOCKER_TAG}/images"'
                         }
                     }
