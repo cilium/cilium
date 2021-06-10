@@ -251,16 +251,16 @@ port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
-    ID   Frontend               Service Type   Backend                    
+    ID   Frontend               Service Type   Backend
     [...]
-    4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80       
-                                               2 => 10.217.0.149:80       
-    5    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80       
-                                               2 => 10.217.0.149:80       
-    6    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80       
-                                               2 => 10.217.0.149:80       
-    7    172.16.0.29:31940      NodePort       1 => 10.217.0.107:80       
-                                               2 => 10.217.0.149:80       
+    4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80
+                                               2 => 10.217.0.149:80
+    5    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80
+                                               2 => 10.217.0.149:80
+    6    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80
+                                               2 => 10.217.0.149:80
+    7    172.16.0.29:31940      NodePort       1 => 10.217.0.107:80
+                                               2 => 10.217.0.149:80
 
 At the same time we can verify, using ``iptables`` in the host namespace,
 that no ``iptables`` rule for the service is present:
@@ -1208,6 +1208,42 @@ working, take a look at `this KEP
     If Cilium with a non-empty service proxy name is meant to manage all services in kube-proxy
     free mode, make sure that default Kubernetes services like ``kube-dns`` and ``kubernetes``
     have the required label value.
+
+Troubleshooting
+***************
+
+Validate BPF cgroup programs attachment
+=======================================
+
+Cilium attaches BPF ``cgroup`` programs to enable socket-based load-balancing (aka
+``host-reachable`` services). If you see connectivity issues for ``clusterIP`` services,
+check if the programs are attached to the host ``cgroup root``. The default ``cgroup``
+root is set to ``/run/cilium/cgroupv2``.
+Run the following commands from a Cilium agent pod as well as the underlying
+kubernetes node where the pod is running. If the container runtime in your cluster
+is running in the cgroup namespace mode, Cilium agent pod can attach BPF ``cgroup``
+programs to the ``virtualized cgroup root``. In such cases, Cilium kube-proxy replacement
+based load-balancing may not be effective leading to connectivity issues.
+For more information, ensure that you have the fix `Pull Request <https://github.com/cilium/cilium/pull/16259>`__.
+
+.. code-block:: shell-session
+
+    $ mount | grep cgroup2
+    none on /run/cilium/cgroupv2 type cgroup2 (rw,relatime)
+
+    $ bpftool cgroup tree /run/cilium/cgroupv2/
+    CgroupPath
+    ID       AttachType      AttachFlags     Name
+    /run/cilium/cgroupv2
+    10613    device          multi
+    48497    connect4
+    48493    connect6
+    48499    sendmsg4
+    48495    sendmsg6
+    48500    recvmsg4
+    48496    recvmsg6
+    48498    getpeername4
+    48494    getpeername6
 
 Limitations
 ###########
