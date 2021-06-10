@@ -515,6 +515,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				return
 			}
 		}
+		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 
 	// In Azure mode, the Resource points to the azure interface so we can
 	// derive the master interface
@@ -538,6 +539,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				return
 			}
 		}
+		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 
 	// In AlibabaCloud mode, the Resource points to the ENI so we can derive the
 	// master interface and all CIDRs of the VPC
@@ -554,10 +556,9 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 			result.InterfaceNumber = strconv.Itoa(alibabaCloud.GetENIIndexFromTags(eni.Tags))
 			return
 		}
+		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 	}
 
-	result = nil
-	err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 	return
 }
 
