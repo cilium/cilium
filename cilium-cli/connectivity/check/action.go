@@ -248,6 +248,15 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 
 		if match {
 			r.Matched[offset+index] = expect
+
+			// Update last match index and timestamp
+			if r.LastMatch < offset+index {
+				r.LastMatch = offset + index
+				flowTimestamp, err := ptypes.Timestamp(flow.Time)
+				if err == nil {
+					r.LastMatchTimestamp = flowTimestamp
+				}
+			}
 		}
 
 		if match != expect {
@@ -288,15 +297,8 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 	}
 
 	if !(req.Last.SkipOnAggregation && a.test.ctx.FlowAggregation()) {
-		if index, match, lastFlow := match(true, req.Last, &flowCtx); !match {
+		if _, match, _ := match(true, req.Last, &flowCtx); !match {
 			r.NeedMoreFlows = true
-		} else {
-			r.LastMatch = offset + index
-
-			flowTimestamp, err := ptypes.Timestamp(lastFlow.Time)
-			if err == nil {
-				r.LastMatchTimestamp = flowTimestamp
-			}
 		}
 	}
 
