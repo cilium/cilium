@@ -194,14 +194,6 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	s.Lock()
 	defer s.Unlock()
 
-	// The following two calls can be removed in v1.8+.
-	if err := bpf.UnpinMapIfExists("cilium_lb6_rr_seq_v2"); err != nil {
-		return nil
-	}
-	if err := bpf.UnpinMapIfExists("cilium_lb4_rr_seq_v2"); err != nil {
-		return nil
-	}
-
 	toOpen := []*bpf.Map{}
 	toDelete := []*bpf.Map{}
 	if ipv6 {
