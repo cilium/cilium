@@ -245,10 +245,6 @@ func init() {
 	flags.String(option.CGroupRoot, "", "Path to Cgroup2 filesystem")
 	option.BindEnv(option.CGroupRoot)
 
-	flags.Bool(option.BPFCompileDebugName, true, "Enable debugging of the BPF compilation process. ")
-	flags.MarkDeprecated(option.BPFCompileDebugName, "This flag is no longer available and will be removed in v1.11")
-	option.BindEnv(option.BPFCompileDebugName)
-
 	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
 	option.BindEnv(option.SockopsEnableName)
 
@@ -496,12 +492,6 @@ func init() {
 	option.BindEnv(option.K8sServiceCacheSize)
 	flags.MarkHidden(option.K8sServiceCacheSize)
 
-	// Remove in 1.11
-	flags.Bool(option.K8sForceJSONPatch, false, "When set uses JSON Patch to update CNP and CEP status in kube-apiserver")
-	option.BindEnv(option.K8sForceJSONPatch)
-	flags.MarkHidden(option.K8sForceJSONPatch)
-	flags.MarkDeprecated(option.K8sForceJSONPatch, "Marked for removal in Cilium 1.11 as this functionality is enabled by default since Kubernetes >= 1.13")
-
 	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
 	option.BindEnv(option.K8sWatcherEndpointSelector)
 
@@ -656,10 +646,6 @@ func init() {
 
 	flags.String(option.NAT46Range, defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	option.BindEnv(option.NAT46Range)
-
-	flags.Bool(option.Masquerade, true, "Masquerade packets from endpoints leaving the host")
-	option.BindEnv(option.Masquerade)
-	flags.MarkDeprecated(option.Masquerade, fmt.Sprintf("This option will be removed in v1.11 in favour of %s", option.EnableIPv4Masquerade))
 
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(option.EnableIPv4Masquerade)
@@ -868,10 +854,6 @@ func init() {
 	flags.MarkHidden(option.SelectiveRegeneration)
 	option.BindEnv(option.SelectiveRegeneration)
 
-	flags.Bool(option.SkipCRDCreation, false, "Skip Kubernetes Custom Resource Definitions creations")
-	flags.MarkDeprecated(option.SkipCRDCreation, "This will be deprecated in 1.10, and the flag will be removed in 1.11")
-	option.BindEnv(option.SkipCRDCreation)
-
 	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
 	option.BindEnv(option.WriteCNIConfigurationWhenReady)
 
@@ -905,10 +887,6 @@ func init() {
 
 	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
 	option.BindEnv(option.HubbleTLSClientCAFiles)
-
-	flags.Int(option.HubbleFlowBufferSize, 0, "Maximum number of flows in Hubble's buffer.")
-	flags.MarkDeprecated(option.HubbleFlowBufferSize, fmt.Sprintf("Use %s instead.", option.HubbleEventBufferCapacity))
-	option.BindEnv(option.HubbleFlowBufferSize)
 
 	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows.AsInt(), "Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
 	option.BindEnv(option.HubbleEventBufferCapacity)
