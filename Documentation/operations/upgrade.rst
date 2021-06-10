@@ -303,6 +303,26 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.11_upgrade_notes:
+
+1.11 Upgrade Notes
+------------------
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* ``bpf-compile-debug``: This option does not have any effect since 1.10
+  and is now removed.
+* ``k8s-force-json-patch``: This option does not have any effect for
+  environments running Kubernetes >= 1.13, is deprecated since 1.10, and
+  now removed.
+* ``masquerade``: This option has been deprecated in 1.10 and replaced by
+  ``enable-ipv4-masquerade``.
+* ``skip-crd-creation``: This option does not have any effect since 1.10
+  and is now removed.
+* ``hubble-flow-buffer-size``: This option was deprecated in 1.10 in favor
+  of ``hubble-event-buffer-capacity``. It is now removed.
+
 .. _1.10_upgrade_notes:
 
 1.10 Upgrade Notes
