@@ -66,7 +66,7 @@ var _ = Describe("NightlyPolicyStress", func() {
 		// Repeat 'cmd' 'count' times.
 		// '${namespace} in 'cmd' will be replaced by 'namespace'.
 		// '$i' in 'cmd' will be replaced by the loop counter, starting from 1.
-		return fmt.Sprintf(`/bin/bash -c 'namespace=%s; for i in $(seq 1 %d); do %s; done'`,
+		return fmt.Sprintf(`/usr/bin/env bash -c 'namespace=%s; for i in $(seq 1 %d); do %s; done'`,
 			namespace, count, cmd)
 	}
 
