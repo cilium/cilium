@@ -25,9 +25,6 @@ jobs:
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
 
-          - name: operator
-            dockerfile: ./images/operator/Dockerfile
-
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
 
