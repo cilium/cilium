@@ -16,6 +16,10 @@ Prerequisites
 Cluster Addressing Requirements
 ===============================
 
+* All clusters must be configured with the same datapath mode. Cilium install
+  may default to :ref:`arch_overlay` or :ref:`native_routing` mode depending on
+  the specific cloud environment.
+
 * PodCIDR ranges in all clusters and all nodes must be non-conflicting and
   unique IP addresses.
 
@@ -25,6 +29,28 @@ Cluster Addressing Requirements
 
 * The network between clusters must allow the inter-cluster communication. The
   exact ports are documented in the :ref:`firewall_requirements` section.
+
+Additional Requirements for Native-routed Datapath Modes
+--------------------------------------------------------
+
+* Cilium in each cluster must be configured with a native routing CIDR that
+  covers all the PodCIDR ranges across all connected clusters. Cluster CIDRs are
+  typically allocated from the ``10.0.0.0/8`` private address space. When this
+  is a case a native routing CIDR such as ``10.0.0.0/9`` should cover all
+  clusters:
+
+ * ConfigMap option ``native-routing-cidr=10.0.0.0/9``
+ * Helm option ``--set nativeRoutingCIDR=10.0.0.0/9``
+ * ``cilium install`` option ``--native-routing-cidr=10.0.0.0/9``
+
+* In addition to nodes, pods in all clusters must have IP connectivity between each other. This
+  requirement is typically met by establishing peering or VPN tunnels between
+  the networks of the nodes of each cluster
+
+* The network between clusters must allow pod-to-pod inter-cluster communication
+  across any ports that the pods may use. This is typically accomplished with
+  firewall rules allowing pods in different clusters to reach each other on all
+  ports.
 
 Install the Cilium CLI
 ======================
