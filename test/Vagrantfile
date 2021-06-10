@@ -119,7 +119,7 @@ Vagrant.configure("2") do |config|
         if $NFS
             # This network is only used by NFS
             server.vm.network "private_network", ip: "192.168.38.10"
-            server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+            server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false, nfs_version: 4
         else
             server.vm.synced_folder cilium_dir, cilium_path
         end
@@ -190,7 +190,7 @@ Vagrant.configure("2") do |config|
             if $NFS
                 # This network is only used by NFS
                 server.vm.network "private_network", ip: "192.168.38.1#{i}"
-                server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+                server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false, nfs_version: 4
             else
                 server.vm.synced_folder cilium_dir, cilium_path
             end
