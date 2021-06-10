@@ -399,7 +399,7 @@ func DNSDeployment(base string) string {
 	var DNSEngine = "coredns"
 	k8sVersion := GetCurrentK8SEnv()
 	switch k8sVersion {
-	case "1.7", "1.8", "1.9", "1.10":
+	case "1.8", "1.9", "1.10":
 		DNSEngine = "kubedns"
 	}
 
@@ -427,12 +427,6 @@ func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 		return nil, err
 	}
 	switch {
-	case IsCiliumV1_5(cst):
-		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
-	case IsCiliumV1_6(cst):
-		return versioncheck.MustCompile(">=1.8.0 <1.18.0"), nil
-	case IsCiliumV1_7(cst):
-		return versioncheck.MustCompile(">=1.10.0 <1.18.0"), nil
 	case IsCiliumV1_8(cst):
 		return versioncheck.MustCompile(">=1.10.0 <1.19.0"), nil
 	case IsCiliumV1_9(cst):
