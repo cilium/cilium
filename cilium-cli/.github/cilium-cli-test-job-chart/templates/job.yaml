@@ -30,12 +30,8 @@ spec:
             value: {{ .Values.vm_name }}
           - name: CLUSTER_NAME_1
             value: {{ .Values.cluster_name_1 }}
-          - name: CLUSTER_CIDR_1
-            value: {{ .Values.cluster_cidr_1 }}
           - name: CLUSTER_NAME_2
             value: {{ .Values.cluster_name_2 }}
-          - name: CLUSTER_CIDR_2
-            value: {{ .Values.cluster_cidr_2 }}
       dnsPolicy: ClusterFirst
       enableServiceLinks: true
       priority: 0
