@@ -517,7 +517,11 @@ func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []fi
 	defer w.Cancel()
 
 retry:
-	flows, err := a.getFlows(ctx, hubbleClient, a.started, pod, podIP)
+	since := a.flows[pod].lastTime()
+	if since.IsZero() {
+		since = a.started
+	}
+	flows, err := a.getFlows(ctx, hubbleClient, since, pod, podIP)
 	if err != nil || len(flows) == 0 {
 		if err == nil {
 			err = fmt.Errorf("no flows returned")
@@ -528,6 +532,11 @@ retry:
 		}
 		goto retry
 	}
+
+	// append flows for the pod
+	flows = a.flows[pod].append(flows)
+	a.flows[pod] = flows
+
 	res := FlowRequirementResults{FirstMatch: -1, LastMatch: -1}
 	for i, req := range reqs {
 		offset := 0
@@ -552,7 +561,6 @@ retry:
 		res.Merge(&r)
 		a.Debugf("Merged flow validation results #%d: %v", i, res)
 	}
-	a.flows[pod] = flows
 	a.flowResults[pod] = res
 
 	if !res.LastMatchTimestamp.IsZero() {
