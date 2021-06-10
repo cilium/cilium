@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
-	"github.com/cilium/cilium/pkg/hubble/math"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
@@ -409,22 +408,7 @@ func (d *Daemon) GetK8sStore(name string) k8scache.Store {
 }
 
 // getHubbleEventBufferCapacity returns the user configured capacity for
-// Hubble's events buffer. The deprecated flag hubble-flow-buffer-size is
-// evaluated if greater than 0, otherwise the new flag
-// hubble-event-buffer-capacity is used instead.
+// Hubble's events buffer.
 func getHubbleEventBufferCapacity(logger logrus.FieldLogger) (container.Capacity, error) {
-	// check deprecated old flag for compatibility
-	// TODO: remove support for HubbleFlowBufferSize once 1.11 is out
-	if option.Config.HubbleFlowBufferSize > 0 {
-		logger.Warningf("Option '%s' is deprecated and will be removed in Cilium 1.11", option.HubbleFlowBufferSize)
-		c, err := container.NewCapacity(option.Config.HubbleFlowBufferSize)
-		if err == nil {
-			return c, nil
-		}
-		// old flag behavior was to silently round up the buffer capacity to a
-		// valid value (eg: 1500 -> 2047, 5000 -> 8191, etc) so adjust provided
-		// value to the nearest valid one for compatibility purpose
-		return container.NewCapacity((1<<math.MSB(uint64(option.Config.HubbleFlowBufferSize)) - 1))
-	}
 	return container.NewCapacity(option.Config.HubbleEventBufferCapacity)
 }

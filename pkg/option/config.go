@@ -193,10 +193,6 @@ const (
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
 
-	// K8sForceJSONPatch when set, uses JSON Patch to update CNP and CEP
-	// status in kube-apiserver.
-	K8sForceJSONPatch = "k8s-force-json-patch"
-
 	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
 	// should watch for.
 	K8sWatcherEndpointSelector = "k8s-watcher-endpoint-selector"
@@ -331,9 +327,6 @@ const (
 
 	// NAT46Range is the IPv6 prefix to map IPv4 addresses to
 	NAT46Range = "nat46-range"
-
-	// Masquerade are the packets from endpoints leaving the host
-	Masquerade = "masquerade"
 
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
@@ -494,9 +487,6 @@ const (
 
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
-
-	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
-	BPFCompileDebugName = "bpf-compile-debug"
 
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
 	// in the TCP CT table.
@@ -847,10 +837,6 @@ const (
 	// certificates to use for TLS with mutual authentication (mTLS). The files
 	// must contain PEM encoded data.
 	HubbleTLSClientCAFiles = "hubble-tls-client-ca-files"
-
-	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
-	// Deprecated: please, use HubbleEventBufferCapacity instead.
-	HubbleFlowBufferSize = "hubble-flow-buffer-size"
 
 	// HubbleEventBufferCapacity specifies the capacity of Hubble events buffer.
 	HubbleEventBufferCapacity = "hubble-event-buffer-capacity"
@@ -1244,10 +1230,6 @@ type DaemonConfig struct {
 	// K8sServiceCacheSize is the service cache size for cilium k8s package.
 	K8sServiceCacheSize uint
 
-	// K8sForceJSONPatch when set, uses JSON Patch to update CNP and CEP
-	// status in kube-apiserver.
-	K8sForceJSONPatch bool
-
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
 
@@ -1622,11 +1604,6 @@ type DaemonConfig struct {
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource bool
 
-	// SkipCRDCreation disables creation of the CustomResourceDefinition
-	// on daemon startup
-	// Deprecated: this option is not used by the cilium-agents anymore.
-	SkipCRDCreation bool
-
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
@@ -1842,10 +1819,6 @@ type DaemonConfig struct {
 	// certificates to use for TLS with mutual authentication (mTLS). The files
 	// must contain PEM encoded data.
 	HubbleTLSClientCAFiles []string
-
-	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
-	// Deprecated: please, use HubbleEventBufferCapacity instead.
-	HubbleFlowBufferSize int
 
 	// HubbleEventBufferCapacity specifies the capacity of Hubble events buffer.
 	HubbleEventBufferCapacity int
@@ -2454,7 +2427,6 @@ func (c *DaemonConfig) Populate() {
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(viper.GetInt(K8sServiceCacheSize))
-	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
 	c.K8sEventHandover = viper.GetBool(K8sEventHandover)
 	c.K8sSyncTimeout = viper.GetDuration(K8sSyncTimeoutName)
 	c.AllocatorListTimeout = viper.GetDuration(AllocatorListTimeoutName)
@@ -2531,10 +2503,10 @@ func (c *DaemonConfig) Populate() {
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
 
-	err = c.populateMasqueradingSettings()
-	if err != nil {
-		log.WithError(err).Fatal("Failed to populate masquerading settings")
-	}
+	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
+	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
+	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
+
 	c.populateLoadBalancerSettings()
 	c.populateDevices()
 	c.EgressMultiHomeIPRuleCompat = viper.GetBool(EgressMultiHomeIPRuleCompat)
@@ -2708,7 +2680,6 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleTLSCertFile = viper.GetString(HubbleTLSCertFile)
 	c.HubbleTLSKeyFile = viper.GetString(HubbleTLSKeyFile)
 	c.HubbleTLSClientCAFiles = viper.GetStringSlice(HubbleTLSClientCAFiles)
-	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
 	c.HubbleEventBufferCapacity = viper.GetInt(HubbleEventBufferCapacity)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
 	if c.HubbleEventQueueSize == 0 {
@@ -2736,24 +2707,7 @@ func (c *DaemonConfig) Populate() {
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
-	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
-}
-
-func (c *DaemonConfig) populateMasqueradingSettings() error {
-	switch {
-	case viper.IsSet(Masquerade) && viper.IsSet(EnableIPv4Masquerade):
-		return fmt.Errorf("--%s and --%s (deprecated) are mutually exclusive", EnableIPv4Masquerade, Masquerade)
-	case viper.IsSet(Masquerade):
-		c.EnableIPv4Masquerade = viper.GetBool(Masquerade) && c.EnableIPv4
-	default:
-		c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
-	}
-
-	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
-	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
-
-	return nil
 }
 
 func (c *DaemonConfig) populateDevices() {
@@ -2932,7 +2886,7 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 		return fmt.Errorf(
 			"native routing cidr must be configured with option --%s "+
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
-			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel,
+			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, TunnelName, c.Tunnel,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
 	}
 
