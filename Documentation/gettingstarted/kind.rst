@@ -82,6 +82,24 @@ and no longer routing api-server requests to the current ``kind-control-plane`` 
 Recreating the kind cluster and using the helm command :ref:`kind_install_cilium` will detach the
 inaccurate eBPF programs.
 
+Crashing Cilium agent pods
+--------------------------
+
+Check if Cilium agent pods are crashing with following logs. This may indicate
+that you are deploying a kind cluster in an environment where Cilium is already
+running (for example, in the Cilium development VM). This can also happen if you
+have other overlapping BPF ``cgroup`` type programs attached to the parent ``cgroup``
+hierarchy of the kind container nodes. In such cases, either tear down Cilium, or manually
+detach the overlapping BPF ``cgroup`` programs running in the parent ``cgroup`` hierarchy
+by following the `bpftool documentation <https://manpages.ubuntu.com/manpages/focal/man8/bpftool-cgroup.8.html>`_.
+For more information, see the `Pull Request <https://github.com/cilium/cilium/pull/16259>`__.
+
+::
+
+    level=warning msg="+ bpftool cgroup attach /var/run/cilium/cgroupv2 connect6 pinned /sys/fs/bpf/tc/globals/cilium_cgroups_connect6" subsys=datapath-loader
+    level=warning msg="Error: failed to attach program" subsys=datapath-loader
+    level=warning msg="+ RETCODE=255" subsys=datapath-loader
+
 .. _gs_kind_cluster_mesh:
 
 Cluster Mesh
