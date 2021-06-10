@@ -16,6 +16,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -496,6 +497,8 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 	return []filters.FlowSetRequirement{ingress}
 }
 
+var errNeedMoreFlows = errors.New("Required flows not found yet")
+
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Fail() is called.
 func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []filters.FlowSetRequirement) {
@@ -505,8 +508,9 @@ func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []fi
 	}
 
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{
-		Timeout:       defaults.FlowWaitTimeout,
-		RetryInterval: defaults.FlowRetryInterval,
+		Timeout:         defaults.FlowWaitTimeout,
+		RetryInterval:   defaults.FlowRetryInterval,
+		WarningInterval: defaults.FlowWaitTimeout / 2, // warn at least once during wait timeout
 		Log: func(err error, wait string) {
 			a.test.Logf("⌛ Waiting (%s) for flows: %s", wait, err)
 		}})
@@ -540,7 +544,7 @@ retry:
 		if r.NeedMoreFlows {
 			// Retry until timeout. On timeout, print the flows and
 			// consider it a failure
-			if err := w.Retry(err); err != nil {
+			if err := w.Retry(errNeedMoreFlows); err == nil {
 				goto retry
 			}
 		}
