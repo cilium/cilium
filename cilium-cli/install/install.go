@@ -1528,11 +1528,7 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			return fmt.Errorf("missing Azure resource group name")
 		}
 
-		if err := k.retrieveSubscriptionID(ctx); err != nil {
-			return err
-		}
-
-		if err := k.createAzureServicePrincipal(ctx); err != nil {
+		if err := k.aksSetup(ctx); err != nil {
 			return err
 		}
 	}
