@@ -506,6 +506,11 @@ var errNeedMoreFlows = errors.New("Required flows not found yet")
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Fail() is called.
 func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []filters.FlowSetRequirement) {
+	if a.test.ctx.params.FlowValidation == FlowValidationModeDisabled {
+		a.Logf("📄 Skipping flow validation for pod %s", pod)
+		return
+	}
+
 	hubbleClient := a.test.ctx.HubbleClient()
 	if hubbleClient == nil {
 		return
