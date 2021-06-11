@@ -37,6 +37,11 @@ func (m *azureVersionValidation) Check(ctx context.Context, k *K8sInstaller) err
 	return nil
 }
 
+type accountInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type azurePrincipalOutput struct {
 	AppID       string `json:"appId"`
 	DisplayName string `json:"displayName"`
@@ -49,12 +54,22 @@ type aksClusterInfo struct {
 	NodeResourceGroup string `json:"nodeResourceGroup"`
 }
 
-type accountInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+func (k *K8sInstaller) aksSetup(ctx context.Context) error {
+	if err := k.azureRetrieveSubscriptionID(ctx); err != nil {
+		return err
+	}
+
+	if err := k.azureRetrieveAKSNodeResourceGroup(ctx); err != nil {
+		return err
+	}
+
+	return k.azureSetupServicePrincipal(ctx)
 }
 
-func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
+// Retrieve subscription ID to pass to other `az` commands:
+// - From user-given subscription name, if provided.
+// - From default subscription, if not provided.
+func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
 	args := []string{"account", "show"}
 	if k.params.Azure.SubscriptionName != "" {
 		args = append(args, "--subscription", k.params.Azure.SubscriptionName)
@@ -69,23 +84,23 @@ func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
 		return fmt.Errorf("unable to unmarshal az output: %w", err)
 	}
 
-	k.Log("✅ Derived Azure Subscription ID %s from subscription %s", ai.ID, ai.Name)
+	k.Log("✅ Derived Azure subscription ID %s from subscription %s", ai.ID, ai.Name)
 	k.params.Azure.SubscriptionID = ai.ID
 
 	return nil
 }
 
-func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
-	// `az aks create` requires an existing resource group in which to create a
-	// new AKS cluster, but a single resource group may hold multiple AKS clusters.
-
-	// Internally, AKS creates an intermediate resource group (named
-	// `MC_{RG_name}_{cluster_name}_{location}`) to regroup all AKS nodes for
-	// this cluster.
-
-	// The CLI installs itself into this intermediate resource group, and thus
-	// derives it from the user-given resource group and cluster name using
-	// `az aks show`.
+// `az aks create` requires an existing resource group in which to create a
+// new AKS cluster, but a single resource group may hold multiple AKS clusters.
+//
+// Internally, AKS creates an intermediate resource group (named
+// `MC_{RG_name}_{cluster_name}_{location}`) to regroup all AKS nodes for
+// this cluster.
+//
+// The CLI installs itself into this intermediate resource group, and thus
+// derives it from the user-given resource group and cluster name using
+// `az aks show`.
+func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) error {
 	bytes, err := k.Exec("az", "aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
 	if err != nil {
 		return err
@@ -99,18 +114,23 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	k.Log("✅ Derived Azure AKS node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
 	k.params.Azure.AKSNodeResourceGroup = clusterInfo.NodeResourceGroup
 
+	return nil
+}
+
+// Use Service Principal provided by user if available, otherwise automatically create a new Service Principal
+// and restrict its scope to the strict minimum (i.e. the AKS node resource group in which Cilium will be installed).
+//
+// We create a new Service Principal for each installation by design:
+// - Having dedicated SPs with minimal privileges over their own AKS clusters is more secure.
+// - Even if we wanted to re-use pre-existing SPs, it would not be possible:
+// 	- The ClientSecret (password) of an SP is only displayed at creation time, and cannot be
+// 		retrieved at a later time.
+// 	- Specifying a name (--name) when creating a SP creates a new SP on first call, but then
+// 		overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
+// 		interferes with existing installations.
+func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
 		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
-		// Since user did not provide a pre-existing Service Principal, automatically create a new Service Principal
-		// and restrict its scope to the strict minimum (i.e. the AKS node resource group in which Cilium will be installed).
-		// We create a new Service Principal for each installation by design:
-		// - Having dedicated SPs with minimal privileges over their own AKS clusters is more secure.
-		// - Even if we wanted to re-use pre-existing SPs, it would not be possible:
-		// 	- The ClientSecret (password) of an SP is only displayed at creation time, and cannot be
-		// 		retrieved at a later time.
-		// 	- Specifying a name (--name) when creating a SP creates a new SP on first call, but then
-		// 		overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
-		// 		interferes with existing installations.
 		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID+"/resourceGroups/"+k.params.Azure.AKSNodeResourceGroup)
 		if err != nil {
 			return err
