@@ -61,7 +61,11 @@ spec:
             - name: EVENTS_SERVER_PORT
               value: "8090"
             - name: FLOWS_API_ADDR
+{{- if .Values.hubble.relay.tls.server.enabled }}
+              value: "hubble-relay:443"
+{{- else }}
               value: "hubble-relay:80"
+{{- end }}
           ports:
             - containerPort: 8090
               name: grpc
