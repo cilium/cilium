@@ -82,9 +82,11 @@ func (meta *ObjectMeta) GetAnnotations() map[string]string            { return m
 func (meta *ObjectMeta) SetAnnotations(annotations map[string]string) { meta.Annotations = annotations }
 func (meta *ObjectMeta) GetFinalizers() []string                      { panic("not implemented") }
 func (meta *ObjectMeta) SetFinalizers(_ []string)                     { panic("not implemented") }
-func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference  { panic("not implemented") }
-func (meta *ObjectMeta) SetOwnerReferences(_ []metav1.OwnerReference) {
-	panic("not implemented")
+func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference {
+	return FullOwnerReferences(meta.OwnerReferences)
+}
+func (meta *ObjectMeta) SetOwnerReferences(references []metav1.OwnerReference) {
+	meta.OwnerReferences = SlimOwnerReferences(references)
 }
 func (meta *ObjectMeta) GetClusterName() string                         { panic("not implemented") }
 func (meta *ObjectMeta) SetClusterName(_ string)                        { panic("not implemented") }

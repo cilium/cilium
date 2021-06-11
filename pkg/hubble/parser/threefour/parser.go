@@ -316,13 +316,21 @@ func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb
 	if p.endpointGetter != nil {
 		if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
 			epIdentity := resolveIdentityConflict(ep.GetIdentity())
-			return &pb.Endpoint{
+			e := &pb.Endpoint{
 				ID:        uint32(ep.GetID()),
 				Identity:  epIdentity,
 				Namespace: ep.GetK8sNamespace(),
 				Labels:    sortAndFilterLabels(p.log, ep.GetLabels(), epIdentity),
 				PodName:   ep.GetK8sPodName(),
 			}
+			if pod := ep.GetPod(); pod != nil {
+				olen := len(pod.GetOwnerReferences())
+				e.Workloads = make([]*pb.Workload, olen)
+				for index, owner := range pod.GetOwnerReferences() {
+					e.Workloads[index] = &pb.Workload{Kind: owner.Kind, Name: owner.Name}
+				}
+			}
+			return e
 		}
 	}
 
