@@ -173,6 +173,12 @@ message Endpoint {
     // labels in `foo=bar` format.
     repeated string labels = 4;
     string pod_name = 5;
+    repeated Workload workloads = 6;
+}
+
+message Workload {
+    string name = 1;
+    string kind = 2;
 }
 
 message TCP {

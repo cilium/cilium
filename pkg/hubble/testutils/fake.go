@@ -29,6 +29,7 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -419,6 +420,7 @@ type FakeEndpointInfo struct {
 	PodName      string
 	PodNamespace string
 	Labels       []string
+	Pod          *slim_corev1.Pod
 
 	PolicyMap      map[policy.Key]labels.LabelArrayList
 	PolicyRevision uint64
@@ -447,6 +449,11 @@ func (e *FakeEndpointInfo) GetK8sNamespace() string {
 // GetLabels returns the labels of the endpoint.
 func (e *FakeEndpointInfo) GetLabels() []string {
 	return e.Labels
+}
+
+// GetPod return the pod object of the endpoint.
+func (e *FakeEndpointInfo) GetPod() *slim_corev1.Pod {
+	return e.Pod
 }
 
 func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
