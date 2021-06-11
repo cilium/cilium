@@ -37,4 +37,5 @@ rules:
       - hubble-ca-secret
     verbs:
       - get
+      - update
 {{- end }}
