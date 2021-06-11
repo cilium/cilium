@@ -120,8 +120,6 @@ func (v *DefaultVisitor) VisitStatement(stmt AST) error {
 			name = names[0] + " " + strings.TrimLeft(names[1], " ")
 		}
 
-		// lower casing name to handle duplicates correctly.
-		name = strings.ToLower(name)
 		// attach profile name on section
 		if !v.Sections.HasSection(name) {
 			v.Sections.container[name] = NewSection(name)
