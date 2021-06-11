@@ -918,7 +918,7 @@ func (k *K8sInstaller) generateOperatorDeployment() *appsv1.Deployment {
 
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  "AZURE_RESOURCE_GROUP",
-			Value: k.params.Azure.ResourceGroup,
+			Value: k.params.Azure.AKSNodeResourceGroup,
 		})
 
 		c.Env = append(c.Env, corev1.EnvVar{
@@ -1019,13 +1019,13 @@ const (
 )
 
 type AzureParameters struct {
-	ResourceGroupName string
-	ResourceGroup     string
-	SubscriptionName  string
-	SubscriptionID    string
-	TenantID          string
-	ClientID          string
-	ClientSecret      string
+	ResourceGroupName    string
+	AKSNodeResourceGroup string
+	SubscriptionName     string
+	SubscriptionID       string
+	TenantID             string
+	ClientID             string
+	ClientSecret         string
 }
 
 type Parameters struct {
