@@ -105,6 +105,16 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
 
+	// `az aks create` requires an existing resource group in which to create a
+	// new AKS cluster, but a single resource group may hold multiple AKS clusters.
+
+	// Internally, AKS creates an intermediate resource group (named
+	// `MC_{RG_name}_{cluster_name}_{location}`) to regroup all AKS nodes for
+	// this cluster.
+
+	// The CLI installs itself into this intermediate resource group, and thus
+	// derives it from the user-given resource group and cluster name using
+	// `az aks show`.
 	bytes, err := k.Exec("az", "aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
 	if err != nil {
 		return err
@@ -115,8 +125,8 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 		return fmt.Errorf("unable to unmarshal az output: %w", err)
 	}
 
-	k.Log("✅ Derived Azure node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
-	k.params.Azure.ResourceGroup = clusterInfo.NodeResourceGroup
+	k.Log("✅ Derived Azure AKS node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
+	k.params.Azure.AKSNodeResourceGroup = clusterInfo.NodeResourceGroup
 
 	return nil
 }
