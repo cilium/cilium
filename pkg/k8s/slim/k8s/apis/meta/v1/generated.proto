@@ -159,6 +159,29 @@ message ObjectMeta {
   // More info: http://kubernetes.io/docs/user-guide/annotations
   // +optional
   map<string, string> annotations = 12;
+
+  // List of objects depended by this object. If ALL objects in the list have
+  // been deleted, this object will be garbage collected. If this object is managed by a controller,
+  // then an entry in this list will point to this controller, with the controller field set to true.
+  // There cannot be more than one managing controller.
+  // +optional
+  // +patchMergeKey=uid
+  // +patchStrategy=merge
+  repeated OwnerReference ownerReferences = 13;
+}
+
+// OwnerReference contains enough information to let you identify an owning
+// object. An owning object must be in the same namespace as the dependent, or
+// be cluster-scoped, so there is no namespace field.
+// +structType=atomic
+message OwnerReference {
+  // Kind of the referent.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+  optional string kind = 1;
+
+  // Name of the referent.
+  // More info: http://kubernetes.io/docs/user-guide/identifiers#names
+  optional string name = 3;
 }
 
 // PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients

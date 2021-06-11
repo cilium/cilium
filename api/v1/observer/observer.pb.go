@@ -303,6 +303,7 @@ type Layer7_Dns = flow.Layer7_Dns
 type Layer7_Http = flow.Layer7_Http
 type Layer7_Kafka = flow.Layer7_Kafka
 type Endpoint = flow.Endpoint
+type Workload = flow.Workload
 type TCP = flow.TCP
 type IP = flow.IP
 type Ethernet = flow.Ethernet

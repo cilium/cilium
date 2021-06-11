@@ -33,6 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -79,6 +81,16 @@ func TestL34Decode(t *testing.T) {
 					Identity:     5678,
 					PodName:      "pod-10.16.236.178",
 					PodNamespace: "default",
+					Pod: &slim_corev1.Pod{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							OwnerReferences: []slim_metav1.OwnerReference{
+								{
+									Kind: "ReplicaSet",
+									Name: "pod",
+								},
+							},
+						},
+					},
 				}, true
 			}
 			return nil, false
