@@ -95,9 +95,6 @@ jobs:
           cilium install \
             --cluster-name=${{ env.name }} \
             --azure-resource-group ${{ env.name }} \
-            --azure-tenant-id ${{ secrets.AZURE_PR_SP_TENANT_ID }} \
-            --azure-client-id ${{ secrets.AZURE_PR_SP_CLIENT_ID }} \
-            --azure-client-secret ${{ secrets.AZURE_PR_SP_CLIENT_SECRET }} \
             --wait=false \
             --config monitor-aggregation=none
 
