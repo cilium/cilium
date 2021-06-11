@@ -629,7 +629,7 @@ func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverCli
 	for {
 		res, err := b.Recv()
 		switch err {
-		case io.EOF, context.Canceled:
+		case io.EOF, context.Canceled, context.DeadlineExceeded:
 			return set, nil
 		case nil:
 		default:
