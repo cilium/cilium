@@ -76,35 +76,6 @@ func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
 }
 
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
-	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
-		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
-		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID)
-		if err != nil {
-			return err
-		}
-
-		p := azurePrincipalOutput{}
-		if err := json.Unmarshal(bytes, &p); err != nil {
-			return fmt.Errorf("unable to unmarshal az output: %w", err)
-		}
-
-		k.Log("✅ Created Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s", p.AppID, p.Tenant)
-		k.params.Azure.TenantID = p.Tenant
-		k.params.Azure.ClientID = p.AppID
-		k.params.Azure.ClientSecret = p.Password
-	} else {
-		if k.params.Azure.TenantID == "" || k.params.Azure.ClientID == "" || k.params.Azure.ClientSecret == "" {
-			k.Log(`❌ All three parameters are required for using an existing Azure Service Principal:
-   - Tenant ID (--azure-tenant-id)
-   - Client ID (--azure-client-id)
-   - Client Secret (--azure-client-secret)`)
-			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
-		}
-
-		k.Log("✅ Using manually configured Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s",
-			k.params.Azure.ClientID, k.params.Azure.TenantID)
-	}
-
 	// `az aks create` requires an existing resource group in which to create a
 	// new AKS cluster, but a single resource group may hold multiple AKS clusters.
 
@@ -127,6 +98,46 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 
 	k.Log("✅ Derived Azure AKS node resource group %s from resource group %s", clusterInfo.NodeResourceGroup, k.params.Azure.ResourceGroupName)
 	k.params.Azure.AKSNodeResourceGroup = clusterInfo.NodeResourceGroup
+
+	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
+		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
+		// Since user did not provide a pre-existing Service Principal, automatically create a new Service Principal
+		// and restrict its scope to the strict minimum (i.e. the AKS node resource group in which Cilium will be installed).
+		// We create a new Service Principal for each installation by design:
+		// - Having dedicated SPs with minimal privileges over their own AKS clusters is more secure.
+		// - Even if we wanted to re-use pre-existing SPs, it would not be possible:
+		// 	- The ClientSecret (password) of an SP is only displayed at creation time, and cannot be
+		// 		retrieved at a later time.
+		// 	- Specifying a name (--name) when creating a SP creates a new SP on first call, but then
+		// 		overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
+		// 		interferes with existing installations.
+		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID+"/resourceGroups/"+k.params.Azure.AKSNodeResourceGroup)
+		if err != nil {
+			return err
+		}
+
+		p := azurePrincipalOutput{}
+		if err := json.Unmarshal(bytes, &p); err != nil {
+			return fmt.Errorf("unable to unmarshal az output: %w", err)
+		}
+
+		k.Log("✅ Created Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s", p.AppID, p.Tenant)
+		k.Log("ℹ️ Its RBAC privileges are restricted to the AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
+		k.params.Azure.TenantID = p.Tenant
+		k.params.Azure.ClientID = p.AppID
+		k.params.Azure.ClientSecret = p.Password
+	} else {
+		if k.params.Azure.TenantID == "" || k.params.Azure.ClientID == "" || k.params.Azure.ClientSecret == "" {
+			k.Log(`❌ All three parameters are required for using an existing Azure Service Principal:
+   - Tenant ID (--azure-tenant-id)
+   - Client ID (--azure-client-id)
+   - Client Secret (--azure-client-secret)`)
+			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
+		}
+
+		k.Log("✅ Using manually configured Azure Service Principal for Cilium operator with App ID %s and Tenant ID %s",
+			k.params.Azure.ClientID, k.params.Azure.TenantID)
+	}
 
 	return nil
 }
