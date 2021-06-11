@@ -4,6 +4,10 @@ set -e
 
 K8S_NODES=${K8S_NODES:-2}
 
+echo "restarting portmap and nfs-kernel-server services to combat nfs server issues"
+systemctl restart portmap.service || true
+systemctl restart nfs-kernel-server.service || true
+
 echo "destroying vms in case this is a retry"
 for i in $(seq 1 $K8S_NODES); do
     vagrant destroy k8s${i}-${K8S_VERSION} --force
