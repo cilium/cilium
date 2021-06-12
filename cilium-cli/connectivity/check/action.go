@@ -365,7 +365,14 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, req 
 			if f.SkipOnAggregation && a.test.ctx.FlowAggregation() {
 				continue
 			}
-			match(true, f, &flowCtx)
+			// "middle" flows can appear out of order due to e.g.,
+			// L7 flows being delivered from a proxy vs. SYN/FIN
+			// being delivered from the datapath. Allow for this
+			// by requesting more flows also when any of the
+			// "middle" matches fail.
+			if _, match, _ := match(true, f, &flowCtx); !match {
+				r.NeedMoreFlows = true
+			}
 		}
 
 		if !(req.Last.SkipOnAggregation && a.test.ctx.FlowAggregation()) {
@@ -440,7 +447,8 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 			tcpResponse = filters.Or(filters.TCP(p.NodePort, 0), tcpResponse)
 		}
 
-		if a.expEgress.Drop {
+		if a.expEgress.Drop && !a.expEgress.L7Proxy {
+			// L3/L4 drop
 			egress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
 				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
@@ -458,15 +466,19 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 				// Either side may FIN first
 				Last: filters.FlowRequirement{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
 				Except: []filters.FlowRequirement{
-					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.Drop()), Msg: "Drop"},
+					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.Drop()), Msg: "L3/L4 Drop"},
 				},
+			}
+			if a.expEgress.Drop {
+				// L7 drop
+				egress.Middle = append(egress.Middle, filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.L7Drop()), Msg: "L7 Drop"})
 			}
 			if a.expEgress.HTTP.Status != "" || a.expEgress.HTTP.Method != "" || a.expEgress.HTTP.URL != "" {
 				code := uint32(math.MaxUint32)
 				if s, err := strconv.Atoi(a.expEgress.HTTP.Status); err == nil {
 					code = uint32(s)
 				}
-				egress.Middle = append(egress.Middle, filters.FlowRequirement{Filter: filters.HTTP(code, a.expEgress.HTTP.Method, a.expEgress.HTTP.URL), Msg: "HTTP"})
+				egress.Middle = append(egress.Middle, filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.HTTP(code, a.expEgress.HTTP.Method, a.expEgress.HTTP.URL)), Msg: "HTTP"})
 			}
 			if p.RSTAllowed {
 				// For the connection termination, we will either see:
