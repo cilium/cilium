@@ -163,6 +163,7 @@ var (
 	// ResultDNSOKDropCurlHTTPError expects a failed command, generating DNS traffic and a dropped flow.
 	ResultDNSOKDropCurlHTTPError = Result{
 		DNSProxy: true,
+		L7Proxy:  true,
 		Drop:     true,
 		ExitCode: ExitCurlHTTPError,
 	}
@@ -181,6 +182,7 @@ var (
 
 	// ResultDropCurlHTTPError expects a dropped flow and a failed command.
 	ResultDropCurlHTTPError = Result{
+		L7Proxy:  true,
 		Drop:     true,
 		ExitCode: ExitCurlHTTPError,
 	}
@@ -261,7 +263,7 @@ func (t *Test) WithExpectations(f ExpectationsFunc) *Test {
 	return nil
 }
 
-// getExpectations returns the expected results for a specific Action.
+// expectations returns the expected results for a specific Action.
 func (t *Test) expectations(a *Action) (egress, ingress Result) {
 	// Default to success.
 	if t.expectFunc == nil {

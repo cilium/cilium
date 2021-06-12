@@ -16,9 +16,10 @@ func curl(peer check.TestPeer) []string {
 		"--silent", "--fail", "--show-error",
 		"--connect-timeout", "5",
 		"--output", "/dev/null",
-		fmt.Sprintf("%s://%s",
+		fmt.Sprintf("%s://%s%s",
 			peer.Scheme(),
-			net.JoinHostPort(peer.Address(), fmt.Sprint(peer.Port()))),
+			net.JoinHostPort(peer.Address(), fmt.Sprint(peer.Port())),
+			peer.Path()),
 	}
 }
 

@@ -34,6 +34,7 @@ func (s *podToWorld) Name() string {
 func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	chttp := check.HTTPEndpoint("cilium-io-http", "http://cilium.io")
 	chttps := check.HTTPEndpoint("cilium-io-https", "https://cilium.io")
+	chttpindex := check.HTTPEndpoint("cilium-io-http-index", "http://cilium.io/index.html")
 	jhttp := check.HTTPEndpoint("jenkins-cilium-io-http", "http://jenkins.cilium.io")
 
 	fp := check.FlowParameters{
@@ -53,6 +54,12 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		// With http, over port 80.
 		t.NewAction(s, fmt.Sprintf("http-to-cilium-io-%d", i), &client, chttp).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, curl(chttp))
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+		})
+
+		// With http, over port 80, index.html
+		t.NewAction(s, fmt.Sprintf("http-to-cilium-io-index-%d", i), &client, chttpindex).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, curl(chttpindex))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
