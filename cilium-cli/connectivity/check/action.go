@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -188,16 +189,25 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	cmdStr := strings.Join(cmd, " ")
 
 	showOutput := false
+	expectedExitCode := a.expectedExitCode()
 	if err != nil {
-		if a.shouldSucceed() {
+		if expectedExitCode == 0 {
 			// Command failed unexpectedly, display output.
 			a.Failf("command %q failed: %s", cmdStr, err)
 			showOutput = true
 		} else {
-			a.test.Debugf("command %q failed as expected: %s", cmdStr, err)
+			exitCode, extractErr := a.extractExitCode(err)
+			if extractErr != nil {
+				a.test.Info(extractErr.Error())
+			}
+			if expectedExitCode == ExitAnyError || exitCode == expectedExitCode {
+				a.test.Debugf("command %q failed as expected: %s", cmdStr, err)
+			} else {
+				a.Failf("command %q failed with unexpected exit code: %s (expected %d, found %d)", cmdStr, err, expectedExitCode, exitCode)
+			}
 		}
 	} else {
-		if !a.shouldSucceed() {
+		if expectedExitCode != 0 {
 			// Command succeeded unexpectedly, display output.
 			a.Failf("command %q succeeded while it should have failed: %s", cmdStr, output.String())
 			showOutput = true
@@ -210,9 +220,36 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	}
 }
 
-// shouldSucceed returns true if no drops are expected in either direction.
-func (a *Action) shouldSucceed() bool {
-	return !a.expEgress.Drop && !a.expIngress.Drop
+var exitCodeRegex = regexp.MustCompile("exit code ([0-9]+)")
+
+// extractExitCode extracts command exit code from ExecInPod() error output
+func (a *Action) extractExitCode(err error) (ExitCode, error) {
+	// Extract exit code from 'err'
+	m := exitCodeRegex.FindStringSubmatch(err.Error())
+	if len(m) != 2 || len(m[1]) == 0 {
+		return ExitInvalidCode, fmt.Errorf("Unable to extract exit code from error: %s", err.Error())
+	}
+	i, err := strconv.Atoi(m[1])
+	if err != nil {
+		return ExitInvalidCode, fmt.Errorf("Invalid exit code %q in error %s", m[1], err.Error())
+	}
+	if i < 0 || i > 255 {
+		return ExitInvalidCode, fmt.Errorf("Exit code %q out of range [0-255] in error %s", m[1], err.Error())
+	}
+	return ExitCode(i), nil
+}
+
+// expectedExitCode returns the expected shell exit code, or ExitAnyError for any value between 1-255.
+func (a *Action) expectedExitCode() ExitCode {
+	if a.expEgress.ExitCode == 0 && a.expIngress.ExitCode == 0 {
+		return 0 // success
+	}
+	// If egress and ingress expect the command to fail in different
+	// ways egress enforcement will cause the command to fail first.
+	if a.expEgress.ExitCode != 0 {
+		return a.expEgress.ExitCode
+	}
+	return a.expIngress.ExitCode
 }
 
 func (a *Action) printFlows(peer TestPeer) {
