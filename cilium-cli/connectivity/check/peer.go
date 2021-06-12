@@ -23,6 +23,10 @@ type TestPeer interface {
 	// to connect to this peer, e.g. 'http' or 'https'. Can be an empty string.
 	Scheme() string
 
+	// Path must return the path in the URL used, if any. Can be an empty
+	// string. Must include the leading '/' when not empty.
+	Path() string
+
 	// Address must return the network address of the peer. This can be a
 	// DNS name or an IP address.
 	Address() string
@@ -46,6 +50,10 @@ type Pod struct {
 	// (e.g. 'http')
 	scheme string
 
+	// Path to be used to connect to the service running in the Pod.
+	// (e.g. '/')
+	path string
+
 	// Port the Pods is listening on for connectivity tests.
 	port uint32
 }
@@ -61,6 +69,10 @@ func (p Pod) Name() string {
 
 func (p Pod) Scheme() string {
 	return p.scheme
+}
+
+func (p Pod) Path() string {
+	return p.path
 }
 
 // Address returns the network address of the Pod.
@@ -97,6 +109,12 @@ func (s Service) Scheme() string {
 	return "http"
 }
 
+// Path returns the string '/'.
+func (s Service) Path() string {
+	// No support for paths yet.
+	return ""
+}
+
 // Address returns the network address of the Service.
 func (s Service) Address() string {
 	return s.Service.Name
@@ -127,6 +145,11 @@ func (e ExternalWorkload) Name() string {
 
 // Scheme returns an empty string.
 func (e ExternalWorkload) Scheme() string {
+	return ""
+}
+
+// Path returns an empty string.
+func (e ExternalWorkload) Path() string {
 	return ""
 }
 
@@ -177,6 +200,9 @@ func (ie icmpEndpoint) Scheme() string {
 	return ""
 }
 
+func (ie icmpEndpoint) Path() string {
+	return ""
+}
 func (ie icmpEndpoint) Address() string {
 	return ie.host
 }
@@ -223,6 +249,10 @@ func (he httpEndpoint) Name() string {
 
 func (he httpEndpoint) Scheme() string {
 	return he.url.Scheme
+}
+
+func (he httpEndpoint) Path() string {
+	return he.url.Path
 }
 
 func (he httpEndpoint) Address() string {

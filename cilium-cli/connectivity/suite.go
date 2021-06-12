@@ -116,19 +116,23 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
 		WithScenarios(
 			tests.PodToWorld(""),
-		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-
-		if a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" {
-			egress = check.ResultDNSOK
-			egress.HTTP = check.HTTP{
-				Method: "GET",
-				URL:    "http://cilium.io/",
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" {
+				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
+					egress = check.ResultDNSOK
+					egress.HTTP = check.HTTP{
+						Method: "GET",
+						URL:    "http://cilium.io/",
+					}
+					return egress, check.ResultNone
+				}
+				// Else expect HTTP drop by proxy
+				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
-			return egress, check.ResultNone
-		}
-		// No HTTP proxy on other ports
-		return check.ResultDNSOKDropCurlTimeout, check.ResultNone
-	})
+			// No HTTP proxy on other ports
+			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
+		})
 
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	ct.NewTest("to-entities-world").
@@ -172,12 +176,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				// Outbound HTTP to cilium.io is L7-introspected and allowed.
 				(a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" ||
 					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
-				egress = check.ResultOK
-				// Expect all curls from client2 to be proxied and to be GET calls.
-				egress.HTTP = check.HTTP{
-					Method: "GET",
+				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
+					egress = check.ResultOK
+					// Expect all curls from client2 to be proxied and to be GET calls.
+					egress.HTTP = check.HTTP{
+						Method: "GET",
+					}
+					return egress, check.ResultNone
 				}
-				return egress, check.ResultNone
+				// Else expect HTTP drop by proxy
+				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultNone
 		})
