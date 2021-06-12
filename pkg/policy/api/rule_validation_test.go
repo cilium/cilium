@@ -10,8 +10,8 @@ import (
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -673,6 +673,104 @@ func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
 	}
 	err := tooManyPortsRule.Sanitize()
 	c.Assert(err, NotNil)
+}
+
+func (s *PolicyAPITestSuite) TestTooManyICMPFields(c *C) {
+	var fields []ICMPField
+
+	for i := 1; i <= 1+maxICMPFields; i++ {
+		fields = append(fields, ICMPField{
+			Type: uint8(i),
+		})
+	}
+
+	tooManyICMPRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ICMPs: ICMPRules{{
+					Fields: fields,
+				}},
+			},
+		},
+	}
+	err := tooManyICMPRule.Sanitize()
+	c.Assert(err, NotNil)
+}
+
+func (s *PolicyAPITestSuite) TestWrongICMPFieldFamily(c *C) {
+	wrongFamilyICMPRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Family: "hoge",
+						Type:   0,
+					}},
+				}},
+			},
+		},
+	}
+	err := wrongFamilyICMPRule.Sanitize()
+	c.Assert(err, NotNil)
+}
+
+func (s *PolicyAPITestSuite) TestICMPRuleWithOtherRuleFailed(c *C) {
+	ingressICMPWithPort := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+					},
+				}},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Type: 8,
+					}},
+				}},
+			},
+		},
+	}
+
+	egressICMPWithPort := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+					},
+				}},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Type: 8,
+					}},
+				}},
+			},
+		},
+	}
+
+	option.Config.EnableICMPRules = true
+	errStr := "The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts."
+	err := ingressICMPWithPort.Sanitize()
+	c.Assert(err, ErrorMatches, errStr)
+	err = egressICMPWithPort.Sanitize()
+	c.Assert(err, ErrorMatches, errStr)
 }
 
 // This test ensures that PortRules aren't configured in the wrong direction,
