@@ -297,6 +297,53 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedEgress(c *C) {
 				}
 			},
 		},
+		{
+			name: "rule-with-icmp",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ICMPs: ICMPRules{
+							{
+								Fields: []ICMPField{
+									{
+										Type: 8,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
+		{
+			name: "rule-with-icmp6",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ICMPs: ICMPRules{
+							{
+								Fields: []ICMPField{
+									{
+										Family: IPv6Family,
+										Type:   128,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

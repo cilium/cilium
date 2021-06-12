@@ -982,6 +982,10 @@ func init() {
 	flags.IntSlice(option.VLANBPFBypass, []int{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
 	option.BindEnv(option.VLANBPFBypass)
 
+	flags.Bool(option.EnableICMPRules, false, "Enable ICMP-based rule support for Cilium Network Policies")
+	flags.MarkHidden(option.EnableICMPRules)
+	option.BindEnv(option.EnableICMPRules)
+
 	viper.BindPFlags(flags)
 }
 

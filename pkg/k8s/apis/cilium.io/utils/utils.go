@@ -144,6 +144,10 @@ func parseToCiliumIngressRule(namespace string, es api.EndpointSelector, inRules
 				retRules[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
 				copy(retRules[i].ToPorts, ing.ToPorts)
 			}
+			if ing.ICMPs != nil {
+				retRules[i].ICMPs = make(api.ICMPRules, len(ing.ICMPs))
+				copy(retRules[i].ICMPs, ing.ICMPs)
+			}
 			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(namespace, es, ing.IngressCommonRule)
 			retRules[i].SetAggregatedSelectors()
 		}
@@ -160,6 +164,10 @@ func parseToCiliumIngressDenyRule(namespace string, es api.EndpointSelector, inR
 			if ing.ToPorts != nil {
 				retRules[i].ToPorts = make([]api.PortDenyRule, len(ing.ToPorts))
 				copy(retRules[i].ToPorts, ing.ToPorts)
+			}
+			if ing.ICMPs != nil {
+				retRules[i].ICMPs = make(api.ICMPRules, len(ing.ICMPs))
+				copy(retRules[i].ICMPs, ing.ICMPs)
 			}
 			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(namespace, es, ing.IngressCommonRule)
 			retRules[i].SetAggregatedSelectors()
@@ -224,6 +232,11 @@ func parseToCiliumEgressRule(namespace string, es api.EndpointSelector, inRules 
 				copy(retRules[i].ToPorts, egr.ToPorts)
 			}
 
+			if egr.ICMPs != nil {
+				retRules[i].ICMPs = make(api.ICMPRules, len(egr.ICMPs))
+				copy(retRules[i].ICMPs, egr.ICMPs)
+			}
+
 			if egr.ToFQDNs != nil {
 				retRules[i].ToFQDNs = make([]api.FQDNSelector, len(egr.ToFQDNs))
 				copy(retRules[i].ToFQDNs, egr.ToFQDNs)
@@ -245,6 +258,11 @@ func parseToCiliumEgressDenyRule(namespace string, es api.EndpointSelector, inRu
 			if egr.ToPorts != nil {
 				retRules[i].ToPorts = make([]api.PortDenyRule, len(egr.ToPorts))
 				copy(retRules[i].ToPorts, egr.ToPorts)
+			}
+
+			if egr.ICMPs != nil {
+				retRules[i].ICMPs = make(api.ICMPRules, len(egr.ICMPs))
+				copy(retRules[i].ICMPs, egr.ICMPs)
 			}
 
 			retRules[i].EgressCommonRule = parseToCiliumEgressCommonRule(namespace, es, egr.EgressCommonRule)

@@ -158,6 +158,16 @@ type EgressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToFQDNs FQDNSelectorSlice `json:"toFQDNs,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is allowed to connect to.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" is allowed to initiate
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // EgressDenyRule contains all rule types which can be applied at egress, i.e.
@@ -188,6 +198,16 @@ type EgressDenyRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToPorts PortDenyRules `json:"toPorts,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is not allowed to connect to.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" is not allowed to initiate
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
