@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/api/v1/relay"
 	hubprinter "github.com/cilium/hubble/pkg/printer"
 )
 
@@ -511,9 +512,25 @@ func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []fi
 		return
 	}
 
+	oldFailed := a.failed
+	oldTestFailed := a.test.failed
+
+	err := a.validateFlows(ctx, pod, podIP, reqs)
+	if err != nil {
+		// Do not fail test due to inability to get flows from Hubble
+		a.failed = oldFailed
+		a.test.failed = oldTestFailed
+		a.Warnf("Cannot get flows for %s: %s", pod, err.Error())
+	}
+}
+
+// ValidateFlows retrieves the flow pods of the specified pod and validates
+// that all filters find a match. On failure, t.Fail() is called.
+// An error is returned if flow validation cannot be performed.
+func (a *Action) validateFlows(ctx context.Context, pod, podIP string, reqs []filters.FlowSetRequirement) error {
 	hubbleClient := a.test.ctx.HubbleClient()
 	if hubbleClient == nil {
-		return
+		return nil
 	}
 	a.Logf("📄 Matching flows for pod %s", pod)
 
@@ -538,7 +555,7 @@ retry:
 		}
 		if err := w.Retry(err); err != nil {
 			a.Failf("Unable to retrieve flows of pod %q: %s", pod, err)
-			return
+			return err
 		}
 		goto retry
 	}
@@ -588,6 +605,7 @@ retry:
 	}
 
 	a.Log()
+	return nil
 }
 
 func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (flowsSet, error) {
@@ -644,10 +662,18 @@ func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverCli
 			return nil, err
 		}
 
-		switch res.GetResponseTypes().(type) {
+		switch responseType := res.GetResponseTypes().(type) {
+		case *observer.GetFlowsResponse_NodeStatus:
+			switch responseType.NodeStatus.GetStateChange() {
+			case relay.NodeState_NODE_ERROR:
+				return nil, fmt.Errorf("Hubble node error: %q on nodes %s", responseType.NodeStatus.Message, responseType.NodeStatus.GetNodeNames())
+			case relay.NodeState_NODE_UNAVAILABLE:
+				return nil, fmt.Errorf("Hubble nodes unavailable: %s", responseType.NodeStatus.GetNodeNames())
+			case relay.NodeState_NODE_CONNECTED:
+				a.Debugf("Connected hubble nodes: %s", responseType.NodeStatus.GetNodeNames())
+			}
 		case *observer.GetFlowsResponse_Flow:
 			set = append(set, res)
 		}
-
 	}
 }
