@@ -157,6 +157,10 @@ func (a *Action) Run(f func(*Action)) {
 		a.printFlows(a.Source())
 		a.printFlows(a.Destination())
 	}
+	if a.failed && a.test.ctx.params.PauseOnFail {
+		a.Log("Pausing after action failure, press the Enter key to continue:")
+		fmt.Scanln()
+	}
 }
 
 // fail marks the Action as failed.
