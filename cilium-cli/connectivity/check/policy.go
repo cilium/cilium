@@ -21,6 +21,37 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ExitCode int16
+
+const (
+	ExitAnyError    ExitCode = -1
+	ExitInvalidCode ExitCode = -2
+
+	ExitCurlHTTPError ExitCode = 22
+	ExitCurlTimeout   ExitCode = 28
+)
+
+func (e ExitCode) String() string {
+	switch e {
+	case ExitAnyError:
+		return "any"
+	case ExitInvalidCode:
+		return "invalid"
+	default:
+		return strconv.Itoa(int(e))
+	}
+}
+
+func (e ExitCode) Check(code uint8) bool {
+	switch e {
+	case ExitAnyError:
+		return code != 0
+	case ExitCode(code):
+		return true
+	}
+	return false
+}
+
 // getCiliumPolicyRevisions returns the current policy revisions of all Cilium pods
 func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[Pod]int, error) {
 	revisions := make(map[Pod]int)
@@ -110,19 +141,49 @@ func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetw
 
 var (
 	// ResultNone expects a successful command, don't match any packets.
-	ResultNone = Result{None: true}
+	ResultNone = Result{
+		None: true,
+	}
 
 	// ResultOK expects a successful command and a matching flow.
 	ResultOK = Result{}
 
 	// ResultDNSOK expects a successful command, only generating DNS traffic.
-	ResultDNSOK = Result{DNSProxy: true}
+	ResultDNSOK = Result{
+		DNSProxy: true,
+	}
 
-	// ResultDNSOKRequestDrop expects a failed command, generating DNS traffic and a dropped flow.
-	ResultDNSOKRequestDrop = Result{DNSProxy: true, Drop: true}
+	// ResultDNSOKDropCurlTimeout expects a failed command, generating DNS traffic and a dropped flow.
+	ResultDNSOKDropCurlTimeout = Result{
+		DNSProxy: true,
+		Drop:     true,
+		ExitCode: ExitCurlTimeout,
+	}
+
+	// ResultDNSOKDropCurlHTTPError expects a failed command, generating DNS traffic and a dropped flow.
+	ResultDNSOKDropCurlHTTPError = Result{
+		DNSProxy: true,
+		Drop:     true,
+		ExitCode: ExitCurlHTTPError,
+	}
 
 	// ResultDrop expects a dropped flow and a failed command.
-	ResultDrop = Result{Drop: true}
+	ResultDrop = Result{
+		Drop:     true,
+		ExitCode: ExitAnyError,
+	}
+
+	// ResultDropCurlTimeout expects a dropped flow and a failed command.
+	ResultDropCurlTimeout = Result{
+		Drop:     true,
+		ExitCode: ExitCurlTimeout,
+	}
+
+	// ResultDropCurlHTTPError expects a dropped flow and a failed command.
+	ResultDropCurlHTTPError = Result{
+		Drop:     true,
+		ExitCode: ExitCurlHTTPError,
+	}
 )
 
 type HTTP struct {
@@ -144,8 +205,11 @@ type Result struct {
 	// L7Proxy is true when L7 proxy (e.g., Envoy) is to be expected
 	L7Proxy bool
 
-	// HTTPStatus is true when a HTTP status code in response is to be expected
+	// HTTPStatus is non-zero when a HTTP status code in response is to be expected
 	HTTP HTTP
+
+	// ExitCode is the expected shell exit code
+	ExitCode ExitCode
 }
 
 func (r Result) String() string {
@@ -176,6 +240,9 @@ func (r Result) String() string {
 	if r.HTTP.Status != "" {
 		ret += "-"
 		ret += r.HTTP.Status
+	}
+	if r.ExitCode >= 0 && r.ExitCode <= 255 {
+		ret += fmt.Sprintf("-exit(%d)", r.ExitCode)
 	}
 	return ret
 }

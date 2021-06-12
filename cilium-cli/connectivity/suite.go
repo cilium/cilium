@@ -78,7 +78,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		).
 		WithExpectations(
 			func(a *check.Action) (egress check.Result, ingress check.Result) {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultDropCurlTimeout, check.ResultNone
 			})
 
 	// This policy only allows ingress into client from client2.
@@ -101,7 +101,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
 				// TCP handshake fails both in egress and ingress when
 				// L3(/L4) policy drops at either location.
-				return check.ResultDrop, check.ResultDrop
+				return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
 			}
 			return check.ResultOK, check.ResultOK
 		})
@@ -126,8 +126,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			}
 			return egress, check.ResultNone
 		}
-
-		return check.ResultDNSOKRequestDrop, check.ResultNone
+		// No HTTP proxy on other ports
+		return check.ResultDNSOKDropCurlTimeout, check.ResultNone
 	})
 
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
@@ -141,7 +141,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultOK, check.ResultNone
 			}
 			// PodToWorld traffic to port 443 will be dropped by the policy
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDropCurlTimeout, check.ResultNone
 		})
 
 	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
@@ -154,7 +154,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address() == "1.0.0.1" {
 				// Expect packets for 1.0.0.1 to be dropped.
-				return check.ResultDrop, check.ResultNone
+				return check.ResultDropCurlTimeout, check.ResultNone
 			}
 			return check.ResultOK, check.ResultNone
 		})
