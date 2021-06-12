@@ -954,6 +954,9 @@ const (
 	// NetfilterCompatibleMode guarantees the traffic to pass through kernel
 	// netfilter.
 	NetfilterCompatibleMode = "netfilter-compatible-mode"
+
+	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
+	EnableICMPRules = "enable-icmp-rules"
 )
 
 // Default string arguments
@@ -1968,6 +1971,9 @@ type DaemonConfig struct {
 	// EnableL2NeighDiscovery determines if cilium should perform L2 neighbor
 	// discovery.
 	EnableL2NeighDiscovery bool
+
+	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
+	EnableICMPRules bool
 }
 
 var (
@@ -2010,6 +2016,7 @@ var (
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
+		EnableICMPRules:              defaults.EnableICMPRules,
 
 		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
@@ -2753,6 +2760,7 @@ func (c *DaemonConfig) Populate() {
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
+	c.EnableICMPRules = viper.GetBool(EnableICMPRules)
 }
 
 func (c *DaemonConfig) populateDevices() {

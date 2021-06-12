@@ -13,9 +13,11 @@ type L4Proto string
 const (
 	// Keep pkg/u8proto up-to-date with any additions here
 
-	ProtoTCP L4Proto = "TCP"
-	ProtoUDP L4Proto = "UDP"
-	ProtoAny L4Proto = "ANY"
+	ProtoTCP    L4Proto = "TCP"
+	ProtoUDP    L4Proto = "UDP"
+	ProtoICMP   L4Proto = "ICMP"
+	ProtoICMPv6 L4Proto = "ICMPV6"
+	ProtoAny    L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
 )

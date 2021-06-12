@@ -105,6 +105,17 @@ type IngressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToPorts PortRules `json:"toPorts,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is allowed to
+	// receive connections on.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" can only accept incoming
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // IngressDenyRule contains all rule types which can be applied at ingress,
@@ -135,6 +146,17 @@ type IngressDenyRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ToPorts PortDenyRules `json:"toPorts,omitempty"`
+
+	// ICMPs is a list of ICMP rule identified by type number
+	// which the endpoint subject to the rule is not allowed to
+	// receive connections on.
+	//
+	// Example:
+	// Any endpoint with the label "app=httpd" can not accept incoming
+	// type 8 ICMP connections.
+	//
+	// +kubebuilder:validation:Optional
+	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
