@@ -75,6 +75,40 @@ spec:
                     are   mutually exclusive. Only one of these members may be present
                     within an   individual rule."
                   properties:
+                    icmps:
+                      description: "ICMPs is a list of ICMP rule identified by type
+                        number which the endpoint subject to the rule is allowed to
+                        connect to. \n Example: Any endpoint with the label \"app=httpd\"
+                        is allowed to initiate type 8 ICMP connections."
+                      items:
+                        description: ICMPRule is a list of ICMP fields.
+                        properties:
+                          fields:
+                            description: Fields is a list of ICMP fields.
+                            items:
+                              description: ICMPField is a ICMP field.
+                              properties:
+                                family:
+                                  default: IPv4
+                                  description: Family is a IP address version. Currently,
+                                    we support `IPv4` and `IPv6`. `IPv4` is set as
+                                    default.
+                                  enum:
+                                  - IPv4
+                                  - IPv6
+                                  type: string
+                                type:
+                                  description: Type is a ICMP-type. It should be 0-255
+                                    (8bit).
+                                  maximum: 255
+                                  minimum: 0
+                                  type: integer
+                              required:
+                              - type
+                              type: object
+                            type: array
+                        type: object
+                      type: array
                     toCIDR:
                       description: "ToCIDR is a list of IP blocks which the endpoint
                         subject to the rule is allowed to initiate connections. Only
@@ -856,6 +890,40 @@ spec:
                     are   mutually exclusive. Only one of these members may be present
                     within an   individual rule."
                   properties:
+                    icmps:
+                      description: "ICMPs is a list of ICMP rule identified by type
+                        number which the endpoint subject to the rule is not allowed
+                        to connect to. \n Example: Any endpoint with the label \"app=httpd\"
+                        is not allowed to initiate type 8 ICMP connections."
+                      items:
+                        description: ICMPRule is a list of ICMP fields.
+                        properties:
+                          fields:
+                            description: Fields is a list of ICMP fields.
+                            items:
+                              description: ICMPField is a ICMP field.
+                              properties:
+                                family:
+                                  default: IPv4
+                                  description: Family is a IP address version. Currently,
+                                    we support `IPv4` and `IPv6`. `IPv4` is set as
+                                    default.
+                                  enum:
+                                  - IPv4
+                                  - IPv6
+                                  type: string
+                                type:
+                                  description: Type is a ICMP-type. It should be 0-255
+                                    (8bit).
+                                  maximum: 255
+                                  minimum: 0
+                                  type: integer
+                              required:
+                              - type
+                              type: object
+                            type: array
+                        type: object
+                      type: array
                     toCIDR:
                       description: "ToCIDR is a list of IP blocks which the endpoint
                         subject to the rule is allowed to initiate connections. Only
@@ -1492,6 +1560,40 @@ spec:
                             type: object
                         type: object
                       type: array
+                    icmps:
+                      description: "ICMPs is a list of ICMP rule identified by type
+                        number which the endpoint subject to the rule is allowed to
+                        receive connections on. \n Example: Any endpoint with the
+                        label \"app=httpd\" can only accept incoming type 8 ICMP connections."
+                      items:
+                        description: ICMPRule is a list of ICMP fields.
+                        properties:
+                          fields:
+                            description: Fields is a list of ICMP fields.
+                            items:
+                              description: ICMPField is a ICMP field.
+                              properties:
+                                family:
+                                  default: IPv4
+                                  description: Family is a IP address version. Currently,
+                                    we support `IPv4` and `IPv6`. `IPv4` is set as
+                                    default.
+                                  enum:
+                                  - IPv4
+                                  - IPv6
+                                  type: string
+                                type:
+                                  description: Type is a ICMP-type. It should be 0-255
+                                    (8bit).
+                                  maximum: 255
+                                  minimum: 0
+                                  type: integer
+                              required:
+                              - type
+                              type: object
+                            type: array
+                        type: object
+                      type: array
                     toPorts:
                       description: "ToPorts is a list of destination ports identified
                         by port number and protocol which the endpoint subject to
@@ -2106,6 +2208,40 @@ spec:
                             type: object
                         type: object
                       type: array
+                    icmps:
+                      description: "ICMPs is a list of ICMP rule identified by type
+                        number which the endpoint subject to the rule is not allowed
+                        to receive connections on. \n Example: Any endpoint with the
+                        label \"app=httpd\" can not accept incoming type 8 ICMP connections."
+                      items:
+                        description: ICMPRule is a list of ICMP fields.
+                        properties:
+                          fields:
+                            description: Fields is a list of ICMP fields.
+                            items:
+                              description: ICMPField is a ICMP field.
+                              properties:
+                                family:
+                                  default: IPv4
+                                  description: Family is a IP address version. Currently,
+                                    we support `IPv4` and `IPv6`. `IPv4` is set as
+                                    default.
+                                  enum:
+                                  - IPv4
+                                  - IPv6
+                                  type: string
+                                type:
+                                  description: Type is a ICMP-type. It should be 0-255
+                                    (8bit).
+                                  maximum: 255
+                                  minimum: 0
+                                  type: integer
+                              required:
+                              - type
+                              type: object
+                            type: array
+                        type: object
+                      type: array
                     toPorts:
                       description: "ToPorts is a list of destination ports identified
                         by port number and protocol which the endpoint subject to
@@ -2274,6 +2410,40 @@ spec:
                       ToServices and ToGroups are   mutually exclusive. Only one of
                       these members may be present within an   individual rule."
                     properties:
+                      icmps:
+                        description: "ICMPs is a list of ICMP rule identified by type
+                          number which the endpoint subject to the rule is allowed
+                          to connect to. \n Example: Any endpoint with the label \"app=httpd\"
+                          is allowed to initiate type 8 ICMP connections."
+                        items:
+                          description: ICMPRule is a list of ICMP fields.
+                          properties:
+                            fields:
+                              description: Fields is a list of ICMP fields.
+                              items:
+                                description: ICMPField is a ICMP field.
+                                properties:
+                                  family:
+                                    default: IPv4
+                                    description: Family is a IP address version. Currently,
+                                      we support `IPv4` and `IPv6`. `IPv4` is set
+                                      as default.
+                                    enum:
+                                    - IPv4
+                                    - IPv6
+                                    type: string
+                                  type:
+                                    description: Type is a ICMP-type. It should be
+                                      0-255 (8bit).
+                                    maximum: 255
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - type
+                                type: object
+                              type: array
+                          type: object
+                        type: array
                       toCIDR:
                         description: "ToCIDR is a list of IP blocks which the endpoint
                           subject to the rule is allowed to initiate connections.
@@ -3070,6 +3240,40 @@ spec:
                       ToServices and ToGroups are   mutually exclusive. Only one of
                       these members may be present within an   individual rule."
                     properties:
+                      icmps:
+                        description: "ICMPs is a list of ICMP rule identified by type
+                          number which the endpoint subject to the rule is not allowed
+                          to connect to. \n Example: Any endpoint with the label \"app=httpd\"
+                          is not allowed to initiate type 8 ICMP connections."
+                        items:
+                          description: ICMPRule is a list of ICMP fields.
+                          properties:
+                            fields:
+                              description: Fields is a list of ICMP fields.
+                              items:
+                                description: ICMPField is a ICMP field.
+                                properties:
+                                  family:
+                                    default: IPv4
+                                    description: Family is a IP address version. Currently,
+                                      we support `IPv4` and `IPv6`. `IPv4` is set
+                                      as default.
+                                    enum:
+                                    - IPv4
+                                    - IPv6
+                                    type: string
+                                  type:
+                                    description: Type is a ICMP-type. It should be
+                                      0-255 (8bit).
+                                    maximum: 255
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - type
+                                type: object
+                              type: array
+                          type: object
+                        type: array
                       toCIDR:
                         description: "ToCIDR is a list of IP blocks which the endpoint
                           subject to the rule is allowed to initiate connections.
@@ -3713,6 +3917,41 @@ spec:
                               type: object
                           type: object
                         type: array
+                      icmps:
+                        description: "ICMPs is a list of ICMP rule identified by type
+                          number which the endpoint subject to the rule is allowed
+                          to receive connections on. \n Example: Any endpoint with
+                          the label \"app=httpd\" can only accept incoming type 8
+                          ICMP connections."
+                        items:
+                          description: ICMPRule is a list of ICMP fields.
+                          properties:
+                            fields:
+                              description: Fields is a list of ICMP fields.
+                              items:
+                                description: ICMPField is a ICMP field.
+                                properties:
+                                  family:
+                                    default: IPv4
+                                    description: Family is a IP address version. Currently,
+                                      we support `IPv4` and `IPv6`. `IPv4` is set
+                                      as default.
+                                    enum:
+                                    - IPv4
+                                    - IPv6
+                                    type: string
+                                  type:
+                                    description: Type is a ICMP-type. It should be
+                                      0-255 (8bit).
+                                    maximum: 255
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - type
+                                type: object
+                              type: array
+                          type: object
+                        type: array
                       toPorts:
                         description: "ToPorts is a list of destination ports identified
                           by port number and protocol which the endpoint subject to
@@ -4333,6 +4572,41 @@ spec:
                                 is "key", the operator is "In", and the values array
                                 contains only "value". The requirements are ANDed.
                               type: object
+                          type: object
+                        type: array
+                      icmps:
+                        description: "ICMPs is a list of ICMP rule identified by type
+                          number which the endpoint subject to the rule is not allowed
+                          to receive connections on. \n Example: Any endpoint with
+                          the label \"app=httpd\" can not accept incoming type 8 ICMP
+                          connections."
+                        items:
+                          description: ICMPRule is a list of ICMP fields.
+                          properties:
+                            fields:
+                              description: Fields is a list of ICMP fields.
+                              items:
+                                description: ICMPField is a ICMP field.
+                                properties:
+                                  family:
+                                    default: IPv4
+                                    description: Family is a IP address version. Currently,
+                                      we support `IPv4` and `IPv6`. `IPv4` is set
+                                      as default.
+                                    enum:
+                                    - IPv4
+                                    - IPv6
+                                    type: string
+                                  type:
+                                    description: Type is a ICMP-type. It should be
+                                      0-255 (8bit).
+                                    maximum: 255
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - type
+                                type: object
+                              type: array
                           type: object
                         type: array
                       toPorts:

@@ -686,6 +686,53 @@ func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
 	c.Assert(err, NotNil)
 }
 
+func (s *PolicyAPITestSuite) TestTooManyICMPFields(c *C) {
+	var fields []ICMPField
+
+	for i := 1; i <= 1+maxICMPFields; i++ {
+		fields = append(fields, ICMPField{
+			Type: uint8(i),
+		})
+	}
+
+	tooManyICMPRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ICMPs: ICMPRules{{
+					Fields: fields,
+				}},
+			},
+		},
+	}
+	err := tooManyICMPRule.Sanitize()
+	c.Assert(err, NotNil)
+}
+
+func (s *PolicyAPITestSuite) TestWrongICMPFieldFamily(c *C) {
+	wrongFamilyICMPRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Family: "hoge",
+						Type:   0,
+					}},
+				}},
+			},
+		},
+	}
+	err := wrongFamilyICMPRule.Sanitize()
+	c.Assert(err, NotNil)
+}
+
 // This test ensures that PortRules aren't configured in the wrong direction,
 // which ends up being a no-op with only vague error messages rather than a
 // clear indication that something is wrong in the policy.
