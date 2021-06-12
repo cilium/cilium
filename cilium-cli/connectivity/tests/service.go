@@ -140,7 +140,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 	// Manually construct an HTTP endpoint to override the destination IP
 	// and port of the request.
-	ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d", svc.Scheme(), node.Pod.Status.HostIP, np))
+	ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), node.Pod.Status.HostIP, np, svc.Path()))
 
 	// Create the Action with the original svc as this will influence what the
 	// flow matcher looks for in the flow logs.

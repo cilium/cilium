@@ -124,6 +124,25 @@ func Drop() FlowFilterImplementation {
 	return &dropFilter{}
 }
 
+type l7DropFilter struct{}
+
+func (d *l7DropFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+	l7 := flow.GetL7()
+	if l7 == nil {
+		return false
+	}
+	return flow.GetVerdict() == flowpb.Verdict_DROPPED
+}
+
+func (d *l7DropFilter) String(fc *FlowContext) string {
+	return "l7 drop"
+}
+
+// L7Drop matches on drops reported by L7 proxied
+func L7Drop() FlowFilterImplementation {
+	return &l7DropFilter{}
+}
+
 type icmpFilter struct {
 	typ uint32
 }
