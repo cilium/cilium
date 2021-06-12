@@ -109,11 +109,6 @@ func (t *Test) willRun() bool {
 // finalize runs all the Test's registered finalizers.
 // Failures encountered executing finalizers will fail the Test.
 func (t *Test) finalize() {
-	if t.failed && t.Context().params.PauseOnFail {
-		t.Log("Pausing after test failure, press the Enter key to continue:")
-		fmt.Scanln()
-	}
-
 	t.Debug("Finalizing Test", t.Name())
 
 	for _, f := range t.finalizers {
