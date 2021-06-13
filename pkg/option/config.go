@@ -1449,11 +1449,12 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	EnableIPv4Masquerade   bool
-	EnableIPv6Masquerade   bool
-	EnableBPFMasquerade    bool
-	EnableBPFClockProbe    bool
-	EnableIPMasqAgent      bool
+	EnableIPv4Masquerade bool
+	EnableIPv6Masquerade bool
+	EnableBPFMasquerade  bool
+	EnableBPFClockProbe  bool
+	EnableIPMasqAgent    bool
+	// expired DNS lookups with still-active connections
 	EnableEgressGateway    bool
 	IPMasqAgentConfigPath  string
 	InstallIptRules        bool
@@ -1754,9 +1755,9 @@ type DaemonConfig struct {
 	// KernelHz is the HZ rate the kernel is operating in
 	KernelHz int
 
-	// excludeLocalAddresses excludes certain addresses to be recognized as
+	// ExcludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
-	excludeLocalAddresses []*net.IPNet
+	ExcludeLocalAddresses []*net.IPNet
 
 	// IPv4PodSubnets available subnets to be assign IPv4 addresses to pods from
 	IPv4PodSubnets []*net.IPNet
@@ -1771,8 +1772,8 @@ type DaemonConfig struct {
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
 
-	// ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
-	ipv4NativeRoutingCIDR *cidr.CIDR
+	// Ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	Ipv4NativeRoutingCIDR *cidr.CIDR
 
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
@@ -1895,21 +1896,21 @@ type DaemonConfig struct {
 	// ports for all fragments.
 	FragmentsMapEntries int
 
-	// sizeofCTElement is the size of an element (key + value) in the CT map.
-	sizeofCTElement int
+	// SizeofCTElement is the size of an element (key + value) in the CT map.
+	SizeofCTElement int
 
-	// sizeofNATElement is the size of an element (key + value) in the NAT map.
-	sizeofNATElement int
+	// SizeofNATElement is the size of an element (key + value) in the NAT map.
+	SizeofNATElement int
 
-	// sizeofNeighElement is the size of an element (key + value) in the neigh
+	// SizeofNeighElement is the size of an element (key + value) in the neigh
 	// map.
-	sizeofNeighElement int
+	SizeofNeighElement int
 
-	// sizeofSockRevElement is the size of an element (key + value) in the neigh
+	// SizeofSockRevElement is the size of an element (key + value) in the neigh
 	// map.
-	sizeofSockRevElement int
+	SizeofSockRevElement int
 
-	k8sEnableAPIDiscovery bool
+	K8sEnableAPIDiscovery bool
 
 	// k8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
 	// for the support of Leases in Kubernetes when there is an error in discovering
@@ -1917,17 +1918,17 @@ type DaemonConfig struct {
 	// We require to check for Leases capabilities in operator only, which uses Leases for leader
 	// election purposes in HA mode.
 	// This is only enabled for cilium-operator
-	k8sEnableLeasesFallbackDiscovery bool
+	K8sEnableLeasesFallbackDiscovery bool
 
 	// LBMapEntries is the maximum number of entries allowed in BPF lbmap.
 	LBMapEntries int
 
-	// k8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
+	// K8sServiceProxyNametest is the value of service.kubernetes.io/service-proxy-name label,
 	// that identifies the service objects Cilium should handle.
 	// If the provided value is an empty string, Cilium will manage service objects when
 	// the label is not present. For more details -
 	// https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md
-	k8sServiceProxyName string
+	K8sServiceProxyNametest string
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimit map[string]string
@@ -2014,11 +2015,11 @@ var (
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 		EnableWellKnownIdentities:    defaults.EnableWellKnownIdentities,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
-		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
+		K8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 		AllocatorListTimeout:         defaults.AllocatorListTimeout,
 		EnableICMPRules:              defaults.EnableICMPRules,
 
-		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
+		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
 
 		ExternalClusterIP: defaults.ExternalClusterIP,
@@ -2028,7 +2029,7 @@ var (
 // IPv4NativeRoutingCIDR returns the native routing CIDR if configured
 func (c *DaemonConfig) IPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.RLock()
-	cidr = c.ipv4NativeRoutingCIDR
+	cidr = c.Ipv4NativeRoutingCIDR
 	c.ConfigPatchMutex.RUnlock()
 	return
 }
@@ -2036,14 +2037,14 @@ func (c *DaemonConfig) IPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
 // SetIPv4NativeRoutingCIDR sets the native routing CIDR
 func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
 	c.ConfigPatchMutex.Lock()
-	c.ipv4NativeRoutingCIDR = cidr
+	c.Ipv4NativeRoutingCIDR = cidr
 	c.ConfigPatchMutex.Unlock()
 }
 
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
 func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
-	for _, ipnet := range c.excludeLocalAddresses {
+	for _, ipnet := range c.ExcludeLocalAddresses {
 		if ipnet.Contains(ip) {
 			return true
 		}
@@ -2147,7 +2148,7 @@ func (c *DaemonConfig) LocalClusterName() string {
 // service.kubernetes.io/service-proxy-name label in order for services to be
 // handled.
 func (c *DaemonConfig) K8sServiceProxyName() string {
-	return c.k8sServiceProxyName
+	return c.K8sServiceProxyNametest
 }
 
 // CiliumNamespaceName returns the name of the namespace in which Cilium is
@@ -2159,20 +2160,20 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 // K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
-	return c.k8sEnableAPIDiscovery
+	return c.K8sEnableAPIDiscovery
 }
 
 // K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
 // probing when checking for support of Leases in case Discovery API fails to discover
 // required groups.
 func (c *DaemonConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
-	return c.k8sEnableAPIDiscovery
+	return c.K8sEnableAPIDiscovery
 }
 
 // EnableK8sLeasesFallbackDiscovery enables using direct API probing as a fallback to check
 // for the support of Leases when discovering API groups is not possible.
 func (c *DaemonConfig) EnableK8sLeasesFallbackDiscovery() {
-	c.k8sEnableAPIDiscovery = true
+	c.K8sEnableAPIDiscovery = true
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2357,7 +2358,7 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 			return fmt.Errorf("unable to parse excluded local address %s: %s", ipString, err)
 		}
 
-		c.excludeLocalAddresses = append(c.excludeLocalAddresses, ipnet)
+		c.ExcludeLocalAddresses = append(c.ExcludeLocalAddresses, ipnet)
 	}
 
 	return nil
@@ -2453,7 +2454,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sClientBurst = viper.GetInt(K8sClientBurst)
 	c.K8sClientQPSLimit = viper.GetFloat64(K8sClientQPSLimit)
 	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
-	c.k8sEnableAPIDiscovery = viper.GetBool(K8sEnableAPIDiscovery)
+	c.K8sEnableAPIDiscovery = viper.GetBool(K8sEnableAPIDiscovery)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
@@ -2523,7 +2524,7 @@ func (c *DaemonConfig) Populate() {
 	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
-	c.k8sServiceProxyName = viper.GetString(K8sServiceProxyName)
+	c.K8sServiceProxyNametest = viper.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = viper.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerDSRL4Xlate = viper.GetString(LoadBalancerDSRL4Xlate)
@@ -2554,15 +2555,15 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	if nativeRoutingCIDR != "" {
-		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
+		c.Ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
 
-		if len(c.ipv4NativeRoutingCIDR.IP) != net.IPv4len {
+		if len(c.Ipv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", NativeRoutingCIDR)
 		}
 	} else if ipv4NativeRoutingCIDR != "" {
-		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
+		c.Ipv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
 
-		if len(c.ipv4NativeRoutingCIDR.IP) != net.IPv4len {
+		if len(c.Ipv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
 		}
 	}
@@ -2960,10 +2961,10 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).
-	if c.sizeofCTElement == 0 ||
-		c.sizeofNATElement == 0 ||
-		c.sizeofNeighElement == 0 ||
-		c.sizeofSockRevElement == 0 {
+	if c.SizeofCTElement == 0 ||
+		c.SizeofNATElement == 0 ||
+		c.SizeofNeighElement == 0 ||
+		c.SizeofSockRevElement == 0 {
 		return nil
 	}
 
@@ -2994,10 +2995,10 @@ func (c *DaemonConfig) SetMapElementSizes(
 	sizeofNeighElement,
 	sizeofSockRevElement int) {
 
-	c.sizeofCTElement = sizeofCTElement
-	c.sizeofNATElement = sizeofNATElement
-	c.sizeofNeighElement = sizeofNeighElement
-	c.sizeofSockRevElement = sizeofSockRevElement
+	c.SizeofCTElement = sizeofCTElement
+	c.SizeofNATElement = sizeofNATElement
+	c.SizeofNeighElement = sizeofNeighElement
+	c.SizeofSockRevElement = sizeofSockRevElement
 }
 
 func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSizeRatio float64) {
@@ -3017,12 +3018,12 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	//   16GB  1060485  530242  1060485
 	memoryAvailableForMaps := int(float64(totalMemory) * dynamicSizeRatio)
 	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio, totalMemory, memoryAvailableForMaps)
-	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.sizeofCTElement +
-		CTMapEntriesGlobalAnyDefault*c.sizeofCTElement +
-		NATMapEntriesGlobalDefault*c.sizeofNATElement +
+	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.SizeofCTElement +
+		CTMapEntriesGlobalAnyDefault*c.SizeofCTElement +
+		NATMapEntriesGlobalDefault*c.SizeofNATElement +
 		// Neigh table has the same number of entries as NAT Map has.
-		NATMapEntriesGlobalDefault*c.sizeofNeighElement +
-		SockRevNATMapEntriesDefault*c.sizeofSockRevElement
+		NATMapEntriesGlobalDefault*c.SizeofNeighElement +
+		SockRevNATMapEntriesDefault*c.SizeofSockRevElement
 	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
 
 	getEntries := func(entriesDefault, min, max int) int {

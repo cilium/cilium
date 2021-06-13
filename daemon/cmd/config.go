@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -154,6 +155,14 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
 
 	d := h.daemon
+	m := make(map[string]interface{})
+	e := reflect.ValueOf(option.Config).Elem()
+
+	for i := 0; i < e.NumField(); i++ {
+		if e.Field(i).Kind() != reflect.Func {
+			m[e.Type().Field(i).Name] = e.Field(i).Interface()
+		}
+	}
 
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),
@@ -169,10 +178,11 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    option.Config.KVStore,
 			Options: option.Config.KVStoreOpt,
 		},
-		Realized:     spec,
-		DeviceMTU:    int64(d.mtuConfig.GetDeviceMTU()),
-		RouteMTU:     int64(d.mtuConfig.GetRouteMTU()),
-		DatapathMode: models.DatapathMode(option.Config.DatapathMode),
+		Realized:               spec,
+		DaemonConfigurationMap: m,
+		DeviceMTU:              int64(d.mtuConfig.GetDeviceMTU()),
+		RouteMTU:               int64(d.mtuConfig.GetRouteMTU()),
+		DatapathMode:           models.DatapathMode(option.Config.DatapathMode),
 		IpvlanConfiguration: &models.IpvlanConfiguration{
 			MasterDeviceIndex: int64(option.Config.Ipvlan.MasterDeviceIndex),
 			OperationMode:     option.Config.Ipvlan.OperationMode,
