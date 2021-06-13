@@ -64,6 +64,9 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			}
 			return
 		}
+		for k, v := range cfgStatus.DaemonConfigurationMap {
+			fmt.Println(k, " ", v)
+		}
 		dumpConfig(cfgStatus.Immutable)
 		dumpConfig(cfgStatus.Realized.Options)
 		fmt.Printf("%-24s %s\n", "k8s-configuration", cfgStatus.K8sConfiguration)
