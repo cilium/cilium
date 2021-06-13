@@ -1908,6 +1908,12 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "daemonConfigurationMap": {
+          "description": "Config map which contains all the active daemon configurations",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
@@ -6290,6 +6296,12 @@ func init() {
       "properties": {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
+        },
+        "daemonConfigurationMap": {
+          "description": "Config map which contains all the active daemon configurations",
+          "additionalProperties": {
+            "type": "object"
+          }
         },
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
