@@ -17,7 +17,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -34,10 +33,9 @@ func (m *kindVersionValidation) Name() string {
 }
 
 func (m *kindVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
-	cmd := exec.Command("kind", "version")
-	bytes, err := cmd.Output()
+	bytes, err := k.Exec("kind", "version")
 	if err != nil {
-		return fmt.Errorf("unable to execute \"kind version\": %w", err)
+		return err
 	}
 
 	ver := regexp.MustCompile(`(v[0-9]+\.[0-9]+\.[0-9]+)`)
