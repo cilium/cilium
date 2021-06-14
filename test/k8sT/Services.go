@@ -1033,7 +1033,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 		// dstIP:      Target endpoint IP for sending the datagram
 		// dstPort:    Target endpoint port for sending the datagram
 		// hasDNAT:    True if DNAT is used for target IP and port
-		doFragmentedRequest := func(srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, hasDNAT bool) {
+		// dir:        True for fragmented return packets
+		doFragmentedRequest := func(srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, hasDNAT bool, dir bool) {
 			var (
 				blockSize  = 5120
 				blockCount = 1
@@ -1098,9 +1099,19 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			// Send datagram
 			By("Sending a fragmented packet from %s to endpoint %s", srcPod, net.JoinHostPort(dstIP, fmt.Sprintf("%d", dstPort)))
 			cmd := fmt.Sprintf("bash -c 'dd if=/dev/zero bs=%d count=%d | nc -u -w 1 -p %d %s %d'", blockSize, blockCount, srcPort, dstIP, dstPort)
+			if dir {
+				cmd = fmt.Sprintf("curl --silent --local-port %d tftp://%s/size/%d", srcPort, net.JoinHostPort(dstIP, fmt.Sprintf("%d", dstPort)), blockSize*blockCount)
+			}
 			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, cmd)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 				"Cannot send fragmented datagram: %s", res.CombineOutput())
+
+			// Result
+			By("Result: %q", res.CombineOutput())
+			if dir {
+				Expect(res.CombineOutput().Len()).Should(Equal(blockSize * blockCount))
+				return
+			}
 
 			// Let's compute the expected number of packets. First
 			// fragment holds 1416 bytes of data under standard
@@ -1128,6 +1139,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				Equal([]int{countInK8s1 + delta, countInK8s2}),
 			), "Failed to account for IPv4 fragments to %s (in)", dstIP)
 
+			By("countInK8s %d %d %d %d %d", countInK8s1, countInK8s2, newCountInK8s1, newCountInK8s2, delta)
+
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
 			newCountOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			// If kube-proxy is enabled, the two commands are the same and
@@ -1142,6 +1155,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				Equal([]int{countOutK8s1 + delta, countOutK8s2}),
 			), "Failed to account for IPv4 fragments to %s (out)", dstIP)
 
+			By("countOutK8s %d %d %d %d %d", countOutK8s1, countOutK8s2, newCountOutK8s1, newCountOutK8s2, delta)
+
 			fragmentedPacketsAfterK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Fragmented packet", "ingress")
 			fragmentedPacketsAfterK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Fragmented packet", "ingress")
 
@@ -1149,6 +1164,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				Equal([]int{fragmentedPacketsBeforeK8s1, fragmentedPacketsBeforeK8s2 + delta}),
 				Equal([]int{fragmentedPacketsBeforeK8s1 + delta, fragmentedPacketsBeforeK8s2}),
 			), "Failed to account for INGRESS IPv4 fragments in BPF metrics", dstIP)
+
+			By("fragmentedPacketsBeforeK8s1 %d %d %d %d %d", fragmentedPacketsBeforeK8s1, fragmentedPacketsBeforeK8s2, fragmentedPacketsAfterK8s1, fragmentedPacketsAfterK8s2, delta)
 		}
 
 		testNodePort := func(bpfNodePort, testSecondaryNodePortIP, testFromOutside bool, fails int) {
@@ -1907,14 +1924,27 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			nodePort := data.Spec.Ports[1].NodePort
 			serverPort := data.Spec.Ports[1].TargetPort.IntValue()
 
+			// Fragmented request packets are
+
 			// With ClusterIP
-			doFragmentedRequest(clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true)
+			doFragmentedRequest(clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true, false)
 
 			// From pod via node IPs
-			doFragmentedRequest(clientPod, srcPort+1, serverPort, k8s1IP, nodePort, hasDNAT)
-			doFragmentedRequest(clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT)
-			doFragmentedRequest(clientPod, srcPort+3, serverPort, k8s2IP, nodePort, hasDNAT)
-			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT)
+			doFragmentedRequest(clientPod, srcPort+1, serverPort, k8s1IP, nodePort, hasDNAT, false)
+			doFragmentedRequest(clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT, false)
+			doFragmentedRequest(clientPod, srcPort+3, serverPort, k8s2IP, nodePort, hasDNAT, false)
+			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT, false)
+
+			// Fragmented return packets
+
+			// With ClusterIP
+			doFragmentedRequest(clientPod, srcPort+5, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true, true)
+
+			// From pod via node IPs
+			doFragmentedRequest(clientPod, srcPort+6, serverPort, k8s1IP, nodePort, hasDNAT, true)
+			doFragmentedRequest(clientPod, srcPort+7, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT, true)
+			doFragmentedRequest(clientPod, srcPort+8, serverPort, k8s2IP, nodePort, hasDNAT, true)
+			doFragmentedRequest(clientPod, srcPort+9, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT, true)
 		}
 
 		testMaglev := func() {
