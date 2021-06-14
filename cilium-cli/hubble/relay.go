@@ -17,7 +17,6 @@ package hubble
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -397,7 +396,6 @@ func (k *K8sHubble) createRelayClientCertificate(ctx context.Context) error {
 }
 
 func (p *Parameters) PortForwardCommand(ctx context.Context) error {
-	cmd := "kubectl"
 	args := []string{
 		"port-forward",
 		"-n", p.Namespace,
@@ -410,13 +408,6 @@ func (p *Parameters) PortForwardCommand(ctx context.Context) error {
 		args = append([]string{"--context", p.Context}, args...)
 	}
 
-	c := exec.Command(cmd, args...)
-	c.Stdout = p.Writer
-	c.Stderr = p.Writer
-
-	if err := c.Run(); err != nil {
-		return fmt.Errorf("unable to execute command %s %v: %s", cmd, args, err)
-	}
-
-	return nil
+	_, err := utils.Exec(p, "kubectl", args...)
+	return err
 }

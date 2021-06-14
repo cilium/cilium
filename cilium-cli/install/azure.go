@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 )
 
 type azureVersionValidation struct{}
@@ -28,10 +27,9 @@ func (m *azureVersionValidation) Name() string {
 }
 
 func (m *azureVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
-	cmd := azCommand("version")
-	_, err := cmd.Output()
+	_, err := k.Exec("az", "version", "--output", "json")
 	if err != nil {
-		return fmt.Errorf("unable to execute \"az version\": %w", err)
+		return err
 	}
 
 	k.Log("✅ Detected az binary")
@@ -61,10 +59,9 @@ func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
 	if k.params.Azure.SubscriptionName != "" {
 		args = append(args, "--subscription", k.params.Azure.SubscriptionName)
 	}
-	cmd := azCommand(args...)
-	bytes, err := cmd.Output()
+	bytes, err := k.Exec("az", args...)
 	if err != nil {
-		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
+		return err
 	}
 
 	ai := accountInfo{}
@@ -81,11 +78,9 @@ func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
 		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
-		args := []string{"ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/" + k.params.Azure.SubscriptionID}
-		cmd := azCommand(args...)
-		bytes, err := cmd.Output()
+		bytes, err := k.Exec("az", "ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID)
 		if err != nil {
-			return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
+			return err
 		}
 
 		p := azurePrincipalOutput{}
@@ -110,11 +105,9 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
 
-	args := []string{"aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName}
-	cmd := azCommand(args...)
-	bytes, err := cmd.Output()
+	bytes, err := k.Exec("az", "aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
 	if err != nil {
-		return fmt.Errorf("unable to execute \"az %s\": %w", args, err)
+		return err
 	}
 
 	clusterInfo := aksClusterInfo{}
@@ -126,12 +119,4 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	k.params.Azure.ResourceGroup = clusterInfo.NodeResourceGroup
 
 	return nil
-}
-
-// azCommand is a wrapper function around running the "az" binary. It forces
-// all output to be in JSON.
-func azCommand(args ...string) *exec.Cmd {
-	all := append([]string{}, args...)
-	all = append(all, "--output", "json")
-	return exec.Command("az", all...)
 }
