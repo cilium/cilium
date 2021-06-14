@@ -26,6 +26,7 @@ import (
 type sink struct {
 	mutex     lock.Mutex
 	queue     chan record
+	shutdown  chan struct{}
 	done      chan struct{}
 	trigger   chan struct{}
 	stats     Statistics
@@ -41,6 +42,7 @@ func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueS
 	s := &sink{
 		mutex:     lock.Mutex{},
 		queue:     make(chan record, queueSize),
+		shutdown:  make(chan struct{}),
 		done:      make(chan struct{}),
 		trigger:   make(chan struct{}, 1),
 		stats:     Statistics{},
@@ -73,11 +75,7 @@ func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueS
 		for {
 			select {
 			// s.queue will be closed when the sink is unregistered
-			case rec, ok := <-s.queue:
-				if !ok {
-					return
-				}
-
+			case rec := <-s.queue:
 				pcapRecord := pcap.Record{
 					Timestamp:      rec.timestamp,
 					CaptureLength:  rec.inclLen,
@@ -92,6 +90,8 @@ func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueS
 					PacketsWritten: 1,
 					BytesWritten:   uint64(rec.inclLen),
 				})
+			case <-s.shutdown:
+				return
 			case <-ctx.Done():
 				err = ctx.Err()
 				return
@@ -104,12 +104,7 @@ func startSink(ctx context.Context, w pcap.RecordWriter, hdr pcap.Header, queueS
 
 // stop requests the sink to stop recording
 func (s *sink) stop() {
-	s.mutex.Lock()
-	// closing the queue will cause the `startSink` method to drain the queue,
-	// and then send back a signal by closing the s.done channel
-	close(s.queue)
-	s.queue = nil
-	s.mutex.Unlock()
+	close(s.shutdown)
 }
 
 func (s *sink) addToStatistics(add Statistics) {
@@ -131,16 +126,15 @@ func (s *sink) addToStatistics(add Statistics) {
 // enqueue submits a new record to this sink. If the sink is not keeping up,
 // the record is dropped and the sink statistics are updated accordingly
 func (s *sink) enqueue(rec record) {
-	s.mutex.Lock()
-	// copy queue to avoid concurrent close
-	q := s.queue
-	if q == nil {
+	select {
+	case <-s.shutdown:
+		// early return if shutting down
 		return
+	default:
 	}
-	s.mutex.Unlock()
 
 	select {
-	case q <- rec:
+	case s.queue <- rec:
 		// successfully enqueued rec in sink
 		return
 	default:
