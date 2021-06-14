@@ -282,13 +282,14 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 		return index, match, flow
 	}
 
-	if index, match, _ := match(true, req.First, &flowCtx); !match {
+	index, matched, _ := match(true, req.First, &flowCtx)
+	if !matched {
 		r.NeedMoreFlows = true
 		// No point trying to match more if First does not match.
 		return
-	} else {
-		r.FirstMatch = offset + index
 	}
+
+	r.FirstMatch = offset + index
 
 	for _, f := range req.Middle {
 		if f.SkipOnAggregation && a.test.ctx.FlowAggregation() {
