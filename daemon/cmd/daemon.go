@@ -400,8 +400,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.endpointManager.InitMetrics()
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
-	if option.Config.BGPAnnounceLBIP {
-		d.bgpSpeaker = speaker.New()
+	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
+		d.bgpSpeaker = speaker.New(speaker.Opts{
+			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
+			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
+		})
 	}
 
 	d.egressPolicyManager = egresspolicy.NewEgressPolicyManager()
@@ -418,6 +421,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.egressPolicyManager,
 		option.Config,
 	)
+
+	d.k8sWatcher.NodeSubscribers.Register(d.endpointManager)
+	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
+		d.k8sWatcher.NodeSubscribers.Register(d.bgpSpeaker)
+	}
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)

@@ -34,7 +34,7 @@ import (
 
 type peer struct {
 	cfg *config.Peer
-	bgp session
+	bgp Session
 }
 
 type BGPController struct {
@@ -83,36 +83,14 @@ newPeers:
 	return c.syncPeers(l)
 }
 
-// nodeHasHealthyEndpoint return true if this node has at least one healthy endpoint.
-func nodeHasHealthyEndpoint(eps *Endpoints, node string) bool {
+// hasHealthyEndpoint return true if this node has at least one healthy endpoint.
+// It only checks nodes matching the given filterNode function.
+func hasHealthyEndpoint(eps *Endpoints, filterNode func(*string) bool) bool {
 	ready := map[string]bool{}
 	for _, ep := range eps.Ready {
-		if ep.NodeName == nil || *ep.NodeName != node {
+		if filterNode(ep.NodeName) {
 			continue
 		}
-		if _, ok := ready[ep.IP]; !ok {
-			// Only set true if nothing else has expressed an
-			// opinion. This means that false will take precedence
-			// if there's any unready ports for a given endpoint.
-			ready[ep.IP] = true
-		}
-	}
-	for _, ep := range eps.NotReady {
-		ready[ep.IP] = false
-	}
-
-	for _, r := range ready {
-		if r {
-			// At least one fully healthy endpoint on this machine.
-			return true
-		}
-	}
-	return false
-}
-
-func healthyEndpointExists(eps *Endpoints) bool {
-	ready := map[string]bool{}
-	for _, ep := range eps.Ready {
 		if _, ok := ready[ep.IP]; !ok {
 			// Only set true if nothing else has expressed an
 			// opinion. This means that false will take precedence
@@ -139,9 +117,16 @@ func (c *BGPController) ShouldAnnounce(l log.Logger, name string, policyType str
 	//  Cluster && any healthy endpoint exists
 	// or
 	//  Local && there's a ready local endpoint.
-	if v1.ServiceExternalTrafficPolicyType(policyType) == v1.ServiceExternalTrafficPolicyTypeLocal && !nodeHasHealthyEndpoint(eps, c.MyNode) {
+	filterNode := func(toFilter *string) bool {
+		if toFilter == nil || *toFilter != c.MyNode {
+			return true
+		}
+		return false
+	}
+
+	if v1.ServiceExternalTrafficPolicyType(policyType) == v1.ServiceExternalTrafficPolicyTypeLocal && !hasHealthyEndpoint(eps, filterNode) {
 		return "noLocalEndpoints"
-	} else if !healthyEndpointExists(eps) {
+	} else if !hasHealthyEndpoint(eps, func(toFilter *string) bool { return false }) {
 		return "noEndpoints"
 	}
 	return ""
@@ -242,11 +227,11 @@ func (c *BGPController) updateAds() error {
 		// and detecting conflicting advertisements.
 		allAds = append(allAds, ads...)
 	}
-	for _, peer := range c.peers {
-		if peer.bgp == nil {
+	for _, session := range c.PeerSessions() {
+		if session == nil {
 			continue
 		}
-		if err := peer.bgp.Set(allAds...); err != nil {
+		if err := session.Set(allAds...); err != nil {
 			return err
 		}
 	}
@@ -261,7 +246,8 @@ func (c *BGPController) DeleteBalancer(l log.Logger, name, reason string) error 
 	return c.updateAds()
 }
 
-type session interface {
+// Session gives access to the BGP session.
+type Session interface {
 	io.Closer
 	Set(advs ...*bgp.Advertisement) error
 }
@@ -280,6 +266,15 @@ func (c *BGPController) SetNodeLabels(l log.Logger, lbls map[string]string) erro
 	return c.syncPeers(l)
 }
 
-var newBGP = func(logger log.Logger, addr string, myASN uint32, routerID net.IP, asn uint32, hold time.Duration, password string, myNode string) (session, error) {
+// PeerSessions returns the underlying BGP sessions for direct use.
+func (c *BGPController) PeerSessions() []Session {
+	s := make([]Session, len(c.peers))
+	for i, peer := range c.peers {
+		s[i] = peer.bgp
+	}
+	return s
+}
+
+var newBGP = func(logger log.Logger, addr string, myASN uint32, routerID net.IP, asn uint32, hold time.Duration, password string, myNode string) (Session, error) {
 	return bgp.New(logger, addr, myASN, routerID, asn, hold, password, myNode)
 }

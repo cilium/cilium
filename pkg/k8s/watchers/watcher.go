@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -158,8 +159,6 @@ type bgpSpeakerManager interface {
 	OnDeleteService(svc *slim_corev1.Service)
 
 	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
-
-	OnUpdateNode(node *slim_corev1.Node)
 }
 type egressPolicyManager interface {
 	AddEgressPolicy(config egresspolicy.Config) (bool, error)
@@ -182,6 +181,9 @@ type K8sWatcher struct {
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
 	K8sSvcCache k8s.ServiceCache
+
+	// NodeSubscribers are all the subscibers to K8s Node events.
+	NodeSubscribers subscriber.NodeList
 
 	endpointManager endpointManager
 

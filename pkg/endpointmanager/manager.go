@@ -676,20 +676,3 @@ func (mgr *EndpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 func (mgr *EndpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
 }
-
-// GetHostEndpoint returns the host endpoint.
-func (mgr *EndpointManager) GetHostEndpoint() *endpoint.Endpoint {
-	mgr.mutex.RLock()
-	defer mgr.mutex.RUnlock()
-	for _, ep := range mgr.endpoints {
-		if ep.IsHost() {
-			return ep
-		}
-	}
-	return nil
-}
-
-// HostEndpointExists returns true if the host endpoint exists.
-func (mgr *EndpointManager) HostEndpointExists() bool {
-	return mgr.GetHostEndpoint() != nil
-}

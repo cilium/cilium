@@ -18,34 +18,33 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
-// ServiceHandler is implemented by event handlers responding to K8s Service
-// events.
-type ServiceHandler interface {
-	OnAddService(*slim_corev1.Service) error
-	OnUpdateService(oldObj, newObj *slim_corev1.Service) error
-	OnDeleteService(*slim_corev1.Service) error
+// NodeHandler is implemented by event handlers responding to K8s Node events.
+type NodeHandler interface {
+	OnAddNode(*slim_corev1.Node) error
+	OnUpdateNode(oldObj, newObj *slim_corev1.Node) error
+	OnDeleteNode(*slim_corev1.Node) error
 }
 
-// NewService creates a new subscriber list for ServiceHandlers.
-func NewService() *ServiceList {
-	return &ServiceList{}
+// NewNode creates a new subscriber list for NodeHandlers.
+func NewNode() *NodeList {
+	return &NodeList{}
 }
 
-// Register registers ServiceHandler as a subscriber for reacting to Service
-// objects into the list.
-func (l *ServiceList) Register(s ServiceHandler) {
+// Register registers NodeHandler as a subscriber for reacting to Node objects
+// into the list.
+func (l *NodeList) Register(s NodeHandler) {
 	l.Lock()
 	l.subs = append(l.subs, s)
 	l.Unlock()
 }
 
 // NotifyAdd notifies all the subscribers of an add event to a service.
-func (l *ServiceList) NotifyAdd(svc *slim_corev1.Service) []error {
+func (l *NodeList) NotifyAdd(node *slim_corev1.Node) []error {
 	l.RLock()
 	defer l.RUnlock()
 	errs := make([]error, 0, len(l.subs))
 	for _, s := range l.subs {
-		if err := s.OnAddService(svc); err != nil {
+		if err := s.OnAddNode(node); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -53,12 +52,12 @@ func (l *ServiceList) NotifyAdd(svc *slim_corev1.Service) []error {
 }
 
 // NotifyUpdate notifies all the subscribers of an update event to a service.
-func (l *ServiceList) NotifyUpdate(oldSvc, newSvc *slim_corev1.Service) []error {
+func (l *NodeList) NotifyUpdate(oldNode, newNode *slim_corev1.Node) []error {
 	l.RLock()
 	defer l.RUnlock()
 	errs := make([]error, 0, len(l.subs))
 	for _, s := range l.subs {
-		if err := s.OnUpdateService(oldSvc, newSvc); err != nil {
+		if err := s.OnUpdateNode(oldNode, newNode); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -66,22 +65,22 @@ func (l *ServiceList) NotifyUpdate(oldSvc, newSvc *slim_corev1.Service) []error 
 }
 
 // NotifyDelete notifies all the subscribers of an update event to a service.
-func (l *ServiceList) NotifyDelete(svc *slim_corev1.Service) []error {
+func (l *NodeList) NotifyDelete(node *slim_corev1.Node) []error {
 	l.RLock()
 	defer l.RUnlock()
 	errs := make([]error, 0, len(l.subs))
 	for _, s := range l.subs {
-		if err := s.OnDeleteService(svc); err != nil {
+		if err := s.OnDeleteNode(node); err != nil {
 			errs = append(errs, err)
 		}
 	}
 	return errs
 }
 
-// ServiceList holds the ServiceHandler subscribers that are notified when
-// reacting to K8s Service resource / object changes in the K8s watchers.
-type ServiceList struct {
+// NodeList holds the NodeHandler subscribers that are notified when reacting
+// to K8s Node resource / object changes in the K8s watchers.
+type NodeList struct {
 	list
 
-	subs []ServiceHandler
+	subs []NodeHandler
 }

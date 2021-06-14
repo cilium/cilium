@@ -133,8 +133,6 @@ func (a *Announce) updateInterfaces() {
 			a.logger.Log("interface", client.Interface(), "event", "deleteNDPResponder", "msg", "deleted NDP responder for interface")
 		}
 	}
-
-	return
 }
 
 func (a *Announce) spamLoop() {

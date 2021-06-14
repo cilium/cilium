@@ -224,6 +224,8 @@ bgp:
   announce:
     # -- Enable allocation and announcement of service LoadBalancer IPs
     loadbalancerIP: false
+    # -- Enable announcement of node pod CIDR
+    podCIDR: false
 
 bpf:
   clockProbe: false
