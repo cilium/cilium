@@ -17,7 +17,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -42,11 +41,9 @@ func (k *K8sInstaller) gkeNativeRoutingCIDR(ctx context.Context, contextName str
 		return "", fmt.Errorf("unable to derive region and zone from context name %q: not in the form gke_PROJECT_ZONE_NAME", contextName)
 	}
 
-	args := []string{"container", "clusters", "describe", parts[3], "--zone", parts[2], "--format", "value(clusterIpv4Cidr)"}
-	result := exec.Command("gcloud", args...)
-	bytes, err := result.Output()
+	bytes, err := k.Exec("gcloud", "container", "clusters", "describe", parts[3], "--zone", parts[2], "--format", "value(clusterIpv4Cidr)")
 	if err != nil {
-		return "", fmt.Errorf("unable to execute gcloud %s to extract native routing CIDR: %w", args, err)
+		return "", err
 	}
 
 	cidr := strings.TrimSuffix(string(bytes), "\n")
