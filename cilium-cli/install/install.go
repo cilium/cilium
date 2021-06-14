@@ -1143,6 +1143,10 @@ func (k *K8sInstaller) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
+func (k *K8sInstaller) Exec(command string, args ...string) ([]byte, error) {
+	return utils.Exec(k, command, args...)
+}
+
 func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 	m := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
