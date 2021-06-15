@@ -102,10 +102,6 @@ the different pods:
 In the bottom of the interface, you may also inspect each recent Hubble flow
 event in your current namespace individually.
 
-.. note::
-    If you enable :ref:`proxy_visibility` on your pods, the Hubble UI service
-    map will display the HTTP endpoints which are being accessed by the requests.
-
 Inspecting a wide variety of network traffic
 ============================================
 
