@@ -188,33 +188,32 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 
 	a.Debug("Executing command", cmd)
 
-	// Warning: ExecInPod* does not use ctx, command cannot be cancelled.
-	stdout, stderr, err := pod.K8sClient.ExecInPodWithStderr(context.TODO(),
+	output, err := pod.K8sClient.ExecInPodWithTTY(ctx,
 		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 
 	cmdName := cmd[0]
 	cmdStr := strings.Join(cmd, " ")
 
-	if err != nil || stderr.Len() > 0 {
+	showOutput := false
+	if err != nil {
 		if a.shouldSucceed() {
-			// Command failed unexpectedly, display stderr.
+			// Command failed unexpectedly, display output.
 			a.Failf("command %q failed: %s", cmdStr, err)
-			a.test.Infof("%s stderr:", cmdName)
-			a.test.Log(strings.TrimSpace(stderr.String()))
-			a.test.Log()
+			showOutput = true
 		} else {
 			a.test.Debugf("command %q failed as expected: %s", cmdStr, err)
 		}
 	} else {
 		if !a.shouldSucceed() {
-			// Command succeeded unexpectedly, display stdout. (stderr should be empty)
-			a.Failf("command %q succeeded while it should have failed: %s", cmdStr, stdout.String())
-			if stdout.Len() > 0 {
-				a.test.Infof("%s stdout:", cmdName)
-				a.test.Log(strings.TrimSpace(stdout.String()))
-				a.test.Log()
-			}
+			// Command succeeded unexpectedly, display output.
+			a.Failf("command %q succeeded while it should have failed: %s", cmdStr, output.String())
+			showOutput = true
 		}
+	}
+	if showOutput {
+		a.test.Infof("%s output:", cmdName)
+		a.test.Log(strings.TrimSpace(output.String()))
+		a.test.Log()
 	}
 }
 
