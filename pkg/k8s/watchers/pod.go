@@ -209,7 +209,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
 		"podIP":                pod.Status.PodIP,
 		"podIPs":               pod.Status.PodIPs,
-		"hostIP":               pod.Status.PodIP,
+		"hostIP":               pod.Status.HostIP,
 	})
 
 	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
