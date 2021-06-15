@@ -509,15 +509,13 @@ func (ct *ConnectivityTest) waitForDNS(ctx context.Context, pod Pod) error {
 		r := time.After(time.Second)
 
 		target := "kube-dns.kube-system.svc.cluster.local"
-		// Warning: ExecInPod ignores ctx. Don't pass it here so we don't
-		// falsely expect the function to be able to be cancelled.
-		stdout, _, err := pod.K8sClient.ExecInPodWithStderr(context.TODO(), pod.Pod.Namespace, pod.Pod.Name,
+		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			"", []string{"nslookup", target})
 		if err == nil {
 			return nil
 		}
 
-		ct.Debugf("Error looking up %s from pod %s: %s", target, pod.Name(), stdout.String())
+		ct.Debugf("Error looking up %s from pod %s: %s: %s", target, pod.Name(), err, stdout.String())
 
 		select {
 		case <-ctx.Done():
@@ -537,9 +535,7 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		// Warning: ExecInPod ignores ctx. Don't pass it here so we don't
-		// falsely expect the function to be able to be cancelled.
-		stdout, err := pod.K8sClient.ExecInPod(context.TODO(), pod.Pod.Namespace, pod.Pod.Name,
+		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			"cilium-agent", []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
 		if err == nil {
 			var ic ipCache
@@ -565,7 +561,7 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 			return nil
 		}
 
-		ct.Debugf("Error listing ipcache for Cilium pod %s: %s", pod.Name(), err)
+		ct.Debugf("Error listing ipcache for Cilium pod %s: %s: %s", pod.Name(), err, stdout.String())
 
 	retry:
 		select {
@@ -619,9 +615,7 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		// Warning: ExecInPodWithStderr ignores ctx. Don't pass it here so we don't
-		// falsely expect the function to be able to be cancelled.
-		_, e, err := ct.client.ExecInPodWithStderr(context.TODO(),
+		e, err := ct.client.ExecInPodWithTTY(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
 			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
 
@@ -654,9 +648,7 @@ func (ct *ConnectivityTest) waitForNodePorts(ctx context.Context, nodeIP string,
 		ct.Logf("⌛ [%s] Waiting for NodePort %s:%d (%s) to become ready...",
 			ct.client.ClusterName(), nodeIP, nodePort, service.Name())
 		for {
-			// Warning: ExecInPodWithStderr ignores ctx. Don't pass it here so we don't
-			// falsely expect the function to be able to be cancelled.
-			_, e, err := ct.client.ExecInPodWithStderr(context.TODO(),
+			e, err := ct.client.ExecInPodWithTTY(ctx,
 				pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
 				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))})
 			if err == nil {

@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 
+	"github.com/cilium/cilium-cli/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/remotecommand"
@@ -34,6 +36,7 @@ type ExecParameters struct {
 	Pod       string
 	Container string
 	Command   []string
+	TTY       bool // fuses stderr into stdout if 'true', needed for Ctrl-C support
 }
 
 func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, error) {
@@ -49,10 +52,10 @@ func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, 
 	req.VersionedParams(&corev1.PodExecOptions{
 		Command:   p.Command,
 		Container: p.Container,
-		Stdin:     false,
+		Stdin:     p.TTY,
 		Stdout:    true,
 		Stderr:    true,
-		TTY:       false,
+		TTY:       p.TTY,
 	}, parameterCodec)
 
 	exec, err := remotecommand.NewSPDYExecutor(c.Config, "POST", req.URL())
@@ -61,11 +64,27 @@ func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, 
 	}
 	result := &ExecResult{}
 
+	var stdin io.ReadCloser
+	if p.TTY {
+		// CtrlCReader sends Ctrl-C/D sequence if context is cancelled
+		stdin = utils.NewCtrlCReader(ctx)
+		// Graceful close of stdin once we are done, no Ctrl-C is sent
+		// if execution finishes before the context expires.
+		defer stdin.Close()
+	}
+
 	err = exec.Stream(remotecommand.StreamOptions{
-		Stdin:  nil,
+		Stdin:  stdin,
 		Stdout: &result.Stdout,
 		Stderr: &result.Stderr,
-		Tty:    false,
+		Tty:    p.TTY,
 	})
+
+	// TTY support may introduce "\r\n" sequences as line separators.
+	// Replace them with "\n" to allow callers to not care.
+	if p.TTY && bytes.Contains(result.Stdout.Bytes(), []byte("\r\n")) {
+		result.Stdout = *bytes.NewBuffer(bytes.ReplaceAll(result.Stdout.Bytes(), []byte("\r\n"), []byte("\n")))
+	}
+
 	return result, err
 }
