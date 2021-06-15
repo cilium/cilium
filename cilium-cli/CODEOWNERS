@@ -23,7 +23,7 @@
 /.github/tools/ @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /cmd/ @cilium/cli
-/connectivity/ @cilium/policy
+/connectivity/ @cilium/cli
 /hubble/ @cilium/hubble
 /install/azure.go @cilium/azure
 /internal/cli/ @cilium/cli
