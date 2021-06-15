@@ -27,7 +27,7 @@ func (m *azureVersionValidation) Name() string {
 }
 
 func (m *azureVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
-	_, err := k.Exec("az", "version", "--output", "json")
+	_, err := k.azExec("version")
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
 	if k.params.Azure.SubscriptionName != "" {
 		args = append(args, "--subscription", k.params.Azure.SubscriptionName)
 	}
-	bytes, err := k.Exec("az", args...)
+	bytes, err := k.azExec(args...)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (k *K8sInstaller) retrieveSubscriptionID(ctx context.Context) error {
 func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	if k.params.Azure.TenantID == "" && k.params.Azure.ClientID == "" && k.params.Azure.ClientSecret == "" {
 		k.Log("🚀 Creating Azure Service Principal for Cilium operator...")
-		bytes, err := k.Exec("az", "ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID)
+		bytes, err := k.azExec("ad", "sp", "create-for-rbac", "--scopes", "/subscriptions/"+k.params.Azure.SubscriptionID)
 		if err != nil {
 			return err
 		}
@@ -119,4 +119,11 @@ func (k *K8sInstaller) createAzureServicePrincipal(ctx context.Context) error {
 	k.params.Azure.ResourceGroup = clusterInfo.NodeResourceGroup
 
 	return nil
+}
+
+// Wrapper function forcing `az` output to be in JSON for unmarshalling purposes
+// and suppressing warnings from preview, deprecated and experimental commands.
+func (k *K8sInstaller) azExec(args ...string) ([]byte, error) {
+	args = append(args, "--output", "json", "--only-show-errors")
+	return k.Exec("az", args...)
 }
