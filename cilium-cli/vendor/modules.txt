@@ -214,6 +214,11 @@ github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.1.0
 github.com/google/gofuzz
+# github.com/google/gops v0.3.19
+## explicit
+github.com/google/gops/agent
+github.com/google/gops/internal
+github.com/google/gops/signal
 # github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 github.com/google/shlex
 # github.com/google/uuid v1.2.0
@@ -327,7 +332,7 @@ github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
 # github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 github.com/sasha-s/go-deadlock
-# github.com/shirou/gopsutil/v3 v3.21.2
+# github.com/shirou/gopsutil/v3 v3.21.5
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem
 # github.com/sirupsen/logrus v1.8.1
@@ -360,7 +365,7 @@ github.com/ulikunitz/xz/lzma
 github.com/weppos/publicsuffix-go/publicsuffix
 # github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8
 github.com/xi2/xz
-# github.com/xlab/treeprint v1.0.0
+# github.com/xlab/treeprint v1.1.0
 github.com/xlab/treeprint
 # github.com/zmap/zcrypto v0.0.0-20201128221613-3719af1573cf
 github.com/zmap/zcrypto/json
@@ -425,7 +430,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20210616045830-e2b7044e8c71
+# golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
