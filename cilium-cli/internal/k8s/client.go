@@ -351,6 +351,18 @@ func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, contai
 	return result.Stdout, result.Stderr, err
 }
 
+func (c *Client) ExecInPodWithTTY(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
+	result, err := c.execInPod(ctx, ExecParameters{
+		Namespace: namespace,
+		Pod:       pod,
+		Container: container,
+		Command:   command,
+		TTY:       true,
+	})
+	// Using TTY (for context cancellation support) fuses stderr into stdout
+	return result.Stdout, err
+}
+
 func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
 	result, err := c.execInPod(ctx, ExecParameters{
 		Namespace: namespace,
