@@ -501,9 +501,7 @@ func (ct *ConnectivityTest) waitForDNS(ctx context.Context, pod Pod) error {
 		r := time.After(time.Second)
 
 		target := "kube-dns.kube-system.svc.cluster.local"
-		// Warning: ExecInPod ignores ctx. Don't pass it here so we don't
-		// falsely expect the function to be able to be cancelled.
-		stdout, _, err := pod.K8sClient.ExecInPodWithStderr(context.TODO(), pod.Pod.Namespace, pod.Pod.Name,
+		stdout, _, err := pod.K8sClient.ExecInPodWithStderr(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			"", []string{"nslookup", target})
 		if err == nil {
 			return nil
@@ -529,9 +527,7 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		// Warning: ExecInPod ignores ctx. Don't pass it here so we don't
-		// falsely expect the function to be able to be cancelled.
-		stdout, err := pod.K8sClient.ExecInPod(context.TODO(), pod.Pod.Namespace, pod.Pod.Name,
+		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			"cilium-agent", []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
 		if err == nil {
 			var ic ipCache
@@ -611,9 +607,7 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		// Warning: ExecInPodWithStderr ignores ctx. Don't pass it here so we don't
-		// falsely expect the function to be able to be cancelled.
-		_, e, err := ct.client.ExecInPodWithStderr(context.TODO(),
+		_, e, err := ct.client.ExecInPodWithStderr(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
 			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
 
