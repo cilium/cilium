@@ -24,11 +24,14 @@ import (
 // sink wraps a pcap.RecordWriter by adding a queue and managing its statistics
 // regarding written and dropped packets and bytes.
 type sink struct {
+	// these channels are initialized in startSink and never reassigned, thus
+	// they can be accessed without locking mutex
+	queue    chan record
+	shutdown chan struct{}
+	done     chan struct{}
+	trigger  chan struct{}
+	// mutex protects writes to stats and lastError
 	mutex     lock.Mutex
-	queue     chan record
-	shutdown  chan struct{}
-	done      chan struct{}
-	trigger   chan struct{}
 	stats     Statistics
 	lastError error
 }
@@ -40,18 +43,18 @@ type sink struct {
 //  - an error occurred
 func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 	s := &sink{
-		mutex:     lock.Mutex{},
 		queue:     make(chan record, queueSize),
 		shutdown:  make(chan struct{}),
 		done:      make(chan struct{}),
 		trigger:   make(chan struct{}, 1),
+		mutex:     lock.Mutex{},
 		stats:     Statistics{},
 		lastError: nil,
 	}
 
 	go func() {
-		// this defer executes w.Close(), but also makes sure set lastError and
-		// close the channels when exiting.
+		// this defer executes p.Writer.Close(), but also makes sure to set
+		// lastError and close the s.done channel when exiting.
 		var err error
 		defer func() {
 			closeErr := p.Writer.Close()
@@ -62,8 +65,8 @@ func startSink(ctx context.Context, p PcapSink, queueSize int) *sink {
 			} else {
 				s.lastError = err
 			}
-			close(s.done)
 			s.mutex.Unlock()
+			close(s.done)
 		}()
 
 		if err = p.Writer.WriteHeader(p.Header); err != nil {
@@ -111,14 +114,13 @@ func (s *sink) addToStatistics(add Statistics) {
 	s.stats.PacketsWritten += add.PacketsWritten
 	s.stats.BytesLost += add.BytesLost
 	s.stats.PacketsLost += add.PacketsLost
+	s.mutex.Unlock()
 
 	// non-blocking send
 	select {
 	case s.trigger <- struct{}{}:
 	default:
 	}
-
-	s.mutex.Unlock()
 }
 
 // enqueue submits a new record to this sink. If the sink is not keeping up,
