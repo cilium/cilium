@@ -155,10 +155,11 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        Install minikube >= v1.5.2 as per minikube documentation: 
        `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
+       The following command will bring up a single node minikube cluster prepared for installing cilium.
 
        .. code-block:: shell-session
 
-          minikube start --network-plugin=cni
+          minikube start --network-plugin=cni --cni=false
 
     .. note::
 
