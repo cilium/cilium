@@ -323,7 +323,7 @@ var _ = AfterEach(func() {
 
 		_, err := exec.Command(
 			"/bin/bash", "-c",
-			fmt.Sprintf("zip -qr %s %s", zipFilePath, path)).CombinedOutput()
+			fmt.Sprintf("zip -qr \"%s\" \"%s\"", zipFilePath, path)).CombinedOutput()
 		if err != nil {
 			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)
 		}
