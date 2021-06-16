@@ -246,7 +246,7 @@ func (rpm *Manager) OnDeleteService(svcID k8s.ServiceID) {
 		return
 	}
 
-	rpm.deletePolicyService(svcID)
+	rpm.deleteService(svcID)
 }
 
 func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
@@ -499,6 +499,31 @@ func (rpm *Manager) deletePolicyService(svcID k8s.ServiceID) {
 			log.WithFields(logrus.Fields{
 				logfields.K8sSvcID: svcID,
 			}).Debug("Restored service")
+		}
+	}
+}
+
+func (rpm *Manager) deleteService(svcID k8s.ServiceID) {
+	var (
+		rp policyID
+		ok bool
+	)
+	if rp, ok = rpm.policyServices[svcID]; !ok {
+		return
+	}
+	// Get the policy config that selects this service.
+	config := rpm.policyConfigs[rp]
+	for _, m := range config.frontendMappings {
+		rpm.deletePolicyFrontend(config, m.feAddr)
+	}
+	switch config.frontendType {
+	case svcFrontendAll:
+		config.frontendMappings = nil
+	case svcFrontendSinglePort:
+		fallthrough
+	case svcFrontendNamedPorts:
+		for _, feM := range config.frontendMappings {
+			feM.feAddr.IP = net.IP{}
 		}
 	}
 }
