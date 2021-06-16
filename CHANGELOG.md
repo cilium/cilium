@@ -1,5 +1,103 @@
 # Changelog
 
+## v1.10.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add Helm option to disable registering CRD from Cilium Operator (Backport PR #16521, Upstream PR #15655, @Fedosin)
+* docs: Revert host firewall to beta for kube-proxy setups (Backport PR #16269, Upstream PR #16149, @pchaigno)
+* helm: add back 'wellKnownIdentities' (Backport PR #16269, Upstream PR #16142, @bmcustodio)
+* helm: Disable the bandwidth manager by default (Backport PR #16438, Upstream PR #16380, @pchaigno)
+* HTTP response access logs no longer contain the request headers, except for 'x-request-id', which is still included for request/response correlation purposes. (Backport PR #16384, Upstream PR #16211, @jrajahalme)
+* Remove deprecated --update-ec2-apdater-limit-via-api option (Backport PR #16438, Upstream PR #16374, @twpayne)
+* Support non-default Azure clouds (Backport PR #16384, Upstream PR #16043, @ungureanuvladvictor)
+* Update k8s libraries to 1.21.1 (#16250, @nathanjsweet)
+
+**Bugfixes:**
+* alibabacloud: fix race (Backport PR #16269, Upstream PR #16175, @l1b0k)
+* daemon: Ignore cilium_* interfaces when deriving NodePort device (Backport PR #16269, Upstream PR #16104, @eyanulis)
+* datapath: Use TUNNEL_MODE as indicator for tunnel mode (Backport PR #16521, Upstream PR #16328, @anfernee)
+* endpoint: trigger k8s sync controller on identity update (Backport PR #16438, Upstream PR #16381, @jibi)
+* Fix "unable to update ipcache map entry on pod add" harmless log warnings (Backport PR #16384, Upstream PR #16286, @aanm)
+* Fix bug where Cilium allocates a new router (`cilium_host`) IP upon node reboot, breaking connectivity especially with IPsec (Backport PR #16438, Upstream PR #16307, @christarazi)
+* Fix bug where users were unable to use node-selectors in the BGP configuration when using BGP support (Backport PR #16521, Upstream PR #16341, @christarazi)
+* Fix bug with Helm chart where a user could not enable BGP and set Operator resources. (Backport PR #16438, Upstream PR #16273, @rkage)
+* Fixed bug causing policy realization being skipped in some scenarios with endpoint identity churn. (Backport PR #16384, Upstream PR #16271, @jrajahalme)
+* helm: Fix patch failure when updating `hubble-generate-certs` (Backport PR #16438, Upstream PR #16373, @gandro)
+* Ignore K8s namespace events that have the same labels (Backport PR #16384, Upstream PR #16268, @aanm)
+* install: Allow setting enable-health-check-nodeport to 'false' (Backport PR #16438, Upstream PR #16323, @dctrwatson)
+* ipam: fix crd mode (Backport PR #16521, Upstream PR #16493, @joamaki)
+* loader: Revert incorrect initialization of endpoints in chaining mode (Backport PR #16384, Upstream PR #16227, @pchaigno)
+* Remove previous PERM ARP entries installed by Cilium when kube-proxy-replacement and IPSec are disabled. (Backport PR #16521, Upstream PR #16359, @aanm)
+
+**CI Changes:**
+* .github: Cancel outdated GitHub workflows (Backport PR #16269, Upstream PR #16199, @pchaigno)
+* .github: Don't persist credentials in repository (Backport PR #16384, Upstream PR #16052, @pchaigno)
+* .github: Don't wait for GKE cluster cleanup (Backport PR #16384, Upstream PR #16319, @pchaigno)
+* .github: Fix concurrency group comment triggers (Backport PR #16384, Upstream PR #16310, @pchaigno)
+* .github: Fix error triggered by large comments (Backport PR #16438, Upstream PR #16360, @pchaigno)
+* .github: Fix scheduled end-to-end tests (Backport PR #16384, Upstream PR #16274, @pchaigno)
+* .github: Skip unnecessary workflow steps (Backport PR #16269, Upstream PR #16157, @pchaigno)
+* .github: Speed up cluster cleanups in end-to-end tests (Backport PR #16269, Upstream PR #16207, @pchaigno)
+* ci: add slack notification to GH actions (Backport PR #16269, Upstream PR #16218, @nebril)
+* ci: restart portmap service on CI nodes (Backport PR #16521, Upstream PR #16506, @nebril)
+* examples, connectivity-check, test: Use even-numbered nodePort (Backport PR #16269, Upstream PR #16158, @christarazi)
+* helm,test: Add standalone L4LB XDP tests in a form of Github Action (Backport PR #16521, Upstream PR #16338, @brb)
+* Improve ipsec compile-time testing in CI (Backport PR #16269, Upstream PR #15872, @joestringer)
+* Make LRP restore test logic robust and optimized (Backport PR #16384, Upstream PR #16194, @aditighag)
+* node: fix arpping test (Backport PR #16521, Upstream PR #16432, @jibi)
+* test/helpers: Fix incorrect count of endpoints (Backport PR #16521, Upstream PR #16437, @pchaigno)
+* test: Instrument LB IP via BGP test with debug-events (Backport PR #16521, Upstream PR #16445, @christarazi)
+* test: Quarantine fragment tracking test on GKE (Backport PR #16269, Upstream PR #16051, @pchaigno)
+* test: Specify node-selectors in BGP configmap (Backport PR #16521, Upstream PR #16412, @christarazi)
+* test: Use new test-verifier image in K8sVerifier (Backport PR #16438, Upstream PR #16231, @pchaigno)
+
+**Misc Changes:**
+* .github: add 'stable' tag as part of the v1.10 releases (#16404, @aanm)
+* Add missing bpftool map dumps (Backport PR #16384, Upstream PR #16055, @h3llix)
+* build(deps): bump actions/cache from 2.1.5 to 2.1.6 (#16369, @dependabot[bot])
+* build(deps): bump actions/cache from 2.1.5 to 2.1.6 (#16436, @dependabot[bot])
+* build(deps): bump aws-actions/configure-aws-credentials from 1.5.9 to 1.5.10 (#16415, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.4.0 to 2.5.0 (#16352, @dependabot[bot])
+* build(deps): bump docker/setup-qemu-action from 1.1.0 to 1.2.0 (#16331, @dependabot[bot])
+* build(deps): bump dorny/paths-filter from 2.10.1 to 2.10.2 (#16533, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.3.0 to 1.4.0 (#16468, @dependabot[bot])
+* Clarify one-time setup for backporting (Backport PR #16438, Upstream PR #16016, @christarazi)
+* contrib: simplify check-docker-images script (Backport PR #16384, Upstream PR #16176, @aanm)
+* daemon: Improve logging of device auto-detection (Backport PR #16438, Upstream PR #16118, @brb)
+* docs: add a "Copy Commands" button for shell-session snippets (Backport PR #16521, Upstream PR #16408, @qmonnet)
+* docs: add a reference of helm values (Backport PR #16521, Upstream PR #16238, @bmcustodio)
+* docs: Clarify coordination for backporting process (Backport PR #16269, Upstream PR #15989, @christarazi)
+* docs: Clarify LRP loop related note (Backport PR #16438, Upstream PR #16342, @aditighag)
+* docs: document the policy for backporting documentation changes (Backport PR #16384, Upstream PR #16137, @qmonnet)
+* docs: ENIs should not be managed by the OS (Backport PR #16521, Upstream PR #16186, @gandro)
+* docs: fix a typo in Helm installation documentation (Backport PR #16384, Upstream PR #16325, @netflash)
+* docs: Fix build failure (Backport PR #16521, Upstream PR #16454, @pchaigno)
+* docs: Fix Helm instructions for BGP (Backport PR #16384, Upstream PR #16263, @xentobias)
+* docs: fix some dead links (Backport PR #16384, Upstream PR #16336, @aanm)
+* docs: fix warnings for documentation build, use a linter (Backport PR #16521, Upstream PR #16407, @qmonnet)
+* docs: Fix WireGuard spelling (Backport PR #16384, Upstream PR #16293, @gandro)
+* docs: mark node-to-node IPSec encryption as beta (Backport PR #16521, Upstream PR #16200, @qmonnet)
+* docs: remove 1.7 upgrade guide and add upgradeCompatibility for 1.9 (Backport PR #16384, Upstream PR #16288, @aanm)
+* docs: Update troubleshooting for 1.10 (Backport PR #16384, Upstream PR #16081, @twpayne)
+* docs: use `.. code-block:: shell-session` wherever relevant (Backport PR #16521, Upstream PR #16474, @qmonnet)
+* docs: various fixes to documentation, notably Getting Started Guides (Backport PR #16384, Upstream PR #16126, @nbusseneau)
+* examples: add an example of a hubble-cli Deployment (Backport PR #16521, Upstream PR #16459, @kaworu)
+* Improve author attribution scripts (Backport PR #16269, Upstream PR #15899, @joestringer)
+* Makefile, contrib: Add script to create kind cluster (Backport PR #16384, Upstream PR #12527, @christarazi)
+* pkg/k8s: add pod IP event change (Backport PR #16438, Upstream PR #16190, @aanm)
+* Refactored, renamed and small misc changes in GH workflows (Backport PR #16384, Upstream PR #16312, @aanm)
+* Specify scrape interval for Hubble metrics (Backport PR #16269, Upstream PR #16214, @christian-2)
+* Update base image to fix potential security vulnerabilities detected by image scanners. (#16527, @aanm)
+* Update test/packet instructions for running CI tests on dedicated instances (Backport PR #16438, Upstream PR #16423, @christarazi)
+* v1.10: Update Go to 1.16.5 (#16429, @tklauser)
+* vendor: Bump go.universe.tf/metallb (Backport PR #16269, Upstream PR #16187, @christarazi)
+
+**Other Changes:**
+* install: Update image digests for v1.10.0 (#16243, @aanm)
+
 ## v1.10.0
 
 Summary of Changes
