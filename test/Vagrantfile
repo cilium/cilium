@@ -15,6 +15,7 @@ $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.21"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="0"? false : true
+$NFS_OPTS = (ENV['NFS_OPTS'] || "nolock").split(",")
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 $CNI_INTEGRATION=(ENV['CNI_INTEGRATION'] || "")
@@ -119,7 +120,7 @@ Vagrant.configure("2") do |config|
         if $NFS
             # This network is only used by NFS
             server.vm.network "private_network", ip: "192.168.38.10"
-            server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+            server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false, mount_options: $NFS_OPTS
         else
             server.vm.synced_folder cilium_dir, cilium_path
         end
@@ -190,7 +191,7 @@ Vagrant.configure("2") do |config|
             if $NFS
                 # This network is only used by NFS
                 server.vm.network "private_network", ip: "192.168.38.1#{i}"
-                server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false
+                server.vm.synced_folder cilium_dir, cilium_path, type: "nfs", nfs_udp: false, mount_options: $NFS_OPTS
             else
                 server.vm.synced_folder cilium_dir, cilium_path
             end
