@@ -118,6 +118,10 @@ const (
 	// ReservedCiliumEtcdOperator is the reserved identity used for the Cilium etcd operator
 	ReservedCiliumEtcdOperator
 	ReservedCiliumEtcdOperator2
+
+	// ReservedSpireServer is the reserved identity used for the Spire server
+	ReservedSpireServer
+	ReservedSpireServer2
 )
 
 // localNodeIdentity is the endpoint identity allocated for the local node
@@ -309,6 +313,25 @@ func InitWellKnownIdentities(c Configuration) int {
 	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
 	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
+
+	// spire-server labels
+	//   "k8s:app=spire-server",
+	//   "k8s:io.cilium.k8s.policy.cluster=default",
+	//   "k8s:io.cilium.k8s.policy.serviceaccount=spire-server",
+	//   "k8s:io.kubernetes.pod.namespace=spire",
+	//   "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=spire",
+	//   "k8s:statefulset.kubernetes.io/pod-name=spire-server-0",
+	// TODO(Mauricio): what are the exact labels to use for this one?
+	spireServerLabels := []string{
+		"k8s:app=spire-server",
+		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
+		fmt.Sprintf("k8s:%s=spire-server", api.PolicyLabelServiceAccount),
+		fmt.Sprintf("k8s:%s=spire", api.PodNamespaceLabel),
+		"k8s:statefulset.kubernetes.io/pod-name=spire-server-0",
+	}
+	WellKnown.add(ReservedSpireServer, spireServerLabels)
+	WellKnown.add(ReservedSpireServer2, append(spireServerLabels,
+		fmt.Sprintf("k8s:%s=spire", api.PodNamespaceMetaNameLabel)))
 
 	return len(WellKnown)
 }
