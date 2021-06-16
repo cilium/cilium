@@ -110,7 +110,14 @@ spec:
 
 {{- if .Values.nodeinit.reconfigureKubelet }}
                     echo "Changing kubelet configuration to --network-plugin=kubenet"
-                    sed -i "s:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:--network-plugin=kubenet:g" /etc/default/kubelet
+                    if [[ -f /etc/default/kubelet ]];
+                    then
+                      sed -i "s:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:--network-plugin=kubenet:g" /etc/default/kubelet
+                    elif [[ -f /etc/systemd/system/kubelet.service.d/10-kubeadm.conf ]];
+                    then
+                      sed -i "s:--cni-conf-dir={{ .Values.cni.confPath }}:--cni-conf-dir=/etc/cni/net.mk:g" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+                      systemctl daemon-reload
+                    fi
                     echo "Restarting kubelet..."
                     systemctl restart kubelet
 {{- end }}
@@ -198,7 +205,14 @@ spec:
               # GKE: Alter the kubelet configuration to run in CNI mode
               echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}"
               mkdir -p {{ .Values.cni.binPath }}
-              sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" /etc/default/kubelet
+              if [[ -f /etc/default/kubelet ]];
+              then
+                sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" /etc/default/kubelet
+              elif [[ -f /etc/systemd/system/kubelet.service.d/10-kubeadm.conf ]];
+              then
+                sed -i "s:--cni-conf-dir=/etc/cni/net.mk:--cni-conf-dir={{ .Values.cni.confPath }}:g" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+                systemctl daemon-reload
+              fi
               echo "Restarting kubelet..."
               systemctl restart kubelet
 {{- end }}
