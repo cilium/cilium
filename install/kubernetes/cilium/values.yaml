@@ -85,8 +85,8 @@ image:
   tag: v1.10.1
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: ""
-  useDigest: false
+  digest: "sha256:f5fcdfd4929af5a8903b02da61332eea41dcdb512420b8c807e2e2904270561c"
+  useDigest: true
 
 # -- Pod affinity for cilium-agent.
 affinity:
@@ -647,8 +647,8 @@ hubble:
       repository: quay.io/cilium/hubble-relay
       tag: v1.10.1
        # hubble-relay-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:6f0d6b5698ab87b58923237caa071b5d7eb3e83ffd688e5e70a8edeca7a06cf4"
+      useDigest: true
       pullPolicy: IfNotPresent
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1195,14 +1195,14 @@ operator:
     repository: quay.io/cilium/operator
     tag: v1.10.1
     # operator-generic-digest
-    genericDigest: ""
+    genericDigest: "sha256:a1588ee00a15f2f2b419e4acd36bd57d64a5f10eb52d0fd4de689e558a913cd8"
     # operator-azure-digest
-    azureDigest: ""
+    azureDigest: "sha256:ae751480d95d7cd53c130821bc69f11662bc0a2aa283bc1efbe9a10ebdd4ed24"
     # operator-aws-digest
-    awsDigest: ""
+    awsDigest: "sha256:16c186f8909c6fcdc6c2db7e5ce31fa0616bb44c4b134bee52b005b9ee827b9f"
     # operator-alibabacloud-digest
-    alibabacloudDigest: ""
-    useDigest: false
+    alibabacloudDigest: "sha256:07d692a357252f04f49bab97c47fe30a75d08d8f9f0896dc1452b335101b8938"
+    useDigest: true
     pullPolicy: IfNotPresent
     suffix: ""
 
@@ -1410,8 +1410,8 @@ preflight:
     repository: quay.io/cilium/cilium
     tag: v1.10.1
     # cilium-digest
-    digest: ""
-    useDigest: false
+    digest: "sha256:f5fcdfd4929af5a8903b02da61332eea41dcdb512420b8c807e2e2904270561c"
+    useDigest: true
     pullPolicy: IfNotPresent
 
   priorityClassName: ""
@@ -1517,8 +1517,8 @@ clustermesh:
       repository: quay.io/cilium/clustermesh-apiserver
       tag: v1.10.1
       # clustermesh-apiserver-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:a201c1bfdc67b7e583f476a1a4b95f28cec692f58a1eef30046b4c0bfd3e5a08"
+      useDigest: true
       pullPolicy: IfNotPresent
 
     etcd:
