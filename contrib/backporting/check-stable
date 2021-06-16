@@ -141,9 +141,9 @@ generate_commit_list_for_pr () {
   # Use GitHub to determine the number of commits to list, but then query
   # the branch directly to determine the canonical order of the commits.
   for commit in $(git rev-list --reverse -$n_commits $branch); do
-    patchid="$(git show $commit | git patch-id)"
+    patchid="$(git log -n1 --pretty=format:"%ae%at" $commit)"
     subject="$(git show -s --pretty="%s" $commit)"
-    echo "$patchid $subject" >> $tmp_file
+    echo "$patchid $commit $subject" >> $tmp_file
   done
   git branch -q -D $branch
   echo "   Merge with $n_commits commit(s) merged at: `date -R -d "$(echo $merged_at | sed 's/T/ /')"`!"
@@ -156,11 +156,10 @@ generate_commit_list_for_pr () {
     entry_sha=${entry_array[1]}
     entry_sub=${entry_array[@]:2}
     entry_sub_re="^$(sed 's/[.^$*+?()[{\|]/\\&/g' <<< "$entry_sub")$" # adds backslashes for extended regex
-    upstream="$(git log --since="1year" --pretty="%H" --no-merges --extended-regexp --grep "$entry_sub_re" $REMOTE/master)"
-    upstream="$(git show $upstream | git patch-id)"
-    upstream=($upstream)
-    if [ "$entry_id" == "${upstream[0]}" ]; then
-      echo -e "     |  ${upstream[1]} via $entry_sha (\"$entry_sub\")"
+    upstream_commit="$(git log --since="1year" --pretty="%H" --no-merges --extended-regexp --grep "$entry_sub_re" $REMOTE/master)"
+    upstream_id="$(git log -n1 --pretty=format:"%ae%at" $upstream_commit)"
+    if [ "$entry_id" == "${upstream_id}" ]; then
+      echo -e "     |  ${upstream_commit} via $entry_sha (\"$entry_sub\")"
     else
       echo -e "     |  Warning: No commit correlation found!    via $entry_sha (\"$entry_sub\")"
     fi
