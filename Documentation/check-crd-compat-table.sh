@@ -15,7 +15,7 @@ export LC_ALL=C
 
 get_schema_of_tag(){
    tag="${1}"
-   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${tag} -- pkg/k8s | sed 's/.*=\ "//;s/"//'
+   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${tag} -- pkg/k8s | head -n1 | sed 's/.*=\ "//;s/"//'
 }
 
 get_line_of_schema_version(){
