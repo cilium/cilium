@@ -706,7 +706,7 @@ func (e *Endpoint) notifyEndpointRegeneration(err error) {
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
 	localNodeName := nodeTypes.GetName()
-	metadata := []string{endpointid.CiliumGlobalIdPrefix.String(), ipcache.AddressSpace, localNodeName, strconv.Itoa(int(e.ID))}
+	metadata := []string{endpointid.CiliumGlobalIdPrefix.String(), ipcache.GetAddressSpace(), localNodeName, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
 

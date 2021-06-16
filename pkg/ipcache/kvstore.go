@@ -48,10 +48,6 @@ var (
 	//store.
 	IPIdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "ip", "v1")
 
-	// AddressSpace is the address space (cluster, etc.) in which policy is
-	// computed. It is determined by the orchestration system / runtime.
-	AddressSpace = DefaultAddressSpace
-
 	// globalMap wraps the kvstore and provides a cache of all entries
 	// which are owned by a local user
 	globalMap = newKVReferenceCounter(kvstoreImplementation{})
@@ -105,6 +101,15 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 	}
 }
 
+// GetAddressSpace returns the address space (cluster, etc.) in which policy is
+// computed. It is determined by the orchestration system / runtime.
+func GetAddressSpace() string {
+	if option.Config.ClusterName != "" {
+		return option.Config.ClusterName
+	}
+	return DefaultAddressSpace
+}
+
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
 func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8,
@@ -122,7 +127,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 		return namedPorts[i].Name < namedPorts[j].Name
 	})
 
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
+	ipKey := path.Join(IPIdentitiesPath, GetAddressSpace(), IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:           IP,
 		ID:           ID,
@@ -157,14 +162,8 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 
 // keyToIPNet returns the IPNet describing the key, whether it is a host, and
 // an error (if one occurs)
-func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
-	requiredPrefix := fmt.Sprintf("%s/", path.Join(IPIdentitiesPath, AddressSpace))
-	if !strings.HasPrefix(key, requiredPrefix) {
-		err = fmt.Errorf("found invalid key %s outside of prefix %s", key, IPIdentitiesPath)
-		return
-	}
-
-	suffix := strings.TrimPrefix(key, requiredPrefix)
+func keyToIPNet(key, prefix string) (parsedPrefix *net.IPNet, host bool, err error) {
+	suffix := strings.TrimPrefix(key, prefix)
 
 	// Key is formatted as "prefix/192.0.2.0/24" for CIDRs
 	_, parsedPrefix, err = net.ParseCIDR(suffix)
@@ -193,7 +192,7 @@ func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
 func DeleteIPFromKVStore(ctx context.Context, ip string) error {
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
+	ipKey := path.Join(IPIdentitiesPath, GetAddressSpace(), ip)
 	globalMap.Lock()
 	delete(globalMap.marshaledIPIDPairs, ipKey)
 	globalMap.Unlock()
@@ -317,7 +316,47 @@ restart:
 			case kvstore.EventTypeDelete:
 				// Value is not present in deletion event;
 				// need to convert kvstore key to IP.
-				ipnet, isHost, err := keyToIPNet(event.Key)
+				// Validate the key prefix
+				requiredPrefix := fmt.Sprintf("%s/", path.Join(IPIdentitiesPath, GetAddressSpace()))
+				if !strings.HasPrefix(event.Key, requiredPrefix) {
+					defaultPrefix := fmt.Sprintf("%s/", path.Join(IPIdentitiesPath, DefaultAddressSpace))
+					if !strings.HasPrefix(event.Key, defaultPrefix) {
+						err := fmt.Errorf("found invalid key %s outside of prefix %s", event.Key, requiredPrefix)
+						log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
+							WithError(err).Error("Error parsing IP from key")
+						continue
+					}
+					// We are expecting a cluster-name prefix (cilium/state/ip/v1/<cluster-name>/),
+					// but the given delete event key has the default prefix (cilium/state/ip/v1/default/).
+					// This typically happens in the following two cases:
+					// 1. We are in the middle of rolling out agents, new agents have created new cluster-name-prefixed
+					//    KV strore entries for endpoints and are expecting cluster-name-prefixed event keys,
+					//    but old agents are still writing to the default prefix.
+					//    At this point, an old agent deletes an endpoint which further sends out
+					//    a legitimate delete event for a default-prefixed key.
+					// 2. A stale default-prefixed key just reached its kvstore-lease-ttl.
+					//
+					// For case 1 we should proceed and delete the corresponding ip from ipcache map.
+					// For case 2 we should skip the ipcache map deletion.
+					//
+					// We can identify these two cases by checking whether a cluster-name-prefixed entry for the same IP exists.
+					clusterPrefixedKey := strings.Replace(event.Key, defaultPrefix, requiredPrefix, 1)
+					v, err := kvstore.Client().Get(ctx, clusterPrefixedKey)
+					if err != nil {
+						log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
+							WithError(err).Error("Error parsing IP from key")
+						continue
+					}
+					// If cluster-name-prefixed entry exists, this is a delete event for stale entry, skip the ipcache map deletion.
+					if v != nil {
+						continue
+					}
+
+					// No kvstore entry for this IP exists, proceed with the ipcache map deletion.
+					requiredPrefix = defaultPrefix
+				}
+
+				ipnet, isHost, err := keyToIPNet(event.Key, requiredPrefix)
 				if err != nil {
 					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
 						WithError(err).Error("Error parsing IP from key")
