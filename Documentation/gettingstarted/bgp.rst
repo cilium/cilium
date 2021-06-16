@@ -95,7 +95,7 @@ backends:
    apiVersion: apps/v1
    kind: Deployment
    metadata:
-     app: nginx
+     name: nginx
    spec:
      selector:
        matchLabels:
