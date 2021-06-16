@@ -486,9 +486,7 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
-	scopedLog := log.WithFields(logrus.Fields{
-		"spi": spi,
-	})
+	scopedLog := log
 
 	if err := encrypt.MapCreate(); err != nil {
 		return 0, 0, fmt.Errorf("Encrypt map create failed: %v", err)
@@ -580,6 +578,11 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 			}
 			ipSecKeysGlobal[""] = ipSecKey
 		}
+
+		scopedLog := log.WithFields(logrus.Fields{
+			"oldSPI": oldSpi,
+			"SPI":    spi,
+		})
 
 		// Detect a version change and call cleanup routine to remove old
 		// keys after a timeout period. We also want to ensure on restart
