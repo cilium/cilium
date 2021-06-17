@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
 
+	"github.com/pkg/browser"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -330,8 +331,8 @@ func (p *Parameters) UIPortForwardCommand(ctx context.Context) error {
 		time.Sleep(5 * time.Second)
 		url := fmt.Sprintf("http://localhost:%d", p.UIPortForward)
 
-		p.Log("ℹ️  Opening the following URL in your browser:" + url)
-		utils.Exec(p, "open", url)
+		p.Log("ℹ️  Opening %q in your browser...", url)
+		browser.OpenURL(url)
 	}()
 
 	_, err := utils.Exec(p, "kubectl", args...)
