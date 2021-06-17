@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # check-logging-subsys-field.sh checks whether all logging entry instancs
 # created from DefaultLogger contain the LogSubsys field. This is required for

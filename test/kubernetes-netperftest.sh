@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 export PROMETHEUS_URL="$1"
 export PROMETHEUS_USR="$2"

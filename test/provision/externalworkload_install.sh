@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 cd /home/vagrant/go/src/github.com/cilium/cilium
