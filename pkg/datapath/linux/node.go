@@ -788,7 +788,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 			// issued arping after us, as it might have a more recent hwAddr value.
 			return
 		}
-		n.neighLastPingByNextHop[nextHopStr] = time.Now()
+		n.neighLastPingByNextHop[nextHopStr] = now
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
 			// Nothing to update, return early to avoid calling to netlink. This
 			// is based on the assumption that n.neighByNextHop gets populated
