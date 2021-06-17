@@ -384,11 +384,11 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 				},
 			}
 			if a.expEgress.HTTP.Status != "" || a.expEgress.HTTP.Method != "" || a.expEgress.HTTP.URL != "" {
-				code, err := strconv.Atoi(a.expEgress.HTTP.Status)
-				if err != nil {
-					code = math.MaxUint32
+				code := uint32(math.MaxUint32)
+				if s, err := strconv.Atoi(a.expEgress.HTTP.Status); err == nil {
+					code = uint32(s)
 				}
-				egress.Middle = append(egress.Middle, filters.FlowRequirement{Filter: filters.HTTP(uint32(code), a.expEgress.HTTP.Method, a.expEgress.HTTP.URL), Msg: "HTTP"})
+				egress.Middle = append(egress.Middle, filters.FlowRequirement{Filter: filters.HTTP(code, a.expEgress.HTTP.Method, a.expEgress.HTTP.URL), Msg: "HTTP"})
 			}
 			if p.RSTAllowed {
 				// For the connection termination, we will either see:
