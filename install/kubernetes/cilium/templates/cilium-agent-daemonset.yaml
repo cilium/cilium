@@ -121,8 +121,8 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
-          failureThreshold: 24
-          periodSeconds: 2
+          failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          periodSeconds: {{ .Values.startupProbe.periodSeconds }}
           successThreshold: 1
 {{- end }}
         livenessProbe:
@@ -146,7 +146,7 @@ spec:
             - name: "brief"
               value: "true"
 {{- end }}
-          failureThreshold: 10
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
 {{- if semverCompare "<1.20-0" $k8sVersion }}
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -155,7 +155,7 @@ spec:
           # of this field.
           initialDelaySeconds: 120
 {{- end }}
-          periodSeconds: 30
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
           successThreshold: 1
           timeoutSeconds: 5
         readinessProbe:
@@ -179,11 +179,11 @@ spec:
             - name: "brief"
               value: "true"
 {{- end }}
-          failureThreshold: 3
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
 {{- if semverCompare "<1.20-0" $k8sVersion }}
           initialDelaySeconds: 5
 {{- end }}
-          periodSeconds: 30
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           successThreshold: 1
           timeoutSeconds: 5
 {{- end }}
