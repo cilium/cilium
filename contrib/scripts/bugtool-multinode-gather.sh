@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage
 # ./bugtool-multinode-gather.sh <OUTPUT_DIR> <NAMESPACE> <LABEL> <OUTPUT_ARCHIVE>

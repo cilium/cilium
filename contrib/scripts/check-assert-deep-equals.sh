@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # check-assert-deep-equals.sh checks whether DeepEquals checker from
 # pkg/checker is used every time instead of the checker from gopkg.in/check.v1.

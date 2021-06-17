@@ -1,4 +1,4 @@
-#/bin/bash
+#!/usr/bin/env bash
 
 CASS_SERVER_POD=$(kubectl get pods -l app=cass-server -o jsonpath='{.items[0].metadata.name}')
 
