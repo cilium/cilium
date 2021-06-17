@@ -77,35 +77,49 @@ const (
 	// ReservedIdentityRemoteNode is the identity given to all nodes in
 	// local and remote clusters except for the local node.
 	ReservedIdentityRemoteNode
+)
 
-	// --------------------------------------------------------------
-	// Special identities for well-known cluster components
-
+// Special identities for well-known cluster components
+// Each component has two identities. The first one is used for Kubernetes <1.21
+// or when the NamespaceDefaultLabelName feature gate is disabled. The second
+// one is used for Kubernets >= 1.21 and when the NamespaceDefaultLabelName is
+// enabled.
+const (
 	// ReservedETCDOperator is the reserved identity used for the etcd-operator
 	// managed by Cilium.
-	ReservedETCDOperator NumericIdentity = 100
+	ReservedETCDOperator NumericIdentity = iota + 100
 
 	// ReservedCiliumKVStore is the reserved identity used for the kvstore
 	// managed by Cilium (etcd-operator).
-	ReservedCiliumKVStore NumericIdentity = 101
+	ReservedCiliumKVStore
 
 	// ReservedKubeDNS is the reserved identity used for kube-dns.
-	ReservedKubeDNS NumericIdentity = 102
+	ReservedKubeDNS
 
 	// ReservedEKSKubeDNS is the reserved identity used for kube-dns on EKS
-	ReservedEKSKubeDNS NumericIdentity = 103
+	ReservedEKSKubeDNS
 
 	// ReservedCoreDNS is the reserved identity used for CoreDNS
-	ReservedCoreDNS NumericIdentity = 104
+	ReservedCoreDNS
 
 	// ReservedCiliumOperator is the reserved identity used for the Cilium operator
-	ReservedCiliumOperator NumericIdentity = 105
+	ReservedCiliumOperator
 
 	// ReservedEKSCoreDNS is the reserved identity used for CoreDNS on EKS
-	ReservedEKSCoreDNS NumericIdentity = 106
+	ReservedEKSCoreDNS
 
 	// ReservedCiliumEtcdOperator is the reserved identity used for the Cilium etcd operator
-	ReservedCiliumEtcdOperator NumericIdentity = 107
+	ReservedCiliumEtcdOperator
+
+	// Second identities for all above components
+	ReservedETCDOperator2
+	ReservedCiliumKVStore2
+	ReservedKubeDNS2
+	ReservedEKSKubeDNS2
+	ReservedCoreDNS2
+	ReservedCiliumOperator2
+	ReservedEKSCoreDNS2
+	ReservedCiliumEtcdOperator2
 )
 
 // localNodeIdentity is the endpoint identity allocated for the local node
@@ -168,12 +182,15 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:io.cilium/app=etcd-operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	WellKnown.add(ReservedETCDOperator, []string{
+	etcdOperatorLabels := []string{
 		"k8s:io.cilium/app=etcd-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-etcd-sa", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedETCDOperator, etcdOperatorLabels)
+	WellKnown.add(ReservedETCDOperator2, append(etcdOperatorLabels,
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
 	// cilium-etcd labels
 	//   k8s:app=etcd
@@ -185,26 +202,32 @@ func InitWellKnownIdentities(c Configuration) int {
 	// these 2 labels are ignored by cilium-agent as they can change over time
 	//   container:annotation.etcd.version=3.3.9
 	//   k8s:etcd_node=cilium-etcd-6snk6vsjcm
-	WellKnown.add(ReservedCiliumKVStore, []string{
+	ciliumEtcdLabels := []string{
 		"k8s:app=etcd",
 		"k8s:etcd_cluster=cilium-etcd",
 		"k8s:io.cilium/app=etcd-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=default", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedCiliumKVStore, ciliumEtcdLabels)
+	WellKnown.add(ReservedCiliumKVStore2, append(ciliumEtcdLabels,
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
 	// kube-dns labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
 	//   k8s:io.kubernetes.pod.namespace=kube-system
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	WellKnown.add(ReservedKubeDNS, []string{
+	kubeDNSLabels := []string{
 		"k8s:k8s-app=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=kube-dns", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedKubeDNS, kubeDNSLabels)
+	WellKnown.add(ReservedKubeDNS2, append(kubeDNSLabels,
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceMetaNameLabel)))
 
 	// kube-dns EKS labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
@@ -212,39 +235,48 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	//   k8s:eks.amazonaws.com/component=kube-dns
-	WellKnown.add(ReservedEKSKubeDNS, []string{
+	eksKubeDNSLabels := []string{
 		"k8s:k8s-app=kube-dns",
 		"k8s:eks.amazonaws.com/component=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=kube-dns", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedEKSKubeDNS, eksKubeDNSLabels)
+	WellKnown.add(ReservedEKSKubeDNS2, append(eksKubeDNSLabels,
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceMetaNameLabel)))
 
-	// kube-dns EKS labels
+	// CoreDNS EKS labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=coredns
 	//   k8s:io.kubernetes.pod.namespace=kube-system
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	//   k8s:eks.amazonaws.com/component=coredns
-	WellKnown.add(ReservedEKSCoreDNS, []string{
+	eksCoreDNSLabels := []string{
 		"k8s:k8s-app=kube-dns",
 		"k8s:eks.amazonaws.com/component=coredns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=coredns", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedEKSCoreDNS, eksCoreDNSLabels)
+	WellKnown.add(ReservedEKSCoreDNS2, append(eksCoreDNSLabels,
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceMetaNameLabel)))
 
 	// CoreDNS labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=coredns
 	//   k8s:io.kubernetes.pod.namespace=kube-system
 	//   k8s:k8s-app=kube-dns
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	WellKnown.add(ReservedCoreDNS, []string{
+	coreDNSLabels := []string{
 		"k8s:k8s-app=kube-dns",
 		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
 		fmt.Sprintf("k8s:%s=coredns", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedCoreDNS, coreDNSLabels)
+	WellKnown.add(ReservedCoreDNS2, append(coreDNSLabels,
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceMetaNameLabel)))
 
 	// CiliumOperator labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-operator
@@ -252,13 +284,16 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:name=cilium-operator
 	//   k8s:io.cilium/app=operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
-	WellKnown.add(ReservedCiliumOperator, []string{
+	ciliumOperatorLabels := []string{
 		"k8s:name=cilium-operator",
 		"k8s:io.cilium/app=operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedCiliumOperator, ciliumOperatorLabels)
+	WellKnown.add(ReservedCiliumOperator2, append(ciliumOperatorLabels,
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
 	// cilium-etcd-operator labels
 	//   k8s:io.cilium.k8s.policy.cluster=default
@@ -266,13 +301,16 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.cilium/app=etcd-operator
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-etcd-operator
-	WellKnown.add(ReservedCiliumEtcdOperator, []string{
+	ciliumEtcdOperatorLabels := []string{
 		"k8s:name=cilium-etcd-operator",
 		"k8s:io.cilium/app=etcd-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-etcd-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
-	})
+	}
+	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
+	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
+		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
 	return len(WellKnown)
 }
