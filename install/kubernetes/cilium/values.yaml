@@ -910,6 +910,23 @@ keepDeprecatedLabels: false
 # -- Keep the deprecated probes when deploying Cilium DaemonSet
 keepDeprecatedProbes: false
 
+startupProbe:
+  # -- failure threshold of startup probe.
+  # 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+  failureThreshold: 105
+  # -- interval between checks of the startup probe
+  periodSeconds: 2
+livenessProbe:
+  # -- failure threshold of liveness probe
+  failureThreshold: 10
+  # -- interval between checks of the liveness probe
+  periodSeconds: 30
+readinessProbe:
+  # -- failure threshold of readiness probe
+  failureThreshold: 3
+  # -- interval between checks of the readiness probe
+  periodSeconds: 30
+
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
 # Valid options are "disabled", "probe", "partial", "strict".
 # ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
