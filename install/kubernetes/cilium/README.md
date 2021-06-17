@@ -258,6 +258,8 @@ contributors across the globe, there is almost always someone available to help.
 | keepDeprecatedProbes | bool | `false` | Keep the deprecated probes when deploying Cilium DaemonSet |
 | kubeProxyReplacementHealthzBindAddr | string | `""` | healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled. |
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
+| livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
+| livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
 | localRedirectPolicy | bool | `false` | Enable Local Redirect Policy. |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |
@@ -340,6 +342,8 @@ contributors across the globe, there is almost always someone available to help.
 | proxy | object | `{"prometheus":{"enabled":true,"port":"9095"},"sidecarImageRegex":"cilium/istio_proxy"}` | Configure Istio proxy options. |
 | proxy.sidecarImageRegex | string | `"cilium/istio_proxy"` | Regular expression matching compatible Istio sidecar istio-proxy container image names |
 | rbac.create | bool | `true` | Enable creation of Resource-Based Access Control configuration. |
+| readinessProbe.failureThreshold | int | `3` | failure threshold of readiness probe |
+| readinessProbe.periodSeconds | int | `30` | interval between checks of the readiness probe |
 | remoteNodeIdentity | bool | `true` | Enable use of the remote node identity. ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity |
 | resourceQuotas | object | `{"cilium":{"hard":{"pods":"10k"}},"enabled":false,"operator":{"hard":{"pods":"15"}}}` | Enable resource quotas for priority classes used in the cluster. |
 | resources | object | `{}` | Agent resource limits & requests ref: https://kubernetes.io/docs/user-guide/compute-resources/ |
@@ -350,6 +354,8 @@ contributors across the globe, there is almost always someone available to help.
 | serviceAccounts.hubblecertgen | object | `{"annotations":{},"create":true,"name":"hubble-generate-certs"}` | Hubblecertgen is used if hubble.tls.auto.method=cronJob |
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
 | sockops | object | `{"enabled":false}` | Configure BPF socket operations configuration |
+| startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
+| startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
 | tls | object | `{"enabled":true,"secretsBackend":"local"}` | Configure TLS configuration in the agent. |
 | tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ |
 | tunnel | string | `"vxlan"` | Configure the encapsulation configuration for communication between nodes. Possible values:   - disabled   - vxlan (default)   - geneve |
