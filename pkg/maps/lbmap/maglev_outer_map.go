@@ -80,42 +80,42 @@ func OpenMaglevOuterMap(name string, tableSize uint32) (*maglevOuterMap, error) 
 	}, nil
 }
 
-// MaglevOuterMapTableSize tries to determine the table size of a given maglev
-// outer map.
+// MaglevMapInfo tries to determine the state of a given maglev outer map.
 //
 // The function returns:
 // - a bool indicating whether the outer map exists or not
+// - a map reference to the inner map if it exists
 // - an integer indicating the table size. In case the table size cannot be
 //   determined, the UnknownMaglevTableSize constant (0) is returned.
-func MaglevOuterMapTableSize(mapName string) (bool, uint32) {
+func MaglevMapInfo(mapName string) (bool, *ebpf.Map, uint32) {
 	prevMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName), nil)
 	if err != nil {
 		// No outer map found.
-		return false, UnknownMaglevTableSize
+		return false, nil, UnknownMaglevTableSize
 	}
 	defer prevMap.Close()
 
 	var firstKey MaglevOuterKey
 	if err = prevMap.NextKey(nil, &firstKey); err != nil {
 		// The outer map exists but it's empty.
-		return false, UnknownMaglevTableSize
+		return false, nil, UnknownMaglevTableSize
 	}
 
 	var firstVal MaglevOuterVal
 	if err = prevMap.Lookup(&firstKey, &firstVal); err != nil {
 		// The outer map exists but we can't read the first entry.
-		return true, UnknownMaglevTableSize
+		return true, nil, UnknownMaglevTableSize
 	}
 
 	innerMap, err := ebpf.MapFromID(int(firstVal.FD))
 	if err != nil {
 		// The outer map exists but we can't access the inner map
 		// associated with the first entry.
-		return true, UnknownMaglevTableSize
+		return true, nil, UnknownMaglevTableSize
 	}
 	defer innerMap.Close()
 
-	return true, maxEntriesToTableSize[innerMap.MaxEntries()]
+	return true, innerMap, maxEntriesToTableSize[innerMap.MaxEntries()]
 }
 
 // Update updates the value associated with a given key for a maglev outer map.

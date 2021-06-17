@@ -19,6 +19,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -47,7 +49,7 @@ var (
 func InitMaglevMaps(ipv4, ipv6 bool, tableSize uint32) error {
 	var err error
 
-	dummyInnerMapSpec := newMaglevInnerMapSpec("cilium_lb_maglev_dummy", tableSize)
+	dummyInnerMapSpec := newMaglevInnerMapSpec("cilium_lb_maglev_dummy", tableSize, true)
 
 	// Always try to delete old maps with the wrong M parameter, otherwise
 	// we may end up in a case where there are 2 maps (one for IPv4 and
@@ -86,8 +88,8 @@ func OpenMaglevMaps() (uint32, error) {
 		err               error
 	)
 
-	map4Found, maglev4TableSize := MaglevOuterMapTableSize(MaglevOuter4MapName)
-	map6Found, maglev6TableSize := MaglevOuterMapTableSize(MaglevOuter6MapName)
+	map4Found, _, maglev4TableSize := MaglevMapInfo(MaglevOuter4MapName)
+	map6Found, _, maglev6TableSize := MaglevMapInfo(MaglevOuter6MapName)
 
 	switch {
 	case !map4Found && !map6Found:
@@ -142,11 +144,26 @@ func GetOpenMaglevMaps() map[string]*maglevOuterMap {
 // the M param (MaglevTableSize) has changed. This is to avoid the verifier
 // error when loading BPF programs which access the maps.
 func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
-	found, prevTableSize := MaglevOuterMapTableSize(mapName)
+	found, innerMap, prevTableSize := MaglevMapInfo(mapName)
 	if !found {
 		// No existing maglev outer map found.
 		// Return true so the caller will create a new one.
 		return true, nil
+	}
+
+	// An inner map already exists. We need to check if the map flags have
+	// changed and if so, delete both the inner and outer map.
+	if innerMap != nil {
+		// Map name doesn't matter since we only care for the flags.
+		if old, new := innerMap.Flags(), newMaglevInnerMapSpec("", prevTableSize, true).Flags; old != new {
+			log.WithFields(logrus.Fields{
+				"old": old,
+				"new": new,
+			}).Info("Found old Maglev inner map with mismatched flags. Both outer and inner maps will need to be deleted and recreated.")
+			innerMap.Close()
+			innerMap.Map.Unpin()
+			goto deleteOuter
+		}
 	}
 
 	if prevTableSize == tableSize {
@@ -155,6 +172,7 @@ func deleteMapIfMNotMatch(mapName string, tableSize uint32) (bool, error) {
 		return false, nil
 	}
 
+deleteOuter:
 	// An outer map already exists but it has the wrong table size (or we
 	// can't determine it). Delete it.
 	oldMap, err := ebpf.LoadPinnedMap(bpf.MapPath(mapName), nil)
@@ -174,7 +192,7 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16, tableSiz
 		innerMapName = MaglevInner6MapName
 	}
 
-	innerMap, err := newMaglevInnerMap(innerMapName, uint32(tableSize))
+	innerMap, err := newMaglevInnerMap(innerMapName, uint32(tableSize), true)
 	if err != nil {
 		return err
 	}

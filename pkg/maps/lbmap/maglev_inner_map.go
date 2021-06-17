@@ -76,23 +76,47 @@ func (m maglevInnerVals) MarshalBinary() ([]byte, error) {
 }
 
 // newMaglevInnerMapSpec returns the spec for a maglev inner map.
-func newMaglevInnerMapSpec(name string, tableSize uint32) *ebpf.MapSpec {
+//
+// The caller can specify whether the inner map can be `mmap`-able, but we can
+// default to true because the underlying cilium/ebpf library will handle the
+// case where this flag is not supported. It is toggled to false for
+// benchmarking.
+func newMaglevInnerMapSpec(name string, tableSize uint32, mmap bool) *ebpf.MapSpec {
+	flags := unix.BPF_F_INNER_MAP
+	if mmap {
+		flags |= unix.BPF_F_MMAPABLE
+	}
 	return &ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(MaglevInnerKey{})),
 		ValueSize:  uint32(unsafe.Sizeof(MaglevInnerVal{})),
 		MaxEntries: TableSizeToMaxEntries(tableSize),
-		Flags:      unix.BPF_F_INNER_MAP,
+		Flags:      uint32(flags),
 	}
 }
 
 // newMaglevInnerMap returns a new object representing a maglev inner map.
-func newMaglevInnerMap(name string, tableSize uint32) (*maglevInnerMap, error) {
-	spec := newMaglevInnerMapSpec(name, tableSize)
+func newMaglevInnerMap(name string, tableSize uint32, mmap bool) (*maglevInnerMap, error) {
+	spec := newMaglevInnerMapSpec(name, tableSize, mmap)
 
 	m := ebpf.NewMap(spec)
 	if err := m.OpenOrCreate(); err != nil && errors.Is(err, ebpf.ErrNotSupported) {
+		if mmap {
+			// Fall back to creating the map without BPF_F_MMAPABLE as it's not
+			// supported and try again with just BPF_F_INNER_MAP.
+			spec.Flags ^= unix.BPF_F_MMAPABLE
+			m = ebpf.NewMap(spec)
+			err = m.OpenOrCreate()
+			if err != nil && errors.Is(err, ebpf.ErrNotSupported) {
+				goto fatal
+			} else if err != nil {
+				return nil, err
+			}
+		}
+		// If we don't have mmap and still got ErrNotSupported, then
+		// fallthrough to fataling.
+	fatal:
 		log.WithError(err).Fatal("Maglev mode requires kernel 5.10 or newer")
 	} else if err != nil {
 		return nil, err

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -161,4 +162,38 @@ func (s *MaglevSuite) TestSplitBackends(c *C) {
 		c.Log(tt.name)
 		c.Assert(splitBackends(tt.backends), checker.DeepEquals, tt.expected)
 	}
+}
+
+func (s *MaglevSuite) Benchmark_updateMaglevInnerMapWithoutMmap(c *C) {
+	large := maglev.SupportedPrimes[len(maglev.SupportedPrimes)-1]
+	InitMaglevMaps(true, true, uint32(large))
+
+	innerMap, err := newMaglevInnerMap(MaglevInner4MapName, uint32(large), false)
+	if err != nil {
+		c.Assert(err, IsNil)
+	}
+	defer innerMap.Close()
+	c.ResetTimer()
+	c.StartTimer()
+	for i := 0; i < c.N; i++ {
+		updateMaglevInnerMap(innerMap, make([]uint16, 1024))
+	}
+	c.StopTimer()
+}
+
+func (s *MaglevSuite) Benchmark_updateMaglevInnerMapWithMmap(c *C) {
+	large := maglev.SupportedPrimes[len(maglev.SupportedPrimes)-1]
+	InitMaglevMaps(true, true, uint32(large))
+
+	innerMap, err := newMaglevInnerMap(MaglevInner4MapName, uint32(large), true)
+	if err != nil {
+		c.Assert(err, IsNil)
+	}
+	defer innerMap.Close()
+	c.ResetTimer()
+	c.StartTimer()
+	for i := 0; i < c.N; i++ {
+		updateMaglevInnerMap(innerMap, make([]uint16, 1024))
+	}
+	c.StopTimer()
 }

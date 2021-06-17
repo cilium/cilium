@@ -78,7 +78,7 @@ struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_INNER = {
 	.max_elem	= (LB_MAGLEV_LUT_SIZE / LB_MAGLEV_INNER_ELEMS) + 1,
 	.inner_idx	= NO_PREPOPULATE,
 	.id		= CILIUM_MAP_MAGLEV6,
-	.flags		= BPF_F_INNER_MAP,
+	.flags		= BPF_F_MMAPABLE | BPF_F_INNER_MAP,
 };
 
 struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_OUTER = {
@@ -161,7 +161,7 @@ struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_INNER = {
 	.max_elem	= (LB_MAGLEV_LUT_SIZE / LB_MAGLEV_INNER_ELEMS) + 1,
 	.inner_idx	= NO_PREPOPULATE,
 	.id		= CILIUM_MAP_MAGLEV4,
-	.flags		= BPF_F_INNER_MAP,
+	.flags		= BPF_F_MMAPABLE | BPF_F_INNER_MAP,
 };
 
 struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_OUTER = {
