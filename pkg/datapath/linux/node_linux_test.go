@@ -1188,23 +1188,28 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 			c.Assert(err, check.IsNil)
 			return nil
 		})
-		// Check that MAC has been changed in the neigh table
-		time.Sleep(500 * time.Millisecond)
-		neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
-		c.Assert(err, check.IsNil)
-		found = false
-		for _, n := range neighs {
-			if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT {
-				c.Assert(n.HardwareAddr.String(), check.Equals, mac.String())
-				c.Assert(neighHwAddr(ip1.String()), check.Equals, mac.String())
-				c.Assert(neighRefCount(ip1.String()), check.Equals, 1)
-				found = true
-				break
-			}
-		}
-		c.Assert(found, check.Equals, true)
 
+		// Check that MAC has been changed in the neigh table
+		var found bool
+		err := testutils.WaitUntilWithSleep(func() bool {
+			neighs, err = netlink.NeighList(veth0.Attrs().Index, netlink.FAMILY_V4)
+			c.Assert(err, check.IsNil)
+			found = false
+			for _, n := range neighs {
+				if n.IP.Equal(ip1) && n.State == netlink.NUD_PERMANENT &&
+					n.HardwareAddr.String() == mac.String() &&
+					neighHwAddr(ip1.String()) == mac.String() &&
+					neighRefCount(ip1.String()) == 1 {
+					found = true
+					return true
+				}
+			}
+			return false
+		}, 5*time.Second, 200*time.Millisecond)
+		c.Assert(err, check.IsNil)
+		c.Assert(found, check.Equals, true)
 	}
+
 	// Cleanup
 	close(done)
 	wg.Wait()
