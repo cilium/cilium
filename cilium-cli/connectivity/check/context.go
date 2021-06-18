@@ -318,7 +318,10 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	status, err := ct.hubbleClient.ServerStatus(ctx, &observer.ServerStatusRequest{})
 	if err != nil {
 		ct.Warn("Unable to contact Hubble Relay, disabling Hubble telescope and flow validation:", err)
-		ct.Info("Expose Relay locally with: kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245")
+		ct.Info(`Expose Relay locally with:
+   cilium hubble enable
+   cilium status --wait
+   cilium hubble port-forward&`)
 		ct.hubbleClient = nil
 		ct.params.Hubble = false
 
