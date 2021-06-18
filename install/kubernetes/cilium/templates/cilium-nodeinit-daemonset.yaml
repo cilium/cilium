@@ -223,6 +223,17 @@ spec:
 {{- if .Values.nodeinit.restartPods }}
               echo "Restarting kubenet managed pods"
               if [ ! -f /etc/crictl.yaml ] || grep -q 'docker' /etc/crictl.yaml; then
+                # Wait until cilium-agent is up and running which means the cni
+                # configuration and cni plugin are deployed.
+                echo "Waiting for Cilium agent to be up and running"
+                # Example of the output gotten by: 'docker ps | grep -q cilium-agent'
+                # e8cbe571c88a  14c4a1469151  "cilium-agent --conf…"  2 minutes ago  Up 2 minutes  k8s_cilium-agent_cilium-kwgq8_cilium_b3867ae7-7d9f-4fac-a08d-eb63137e316a_0
+                until docker ps | grep -q cilium-agent; do echo -n "." && sleep 1; done
+                # Sleep 10 seconds just to be safe since the configuration and
+                # cni binary will not be deployed immediately as the
+                # cilium-agent container starts.
+                sleep 10s
+                echo ""
                 # Works for COS, ubuntu
                 # Note the first line is the containerID with a trailing \r
                 for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do docker rm -f "$(sed 's/\r//;1q' $f)" || true; done
@@ -242,6 +253,17 @@ spec:
                   docker kill "${container_id}" || true
                 done
               else
+                # Wait until cilium-agent is up and running which means the cni
+                # configuration and cni plugin will be deployed.
+                echo "Waiting for Cilium agent to be up and running"
+                # Example of the output gotten by: 'PATH="${PATH}:/home/kubernetes/bin" crictl ps | grep cilium-agent'
+                # a01fe94dcd2f7  14c4a14691519  About a minute ago  Running  cilium-agent  0  bc00292d778e5
+                until PATH="${PATH}:/home/kubernetes/bin" crictl ps | grep cilium-agent | grep -q Running; do echo -n "." && sleep 1; done
+                # Sleep 10 seconds just to be safe since the configuration and
+                # cni binary will not be deployed immediately as the
+                # cilium-agent container starts.
+                sleep 10s
+                echo ""
                 # COS-beta (with containerd). Some versions of COS have crictl in /home/kubernetes/bin.
                 for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do PATH="${PATH}:/home/kubernetes/bin" crictl stopp "$(sed 's/\r//;1q' $f)" || true; done
               fi
