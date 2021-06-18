@@ -469,14 +469,6 @@ func (ct *ConnectivityTest) ExternalWorkloads() map[string]ExternalWorkload {
 	return ct.externalWorkloads
 }
 
-func (ct *ConnectivityTest) StoreLastTimestamp(pod string, t time.Time) {
-	ct.lastFlowTimestamps[pod] = t
-}
-
-func (ct *ConnectivityTest) LoadLastTimestamp(pod string) time.Time {
-	return ct.lastFlowTimestamps[pod]
-}
-
 func (ct *ConnectivityTest) HubbleClient() observer.ObserverClient {
 	return ct.hubbleClient
 }

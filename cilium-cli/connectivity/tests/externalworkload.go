@@ -48,17 +48,13 @@ func (s *podToExternalWorkload) Run(ctx context.Context, t *check.Test) {
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, wl).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ping(wl))
 
-				egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
-				})
+				}))
 
-				a.ValidateFlows(ctx, pod.Name(), pod.Pod.Status.PodIP, egressFlowRequirements)
-				ingressFlowRequirements := a.GetIngressRequirements(check.FlowParameters{
+				a.ValidateFlows(ctx, wl, a.GetIngressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
-				})
-				if ingressFlowRequirements != nil {
-					a.ValidateFlows(ctx, wl.Name(), wl.Address(), ingressFlowRequirements)
-				}
+				}))
 			})
 
 			i++

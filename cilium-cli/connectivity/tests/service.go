@@ -51,11 +51,10 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, curl(svc))
 
-				egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
 					NodePort:    svc.Port(),
-				})
-				a.ValidateFlows(ctx, pod.Name(), pod.Address(), egressFlowRequirements)
+				}))
 			})
 
 			i++
@@ -159,12 +158,11 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 	t.NewAction(s, name, pod, svc).Run(func(a *check.Action) {
 		a.ExecInPod(ctx, curl(ep))
 
-		egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+		a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 			// The fact that curl is hitting the NodePort instead of the
 			// backend Pod's port is specified here. This will cause the matcher
 			// to accept both the NodePort and the ClusterIP (container) port.
 			NodePort: np,
-		})
-		a.ValidateFlows(ctx, pod.Name(), pod.Address(), egressFlowRequirements)
+		}))
 	})
 }
