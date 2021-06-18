@@ -24,10 +24,10 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 )
 
-var check = regexp.MustCompile(`^([v]|0|[1-9][0-9]*\.)?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*\.*(0|[1-9][0-9]*)?`).MatchString
+var versionRegexp = regexp.MustCompile(`^([v]|0|[1-9][0-9]*\.)?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*\.*(0|[1-9][0-9]*)?`).MatchString
 
 func CheckVersion(version string) bool {
-	return check(version)
+	return versionRegexp(version)
 }
 
 func BuildImagePath(userImage, defaultImage, userVersion, defaultVersion string) string {
