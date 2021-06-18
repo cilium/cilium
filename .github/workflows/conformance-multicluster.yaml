@@ -230,7 +230,7 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable --context ${{ steps.contexts.outputs.context1 }} ${{ steps.vars.outputs.hubble_enable_defaults }}
-          cilium hubble enable --context ${{ steps.contexts.outputs.context2 }} ${{ steps.vars.outputs.hubble_enable_defaults }}
+          cilium hubble enable --context ${{ steps.contexts.outputs.context2 }} ${{ steps.vars.outputs.hubble_enable_defaults }} --relay=false
 
       - name: Wait for Cilium status to be ready
         run: |
