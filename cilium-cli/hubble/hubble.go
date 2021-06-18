@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
@@ -60,6 +61,7 @@ type k8sHubbleImplementation interface {
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
+	CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error
 }
 
 type K8sHubble struct {
@@ -80,6 +82,9 @@ type Parameters struct {
 	UIPortForward    int
 	Writer           io.Writer
 	Context          string // Only for 'kubectl' pass-through commands
+	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready after enabling
+	// Hubble before deploying Hubble Relay / UI.
+	CiliumReadyTimeout time.Duration
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
@@ -228,6 +233,19 @@ func (k *K8sHubble) enableHubble(ctx context.Context) error {
 	return nil
 }
 
+func (k *K8sHubble) waitForDaemonset(ctx context.Context, daemonset string) error {
+	ctx, cancel := context.WithTimeout(ctx, k.params.CiliumReadyTimeout)
+	defer cancel()
+	for k.client.CheckDaemonSetStatus(ctx, k.params.Namespace, daemonset) != nil {
+		select {
+		case <-time.After(time.Second):
+		case <-ctx.Done():
+			return fmt.Errorf("interrupted while waiting for daemonset %s to become ready: %w", daemonset, ctx.Err())
+		}
+	}
+	return nil
+}
+
 func (k *K8sHubble) Enable(ctx context.Context) error {
 	if err := k.params.validateParams(); err != nil {
 		return err
@@ -254,6 +272,13 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 
 	if err := k.enableHubble(ctx); err != nil {
 		return err
+	}
+
+	if k.params.Relay || k.params.UI {
+		k.Log("⌛ Waiting for Cilium to become ready before deploying other Hubble component(s)...")
+		if err := k.waitForDaemonset(ctx, defaults.AgentDaemonSetName); err != nil {
+			return err
+		}
 	}
 
 	if k.params.Relay {
