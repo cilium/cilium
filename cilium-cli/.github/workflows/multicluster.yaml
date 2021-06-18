@@ -15,6 +15,7 @@ env:
   clusterName1: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-1
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
   zone: us-west2-a
+  firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
 
 jobs:
   installation-and-connectivity:
@@ -97,12 +98,10 @@ jobs:
         run: |
           TAG1=$(gcloud compute firewall-rules list --filter="name~^gke-${{ env.clusterName1 }}-[0-9a-z]*-all$" --format="value(name)")
           TAG2=$(gcloud compute firewall-rules list --filter="name~^gke-${{ env.clusterName2 }}-[0-9a-z]*-all$" --format="value(name)")
-          GCP_FW_RULE=cilium-cli-ci-multicluster-${{ github.run_number }}-rule
           gcloud compute firewall-rules describe $TAG1
           gcloud compute firewall-rules describe $TAG2
-          gcloud compute firewall-rules create $GCP_FW_RULE --allow tcp,udp,icmp,sctp,esp,ah --priority=999 --source-ranges=10.0.0.0/9 --target-tags=${TAG1/-all/-node},${TAG2/-all/-node}
-          gcloud compute firewall-rules describe $GCP_FW_RULE
-          echo "GCP_FW_RULE=$GCP_FW_RULE" >> $GITHUB_ENV
+          gcloud compute firewall-rules create ${{ env.firewallRuleName }} --allow tcp,udp,icmp,sctp,esp,ah --priority=999 --source-ranges=10.0.0.0/9 --target-tags=${TAG1/-all/-node},${TAG2/-all/-node}
+          gcloud compute firewall-rules describe ${{ env.firewallRuleName }}
 
       - name: Create gcloud-free kubeconfig for cluster 1, merge kubeconfigs and put them in configmap
         run: |
@@ -141,7 +140,7 @@ jobs:
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          gcloud compute firewall-rules delete --quiet $GCP_FW_RULE
+          gcloud compute firewall-rules delete ${{ env.firewallRuleName }} --quiet
           gcloud container clusters delete ${{ env.clusterName1 }} --zone ${{ env.zone }} --quiet --async
           gcloud container clusters delete ${{ env.clusterName2 }} --zone ${{ env.zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
