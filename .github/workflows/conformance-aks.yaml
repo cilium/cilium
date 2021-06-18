@@ -131,9 +131,6 @@ jobs:
             --operator-image=quay.io/${{ github.repository_owner }}/operator-azure-ci \
             --version=${SHA} \
             --azure-resource-group ${{ env.name }} \
-            --azure-tenant-id ${{ secrets.AZURE_PR_SP_TENANT_ID }} \
-            --azure-client-id ${{ secrets.AZURE_PR_SP_CLIENT_ID }} \
-            --azure-client-secret ${{ secrets.AZURE_PR_SP_CLIENT_SECRET }} \
             --wait=false \
             --config monitor-aggregation=none"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
