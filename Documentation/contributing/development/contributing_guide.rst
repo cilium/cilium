@@ -273,7 +273,7 @@ Pull requests review process for committers
 #. Every committer in the `committers team <https://github.com/orgs/cilium/teams/committers/members>`_
    belongs to `one or more other teams in the Cilium organization <https://github.com/orgs/cilium/teams/team/teams>`_
    if you would like to be added or removed from any team, please contact any
-   of the `maintainers <https://github.com/orgs/cilium/teams/maintainers/members>`_.
+   of the `maintainers <https://github.com/orgs/cilium/teams/cilium-maintainers/members>`_.
 
 #. Once a PR is open, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
    should review the PR using the ``CODEOWNERS`` file. Each committer can see

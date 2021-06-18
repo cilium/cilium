@@ -32,7 +32,7 @@ On Freeze date
    ::
 
         * @cilium/janitors
-        .github/workflows/ @cilium/maintainers
+        .github/workflows/ @cilium/cilium-maintainers
         api/ @cilium/api
         pkg/apisocket/ @cilium/api
         pkg/monitor/payload @cilium/api
