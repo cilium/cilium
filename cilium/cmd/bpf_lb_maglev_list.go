@@ -16,11 +16,9 @@ package cmd
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -48,57 +46,36 @@ var bpfMaglevListCmd = &cobra.Command{
 	},
 }
 
-var lookupTableSize = 0
-
-func parseMaglevEntry(key bpf.MapKey, value bpf.MapValue, tables map[string][]string) {
-	k := key.(*lbmap.MaglevOuterKey)
-	v := value.(*lbmap.MaglevOuterVal)
-
-	// Determine lookup table size by inspecting the first inner map
-	if lookupTableSize == 0 {
-		fd, err := bpf.MapFdFromID(int(v.FD))
-		if err != nil {
-			Fatalf("Unable to get map fd by id %d: %s", v.FD, err)
-		}
-		m, err := bpf.GetMapInfoByFd(uint32(fd))
-		if err != nil {
-			Fatalf("Unable to get map info by fd %d: %s", fd, err)
-		}
-		lookupTableSize = int(m.ValueSize) / 2
-	}
-
-	table := make([]uint16, lookupTableSize)
-	zero := uint32(0)
-	fd, err := bpf.MapFdFromID(int(v.FD))
+func parseMaglevEntry(key *lbmap.MaglevOuterKey, value *lbmap.MaglevOuterVal, tableSize uint32, tables map[string][]string) {
+	innerMap, err := lbmap.MaglevInnerMapFromID(int(value.FD), tableSize)
 	if err != nil {
-		Fatalf("Unable to get map fd by id %d: %s", v.FD, err)
+		Fatalf("Unable to get map fd by id %d: %s", value.FD, err)
 	}
-	if err := bpf.LookupElement(int(fd), unsafe.Pointer(&zero), unsafe.Pointer(&table[0])); err != nil {
-		Fatalf("Unable to lookup element in map by fd %d: %s", fd, err)
+
+	innerKey := lbmap.MaglevInnerKey{
+		Zero: 0,
 	}
-	tables[k.ToNetwork().String()] = []string{fmt.Sprintf("%v", table)}
+	innerValue, err := innerMap.Lookup(&innerKey)
+	if err != nil {
+		Fatalf("Unable to lookup element in map by fd %d: %s", value.FD, err)
+	}
+
+	tables[fmt.Sprintf("%d", key.ToNetwork().RevNatID)] = []string{fmt.Sprintf("%v", innerValue.BackendIDs)}
 }
 
 func dumpMaglevTables(tables map[string][]string) {
-	parse := func(key bpf.MapKey, value bpf.MapValue) {
-		parseMaglevEntry(key, value, tables)
+	tableSize, err := lbmap.OpenMaglevMaps()
+	if err != nil {
+		Fatalf("Cannot initialize maglev maps: %s", err)
 	}
 
-	for _, name := range []string{lbmap.MaglevOuter4MapName, lbmap.MaglevOuter6MapName} {
-		// We cannot directly access the maps via lbmap.MaglevOuter{4,6}Map, as
-		// both are not initialized, and they cannot be initialized due to
-		// option.Config.MaglevTableSize not set in the cilium cli. Thus, we need
-		// to open map with the lower-level helper and set the fields required
-		// for the maps traversal.
-		if m, err := bpf.OpenMap(name); err != nil {
-			continue
-		} else {
-			m.MapKey = &lbmap.MaglevOuterKey{}
-			m.MapValue = &lbmap.MaglevOuterVal{}
-			m.DumpParser = bpf.ConvertKeyValue
-			if err := m.DumpWithCallbackIfExists(parse); err != nil {
-				Fatalf("Unable to dump %s: %s", name, err)
-			}
+	parse := func(key *lbmap.MaglevOuterKey, value *lbmap.MaglevOuterVal) {
+		parseMaglevEntry(key, value, tableSize, tables)
+	}
+
+	for name, m := range lbmap.GetOpenMaglevMaps() {
+		if err := m.IterateWithCallback(parse); err != nil {
+			Fatalf("Unable to dump %s: %v", name, err)
 		}
 	}
 }

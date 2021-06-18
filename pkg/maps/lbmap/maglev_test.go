@@ -80,24 +80,24 @@ func (s *MaglevSuite) TeadDownTest(c *C) {
 
 func (s *MaglevSuite) TestInitMaps(c *C) {
 	option.Config.MaglevTableSize = 251
-	err := InitMaglevMaps(true, false)
+	err := InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 
 	option.Config.MaglevTableSize = 509
 	// M mismatch, so the map should be removed
-	deleted, err := deleteMapIfMNotMatch(MaglevOuter4MapName)
+	deleted, err := deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, true)
 
 	// M is the same, but no entries, so the map should be removed too
-	err = InitMaglevMaps(true, false)
+	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
-	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName)
+	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, true)
 
 	// Now insert the entry, so that the map should not be removed
-	err = InitMaglevMaps(true, false)
+	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	lbm := New(true, option.Config.MaglevTableSize)
 	params := &UpsertServiceParams{
@@ -110,7 +110,7 @@ func (s *MaglevSuite) TestInitMaps(c *C) {
 	}
 	err = lbm.UpsertService(params)
 	c.Assert(err, IsNil)
-	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName)
+	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, false)
 }
