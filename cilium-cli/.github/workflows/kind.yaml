@@ -84,9 +84,9 @@ jobs:
 
       - name: Relay Port Forward
         run: |
-          pkill -f "kubectl port-forward.*hubble-relay" || true
+          pkill -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay"
           sleep 1s
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward&
           sleep 5s
 
       - name: Connectivity test
