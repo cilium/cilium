@@ -217,15 +217,9 @@ jobs:
           cilium hubble port-forward&
           sleep 10s
 
-      - name: Restart connectivity test pods
-        run: |
-          kubectl delete pod -n cilium-test --selector=kind=client
-          kubectl delete pod -n cilium-test --selector=kind=echo
-          # workaround for github.com/cilium/cilium-cli/issues/156
-
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=disabled
+          cilium connectivity test --force-deploy --flow-validation=disabled
 
       - name: Post-test information gathering
         if: ${{ failure() }}
