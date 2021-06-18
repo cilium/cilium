@@ -387,5 +387,5 @@ func (a *Action) Fatal(s ...interface{}) {
 // Fatalf must be called when an irrecoverable error was encountered during the Action.
 func (a *Action) Fatalf(format string, s ...interface{}) {
 	a.fail()
-	a.test.Fatalf(format, s)
+	a.test.Fatalf(format, s...)
 }
