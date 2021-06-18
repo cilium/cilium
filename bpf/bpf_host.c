@@ -210,15 +210,17 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 			if (ret < 0)
 				return ret;
 		}
-#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
-		/* See IPv4 case for NO_REDIRECT/ENABLE_REDIRECT_FAST comments */
-		skip_redirect = true;
-#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 	}
 #endif /* ENABLE_NODEPORT */
+
+#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
+	/* See IPv4 case for NO_REDIRECT/ENABLE_REDIRECT_FAST comments */
+	if (!from_host)
+		skip_redirect = true;
+#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
@@ -476,23 +478,25 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (ret < 0)
 				return ret;
 		}
-#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
-		/* Without bpf_redirect_neigh() helper, we cannot redirect a
-		 * packet to a local endpoint in the direct routing mode, as
-		 * the redirect bypasses nf_conntrack table. This makes a
-		 * second reply from the endpoint to be MASQUERADEd or to be
-		 * DROP-ed by k8s's "--ctstate INVALID -j DROP" depending via
-		 * which interface it was inputed. With bpf_redirect_neigh()
-		 * we bypass request and reply path in the host namespace and
-		 * do not run into this issue.
-		 */
-		skip_redirect = true;
-#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 	}
 #endif /* ENABLE_NODEPORT */
+
+#if defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST)
+	/* Without bpf_redirect_neigh() helper, we cannot redirect a
+	 * packet to a local endpoint in the direct routing mode, as
+	 * the redirect bypasses nf_conntrack table. This makes a
+	 * second reply from the endpoint to be MASQUERADEd or to be
+	 * DROP-ed by k8s's "--ctstate INVALID -j DROP" depending via
+	 * which interface it was inputed. With bpf_redirect_neigh()
+	 * we bypass request and reply path in the host namespace and
+	 * do not run into this issue.
+	 */
+	if (!from_host)
+		skip_redirect = true;
+#endif /* NO_REDIRECT && !ENABLE_REDIRECT_FAST */
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
