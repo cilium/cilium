@@ -56,17 +56,13 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &src, &dst).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ping(dst))
 
-				a.ValidateFlows(ctx, src.Name(), src.Pod.Status.PodIP, a.GetEgressRequirements(check.FlowParameters{
+				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
 				}))
 
-				ingressFlowRequirements := a.GetIngressRequirements(check.FlowParameters{
+				a.ValidateFlows(ctx, dst, a.GetIngressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
-				})
-
-				if ingressFlowRequirements != nil {
-					a.ValidateFlows(ctx, dst.Name(), dst.Pod.Status.PodIP, ingressFlowRequirements)
-				}
+				}))
 			})
 
 			i++

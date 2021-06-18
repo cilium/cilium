@@ -63,10 +63,10 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, node).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ping(node))
-				egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
-				})
-				a.ValidateFlows(ctx, pod.Name(), pod.Pod.Status.PodIP, egressFlowRequirements)
+				}))
 			})
 
 			i++
