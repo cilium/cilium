@@ -309,14 +309,9 @@ jobs:
           sleep 10s
           [[ $(pgrep -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay" | wc -l) == 2 ]]
 
-      - name: Restart connectivity test pods
-        run: |
-          kubectl delete pod -n cilium-test --selector=kind=client
-          kubectl delete pod -n cilium-test --selector=kind=echo
-
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=warning
+          cilium connectivity test --force-deploy --flow-validation=warning
 
       - name: Post-test information gathering
         if: ${{ failure() }}
