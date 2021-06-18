@@ -72,7 +72,7 @@ To install Cilium while automatically detected:
 
 ### Hubble
 
-    ./cilium hubble enable
+    cilium hubble enable
     🔑 Generating certificates for Relay...
     2021/01/06 14:40:21 [INFO] generate received request
     2021/01/06 14:40:21 [INFO] received CSR
@@ -133,7 +133,7 @@ To install Cilium while automatically detected:
 
 #### With Flow Validation
 
-    kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+    cilium hubble port-forward&
     cilium connectivity test --single-node
     ⌛ Waiting for deployments to become ready
     🔭 Enabling Hubble telescope...
