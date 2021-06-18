@@ -260,9 +260,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          kubectl port-forward \
-            --context ${{ steps.contexts.outputs.context1 }} \
-            -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward --context ${{ steps.contexts.outputs.context1 }}&
           sleep 10s
 
       - name: Run connectivity test
