@@ -205,7 +205,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward&
           sleep 10s
 
       - name: Run connectivity test
@@ -215,7 +215,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           cilium uninstall --wait
-          pgrep -f "kubectl port-forward" | xargs kill -9 # kill background port forwards
+          pkill -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay"
 
       - name: Install Cilium with tunnel datapath
         run: |
@@ -232,7 +232,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward&
           sleep 10s
 
       - name: Restart connectivity test pods
@@ -247,7 +247,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           cilium uninstall --wait
-          pgrep -f "kubectl port-forward" | xargs kill -9 # kill background port forwards
+          pkill -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay"
 
       - name: Create custom IPsec secret
         run: |
@@ -268,7 +268,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward&
           sleep 10s
 
       - name: Restart connectivity test pods
@@ -284,7 +284,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           cilium uninstall --wait
-          pgrep -f "kubectl port-forward" | xargs kill -9 # kill background port forwards
+          pkill -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay"
 
       - name: Install Cilium with encryption and tunnel datapath
         run: |
@@ -302,7 +302,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245&
+          cilium hubble port-forward&
           sleep 10s
 
       - name: Restart connectivity test pods
