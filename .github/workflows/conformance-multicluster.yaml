@@ -271,7 +271,7 @@ jobs:
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!pod-to-nodeport' \
             --test '!pod-to-local-nodeport' \
-             --flow-validation=warning
+             --flow-validation=disabled
 
       - name: Post-test information gathering
         if: ${{ failure() }}

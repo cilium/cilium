@@ -227,7 +227,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=warning
+          cilium connectivity test --flow-validation=disabled
 
       - name: Clean up Cilium
         run: |
@@ -259,7 +259,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --force-deploy
+          cilium connectivity test --force-deploy --flow-validation=disabled
 
       - name: Post-test information gathering
         if: ${{ failure() }}
