@@ -151,36 +151,7 @@ type FlowParameters struct {
 	NodePort uint32
 }
 
-type flowsSet []*observer.GetFlowsResponse
-
-// lastTime returns the timestamp of the last flow in 'f', if any.
-func (f flowsSet) lastTime() (last time.Time) {
-	if len(f) == 0 {
-		return last
-	}
-	timestamp := f[len(f)-1].GetFlow().GetTime()
-	if timestamp == nil {
-		return last
-	}
-	return timestamp.AsTime()
-}
-
-// append adds any flows in 'from' to 'f', if the flow's timestamp is
-// later than the last one in 'f', returns the combined set.
-func (f flowsSet) append(from flowsSet) flowsSet {
-	last := f.lastTime()
-	if last.IsZero() {
-		return from
-	}
-	// Add all new flows with a later timestamp.
-	for _, flow := range from {
-		timestamp := flow.GetFlow().GetTime()
-		if timestamp == nil || timestamp.AsTime().After(last) {
-			f = append(f, flow)
-		}
-	}
-	return f
-}
+type flowsSet []*observer.GetFlowsResponse_Flow
 
 func (f flowsSet) Contains(filter filters.FlowFilterImplementation, fc *filters.FlowContext) (int, bool, *flow.Flow) {
 	if f == nil {
@@ -188,7 +159,7 @@ func (f flowsSet) Contains(filter filters.FlowFilterImplementation, fc *filters.
 	}
 
 	for i, res := range f {
-		flow := res.GetFlow()
+		flow := res.Flow
 		if filter.Match(flow, fc) {
 			return i, true, flow
 		}
