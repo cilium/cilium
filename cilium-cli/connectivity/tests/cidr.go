@@ -55,7 +55,7 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, curl(ep))
 
-				a.ValidateFlows(ctx, src.Name(), src.Address(), a.GetEgressRequirements(check.FlowParameters{
+				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					RSTAllowed: true,
 				}))
 			})

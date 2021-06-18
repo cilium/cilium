@@ -23,6 +23,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -31,7 +32,6 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/api/v1/relay"
@@ -62,10 +62,12 @@ type Action struct {
 	// expIngress is the expected test result for the ingress in to the destination pod
 	expIngress Result
 
-	// flows is a map of all flow logs, indexed by pod name
-	flows map[string]flowsSet
+	// flowsMu protects flows.
+	flowsMu sync.Mutex
+	// flows is a map of all flow logs generated during the Action.
+	flows flowsSet
 
-	flowResults map[string]FlowRequirementResults
+	flowResults map[TestPeer]FlowRequirementResults
 
 	// started is the timestamp the test started
 	started time.Time
@@ -85,8 +87,7 @@ func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer) *Action
 		src:         src,
 		dst:         dst,
 		started:     time.Now(),
-		flows:       map[string]flowsSet{},
-		flowResults: map[string]FlowRequirementResults{},
+		flowResults: map[TestPeer]FlowRequirementResults{},
 	}
 }
 
@@ -125,17 +126,51 @@ func (a *Action) Destination() TestPeer {
 // This method is to be called from a Scenario implementation.
 func (a *Action) Run(f func(*Action)) {
 	a.Logf("[.] Action [%s]", a)
+
+	// Emit unbuffered progress indicator.
 	a.test.progress()
+
+	// Only perform flow validation if a Hubble Relay connection is available.
+	if a.test.ctx.params.Hubble {
+		// Channel for the flow listener to notify us when ready.
+		ready := make(chan bool, 1)
+
+		// TODO(timo): Use an actual context that can be cancelled by the user.
+		// `Run()` should take context.
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// Start flow listener in the background.
+		go func() {
+			if err := a.followFlows(ctx, ready); err != nil {
+				a.Fatalf("Receiving flows from Hubble Relay: %s", err)
+			}
+		}()
+
+		// Wait for at least one Hubble node to signal that it's ready so we don't
+		// generate any traffic before it can be captured.
+		timeout := time.NewTimer(10 * time.Second)
+		defer timeout.Stop()
+
+		select {
+		case <-ready:
+			timeout.Stop()
+			a.Log("📄 Following flows...")
+		case <-timeout.C:
+			a.Fatalf("Timeout waiting for flow listener to become ready")
+		}
+	}
 
 	// Execute the given test function.
 	// Might call Fatal().
 	f(a)
 
-	// Print flow buffer if any failures or warnings occur.
+	// Print flow buffer if any failures or warnings occurred.
+	// TODO(timo): printFlows is a misnomer, this function actually prints
+	// the verdict annotated over the list of flows.
 	if a.test.ctx.PrintFlows() || a.failed || a.warned {
-		for name, flows := range a.flows {
-			a.printFlows(name, flows, a.flowResults[name])
-		}
+		a.printFlows(a.Source())
+		a.printFlows(a.Destination())
 	}
 }
 
@@ -188,17 +223,19 @@ func (a *Action) shouldSucceed() bool {
 	return !a.expEgress.Drop && !a.expIngress.Drop
 }
 
-func (a *Action) printFlows(pod string, f flowsSet, r FlowRequirementResults) {
-	if len(f) == 0 {
-		a.Logf("📄 No flows recorded for pod %s", pod)
+func (a *Action) printFlows(peer TestPeer) {
+	if len(a.flows) == 0 {
+		a.Logf("📄 No flows recorded during action %s", a.name)
 		return
 	}
 
-	a.Logf("📄 Flow logs for pod %s:", pod)
+	a.Logf("📄 Flow logs for peer %s:", peer.Name())
 	printer := hubprinter.New(hubprinter.Compact(), hubprinter.WithIPTranslation())
 	defer printer.Close()
 
-	for index, flow := range f {
+	r := a.flowResults[peer]
+
+	for index, flow := range a.flows {
 		if !a.test.ctx.AllFlows() && r.FirstMatch > 0 && r.FirstMatch > index {
 			// Skip flows before the first match unless printing all flows
 			continue
@@ -209,7 +246,7 @@ func (a *Action) printFlows(pod string, f flowsSet, r FlowRequirementResults) {
 			continue
 		}
 
-		f := flow.GetFlow()
+		f := flow.Flow
 
 		src, dst := printer.GetHostNames(f)
 
@@ -236,12 +273,14 @@ func (a *Action) printFlows(pod string, f flowsSet, r FlowRequirementResults) {
 	a.Log()
 }
 
-func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offset int, pod string, req *filters.FlowSetRequirement) (r FlowRequirementResults) {
-	r.Matched = MatchMap{}
-	r.FirstMatch = -1
-	r.LastMatch = -1
+func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offset int, req *filters.FlowSetRequirement) FlowRequirementResults {
+	r := FlowRequirementResults{
+		Matched:    MatchMap{},
+		FirstMatch: -1,
+		LastMatch:  -1,
+	}
 
-	// Skip 'offset' flows
+	// Skip 'offset' amount of flows.
 	flows = flows[offset:]
 	flowCtx := filters.NewFlowContext()
 
@@ -287,7 +326,7 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 	if !matched {
 		r.NeedMoreFlows = true
 		// No point trying to match more if First does not match.
-		return
+		return r
 	}
 
 	r.FirstMatch = offset + index
@@ -309,7 +348,7 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 		match(false, f, &flowCtx)
 	}
 
-	return
+	return r
 }
 
 func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSetRequirement) {
@@ -510,197 +549,221 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 	return []filters.FlowSetRequirement{ingress}
 }
 
-var errNeedMoreFlows = errors.New("Required flows not found yet")
+// waitForRelay polls the server status from Relay until either it's connected to all the Hubble
+// instances (success) or the context is cancelled (failure).
+func (a *Action) waitForRelay(ctx context.Context, client observer.ObserverClient) error {
+	for {
+		res, err := client.ServerStatus(ctx, &observer.ServerStatusRequest{})
+		if err == nil && (res.NumUnavailableNodes == nil || res.NumUnavailableNodes.Value == 0) {
+			// This means all the nodes are available.
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("hubble server status failure: %w", ctx.Err())
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// followFlows starts a long-poll against Hubble for receiving all flow logs
+// pertaining to the Action's Pod until ctx is canceled.
+// Signals on the ready channel when the listener is ready to report traffic.
+// Returns error if any Hubble nodes return errors or are unavailable, or if
+// anything unexpected occurs during the follow operation.
+func (a *Action) followFlows(ctx context.Context, ready chan bool) error {
+	// Need a Hubble client to receive flows.
+	hubbleClient := a.test.ctx.HubbleClient()
+	if hubbleClient == nil {
+		// This function is supposed to be called only if Hubble is enabled. Return an error
+		// if Hubble client is not initialized.
+		return fmt.Errorf("hubble client is not initialized")
+	}
+	// A sanity check to ensure Relay is connected to all the Hubble instances.
+	if err := a.waitForRelay(ctx, hubbleClient); err != nil {
+		return err
+	}
+
+	// All tests are initiated from the source Pod, so filtering traffic
+	// originating from and destined to the Pod should capture what we need.
+	pod := a.Source()
+	filter := []*flow.FlowFilter{
+		{SourcePod: []string{pod.Name()}},
+		{DestinationPod: []string{pod.Name()}},
+	}
+
+	// Initiate long-poll against Hubble Relay.
+	b, err := hubbleClient.GetFlows(ctx, &observer.GetFlowsRequest{
+		Whitelist: filter,
+		Follow:    true,
+	})
+	if err != nil {
+		return fmt.Errorf("initiating follow request: %w", err)
+	}
+
+	// Only send readiness signal once.
+	var once sync.Once
+
+	for {
+		// Blocks, interruptable by context cancelation.
+		res, err := b.Recv()
+		if err != nil {
+			// Any of the following errors are expected and signal the end
+			// of the read loop.
+			if errors.Is(err, io.EOF) ||
+				errors.Is(err, context.Canceled) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				return nil
+			}
+
+			// Return gracefully on 'canceled' gRPC error.
+			if status.Code(err) == codes.Canceled {
+				return nil
+			}
+
+			return fmt.Errorf("gRPC error: %w", err)
+		}
+
+		switch r := res.GetResponseTypes().(type) {
+
+		case *observer.GetFlowsResponse_NodeStatus:
+			// Handle NodeStatus messages generated by Hubble peers, containing
+			// individual node readiness, unavailability, invalid filters etc.
+
+			switch r.NodeStatus.StateChange {
+			case relay.NodeState_NODE_CONNECTED:
+				// Received first connection event from a Hubble peer, tentatively
+				// notify the caller that traffic can be generated.
+				a.Debugf("Connected to Hubble node(s) %s", r.NodeStatus.NodeNames)
+				once.Do(func() { ready <- true })
+
+			case relay.NodeState_NODE_UNAVAILABLE:
+				// An unavailable node will result in the event log being incomplete,
+				// so the test needs to be aborted.
+				return fmt.Errorf("unavailable node(s) %s, flow results will be incomplete", r.NodeStatus.NodeNames)
+
+			case relay.NodeState_NODE_ERROR:
+				// When an invalid filter is specified, a node error will be published
+				// by at least one Hubble node.
+				return fmt.Errorf("node error: %s", r.NodeStatus.Message)
+			}
+
+		case *observer.GetFlowsResponse_Flow:
+			// Store any flows we receive in the Action to be sent off
+			// to the flow matcher later.
+
+			a.flowsMu.Lock()
+			a.flows = append(a.flows, r)
+			a.flowsMu.Unlock()
+
+		default:
+			// Abort on any unknown message types.
+			return fmt.Errorf("received unknown message: %q", r)
+
+		}
+	}
+}
+
+// matchAllFlowRequirements takes a list of flow requirements and matches each
+// of them against the flows logged against the Action up to this point.
+// Returns the merged verdict of all matcher operations using all requirements.
+func (a *Action) matchAllFlowRequirements(ctx context.Context, reqs []filters.FlowSetRequirement) FlowRequirementResults {
+	//TODO(timo): Reduce complexity of matcher output to make the surrounding logic
+	// easier to comprehend and modify. Different properties of the verdict should
+	// be exposed as methods, otherwise subtle bugs slip into the surrounding code
+	// due to the combinations of failures/firstmatch/needmoreflows, etc.
+	// The logic needs some cleanup in general and is in dire need of tests.
+
+	out := FlowRequirementResults{
+		FirstMatch:    -1,
+		LastMatch:     -1,
+		NeedMoreFlows: false,
+	}
+
+	if len(reqs) == 0 {
+		return out
+	}
+
+	if len(a.flows) == 0 {
+		out.NeedMoreFlows = true
+		return out
+	}
+
+	a.flowsMu.Lock()
+	defer a.flowsMu.Unlock()
+
+	for _, req := range reqs {
+		res := a.matchFlowRequirements(ctx, a.flows, 0, &req)
+		if res.NeedMoreFlows || res.FirstMatch == -1 {
+			break
+		}
+
+		//TODO(timo): The matcher should probably take in all requirements
+		// and return its verdict in a single struct.
+		out.Merge(&res)
+	}
+
+	return out
+}
 
 // ValidateFlows retrieves the flow pods of the specified pod and validates
 // that all filters find a match. On failure, t.Fail() is called.
-func (a *Action) ValidateFlows(ctx context.Context, pod, podIP string, reqs []filters.FlowSetRequirement) {
+func (a *Action) ValidateFlows(ctx context.Context, peer TestPeer, reqs []filters.FlowSetRequirement) {
+	//TODO(timo): Create a single source of truth for checking whether we
+	// need to perform flow validation or not.
 	if a.test.ctx.params.FlowValidation == FlowValidationModeDisabled {
-		a.Logf("📄 Skipping flow validation for pod %s", pod)
 		return
 	}
 
-	oldFailed := a.failed
-	oldTestFailed := a.test.failed
-
-	err := a.validateFlows(ctx, pod, podIP, reqs)
-	if err != nil {
-		// Do not fail test due to inability to get flows from Hubble
-		a.failed = oldFailed
-		a.test.failed = oldTestFailed
-		a.Warnf("Cannot get flows for %s: %s", pod, err.Error())
-	}
-}
-
-// ValidateFlows retrieves the flow pods of the specified pod and validates
-// that all filters find a match. On failure, t.Fail() is called.
-// An error is returned if flow validation cannot be performed.
-func (a *Action) validateFlows(ctx context.Context, pod, podIP string, reqs []filters.FlowSetRequirement) error {
 	hubbleClient := a.test.ctx.HubbleClient()
 	if hubbleClient == nil {
-		return nil
+		return
 	}
-	a.Logf("📄 Matching flows for pod %s", pod)
-	retriesOnEmpty := 2
 
-retryOnEmpty:
-	w := utils.NewWaitObserver(ctx, utils.WaitParameters{
-		Timeout:         defaults.FlowWaitTimeout,
-		RetryInterval:   defaults.FlowRetryInterval,
-		WarningInterval: defaults.FlowWaitTimeout / 2, // warn at least once during wait timeout
-		Log: func(err error, wait string) {
-			a.test.Logf("⌛ Waiting (%s) for flows: %s", wait, err)
-		}})
-	defer w.Cancel()
-
-retry:
-	since := a.flows[pod].lastTime()
-	if since.IsZero() {
-		since = a.started
+	// There can be am empty list of flow requirements for some tests, in which
+	// case we should not perform validation.
+	if len(reqs) == 0 {
+		a.Debugf("No flow requirements to validate for peer %s", peer.Name())
+		return
 	}
-	flows, err := a.getFlows(ctx, hubbleClient, since, pod, podIP)
-	if err != nil || len(flows) == 0 {
-		if err == nil {
-			err = fmt.Errorf("no flows returned")
-		}
-		if err := w.Retry(err); err != nil {
-			if len(flows) == 0 {
-				retriesOnEmpty--
-				if retriesOnEmpty > 0 {
-					a.Infof("Retrying hubble flow retrieval on pod %q: %s", pod, err)
-					goto retryOnEmpty
-				}
+
+	a.Logf("📄 Validating flows for peer %s", peer.Name())
+
+	var res FlowRequirementResults
+
+	interval := time.NewTicker(defaults.FlowRetryInterval)
+	defer interval.Stop()
+
+	ctx, cancel := context.WithTimeout(ctx, defaults.FlowWaitTimeout)
+	defer cancel()
+
+r:
+	for {
+		select {
+		// Attempt to validate all flows received during the Action so far,
+		// once per validation interval.
+		case <-interval.C:
+			a.Debugf("Validating %d flows against %d requirements", len(a.flows), len(reqs))
+
+			res = a.matchAllFlowRequirements(ctx, reqs)
+			if !res.NeedMoreFlows && res.FirstMatch != -1 {
+				// TODO(timo): This success condition should be a method on FlowRequirementResults.
+				break r
 			}
-			a.Failf("Unable to retrieve flows of pod %q: %s", pod, err)
-			return err
+		case <-ctx.Done():
+			a.Fail("Aborting flow matching:", ctx.Err())
+			break r
 		}
-		goto retry
 	}
 
-	// append flows for the pod
-	flows = a.flows[pod].append(flows)
-	a.flows[pod] = flows
+	// Store the validation result for the given peer.
+	a.flowResults[peer] = res
 
-	res := FlowRequirementResults{FirstMatch: -1, LastMatch: -1}
-	resFail := FlowRequirementResults{FirstMatch: -1, LastMatch: -1}
-	for i, req := range reqs {
-		offset := 0
-		var r FlowRequirementResults
-		for offset < len(flows) {
-			r = a.matchFlowRequirements(ctx, flows, offset, pod, &req)
-			if r.Failures > 0 {
-				resFail.Merge(&r)
-			}
-			// Check if successfully fully matched or no match for the first flow
-			if (!r.NeedMoreFlows && r.Failures == 0) || r.FirstMatch == -1 {
-				break
-			}
-			// Try if some other flow instance would find both first and last required flows
-			offset = r.FirstMatch + 1
-		}
-		if r.NeedMoreFlows {
-			// Retry until timeout. On timeout, print the flows and
-			// consider it a failure
-			if err := w.Retry(errNeedMoreFlows); err == nil {
-				goto retry
-			}
-		}
-		// Merge results
-		if r.Failures > 0 {
-			// on Failure merge all tries to see what flows matched
-			res.Merge(&resFail)
-		} else {
-			// on Success only merge the successfully matched filters
-			res.Merge(&r)
-		}
-		a.Debugf("Merged flow validation results #%d: %v", i, res)
-	}
-	a.flowResults[pod] = res
-
-	if !res.LastMatchTimestamp.IsZero() {
-		a.test.ctx.StoreLastTimestamp(pod, res.LastMatchTimestamp)
-	}
-
-	if res.Failures == 0 {
-		a.Logf("✅ Flow validation successful for pod %s (first: %d, last: %d, matched: %d)", pod, res.FirstMatch, res.LastMatch, len(res.Matched))
+	if res.Failures == 0 && res.FirstMatch >= 0 {
+		a.Logf("✅ Flow validation successful for peer %s (first: %d, last: %d, matched: %d)", peer.Name(), res.FirstMatch, res.LastMatch, len(res.Matched))
 	} else {
-		a.Failf("Flow validation failed for pod %s: %d failures (first: %d, last: %d, matched: %d)", pod, res.Failures, res.FirstMatch, res.LastMatch, len(res.Matched))
-	}
-
-	if res.Failures > 0 {
-		a.failed = true
+		a.Failf("Flow validation failed for peer %s: %d failures (first: %d, last: %d, matched: %d)", peer.Name(), res.Failures, res.FirstMatch, res.LastMatch, len(res.Matched))
 	}
 
 	a.Log()
-	return nil
-}
-
-func (a *Action) getFlows(ctx context.Context, hubbleClient observer.ObserverClient, since time.Time, pod, podIP string) (flowsSet, error) {
-	var set flowsSet
-
-	if hubbleClient == nil {
-		return set, nil
-	}
-
-	sinceTimestamp, err := ptypes.TimestampProto(since)
-	if err != nil {
-		return nil, fmt.Errorf("invalid since value %s: %s", since, err)
-	}
-
-	lastFlowTimestamp := a.test.ctx.LoadLastTimestamp(pod)
-	if !lastFlowTimestamp.IsZero() && lastFlowTimestamp.After(since) {
-		a.test.Logf("Using last flow timestamp: %s", lastFlowTimestamp)
-		sinceTimestamp, err = ptypes.TimestampProto(lastFlowTimestamp)
-		if err != nil {
-			return nil, fmt.Errorf("invalid since value %s: %s", since, err)
-		}
-	}
-
-	// The filter is liberal, it includes any flow that:
-	// - source or destination IP matches pod IP
-	// - source or destination pod name matches pod name
-	filter := []*flow.FlowFilter{
-		{SourceIp: []string{podIP}},
-		{SourcePod: []string{pod}},
-		{DestinationIp: []string{podIP}},
-		{DestinationPod: []string{pod}},
-	}
-
-	request := &observer.GetFlowsRequest{
-		Whitelist: filter,
-		Since:     sinceTimestamp,
-	}
-
-	b, err := hubbleClient.GetFlows(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		res, err := b.Recv()
-		switch err {
-		case io.EOF, context.Canceled, context.DeadlineExceeded:
-			return set, nil
-		case nil:
-		default:
-			if status.Code(err) == codes.Canceled {
-				return set, nil
-			}
-			return nil, err
-		}
-
-		switch responseType := res.GetResponseTypes().(type) {
-		case *observer.GetFlowsResponse_NodeStatus:
-			switch responseType.NodeStatus.GetStateChange() {
-			case relay.NodeState_NODE_ERROR:
-				return nil, fmt.Errorf("Hubble node error: %q on nodes %s", responseType.NodeStatus.Message, responseType.NodeStatus.GetNodeNames())
-			case relay.NodeState_NODE_UNAVAILABLE:
-				return nil, fmt.Errorf("Hubble nodes unavailable: %s", responseType.NodeStatus.GetNodeNames())
-			case relay.NodeState_NODE_CONNECTED:
-				a.Debugf("Connected hubble nodes: %s", responseType.NodeStatus.GetNodeNames())
-			}
-		case *observer.GetFlowsResponse_Flow:
-			set = append(set, res)
-		}
-	}
 }

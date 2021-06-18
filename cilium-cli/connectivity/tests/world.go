@@ -54,11 +54,10 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		t.NewAction(s, "https-to-google", client, ghttps).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, cmd)
 
-			egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 				DNSRequired: true,
 				RSTAllowed:  true,
-			})
-			a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+			}))
 		})
 	}
 
@@ -69,11 +68,10 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		t.NewAction(s, "http-to-google", client, ghttp).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, cmd)
 
-			egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 				DNSRequired: true,
 				RSTAllowed:  true,
-			})
-			a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+			}))
 		})
 	}
 
@@ -84,11 +82,10 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		t.NewAction(s, "http-to-www-google", client, wwwghttp).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, cmd)
 
-			egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 				DNSRequired: true,
 				RSTAllowed:  true,
-			})
-			a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
+			}))
 		})
 	}
 }

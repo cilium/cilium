@@ -52,13 +52,8 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, curl(echo))
 
-				egressFlowRequirements := a.GetEgressRequirements(check.FlowParameters{})
-				a.ValidateFlows(ctx, client.Name(), client.Pod.Status.PodIP, egressFlowRequirements)
-
-				ingressFlowRequirements := a.GetIngressRequirements(check.FlowParameters{})
-				if ingressFlowRequirements != nil {
-					a.ValidateFlows(ctx, echo.Name(), echo.Pod.Status.PodIP, ingressFlowRequirements)
-				}
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
+				a.ValidateFlows(ctx, echo, a.GetIngressRequirements(check.FlowParameters{}))
 			})
 
 			i++
