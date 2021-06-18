@@ -14,7 +14,7 @@ cilium hubble port-forward&
 sleep 10s
 
 # Run connectivity test
-cilium connectivity test --test '!/pod-to-local-nodeport' --all-flows
+cilium connectivity test --all-flows
 
 # Retrieve Cilium  status
 cilium status
