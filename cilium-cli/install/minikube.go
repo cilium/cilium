@@ -33,7 +33,7 @@ func (m *minikubeVersionValidation) Name() string {
 }
 
 func (m *minikubeVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
-	bytes, err := k.Exec("minkube", "version")
+	bytes, err := k.Exec("minikube", "version")
 	if err != nil {
 		return err
 	}
