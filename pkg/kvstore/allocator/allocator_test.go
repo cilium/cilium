@@ -19,6 +19,7 @@ package allocator
 import (
 	"context"
 	"fmt"
+	"math"
 	"path"
 	"testing"
 	"time"
@@ -200,21 +201,26 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	}
 
 	var (
-		oldestRev     uint64
+		oldestRev     = uint64(math.MaxUint64)
 		oldestLeaseID int64
+		oldestKey     string
 		sessionID     string
 	)
 	// Stale locks contains 2 locks, which is expected but we only want to GC
 	// the oldest one so we can unlock all the remaining clients waiting to hold
 	// the lock.
-	for _, v := range staleLocks {
+	for k, v := range staleLocks {
 		if v.ModRevision < oldestRev {
+			oldestKey = k
 			oldestRev = v.ModRevision
 			oldestLeaseID = v.LeaseID
 			sessionID = v.SessionID
 		}
 	}
-	staleLocks[allocatorName+"/locks/"+shortKey.GetKey()] = kvstore.Value{
+
+	// store the oldest key in the map so that it can be GCed.
+	staleLocks = map[string]kvstore.Value{}
+	staleLocks[oldestKey] = kvstore.Value{
 		ModRevision: oldestRev,
 		LeaseID:     oldestLeaseID,
 		SessionID:   sessionID,
@@ -223,7 +229,17 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	// GC lock1 because it's the oldest lock being held.
 	staleLocks, err = allocator.RunLocksGC(context.Background(), staleLocks)
 	c.Assert(err, IsNil)
-	c.Assert(len(staleLocks), Equals, 0)
+	switch s.backend {
+	case "consul":
+		// Contrary to etcd, consul does not create a lock in the kvstore
+		// if a lock is already being held. So we have GCed the only lock
+		// available.
+		c.Assert(len(staleLocks), Equals, 0)
+	case "etcd":
+		// There are 2 clients trying to get the lock, we have GC one of them
+		// so that is way we have 1 staleLock in the map.
+		c.Assert(len(staleLocks), Equals, 1)
+	}
 
 	// Wait until lock2 is gotten as it should have happen since we have
 	// GC lock1.
