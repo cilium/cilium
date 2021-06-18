@@ -55,6 +55,20 @@ jobs:
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
+      - name: Create GCP VM
+        run: |
+          gcloud compute instances create ${{ env.vmName }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
+            --zone ${{ env.zone }} \
+            --machine-type e2-custom-2-4096 \
+            --boot-disk-type pd-standard \
+            --boot-disk-size 10GB \
+            --preemptible \
+            --image-project ubuntu-os-cloud \
+            --image-family ubuntu-2010 \
+            --metadata hostname=${{ env.vmName }} \
+            --metadata-from-file startup-script=${{ env.vmStartupScript}}
+
       - name: Create GKE cluster
         id: cluster
         run: |
@@ -73,20 +87,6 @@ jobs:
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ env.zone }}
-
-      - name: Create GCP VM
-        run: |
-          gcloud compute instances create ${{ env.vmName }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --zone ${{ env.zone }} \
-            --machine-type e2-custom-2-4096 \
-            --boot-disk-type pd-standard \
-            --boot-disk-size 10GB \
-            --preemptible \
-            --image-project ubuntu-os-cloud \
-            --image-family ubuntu-2010 \
-            --metadata hostname=${{ env.vmName }} \
-            --metadata-from-file startup-script=${{ env.vmStartupScript}}
 
       - name: Create gcloud-free kubeconfig and load it in configmap
         run: |
