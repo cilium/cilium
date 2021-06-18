@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
@@ -67,6 +68,8 @@ func newCmdHubbleEnable() *cobra.Command {
 	cmd.Flags().BoolVar(&params.UI, "ui", false, "Enable Hubble UI")
 	cmd.Flags().BoolVar(&params.CreateCA, "create-ca", false, "Automatically create CA if needed")
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+	cmd.Flags().DurationVar(&params.CiliumReadyTimeout, "cilium-ready-timeout", 5*time.Minute,
+		"Timeout for Cilium to become ready before deploying Hubble components")
 
 	return cmd
 }
