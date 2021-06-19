@@ -34,13 +34,15 @@ func init() {
 }
 
 func signRoaRequest(request requests.AcsRequest, signer Signer, regionId string) (err error) {
-	completeROASignParams(request, signer, regionId)
-	stringToSign := buildRoaStringToSign(request)
-	request.SetStringToSign(stringToSign)
+	// 先获取 accesskey，确保刷新 credential
 	accessKeyId, err := signer.GetAccessKeyId()
 	if err != nil {
 		return err
 	}
+
+	completeROASignParams(request, signer, regionId)
+	stringToSign := buildRoaStringToSign(request)
+	request.SetStringToSign(stringToSign)
 
 	signature := signer.Sign(stringToSign, "")
 	request.GetHeaders()["Authorization"] = "acs " + accessKeyId + ":" + signature

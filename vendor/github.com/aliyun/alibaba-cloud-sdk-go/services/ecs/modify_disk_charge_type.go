@@ -85,8 +85,8 @@ type ModifyDiskChargeTypeRequest struct {
 // ModifyDiskChargeTypeResponse is the response struct for api ModifyDiskChargeType
 type ModifyDiskChargeTypeResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	OrderId   string `json:"OrderId" xml:"OrderId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateModifyDiskChargeTypeRequest creates a request to invoke ModifyDiskChargeType API

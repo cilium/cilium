@@ -17,25 +17,25 @@ package ecs
 
 // NetworkInterfaceSet is a nested struct in ecs response
 type NetworkInterfaceSet struct {
-	NetworkInterfaceId          string                                      `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
-	Status                      string                                      `json:"Status" xml:"Status"`
-	Type                        string                                      `json:"Type" xml:"Type"`
+	CreationTime                string                                      `json:"CreationTime" xml:"CreationTime"`
 	VpcId                       string                                      `json:"VpcId" xml:"VpcId"`
+	Type                        string                                      `json:"Type" xml:"Type"`
+	Status                      string                                      `json:"Status" xml:"Status"`
+	NetworkInterfaceTrafficMode string                                      `json:"NetworkInterfaceTrafficMode" xml:"NetworkInterfaceTrafficMode"`
+	NetworkInterfaceName        string                                      `json:"NetworkInterfaceName" xml:"NetworkInterfaceName"`
+	MacAddress                  string                                      `json:"MacAddress" xml:"MacAddress"`
+	QueuePairNumber             int                                         `json:"QueuePairNumber" xml:"QueuePairNumber"`
+	NetworkInterfaceId          string                                      `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
+	ServiceID                   int64                                       `json:"ServiceID" xml:"ServiceID"`
+	InstanceId                  string                                      `json:"InstanceId" xml:"InstanceId"`
+	OwnerId                     string                                      `json:"OwnerId" xml:"OwnerId"`
+	ServiceManaged              bool                                        `json:"ServiceManaged" xml:"ServiceManaged"`
 	VSwitchId                   string                                      `json:"VSwitchId" xml:"VSwitchId"`
+	Description                 string                                      `json:"Description" xml:"Description"`
+	ResourceGroupId             string                                      `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	ZoneId                      string                                      `json:"ZoneId" xml:"ZoneId"`
 	PrivateIpAddress            string                                      `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
-	MacAddress                  string                                      `json:"MacAddress" xml:"MacAddress"`
-	NetworkInterfaceName        string                                      `json:"NetworkInterfaceName" xml:"NetworkInterfaceName"`
-	Description                 string                                      `json:"Description" xml:"Description"`
-	InstanceId                  string                                      `json:"InstanceId" xml:"InstanceId"`
-	CreationTime                string                                      `json:"CreationTime" xml:"CreationTime"`
-	ResourceGroupId             string                                      `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	ServiceID                   int64                                       `json:"ServiceID" xml:"ServiceID"`
-	ServiceManaged              bool                                        `json:"ServiceManaged" xml:"ServiceManaged"`
 	QueueNumber                 int                                         `json:"QueueNumber" xml:"QueueNumber"`
-	OwnerId                     string                                      `json:"OwnerId" xml:"OwnerId"`
-	NetworkInterfaceTrafficMode string                                      `json:"NetworkInterfaceTrafficMode" xml:"NetworkInterfaceTrafficMode"`
-	QueuePairNumber             int                                         `json:"QueuePairNumber" xml:"QueuePairNumber"`
 	SecurityGroupIds            SecurityGroupIdsInDescribeNetworkInterfaces `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	AssociatedPublicIp          AssociatedPublicIp                          `json:"AssociatedPublicIp" xml:"AssociatedPublicIp"`
 	Attachment                  Attachment                                  `json:"Attachment" xml:"Attachment"`

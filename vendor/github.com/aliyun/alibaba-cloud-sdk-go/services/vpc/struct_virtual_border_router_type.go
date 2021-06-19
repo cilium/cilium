@@ -47,6 +47,7 @@ type VirtualBorderRouterType struct {
 	PeerIpv6GatewayIp                string                                       `json:"PeerIpv6GatewayIp" xml:"PeerIpv6GatewayIp"`
 	PeeringIpv6SubnetMask            string                                       `json:"PeeringIpv6SubnetMask" xml:"PeeringIpv6SubnetMask"`
 	EnableIpv6                       bool                                         `json:"EnableIpv6" xml:"EnableIpv6"`
+	CloudBoxInstanceId               string                                       `json:"CloudBoxInstanceId" xml:"CloudBoxInstanceId"`
 	AssociatedPhysicalConnections    AssociatedPhysicalConnections                `json:"AssociatedPhysicalConnections" xml:"AssociatedPhysicalConnections"`
 	AssociatedCens                   AssociatedCensInDescribeVirtualBorderRouters `json:"AssociatedCens" xml:"AssociatedCens"`
 }

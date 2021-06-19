@@ -77,6 +77,7 @@ type DescribeInvocationsRequest struct {
 	CommandId            string           `position:"Query" name:"CommandId"`
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
 	ContentEncoding      string           `position:"Query" name:"ContentEncoding"`
+	RepeatMode           string           `position:"Query" name:"RepeatMode"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
 	InvokeId             string           `position:"Query" name:"InvokeId"`
 	Timed                requests.Boolean `position:"Query" name:"Timed"`
@@ -91,10 +92,10 @@ type DescribeInvocationsRequest struct {
 // DescribeInvocationsResponse is the response struct for api DescribeInvocations
 type DescribeInvocationsResponse struct {
 	*responses.BaseResponse
-	RequestId   string                           `json:"RequestId" xml:"RequestId"`
-	TotalCount  int64                            `json:"TotalCount" xml:"TotalCount"`
-	PageNumber  int64                            `json:"PageNumber" xml:"PageNumber"`
 	PageSize    int64                            `json:"PageSize" xml:"PageSize"`
+	RequestId   string                           `json:"RequestId" xml:"RequestId"`
+	PageNumber  int64                            `json:"PageNumber" xml:"PageNumber"`
+	TotalCount  int64                            `json:"TotalCount" xml:"TotalCount"`
 	Invocations InvocationsInDescribeInvocations `json:"Invocations" xml:"Invocations"`
 }
 
