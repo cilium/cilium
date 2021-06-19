@@ -147,7 +147,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()
 		port := models.PortProtocolANY
-		if stat.Key.DestPort != 0 {
+		if stat.Key.DestPort != 0 || stat.Key.Nexthdr == uint8(u8proto.ICMP) || stat.Key.Nexthdr == uint8(u8proto.ICMPv6) {
 			dport := byteorder.NetworkToHost16(stat.Key.DestPort)
 			proto := u8proto.U8proto(stat.Key.Nexthdr)
 			port = fmt.Sprintf("%d/%s", dport, proto.String())
