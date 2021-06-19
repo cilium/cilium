@@ -999,6 +999,7 @@ type k8sInstallerImplementation interface {
 	ContextName() (name string)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
+	CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error
 }
 
 type K8sInstaller struct {
@@ -1051,6 +1052,10 @@ type Parameters struct {
 	NodeEncryption       bool
 	ConfigOverwrites     []string
 	configOverwrites     map[string]string
+
+	// CiliumReadyTimeout defines the wait timeout for Cilium to become ready
+	// after installing.
+	CiliumReadyTimeout time.Duration
 }
 
 type rollbackStep func(context.Context)
@@ -1669,6 +1674,14 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 
 	if k.params.RestartUnmanagedPods {
+		// We need to make sure that Cilium DaemonSet is up and running to
+		// guarantee the CNI configuration and binary are deployed on the node.
+		// See https://github.com/cilium/cilium/issues/14128 to understand why
+		// it is important.
+		k.Log("⌛ Waiting for Cilium to become ready before restarting unmanaged pods...")
+		if err := k.WaitForDaemonset(ctx, defaults.AgentDaemonSetName); err != nil {
+			return err
+		}
 		if err := k.restartUnmanagedPods(ctx); err != nil {
 			return err
 		}
@@ -1689,4 +1702,17 @@ func (k *K8sInstaller) RollbackInstallation(ctx context.Context) {
 	for _, r := range k.rollbackSteps {
 		r(ctx)
 	}
+}
+
+func (k *K8sInstaller) WaitForDaemonset(ctx context.Context, daemonset string) error {
+	ctx, cancel := context.WithTimeout(ctx, k.params.CiliumReadyTimeout)
+	defer cancel()
+	for k.client.CheckDaemonSetStatus(ctx, k.params.Namespace, daemonset) != nil {
+		select {
+		case <-time.After(time.Second):
+		case <-ctx.Done():
+			return fmt.Errorf("interrupted while waiting for daemonset %s to become ready: %w", daemonset, ctx.Err())
+		}
+	}
+	return nil
 }
