@@ -2328,6 +2328,8 @@ definitions:
         enum:
           - TCP
           - UDP
+          - ICMP
+          - ICMPV6
           - ANY
       port:
         description: Layer 4 port number

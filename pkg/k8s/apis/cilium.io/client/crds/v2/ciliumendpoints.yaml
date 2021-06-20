@@ -227,7 +227,7 @@ spec:
                       description: Layer 4 port number
                       type: integer
                     protocol:
-                      description: 'Layer 4 protocol Enum: [TCP UDP ANY]'
+                      description: 'Layer 4 protocol Enum: [TCP UDP ICMP ICMPV6 ANY]'
                       type: string
                   type: object
                 type: array
