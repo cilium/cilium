@@ -107,8 +107,8 @@ type RunInstancesRequest struct {
 	SchedulerOptionsDedicatedHostClusterId string                          `position:"Query" name:"SchedulerOptions.DedicatedHostClusterId"`
 	SystemDiskDiskName                     string                          `position:"Query" name:"SystemDisk.DiskName"`
 	DedicatedHostId                        string                          `position:"Query" name:"DedicatedHostId"`
-	SecurityGroupIds                       *[]string                       `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
 	SpotDuration                           requests.Integer                `position:"Query" name:"SpotDuration"`
+	SecurityGroupIds                       *[]string                       `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
 	SystemDiskSize                         string                          `position:"Query" name:"SystemDisk.Size"`
 	ImageFamily                            string                          `position:"Query" name:"ImageFamily"`
 	LaunchTemplateName                     string                          `position:"Query" name:"LaunchTemplateName"`
@@ -140,17 +140,17 @@ type RunInstancesRequest struct {
 	UserData                               string                          `position:"Query" name:"UserData"`
 	HttpEndpoint                           string                          `position:"Query" name:"HttpEndpoint"`
 	InstanceChargeType                     string                          `position:"Query" name:"InstanceChargeType"`
-	NetworkInterface                       *[]RunInstancesNetworkInterface `position:"Query" name:"NetworkInterface"  type:"Repeated"`
 	DeploymentSetId                        string                          `position:"Query" name:"DeploymentSetId"`
+	NetworkInterface                       *[]RunInstancesNetworkInterface `position:"Query" name:"NetworkInterface"  type:"Repeated"`
 	Amount                                 requests.Integer                `position:"Query" name:"Amount"`
 	OwnerAccount                           string                          `position:"Query" name:"OwnerAccount"`
 	Tenancy                                string                          `position:"Query" name:"Tenancy"`
 	RamRoleName                            string                          `position:"Query" name:"RamRoleName"`
 	AutoReleaseTime                        string                          `position:"Query" name:"AutoReleaseTime"`
 	CreditSpecification                    string                          `position:"Query" name:"CreditSpecification"`
-	DataDisk                               *[]RunInstancesDataDisk         `position:"Query" name:"DataDisk"  type:"Repeated"`
 	LaunchTemplateVersion                  requests.Integer                `position:"Query" name:"LaunchTemplateVersion"`
 	SchedulerOptionsManagedPrivateSpaceId  string                          `position:"Query" name:"SchedulerOptions.ManagedPrivateSpaceId"`
+	DataDisk                               *[]RunInstancesDataDisk         `position:"Query" name:"DataDisk"  type:"Repeated"`
 	StorageSetId                           string                          `position:"Query" name:"StorageSetId"`
 	HttpTokens                             string                          `position:"Query" name:"HttpTokens"`
 	SystemDiskDescription                  string                          `position:"Query" name:"SystemDisk.Description"`
@@ -158,9 +158,9 @@ type RunInstancesRequest struct {
 
 // RunInstancesArn is a repeated param struct in RunInstancesRequest
 type RunInstancesArn struct {
-	AssumeRoleFor string `name:"AssumeRoleFor"`
-	Rolearn       string `name:"Rolearn"`
 	RoleType      string `name:"RoleType"`
+	Rolearn       string `name:"Rolearn"`
+	AssumeRoleFor string `name:"AssumeRoleFor"`
 }
 
 // RunInstancesTag is a repeated param struct in RunInstancesRequest
@@ -171,37 +171,37 @@ type RunInstancesTag struct {
 
 // RunInstancesNetworkInterface is a repeated param struct in RunInstancesRequest
 type RunInstancesNetworkInterface struct {
-	PrimaryIpAddress     string    `name:"PrimaryIpAddress"`
 	VSwitchId            string    `name:"VSwitchId"`
-	SecurityGroupId      string    `name:"SecurityGroupId"`
-	SecurityGroupIds     *[]string `name:"SecurityGroupIds" type:"Repeated"`
 	NetworkInterfaceName string    `name:"NetworkInterfaceName"`
 	Description          string    `name:"Description"`
+	SecurityGroupId      string    `name:"SecurityGroupId"`
+	PrimaryIpAddress     string    `name:"PrimaryIpAddress"`
 	QueueNumber          string    `name:"QueueNumber"`
+	SecurityGroupIds     *[]string `name:"SecurityGroupIds" type:"Repeated"`
 }
 
 // RunInstancesDataDisk is a repeated param struct in RunInstancesRequest
 type RunInstancesDataDisk struct {
-	Size                 string `name:"Size"`
-	SnapshotId           string `name:"SnapshotId"`
-	Category             string `name:"Category"`
-	Encrypted            string `name:"Encrypted"`
-	KMSKeyId             string `name:"KMSKeyId"`
-	DiskName             string `name:"DiskName"`
-	Description          string `name:"Description"`
-	Device               string `name:"Device"`
-	DeleteWithInstance   string `name:"DeleteWithInstance"`
 	PerformanceLevel     string `name:"PerformanceLevel"`
 	AutoSnapshotPolicyId string `name:"AutoSnapshotPolicyId"`
+	Encrypted            string `name:"Encrypted"`
+	Description          string `name:"Description"`
+	SnapshotId           string `name:"SnapshotId"`
+	Device               string `name:"Device"`
+	Size                 string `name:"Size"`
+	DiskName             string `name:"DiskName"`
+	Category             string `name:"Category"`
 	EncryptAlgorithm     string `name:"EncryptAlgorithm"`
+	DeleteWithInstance   string `name:"DeleteWithInstance"`
+	KMSKeyId             string `name:"KMSKeyId"`
 }
 
 // RunInstancesResponse is the response struct for api RunInstances
 type RunInstancesResponse struct {
 	*responses.BaseResponse
 	RequestId      string         `json:"RequestId" xml:"RequestId"`
-	TradePrice     float64        `json:"TradePrice" xml:"TradePrice"`
 	OrderId        string         `json:"OrderId" xml:"OrderId"`
+	TradePrice     float64        `json:"TradePrice" xml:"TradePrice"`
 	InstanceIdSets InstanceIdSets `json:"InstanceIdSets" xml:"InstanceIdSets"`
 }
 

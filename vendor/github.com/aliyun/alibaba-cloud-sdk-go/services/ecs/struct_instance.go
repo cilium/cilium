@@ -43,8 +43,8 @@ type Instance struct {
 	InvocationCount                 int64                                `json:"InvocationCount" xml:"InvocationCount"`
 	StartTime                       string                               `json:"StartTime" xml:"StartTime"`
 	ZoneId                          string                               `json:"ZoneId" xml:"ZoneId"`
-	InternetChargeType              string                               `json:"InternetChargeType" xml:"InternetChargeType"`
 	InternetMaxBandwidthIn          int                                  `json:"InternetMaxBandwidthIn" xml:"InternetMaxBandwidthIn"`
+	InternetChargeType              string                               `json:"InternetChargeType" xml:"InternetChargeType"`
 	HostName                        string                               `json:"HostName" xml:"HostName"`
 	Status                          string                               `json:"Status" xml:"Status"`
 	CPU                             int                                  `json:"CPU" xml:"CPU"`
@@ -85,15 +85,15 @@ type Instance struct {
 	InnerIpAddress                  InnerIpAddressInDescribeInstances    `json:"InnerIpAddress" xml:"InnerIpAddress"`
 	PublicIpAddress                 PublicIpAddressInDescribeInstances   `json:"PublicIpAddress" xml:"PublicIpAddress"`
 	RdmaIpAddress                   RdmaIpAddress                        `json:"RdmaIpAddress" xml:"RdmaIpAddress"`
-	MetadataOptions                 MetadataOptions                      `json:"MetadataOptions" xml:"MetadataOptions"`
 	DedicatedHostAttribute          DedicatedHostAttribute               `json:"DedicatedHostAttribute" xml:"DedicatedHostAttribute"`
-	EipAddress                      EipAddressInDescribeInstances        `json:"EipAddress" xml:"EipAddress"`
-	HibernationOptions              HibernationOptions                   `json:"HibernationOptions" xml:"HibernationOptions"`
-	CpuOptions                      CpuOptions                           `json:"CpuOptions" xml:"CpuOptions"`
 	EcsCapacityReservationAttr      EcsCapacityReservationAttr           `json:"EcsCapacityReservationAttr" xml:"EcsCapacityReservationAttr"`
+	HibernationOptions              HibernationOptions                   `json:"HibernationOptions" xml:"HibernationOptions"`
 	DedicatedInstanceAttribute      DedicatedInstanceAttribute           `json:"DedicatedInstanceAttribute" xml:"DedicatedInstanceAttribute"`
+	EipAddress                      EipAddressInDescribeInstances        `json:"EipAddress" xml:"EipAddress"`
+	MetadataOptions                 MetadataOptions                      `json:"MetadataOptions" xml:"MetadataOptions"`
+	CpuOptions                      CpuOptions                           `json:"CpuOptions" xml:"CpuOptions"`
 	VpcAttributes                   VpcAttributes                        `json:"VpcAttributes" xml:"VpcAttributes"`
-	OperationLocks                  OperationLocksInDescribeInstances    `json:"OperationLocks" xml:"OperationLocks"`
 	Tags                            TagsInDescribeInstances              `json:"Tags" xml:"Tags"`
 	NetworkInterfaces               NetworkInterfacesInDescribeInstances `json:"NetworkInterfaces" xml:"NetworkInterfaces"`
+	OperationLocks                  OperationLocksInDescribeInstances    `json:"OperationLocks" xml:"OperationLocks"`
 }

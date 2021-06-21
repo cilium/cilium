@@ -75,6 +75,7 @@ type ModifyVpcAttributeRequest struct {
 	EnableIPv6           requests.Boolean `position:"Query" name:"EnableIPv6"`
 	Description          string           `position:"Query" name:"Description"`
 	VpcName              string           `position:"Query" name:"VpcName"`
+	Ipv6Isp              string           `position:"Query" name:"Ipv6Isp"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`

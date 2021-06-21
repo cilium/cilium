@@ -75,6 +75,8 @@ type DescribeZonesRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	AcceptLanguage       string           `position:"Query" name:"AcceptLanguage"`
+	ZoneType             string           `position:"Query" name:"ZoneType"`
 }
 
 // DescribeZonesResponse is the response struct for api DescribeZones

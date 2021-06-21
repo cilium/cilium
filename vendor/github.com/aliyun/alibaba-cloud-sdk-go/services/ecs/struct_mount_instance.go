@@ -17,7 +17,7 @@ package ecs
 
 // MountInstance is a nested struct in ecs response
 type MountInstance struct {
+	AttachedTime string `json:"AttachedTime" xml:"AttachedTime"`
 	InstanceId   string `json:"InstanceId" xml:"InstanceId"`
 	Device       string `json:"Device" xml:"Device"`
-	AttachedTime string `json:"AttachedTime" xml:"AttachedTime"`
 }

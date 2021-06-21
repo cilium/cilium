@@ -79,6 +79,7 @@ type ModifyVSwitchAttributeRequest struct {
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	Ipv6CidrBlock        requests.Integer `position:"Query" name:"Ipv6CidrBlock"`
 	VSwitchId            string           `position:"Query" name:"VSwitchId"`
+	VpcIpv6CidrBlock     string           `position:"Query" name:"VpcIpv6CidrBlock"`
 	VSwitchName          string           `position:"Query" name:"VSwitchName"`
 }
 

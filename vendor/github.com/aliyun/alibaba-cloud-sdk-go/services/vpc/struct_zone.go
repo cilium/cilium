@@ -19,4 +19,5 @@ package vpc
 type Zone struct {
 	ZoneId    string `json:"ZoneId" xml:"ZoneId"`
 	LocalName string `json:"LocalName" xml:"LocalName"`
+	ZoneType  string `json:"ZoneType" xml:"ZoneType"`
 }

@@ -17,9 +17,9 @@ package ecs
 
 // EipAddressInDescribeInstances is a nested struct in ecs response
 type EipAddressInDescribeInstances struct {
-	AllocationId         string `json:"AllocationId" xml:"AllocationId"`
+	IsSupportUnassociate bool   `json:"IsSupportUnassociate" xml:"IsSupportUnassociate"`
+	InternetChargeType   string `json:"InternetChargeType" xml:"InternetChargeType"`
 	IpAddress            string `json:"IpAddress" xml:"IpAddress"`
 	Bandwidth            int    `json:"Bandwidth" xml:"Bandwidth"`
-	InternetChargeType   string `json:"InternetChargeType" xml:"InternetChargeType"`
-	IsSupportUnassociate bool   `json:"IsSupportUnassociate" xml:"IsSupportUnassociate"`
+	AllocationId         string `json:"AllocationId" xml:"AllocationId"`
 }

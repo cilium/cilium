@@ -75,6 +75,7 @@ type ModifySecurityGroupEgressRuleRequest struct {
 	ResourceOwnerId       requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	SourcePortRange       string           `position:"Query" name:"SourcePortRange"`
 	ClientToken           string           `position:"Query" name:"ClientToken"`
+	DestPrefixListId      string           `position:"Query" name:"DestPrefixListId"`
 	SecurityGroupId       string           `position:"Query" name:"SecurityGroupId"`
 	Description           string           `position:"Query" name:"Description"`
 	Ipv6DestCidrIp        string           `position:"Query" name:"Ipv6DestCidrIp"`

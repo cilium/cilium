@@ -77,6 +77,7 @@ type CreateVpcRequest struct {
 	Description          string           `position:"Query" name:"Description"`
 	VpcName              string           `position:"Query" name:"VpcName"`
 	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
+	Ipv6Isp              string           `position:"Query" name:"Ipv6Isp"`
 	UserCidr             string           `position:"Query" name:"UserCidr"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`

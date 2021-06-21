@@ -17,15 +17,15 @@ package ecs
 
 // VSwitch is a nested struct in ecs response
 type VSwitch struct {
-	VSwitchId               string `json:"VSwitchId" xml:"VSwitchId"`
-	VpcId                   string `json:"VpcId" xml:"VpcId"`
-	Status                  string `json:"Status" xml:"Status"`
-	CidrBlock               string `json:"CidrBlock" xml:"CidrBlock"`
-	ZoneId                  string `json:"ZoneId" xml:"ZoneId"`
-	AvailableIpAddressCount int64  `json:"AvailableIpAddressCount" xml:"AvailableIpAddressCount"`
-	Description             string `json:"Description" xml:"Description"`
-	VSwitchName             string `json:"VSwitchName" xml:"VSwitchName"`
 	CreationTime            string `json:"CreationTime" xml:"CreationTime"`
+	Status                  string `json:"Status" xml:"Status"`
+	VpcId                   string `json:"VpcId" xml:"VpcId"`
 	IsDefault               bool   `json:"IsDefault" xml:"IsDefault"`
+	VSwitchId               string `json:"VSwitchId" xml:"VSwitchId"`
+	CidrBlock               string `json:"CidrBlock" xml:"CidrBlock"`
+	Description             string `json:"Description" xml:"Description"`
+	AvailableIpAddressCount int64  `json:"AvailableIpAddressCount" xml:"AvailableIpAddressCount"`
 	ResourceGroupId         string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	ZoneId                  string `json:"ZoneId" xml:"ZoneId"`
+	VSwitchName             string `json:"VSwitchName" xml:"VSwitchName"`
 }

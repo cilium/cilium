@@ -72,8 +72,8 @@ func (client *Client) CreateSnapshotGroupWithCallback(request *CreateSnapshotGro
 type CreateSnapshotGroupRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId            requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ExcludeDiskId              *[]string        `position:"Query" name:"ExcludeDiskId"  type:"Repeated"`
 	InstantAccess              requests.Boolean `position:"Query" name:"InstantAccess"`
+	ExcludeDiskId              *[]string        `position:"Query" name:"ExcludeDiskId"  type:"Repeated"`
 	Description                string           `position:"Query" name:"Description"`
 	InstantAccessRetentionDays requests.Integer `position:"Query" name:"InstantAccessRetentionDays"`
 	ResourceOwnerAccount       string           `position:"Query" name:"ResourceOwnerAccount"`
@@ -86,8 +86,8 @@ type CreateSnapshotGroupRequest struct {
 // CreateSnapshotGroupResponse is the response struct for api CreateSnapshotGroup
 type CreateSnapshotGroupResponse struct {
 	*responses.BaseResponse
-	RequestId       string `json:"RequestId" xml:"RequestId"`
 	SnapshotGroupId string `json:"SnapshotGroupId" xml:"SnapshotGroupId"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateSnapshotGroupRequest creates a request to invoke CreateSnapshotGroup API

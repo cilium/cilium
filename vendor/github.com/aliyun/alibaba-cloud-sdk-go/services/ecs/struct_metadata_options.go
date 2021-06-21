@@ -18,6 +18,6 @@ package ecs
 // MetadataOptions is a nested struct in ecs response
 type MetadataOptions struct {
 	HttpEndpoint            string `json:"HttpEndpoint" xml:"HttpEndpoint"`
-	HttpTokens              string `json:"HttpTokens" xml:"HttpTokens"`
 	HttpPutResponseHopLimit int    `json:"HttpPutResponseHopLimit" xml:"HttpPutResponseHopLimit"`
+	HttpTokens              string `json:"HttpTokens" xml:"HttpTokens"`
 }

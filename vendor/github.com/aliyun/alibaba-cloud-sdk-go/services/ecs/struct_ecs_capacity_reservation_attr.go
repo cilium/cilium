@@ -17,6 +17,6 @@ package ecs
 
 // EcsCapacityReservationAttr is a nested struct in ecs response
 type EcsCapacityReservationAttr struct {
-	CapacityReservationId         string `json:"CapacityReservationId" xml:"CapacityReservationId"`
 	CapacityReservationPreference string `json:"CapacityReservationPreference" xml:"CapacityReservationPreference"`
+	CapacityReservationId         string `json:"CapacityReservationId" xml:"CapacityReservationId"`
 }
