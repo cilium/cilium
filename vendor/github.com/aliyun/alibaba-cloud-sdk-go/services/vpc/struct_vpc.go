@@ -41,4 +41,5 @@ type Vpc struct {
 	RouterTableIds         RouterTableIds                    `json:"RouterTableIds" xml:"RouterTableIds"`
 	SecondaryCidrBlocks    SecondaryCidrBlocksInDescribeVpcs `json:"SecondaryCidrBlocks" xml:"SecondaryCidrBlocks"`
 	Tags                   TagsInDescribeVpcs                `json:"Tags" xml:"Tags"`
+	Ipv6CidrBlocks         Ipv6CidrBlocksInDescribeVpcs      `json:"Ipv6CidrBlocks" xml:"Ipv6CidrBlocks"`
 }

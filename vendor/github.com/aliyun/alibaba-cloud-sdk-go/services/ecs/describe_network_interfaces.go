@@ -91,6 +91,7 @@ type DescribeNetworkInterfacesRequest struct {
 	PrimaryIpAddress     string                          `position:"Query" name:"PrimaryIpAddress"`
 	MaxResults           requests.Integer                `position:"Query" name:"MaxResults"`
 	NetworkInterfaceId   *[]string                       `position:"Query" name:"NetworkInterfaceId"  type:"Repeated"`
+	Ipv6Address          *[]string                       `position:"Query" name:"Ipv6Address"  type:"Repeated"`
 	Status               string                          `position:"Query" name:"Status"`
 }
 
@@ -103,11 +104,11 @@ type DescribeNetworkInterfacesTag struct {
 // DescribeNetworkInterfacesResponse is the response struct for api DescribeNetworkInterfaces
 type DescribeNetworkInterfacesResponse struct {
 	*responses.BaseResponse
+	NextToken            string               `json:"NextToken" xml:"NextToken"`
+	PageSize             int                  `json:"PageSize" xml:"PageSize"`
+	PageNumber           int                  `json:"PageNumber" xml:"PageNumber"`
 	RequestId            string               `json:"RequestId" xml:"RequestId"`
 	TotalCount           int                  `json:"TotalCount" xml:"TotalCount"`
-	PageNumber           int                  `json:"PageNumber" xml:"PageNumber"`
-	PageSize             int                  `json:"PageSize" xml:"PageSize"`
-	NextToken            string               `json:"NextToken" xml:"NextToken"`
 	NetworkInterfaceSets NetworkInterfaceSets `json:"NetworkInterfaceSets" xml:"NetworkInterfaceSets"`
 }
 

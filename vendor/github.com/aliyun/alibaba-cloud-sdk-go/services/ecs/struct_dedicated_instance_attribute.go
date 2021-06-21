@@ -17,6 +17,6 @@ package ecs
 
 // DedicatedInstanceAttribute is a nested struct in ecs response
 type DedicatedInstanceAttribute struct {
-	Tenancy  string `json:"Tenancy" xml:"Tenancy"`
 	Affinity string `json:"Affinity" xml:"Affinity"`
+	Tenancy  string `json:"Tenancy" xml:"Tenancy"`
 }

@@ -24,6 +24,8 @@ type Permission struct {
 	SourceGroupName         string `json:"SourceGroupName" xml:"SourceGroupName"`
 	SourceCidrIp            string `json:"SourceCidrIp" xml:"SourceCidrIp"`
 	Ipv6SourceCidrIp        string `json:"Ipv6SourceCidrIp" xml:"Ipv6SourceCidrIp"`
+	SourcePrefixListId      string `json:"SourcePrefixListId" xml:"SourcePrefixListId"`
+	SourcePrefixListName    string `json:"SourcePrefixListName" xml:"SourcePrefixListName"`
 	Policy                  string `json:"Policy" xml:"Policy"`
 	NicType                 string `json:"NicType" xml:"NicType"`
 	SourceGroupOwnerAccount string `json:"SourceGroupOwnerAccount" xml:"SourceGroupOwnerAccount"`
@@ -31,6 +33,8 @@ type Permission struct {
 	DestGroupName           string `json:"DestGroupName" xml:"DestGroupName"`
 	DestCidrIp              string `json:"DestCidrIp" xml:"DestCidrIp"`
 	Ipv6DestCidrIp          string `json:"Ipv6DestCidrIp" xml:"Ipv6DestCidrIp"`
+	DestPrefixListId        string `json:"DestPrefixListId" xml:"DestPrefixListId"`
+	DestPrefixListName      string `json:"DestPrefixListName" xml:"DestPrefixListName"`
 	DestGroupOwnerAccount   string `json:"DestGroupOwnerAccount" xml:"DestGroupOwnerAccount"`
 	Priority                string `json:"Priority" xml:"Priority"`
 	Direction               string `json:"Direction" xml:"Direction"`

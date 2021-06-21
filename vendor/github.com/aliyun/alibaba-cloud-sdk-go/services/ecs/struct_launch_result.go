@@ -17,10 +17,10 @@ package ecs
 
 // LaunchResult is a nested struct in ecs response
 type LaunchResult struct {
-	SpotStrategy string                                   `json:"SpotStrategy" xml:"SpotStrategy"`
-	InstanceType string                                   `json:"InstanceType" xml:"InstanceType"`
 	ZoneId       string                                   `json:"ZoneId" xml:"ZoneId"`
-	ErrorCode    string                                   `json:"ErrorCode" xml:"ErrorCode"`
 	ErrorMsg     string                                   `json:"ErrorMsg" xml:"ErrorMsg"`
+	InstanceType string                                   `json:"InstanceType" xml:"InstanceType"`
+	ErrorCode    string                                   `json:"ErrorCode" xml:"ErrorCode"`
+	SpotStrategy string                                   `json:"SpotStrategy" xml:"SpotStrategy"`
 	InstanceIds  InstanceIdsInCreateAutoProvisioningGroup `json:"InstanceIds" xml:"InstanceIds"`
 }

@@ -92,8 +92,8 @@ type CreateDedicatedHostClusterTag struct {
 // CreateDedicatedHostClusterResponse is the response struct for api CreateDedicatedHostCluster
 type CreateDedicatedHostClusterResponse struct {
 	*responses.BaseResponse
-	RequestId              string `json:"RequestId" xml:"RequestId"`
 	DedicatedHostClusterId string `json:"DedicatedHostClusterId" xml:"DedicatedHostClusterId"`
+	RequestId              string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateDedicatedHostClusterRequest creates a request to invoke CreateDedicatedHostCluster API

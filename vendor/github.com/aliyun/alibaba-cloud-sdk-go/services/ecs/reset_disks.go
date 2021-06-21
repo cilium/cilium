@@ -80,8 +80,8 @@ type ResetDisksRequest struct {
 
 // ResetDisksDisk is a repeated param struct in ResetDisksRequest
 type ResetDisksDisk struct {
-	DiskId     string `name:"DiskId"`
 	SnapshotId string `name:"SnapshotId"`
+	DiskId     string `name:"DiskId"`
 }
 
 // ResetDisksResponse is the response struct for api ResetDisks

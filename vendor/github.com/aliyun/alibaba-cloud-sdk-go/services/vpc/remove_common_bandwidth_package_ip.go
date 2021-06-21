@@ -72,6 +72,7 @@ func (client *Client) RemoveCommonBandwidthPackageIpWithCallback(request *Remove
 type RemoveCommonBandwidthPackageIpRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string           `position:"Query" name:"ClientToken"`
 	BandwidthPackageId   string           `position:"Query" name:"BandwidthPackageId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`

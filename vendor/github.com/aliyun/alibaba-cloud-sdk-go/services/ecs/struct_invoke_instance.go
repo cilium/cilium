@@ -30,6 +30,6 @@ type InvokeInstance struct {
 	InstanceId           string `json:"InstanceId" xml:"InstanceId"`
 	Output               string `json:"Output" xml:"Output"`
 	InvocationStatus     string `json:"InvocationStatus" xml:"InvocationStatus"`
-	ErrorCode            string `json:"ErrorCode" xml:"ErrorCode"`
 	StopTime             string `json:"StopTime" xml:"StopTime"`
+	ErrorCode            string `json:"ErrorCode" xml:"ErrorCode"`
 }

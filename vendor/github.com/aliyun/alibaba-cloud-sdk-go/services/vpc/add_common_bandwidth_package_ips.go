@@ -72,6 +72,7 @@ func (client *Client) AddCommonBandwidthPackageIpsWithCallback(request *AddCommo
 type AddCommonBandwidthPackageIpsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string           `position:"Query" name:"ClientToken"`
 	IpInstanceIds        *[]string        `position:"Query" name:"IpInstanceIds"  type:"Repeated"`
 	BandwidthPackageId   string           `position:"Query" name:"BandwidthPackageId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
