@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -96,7 +97,7 @@ type AffinityMatchValue struct {
 }
 
 // NewAffinityMatchKey creates the AffinityMatch key
-func NewAffinityMatchKey(revNATID uint16, backendID uint32) *AffinityMatchKey {
+func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
 	return &AffinityMatchKey{
 		BackendID: backendID,
 		RevNATID:  revNATID,

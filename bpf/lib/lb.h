@@ -31,7 +31,7 @@ struct bpf_elf_map __section_maps LB6_SERVICES_MAP_V2 = {
 
 struct bpf_elf_map __section_maps LB6_BACKEND_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(__u16),
+	.size_key       = sizeof(__u32),
 	.size_value     = sizeof(struct lb6_backend),
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
@@ -113,7 +113,7 @@ struct bpf_elf_map __section_maps LB4_SERVICES_MAP_V2 = {
 
 struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(__u16),
+	.size_key       = sizeof(__u32),
 	.size_value     = sizeof(struct lb4_backend),
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
@@ -572,13 +572,13 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	return NULL;
 }
 
-static __always_inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
+static __always_inline struct lb6_backend *__lb6_lookup_backend(__u32 backend_id)
 {
 	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
 }
 
 static __always_inline struct lb6_backend *
-lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
+lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 {
 	struct lb6_backend *backend;
 
@@ -1100,13 +1100,13 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	return NULL;
 }
 
-static __always_inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id)
+static __always_inline struct lb4_backend *__lb4_lookup_backend(__u32 backend_id)
 {
 	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
 }
 
 static __always_inline struct lb4_backend *
-lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
+lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 {
 	struct lb4_backend *backend;
 

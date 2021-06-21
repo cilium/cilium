@@ -100,12 +100,12 @@ func CheckStructAlignments(path string) error {
 	}
 	toCheckSizes := map[string][]reflect.Type{
 		"__u16": {
-			reflect.TypeOf(lbmap.Backend4Key{}),
-			reflect.TypeOf(lbmap.Backend6Key{}),
 			reflect.TypeOf(lbmap.RevNat4Key{}),
 			reflect.TypeOf(lbmap.RevNat6Key{}),
 		},
 		"__u32": {
+			reflect.TypeOf(lbmap.Backend4Key{}),
+			reflect.TypeOf(lbmap.Backend6Key{}),
 			reflect.TypeOf(signalmap.Key{}),
 			reflect.TypeOf(signalmap.Value{}),
 			reflect.TypeOf(eventsmap.Key{}),

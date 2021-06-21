@@ -46,13 +46,13 @@ var (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(*lbmap.UpsertServiceParams) error
-	UpsertMaglevLookupTable(uint16, map[string]uint16, bool) error
+	UpsertMaglevLookupTable(uint16, map[string]lb.BackendID, bool) error
 	IsMaglevLookupTableRecreated(bool) bool
 	DeleteService(lb.L3n4AddrID, int, bool) error
-	AddBackend(uint16, net.IP, uint16, bool) error
-	DeleteBackendByID(uint16, bool) error
-	AddAffinityMatch(uint16, uint16) error
-	DeleteAffinityMatch(uint16, uint16) error
+	AddBackend(lb.BackendID, net.IP, uint16, bool) error
+	DeleteBackendByID(lb.BackendID, bool) error
+	AddAffinityMatch(uint16, lb.BackendID) error
+	DeleteAffinityMatch(uint16, lb.BackendID) error
 	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
 	DumpServiceMaps() ([]*lb.SVC, []error)
 	DumpBackendMaps() ([]*lb.Backend, error)
@@ -629,7 +629,7 @@ func (s *Service) deleteBackendsFromAffinityMatchMap(svcID lb.ID, backendIDs []l
 	}).Debug("Deleting backends from session affinity match")
 
 	for _, bID := range backendIDs {
-		if err := s.lbmap.DeleteAffinityMatch(uint16(svcID), uint16(bID)); err != nil {
+		if err := s.lbmap.DeleteAffinityMatch(uint16(svcID), bID); err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.BackendID: bID,
 				logfields.ServiceID: svcID,
@@ -645,7 +645,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 	}).Debug("Adding backends to affinity match map")
 
 	for _, bID := range backendIDs {
-		if err := s.lbmap.AddAffinityMatch(uint16(svcID), uint16(bID)); err != nil {
+		if err := s.lbmap.AddAffinityMatch(uint16(svcID), bID); err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.BackendID: bID,
 				logfields.ServiceID: svcID,
@@ -715,16 +715,16 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 			logfields.L3n4Addr:  b.L3n4Addr,
 		}).Debug("Adding new backend")
 
-		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,
+		if err := s.lbmap.AddBackend(b.ID, b.L3n4Addr.IP,
 			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return err
 		}
 	}
 
 	// Upsert service entries into BPF maps
-	backends := make(map[string]uint16, len(svc.backends))
+	backends := make(map[string]lb.BackendID, len(svc.backends))
 	for _, b := range svc.backends {
-		backends[b.String()] = uint16(b.ID)
+		backends[b.String()] = b.ID
 	}
 
 	p := &lbmap.UpsertServiceParams{
@@ -755,7 +755,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Removing obsolete backend")
 
-		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
+		if err := s.lbmap.DeleteBackendByID(id, ipv6); err != nil {
 			log.WithError(err).WithField(logfields.BackendID, id).
 				Warn("Failed to remove backend from maps")
 		}
@@ -794,7 +794,7 @@ func (s *Service) deleteOrphanBackends() error {
 				Debug("Removing orphan backend")
 
 			DeleteBackendID(b.ID)
-			if err := s.lbmap.DeleteBackendByID(uint16(b.ID), b.L3n4Addr.IsIPv6()); err != nil {
+			if err := s.lbmap.DeleteBackendByID(b.ID, b.L3n4Addr.IsIPv6()); err != nil {
 				return fmt.Errorf("Unable to remove backend %d from map: %s", b.ID, err)
 			}
 			delete(s.backendByHash, hash)
@@ -854,9 +854,9 @@ func (s *Service) restoreServicesLocked() error {
 		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
 			newSVC.useMaglev() && s.lbmap.IsMaglevLookupTableRecreated(ipv6) {
 
-			backends := make(map[string]uint16, len(newSVC.backends))
+			backends := make(map[string]lb.BackendID, len(newSVC.backends))
 			for _, b := range newSVC.backends {
-				backends[b.String()] = uint16(b.ID)
+				backends[b.String()] = b.ID
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends, ipv6); err != nil {
 				return err
@@ -915,7 +915,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Deleting obsolete backend")
 
-		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
+		if err := s.lbmap.DeleteBackendByID(id, ipv6); err != nil {
 			return err
 		}
 	}

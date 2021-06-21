@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -98,7 +99,7 @@ func deleteMapIfMNotMatch(mapName string) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			previousM := int(info.ValueSize) / int(unsafe.Sizeof(uint16(0)))
+			previousM := int(info.ValueSize) / int(unsafe.Sizeof(loadbalancer.BackendID(0)))
 			if option.Config.MaglevTableSize != previousM {
 				deleteMap = true
 			}
@@ -128,7 +129,7 @@ func newInnerMaglevMap(name string) *bpf.Map {
 		name,
 		bpf.MapTypeArray,
 		&MaglevInnerKey{}, int(unsafe.Sizeof(MaglevInnerKey{})),
-		&MaglevInnerVal{}, int(unsafe.Sizeof(uint16(0)))*option.Config.MaglevTableSize,
+		&MaglevInnerVal{}, int(unsafe.Sizeof(loadbalancer.BackendID(0)))*option.Config.MaglevTableSize,
 		1, 0, 0,
 		bpf.ConvertKeyValue,
 		&bpf.NewMapOpts{},
@@ -147,7 +148,7 @@ func newOuterMaglevMap(name string, innerMap *bpf.Map) *bpf.Map {
 	).WithPressureMetric()
 }
 
-func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
+func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []loadbalancer.BackendID) error {
 	outerMap := MaglevOuter4Map
 	innerMapName := MaglevInner4MapName
 	if ipv6 {
@@ -201,7 +202,7 @@ func (k *MaglevInnerKey) String() string            { return fmt.Sprintf("%d", k
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type MaglevInnerVal struct {
-	BackendIDs []uint16
+	BackendIDs []uint32
 }
 
 func (v *MaglevInnerVal) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v.BackendIDs[0]) }

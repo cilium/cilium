@@ -270,7 +270,7 @@ func (in *MaglevInnerVal) DeepCopyInto(out *MaglevInnerVal) {
 	*out = *in
 	if in.BackendIDs != nil {
 		in, out := &in.BackendIDs, &out.BackendIDs
-		*out = make([]uint16, len(*in))
+		*out = make([]uint32, len(*in))
 		copy(*out, *in)
 	}
 	return
