@@ -60,10 +60,21 @@ spec:
           env:
             - name: EVENTS_SERVER_PORT
               value: "8090"
-            - name: FLOWS_API_ADDR
 {{- if .Values.hubble.relay.tls.server.enabled }}
+            - name: FLOWS_API_ADDR
               value: "hubble-relay:443"
+            - name: TLS_TO_RELAY_ENABLED
+              value: "true"
+            - name: TLS_RELAY_SERVER_NAME
+              value: ui.hubble-relay.cilium.io
+            - name: TLS_RELAY_CA_CERT_FILES
+              value: /var/lib/hubble-ui/certs/hubble-relay-ca.crt
+            - name: TLS_RELAY_CLIENT_CERT_FILE
+              value: /var/lib/hubble-ui/certs/client.crt
+            - name: TLS_RELAY_CLIENT_KEY_FILE
+              value: /var/lib/hubble-ui/certs/client.key
 {{- else }}
+            - name: FLOWS_API_ADDR
               value: "hubble-relay:80"
 {{- end }}
           ports:
@@ -71,6 +82,12 @@ spec:
               name: grpc
           resources:
             {{- toYaml .Values.hubble.ui.backend.resources  | trim | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.hubble.relay.tls.server.enabled }}
+            - mountPath: /var/lib/hubble-ui/certs
+              name: hubble-ui-client-certs
+              readOnly: true
+            {{- end }}
         - name: proxy
           image: "{{ .Values.hubble.ui.proxy.image.repository }}:{{ .Values.hubble.ui.proxy.image.tag }}"
           imagePullPolicy: {{ .Values.hubble.ui.proxy.image.pullPolicy }}
@@ -95,4 +112,18 @@ spec:
         - name: hubble-ui-envoy-yaml
           configMap:
             name: hubble-ui-envoy
+        {{- if .Values.hubble.relay.tls.server.enabled }}
+        - name: hubble-ui-client-certs
+          projected:
+            sources:
+            - secret:
+                name: hubble-ui-client-certs
+                items:
+                  - key: ca.crt
+                    path: hubble-relay-ca.crt
+                  - key: tls.crt
+                    path: client.crt
+                  - key: tls.key
+                    path: client.key
+        {{- end }}
 {{- end }}

@@ -71,6 +71,15 @@ tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
 
+{{- define "hubble.ui.gen-certs" }}
+{{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
+{{- $_ := set . "ca" $ca -}}
+{{- $cert := genSignedCert "*.hubble-ui.cilium.io" nil (list "*.hubble-ui.cilium.io") (.Values.hubble.tls.auto.certValidityDuration | int) $ca -}}
+ca.crt: {{ $ca.Cert | b64enc }}
+tls.crt: {{ $cert.Cert | b64enc }}
+tls.key: {{ $cert.Key | b64enc }}
+{{- end }}
+
 {{/* Generate CA "vmca" for clustermesh-apiserver in the global dict. */}}
 {{- define "clustermesh.apiserver.generate.ca" }}
 {{- $ca := .cmca | default (genCA "clustermesh-apiserver-ca.cilium.io" (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int)) -}}
