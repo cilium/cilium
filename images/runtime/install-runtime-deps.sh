@@ -16,6 +16,7 @@ packages=(
   bash-completion
   # Additional misc runtime dependencies
   iptables
+  ipset
   kmod
   ca-certificates
 )
