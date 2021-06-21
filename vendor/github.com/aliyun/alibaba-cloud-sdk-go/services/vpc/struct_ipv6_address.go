@@ -29,5 +29,6 @@ type Ipv6Address struct {
 	NetworkType            string                `json:"NetworkType" xml:"NetworkType"`
 	RealBandwidth          int                   `json:"RealBandwidth" xml:"RealBandwidth"`
 	AllocationTime         string                `json:"AllocationTime" xml:"AllocationTime"`
+	Ipv6Isp                string                `json:"Ipv6Isp" xml:"Ipv6Isp"`
 	Ipv6InternetBandwidth  Ipv6InternetBandwidth `json:"Ipv6InternetBandwidth" xml:"Ipv6InternetBandwidth"`
 }

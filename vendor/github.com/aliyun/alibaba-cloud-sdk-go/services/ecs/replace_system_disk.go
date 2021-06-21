@@ -92,8 +92,8 @@ type ReplaceSystemDiskRequest struct {
 // ReplaceSystemDiskResponse is the response struct for api ReplaceSystemDisk
 type ReplaceSystemDiskResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	DiskId    string `json:"DiskId" xml:"DiskId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateReplaceSystemDiskRequest creates a request to invoke ReplaceSystemDisk API

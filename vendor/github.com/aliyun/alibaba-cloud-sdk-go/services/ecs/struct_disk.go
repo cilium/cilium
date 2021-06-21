@@ -20,41 +20,43 @@ type Disk struct {
 	Category                       string                        `json:"Category" xml:"Category"`
 	BdfId                          string                        `json:"BdfId" xml:"BdfId"`
 	ImageId                        string                        `json:"ImageId" xml:"ImageId"`
-	AutoSnapshotPolicyId           string                        `json:"AutoSnapshotPolicyId" xml:"AutoSnapshotPolicyId"`
 	DeleteAutoSnapshot             bool                          `json:"DeleteAutoSnapshot" xml:"DeleteAutoSnapshot"`
+	AutoSnapshotPolicyId           string                        `json:"AutoSnapshotPolicyId" xml:"AutoSnapshotPolicyId"`
 	EnableAutomatedSnapshotPolicy  bool                          `json:"EnableAutomatedSnapshotPolicy" xml:"EnableAutomatedSnapshotPolicy"`
-	DiskId                         string                        `json:"DiskId" xml:"DiskId"`
 	SerialNumber                   string                        `json:"SerialNumber" xml:"SerialNumber"`
+	DiskId                         string                        `json:"DiskId" xml:"DiskId"`
 	Size                           int                           `json:"Size" xml:"Size"`
 	IOPS                           int                           `json:"IOPS" xml:"IOPS"`
-	RegionId                       string                        `json:"RegionId" xml:"RegionId"`
 	MountInstanceNum               int                           `json:"MountInstanceNum" xml:"MountInstanceNum"`
-	ResourceGroupId                string                        `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	RegionId                       string                        `json:"RegionId" xml:"RegionId"`
 	StorageSetId                   string                        `json:"StorageSetId" xml:"StorageSetId"`
+	ResourceGroupId                string                        `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	InstanceId                     string                        `json:"InstanceId" xml:"InstanceId"`
 	Description                    string                        `json:"Description" xml:"Description"`
 	Type                           string                        `json:"Type" xml:"Type"`
 	ExpiredTime                    string                        `json:"ExpiredTime" xml:"ExpiredTime"`
 	Device                         string                        `json:"Device" xml:"Device"`
+	MultiAttach                    string                        `json:"MultiAttach" xml:"MultiAttach"`
 	CreationTime                   string                        `json:"CreationTime" xml:"CreationTime"`
 	IOPSRead                       int                           `json:"IOPSRead" xml:"IOPSRead"`
 	SourceSnapshotId               string                        `json:"SourceSnapshotId" xml:"SourceSnapshotId"`
 	StorageSetPartitionNumber      int                           `json:"StorageSetPartitionNumber" xml:"StorageSetPartitionNumber"`
 	DedicatedBlockStorageClusterId string                        `json:"DedicatedBlockStorageClusterId" xml:"DedicatedBlockStorageClusterId"`
-	ProductCode                    string                        `json:"ProductCode" xml:"ProductCode"`
 	Portable                       bool                          `json:"Portable" xml:"Portable"`
 	KMSKeyId                       string                        `json:"KMSKeyId" xml:"KMSKeyId"`
+	ProductCode                    string                        `json:"ProductCode" xml:"ProductCode"`
 	Encrypted                      bool                          `json:"Encrypted" xml:"Encrypted"`
 	EnableAutoSnapshot             bool                          `json:"EnableAutoSnapshot" xml:"EnableAutoSnapshot"`
 	DetachedTime                   string                        `json:"DetachedTime" xml:"DetachedTime"`
 	DeleteWithInstance             bool                          `json:"DeleteWithInstance" xml:"DeleteWithInstance"`
-	ZoneId                         string                        `json:"ZoneId" xml:"ZoneId"`
 	DiskChargeType                 string                        `json:"DiskChargeType" xml:"DiskChargeType"`
+	ZoneId                         string                        `json:"ZoneId" xml:"ZoneId"`
 	PerformanceLevel               string                        `json:"PerformanceLevel" xml:"PerformanceLevel"`
-	DiskName                       string                        `json:"DiskName" xml:"DiskName"`
 	Status                         string                        `json:"Status" xml:"Status"`
-	AttachedTime                   string                        `json:"AttachedTime" xml:"AttachedTime"`
+	DiskName                       string                        `json:"DiskName" xml:"DiskName"`
 	IOPSWrite                      int                           `json:"IOPSWrite" xml:"IOPSWrite"`
+	AttachedTime                   string                        `json:"AttachedTime" xml:"AttachedTime"`
+	Attachments                    Attachments                   `json:"Attachments" xml:"Attachments"`
 	Tags                           TagsInDescribeDisks           `json:"Tags" xml:"Tags"`
 	MountInstances                 MountInstances                `json:"MountInstances" xml:"MountInstances"`
 	OperationLocks                 OperationLocksInDescribeDisks `json:"OperationLocks" xml:"OperationLocks"`

@@ -22,4 +22,5 @@ type NatGatewayPrivateInfo struct {
 	VswitchId        string `json:"VswitchId" xml:"VswitchId"`
 	IzNo             string `json:"IzNo" xml:"IzNo"`
 	MaxBandwidth     int    `json:"MaxBandwidth" xml:"MaxBandwidth"`
+	EniType          string `json:"EniType" xml:"EniType"`
 }
