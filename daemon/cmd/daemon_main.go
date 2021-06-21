@@ -1313,6 +1313,10 @@ func initEnv(cmd *cobra.Command) {
 		log.Fatal("L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
 
+	if option.Config.EnableNodePort && !option.Config.InstallIptRules && !option.Config.EnableBPFMasquerade {
+		log.Fatal("NodePort enabled requires either BPF Masquerade or iptables rules enabled (\"--enable-bpf-masquerade=true\", \"--install-iptables-rules=true\")")
+	}
+
 	if option.Config.EnableIPSec && option.Config.Tunnel != option.TunnelDisabled {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			log.WithError(err).Fatal("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).")
