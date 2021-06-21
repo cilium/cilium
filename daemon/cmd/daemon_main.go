@@ -1267,6 +1267,10 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.Ipvlan.OperationMode = connector.OperationModeL3
 		if option.Config.InstallIptRules {
 			option.Config.Ipvlan.OperationMode = connector.OperationModeL3S
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.URL: "https://github.com/cilium/cilium/issues/12879",
+			}).Warn("IPtables rule configuration has been disabled. This may affect policy and forwarding, see the URL for more details.")
 		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
