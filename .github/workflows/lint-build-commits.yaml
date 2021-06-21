@@ -41,6 +41,10 @@ jobs:
         run: |
           sudo apt-get install libelf-dev
 
+      - name: Install ginkgo
+        run: |
+          go get github.com/onsi/ginkgo/ginkgo@v1.12.1
+
       - name: Checkout code
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
