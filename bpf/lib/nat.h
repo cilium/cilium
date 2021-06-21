@@ -324,9 +324,9 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 						  struct ipv4_nat_entry *state,
 						  __u32 off, bool has_l4_header)
 {
+	int ret, flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
 	__be32 sum_l4 = 0, sum;
-	int ret;
 
 	if (state->to_saddr == tuple->saddr &&
 	    state->to_sport == tuple->sport)
@@ -356,6 +356,7 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 					return DROP_WRITE_ERROR;
 				from = tuple->sport;
 				to = state->to_sport;
+				flags = 0; /* ICMPv4 has no pseudo-header */
 				sum_l4 = csum_diff(&from, 4, &to, 4, 0);
 				csum.offset = offsetof(struct icmphdr, checksum);
 				break;
@@ -371,7 +372,7 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 	if (tuple->nexthdr == IPPROTO_ICMP)
 		sum = sum_l4;
 	if (csum.offset &&
-	    csum_l4_replace(ctx, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	    csum_l4_replace(ctx, off, &csum, 0, sum, flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
 }
@@ -381,9 +382,9 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 						   struct ipv4_nat_entry *state,
 						   __u32 off)
 {
+	int ret, flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
 	__be32 sum_l4 = 0, sum;
-	int ret;
 
 	if (state->to_daddr == tuple->daddr &&
 	    state->to_dport == tuple->dport)
@@ -411,6 +412,7 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 				return DROP_WRITE_ERROR;
 			from = tuple->dport;
 			to = state->to_dport;
+			flags = 0; /* ICMPv4 has no pseudo-header */
 			sum_l4 = csum_diff(&from, 4, &to, 4, 0);
 			csum.offset = offsetof(struct icmphdr, checksum);
 			break;
@@ -425,7 +427,7 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 	if (tuple->nexthdr == IPPROTO_ICMP)
 		sum = sum_l4;
 	if (csum.offset &&
-	    csum_l4_replace(ctx, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	    csum_l4_replace(ctx, off, &csum, 0, sum, flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
 }
