@@ -50,16 +50,20 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q, %q, %q features and falling back to %q",
+		log.Infof("Auto-disabling %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableHostReachableServices, option.EnableHostPort,
-			option.EnableSessionAffinity, option.EnableHostLegacyRouting)
+			option.EnableHostLegacyRouting)
 
 		disableNodePort()
 		option.Config.EnableHostReachableServices = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
-		option.Config.EnableSessionAffinity = false
+
+		if option.Config.EnableSessionAffinity {
+			probesManager := probes.NewProbeManager()
+			disableSessionAffinityIfNeeded(probesManager, true)
+		}
 
 		return
 	}
@@ -266,18 +270,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesUDP = false
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				log.Fatal(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
-
-		}
-	}
+	disableSessionAffinityIfNeeded(probesManager, strict)
 	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
 		found1, found2 := false, false
 		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
@@ -868,4 +861,18 @@ func supportL3Dev() bool {
 		return found
 	}
 	return false
+}
+
+func disableSessionAffinityIfNeeded(probesManager *probes.ProbeManager, strict bool) {
+	if option.Config.EnableSessionAffinity {
+		if !probesManager.GetMapTypes().HaveLruHashMapType {
+			msg := "SessionAffinity feature requires BPF LRU maps"
+			if strict {
+				log.Fatal(msg)
+			} else {
+				log.Warnf("%s. Disabling the feature.", msg)
+				option.Config.EnableSessionAffinity = false
+			}
+		}
+	}
 }
