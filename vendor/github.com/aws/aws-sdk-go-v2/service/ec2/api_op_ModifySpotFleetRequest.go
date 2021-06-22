@@ -69,17 +69,17 @@ type ModifySpotFleetRequestInput struct {
 	LaunchTemplateConfigs []types.LaunchTemplateConfig
 
 	// The number of On-Demand Instances in the fleet.
-	OnDemandTargetCapacity int32
+	OnDemandTargetCapacity *int32
 
 	// The size of the fleet.
-	TargetCapacity int32
+	TargetCapacity *int32
 }
 
 // Contains the output of ModifySpotFleetRequest.
 type ModifySpotFleetRequestOutput struct {
 
 	// Is true if the request succeeds, and an error otherwise.
-	Return bool
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

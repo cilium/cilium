@@ -54,7 +54,7 @@ type AssignPrivateIpAddressesInput struct {
 	// Indicates whether to allow an IP address that is already assigned to another
 	// network interface or instance to be reassigned to the specified network
 	// interface.
-	AllowReassignment bool
+	AllowReassignment *bool
 
 	// One or more IP addresses to be assigned as a secondary private IP address to the
 	// network interface. You can't specify this parameter when also specifying a
@@ -64,7 +64,7 @@ type AssignPrivateIpAddressesInput struct {
 
 	// The number of secondary IP addresses to assign to the network interface. You
 	// can't specify this parameter when also specifying private IP addresses.
-	SecondaryPrivateIpAddressCount int32
+	SecondaryPrivateIpAddressCount *int32
 }
 
 type AssignPrivateIpAddressesOutput struct {

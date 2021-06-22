@@ -41,13 +41,13 @@ type ModifyManagedPrefixListInput struct {
 	AddEntries []types.AddPrefixListEntry
 
 	// The current version of the prefix list.
-	CurrentVersion int64
+	CurrentVersion *int64
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// A name for the prefix list.
 	PrefixListName *string

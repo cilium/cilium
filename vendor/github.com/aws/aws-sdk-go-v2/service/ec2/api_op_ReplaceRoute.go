@@ -56,7 +56,7 @@ type ReplaceRouteInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// [IPv6 traffic only] The ID of an egress-only internet gateway.
 	EgressOnlyInternetGatewayId *string
@@ -71,7 +71,7 @@ type ReplaceRouteInput struct {
 	LocalGatewayId *string
 
 	// Specifies whether to reset the local route to its default target (local).
-	LocalTarget bool
+	LocalTarget *bool
 
 	// [IPv4 traffic only] The ID of a NAT gateway.
 	NatGatewayId *string

@@ -52,7 +52,7 @@ type AuthorizeClientVpnIngressInput struct {
 	// Indicates whether to grant access to all clients. Specify true to grant all
 	// clients who successfully establish a VPN connection access to the network. Must
 	// be set to true if AccessGroupId is not specified.
-	AuthorizeAllGroups bool
+	AuthorizeAllGroups *bool
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see How to Ensure Idempotency
@@ -66,7 +66,7 @@ type AuthorizeClientVpnIngressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 type AuthorizeClientVpnIngressOutput struct {

@@ -35,7 +35,7 @@ type DescribeCoipPoolsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The filters. The following are the possible values:
 	//
@@ -47,7 +47,7 @@ type DescribeCoipPoolsInput struct {
 
 	// The maximum number of results to return with a single call. To retrieve the
 	// remaining results, make another call with the returned nextToken value.
-	MaxResults int32
+	MaxResults *int32
 
 	// The token for the next page of results.
 	NextToken *string
@@ -164,8 +164,8 @@ func NewDescribeCoipPoolsPaginator(client DescribeCoipPoolsAPIClient, params *De
 	}
 
 	options := DescribeCoipPoolsPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -194,7 +194,11 @@ func (p *DescribeCoipPoolsPaginator) NextPage(ctx context.Context, optFns ...fun
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeCoipPools(ctx, &params, optFns...)
 	if err != nil {

@@ -40,7 +40,7 @@ type DisassociateAddressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// [EC2-Classic] The Elastic IP address. Required for EC2-Classic.
 	PublicIp *string

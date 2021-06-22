@@ -47,7 +47,7 @@ type DescribeReservedInstancesOfferingsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// One or more filters.
 	//
@@ -74,23 +74,24 @@ type DescribeReservedInstancesOfferingsInput struct {
 	// description will only be displayed to EC2-Classic account holders and are for
 	// use with Amazon VPC. (Linux/UNIX | Linux/UNIX (Amazon VPC) | SUSE Linux | SUSE
 	// Linux (Amazon VPC) | Red Hat Enterprise Linux | Red Hat Enterprise Linux (Amazon
-	// VPC) | Windows | Windows (Amazon VPC) | Windows with SQL Server Standard |
-	// Windows with SQL Server Standard (Amazon VPC) | Windows with SQL Server Web |
-	// Windows with SQL Server Web (Amazon VPC) | Windows with SQL Server Enterprise |
-	// Windows with SQL Server Enterprise (Amazon VPC))
+	// VPC) | Red Hat Enterprise Linux with HA (Amazon VPC) | Windows | Windows (Amazon
+	// VPC) | Windows with SQL Server Standard | Windows with SQL Server Standard
+	// (Amazon VPC) | Windows with SQL Server Web |  Windows with SQL Server Web
+	// (Amazon VPC) | Windows with SQL Server Enterprise | Windows with SQL Server
+	// Enterprise (Amazon VPC))
 	//
-	// *
-	// reserved-instances-offering-id - The Reserved Instances offering ID.
+	// * reserved-instances-offering-id - The Reserved
+	// Instances offering ID.
 	//
-	// * scope -
-	// The scope of the Reserved Instance (Availability Zone or Region).
+	// * scope - The scope of the Reserved Instance
+	// (Availability Zone or Region).
 	//
-	// * usage-price
-	// - The usage price of the Reserved Instance, per hour (for example, 0.84).
+	// * usage-price - The usage price of the Reserved
+	// Instance, per hour (for example, 0.84).
 	Filters []types.Filter
 
 	// Include Reserved Instance Marketplace offerings in the response.
-	IncludeMarketplace bool
+	IncludeMarketplace *bool
 
 	// The tenancy of the instances covered by the reservation. A Reserved Instance
 	// with a tenancy of dedicated is applied to instances that run in a VPC on
@@ -107,20 +108,20 @@ type DescribeReservedInstancesOfferingsInput struct {
 
 	// The maximum duration (in seconds) to filter when searching for offerings.
 	// Default: 94608000 (3 years)
-	MaxDuration int64
+	MaxDuration *int64
 
 	// The maximum number of instances to filter when searching for offerings. Default:
 	// 20
-	MaxInstanceCount int32
+	MaxInstanceCount *int32
 
 	// The maximum number of results to return for the request in a single page. The
 	// remaining results of the initial request can be seen by sending another request
 	// with the returned NextToken value. The maximum is 100. Default: 100
-	MaxResults int32
+	MaxResults *int32
 
 	// The minimum duration (in seconds) to filter when searching for offerings.
 	// Default: 2592000 (1 month)
-	MinDuration int64
+	MinDuration *int64
 
 	// The token to retrieve the next page of results.
 	NextToken *string
@@ -254,8 +255,8 @@ func NewDescribeReservedInstancesOfferingsPaginator(client DescribeReservedInsta
 	}
 
 	options := DescribeReservedInstancesOfferingsPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -284,7 +285,11 @@ func (p *DescribeReservedInstancesOfferingsPaginator) NextPage(ctx context.Conte
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeReservedInstancesOfferings(ctx, &params, optFns...)
 	if err != nil {

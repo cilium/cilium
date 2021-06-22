@@ -61,7 +61,7 @@ type RequestSpotInstancesInput struct {
 	// Availability Zone group or a launch group if you specify a duration. New
 	// accounts or accounts with no previous billing history with AWS are not eligible
 	// for Spot Instances with a defined duration (also known as Spot blocks).
-	BlockDurationMinutes int32
+	BlockDurationMinutes *int32
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see How to Ensure Idempotency
@@ -73,10 +73,10 @@ type RequestSpotInstancesInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The maximum number of Spot Instances to launch. Default: 1
-	InstanceCount int32
+	InstanceCount *int32
 
 	// The behavior when a Spot Instance is interrupted. The default is terminate.
 	InstanceInterruptionBehavior types.InstanceInterruptionBehavior

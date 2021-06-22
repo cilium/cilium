@@ -51,7 +51,7 @@ type DescribeInstanceCreditSpecificationsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The filters.
 	//
@@ -66,7 +66,7 @@ type DescribeInstanceCreditSpecificationsInput struct {
 	// remaining results, make another call with the returned NextToken value. This
 	// value can be between 5 and 1000. You cannot specify this parameter and the
 	// instance IDs parameter in the same call.
-	MaxResults int32
+	MaxResults *int32
 
 	// The token to retrieve the next page of results.
 	NextToken *string
@@ -185,8 +185,8 @@ func NewDescribeInstanceCreditSpecificationsPaginator(client DescribeInstanceCre
 	}
 
 	options := DescribeInstanceCreditSpecificationsPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -215,7 +215,11 @@ func (p *DescribeInstanceCreditSpecificationsPaginator) NextPage(ctx context.Con
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeInstanceCreditSpecifications(ctx, &params, optFns...)
 	if err != nil {

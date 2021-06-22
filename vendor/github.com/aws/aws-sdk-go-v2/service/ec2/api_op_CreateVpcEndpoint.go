@@ -66,7 +66,7 @@ type CreateVpcEndpointInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// (Interface and gateway endpoints) A policy to attach to the endpoint that
 	// controls access to the service. The policy must be in valid JSON format. If this
@@ -84,7 +84,7 @@ type CreateVpcEndpointInput struct {
 	// zone, you must set the following VPC attributes to true: enableDnsHostnames and
 	// enableDnsSupport. Use ModifyVpcAttribute to set the VPC attributes. Default:
 	// true
-	PrivateDnsEnabled bool
+	PrivateDnsEnabled *bool
 
 	// (Gateway endpoint) One or more route table IDs.
 	RouteTableIds []string

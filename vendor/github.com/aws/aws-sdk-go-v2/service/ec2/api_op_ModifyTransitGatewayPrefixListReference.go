@@ -41,13 +41,13 @@ type ModifyTransitGatewayPrefixListReferenceInput struct {
 	TransitGatewayRouteTableId *string
 
 	// Indicates whether to drop traffic that matches this route.
-	Blackhole bool
+	Blackhole *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the attachment to which traffic is routed.
 	TransitGatewayAttachmentId *string

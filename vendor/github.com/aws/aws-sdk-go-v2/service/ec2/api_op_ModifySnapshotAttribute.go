@@ -55,7 +55,7 @@ type ModifySnapshotAttributeInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The group to modify for the snapshot.
 	GroupNames []string

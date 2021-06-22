@@ -48,7 +48,7 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Changes the security groups for the network interface. The new set of groups you
 	// specify replaces the current set. You must specify at least one group, even if

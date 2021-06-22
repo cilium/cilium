@@ -35,7 +35,7 @@ type ReplaceNetworkAclEntryInput struct {
 	// we replace the ingress rule.
 	//
 	// This member is required.
-	Egress bool
+	Egress *bool
 
 	// The ID of the ACL.
 	//
@@ -61,7 +61,7 @@ type ReplaceNetworkAclEntryInput struct {
 	// The rule number of the entry to replace.
 	//
 	// This member is required.
-	RuleNumber int32
+	RuleNumber *int32
 
 	// The IPv4 network range to allow or deny, in CIDR notation (for example
 	// 172.16.0.0/24).
@@ -71,7 +71,7 @@ type ReplaceNetworkAclEntryInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// ICMP protocol: The ICMP or ICMPv6 type and code. Required if specifying protocol
 	// 1 (ICMP) or protocol 58 (ICMPv6) with an IPv6 CIDR block.

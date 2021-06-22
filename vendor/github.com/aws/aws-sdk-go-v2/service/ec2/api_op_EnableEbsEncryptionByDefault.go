@@ -43,13 +43,13 @@ type EnableEbsEncryptionByDefaultInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 type EnableEbsEncryptionByDefaultOutput struct {
 
 	// The updated status of encryption by default.
-	EbsEncryptionByDefault bool
+	EbsEncryptionByDefault *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

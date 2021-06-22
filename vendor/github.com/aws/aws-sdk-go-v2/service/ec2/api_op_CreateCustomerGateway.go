@@ -60,7 +60,7 @@ type CreateCustomerGatewayInput struct {
 	// For devices that support BGP, the customer gateway's BGP ASN. Default: 65000
 	//
 	// This member is required.
-	BgpAsn int32
+	BgpAsn *int32
 
 	// The type of VPN connection that this customer gateway supports (ipsec.1).
 	//
@@ -78,7 +78,7 @@ type CreateCustomerGatewayInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The Internet-routable IP address for the customer gateway's outside interface.
 	// The address must be static.
