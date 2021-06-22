@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -249,17 +249,9 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 	for _, logger := range loggers {
 		switch logger {
 		case Syslog:
-			opts := getLogDriverConfig(Syslog, logOpts)
-			syslogOptValues := make(map[string][]string)
-			syslogOptValues[SSeverity] = mapStringPriorityToSlice(syslogSeverityMap)
-			syslogOptValues[SFacility] = mapStringPriorityToSlice(syslogFacilityMap)
-			if err := opts.validateOpts(Syslog, syslogOpts, syslogOptValues); err != nil {
-				return err
+			if err := setupSyslog(logOpts, tag, debug); err != nil {
+				return fmt.Errorf("failed to set up syslog: %w", err)
 			}
-			if stag, ok := opts[STag]; ok {
-				tag = stag
-			}
-			setupSyslog(opts, tag, debug)
 		default:
 			return fmt.Errorf("provided log driver %q is not a supported log driver", logger)
 		}
@@ -270,8 +262,19 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 
 // setupSyslog sets up and configures syslog with the provided options in
 // logOpts. If some options are not provided, sensible defaults are used.
-func setupSyslog(logOpts LogOptions, tag string, debug bool) {
-	logLevel, ok := logOpts[SLevel]
+func setupSyslog(logOpts LogOptions, tag string, debug bool) error {
+	opts := getLogDriverConfig(Syslog, logOpts)
+	syslogOptValues := make(map[string][]string)
+	syslogOptValues[SSeverity] = mapStringPriorityToSlice(syslogSeverityMap)
+	syslogOptValues[SFacility] = mapStringPriorityToSlice(syslogFacilityMap)
+	if err := opts.validateOpts(Syslog, syslogOpts, syslogOptValues); err != nil {
+		return err
+	}
+	if stag, ok := opts[STag]; ok {
+		tag = stag
+	}
+
+	logLevel, ok := opts[SLevel]
 	if !ok {
 		if debug {
 			logLevel = "debug"
@@ -294,16 +297,16 @@ func setupSyslog(logOpts LogOptions, tag string, debug bool) {
 	severity := syslogLevelMap[level]
 	// Default values for facility if not specified
 	facility := syslog.LOG_KERN
-	if networkStr, ok := logOpts[SNetwork]; ok {
+	if networkStr, ok := opts[SNetwork]; ok {
 		network = networkStr
 	}
-	if addressStr, ok := logOpts[SAddress]; ok {
+	if addressStr, ok := opts[SAddress]; ok {
 		address = addressStr
 	}
-	if severityStr, ok := logOpts[SSeverity]; ok {
+	if severityStr, ok := opts[SSeverity]; ok {
 		severity = syslogSeverityMap[severityStr]
 	}
-	if facilityStr, ok := logOpts[SFacility]; ok {
+	if facilityStr, ok := opts[SFacility]; ok {
 		facility = syslogFacilityMap[facilityStr]
 	}
 
@@ -315,6 +318,8 @@ func setupSyslog(logOpts LogOptions, tag string, debug bool) {
 	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	logrus.AddHook(h)
 	DefaultLogger.AddHook(h)
+
+	return nil
 }
 
 // GetFormatter returns a configured logrus.Formatter with some specific values
