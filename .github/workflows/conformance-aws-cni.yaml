@@ -207,7 +207,7 @@ jobs:
       - name: Run connectivity test
         run: |
           cilium connectivity test \
-            --flow-validation=disabled \
+            --flow-validation=warning \
             --test '!pod-to-world-toFQDNs' # L7 policies are not supported in chaining mode.
 
       - name: Post-test information gathering
