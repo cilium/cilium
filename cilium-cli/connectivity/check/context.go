@@ -134,17 +134,6 @@ func (ct *ConnectivityTest) failedActions() []*Action {
 	return out
 }
 
-// warnings returns the total amount of warnings across all Tests.
-func (ct *ConnectivityTest) warnings() uint {
-	var out uint
-
-	for _, t := range ct.tests {
-		out = out + t.warnings
-	}
-
-	return out
-}
-
 // NewConnectivityTest returns a new ConnectivityTest.
 func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
@@ -288,7 +277,6 @@ func (ct *ConnectivityTest) report() error {
 	nst := len(skippedTests)
 	nss := len(skippedScenarios)
 	nf := len(failed)
-	nw := ct.warnings()
 
 	if nf > 0 {
 		ct.Header("📋 Test Report")
@@ -296,7 +284,7 @@ func (ct *ConnectivityTest) report() error {
 		// There are failed tests, fetch all failed actions.
 		fa := len(ct.failedActions())
 
-		ct.Failf("%d/%d tests failed (%d/%d actions), %d warnings, %d tests skipped, %d scenarios skipped:", nf, nt-nst, fa, na, nw, nst, nss)
+		ct.Failf("%d/%d tests failed (%d/%d actions), %d tests skipped, %d scenarios skipped:", nf, nt-nst, fa, na, nst, nss)
 
 		// List all failed actions by test.
 		for _, t := range failed {
@@ -309,7 +297,7 @@ func (ct *ConnectivityTest) report() error {
 		return fmt.Errorf("%d tests failed", nf)
 	}
 
-	ct.Headerf("✅ All %d tests (%d actions) successful, %d warnings, %d tests skipped, %d scenarios skipped.", nt-nst, na, nw, nst, nss)
+	ct.Headerf("✅ All %d tests (%d actions) successful, %d tests skipped, %d scenarios skipped.", nt-nst, na, nst, nss)
 
 	return nil
 }

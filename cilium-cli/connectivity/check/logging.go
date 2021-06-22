@@ -201,17 +201,6 @@ func (t *Test) flush() {
 	t.logBuf = nil
 }
 
-// flushWarnings displays the warnings encountered during the Test.
-func (t *Test) flushWarnings() {
-	if t.warnBuf.Len() > 0 {
-		t.Headerf("Warnings encountered during %s:", t.Name())
-
-		if _, err := io.Copy(t.ctx.params.Writer, t.warnBuf); err != nil {
-			panic(err)
-		}
-	}
-}
-
 // Headerf prints a formatted, indented header inside the test log scope.
 // Headers are not internally buffered.
 func (t *Test) Headerf(format string, a ...interface{}) {
@@ -250,22 +239,6 @@ func (t *Test) Info(a ...interface{}) {
 // Infof logs a formatted informational message.
 func (t *Test) Infof(format string, a ...interface{}) {
 	t.logf(info+" "+format, a...)
-}
-
-// Warn logs a warning message. Warnings are written to a separate warning
-// buffer and shown at the end of the test.
-func (t *Test) Warn(a ...interface{}) {
-	t.warn()
-	fmt.Fprint(t.warnBuf, testPrefix+warn+" ")
-	fmt.Fprintln(t.warnBuf, a...)
-}
-
-// Warnf logs a formatted warning message. Warnings are written to a separate
-// warning buffer and shown at the end of the test.
-func (t *Test) Warnf(format string, a ...interface{}) {
-	t.warn()
-	fmt.Fprint(t.warnBuf, testPrefix+warn+" ")
-	fmt.Fprintf(t.warnBuf, format+"\n", a...)
 }
 
 // Fail marks the Test as failed and logs a failure message.
@@ -342,28 +315,6 @@ func (a *Action) Info(s ...interface{}) {
 // Infof logs a formatted debug message.
 func (a *Action) Infof(format string, s ...interface{}) {
 	a.test.Infof(format, s...)
-}
-
-// Warn must be called when a warning is detected performing the Action.
-//
-// Action name is prepended to the warning as they are displayed separately
-// at the end of a Test.
-func (a *Action) Warn(s ...interface{}) {
-	a.warned = true
-
-	p := []interface{}{fmt.Sprintf("[%s]", a.String())}
-	p = append(p, s...)
-
-	a.test.Warn(p...)
-}
-
-// Warnf must be called when a warning is detected performing the Action.
-//
-// Action name is prepended to the warning as they are displayed separately
-// at the end of a Test.
-func (a *Action) Warnf(format string, s ...interface{}) {
-	a.warned = true
-	a.test.Warnf(fmt.Sprintf("[%s] ", a.String())+format, s...)
 }
 
 // Fail must be called when the Action is unsuccessful.
