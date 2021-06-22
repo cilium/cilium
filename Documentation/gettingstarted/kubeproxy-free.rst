@@ -391,6 +391,21 @@ Note that enabling Maglev will have a higher memory consumption on each Cilium-m
 to the default of ``loadBalancer.algorithm=random`` given ``random`` does not need the extra lookup
 tables. However, ``random`` won't have consistent backend selection.
 
+Maglev table size (M) per-service annotations
+=============================================
+
+To reduce the memory footprint of Maglev mode, it is possible to set the M
+value per service via a Kubernetes annotation. The annotation is
+``io.cilium/maglev-table-size``.
+
+.. code-block:: shell-session
+
+    $ kubectl annotate svc external-svc io.cilium/maglev-table-size=251
+
+.. note::
+
+   Requires kernel versions >= 5.10.
+
 .. _DSR mode:
 
 Direct Server Return (DSR)
