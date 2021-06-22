@@ -71,18 +71,6 @@ jobs:
   # When the test-me-please trigger is used, this job is skipped if the only
   # modified files were under test/ or Documentation/.
   installation-and-connectivity:
-    needs: check_changes
-    if: |
-      (github.event.issue.pull_request && (
-        startsWith(github.event.comment.body, 'ci-eks') ||
-        (startsWith(github.event.comment.body, 'test-me-please') && (needs.check_changes.outputs.tested == 'true'))
-      )) ||
-      (github.event.issue.pull_request && (
-        startsWith(github.event.comment.body, 'ci-eks') ||
-        (startsWith(github.event.comment.body, 'test-me-please')
-      ))) ||
-      (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
-      github.event.label.name == 'ci-run/eks'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
