@@ -1722,7 +1722,7 @@ func runDaemon() {
 
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
-		k8s.Client().MarkNodeReady(nodeTypes.GetName())
+		k8s.Client().MarkNodeReady(d.k8sWatcher, nodeTypes.GetName())
 		bootstrapStats.k8sInit.End(true)
 	}
 

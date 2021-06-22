@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,6 +64,12 @@ const (
 	CiliumK8sAnnotationPrefix = "cilium.io/"
 	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
 	CiliumIdentityAnnotationDeprecated = "cilium-identity"
+
+	// AgentNotReadyNodeTaint is a node taint which prevents pods from being
+	// scheduled. Once cilium is setup it is removed from the node. Mostly
+	// used in cloud providers to prevent existing CNI plugins from managing
+	// pods.
+	AgentNotReadyNodeTaint = "node." + CiliumK8sAnnotationPrefix + "agent-not-ready"
 )
 
 const (

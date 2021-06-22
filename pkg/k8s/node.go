@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -212,11 +213,29 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 // setNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
 // false as Cilium is managing the network connectivity.
 // https://kubernetes.io/docs/concepts/architecture/nodes/#condition
-func setNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
+func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface, nodeGetter nodeGetter, nodeName string) error {
+	n, err := nodeGetter.GetK8sNode(ctx, nodeName)
+	if err != nil {
+		return err
+	}
+
+	const reason = "CiliumIsUp"
+
+	for _, condition := range n.Status.Conditions {
+		if condition.Type == corev1.NodeNetworkUnavailable &&
+			condition.Status == corev1.ConditionFalse &&
+			condition.Reason == reason {
+
+			// No need to update node condition as it is already available in
+			// the node status.
+			return nil
+		}
+	}
+
 	condition := corev1.NodeCondition{
 		Type:               corev1.NodeNetworkUnavailable,
 		Status:             corev1.ConditionFalse,
-		Reason:             "CiliumIsUp",
+		Reason:             reason,
 		Message:            "Cilium is running on this node",
 		LastTransitionTime: metav1.Now(),
 		LastHeartbeatTime:  metav1.Now(),
@@ -230,15 +249,68 @@ func setNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) err
 	return err
 }
 
+// removeNodeTaint removes the AgentNotReadyNodeTaint allowing for pods to be
+// scheduled once Cilium is setup. Mostly used in cloud providers to prevent
+// existing CNI plugins from managing pods.
+func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter nodeGetter, nodeName string) error {
+	k8sNode, err := nodeGetter.GetK8sNode(ctx, nodeName)
+	if err != nil {
+		return err
+	}
+
+	var taintFound bool
+
+	var taints []corev1.Taint
+	for _, taint := range k8sNode.Spec.Taints {
+		if taint.Key != ciliumio.AgentNotReadyNodeTaint {
+			taints = append(taints, taint)
+		} else {
+			taintFound = true
+		}
+	}
+
+	// No cilium taints found
+	if !taintFound {
+		log.WithFields(logrus.Fields{
+			logfields.NodeName: nodeName,
+			"taint":            ciliumio.AgentNotReadyNodeTaint,
+		}).Debug("Taint not found in node")
+		return nil
+	}
+	log.WithFields(logrus.Fields{
+		logfields.NodeName: nodeName,
+		"taint":            ciliumio.AgentNotReadyNodeTaint,
+	}).Debug("Removing Node Taint")
+
+	k8sNode.Spec.Taints = taints
+
+	_, err = c.CoreV1().Nodes().Update(ctx, k8sNode, metav1.UpdateOptions{})
+	return err
+}
+
+const (
+	markK8sNodeReadyControllerName = "mark-k8s-node-as-available"
+)
+
 // MarkNodeReady marks the Kubernetes node resource as ready from a networking
 // perspective
-func (k8sCli K8sClient) MarkNodeReady(nodeName string) {
+func (k8sCli K8sClient) MarkNodeReady(nodeGetter nodeGetter, nodeName string) {
 	log.WithField(logfields.NodeName, nodeName).Debug("Setting NetworkUnavailable=false")
 
-	controller.NewManager().UpdateController("mark-k8s-node-as-available",
+	controller.NewManager().UpdateController(markK8sNodeReadyControllerName,
 		controller.ControllerParams{
-			DoFunc: func(_ context.Context) error {
-				return setNodeNetworkUnavailableFalse(k8sCli, nodeName)
+			DoFunc: func(ctx context.Context) error {
+				err := removeNodeTaint(ctx, k8sCli, nodeGetter, nodeName)
+				if err != nil {
+					return err
+				}
+				return setNodeNetworkUnavailableFalse(ctx, k8sCli, nodeGetter, nodeName)
 			},
 		})
+}
+
+// ReMarkNodeReady re-triggers the controller set by 'MarkNodeReady'. If
+// 'MarkNodeReady' has not been executed yet, calling this function be a no-op.
+func (k8sCli K8sClient) ReMarkNodeReady() {
+	controller.NewManager().TriggerController(markK8sNodeReadyControllerName)
 }
