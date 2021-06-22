@@ -74,9 +74,6 @@ type Action struct {
 
 	// failed is true when Fail was called on the Action
 	failed bool
-
-	// warned is true when Warn was called on the Action
-	warned bool
 }
 
 func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer) *Action {
@@ -168,7 +165,7 @@ func (a *Action) Run(f func(*Action)) {
 	// Print flow buffer if any failures or warnings occurred.
 	// TODO(timo): printFlows is a misnomer, this function actually prints
 	// the verdict annotated over the list of flows.
-	if a.test.ctx.PrintFlows() || a.failed || a.warned {
+	if a.test.ctx.PrintFlows() || a.failed {
 		a.printFlows(a.Source())
 		a.printFlows(a.Destination())
 	}
