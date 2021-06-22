@@ -9,10 +9,10 @@ on:
   schedule:
     - cron:  '0 1/6 * * *'
   ### FOR TESTING PURPOSES
-  # pull_request:
-  #  types:
-  #    - "labeled"
-  ###
+  pull_request:
+   types:
+     - "labeled"
+  #
 
 concurrency:
   # In case of PR comment, we can't simply append the comment to the group name
@@ -77,6 +77,10 @@ jobs:
         startsWith(github.event.comment.body, 'ci-eks') ||
         (startsWith(github.event.comment.body, 'test-me-please') && (needs.check_changes.outputs.tested == 'true'))
       )) ||
+      (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-eks') ||
+        (startsWith(github.event.comment.body, 'test-me-please')
+      ))) ||
       (github.event_name == 'schedule' && github.repository == 'cilium/cilium') ||
       github.event.label.name == 'ci-run/eks'
     runs-on: ubuntu-latest
