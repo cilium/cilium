@@ -61,13 +61,13 @@ type AssociateAddressInput struct {
 	// operation fails. In a VPC in an EC2-VPC-only account, reassociation is
 	// automatic, therefore you can specify false to ensure the operation fails if the
 	// Elastic IP address is already associated with another resource.
-	AllowReassociation bool
+	AllowReassociation *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the instance. The instance must have exactly one attached network
 	// interface. For EC2-VPC, you can specify either the instance ID or the network

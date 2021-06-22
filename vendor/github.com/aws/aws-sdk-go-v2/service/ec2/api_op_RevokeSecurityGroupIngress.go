@@ -48,11 +48,11 @@ type RevokeSecurityGroupIngressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The start of port range for the TCP and UDP protocols, or an ICMP type number.
 	// For the ICMP type number, use -1 to specify all ICMP types.
-	FromPort int32
+	FromPort *int32
 
 	// The ID of the security group. You must specify either the security group ID or
 	// the security group name in the request. For security groups in a nondefault VPC,
@@ -90,13 +90,13 @@ type RevokeSecurityGroupIngressInput struct {
 
 	// The end of port range for the TCP and UDP protocols, or an ICMP code number. For
 	// the ICMP code number, use -1 to specify all ICMP codes for the ICMP type.
-	ToPort int32
+	ToPort *int32
 }
 
 type RevokeSecurityGroupIngressOutput struct {
 
 	// Returns true if the request succeeds; otherwise, returns an error.
-	Return bool
+	Return *bool
 
 	// The inbound rules that were unknown to the service. In some cases,
 	// unknownIpPermissionSet might be in a different format from the request

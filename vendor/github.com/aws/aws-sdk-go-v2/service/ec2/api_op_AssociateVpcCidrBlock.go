@@ -46,7 +46,7 @@ type AssociateVpcCidrBlockInput struct {
 	// Requests an Amazon-provided IPv6 CIDR block with a /56 prefix length for the
 	// VPC. You cannot specify the range of IPv6 addresses, or the size of the CIDR
 	// block.
-	AmazonProvidedIpv6CidrBlock bool
+	AmazonProvidedIpv6CidrBlock *bool
 
 	// An IPv4 CIDR block to associate with the VPC.
 	CidrBlock *string

@@ -37,7 +37,7 @@ type AcceptVpcPeeringConnectionInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the VPC peering connection. You must specify this parameter in the
 	// request.

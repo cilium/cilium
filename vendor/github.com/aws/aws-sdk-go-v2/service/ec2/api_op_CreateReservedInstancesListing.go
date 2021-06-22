@@ -62,7 +62,7 @@ type CreateReservedInstancesListingInput struct {
 	// in this call.
 	//
 	// This member is required.
-	InstanceCount int32
+	InstanceCount *int32
 
 	// A list specifying the price of the Standard Reserved Instance for each month
 	// remaining in the Reserved Instance term.

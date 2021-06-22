@@ -54,7 +54,7 @@ type CreateLaunchTemplateInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The tags to apply to the launch template during creation.
 	TagSpecifications []types.TagSpecification

@@ -60,7 +60,7 @@ type ExportImageInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The name of the role that grants VM Import/Export permission to export images to
 	// your Amazon S3 bucket. If this parameter is not specified, the default role is

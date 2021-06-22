@@ -48,10 +48,10 @@ type ModifyTrafficMirrorFilterRuleInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The protocol, for example TCP, to assign to the Traffic Mirror rule.
-	Protocol int32
+	Protocol *int32
 
 	// The properties that you want to remove from the Traffic Mirror filter rule. When
 	// you remove a property from a Traffic Mirror filter rule, the property is set to
@@ -64,7 +64,7 @@ type ModifyTrafficMirrorFilterRuleInput struct {
 	// The number of the Traffic Mirror rule. This number must be unique for each
 	// Traffic Mirror rule in a given direction. The rules are processed in ascending
 	// order by rule number.
-	RuleNumber int32
+	RuleNumber *int32
 
 	// The source CIDR block to assign to the Traffic Mirror rule.
 	SourceCidrBlock *string

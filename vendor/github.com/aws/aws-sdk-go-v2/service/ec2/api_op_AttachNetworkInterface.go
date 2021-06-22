@@ -32,7 +32,7 @@ type AttachNetworkInterfaceInput struct {
 	// The index of the device for the network interface attachment.
 	//
 	// This member is required.
-	DeviceIndex int32
+	DeviceIndex *int32
 
 	// The ID of the instance.
 	//
@@ -48,12 +48,12 @@ type AttachNetworkInterfaceInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The index of the network card. Some instance types support multiple network
 	// cards. The primary network interface must be assigned to network card index 0.
 	// The default is network card index 0.
-	NetworkCardIndex int32
+	NetworkCardIndex *int32
 }
 
 // Contains the output of AttachNetworkInterface.
@@ -63,7 +63,7 @@ type AttachNetworkInterfaceOutput struct {
 	AttachmentId *string
 
 	// The index of the network card.
-	NetworkCardIndex int32
+	NetworkCardIndex *int32
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

@@ -75,7 +75,7 @@ type ModifyInstancePlacementInput struct {
 	HostResourceGroupArn *string
 
 	// Reserved for future use.
-	PartitionNumber int32
+	PartitionNumber *int32
 
 	// The tenancy for the instance.
 	Tenancy types.HostTenancy
@@ -84,7 +84,7 @@ type ModifyInstancePlacementInput struct {
 type ModifyInstancePlacementOutput struct {
 
 	// Is true if the request succeeds, and an error otherwise.
-	Return bool
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

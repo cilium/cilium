@@ -76,7 +76,7 @@ type AttachVolumeInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 // Describes volume attachment details.
@@ -86,7 +86,7 @@ type AttachVolumeOutput struct {
 	AttachTime *time.Time
 
 	// Indicates whether the EBS volume is deleted on instance termination.
-	DeleteOnTermination bool
+	DeleteOnTermination *bool
 
 	// The device name.
 	Device *string

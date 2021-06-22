@@ -63,14 +63,14 @@ type ProvisionByoipCidrInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The tags to apply to the address pool.
 	PoolTagSpecifications []types.TagSpecification
 
 	// (IPv6 only) Indicate whether the address range will be publicly advertised to
 	// the internet. Default: true
-	PubliclyAdvertisable bool
+	PubliclyAdvertisable *bool
 }
 
 type ProvisionByoipCidrOutput struct {

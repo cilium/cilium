@@ -52,7 +52,7 @@ type CreateStoreImageTaskInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The tags to apply to the AMI object that will be stored in the S3 bucket.
 	S3ObjectTags []types.S3ObjectTag

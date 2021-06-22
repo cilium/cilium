@@ -43,7 +43,7 @@ type DescribeIamInstanceProfileAssociationsInput struct {
 
 	// The maximum number of results to return in a single call. To retrieve the
 	// remaining results, make another call with the returned NextToken value.
-	MaxResults int32
+	MaxResults *int32
 
 	// The token to request the next page of results.
 	NextToken *string
@@ -160,8 +160,8 @@ func NewDescribeIamInstanceProfileAssociationsPaginator(client DescribeIamInstan
 	}
 
 	options := DescribeIamInstanceProfileAssociationsPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -190,7 +190,11 @@ func (p *DescribeIamInstanceProfileAssociationsPaginator) NextPage(ctx context.C
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeIamInstanceProfileAssociations(ctx, &params, optFns...)
 	if err != nil {

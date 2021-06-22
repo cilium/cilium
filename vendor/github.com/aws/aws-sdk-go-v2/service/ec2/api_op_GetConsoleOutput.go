@@ -50,11 +50,11 @@ type GetConsoleOutputInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// When enabled, retrieves the latest console output for the instance. Default:
 	// disabled (false)
-	Latest bool
+	Latest *bool
 }
 
 type GetConsoleOutputOutput struct {

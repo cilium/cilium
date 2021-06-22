@@ -57,13 +57,13 @@ type CreateVpcInput struct {
 	// Requests an Amazon-provided IPv6 CIDR block with a /56 prefix length for the
 	// VPC. You cannot specify the range of IP addresses, or the size of the CIDR
 	// block.
-	AmazonProvidedIpv6CidrBlock bool
+	AmazonProvidedIpv6CidrBlock *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The tenancy options for instances launched into the VPC. For default, instances
 	// are launched with shared tenancy by default. You can launch instances with any

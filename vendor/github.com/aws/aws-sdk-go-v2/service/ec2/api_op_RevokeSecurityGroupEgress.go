@@ -54,10 +54,10 @@ type RevokeSecurityGroupEgressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Not supported. Use a set of IP permissions to specify the port.
-	FromPort int32
+	FromPort *int32
 
 	// The sets of IP permissions. You can't specify a destination security group and a
 	// CIDR IP address range in the same set of permissions.
@@ -76,13 +76,13 @@ type RevokeSecurityGroupEgressInput struct {
 	SourceSecurityGroupOwnerId *string
 
 	// Not supported. Use a set of IP permissions to specify the port.
-	ToPort int32
+	ToPort *int32
 }
 
 type RevokeSecurityGroupEgressOutput struct {
 
 	// Returns true if the request succeeds; otherwise, returns an error.
-	Return bool
+	Return *bool
 
 	// The outbound rules that were unknown to the service. In some cases,
 	// unknownIpPermissionSet might be in a different format from the request

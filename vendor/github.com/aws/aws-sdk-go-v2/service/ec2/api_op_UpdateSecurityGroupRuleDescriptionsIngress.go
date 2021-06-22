@@ -42,7 +42,7 @@ type UpdateSecurityGroupRuleDescriptionsIngressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the security group. You must specify either the security group ID or
 	// the security group name in the request. For security groups in a nondefault VPC,
@@ -57,7 +57,7 @@ type UpdateSecurityGroupRuleDescriptionsIngressInput struct {
 type UpdateSecurityGroupRuleDescriptionsIngressOutput struct {
 
 	// Returns true if the request succeeds; otherwise, returns an error.
-	Return bool
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

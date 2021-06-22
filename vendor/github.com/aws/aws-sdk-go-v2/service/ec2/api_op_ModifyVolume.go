@@ -71,7 +71,7 @@ type ModifyVolumeInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The target IOPS rate of the volume. This parameter is valid only for gp3, io1,
 	// and io2 volumes. The following are the supported values for each volume type:
@@ -86,7 +86,7 @@ type ModifyVolumeInput struct {
 	// Default:
 	// If no IOPS value is specified, the existing value is retained, unless a volume
 	// type is modified that supports different values.
-	Iops int32
+	Iops *int32
 
 	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,
 	// you can attach the volume to up to 16  Nitro-based instances
@@ -95,7 +95,7 @@ type ModifyVolumeInput struct {
 	// volumes only. For more information, see  Amazon EBS Multi-Attach
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volumes-multi.html) in
 	// the Amazon Elastic Compute Cloud User Guide.
-	MultiAttachEnabled bool
+	MultiAttachEnabled *bool
 
 	// The target size of the volume, in GiB. The target volume size must be greater
 	// than or equal to the existing size of the volume. The following are the
@@ -112,13 +112,13 @@ type ModifyVolumeInput struct {
 	//
 	// Default: If
 	// no size is specified, the existing size is retained.
-	Size int32
+	Size *int32
 
 	// The target throughput of the volume, in MiB/s. This parameter is valid only for
 	// gp3 volumes. The maximum value is 1,000. Default: If no throughput value is
 	// specified, the existing value is retained. Valid Range: Minimum value of 125.
 	// Maximum value of 1000.
-	Throughput int32
+	Throughput *int32
 
 	// The target EBS volume type of the volume. For more information, see Amazon EBS
 	// volume types

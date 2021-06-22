@@ -46,7 +46,7 @@ type DescribeVolumesInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The filters.
 	//
@@ -114,7 +114,7 @@ type DescribeVolumesInput struct {
 	// if MaxResults is given a value larger than 500, only 500 results are returned.
 	// If this parameter is not used, then DescribeVolumes returns all results. You
 	// cannot specify this parameter and the volume IDs parameter in the same request.
-	MaxResults int32
+	MaxResults *int32
 
 	// The NextToken value returned from a previous paginated DescribeVolumes request
 	// where MaxResults was used and the results exceeded the value of that parameter.
@@ -242,8 +242,8 @@ func NewDescribeVolumesPaginator(client DescribeVolumesAPIClient, params *Descri
 	}
 
 	options := DescribeVolumesPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -272,7 +272,11 @@ func (p *DescribeVolumesPaginator) NextPage(ctx context.Context, optFns ...func(
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeVolumes(ctx, &params, optFns...)
 	if err != nil {

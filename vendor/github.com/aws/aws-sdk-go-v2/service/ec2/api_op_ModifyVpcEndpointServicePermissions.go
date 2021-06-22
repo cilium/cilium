@@ -48,7 +48,7 @@ type ModifyVpcEndpointServicePermissionsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The Amazon Resource Names (ARN) of one or more principals. Permissions are
 	// revoked for principals in this list.
@@ -58,7 +58,7 @@ type ModifyVpcEndpointServicePermissionsInput struct {
 type ModifyVpcEndpointServicePermissionsOutput struct {
 
 	// Returns true if the request succeeds; otherwise, it returns an error.
-	ReturnValue bool
+	ReturnValue *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
