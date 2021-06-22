@@ -308,7 +308,9 @@ var badLogMessages = map[string][]string{
 	unstableStat:        nil,
 	removeTransientRule: nil,
 	"DATA RACE":         nil,
-	"level=error":       {lrpExists, opCannotBeFulfilled, initLeaderElection, lockDeletedEp, globalDataSupport, removingInexistantID, failedToListCRDs},
+	// Exceptions for level=error should only be added as a last resort, if the
+	// error cannot be fixed in Cilium or in the test.
+	"level=error": {lrpExists, opCannotBeFulfilled, initLeaderElection, lockDeletedEp, globalDataSupport, removingInexistantID, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{
