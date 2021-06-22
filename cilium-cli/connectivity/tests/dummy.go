@@ -31,12 +31,10 @@ func (s *dummy) Run(ctx context.Context, t *check.Test) {
 		a.Log("logging")
 		a.Debug("debugging")
 		a.Info("informing")
-		a.Warn("warning")
 	})
 
 	t.NewAction(s, "action-2", nil, nil).Run(func(a *check.Action) {
 		a.Log("logging")
-		a.Warn("warning")
 		a.Fatal("killing :(")
 		a.Fail("failing (this should not be printed)")
 	})
