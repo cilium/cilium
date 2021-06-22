@@ -1,0 +1,66 @@
+{{- if .Values.nodeinit.enabled }}
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: cilium-node-init
+  labels:
+    app: cilium-node-init
+spec:
+  selector:
+    matchLabels:
+      app: cilium-node-init
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.nodeinit.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        app: cilium-node-init
+        {{- with .Values.nodeinit.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      hostPID: true
+      hostNetwork: true
+      priorityClassName: {{ .Values.nodeinit.priorityClassName | default (include "cilium.criticalPriorityClass" (list $ "system-node-critical")) }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: node-init
+          image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
+          imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          {{- if .Values.nodeinit.revertReconfigureKubelet }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - nsenter
+                  - --target=1
+                  - --mount
+                  - --
+                  - /bin/sh
+                  - -c
+                  - |
+                    {{ tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
+          {{- end }}
+          env:
+          - name: CHECKPOINT_PATH
+            value: /tmp/node-init.cilium.io
+          # STARTUP_SCRIPT is the script run on node bootstrap. Node
+          # bootstrapping can be customized in this script. This script is invoked
+          # using nsenter, so it runs in the host's network and mount namespace using
+          # the host's userland tools!
+          - name: STARTUP_SCRIPT
+            value: |
+              {{ tpl (.Files.Get "files/nodeinit/startup.bash") . | nindent 14 }}
+{{- end }}

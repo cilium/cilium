@@ -1,0 +1,20 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-relay
+  labels:
+    k8s-app: hubble-relay
+spec:
+  type: ClusterIP
+  selector:
+    k8s-app: hubble-relay
+  ports:
+  - protocol: TCP
+  {{- if .Values.hubble.relay.servicePort }}
+    port: {{ .Values.hubble.relay.servicePort }}
+  {{- else }}
+    port: {{ .Values.hubble.relay.tls.server.enabled | ternary 443 80 }}
+  {{- end }}
+    targetPort: {{ .Values.hubble.relay.listenPort }}
+{{- end }}

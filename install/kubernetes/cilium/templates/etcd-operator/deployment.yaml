@@ -1,0 +1,90 @@
+{{- if .Values.etcd.managed }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cilium-etcd-operator
+  labels:
+    io.cilium/app: etcd-operator
+    name: cilium-etcd-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.cilium/app: etcd-operator
+      name: cilium-etcd-operator
+  {{- with .Values.etcd.updateStrategy }}
+  strategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.etcd.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        io.cilium/app: etcd-operator
+        name: cilium-etcd-operator
+      {{- with .Values.etcd.podLabels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.etcd.affinity }}
+      affinity:
+        {{ toYaml .Values.etcd.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{ toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cilium-etcd-operator
+        image: {{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}
+        imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
+        args:
+        {{- with .Values.etcd.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        #- --etcd-node-selector=disktype=ssd,cputype=high
+        command:
+        - /usr/bin/cilium-etcd-operator
+        env:
+        - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
+          value: "{{ .Values.etcd.clusterDomain }}"
+        - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
+          value: "{{ .Values.etcd.clusterSize }}"
+        - name: CILIUM_ETCD_OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: CILIUM_ETCD_OPERATOR_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: CILIUM_ETCD_OPERATOR_POD_UID
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.uid
+        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_MODE
+          value: "revision"
+        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
+          value: "25000"
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      priorityClassName: {{ .Values.etcd.priorityClassName | default (include "cilium.criticalPriorityClass" (list $ "system-cluster-critical")) }}
+      restartPolicy: Always
+      serviceAccount: {{ .Values.serviceAccounts.etcd.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.etcd.name | quote }}
+      {{- with .Values.etcd.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+{{- end }}

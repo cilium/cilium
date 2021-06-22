@@ -1,0 +1,22 @@
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-agent
+  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+  - port: metrics
+    interval: 10s
+    honorLabels: true
+    path: /metrics
+  targetLabels:
+  - k8s-app
+{{- end }}
