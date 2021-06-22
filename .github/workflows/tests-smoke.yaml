@@ -79,7 +79,7 @@ jobs:
       - name: Run helm-docs
         run: |
           make -C install/kubernetes docs
-          git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
   conformance-test:
     needs: check_changes
@@ -104,7 +104,7 @@ jobs:
         run: |
           make -C examples/kubernetes/connectivity-check fmt
           make -C examples/kubernetes/connectivity-check all
-          git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
 
       - name: Create kind cluster
         uses: helm/kind-action@7a937c0fb648064a83b8b9354151e5e543d9fcec

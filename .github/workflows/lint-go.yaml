@@ -27,7 +27,7 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
-          git diff --exit-code || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
+          test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
       - name: Send slack notification
         if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
