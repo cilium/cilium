@@ -38,9 +38,6 @@ type Test struct {
 	// True if the Test is marked as failed.
 	failed bool
 
-	// Warning counter for reporting purposes.
-	warnings uint
-
 	// Scenarios registered to this test.
 	scenarios map[Scenario][]*Action
 
@@ -121,8 +118,7 @@ func (t *Test) willRun() bool {
 }
 
 // finalize runs all the Test's registered finalizers.
-// Failures encountered executing finalizers will be raised as warnings
-// against the Test.
+// Failures encountered executing finalizers will fail the Test.
 func (t *Test) finalize() {
 	if t.failed && t.Context().params.PauseOnFail {
 		t.Log("Pausing after test failure, press the Enter key to continue:")
@@ -133,7 +129,7 @@ func (t *Test) finalize() {
 
 	for _, f := range t.finalizers {
 		if err := f(); err != nil {
-			t.Warnf("Error finalizing '%s': %s", t.Name(), err)
+			t.Failf("Error finalizing '%s': %s", t.Name(), err)
 		}
 	}
 }
@@ -150,15 +146,10 @@ func (t *Test) Run(ctx context.Context) error {
 	defer func() {
 		// Run all of the Test's registered finalizers.
 		t.finalize()
-
-		// Print warnings buffered during test execution, if any.
-		// Finalizer errors come up as warnings, so only flush after
-		// executing finalizers.
-		t.flushWarnings()
 	}()
 
 	if len(t.scenarios) == 0 {
-		t.Warn("Test has no Scenarios")
+		t.Fail("Test has no Scenarios")
 	}
 
 	// Skip the Test if all of its Scenarios are skipped.
@@ -258,9 +249,4 @@ func (t *Test) failedActions() []*Action {
 	}
 
 	return out
-}
-
-// warn bumps the Test's warning counter.
-func (t *Test) warn() {
-	t.warnings++
 }
