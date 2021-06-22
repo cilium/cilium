@@ -44,7 +44,7 @@ type DescribeAggregateIdFormatInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 type DescribeAggregateIdFormatOutput struct {
@@ -55,7 +55,7 @@ type DescribeAggregateIdFormatOutput struct {
 	// Indicates whether all resource types in the Region are configured to use longer
 	// IDs. This value is only true if all users are configured to use longer IDs for
 	// all resources types in the Region.
-	UseLongIdsAggregated bool
+	UseLongIdsAggregated *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

@@ -47,7 +47,7 @@ type StartNetworkInsightsAnalysisInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The Amazon Resource Names (ARN) of the resources that the path must traverse.
 	FilterInArns []string

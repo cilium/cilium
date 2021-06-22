@@ -53,7 +53,7 @@ type DescribeNetworkInterfacePermissionsInput struct {
 	// The maximum number of results to return in a single call. To retrieve the
 	// remaining results, make another call with the returned NextToken value. If this
 	// parameter is not specified, up to 50 results are returned by default.
-	MaxResults int32
+	MaxResults *int32
 
 	// One or more network interface permission IDs.
 	NetworkInterfacePermissionIds []string
@@ -174,8 +174,8 @@ func NewDescribeNetworkInterfacePermissionsPaginator(client DescribeNetworkInter
 	}
 
 	options := DescribeNetworkInterfacePermissionsPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -204,7 +204,11 @@ func (p *DescribeNetworkInterfacePermissionsPaginator) NextPage(ctx context.Cont
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeNetworkInterfacePermissions(ctx, &params, optFns...)
 	if err != nil {

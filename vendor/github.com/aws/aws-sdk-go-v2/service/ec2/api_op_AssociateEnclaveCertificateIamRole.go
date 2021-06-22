@@ -51,7 +51,7 @@ type AssociateEnclaveCertificateIamRoleInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ARN of the IAM role to associate with the ACM certificate. You can associate
 	// up to 16 IAM roles with an ACM certificate.

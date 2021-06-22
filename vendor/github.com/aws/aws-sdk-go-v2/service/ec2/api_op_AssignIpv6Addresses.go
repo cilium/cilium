@@ -46,7 +46,7 @@ type AssignIpv6AddressesInput struct {
 	// addresses that are already assigned to the network interface. Amazon EC2
 	// automatically selects the IPv6 addresses from the subnet range. You can't use
 	// this option if specifying specific IPv6 addresses.
-	Ipv6AddressCount int32
+	Ipv6AddressCount *int32
 
 	// One or more specific IPv6 addresses to be assigned to the network interface. You
 	// can't use this option if you're specifying a number of IPv6 addresses.

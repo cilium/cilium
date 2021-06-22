@@ -46,7 +46,7 @@ type ReleaseAddressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The set of Availability Zones, Local Zones, or Wavelength Zones from which AWS
 	// advertises IP addresses. If you provide an incorrect network border group, you

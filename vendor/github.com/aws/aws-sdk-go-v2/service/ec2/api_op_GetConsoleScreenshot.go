@@ -38,11 +38,11 @@ type GetConsoleScreenshotInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// When set to true, acts as keystroke input and wakes up an instance that's in
 	// standby or "sleep" mode.
-	WakeUp bool
+	WakeUp *bool
 }
 
 type GetConsoleScreenshotOutput struct {

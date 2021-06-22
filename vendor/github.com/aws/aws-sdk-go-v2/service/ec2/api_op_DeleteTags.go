@@ -43,7 +43,7 @@ type DeleteTagsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The tags to delete. Specify a tag key and an optional tag value to delete
 	// specific tags. If you specify a tag key without a tag value, we delete any tag

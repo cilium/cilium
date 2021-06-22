@@ -64,7 +64,7 @@ type ModifyIdFormatInput struct {
 	// Indicate whether the resource should use longer IDs (17-character IDs).
 	//
 	// This member is required.
-	UseLongIds bool
+	UseLongIds *bool
 }
 
 type ModifyIdFormatOutput struct {

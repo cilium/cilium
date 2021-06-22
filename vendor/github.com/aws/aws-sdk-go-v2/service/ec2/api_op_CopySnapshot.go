@@ -78,7 +78,7 @@ type CopySnapshotInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// To encrypt a copy of an unencrypted snapshot if encryption by default is not
 	// enabled, enable encryption using this parameter. Otherwise, omit this parameter.
@@ -87,7 +87,7 @@ type CopySnapshotInput struct {
 	// For more information, see Amazon EBS encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 	// Amazon Elastic Compute Cloud User Guide.
-	Encrypted bool
+	Encrypted *bool
 
 	// The identifier of the AWS Key Management Service (AWS KMS) customer master key
 	// (CMK) to use for Amazon EBS encryption. If this parameter is not specified, your

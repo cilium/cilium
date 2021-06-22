@@ -69,7 +69,7 @@ type AllocateAddressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// A unique set of Availability Zones, Local Zones, or Wavelength Zones from which
 	// AWS advertises IP addresses. Use this parameter to limit the IP address to this

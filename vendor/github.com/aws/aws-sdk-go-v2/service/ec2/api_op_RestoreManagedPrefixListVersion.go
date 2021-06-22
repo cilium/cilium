@@ -33,7 +33,7 @@ type RestoreManagedPrefixListVersionInput struct {
 	// The current version number for the prefix list.
 	//
 	// This member is required.
-	CurrentVersion int64
+	CurrentVersion *int64
 
 	// The ID of the prefix list.
 	//
@@ -43,13 +43,13 @@ type RestoreManagedPrefixListVersionInput struct {
 	// The version to restore.
 	//
 	// This member is required.
-	PreviousVersion int64
+	PreviousVersion *int64
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 type RestoreManagedPrefixListVersionOutput struct {

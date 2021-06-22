@@ -46,7 +46,7 @@ type ModifyInstanceMetadataOptionsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// This parameter enables or disables the HTTP metadata endpoint on your instances.
 	// If the parameter is not specified, the existing state is maintained. If you
@@ -58,7 +58,7 @@ type ModifyInstanceMetadataOptionsInput struct {
 	// larger the number, the further instance metadata requests can travel. If no
 	// parameter is specified, the existing state is maintained. Possible values:
 	// Integers from 1 to 64
-	HttpPutResponseHopLimit int32
+	HttpPutResponseHopLimit *int32
 
 	// The state of token usage for your instance metadata requests. If the parameter
 	// is not specified in the request, the default state is optional. If the state is

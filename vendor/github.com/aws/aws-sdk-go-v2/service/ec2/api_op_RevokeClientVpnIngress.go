@@ -48,10 +48,10 @@ type RevokeClientVpnIngressInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Indicates whether access should be revoked for all clients.
-	RevokeAllGroups bool
+	RevokeAllGroups *bool
 }
 
 type RevokeClientVpnIngressOutput struct {

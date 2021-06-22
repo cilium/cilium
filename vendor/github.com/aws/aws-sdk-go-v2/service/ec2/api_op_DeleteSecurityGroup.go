@@ -35,7 +35,7 @@ type DeleteSecurityGroupInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the security group. Required for a nondefault VPC.
 	GroupId *string

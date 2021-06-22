@@ -74,7 +74,7 @@ type CreateFlowLogsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Specifies the destination to which the flow log data is to be published. Flow
 	// log data can be published to a CloudWatch Logs log group or an Amazon S3 bucket.
@@ -120,7 +120,7 @@ type CreateFlowLogsInput struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances),
 	// the aggregation interval is always 60 seconds or less, regardless of the value
 	// that you specify. Default: 600
-	MaxAggregationInterval int32
+	MaxAggregationInterval *int32
 
 	// The tags to apply to the flow logs.
 	TagSpecifications []types.TagSpecification

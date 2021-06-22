@@ -48,7 +48,7 @@ type CreateTrafficMirrorSessionInput struct {
 	// is the one that mirrors the packets. Valid values are 1-32766.
 	//
 	// This member is required.
-	SessionNumber int32
+	SessionNumber *int32
 
 	// The ID of the Traffic Mirror filter.
 	//
@@ -72,7 +72,7 @@ type CreateTrafficMirrorSessionInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The number of bytes in each packet to mirror. These are bytes after the VXLAN
 	// header. Do not specify this parameter when you want to mirror the entire packet.
@@ -81,7 +81,7 @@ type CreateTrafficMirrorSessionInput struct {
 	// bytes that meet the filter criteria are copied to the target. If you do not want
 	// to mirror the entire packet, use the PacketLength parameter to specify the
 	// number of bytes in each packet to mirror.
-	PacketLength int32
+	PacketLength *int32
 
 	// The tags to assign to a Traffic Mirror session.
 	TagSpecifications []types.TagSpecification
@@ -89,7 +89,7 @@ type CreateTrafficMirrorSessionInput struct {
 	// The VXLAN ID for the Traffic Mirror session. For more information about the
 	// VXLAN protocol, see RFC 7348 (https://tools.ietf.org/html/rfc7348). If you do
 	// not specify a VirtualNetworkId, an account-wide unique id is chosen at random.
-	VirtualNetworkId int32
+	VirtualNetworkId *int32
 }
 
 type CreateTrafficMirrorSessionOutput struct {

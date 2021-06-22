@@ -39,7 +39,7 @@ type AllocateHostsInput struct {
 	// The number of Dedicated Hosts to allocate to your account with these parameters.
 	//
 	// This member is required.
-	Quantity int32
+	Quantity *int32
 
 	// Indicates whether the host accepts any untargeted instance launches that match
 	// its instance type configuration, or if it only accepts Host tenancy instance

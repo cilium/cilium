@@ -76,16 +76,16 @@ type SearchTransitGatewayRoutesInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The maximum number of routes to return.
-	MaxResults int32
+	MaxResults *int32
 }
 
 type SearchTransitGatewayRoutesOutput struct {
 
 	// Indicates whether there are additional routes available.
-	AdditionalRoutesAvailable bool
+	AdditionalRoutesAvailable *bool
 
 	// Information about the routes.
 	Routes []types.TransitGatewayRoute

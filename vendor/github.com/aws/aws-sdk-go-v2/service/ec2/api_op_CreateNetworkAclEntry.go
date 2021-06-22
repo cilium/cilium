@@ -46,7 +46,7 @@ type CreateNetworkAclEntryInput struct {
 	// subnet).
 	//
 	// This member is required.
-	Egress bool
+	Egress *bool
 
 	// The ID of the network ACL.
 	//
@@ -74,7 +74,7 @@ type CreateNetworkAclEntryInput struct {
 	// The range 32767 to 65535 is reserved for internal use.
 	//
 	// This member is required.
-	RuleNumber int32
+	RuleNumber *int32
 
 	// The IPv4 network range to allow or deny, in CIDR notation (for example
 	// 172.16.0.0/24). We modify the specified CIDR block to its canonical form; for
@@ -85,7 +85,7 @@ type CreateNetworkAclEntryInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// ICMP protocol: The ICMP or ICMPv6 type and code. Required if specifying protocol
 	// 1 (ICMP) or protocol 58 (ICMPv6) with an IPv6 CIDR block.

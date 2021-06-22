@@ -52,7 +52,7 @@ type ImportImageInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Specifies whether the destination AMI of the imported image should be encrypted.
 	// The default CMK for EBS is used unless you specify a non-default AWS Key
@@ -60,7 +60,7 @@ type ImportImageInput struct {
 	// Amazon EBS Encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 	// Amazon Elastic Compute Cloud User Guide.
-	Encrypted bool
+	Encrypted *bool
 
 	// The target hypervisor platform. Valid values: xen
 	Hypervisor *string
@@ -131,7 +131,7 @@ type ImportImageOutput struct {
 	Description *string
 
 	// Indicates whether the AMI is encrypted.
-	Encrypted bool
+	Encrypted *bool
 
 	// The target hypervisor of the import task.
 	Hypervisor *string

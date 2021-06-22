@@ -53,7 +53,7 @@ type CreateVolumeInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Indicates whether the volume should be encrypted. The effect of setting the
 	// encryption state to true depends on the volume origin (new or from a snapshot),
@@ -64,7 +64,7 @@ type CreateVolumeInput struct {
 	// must be attached to instances that support Amazon EBS encryption. For more
 	// information, see Supported instance types
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
-	Encrypted bool
+	Encrypted *bool
 
 	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
 	// this represents the number of IOPS that are provisioned for the volume. For gp2
@@ -85,7 +85,7 @@ type CreateVolumeInput struct {
 	// Other instance families guarantee performance up to 32,000 IOPS. This parameter
 	// is required for io1 and io2 volumes. The default for gp3 volumes is 3,000 IOPS.
 	// This parameter is not supported for gp2, st1, sc1, or standard volumes.
-	Iops int32
+	Iops *int32
 
 	// The identifier of the AWS Key Management Service (AWS KMS) customer master key
 	// (CMK) to use for Amazon EBS encryption. If this parameter is not specified, your
@@ -117,7 +117,7 @@ type CreateVolumeInput struct {
 	// volumes only. For more information, see  Amazon EBS Multi-Attach
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volumes-multi.html) in
 	// the Amazon Elastic Compute Cloud User Guide.
-	MultiAttachEnabled bool
+	MultiAttachEnabled *bool
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
@@ -136,7 +136,7 @@ type CreateVolumeInput struct {
 	//
 	// * standard:
 	// 1-1,024
-	Size int32
+	Size *int32
 
 	// The snapshot from which to create the volume. You must specify either a snapshot
 	// ID or a volume size.
@@ -148,7 +148,7 @@ type CreateVolumeInput struct {
 	// The throughput to provision for a volume, with a maximum of 1,000 MiB/s. This
 	// parameter is valid only for gp3 volumes. Valid Range: Minimum value of 125.
 	// Maximum value of 1000.
-	Throughput int32
+	Throughput *int32
 
 	// The volume type. This parameter can be one of the following values:
 	//
@@ -184,16 +184,16 @@ type CreateVolumeOutput struct {
 	CreateTime *time.Time
 
 	// Indicates whether the volume is encrypted.
-	Encrypted bool
+	Encrypted *bool
 
 	// Indicates whether the volume was created using fast snapshot restore.
-	FastRestored bool
+	FastRestored *bool
 
 	// The number of I/O operations per second (IOPS). For gp3, io1, and io2 volumes,
 	// this represents the number of IOPS that are provisioned for the volume. For gp2
 	// volumes, this represents the baseline performance of the volume and the rate at
 	// which the volume accumulates I/O credits for bursting.
-	Iops int32
+	Iops *int32
 
 	// The Amazon Resource Name (ARN) of the AWS Key Management Service (AWS KMS)
 	// customer master key (CMK) that was used to protect the volume encryption key for
@@ -201,13 +201,13 @@ type CreateVolumeOutput struct {
 	KmsKeyId *string
 
 	// Indicates whether Amazon EBS Multi-Attach is enabled.
-	MultiAttachEnabled bool
+	MultiAttachEnabled *bool
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
 
 	// The size of the volume, in GiBs.
-	Size int32
+	Size *int32
 
 	// The snapshot from which the volume was created, if applicable.
 	SnapshotId *string
@@ -219,7 +219,7 @@ type CreateVolumeOutput struct {
 	Tags []types.Tag
 
 	// The throughput that the volume supports, in MiB/s.
-	Throughput int32
+	Throughput *int32
 
 	// The ID of the volume.
 	VolumeId *string

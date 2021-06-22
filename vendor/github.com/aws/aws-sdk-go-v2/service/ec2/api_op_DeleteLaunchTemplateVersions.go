@@ -41,7 +41,7 @@ type DeleteLaunchTemplateVersionsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the launch template. You must specify either the launch template ID or
 	// launch template name in the request.

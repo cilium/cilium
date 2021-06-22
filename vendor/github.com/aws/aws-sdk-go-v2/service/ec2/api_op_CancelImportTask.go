@@ -35,7 +35,7 @@ type CancelImportTaskInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The ID of the import image or import snapshot task to be canceled.
 	ImportTaskId *string

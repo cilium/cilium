@@ -43,7 +43,7 @@ type TerminateClientVpnConnectionsInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The name of the user who initiated the connection. Use this option to terminate
 	// all active connections for the specified user. This option can only be used if

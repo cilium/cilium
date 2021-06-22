@@ -72,12 +72,48 @@ var defaultPartitions = endpoints.Partitions{
 			"ap-southeast-1": endpoints.Endpoint{},
 			"ap-southeast-2": endpoints.Endpoint{},
 			"ca-central-1":   endpoints.Endpoint{},
-			"eu-central-1":   endpoints.Endpoint{},
-			"eu-north-1":     endpoints.Endpoint{},
-			"eu-south-1":     endpoints.Endpoint{},
-			"eu-west-1":      endpoints.Endpoint{},
-			"eu-west-2":      endpoints.Endpoint{},
-			"eu-west-3":      endpoints.Endpoint{},
+			"dualstack-ap-south-1": endpoints.Endpoint{
+				Hostname: "api.ec2.ap-south-1.aws",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "ap-south-1",
+				},
+			},
+			"dualstack-eu-west-1": endpoints.Endpoint{
+				Hostname: "api.ec2.eu-west-1.aws",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "eu-west-1",
+				},
+			},
+			"dualstack-sa-east-1": endpoints.Endpoint{
+				Hostname: "api.ec2.sa-east-1.aws",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "sa-east-1",
+				},
+			},
+			"dualstack-us-east-1": endpoints.Endpoint{
+				Hostname: "api.ec2.us-east-1.aws",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "us-east-1",
+				},
+			},
+			"dualstack-us-east-2": endpoints.Endpoint{
+				Hostname: "api.ec2.us-east-2.aws",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "us-east-2",
+				},
+			},
+			"dualstack-us-west-2": endpoints.Endpoint{
+				Hostname: "api.ec2.us-west-2.aws",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "us-west-2",
+				},
+			},
+			"eu-central-1": endpoints.Endpoint{},
+			"eu-north-1":   endpoints.Endpoint{},
+			"eu-south-1":   endpoints.Endpoint{},
+			"eu-west-1":    endpoints.Endpoint{},
+			"eu-west-2":    endpoints.Endpoint{},
+			"eu-west-3":    endpoints.Endpoint{},
 			"fips-ca-central-1": endpoints.Endpoint{
 				Hostname: "ec2-fips.ca-central-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{

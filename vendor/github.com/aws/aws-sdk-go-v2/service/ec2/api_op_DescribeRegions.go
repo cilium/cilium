@@ -36,13 +36,13 @@ type DescribeRegionsInput struct {
 
 	// Indicates whether to display all Regions, including Regions that are disabled
 	// for your account.
-	AllRegions bool
+	AllRegions *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The filters.
 	//

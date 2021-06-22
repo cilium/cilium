@@ -45,7 +45,7 @@ type DescribeImagesInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Scopes the images by users with explicit launch permissions. Specify an AWS
 	// account ID, self (the sender of the request), or all (public AMIs).

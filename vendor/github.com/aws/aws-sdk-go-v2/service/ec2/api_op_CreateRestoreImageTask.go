@@ -52,7 +52,7 @@ type CreateRestoreImageTaskInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The name for the restored AMI. The name must be unique for AMIs in the Region
 	// for this account. If you do not provide a name, the new AMI gets the same name

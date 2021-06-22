@@ -43,7 +43,7 @@ type GetReservedInstancesExchangeQuoteInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The configuration of the target Convertible Reserved Instance to exchange for
 	// your current Convertible Reserved Instances.
@@ -57,7 +57,7 @@ type GetReservedInstancesExchangeQuoteOutput struct {
 	CurrencyCode *string
 
 	// If true, the exchange is valid. If false, the exchange cannot be completed.
-	IsValidExchange bool
+	IsValidExchange *bool
 
 	// The new end date of the reservation term.
 	OutputReservedInstancesWillExpireAt *time.Time

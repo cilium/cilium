@@ -45,7 +45,7 @@ type PurchaseReservedInstancesOfferingInput struct {
 	// The number of Reserved Instances to purchase.
 	//
 	// This member is required.
-	InstanceCount int32
+	InstanceCount *int32
 
 	// The ID of the Reserved Instance offering to purchase.
 	//
@@ -56,7 +56,7 @@ type PurchaseReservedInstancesOfferingInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Specified for Reserved Instance Marketplace offerings to limit the total order
 	// and ensure that the Reserved Instances are not purchased at unexpected prices.

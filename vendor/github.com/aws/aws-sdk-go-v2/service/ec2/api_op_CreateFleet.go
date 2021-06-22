@@ -53,7 +53,7 @@ type CreateFleetInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Indicates whether running instances should be terminated if the total target
 	// capacity of the EC2 Fleet is decreased below the current size of the EC2 Fleet.
@@ -67,7 +67,7 @@ type CreateFleetInput struct {
 	// checks
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#ec2-fleet-health-checks)
 	// in the Amazon EC2 User Guide.
-	ReplaceUnhealthyInstances bool
+	ReplaceUnhealthyInstances *bool
 
 	// Describes the configuration of Spot Instances in an EC2 Fleet.
 	SpotOptions *types.SpotOptionsRequest
@@ -82,7 +82,7 @@ type CreateFleetInput struct {
 
 	// Indicates whether running instances should be terminated when the EC2 Fleet
 	// expires.
-	TerminateInstancesWithExpiration bool
+	TerminateInstancesWithExpiration *bool
 
 	// The type of request. The default value is maintain.
 	//

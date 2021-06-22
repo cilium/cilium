@@ -35,7 +35,7 @@ type DescribeNetworkInterfacesInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// One or more filters.
 	//
@@ -161,7 +161,7 @@ type DescribeNetworkInterfacesInput struct {
 	// token that you can specify in a subsequent call to get the next set of results.
 	// You cannot specify this parameter and the network interface IDs parameter in the
 	// same request.
-	MaxResults int32
+	MaxResults *int32
 
 	// One or more network interface IDs. Default: Describes all your network
 	// interfaces.
@@ -284,8 +284,8 @@ func NewDescribeNetworkInterfacesPaginator(client DescribeNetworkInterfacesAPICl
 	}
 
 	options := DescribeNetworkInterfacesPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -314,7 +314,11 @@ func (p *DescribeNetworkInterfacesPaginator) NextPage(ctx context.Context, optFn
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeNetworkInterfaces(ctx, &params, optFns...)
 	if err != nil {

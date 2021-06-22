@@ -48,7 +48,7 @@ type ImportSnapshotInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Specifies whether the destination snapshot of the imported image should be
 	// encrypted. The default CMK for EBS is used unless you specify a non-default AWS
@@ -56,7 +56,7 @@ type ImportSnapshotInput struct {
 	// Amazon EBS Encryption
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
 	// Amazon Elastic Compute Cloud User Guide.
-	Encrypted bool
+	Encrypted *bool
 
 	// An identifier for the symmetric AWS Key Management Service (AWS KMS) customer
 	// master key (CMK) to use when creating the encrypted snapshot. This parameter is

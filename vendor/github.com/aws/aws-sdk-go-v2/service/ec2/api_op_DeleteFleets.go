@@ -62,13 +62,13 @@ type DeleteFleetsInput struct {
 	// supported.
 	//
 	// This member is required.
-	TerminateInstances bool
+	TerminateInstances *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 type DeleteFleetsOutput struct {

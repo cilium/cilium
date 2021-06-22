@@ -40,7 +40,7 @@ type DescribeVpcEndpointServicesInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// One or more filters.
 	//
@@ -63,7 +63,7 @@ type DescribeVpcEndpointServicesInput struct {
 	// The maximum number of items to return for this request. The request returns a
 	// token that you can specify in a subsequent call to get the next set of results.
 	// Constraint: If the value is greater than 1,000, we return only 1,000 items.
-	MaxResults int32
+	MaxResults *int32
 
 	// The token for the next set of items to return. (You received this token from a
 	// prior call.)

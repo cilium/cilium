@@ -95,7 +95,7 @@ type RunInstancesInput struct {
 	// the Amazon EC2 FAQ.
 	//
 	// This member is required.
-	MaxCount int32
+	MaxCount *int32
 
 	// The minimum number of instances to launch. If you specify a minimum that is more
 	// instances than Amazon EC2 can launch in the target Availability Zone, Amazon EC2
@@ -107,7 +107,7 @@ type RunInstancesInput struct {
 	// the Amazon EC2 General FAQ.
 	//
 	// This member is required.
-	MinCount int32
+	MinCount *int32
 
 	// Reserved.
 	AdditionalInfo *string
@@ -152,20 +152,20 @@ type RunInstancesInput struct {
 	// Alternatively, if you set InstanceInitiatedShutdownBehavior to terminate, you
 	// can terminate the instance by running the shutdown command from the instance.
 	// Default: false
-	DisableApiTermination bool
+	DisableApiTermination *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// Indicates whether the instance is optimized for Amazon EBS I/O. This
 	// optimization provides dedicated throughput to Amazon EBS and an optimized
 	// configuration stack to provide optimal Amazon EBS I/O performance. This
 	// optimization isn't available with all instance types. Additional usage charges
 	// apply when using an EBS-optimized instance. Default: false
-	EbsOptimized bool
+	EbsOptimized *bool
 
 	// An elastic GPU to associate with the instance. An Elastic GPU is a GPU resource
 	// that you can attach to your Windows instance to accelerate the graphics
@@ -223,7 +223,7 @@ type RunInstancesInput struct {
 	// in the same request. You can specify this option if you've specified a minimum
 	// number of instances to launch. You cannot specify this option and the network
 	// interfaces option in the same request.
-	Ipv6AddressCount int32
+	Ipv6AddressCount *int32
 
 	// [EC2-VPC] The IPv6 addresses from the range of the subnet to associate with the
 	// primary network interface. You cannot specify this option and the option to

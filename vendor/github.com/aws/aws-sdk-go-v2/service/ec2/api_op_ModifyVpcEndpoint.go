@@ -54,7 +54,7 @@ type ModifyVpcEndpointInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// (Interface and gateway endpoints) A policy to attach to the endpoint that
 	// controls access to the service. The policy must be in valid JSON format.
@@ -62,7 +62,7 @@ type ModifyVpcEndpointInput struct {
 
 	// (Interface endpoint) Indicates whether a private hosted zone is associated with
 	// the VPC.
-	PrivateDnsEnabled bool
+	PrivateDnsEnabled *bool
 
 	// (Gateway endpoint) One or more route table IDs to disassociate from the
 	// endpoint.
@@ -77,13 +77,13 @@ type ModifyVpcEndpointInput struct {
 
 	// (Gateway endpoint) Specify true to reset the policy document to the default
 	// policy. The default policy allows full access to the service.
-	ResetPolicy bool
+	ResetPolicy *bool
 }
 
 type ModifyVpcEndpointOutput struct {
 
 	// Returns true if the request succeeds; otherwise, it returns an error.
-	Return bool
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

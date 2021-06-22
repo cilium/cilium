@@ -34,7 +34,7 @@ type DescribeExportImageTasksInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The IDs of the export image tasks.
 	ExportImageTaskIds []string
@@ -44,7 +44,7 @@ type DescribeExportImageTasksInput struct {
 	Filters []types.Filter
 
 	// The maximum number of results to return in a single call.
-	MaxResults int32
+	MaxResults *int32
 
 	// A token that indicates the next page of results.
 	NextToken *string
@@ -159,8 +159,8 @@ func NewDescribeExportImageTasksPaginator(client DescribeExportImageTasksAPIClie
 	}
 
 	options := DescribeExportImageTasksPaginatorOptions{}
-	if params.MaxResults != 0 {
-		options.Limit = params.MaxResults
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
 	}
 
 	for _, fn := range optFns {
@@ -189,7 +189,11 @@ func (p *DescribeExportImageTasksPaginator) NextPage(ctx context.Context, optFns
 	params := *p.params
 	params.NextToken = p.nextToken
 
-	params.MaxResults = p.options.Limit
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
 
 	result, err := p.client.DescribeExportImageTasks(ctx, &params, optFns...)
 	if err != nil {

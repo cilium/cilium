@@ -4,6 +4,7 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -38,6 +39,11 @@ type CreateNetworkInterfaceInput struct {
 	// This member is required.
 	SubnetId *string
 
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
+	// the request. For more information, see Ensuring Idempotency
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	ClientToken *string
+
 	// A description for the network interface.
 	Description *string
 
@@ -45,7 +51,7 @@ type CreateNetworkInterfaceInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The IDs of one or more security groups.
 	Groups []string
@@ -61,7 +67,7 @@ type CreateNetworkInterfaceInput struct {
 	// this option if specifying specific IPv6 addresses. If your subnet has the
 	// AssignIpv6AddressOnCreation attribute set to true, you can specify 0 to override
 	// this setting.
-	Ipv6AddressCount int32
+	Ipv6AddressCount *int32
 
 	// One or more specific IPv6 addresses from the IPv6 CIDR block range of your
 	// subnet. You can't use this option if you're specifying a number of IPv6
@@ -86,7 +92,7 @@ type CreateNetworkInterfaceInput struct {
 	// type. For more information, see IP Addresses Per ENI Per Instance Type
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
 	// in the Amazon Virtual Private Cloud User Guide.
-	SecondaryPrivateIpAddressCount int32
+	SecondaryPrivateIpAddressCount *int32
 
 	// The tags to apply to the new network interface.
 	TagSpecifications []types.TagSpecification
@@ -94,6 +100,10 @@ type CreateNetworkInterfaceInput struct {
 
 // Contains the output of CreateNetworkInterface.
 type CreateNetworkInterfaceOutput struct {
+
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
+	ClientToken *string
 
 	// Information about the network interface.
 	NetworkInterface *types.NetworkInterface
@@ -147,6 +157,9 @@ func addOperationCreateNetworkInterfaceMiddlewares(stack *middleware.Stack, opti
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addIdempotencyToken_opCreateNetworkInterfaceMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateNetworkInterfaceValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -163,6 +176,39 @@ func addOperationCreateNetworkInterfaceMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 	return nil
+}
+
+type idempotencyToken_initializeOpCreateNetworkInterface struct {
+	tokenProvider IdempotencyTokenProvider
+}
+
+func (*idempotencyToken_initializeOpCreateNetworkInterface) ID() string {
+	return "OperationIdempotencyTokenAutoFill"
+}
+
+func (m *idempotencyToken_initializeOpCreateNetworkInterface) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	if m.tokenProvider == nil {
+		return next.HandleInitialize(ctx, in)
+	}
+
+	input, ok := in.Parameters.(*CreateNetworkInterfaceInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateNetworkInterfaceInput ")
+	}
+
+	if input.ClientToken == nil {
+		t, err := m.tokenProvider.GetIdempotencyToken()
+		if err != nil {
+			return out, metadata, err
+		}
+		input.ClientToken = &t
+	}
+	return next.HandleInitialize(ctx, in)
+}
+func addIdempotencyToken_opCreateNetworkInterfaceMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateNetworkInterface{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
 func newServiceMetadataMiddleware_opCreateNetworkInterface(region string) *awsmiddleware.RegisterServiceMetadata {

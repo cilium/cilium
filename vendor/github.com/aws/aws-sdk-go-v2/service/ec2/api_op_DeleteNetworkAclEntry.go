@@ -32,7 +32,7 @@ type DeleteNetworkAclEntryInput struct {
 	// Indicates whether the rule is an egress rule.
 	//
 	// This member is required.
-	Egress bool
+	Egress *bool
 
 	// The ID of the network ACL.
 	//
@@ -42,13 +42,13 @@ type DeleteNetworkAclEntryInput struct {
 	// The rule number of the entry to delete.
 	//
 	// This member is required.
-	RuleNumber int32
+	RuleNumber *int32
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 }
 
 type DeleteNetworkAclEntryOutput struct {

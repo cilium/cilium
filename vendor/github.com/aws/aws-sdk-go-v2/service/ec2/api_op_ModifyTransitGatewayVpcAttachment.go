@@ -42,7 +42,7 @@ type ModifyTransitGatewayVpcAttachmentInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The new VPC attachment options. You cannot modify the IPv6 options.
 	Options *types.ModifyTransitGatewayVpcAttachmentRequestOptions

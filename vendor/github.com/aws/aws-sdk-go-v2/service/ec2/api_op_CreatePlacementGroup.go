@@ -42,14 +42,14 @@ type CreatePlacementGroupInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// A name for the placement group. Must be unique within the scope of your account
 	// for the Region. Constraints: Up to 255 ASCII characters
 	GroupName *string
 
 	// The number of partitions. Valid only when Strategy is set to partition.
-	PartitionCount int32
+	PartitionCount *int32
 
 	// The placement strategy.
 	Strategy types.PlacementStrategy

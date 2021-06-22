@@ -47,7 +47,7 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	// order by rule number.
 	//
 	// This member is required.
-	RuleNumber int32
+	RuleNumber *int32
 
 	// The source CIDR block to assign to the Traffic Mirror rule.
 	//
@@ -79,13 +79,13 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
-	DryRun bool
+	DryRun *bool
 
 	// The protocol, for example UDP, to assign to the Traffic Mirror rule. For
 	// information about the protocol value, see Protocol Numbers
 	// (https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml) on
 	// the Internet Assigned Numbers Authority (IANA) website.
-	Protocol int32
+	Protocol *int32
 
 	// The source port range.
 	SourcePortRange *types.TrafficMirrorPortRangeRequest
