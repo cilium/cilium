@@ -180,10 +180,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("Encapsulation", func() {
-		BeforeEach(func() {
-			SkipIfIntegration(helpers.CIIntegrationGKE)
-		})
-
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -200,6 +196,15 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(status.IntOutput()).Should(Equal(numEntries), "Did not find expected number of entries in BPF tunnel map")
 		}
 
+		enableVXLANTunneling := func(options map[string]string) {
+			options["tunnel"] = "vxlan"
+			if helpers.RunsOnGKE() {
+				// We need to disable gke.enabled as it disables tunneling.
+				options["gke.enabled"] = "false"
+				options["endpointRoutes.enabled"] = "true"
+			}
+		}
+
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and VXLAN encapsulation", func() {
 			// FIXME(brb) Currently, the test is broken with CI 4.19 setup. Run it on 4.19
 			//			  once we have kube-proxy disabled there.
@@ -209,10 +214,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
-			deploymentManager.DeployCilium(map[string]string{
+			options := map[string]string{
 				"kubeProxyReplacement": "disabled",
 				"encryption.enabled":   "true",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
 		}, 600)
@@ -224,18 +231,20 @@ var _ = Describe("K8sDatapathConfig", func() {
 				return
 			}
 
-			deploymentManager.DeployCilium(map[string]string{
+			options := map[string]string{
 				"sockops.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
 
 		It("Check connectivity with VXLAN encapsulation", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel": "vxlan",
-			}, DeployCiliumOptionsAndDNS)
+			options := map[string]string{}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		}, 600)
@@ -250,10 +259,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Check vxlan connectivity with per-endpoint routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "vxlan",
+			options := map[string]string{
 				"endpointRoutes.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			if helpers.RunsOn419OrLaterKernel() {
@@ -264,10 +274,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Check iptables masquerading with random-fully", func() {
-			deploymentManager.DeployCilium(map[string]string{
+			options := map[string]string{
 				"bpf.masquerade":      "false",
 				"iptablesRandomFully": "true",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			By("Test iptables masquerading")
@@ -276,9 +288,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Check iptables masquerading without random-fully", func() {
-			deploymentManager.DeployCilium(map[string]string{
+			options := map[string]string{
 				"bpf.masquerade": "false",
-			}, DeployCiliumOptionsAndDNS)
+			}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			By("Test iptables masquerading")
