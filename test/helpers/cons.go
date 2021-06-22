@@ -243,8 +243,8 @@ const (
 	// ...and their exceptions.
 	lrpExists            = "local-redirect service exists for frontend"                  // cf. https://github.com/cilium/cilium/issues/16400
 	opCannotBeFulfilled  = "Operation cannot be fulfilled on leases.coordination.k8s.io" // cf. https://github.com/cilium/cilium/issues/16402
+	initLeaderElection   = "error initially creating leader election record: leases."    // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-861544964
 	lockDeletedEp        = "lock failed: endpoint is in the process of being removed"    // cf. https://github.com/cilium/cilium/issues/16422
-	listenAndServeFailed = "ListenAndServe failed for service health server"             // cf. https://github.com/cilium/cilium/pull/16477
 	globalDataSupport    = "kernel doesn't support global data"                          // cf. https://github.com/cilium/cilium/issues/16418
 	removingInexistantID = "removing identity not added to the identity manager!"        // cf. https://github.com/cilium/cilium/issues/16419
 	failedToListCRDs     = "the server could not find the requested resource"            // cf. https://github.com/cilium/cilium/issues/16425
@@ -308,7 +308,7 @@ var badLogMessages = map[string][]string{
 	unstableStat:        nil,
 	removeTransientRule: nil,
 	"DATA RACE":         nil,
-	"level=error":       {lrpExists, opCannotBeFulfilled, lockDeletedEp, listenAndServeFailed, globalDataSupport, removingInexistantID, failedToListCRDs},
+	"level=error":       {lrpExists, opCannotBeFulfilled, initLeaderElection, lockDeletedEp, globalDataSupport, removingInexistantID, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{
