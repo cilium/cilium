@@ -191,7 +191,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test --flow-validation=disabled
+          cilium connectivity test --flow-validation=warning
 
       - name: Clean up Cilium
         run: |
