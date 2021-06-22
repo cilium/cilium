@@ -16,7 +16,7 @@ if [ "$(uname)" != "Linux" ]; then
   function sha256sum() { openssl sha256; }
 fi
 
-inspect=$(docker buildx imagetools inspect "${1}" --raw 2>/dev/null | sha256sum | cut -d " " -f 1 )
+inspect=$(docker buildx imagetools inspect "${1}" --raw 2>/dev/null | awk 'NR>1 { print p } { p = $0 } END { printf("%s", $0) }' | sha256sum | cut -d " " -f 1 )
 # shellcheck disable=SC2181
 if [ $? -eq 0 ]; then
   echo "sha256:${inspect}"
