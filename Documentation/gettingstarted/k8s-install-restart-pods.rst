@@ -1,12 +1,13 @@
 Restart unmanaged Pods
 ======================
 
-If you did not use the ``nodeinit.restartPods=true`` in the Helm options when
-deploying Cilium, then unmanaged pods need to be restarted manually.  Restart
-all already running pods which are not running in host-networking mode to
-ensure that Cilium starts managing them. This is required to ensure that all
-pods which have been running before Cilium was deployed have network
-connectivity provided by Cilium and NetworkPolicy applies to them:
+If you did not create a cluster with the nodes tainted with the taint
+``node.cilium.io/agent-not-ready``, then unmanaged pods need to be restarted
+manually. Restart all already running pods which are not running in
+host-networking mode to ensure that Cilium starts managing them. This is
+required to ensure that all pods which have been running before Cilium was
+deployed have network connectivity provided by Cilium and NetworkPolicy applies
+to them:
 
 .. code-block:: shell-session
 
