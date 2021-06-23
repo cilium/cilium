@@ -17,9 +17,6 @@ else
   while PATH="${PATH}:/home/kubernetes/bin" crictl ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
 fi
 
-systemctl disable sys-fs-bpf.mount || true
-systemctl stop sys-fs-bpf.mount || true
-
 if ip link show cilium_host; then
   echo "Deleting cilium_host interface..."
   ip link del cilium_host
