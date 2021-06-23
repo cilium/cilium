@@ -51,16 +51,11 @@ var _ = Describe("K8sCustomCalls", func() {
 		deploymentManager.SetKubectl(kubectl)
 	})
 
-	AfterEach(func() {
-		deploymentManager.DeleteAll()
-	})
-
 	AfterFailed(func() {
 		kubectl.CiliumReport("cilium status", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
-		deploymentManager.DeleteCilium()
 		kubectl.CloseSSHClient()
 	})
 
@@ -113,6 +108,11 @@ var _ = Describe("K8sCustomCalls", func() {
 		AfterEach(func() {
 			_ = kubectl.Delete(yaml)
 			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterAll(func() {
+			deploymentManager.DeleteCilium()
+			deploymentManager.DeleteAll()
 		})
 
 		installPods := func() {
