@@ -381,9 +381,6 @@ data:
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}
 {{- end }}
 
-  # wait-bpf-mount makes init container wait until bpf filesystem is mounted
-  wait-bpf-mount: "{{ .Values.bpf.waitForMount }}"
-
 {{- if ne .Values.cni.chainingMode "none" }}
   # Enable chaining with another CNI plugin
   #
