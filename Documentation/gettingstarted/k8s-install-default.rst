@@ -39,10 +39,14 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        for instructions on how to install ``gcloud`` and prepare your
        account.
 
-       .. code-block:: shell-session
+       .. code-block:: bash
 
            export NAME="$(whoami)-$RANDOM"
-           gcloud container clusters create "${NAME}" --zone us-west2-a 
+           # Create the node pool with the following taint to guarantee that
+           # Pods are only scheduled in the node when Cilium is ready.
+           gcloud container clusters create "${NAME}" \
+            --node-taints node.cilium.io/agent-not-ready=true:NoSchedule \
+            --zone us-west2-a
            gcloud container clusters get-credentials "${NAME}" --zone us-west2-a
 
     .. group-tab:: AKS
@@ -53,13 +57,51 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
        for instructions on how to install ``az`` and prepare your account.
 
-       .. code-block:: shell-session
+       .. code-block:: bash
 
            export NAME="$(whoami)-$RANDOM"
            export AZURE_RESOURCE_GROUP="aks-cilium-group"
            az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
-           az aks create --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}" --network-plugin azure
+
+           # Details: Basic load balancers are not supported with multiple node
+           # pools. Create a cluster with standard load balancer selected to use
+           # multiple node pools, learn more at aka.ms/aks/nodepools.
+           az aks create \
+           --resource-group "${AZURE_RESOURCE_GROUP}" \
+           --name "${NAME}" \
+           --network-plugin azure \
+           --load-balancer-sku standard
+
+           # Get the name of the node pool that was just created since it will
+           # be deleted after Cilium is installed.
+           nodepool_to_delete=$(az aks nodepool list --cluster-name "${NAME}" -g "${AZURE_RESOURCE_GROUP}" -o json | jq -r '.[0].name')
+
+           # Create a node pool with 'mode=system' as it is the same mode used
+           # for the default nodepool on cluster creation also this new node
+           # pool will have the taint 'node.cilium.io/agent-not-ready=true:NoSchedule'
+           # which will guarantee that pods will only be scheduled on that node
+           # once Cilium is ready.
+           az aks nodepool add \
+             --name "nodepool2" \
+             --cluster-name "${NAME}" \
+             --resource-group "${AZURE_RESOURCE_GROUP}" \
+             --node-count 2 \
+             --mode system \
+             --node-taints node.cilium.io/agent-not-ready=true:NoSchedule
+
+           # Get the credentials to access the cluster with kubectl
            az aks get-credentials --name "${NAME}" --resource-group "${AZURE_RESOURCE_GROUP}"
+
+           # We can only delete the first node pool after Cilium is installed
+           # because some pods have Pod Disruption Budgets set. If we try to
+           # delete the first node pool without the second node pool being ready,
+           # AKS will not succeed with the pool deletion because some Deployments
+           # can't cease to exist in the cluster.
+           #
+           # NOTE: Only delete the nodepool after deploying Cilium
+           az aks nodepool delete --name ${nodepool_to_delete} \
+             --cluster-name "${NAME}" \
+             --resource-group "${AZURE_RESOURCE_GROUP}"
 
        .. attention::
 
@@ -78,7 +120,26 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        .. code-block:: shell-session
 
            export NAME="$(whoami)-$RANDOM"
-           eksctl create cluster --name "${NAME}" --region eu-west-1 --without-nodegroup
+           cat <<EOF >eks-config.yaml
+           apiVersion: eksctl.io/v1alpha5
+           kind: ClusterConfig
+
+           metadata:
+             name: ${NAME}
+             region: eu-west-1
+
+           managedNodeGroups:
+           - name: ng-1
+             desiredCapacity: 2
+             privateNetworking: true
+             # taint nodes so that application pods are
+             # not scheduled until Cilium is deployed.
+             taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoSchedule"
+           EOF
+           eksctl create cluster -f ./eks-config.yaml
 
     .. group-tab:: kind
 
@@ -159,14 +220,11 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        **Install Cilium:**
 
-       Install Cilium into the EKS cluster. Set ``--wait=false`` as no nodes
-       exist yet. Then scale up the number of nodes and wait for Cilium to
-       bootstrap successfully.
+       Install Cilium into the EKS cluster.
 
        .. code-block:: shell-session
 
-           cilium install --wait=false
-           eksctl create nodegroup --cluster "${NAME}" --region eu-west-1 --nodes 2 
+           cilium install
            cilium status --wait
 
     .. group-tab:: OpenShift
