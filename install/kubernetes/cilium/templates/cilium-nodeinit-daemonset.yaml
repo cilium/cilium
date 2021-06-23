@@ -220,33 +220,6 @@ spec:
               date > {{ .Values.nodeinit.bootstrapFile }}
 {{- end }}
 
-{{- if .Values.nodeinit.restartPods }}
-              echo "Restarting kubenet managed pods"
-              if [ ! -f /etc/crictl.yaml ] || grep -q 'docker' /etc/crictl.yaml; then
-                # Works for COS, ubuntu
-                # Note the first line is the containerID with a trailing \r
-                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do docker rm -f "$(sed 's/\r//;1q' $f)" || true; done
-              elif [ -n "$(docker ps --format '{{ "{{" }}.Image{{ "}}" }}' | grep ^[0-9]*\.dkr\.ecr\.[a-z]*-[a-z]*-[0-9]*\.amazonaws\.com/amazon-k8s-cni)" ]; then
-                timeout=1
-                for i in $(seq 1 7); do
-                  echo "Checking introspection API"
-                  curl localhost:61679 && retry=false || retry=true
-                  if [ $retry == false ]; then break ; fi
-                  sleep "$timeout"
-                  timeout=$(($timeout * 2))
-                done
-
-                for pod in $(curl "localhost:61679/v1/pods" 2> /dev/null | jq -r '. | keys[]'); do
-                  container_id=$(echo "$pod" | awk -F_ ' { print $3 } ' | cut -c1-12)
-                  echo "Restarting ${container_id}"
-                  docker kill "${container_id}" || true
-                done
-              else
-                # COS-beta (with containerd). Some versions of COS have crictl in /home/kubernetes/bin.
-                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do PATH="${PATH}:/home/kubernetes/bin" crictl stopp "$(sed 's/\r//;1q' $f)" || true; done
-              fi
-{{- end }}
-
               # AKS: If azure-vnet is installed on the node, and (still) configured in bridge mode,
               # configure it as 'transparent' to be consistent with Cilium's CNI chaining config.
               # If the azure-vnet CNI config is not removed, kubelet will execute CNI CHECK commands
