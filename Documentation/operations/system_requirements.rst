@@ -347,20 +347,17 @@ Mounted eBPF filesystem
             # mount | grep /sys/fs/bpf
             $ # if present should output, e.g. "none on /sys/fs/bpf type bpf"...
 
-This step is **required for production** environments but optional for testing
-and development. It allows the ``cilium-agent`` to pin eBPF resources to a
-persistent filesystem and make them persistent across restarts of the agent.
 If the eBPF filesystem is not mounted in the host filesystem, Cilium will
-automatically mount the filesystem but it will be unmounted and re-mounted when
-the Cilium pod is restarted. This in turn will cause eBPF resources to be
-re-created which will cause network connectivity to be disrupted while Cilium
-is not running. Mounting the eBPF filesystem in the host mount namespace will
-ensure that the agent can be restarted without affecting connectivity of any
-pods.
+automatically mount the filesystem.
 
-In order to mount the eBPF filesystem, the following command must be run in the
-host mount namespace. The command must only be run once during the boot process
-of the machine.
+Mounting this BPF filesystem allows the ``cilium-agent`` to persist eBPF
+resources across restarts of the agent so that the datapath can continue to
+operate while the agent is subsequently restarted or upgraded.
+
+Optionally it is also possible to mount the eBPF filesystem before Cilium is
+deployed in the cluster, the following command must be run in the host mount
+namespace. The command must only be run once during the boot process of the
+machine.
 
    .. code-block:: shell-session
 

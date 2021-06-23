@@ -427,12 +427,6 @@ spec:
               key: clean-cilium-bpf-state
               name: cilium-config
               optional: true
-        - name: CILIUM_WAIT_BPF_MOUNT
-          valueFrom:
-            configMapKeyRef:
-              key: wait-bpf-mount
-              name: cilium-config
-              optional: true
 {{- if .Values.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.k8sServiceHost | quote }}
@@ -457,8 +451,6 @@ spec:
 {{- if not (eq .Values.containerRuntime.integration "crio") }}
         - mountPath: /sys/fs/bpf
           name: bpf-maps
-{{- /* Required for wait-bpf-mount to work */}}
-          mountPropagation: HostToContainer
 {{- end }}
 {{- if .Values.cgroup.autoMount.enabled }}
           # Required to mount cgroup filesystem from the host to cilium agent pod

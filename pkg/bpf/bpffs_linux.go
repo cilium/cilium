@@ -169,7 +169,7 @@ func hasMultipleMounts() (bool, error) {
 
 // checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
 // given path.
-func checkOrMountCustomLocation(bpfRoot string, printWarning bool) error {
+func checkOrMountCustomLocation(bpfRoot string) error {
 	setMapRoot(bpfRoot)
 
 	// Check whether the custom location has a BPFFS mount.
@@ -181,7 +181,7 @@ func checkOrMountCustomLocation(bpfRoot string, printWarning bool) error {
 	// If the custom location has no mount, let's mount BPFFS there.
 	if !mounted {
 		setMapRoot(bpfRoot)
-		if err := mountFS(printWarning); err != nil {
+		if err := mountFS(true); err != nil {
 			return err
 		}
 
@@ -211,7 +211,7 @@ func checkOrMountCustomLocation(bpfRoot string, printWarning bool) error {
 //    probably Cilium is running inside container which has mounted /sys/fs/bpf
 //    from host, but host doesn't have proper BPFFS mount, so that mount is just
 //    the empty directory. In that case, mount BPFFS under /run/cilium/bpffs.
-func checkOrMountDefaultLocations(printWarning bool) error {
+func checkOrMountDefaultLocations() error {
 	// Check whether /sys/fs/bpf has a BPFFS mount.
 	mounted, bpffsInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeBPFFS, mapRoot)
 	if err != nil {
@@ -221,7 +221,7 @@ func checkOrMountDefaultLocations(printWarning bool) error {
 	// If /sys/fs/bpf is not mounted at all, we should mount
 	// BPFFS there.
 	if !mounted {
-		if err := mountFS(printWarning); err != nil {
+		if err := mountFS(false); err != nil {
 			return err
 		}
 
@@ -251,7 +251,7 @@ func checkOrMountDefaultLocations(printWarning bool) error {
 			return err
 		}
 		if !cMounted {
-			if err := mountFS(printWarning); err != nil {
+			if err := mountFS(false); err != nil {
 				return err
 			}
 		} else if !cBpffsInstance {
@@ -264,13 +264,13 @@ func checkOrMountDefaultLocations(printWarning bool) error {
 	return nil
 }
 
-func checkOrMountFS(bpfRoot string, printWarning bool) error {
+func checkOrMountFS(bpfRoot string) error {
 	if bpfRoot == "" {
-		if err := checkOrMountDefaultLocations(printWarning); err != nil {
+		if err := checkOrMountDefaultLocations(); err != nil {
 			return err
 		}
 	} else {
-		if err := checkOrMountCustomLocation(bpfRoot, printWarning); err != nil {
+		if err := checkOrMountCustomLocation(bpfRoot); err != nil {
 			return err
 		}
 	}
@@ -292,9 +292,9 @@ func checkOrMountFS(bpfRoot string, printWarning bool) error {
 //
 // If printWarning is set, will print a warning if bpffs has not previously been
 // mounted.
-func CheckOrMountFS(bpfRoot string, printWarning bool) {
+func CheckOrMountFS(bpfRoot string) {
 	mountOnce.Do(func() {
-		if err := checkOrMountFS(bpfRoot, printWarning); err != nil {
+		if err := checkOrMountFS(bpfRoot); err != nil {
 			log.WithError(err).Fatal("Unable to mount BPF filesystem")
 		}
 	})
