@@ -91,6 +91,11 @@ Users (Alphabetically)
       D: finleap connect is using Cilium in their production clusters (self-hosted, bare-metal, private cloud)
       U: CNI, NetworkPolicies
       Q: @chue
+      
+    * N: Form3
+      D: Form3 is using Cilium in their production clusters (self-hosted, bare-metal, private cloud) 
+      U: Service load-balancing, Encryption, CNI, NetworkPolicies
+      Q: @kevholditch-f3, samo-f3, ewilde-form3  
 
     * N: GitLab
       D: GitLab is using Cilium to implement network policies inside Auto DevOps deployed clusters for customers using k8s
