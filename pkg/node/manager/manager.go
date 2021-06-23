@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -360,6 +361,10 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			tunnelIP = nodeIP
 		}
 
+		if address.Type != addressing.NodeCiliumInternalIP {
+			iptables.AddToNodeIpset(address.IP)
+		}
+
 		if skipIPCache(address) {
 			continue
 		}
@@ -514,6 +519,10 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
+		if address.Type != addressing.NodeCiliumInternalIP {
+			iptables.RemoveFromNodeIpset(address.IP)
+		}
+
 		if m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP {
 			continue
 		}
