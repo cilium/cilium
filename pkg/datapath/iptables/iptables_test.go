@@ -34,6 +34,7 @@ type expectation struct {
 type mockIptables struct {
 	c            *check.C
 	prog         string
+	ipset        string
 	expectations []expectation
 	index        int
 }
@@ -44,6 +45,10 @@ func (ipt *mockIptables) addExpectation(args string, out []byte, err error) {
 
 func (ipt *mockIptables) getProg() string {
 	return ipt.prog
+}
+
+func (ipt *mockIptables) getIpset() string {
+	return ipt.ipset
 }
 
 func (ipt *mockIptables) getVersion() (semver.Version, error) {
