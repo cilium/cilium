@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/k8s"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -1316,7 +1317,19 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["enable-endpoint-routes"] = "true"
 		m.Data["auto-create-cilium-node-resource"] = "true"
 		m.Data["enable-local-node-route"] = "false"
-		m.Data["masquerade"] = "false"
+
+		ersion := strings.TrimPrefix(k.params.Version, "v")
+		v, err := versioncheck.Version(ersion)
+		if err != nil {
+			k.Log("Unable to parse the provided version %q, assuming it's >= 1.10.0", k.params.Version)
+			v = versioncheck.MustVersion("1.10.0")
+		}
+		if v.GTE(versioncheck.MustVersion("1.10.0")) {
+			m.Data["enable-ipv4-masquerade"] = "false"
+		} else {
+			// Deprecated. Remove once we stop supporting Cilium 1.10
+			m.Data["masquerade"] = "false"
+		}
 		m.Data["enable-bpf-masquerade"] = "false"
 	}
 
