@@ -716,10 +716,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		// This test is broken because of #12205. In short, when bpf_host is
-		// loading on the native device, the source identity of packet on the
-		// destination node is resolved to WORLD and policy enforcement fails.
-		XIt("Check connectivity with transparent encryption and direct routing with bpf_host", func() {
+		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing with bpf_host", func() {
 			privateIface, err := kubectl.GetPrivateIface()
 			Expect(err).Should(BeNil(), "Unable to determine the private interface")
 			defaultIface, err := kubectl.GetDefaultIface()
@@ -734,6 +731,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"encryption.ipsec.interface": privateIface,
 				"devices":                    devices,
 				"hostFirewall":               "false",
+				"kubeProxyReplacement":       "disabled",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
