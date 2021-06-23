@@ -109,6 +109,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"iptables-legacy-save -c",
 		"ip6tables-legacy-save -c",
 		"ip rule",
+		"ipset list",
 		// xfrm
 		"ip -s xfrm policy",
 		"ip -s xfrm state",
