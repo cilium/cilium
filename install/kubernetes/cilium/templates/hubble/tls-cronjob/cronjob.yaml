@@ -1,5 +1,5 @@
 {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.hubble.tls.auto.schedule }}
-apiVersion: batch/v1beta1
+apiVersion: {{ include "cronjob.apiVersion" . }}
 kind: CronJob
 metadata:
   name: hubble-generate-certs
