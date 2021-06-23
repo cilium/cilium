@@ -11,5 +11,5 @@ Direct Routing  Kubernetes PodCIDR  Kubernetes CRD
 
 **Requirements:**
 
-* No special requirements. The Cilium installer will automatically
-  reconfigure your GKE cluster to use CNI mode.
+* The cluster must  be created with the taint ``node.cilium.io/agent-not-ready=true:NoSchedule``
+  using ``--node-taints`` option.

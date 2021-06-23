@@ -20,6 +20,9 @@ Direct Routing  Azure IPAM          Kubernetes CRD
   compatibility with Cilium. The Azure network plugin will be replaced with
   Cilium by the installer.
 
+* Node pools must also be created with the taint ``node.cilium.io/agent-not-ready=true:NoSchedule``
+  using ``--node-taints`` option.
+
 **Limitations:**
 
 * All VMs and VM scale sets used in a cluster must belong to the same resource

@@ -190,10 +190,6 @@ Install Cilium
 
        Cilium is now deployed and you are ready to scale-up the cluster:
 
-       .. code-block:: shell-session
-
-          eksctl create nodegroup --cluster test-cluster --nodes 2
-
     .. group-tab:: OpenShift
 
        .. include:: requirements-openshift.rst
