@@ -48,14 +48,6 @@ Should you encounter any issues during the installation, please refer to the
 Please consult the Kubernetes :ref:`k8s_requirements` for information on  how
 you need to configure your Kubernetes cluster to operate with Cilium.
 
-Mount the eBPF Filesystem
-=========================
-On each node, run the following to mount the eBPF Filesystem:
-
-.. code-block:: shell-session
-
-     sudo mount bpffs -t bpf /sys/fs/bpf
-
 Install Cilium
 ==============
 

@@ -44,7 +44,7 @@ func Test(t *testing.T) {
 }
 
 func (k *CTMapTestSuite) SetUpSuite(c *C) {
-	bpf.CheckOrMountFS("", false)
+	bpf.CheckOrMountFS("")
 	err := bpf.ConfigureResourceLimits()
 	c.Assert(err, IsNil)
 }
