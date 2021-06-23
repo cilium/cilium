@@ -217,14 +217,6 @@ Install Cilium
 
        .. include:: requirements-k3s.rst
 
-       **Mount the eBPF Filesystem:**
-
-       On each node, run the following to mount the eBPF Filesystem:
-
-       .. code-block:: shell-session
-
-          sudo mount bpffs -t bpf /sys/fs/bpf
-      
        **Install Cilium:**
 
        .. parsed-literal::
