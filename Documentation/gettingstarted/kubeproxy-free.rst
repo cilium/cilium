@@ -92,6 +92,21 @@ configuration.
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
+.. note::
+
+    Cilium will automatically mount cgroup v2 filesystem required to attach BPF
+    cgroup programs by default at the path ``/run/cilium/cgroupv2``. In order to
+    do that, it needs to mount the host ``/proc`` inside an init container
+    launched by the daemonset temporarily. If you need to disable the auto-mount,
+    specify ``--set cgroup.autoMount.enabled=false``, and set the host mount point
+    where cgroup v2 filesystem is already mounted by using ``--set cgroup.hostRoot``.
+    For example, if not already mounted, you can mount cgroup v2 filesystem by
+    running the below command on the host, and specify ``--set cgroup.hostRoot=/sys/fs/cgroup``.
+
+    .. code:: shell-session
+
+        mount -t cgroup2 none /sys/fs/cgroup
+
 This will install Cilium as a CNI plugin with the eBPF kube-proxy replacement to
 implement handling of Kubernetes services of type ClusterIP, NodePort, LoadBalancer
 and services with externalIPs. On top of that the eBPF kube-proxy replacement also
