@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 
 // +build !privileged_tests
 
@@ -15,8 +15,6 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -25,7 +23,7 @@ type ELFTestSuite struct{}
 var (
 	_ = Suite(&ELFTestSuite{})
 
-	baseObjPath = filepath.Join(testutils.CiliumRootDir, "test", "bpf", "elf-demo.o")
+	baseObjPath = filepath.Join("..", "..", "test", "bpf", "elf-demo.o")
 )
 
 const elfObjCopy = "elf-demo-copy.o"
