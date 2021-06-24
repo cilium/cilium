@@ -126,7 +126,7 @@ jobs:
 
       - name: Install Cilium CLI
         run: |
-          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.8.1/cilium-linux-amd64.tar.gz
+          curl -LO https://github.com/cilium/cilium-cli/releases/download/v0.8.2/cilium-linux-amd64.tar.gz
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
           rm cilium-linux-amd64.tar.gz
 
