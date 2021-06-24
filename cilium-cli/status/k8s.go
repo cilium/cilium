@@ -33,10 +33,18 @@ import (
 var retryInterval = 2 * time.Second
 
 type K8sStatusParameters struct {
-	Namespace       string
-	Wait            bool
-	WaitDuration    time.Duration
+	Namespace    string
+	Wait         bool
+	WaitDuration time.Duration
+	// WarningFreePods specifies a list of pods which are required to be
+	// warning free. This takes precedence over IgnoreWarnings and is only
+	// used if Wait is true.
 	WarningFreePods []string
+	// IgnoreWarnings will, if set to true, ignore any warnings on pods to
+	// determine the readiness. This is only used if Wait is true and
+	// WarningFreePods is empty. If WarningFreePods is non-empty, the value
+	// of this flag is meaningless.
+	IgnoreWarnings bool
 }
 
 type K8sStatusCollector struct {
@@ -243,6 +251,12 @@ func (s K8sStatusParameters) waitTimeout() time.Duration {
 func (k *K8sStatusCollector) statusIsReady(s *Status) bool {
 	if s.totalErrors() > 0 {
 		return false
+	}
+
+	if !k.params.IgnoreWarnings && len(k.params.WarningFreePods) == 0 {
+		if s.totalWarnings() > 0 {
+			return false
+		}
 	}
 
 	for _, name := range k.params.WarningFreePods {
