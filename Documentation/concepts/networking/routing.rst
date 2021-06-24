@@ -131,7 +131,7 @@ The following configuration options must be set to run the datapath in native
 routing mode:
 
 * ``tunnel: disabled``: Enable native routing mode.
-* ``native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
+* ``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   can be performed.
 
 
@@ -270,8 +270,8 @@ Addressing
    distribution.
 
 Masquerading
-   All traffic not staying with the ``native-routing-cidr`` (defaults to the
-   Cluster CIDR) will be masqueraded to the node's IP address to become
+   All traffic not staying with the ``ipv4-native-routing-cidr`` (defaults to
+   the Cluster CIDR) will be masqueraded to the node's IP address to become
    publicly routable.
 
 Load-balancing
@@ -296,7 +296,7 @@ The following configuration options must be set to run the datapath on GKE:
   * ``enable-endpoint-routes: true``: Enable per-endpoint routing on the node
   * ``enable-local-node-route: false``: Disable installation of the local node route
 
-* ``native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
+* ``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   is supported.
 
 See the getting started guide :ref:`k8s_install_quick` to install Cilium on
