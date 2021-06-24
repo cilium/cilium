@@ -1519,9 +1519,11 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	switch k.flavor.Kind {
 	case k8s.KindEKS:
-		if _, err := k.client.GetDaemonSet(ctx, "kube-system", "aws-node", metav1.GetOptions{}); err == nil {
-			k.Log("🔥 Deleting aws-node DaemonSet...")
-			if err := k.client.DeleteDaemonSet(ctx, "kube-system", "aws-node", metav1.DeleteOptions{}); err != nil {
+		if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err == nil {
+			k.Log("🔥 Patching the %q DaemonSet to evict its pods...", AwsNodeDaemonSetName)
+			patch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"%s":"%s"}}}}}`, AwsNodeDaemonSetNodeSelectorKey, AwsNodeDaemonSetNodeSelectorValue))
+			if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+				k.Log("❌ Unable to patch the %q DaemonSet", AwsNodeDaemonSetName)
 				return err
 			}
 		}
