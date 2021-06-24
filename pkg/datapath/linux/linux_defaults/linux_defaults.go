@@ -96,7 +96,7 @@ const (
 	TunnelDeviceName = "cilium_vxlan"
 
 	// IPSec offset value for node rules
-	IPsecMaxKeyVersion = 16
+	IPsecMaxKeyVersion = 15
 
 	// IPsecMarkMask is the mask required for the IPsec SPI and encrypt/decrypt bits
 	IPsecMarkMask = 0xFF00
