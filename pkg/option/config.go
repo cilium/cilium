@@ -2523,8 +2523,16 @@ func (c *DaemonConfig) Populate() {
 
 	if nativeRoutingCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeRoutingCIDR)
+
+		if len(c.ipv4NativeRoutingCIDR.IP) != net.IPv4len {
+			log.Fatalf("%s must be an IPv4 CIDR", NativeRoutingCIDR)
+		}
 	} else if ipv4NativeRoutingCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
+
+		if len(c.ipv4NativeRoutingCIDR.IP) != net.IPv4len {
+			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
+		}
 	}
 
 	if err := c.calculateBPFMapSizes(); err != nil {
