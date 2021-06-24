@@ -209,13 +209,6 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	return newNode
 }
 
-// GetNode returns the kubernetes nodeName's node information from the
-// kubernetes api server
-func GetNode(c kubernetes.Interface, nodeName string) (*corev1.Node, error) {
-	// Try to retrieve node's cidr and addresses from k8s's configuration
-	return c.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-}
-
 // setNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
 // false as Cilium is managing the network connectivity.
 // https://kubernetes.io/docs/concepts/architecture/nodes/#condition

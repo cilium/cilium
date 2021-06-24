@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ import (
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -62,6 +63,10 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
 
+type k8sNodeGetter interface {
+	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+}
+
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	Manager               *nodemanager.Manager
@@ -71,6 +76,7 @@ type NodeDiscovery struct {
 	Registered            chan struct{}
 	LocalStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
+	k8sNodeGetter         k8sNodeGetter
 }
 
 func enableLocalNodeRoute() bool {
@@ -354,7 +360,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
-	if k8sNode, err := k8s.GetNode(k8s.Client(), nodeTypes.GetName()); err != nil {
+	if k8sNode, err := n.k8sNodeGetter.GetK8sNode(context.TODO(), nodeTypes.GetName()); err != nil {
 		log.WithError(err).Warning("Kubernetes node resource representing own node is not available, cannot set OwnerReference")
 	} else {
 		nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
@@ -596,6 +602,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	}
 
 	return nil
+}
+
+func (n *NodeDiscovery) RegisterK8sNodeGetter(k8sNodeGetter k8sNodeGetter) {
+	n.k8sNodeGetter = k8sNodeGetter
 }
 
 func getInt(i int) *int {
