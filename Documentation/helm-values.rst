@@ -96,9 +96,13 @@
    * - cgroup
      - Configure cgroup related configuration
      - object
-     - ``{"hostRoot":"/run/cilium/cgroupv2"}``
+     - ``{"autoMount":{"enabled":true},"hostRoot":"/run/cilium/cgroupv2"}``
+   * - cgroup.autoMount.enabled
+     - Enable auto mount of cgroup2 filesystem. When ``autoMount`` is enabled, cgroup2 filesystem is mounted at ``cgroup.hostRoot`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted cgroup2 filesystem at the specified ``cgroup.hostRoot`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
+     - bool
+     - ``true``
    * - cgroup.hostRoot
-     - Configure cgroup root where cgroup2 filesystem is mounted on the host
+     - Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: ``cgroup.autoMount``\ )
      - string
      - ``"/run/cilium/cgroupv2"``
    * - cleanBpfState

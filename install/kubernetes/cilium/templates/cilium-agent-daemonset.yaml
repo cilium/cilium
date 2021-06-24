@@ -375,6 +375,7 @@ spec:
 {{- end }}
       hostNetwork: true
       initContainers:
+{{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
       - name: mount-cgroup
@@ -395,6 +396,7 @@ spec:
             name: host-proc-ns
         securityContext:
           privileged: true
+{{- end }}
 {{- if and .Values.nodeinit.enabled (not (eq .Values.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
         command: ['sh', '-c', 'until stat {{ .Values.nodeinit.bootstrapFile }} > /dev/null 2>&1; do echo "Waiting on node-init to run..."; sleep 1; done']
@@ -452,10 +454,17 @@ spec:
 {{- /* Required for wait-bpf-mount to work */}}
           mountPropagation: HostToContainer
 {{- end }}
+{{- if .Values.cgroup.autoMount.enabled }}
           # Required to mount cgroup filesystem from the host to cilium agent pod
         - mountPath: {{ .Values.cgroup.hostRoot }}
           name: cilium-cgroup
           mountPropagation: HostToContainer
+{{-  else }}
+          # Required to mount cgroup filesystem from the host to cilium agent pod
+        - mountPath: {{ .Values.cgroup.hostRoot }}
+          name: cilium-cgroup
+          mountPropagation: HostToContainer
+{{- end }}
         - mountPath: /var/run/cilium
           name: cilium-run
 {{- if .Values.nodeinit.resources }}
@@ -487,11 +496,13 @@ spec:
           type: DirectoryOrCreate
         name: bpf-maps
 {{- end }}
+{{- if .Values.cgroup.autoMount.enabled }}
       # To mount cgroup2 filesystem on the host
       - hostPath:
           path: /proc/1/ns
           type: Directory
         name: host-proc-ns
+{{- end }}
       # To keep state between restarts / upgrades for cgroup2 filesystem
       - hostPath:
           path: {{ .Values.cgroup.hostRoot}}
