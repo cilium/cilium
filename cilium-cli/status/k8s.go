@@ -153,11 +153,11 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 
 	notReady := stateCount.Desired - stateCount.Ready
 	if notReady > 0 {
-		status.AddAggregatedError(name, name, fmt.Errorf("%d pods of DaemonSet %s are not ready", notReady, name))
+		status.AddAggregatedError(name, name, fmt.Errorf("%d pods of Deployment %s are not ready", notReady, name))
 	}
 
 	if unavailable := stateCount.Unavailable - notReady; unavailable > 0 {
-		status.AddAggregatedWarning(name, name, fmt.Errorf("%d pods of DaemonSet %s are not available", unavailable, name))
+		status.AddAggregatedWarning(name, name, fmt.Errorf("%d pods of Deployment %s are not available", unavailable, name))
 	}
 
 	return false, nil
