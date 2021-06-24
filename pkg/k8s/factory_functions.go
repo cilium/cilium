@@ -171,8 +171,8 @@ func ObjTov1Pod(obj interface{}) *slim_corev1.Pod {
 	return nil
 }
 
-func ObjToV1Node(obj interface{}) *slim_corev1.Node {
-	node, ok := obj.(*slim_corev1.Node)
+func ObjToV1Node(obj interface{}) *v1.Node {
+	node, ok := obj.(*v1.Node)
 	if ok {
 		return node
 	}
@@ -181,7 +181,7 @@ func ObjToV1Node(obj interface{}) *slim_corev1.Node {
 		// Delete was not observed by the watcher but is
 		// removed from kube-apiserver. This is the last
 		// known state and the object no longer exists.
-		node, ok := deletedObj.Obj.(*slim_corev1.Node)
+		node, ok := deletedObj.Obj.(*v1.Node)
 		if ok {
 			return node
 		}

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package benchmarks
 import (
 	"encoding/json"
 	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"testing"
@@ -460,7 +461,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					if oldK8sNP := k8s.ObjToV1Node(oldObj); oldK8sNP != nil {
 						if newK8sNP := k8s.ObjToV1Node(newObj); newK8sNP != nil {
-							if oldK8sNP.DeepEqual(newK8sNP) {
+							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
 								return
 							}
 						}

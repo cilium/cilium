@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -159,7 +160,7 @@ type bgpSpeakerManager interface {
 
 	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
 
-	OnUpdateNode(node *slim_corev1.Node)
+	OnUpdateNode(node *corev1.Node)
 }
 type egressPolicyManager interface {
 	AddEgressPolicy(config egresspolicy.Config) (bool, error)
@@ -203,6 +204,8 @@ type K8sWatcher struct {
 	// variable is written for the first time.
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
+
+	nodeStore cache.Store
 
 	namespaceStore cache.Store
 	datapath       datapath.Datapath
@@ -446,7 +449,7 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	go k.podsInit(k8s.WatcherClient(), asyncControllers)
 
 	// kubernetes nodes
-	k.nodesInit(k8s.WatcherClient())
+	k.NodesInit(k8s.Client())
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)

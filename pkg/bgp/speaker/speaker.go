@@ -144,7 +144,7 @@ func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
 }
 
 // OnUpdateNode notifies the Speaker of an update to a node.
-func (s *Speaker) OnUpdateNode(node *slim_corev1.Node) {
+func (s *Speaker) OnUpdateNode(node *v1.Node) {
 	s.queue.Add(nodeEvent(&node.Labels))
 }
 
