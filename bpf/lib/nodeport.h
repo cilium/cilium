@@ -1156,7 +1156,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 # endif
 #ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
-	 * (native-routing-cidr if specified, otherwise local pod CIDR).
+	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
 	 * The check is performed before we determine that a packet is
 	 * sent from a local pod, as this check is cheaper than
 	 * the map lookup done in the latter check.

@@ -160,6 +160,7 @@ cilium-agent [flags]
       --ipsec-key-file string                                Path to IPSec key file
       --iptables-lock-timeout duration                       Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                Set iptables flag random-fully on masquerading rules
+      --ipv4-native-routing-cidr string                      Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr.
       --ipv4-node string                                     IPv4 address of node (default "auto")
       --ipv4-pod-subnets strings                             List of IPv4 pod subnets to preconfigure for encryption
       --ipv4-range string                                    Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
@@ -203,7 +204,6 @@ cilium-agent [flags]
       --monitor-queue-size int                               Size of the event queue when reading monitor events
       --mtu int                                              Overwrite auto-detected MTU of underlying network
       --nat46-range string                                   IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
-      --native-routing-cidr string                           Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.
       --node-port-bind-protection                            Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-range strings                              Set the min/max NodePort port range (default [30000,32767])
       --policy-audit-mode                                    Enable policy audit (non-drop) mode

@@ -949,9 +949,14 @@ enableIPv6Masquerade: true
 egressGateway:
   enabled: false
 
-# -- Specify the CIDR for native routing (ie to avoid IP masquerade for).
+# -- Specify the IPv4 CIDR for native routing (ie to avoid IP masquerade for).
 # This value corresponds to the configured cluster-cidr.
+# Deprecated in favor of ipv4NativeRoutingCIDR, will be removed in 1.12.
 # nativeRoutingCIDR:
+
+# -- Specify the IPv4 CIDR for native routing (ie to avoid IP masquerade for).
+# This value corresponds to the configured cluster-cidr.
+# ipv4NativeRoutingCIDR:
 
 monitor:
   # -- Enable the cilium-monitor sidecar.

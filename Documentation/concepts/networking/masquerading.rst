@@ -30,7 +30,7 @@ Configuration
 Setting the routable CIDR
   The default behavior is to exclude any destination within the IP allocation
   CIDR of the local node. If the pod IPs are routable across a wider network,
-  that network can be specified with the option: ``native-routing-cidr:
+  that network can be specified with the option: ``ipv4-native-routing-cidr:
   10.0.0.0/8`` in which case all destinations within that CIDR will **not** be
   masqueraded.
 
@@ -75,10 +75,11 @@ The eBPF-based masquerading can masquerade packets of the following IPv4 L4 prot
 - ICMP (only Echo request and Echo reply)
 
 By default, any packet from a pod destined to an IP address outside of the
-``native-routing-cidr`` range is masqueraded. The exclusion CIDR is shown in the above
-output of ``cilium status`` (``10.0.0.0.16``).  To allow more fine-grained control,
-Cilium implements `ip-masq-agent <https://github.com/kubernetes-sigs/ip-masq-agent>`_
-in eBPF which can be enabled with the ``ipMasqAgent.enabled=true`` helm option.
+``ipv4-native-routing-cidr`` range is masqueraded. The exclusion CIDR is shown
+in the above output of ``cilium status`` (``10.0.0.0.16``).  To allow more
+fine-grained control, Cilium implements `ip-masq-agent
+<https://github.com/kubernetes-sigs/ip-masq-agent>`_ in eBPF which can be
+enabled with the ``ipMasqAgent.enabled=true`` helm option.
 
 The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs`` and
 ``masqLinkLocal`` options set in a configuration file. A packet sent from a pod to
