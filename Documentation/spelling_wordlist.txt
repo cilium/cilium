@@ -156,6 +156,7 @@ assignees
 au
 authenticator
 autoDirectNodeRoutes
+autoMount
 autoProtectPortRange
 awk
 aws
@@ -405,6 +406,7 @@ healthz
 herokuapp
 hexData
 hoc
+hostRoot
 hostConfDirMountPath
 hostFirewall
 hostNetwork
