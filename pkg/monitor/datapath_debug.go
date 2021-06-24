@@ -91,6 +91,8 @@ const (
 	DbgRevProxyFound
 	DbgRevProxyUpdate
 	DbgL4Policy
+	DbgProxyPre
+	DbgProxyPost
 	DbgNetdevInCluster
 	DbgNetdevEncap4
 	DbgCTLookup41
@@ -344,6 +346,10 @@ func (n *DebugMsg) Message() string {
 	case DbgL4Policy:
 		return fmt.Sprintf("Resolved L4 policy to: %d / %s",
 			byteorder.NetworkToHost16(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
+	case DbgProxyPre:
+		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost16(uint16(n.Arg1)))
+	case DbgProxyPost:
+		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgNetdevInCluster:
 		return fmt.Sprintf("Destination is inside cluster prefix, source identity: %d", n.Arg1)
 	case DbgNetdevEncap4:

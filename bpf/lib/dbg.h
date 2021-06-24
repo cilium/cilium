@@ -52,6 +52,8 @@ enum {
 	DBG_REV_PROXY_FOUND,
 	DBG_REV_PROXY_UPDATE,
 	DBG_L4_POLICY,
+	DBG_PROXY_PRE,
+	DBG_PROXY_POST,
 	DBG_NETDEV_IN_CLUSTER, /* arg1: security-context, arg2: unused */
 	DBG_NETDEV_ENCAP4, /* arg1 encap lookup key, arg2: identity */
 	DBG_CT_LOOKUP4_1,       /* arg1: saddr
