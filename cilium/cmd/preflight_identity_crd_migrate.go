@@ -198,7 +198,7 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
-	if err := k8s.WaitForNodeInformation(); err != nil {
+	if err := k8s.WaitForNodeInformation(ctx, k8s.Client()); err != nil {
 		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 
