@@ -446,6 +446,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.egressPolicyManager,
 		option.Config,
 	)
+	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
@@ -565,13 +566,20 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			return nil, restoredEndpoints, err
 		}
 
+		// Launch the K8s node watcher so we can start receiving node events.
+		// Launching the k8s node watcher at this stage will prevent all agents
+		// from performing Gets directly into kube-apiserver to get the most up
+		// to date version of the k8s node. This allows for better scalability
+		// in large clusters.
+		d.k8sWatcher.NodesInit(k8s.Client())
+
 		if option.Config.IPAM == ipamOption.IPAMClusterPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()
 		}
 
-		if err := k8s.WaitForNodeInformation(); err != nil {
+		if err := k8s.WaitForNodeInformation(d.ctx, d.k8sWatcher); err != nil {
 			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}
 
@@ -606,10 +614,10 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	handleNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
-	// Launch the K8s watchers in parallel as we continue to process other
-	// daemon options.
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
+		// Launch the K8s watchers in parallel as we continue to process other
+		// daemon options.
 		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
 		bootstrapStats.k8sInit.End(true)
 	}
