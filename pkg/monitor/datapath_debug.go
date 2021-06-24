@@ -26,8 +26,6 @@ const (
 	DbgCaptureFromLb
 	DbgCaptureAfterV46
 	DbgCaptureAfterV64
-	DbgCaptureProxyPre
-	DbgCaptureProxyPost
 	DbgCaptureSnatPre
 	DbgCaptureSnatPost
 )
@@ -80,6 +78,7 @@ const (
 	DbgRevProxyFound
 	DbgRevProxyUpdate
 	DbgL4Policy
+
 	DbgNetdevInCluster
 	DbgNetdevEncap4
 	DbgCTLookup41
@@ -99,6 +98,8 @@ const (
 	DbgSkLookup4
 	DbgSkLookup6
 	DbgSkAssign
+	DbgProxyPre
+	DbgProxyPost
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -333,6 +334,10 @@ func (n *DebugMsg) Message() string {
 	case DbgL4Policy:
 		return fmt.Sprintf("Resolved L4 policy to: %d / %s",
 			byteorder.NetworkToHost16(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
+	case DbgProxyPre:
+		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost16(uint16(n.Arg1)))
+	case DbgProxyPost:
+		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgNetdevInCluster:
 		return fmt.Sprintf("Destination is inside cluster prefix, source identity: %d", n.Arg1)
 	case DbgNetdevEncap4:
@@ -428,8 +433,6 @@ func (n *DebugCapture) infoPrefix() string {
 	case DbgCaptureAfterV64:
 		return fmt.Sprintf("== v6->v4 %d", n.Arg1)
 
-	case DbgCaptureProxyPost:
-		return fmt.Sprintf("-> proxy port %d", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	default:
 		return ""
 	}
@@ -455,10 +458,6 @@ func (n *DebugCapture) subTypeString() string {
 		return fmt.Sprintf("Packet after nat46 ifindex %d", n.Arg1)
 	case DbgCaptureAfterV64:
 		return fmt.Sprintf("Packet after nat64 ifindex %d", n.Arg1)
-	case DbgCaptureProxyPre:
-		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost16(uint16(n.Arg1)))
-	case DbgCaptureProxyPost:
-		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgCaptureSnatPre:
 		return fmt.Sprintf("Packet going into snat engine on ifindex %d", n.Arg1)
 	case DbgCaptureSnatPost:

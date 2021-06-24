@@ -119,6 +119,8 @@ enum {
 	DBG_SK_ASSIGN,		/* arg1: result
 				 * arg2: unuseds
 				 */
+	DBG_PROXY_PRE,
+	DBG_PROXY_POST,
 };
 
 /* Capture types */
@@ -131,8 +133,6 @@ enum {
 	DBG_CAPTURE_FROM_LB,
 	DBG_CAPTURE_AFTER_V46,
 	DBG_CAPTURE_AFTER_V64,
-	DBG_CAPTURE_PROXY_PRE,
-	DBG_CAPTURE_PROXY_POST,
 	DBG_CAPTURE_SNAT_PRE,
 	DBG_CAPTURE_SNAT_POST,
 };

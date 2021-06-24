@@ -997,9 +997,8 @@ func TestDebugCapture(t *testing.T) {
 	}
 
 	dbg = monitor.DebugCapture{
-		Type:    api.MessageTypeCapture,
-		SubType: monitor.DbgCaptureProxyPost,
-		Arg1:    byteorder.HostToNetwork32(1234),
+		Type: api.MessageTypeCapture,
+		Arg1: byteorder.HostToNetwork32(1234),
 	}
 	data, err = testutils.CreateL3L4Payload(dbg)
 	require.NoError(t, err)
@@ -1009,6 +1008,4 @@ func TestDebugCapture(t *testing.T) {
 
 	assert.Equal(t, int32(dbg.Type), f.EventType.Type)
 	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
-	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_PROXY_POST, f.DebugCapturePoint)
-	assert.Equal(t, uint32(1234), f.ProxyPort)
 }
