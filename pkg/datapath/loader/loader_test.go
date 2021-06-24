@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 
 // +build privileged_tests
 
@@ -40,7 +40,7 @@ var (
 	dirInfo *directoryInfo
 	ep      = testutils.NewTestEndpoint()
 	hostEp  = testutils.NewTestHostEndpoint()
-	bpfDir  = filepath.Join(testutils.CiliumRootDir, "bpf")
+	bpfDir  = filepath.Join("..", "..", "..", "bpf")
 )
 
 // SetTestIncludes allows test files to configure additional include flags.
