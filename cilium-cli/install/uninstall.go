@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/clustermesh"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/k8s"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var retryInterval = 2 * time.Second
@@ -86,7 +88,11 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 
 	switch k.flavor.Kind {
 	case k8s.KindEKS:
-		k.Log("⚠️  The aws-node DaemonSet will still be missing. You have to re-create it.")
+		bytes := []byte(fmt.Sprintf(`[{"op":"remove","path":"/spec/template/spec/nodeSelector/%s"}]`, strings.ReplaceAll(AwsNodeDaemonSetNodeSelectorKey, "/", "~1")))
+		k.Log("⏪ Undoing the changes to the %q DaemonSet...", AwsNodeDaemonSetName)
+		if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.JSONPatchType, bytes, metav1.PatchOptions{}); err != nil {
+			k.Log("❌ Failed to patch the %q DaemonSet, please remove it's node selector manually", AwsNodeDaemonSetName)
+		}
 	case k8s.KindGKE:
 		k.Log("🔥 Deleting GKE Node Init DaemonSet...")
 		k.client.DeleteDaemonSet(ctx, k.params.Namespace, gkeInitName, metav1.DeleteOptions{})
