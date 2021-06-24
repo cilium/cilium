@@ -155,12 +155,12 @@ jobs:
       - name: Post-test installation logs
         if: ${{ failure() }}
         run: |
-          kubectl logs -n kube-system job/cilium-cli-install
+          kubectl logs --timestamps -n kube-system job/cilium-cli-install
 
       - name: Post-test information gathering
         if: ${{ failure() }}
         run: |
-          kubectl logs -n kube-system job/cilium-cli
+          kubectl logs --timestamps -n kube-system job/cilium-cli
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
           kubectl get pods --all-namespaces -o wide
