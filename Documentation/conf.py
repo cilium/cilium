@@ -246,3 +246,4 @@ def setup(app):
     app.add_stylesheet('editbutton.css')
     app.add_javascript('clipboardjs.min.js')
     app.add_javascript("copybutton.js")
+    app.add_stylesheet('helm-reference.css')
