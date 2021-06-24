@@ -625,7 +625,13 @@ func init() {
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies (beta when using kube-proxy)")
 	option.BindEnv(option.EnableHostFirewall)
 
-	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.")
+	flags.String(option.NativeRoutingCIDR, "",
+		fmt.Sprintf("Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr. Deprecated in favor of --%s", option.IPv4NativeRoutingCIDR))
+	option.BindEnv(option.NativeRoutingCIDR)
+	flags.MarkHidden(option.NativeRoutingCIDR)
+	flags.MarkDeprecated(option.NativeRoutingCIDR, "This option will be removed in v1.12")
+
+	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the IPv4 CIDR for native routing. This value corresponds to the configured cluster-cidr.")
 	option.BindEnv(option.IPv4NativeRoutingCIDR)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")

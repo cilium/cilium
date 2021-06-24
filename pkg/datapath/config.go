@@ -132,7 +132,7 @@ type ConfigWriter interface {
 // should not be SNAT'd.
 func RemoteSNATDstAddrExclusionCIDRv4() *cidr.CIDR {
 	if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
-		// native-routing-cidr is set, so use it
+		// ipv4-native-routing-cidr is set, so use it
 		return c
 	}
 

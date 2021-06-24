@@ -323,6 +323,12 @@ Removed Options
 * ``hubble-flow-buffer-size``: This option was deprecated in 1.10 in favor
   of ``hubble-event-buffer-capacity``. It is now removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* ``native-routing-cidr``: This option has been deprecated in favor of
+  ``ipv4-native-routing-cidr`` and will be removed in 1.12.
+
 .. _1.10_upgrade_notes:
 
 1.10 Upgrade Notes
@@ -997,15 +1003,15 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   Running the default configuration (``--tunnel=vxlan`` or ``--tunnel=geneve``)
     No action required. The behavior remains the same as before. All traffic
     leaving the node that is not encapsulated is automatically masqueraded. You
-    may use ``--native-routing-cidr`` to further restrict traffic subject to
-    masquerading.
+    may use ``--ipv4-native-routing-cidr`` to further restrict traffic subject
+    to masquerading.
 
-  Already using ``--native-routing-cidr`` and/or ``--egress-masquerade-interfaces``
-    No action required. Use of ``--native-routing-cidr`` is the preferred way of
-    configuring masquerading.
+  Already using ``--ipv4-native-routing-cidr`` and/or ``--egress-masquerade-interfaces``
+    No action required. Use of ``--ipv4-native-routing-cidr`` is the preferred
+    way of configuring masquerading.
 
   Running in AWS ENI mode (``--ipam=eni``)
-    No action required. The value for ``--native-routing-cidr`` is
+    No action required. The value for ``--ipv4-native-routing-cidr`` is
     automatically derived from the AWS API and set to the CIDR of the VPC. You
     may overwrite the value if needed.
 
@@ -1016,9 +1022,9 @@ IMPORTANT: Changes required before upgrading to 1.8.0
     The behavior has changed: Previously, the destination address range
     excluded from masquerading was defined by the options ``--ipv4-range`` and
     ``--ipv4-cluster-cidr-mask-size``. When unspecified, this was set to the
-    value ``10.0.0.0/8``. You **must** set the ``--native-routing-cidr`` option
-    and set it to the CIDR for which masquerading should be omitted. This is
-    typically the PodCIDR range of the cluster but can also be set to the IP
+    value ``10.0.0.0/8``. You **must** set the ``--ipv4-native-routing-cidr``
+    option and set it to the CIDR for which masquerading should be omitted. This
+    is typically the PodCIDR range of the cluster but can also be set to the IP
     range of the network the node is running on to avoid masquerading for
     directly reachable destinations outside of the cluster.
 
