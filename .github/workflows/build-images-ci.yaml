@@ -241,7 +241,8 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   image-digests:
-    if: ${{ github.repository == 'cilium/cilium' }}
+    if: ${{ always() && github.repository == 'cilium/cilium' &&
+      (needs.build-and-push-with-qemu.result == 'success' || needs.build-and-push-with-qemu.result == 'skipped') }}
     name: Display Digests
     runs-on: ubuntu-20.04
     needs: [build-and-push-prs, build-and-push-with-qemu]
