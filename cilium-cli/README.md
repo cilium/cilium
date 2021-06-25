@@ -6,6 +6,7 @@
 [![GKE](https://github.com/cilium/cilium-cli/workflows/GKE/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AGKE)
 [![AKS](https://github.com/cilium/cilium-cli/workflows/AKS/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AAKS)
 [![Multicluster](https://github.com/cilium/cilium-cli/workflows/Multicluster/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AMulticluster)
+[![External Workloads](https://github.com/cilium/cilium-cli/actions/workflows/externalworkloads.yaml/badge.svg)](https://github.com/cilium/cilium-cli/actions/workflows/externalworkloads.yaml)
 
 ## Installation
 
