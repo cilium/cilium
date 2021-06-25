@@ -1702,6 +1702,8 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		}
 	}
 
+	k.Log("✅ Cilium was successfully installed! Run 'cilium status' to view installation health")
+
 	return nil
 }
 

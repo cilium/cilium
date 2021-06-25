@@ -127,5 +127,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		}
 	}
 
+	k.Log("✅ Cilium was successfully uninstalled.")
+
 	return nil
 }
