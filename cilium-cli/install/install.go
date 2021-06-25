@@ -983,7 +983,7 @@ type k8sInstallerImplementation interface {
 	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
 	PatchDeployment(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.Deployment, error)
-	DeploymentIsReady(ctx context.Context, namespace, deployment string) error
+	CheckDeploymentStatus(ctx context.Context, namespace, deployment string) error
 	DeleteNamespace(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
 	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
