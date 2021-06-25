@@ -544,6 +544,8 @@ func (k *K8sClusterMesh) Disable(ctx context.Context) error {
 
 	k.deleteCertificates(ctx)
 
+	k.Log("✅ ClusterMesh disabled.")
+
 	return nil
 }
 
@@ -613,6 +615,8 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 	if _, err := k.client.CreateService(ctx, k.params.Namespace, svc, metav1.CreateOptions{}); err != nil {
 		return err
 	}
+
+	k.Log("✅ ClusterMesh enabled!")
 
 	return nil
 }
@@ -909,7 +913,13 @@ func (k *K8sClusterMesh) Connect(ctx context.Context) error {
 	}
 
 	k.Log("✨ Connecting cluster %s -> %s...", remoteCluster.ClusterName(), k.client.ClusterName())
-	return k.patchConfig(ctx, remoteCluster, aiLocal)
+	if err := k.patchConfig(ctx, remoteCluster, aiLocal); err != nil {
+		return err
+	}
+
+	k.Log("✅ Connected cluster %s and %s!", k.client.ClusterName(), remoteCluster.ClusterName())
+
+	return nil
 }
 
 func (k *K8sClusterMesh) disconnectCluster(ctx context.Context, src, dst k8sClusterMeshImplementation) error {
@@ -956,7 +966,13 @@ func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
 		return err
 	}
 
-	return k.disconnectCluster(ctx, remoteCluster, k.client)
+	if err := k.disconnectCluster(ctx, remoteCluster, k.client); err != nil {
+		return err
+	}
+
+	k.Log("✅ Disconnected cluster %s and %s.", k.client.ClusterName(), remoteCluster.ClusterName())
+
+	return nil
 }
 
 type Status struct {
@@ -1308,6 +1324,8 @@ func (k *K8sClusterMesh) DeleteExternalWorkload(ctx context.Context, names []str
 	}
 	if count > 0 {
 		k.Log("✅ Removed %d external workload resources.", count)
+	} else {
+		k.Log("ℹ️ No external workload resources to remove.")
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, ", "))

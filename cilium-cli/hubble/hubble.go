@@ -207,7 +207,13 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 		return err
 	}
 
-	return k.disableHubble(ctx)
+	if err := k.disableHubble(ctx); err != nil {
+		return err
+	}
+
+	k.Log("✅ Hubble was successfully disabled.")
+
+	return nil
 }
 
 func (k *K8sHubble) enableHubble(ctx context.Context) error {
@@ -292,6 +298,8 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 			return err
 		}
 	}
+
+	k.Log("✅ Hubble was successfully enabled!")
 
 	return nil
 }
