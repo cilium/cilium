@@ -298,7 +298,7 @@ func newCmdExternalWorkloadInstall() *cobra.Command {
 				writer = os.Stdout
 			}
 			if err := cm.WriteExternalWorkloadInstallScript(context.Background(), writer); err != nil {
-				fatalf("Unable to create external worload install script: %s", err)
+				fatalf("Unable to create external workload install script: %s", err)
 			}
 			return nil
 		},
