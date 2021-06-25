@@ -121,7 +121,7 @@ To install Cilium while automatically detected:
     -------------------------------------------------------------------------------------------
     🔌 Validating from pod cilium-test/client-9f579495f-b2pcq to outside of cluster...
     -------------------------------------------------------------------------------------------
-    ✅ client pod client-9f579495f-b2pcq was able to communicate with google.com
+    ✅ client pod client-9f579495f-b2pcq was able to communicate with cilium.io
     -------------------------------------------------------------------------------------------
     🔌 Validating from pod cilium-test/client-9f579495f-b2pcq to local host...
     -------------------------------------------------------------------------------------------
@@ -191,7 +191,7 @@ To install Cilium while automatically detected:
     Jan  6 13:41:22.096: 10.0.0.11:45040 -> 172.217.168.46:443 to-stack FORWARDED (TCP Flags: ACK, RST)
     Jan  6 13:41:22.097: 172.217.168.46:443 -> 10.0.0.11:45040 to-endpoint FORWARDED (TCP Flags: ACK, FIN)
     Jan  6 13:41:22.097: 10.0.0.11:45040 -> 172.217.168.46:443 to-stack FORWARDED (TCP Flags: RST)
-    ✅ client pod client-9f579495f-b2pcq was able to communicate with google.com
+    ✅ client pod client-9f579495f-b2pcq was able to communicate with cilium.io
     -------------------------------------------------------------------------------------------
     🔌 Validating from pod cilium-test/client-9f579495f-b2pcq to local host...
     -------------------------------------------------------------------------------------------
