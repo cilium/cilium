@@ -35,8 +35,8 @@ var (
 	//go:embed manifests/client-ingress-from-client2.yaml
 	clientIngressFromClient2PolicyYAML string
 
-	//go:embed manifests/client-egress-to-fqdns-google.yaml
-	clientEgressToFQDNsGooglePolicyYAML string
+	//go:embed manifests/client-egress-to-fqdns-cilium-io.yaml
+	clientEgressToFQDNsCiliumIOPolicyYAML string
 
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
@@ -79,7 +79,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(""),   // connects to other Pods directly, no DNS
-			tests.PodToWorld(""), // resolves google.com
+			tests.PodToWorld(""), // resolves cilium.io
 		).
 		WithExpectations(
 			func(a *check.Action) (egress check.Result, ingress check.Result) {
@@ -117,17 +117,17 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(""),
 		)
 
-	// This policy only allows port 80 to "google.com". DNS proxy enabled.
-	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsGooglePolicyYAML).
+	// This policy only allows port 80 to "cilium.io". DNS proxy enabled.
+	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
 		WithScenarios(
 			tests.PodToWorld(""),
 		).WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 
-		if a.Destination().Port() == 80 && a.Destination().Address() == "google.com" {
+		if a.Destination().Port() == 80 && a.Destination().Address() == "cilium.io" {
 			egress = check.ResultDNSOK
 			egress.HTTP = check.HTTP{
 				Method: "GET",
-				URL:    "http://google.com/",
+				URL:    "http://cilium.io/",
 			}
 			return egress, check.ResultNone
 		}
