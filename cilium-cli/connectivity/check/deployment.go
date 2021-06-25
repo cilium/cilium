@@ -577,7 +577,7 @@ func (ct *ConnectivityTest) waitForDeployments(ctx context.Context, client *k8s.
 	ctx, cancel := context.WithTimeout(ctx, ct.params.podReadyTimeout())
 	defer cancel()
 	for _, name := range deployments {
-		for client.DeploymentIsReady(ctx, ct.params.TestNamespace, name) != nil {
+		for client.CheckDeploymentStatus(ctx, ct.params.TestNamespace, name) != nil {
 			select {
 			case <-time.After(time.Second):
 			case <-ctx.Done():

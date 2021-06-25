@@ -411,7 +411,7 @@ type k8sClusterMeshImplementation interface {
 	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
-	DeploymentIsReady(ctx context.Context, namespace, deployment string) error
+	CheckDeploymentStatus(ctx context.Context, namespace, deployment string) error
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
@@ -1008,9 +1008,9 @@ retry:
 }
 
 func (k *K8sClusterMesh) waitForDeployment(ctx context.Context) error {
-	k.Log("⌛ [%s] Waiting deployment %s to become ready...", k.client.ClusterName(), defaults.ClusterMeshDeploymentName)
+	k.Log("⌛ [%s] Waiting for deployment %s to become ready...", k.client.ClusterName(), defaults.ClusterMeshDeploymentName)
 
-	for k.client.DeploymentIsReady(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName) != nil {
+	for k.client.CheckDeploymentStatus(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName) != nil {
 		select {
 		case <-time.After(time.Second):
 		case <-ctx.Done():

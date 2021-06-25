@@ -197,7 +197,7 @@ func (c *Client) PatchDeployment(ctx context.Context, namespace, name string, pt
 	return c.Clientset.AppsV1().Deployments(namespace).Patch(ctx, name, pt, data, opts)
 }
 
-func (c *Client) DeploymentIsReady(ctx context.Context, namespace, deployment string) error {
+func (c *Client) CheckDeploymentStatus(ctx context.Context, namespace, deployment string) error {
 	d, err := c.GetDeployment(ctx, namespace, deployment, metav1.GetOptions{})
 	if err != nil {
 		return err
