@@ -2,7 +2,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   namespace: cilium-test
-  name: client-egress-to-fqdns-google
+  name: client-egress-to-fqdns-cilium-io
 spec:
   endpointSelector:
     matchLabels:
@@ -17,7 +17,7 @@ spec:
         - method: "GET"
           path: "/"
     toFQDNs:
-    - matchName: "google.com"
+    - matchName: "cilium.io"
   - toPorts:
     - ports:
       - port: "53"

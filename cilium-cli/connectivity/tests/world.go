@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-// PodToWorld sends multiple HTTP(S) requests to google.com
+// PodToWorld sends multiple HTTP(S) requests to cilium.io
 // from random client Pods.
 func PodToWorld(name string) check.Scenario {
 	return &podToWorld{
@@ -43,15 +43,15 @@ func (s *podToWorld) Name() string {
 }
 
 func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
-	ghttp := check.HTTPEndpoint("google-http", "http://google.com")
-	ghttps := check.HTTPEndpoint("google-https", "https://google.com")
-	wwwghttp := check.HTTPEndpoint("www-google-http", "http://www.google.com")
+	chttp := check.HTTPEndpoint("cilium-io-http", "http://cilium.io")
+	chttps := check.HTTPEndpoint("cilium-io-https", "https://cilium.io")
+	jhttp := check.HTTPEndpoint("jenkins-cilium-io-http", "http://jenkins.cilium.io")
 
 	// With https, over port 443.
 	if client := t.Context().RandomClientPod(); client != nil {
-		cmd := curl(ghttps)
+		cmd := curl(chttps)
 
-		t.NewAction(s, "https-to-google", client, ghttps).Run(func(a *check.Action) {
+		t.NewAction(s, "https-to-cilium-io", client, chttps).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, cmd)
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
@@ -63,9 +63,9 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 	// With http, over port 80.
 	if client := t.Context().RandomClientPod(); client != nil {
-		cmd := curl(ghttp)
+		cmd := curl(chttp)
 
-		t.NewAction(s, "http-to-google", client, ghttp).Run(func(a *check.Action) {
+		t.NewAction(s, "http-to-cilium-io", client, chttp).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, cmd)
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
@@ -75,11 +75,11 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		})
 	}
 
-	// With http to www.google.com.
+	// With http to jenkins.cilium.io
 	if client := t.Context().RandomClientPod(); client != nil {
-		cmd := curl(wwwghttp)
+		cmd := curl(jhttp)
 
-		t.NewAction(s, "http-to-www-google", client, wwwghttp).Run(func(a *check.Action) {
+		t.NewAction(s, "http-to-jenkins-cilium", client, jhttp).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, cmd)
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
