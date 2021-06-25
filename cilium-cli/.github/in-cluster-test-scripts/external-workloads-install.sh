@@ -11,6 +11,9 @@ cilium install \
   --kube-proxy-replacement=strict \
   --native-routing-cidr="${CLUSTER_CIDR}"
 
+# Enable Relay
+cilium hubble enable
+
 # Wait for Cilium status to be ready
 cilium status --wait
 
