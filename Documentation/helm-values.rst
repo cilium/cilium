@@ -1074,7 +1074,7 @@
      - object
      - ``{"enabled":true,"maxUnavailable":2}``
    * - preflight.podLabels
-     - Labels to be added to thee preflight pod.
+     - Labels to be added to the preflight pod.
      - object
      - ``{}``
    * - preflight.priorityClassName
