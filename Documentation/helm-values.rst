@@ -1,3 +1,6 @@
+..
+  AUTO-GENERATED. Please DO NOT edit manually.
+
 
 .. list-table::
    :header-rows: 1
@@ -1190,4 +1193,3 @@
      - Enable the use of well-known identities.
      - bool
      - ``false``
-
