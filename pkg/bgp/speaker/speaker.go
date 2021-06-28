@@ -18,9 +18,8 @@ package speaker
 
 import (
 	"context"
+	"errors"
 	"os"
-
-	"sync/atomic"
 
 	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
 	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
@@ -35,6 +34,10 @@ import (
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
+)
+
+var (
+	ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
 )
 
 // compile time check, Speaker must be a subscriber.Node
@@ -111,6 +114,18 @@ type Speaker struct {
 
 	lock.Mutex
 	services map[k8s.ServiceID]*slim_corev1.Service
+
+	// atomic boolean which is flipped when
+	// speaker sees a NodeDelete events.
+	//
+	// Speaker will shut itself down when this is 1,
+	// ensuring no other events are processed after the
+	// final withdraw of routes.
+	shutdown int32
+}
+
+func (s *Speaker) shutDown() bool {
+	return s.shutdown > 0
 }
 
 // OnUpdateService notifies the Speaker of an update to a service.
@@ -127,6 +142,9 @@ func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
 	s.services[svcID] = svc
 	s.Unlock()
 
+	if s.shutDown() {
+		return
+	}
 	s.queue.Add(epEvent{
 		id:  svcID,
 		svc: convertService(svc),
@@ -142,6 +160,9 @@ func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
 	delete(s.services, svcID)
 	s.Unlock()
 
+	if s.shutDown() {
+		return
+	}
 	// Passing nil as the service will force the MetalLB speaker to withdraw
 	// the BGP announcement.
 	s.queue.Add(svcEvent{
@@ -158,6 +179,11 @@ func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
 
 	s.Lock()
 	defer s.Unlock()
+
+	if s.shutDown() {
+		return
+	}
+
 	if svc, ok := s.services[svcID]; ok {
 		s.queue.Add(epEvent{
 			id:  svcID,
@@ -170,6 +196,11 @@ func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
 // OnAddNode notifies the Speaker of a new node.
 func (s *Speaker) OnAddNode(node *slim_corev1.Node) error {
 	log.Infof("chris Speaker OnAddNode %v", node.GetName())
+
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
 	return s.OnUpdateNode(nil, node)
 }
 
@@ -179,6 +210,11 @@ func (s *Speaker) OnUpdateNode(oldNode, newNode *slim_corev1.Node) error {
 		return nil // We don't care for other nodes.
 	}
 	log.Infof("chris Speaker OnUpdateNode %v", newNode.GetName())
+
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
 	s.queue.Add(nodeEvent{
 		labels:   nodeLabels(newNode.Labels),
 		podCIDRs: podCIDRs(newNode),
@@ -187,7 +223,27 @@ func (s *Speaker) OnUpdateNode(oldNode, newNode *slim_corev1.Node) error {
 }
 
 // OnDeleteNode notifies the Speaker of a node deletion.
-func (s *Speaker) OnDeleteNode(node *slim_corev1.Node) error { return nil }
+//
+// When the speaker discovers the node that it is running on
+// is shuttig down it will send a BGP message to its peer
+// instructing it to withdrawal all previously advertised
+// routes.
+func (s *Speaker) OnDeleteNode(node *slim_corev1.Node) error {
+	if node.GetName() != nodetypes.GetName() {
+		return nil // We don't care for other nodes.
+	}
+	log.Infof("chris Speaker OnDeleteNode %v", node.GetName())
+	t := true
+	if s.shutDown() {
+		return ErrShutDown
+	}
+	s.queue.Add(nodeEvent{
+		labels:   nodeLabels(node.Labels),
+		podCIDRs: podCIDRs(node),
+		withDraw: t,
+	})
+	return nil
+}
 
 // RegisterSvcCache registers the K8s watcher cache with this Speaker.
 func (s *Speaker) RegisterSvcCache(cache endpointsGetter) {

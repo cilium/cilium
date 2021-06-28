@@ -16,6 +16,7 @@ package speaker
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -24,6 +25,29 @@ import (
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	"golang.org/x/sync/errgroup"
 )
+
+var (
+	emptyAdverts = []*metallbbgp.Advertisement{}
+)
+
+func (s *Speaker) withDraw() error {
+	log.Infof("chris withDrawal of all BGP routes")
+	var wg sync.WaitGroup // waitgroup here since we don't care about errors
+	for _, session := range s.PeerSessions() {
+		go func(sess metallbspr.Session) { // Need an outer closure to capture session.
+			wg.Add(1)
+			// providing an empty array or advertisements will
+			// provoke the BGP controller to withdrawal any currently
+			// advertised bgp routes.
+			err := session.Set(emptyAdverts...)
+			if err != nil {
+				log.WithError(err).Error("Failed to withdraw BGP routes")
+			}
+		}(session)
+	}
+	wg.Wait()
+	return nil
+}
 
 func (s *Speaker) announcePodCIDRs(cidrs []string) error {
 	log.Infof("chris announcePodCIDRs(%v)", cidrs)
