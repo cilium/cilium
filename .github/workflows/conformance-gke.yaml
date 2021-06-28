@@ -335,7 +335,7 @@ jobs:
           sha: ${{ steps.vars.outputs.sha }}
           context: ${{ github.workflow }}
           description: Connectivity test cancelled
-          state: pending
+          state: error
           target_url: ${{ env.check_url }}
 
       - name: Send slack notification
