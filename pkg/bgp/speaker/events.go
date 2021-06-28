@@ -17,6 +17,7 @@ package speaker
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/k8s"
 
@@ -35,6 +36,10 @@ type nodeEvent struct {
 	// (read comparable) in Go.
 	labels   *map[string]string
 	podCIDRs *[]string
+	// withDraw will be set when a Delete node event occurs.
+	// the reduction of this event will elicit a withdrawal
+	// of all bgp routes.
+	withDraw bool
 }
 
 // run runs the reconciliation loop, fetching events off of the queue to
@@ -47,6 +52,12 @@ func (s *Speaker) run(ctx context.Context) {
 		// only check ctx here, we'll allow any in-flight
 		// events to be processed completely.
 		if ctx.Err() != nil {
+			return
+		}
+		// previous to this iteration, we processed an event
+		// which indicates the speaker should yield. shut
+		// it down.
+		if s.shutdown > 0 {
 			return
 		}
 		key, quit := s.queue.Get()
@@ -90,6 +101,17 @@ func (s *Speaker) handleNodeEvent(k nodeEvent) types.SyncState {
 		ret    types.SyncState
 		failed bool
 	)
+
+	if k.withDraw {
+		// this is a best effort method call, so we don't
+		// care about errors. If the node is shutting down
+		// all routes will be closed once the speaker's TCP conn
+		// is closed anyway per the rfc.
+		// see: https://datatracker.ietf.org/doc/html/rfc4271#section-6
+		s.withDraw()
+		atomic.AddInt32(&s.shutdown, 1)
+		return types.SyncStateSuccess
+	}
 
 	if s.announceLBIP {
 		if r := s.SetNodeLabels(s.logger, *k.labels); r != types.SyncStateSuccess {
