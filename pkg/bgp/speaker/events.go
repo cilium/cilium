@@ -16,6 +16,8 @@
 package speaker
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/k8s"
 
 	"go.universe.tf/metallb/pkg/k8s/types"
@@ -40,8 +42,13 @@ type nodeEvent struct {
 // loop is only stopped (implicitly) when the Agent is shutting down.
 //
 // Adapted from go.universe.tf/metallb/pkg/k8s/k8s.go.
-func (s *Speaker) run() {
+func (s *Speaker) run(ctx context.Context) {
 	for {
+		// only check ctx here, we'll allow any in-flight
+		// events to be processed completely.
+		if ctx.Err() != nil {
+			return
+		}
 		key, quit := s.queue.Get()
 		if quit {
 			return
