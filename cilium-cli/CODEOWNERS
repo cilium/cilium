@@ -1,5 +1,4 @@
 # Code owners groups and a brief description of their areas:
-# @cilium/janitors           Catch-all for code not otherwise owned
 # @cilium/azure              Integration with Azure
 # @cilium/ci-structure       Continuous integration, testing
 # @cilium/cli                Commandline interfaces
@@ -12,7 +11,7 @@
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
-* @cilium/janitors
+* @cilium/cli
 /CODEOWNERS @cilium/contributing
 /.github/ @cilium/contributing
 /.github/cilium-cli-test-job-chart/ @cilium/github-sec @cilium/ci-structure
