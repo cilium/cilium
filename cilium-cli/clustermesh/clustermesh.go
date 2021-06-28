@@ -985,11 +985,9 @@ retry:
 	return ai, err
 }
 
-func (k *K8sClusterMesh) statusService(ctx context.Context, log bool) (*corev1.Service, error) {
+func (k *K8sClusterMesh) statusService(ctx context.Context) (*corev1.Service, error) {
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
-		if log {
-			k.Log("⌛ Waiting (%s) for ClusterMesh service to be available: %s", wait, err)
-		}
+		k.Log("⌛ Waiting (%s) for ClusterMesh service to be available: %s", wait, err)
 	}})
 	defer w.Cancel()
 
@@ -1009,7 +1007,7 @@ retry:
 	return svc, nil
 }
 
-func (k *K8sClusterMesh) waitForDeployment(ctx context.Context, log bool) error {
+func (k *K8sClusterMesh) waitForDeployment(ctx context.Context) error {
 	k.Log("⌛ [%s] Waiting deployment %s to become ready...", k.client.ClusterName(), defaults.ClusterMeshDeploymentName)
 
 	for k.client.DeploymentIsReady(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName) != nil {
@@ -1102,11 +1100,9 @@ func (c *ConnectivityStatus) parseAgentStatus(name string, s *status.ClusterMesh
 	c.Connected.Avg += float64(ready)
 }
 
-func (k *K8sClusterMesh) statusConnectivity(ctx context.Context, log bool) (*ConnectivityStatus, error) {
+func (k *K8sClusterMesh) statusConnectivity(ctx context.Context) (*ConnectivityStatus, error) {
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
-		if log {
-			k.Log("⌛ Waiting (%s) for clusters to be connected: %s", wait, err)
-		}
+		k.Log("⌛ Waiting (%s) for clusters to be connected: %s", wait, err)
 	}})
 	defer w.Cancel()
 
@@ -1166,7 +1162,7 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 	return stats, nil
 }
 
-func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) {
+func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 	err := k.GetClusterConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -1185,44 +1181,38 @@ func (k *K8sClusterMesh) Status(ctx context.Context, log bool) (*Status, error) 
 	defer cancel()
 
 	s := &Status{}
-	s.AccessInformation, err = k.statusAccessInformation(ctx, log)
+	s.AccessInformation, err = k.statusAccessInformation(ctx, true)
 	if err != nil {
 		return nil, err
 	}
 
-	if log {
-		k.Log("✅ Cluster access information is available:")
-		for _, ip := range s.AccessInformation.ServiceIPs {
-			k.Log("  - %s:%d", ip, s.AccessInformation.ServicePort)
-		}
+	k.Log("✅ Cluster access information is available:")
+	for _, ip := range s.AccessInformation.ServiceIPs {
+		k.Log("  - %s:%d", ip, s.AccessInformation.ServicePort)
 	}
 
-	s.Service, err = k.statusService(ctx, log)
+	s.Service, err = k.statusService(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if log {
-		k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, s.Service.Spec.Type)
-	}
+	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, s.Service.Spec.Type)
 
 	if s.Service.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		if len(s.AccessInformation.ServiceIPs) == 0 {
-			if log {
-				k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
-			}
+			k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
 			return nil, fmt.Errorf("no IP available to reach cluster")
 		}
 	}
 
-	err = k.waitForDeployment(ctx, log)
+	err = k.waitForDeployment(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	s.Connectivity, err = k.statusConnectivity(ctx, log)
+	s.Connectivity, err = k.statusConnectivity(ctx)
 
-	if log && s.Connectivity != nil {
+	if s.Connectivity != nil {
 		if s.Connectivity.NotReady > 0 {
 			k.Log("⚠️  %d/%d nodes are not connected to all clusters [min:%d / avg:%.1f / max:%d]",
 				s.Connectivity.NotReady,
@@ -1574,8 +1564,6 @@ func formatCEW(cew ciliumv2.CiliumExternalWorkload) string {
 }
 
 func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []string) error {
-	log := true
-
 	collector, err := status.NewK8sStatusCollector(ctx, k.client, status.K8sStatusParameters{
 		Namespace: k.params.Namespace,
 	})
@@ -1588,32 +1576,26 @@ func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []str
 	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
 	defer cancel()
 
-	ai, err := k.statusAccessInformation(ctx, log)
+	ai, err := k.statusAccessInformation(ctx, true)
 	if err != nil {
 		return err
 	}
 
-	if log {
-		k.Log("✅ Cluster access information is available:")
-		for _, ip := range ai.ServiceIPs {
-			k.Log("	 - %s:%d", ip, ai.ServicePort)
-		}
+	k.Log("✅ Cluster access information is available:")
+	for _, ip := range ai.ServiceIPs {
+		k.Log("	 - %s:%d", ip, ai.ServicePort)
 	}
 
-	svc, err := k.statusService(ctx, log)
+	svc, err := k.statusService(ctx)
 	if err != nil {
 		return err
 	}
 
-	if log {
-		k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, svc.Spec.Type)
-	}
+	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, svc.Spec.Type)
 
 	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		if len(ai.ServiceIPs) == 0 {
-			if log {
-				k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
-			}
+			k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
 			return fmt.Errorf("no IP available to reach cluster")
 		}
 	}
@@ -1625,11 +1607,9 @@ func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []str
 			return err
 		}
 		cews = cewList.Items
-		if log {
-			if len(cews) == 0 {
-				k.Log("⚠️  No external workloads found.")
-				return nil
-			}
+		if len(cews) == 0 {
+			k.Log("⚠️  No external workloads found.")
+			return nil
 		}
 	} else {
 		for _, name := range names {
