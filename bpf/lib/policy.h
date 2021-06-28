@@ -100,28 +100,48 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		.pad = 0,
 	};
 
-#ifdef ALLOW_ICMP_FRAG_NEEDED
-	/* When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
-	 * of ICMP type 3 code 4 - Fragmentation Needed.
-	 */
-	if (proto == IPPROTO_ICMP) {
+	if (proto == IPPROTO_ICMP || proto == IPPROTO_ICMP_V6) {
 		void *data, *data_end;
-		struct icmphdr icmphdr __align_stack_8;
-		struct iphdr *ip4;
 		__u32 off;
+		__u8 icmp_type;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
+		if (proto == IPPROTO_ICMP) {
+			struct icmphdr icmphdr __align_stack_8;
+			struct iphdr *ip4;
 
-		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-			return DROP_INVALID;
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
 
-		if (icmphdr.type == ICMP_DEST_UNREACH &&
-		    icmphdr.code == ICMP_FRAG_NEEDED)
-			return CTX_ACT_OK;
-	}
+			off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+			if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+				return DROP_INVALID;
+
+#ifdef ALLOW_ICMP_FRAG_NEEDED
+			/* When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
+			 * of ICMP type 3 code 4 - Fragmentation Needed.
+			 */
+			if (icmphdr.type == ICMP_DEST_UNREACH &&
+			    icmphdr.code == ICMP_FRAG_NEEDED)
+				return CTX_ACT_OK;
 #endif /* ALLOW_ICMP_FRAG_NEEDED */
+
+			icmp_type = icmphdr.type;
+		} else {
+			struct ipv6hdr *ip6;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+			off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, ETH_HLEN, &ip6->nexthdr);
+			if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
+				return DROP_INVALID;
+		}
+
+		/* Convert from unsigned char to unsigned short considering byte order(little-endian).
+		 * In the little-endian case, for example, 2byte data "AB" convert to "BA".
+		 * Therefore, the "icmp_type" should be shifted not just casting.
+		 */
+		key.dport = (__u16)(icmp_type << 8);
+	}
 
 	/* L4 lookup can't be done on untracked fragments. */
 	if (!is_untracked_fragment) {

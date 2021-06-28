@@ -54,6 +54,8 @@ enum {
 #define IPPROTO_ESP		IPPROTO_ESP
   IPPROTO_AH = 51,		/* Authentication Header protocol	*/
 #define IPPROTO_AH		IPPROTO_AH
+  IPPROTO_ICMP_V6 = 58,	/* Internet Control Message Protocol for IPv6	*/
+#define IPPROTO_ICMP_V6	IPPROTO_ICMP_V6
   IPPROTO_MTP = 92,		/* Multicast Transport Protocol		*/
 #define IPPROTO_MTP		IPPROTO_MTP
   IPPROTO_BEETPH = 94,		/* IP option pseudo header for BEET	*/
