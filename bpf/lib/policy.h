@@ -123,6 +123,44 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	}
 #endif /* ALLOW_ICMP_FRAG_NEEDED */
 
+#ifdef ENABLE_ICMP_RULE
+	if (proto == IPPROTO_ICMP) {
+		void *data, *data_end;
+		struct iphdr *ip4;
+		struct icmphdr icmphdr __align_stack_8;
+		__u32 off;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+			return DROP_INVALID;
+
+		/* Convert from unsigned char to unsigned short considering byte order(little-endian).
+		 * In the little-endian case, for example, 2byte data "AB" convert to "BA".
+		 * Therefore, the "icmp_type" should be shifted not just casting.
+		 */
+		key.dport = (__u16)(icmphdr.type << 8);
+	} else if (proto == IPPROTO_ICMPV6) {
+		void *data, *data_end;
+		struct ipv6hdr *ip6;
+		__u32 off;
+		__u8 icmp_type;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, ETH_HLEN, &ip6->nexthdr);
+		if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
+			return DROP_INVALID;
+
+		/* Convert from unsigned char to unsigned short considering byte order(little-endian).
+		 * In the little-endian case, for example, 2byte data "AB" convert to "BA".
+		 * Therefore, the "icmp_type" should be shifted not just casting.
+		 */
+		key.dport = (__u16)(icmp_type << 8);
+	}
+#endif /* ENABLE_ICMP_RULE */
+
 	/* L4 lookup can't be done on untracked fragments. */
 	if (!is_untracked_fragment) {
 		/* Start with L3/L4 lookup. */
