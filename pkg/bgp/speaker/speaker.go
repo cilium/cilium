@@ -17,7 +17,10 @@
 package speaker
 
 import (
+	"context"
 	"os"
+
+	"sync/atomic"
 
 	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
 	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
@@ -39,7 +42,7 @@ var _ subscriber.Node = (*Speaker)(nil)
 
 // New creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
-func New(opts Opts) *Speaker {
+func New(ctx context.Context, opts Opts) *Speaker {
 	logger := &bgplog.Logger{Entry: log}
 	client := bgpk8s.New(logger.Logger)
 
@@ -58,6 +61,8 @@ func New(opts Opts) *Speaker {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to open BGP config file")
 	}
+	defer f.Close()
+
 	config, err := bgpconfig.Parse(f)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to parse BGP configuration")
@@ -76,7 +81,8 @@ func New(opts Opts) *Speaker {
 
 		services: make(map[k8s.ServiceID]*slim_corev1.Service),
 	}
-	go spkr.run()
+
+	go spkr.run(ctx)
 
 	log.Info("Started BGP speaker")
 
