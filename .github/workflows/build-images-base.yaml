@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@0d135e0c2fc0dba0729c1a47ecfcf5a3c7f8579e
+        uses: docker/setup-buildx-action@a1c666d855a037f439ebb7bf701ee144fcadd307
 
       - name: Set up QEMU
         id: qemu
