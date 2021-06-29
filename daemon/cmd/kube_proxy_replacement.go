@@ -453,8 +453,10 @@ func handleNativeDevices(strict bool) error {
 		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
 		option.Config.DirectRoutingDevice == ""
-	if detectNodePortDevs || detectDirectRoutingDev {
-		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev); err != nil {
+	detectIPv6MCastDev := option.Config.EnableIPv6NDP &&
+		len(option.Config.IPv6MCastDevice) == 0
+	if detectNodePortDevs || detectDirectRoutingDev || detectIPv6MCastDev {
+		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev); err != nil {
 			msg := "Unable to detect devices to attach Loadbalancer, Host Firewall or Bandwidth Manager program"
 			if strict {
 				return fmt.Errorf(msg)
@@ -643,7 +645,7 @@ func disableNodePort() {
 // (a) is determined from a default route and the k8s node IP addr.
 // (b) is derived either from NodePort BPF devices (if only one is set) or
 //     from the k8s node IP addr.
-func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
+func detectDevices(detectNodePortDevs, detectDirectRoutingDev, detectIPv6MCastDev bool) error {
 	var err error
 	devSet := map[string]struct{}{} // iface name
 	ifidxByAddr := map[string]int{} // str(ip addr) => ifindex
@@ -709,6 +711,16 @@ func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
 		}
 		option.Config.Devices = append(option.Config.Devices, dev)
 	}
+
+	if detectIPv6MCastDev {
+		log.Info("Auto Detecting IPv6 Mcast device")
+		if option.Config.IPv6MCastDevice, err = detectIPv6MCastDevice(ifidxByAddr); err != nil {
+			return fmt.Errorf("Unable to determine Multicast devices: %s. Use --%s to specify them",
+				err, option.IPv6MCastDevice)
+		}
+		log.Infof("Detected %s: %s", option.IPv6MCastDevice, option.Config.IPv6MCastDevice)
+	}
+
 	return nil
 }
 
@@ -736,24 +748,45 @@ func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, err
 	return devSet, nil
 }
 
-func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
+func getNodeDeviceLink(ifidxByAddr map[string]int) (netlink.Link, error) {
 	nodeIP := node.GetK8sNodeIP()
 	if nodeIP == nil {
-		return "", fmt.Errorf("K8s Node IP is not set")
+		return nil, fmt.Errorf("K8s Node IP is not set")
 	}
 
 	ifindex, found := ifidxByAddr[nodeIP.String()]
 	if !found {
-		return "", fmt.Errorf("Cannot find device with %s addr", nodeIP)
+		return nil, fmt.Errorf("Cannot find device with %s addr", nodeIP)
 	}
 
 	link, err := netlink.LinkByIndex(ifindex)
 	if err != nil {
-		return "", fmt.Errorf("Cannot find device with %s addr by %d ifindex",
+		return nil, fmt.Errorf("Cannot find device with %s addr by %d ifindex",
 			nodeIP, ifindex)
 	}
 
+	return link, nil
+}
+
+func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
+	link, err := getNodeDeviceLink(ifidxByAddr)
+	if err != nil {
+		return "", err
+	}
 	return link.Attrs().Name, nil
+}
+
+// detectIPv6MCastDevice detects ipv6-mcast-device if not configured already
+func detectIPv6MCastDevice(ifidxByAddr map[string]int) (string, error) {
+	link, err := getNodeDeviceLink(ifidxByAddr)
+	if err != nil {
+		return "", err
+	}
+
+	if link.Attrs().Flags&net.FlagMulticast != 0 {
+		return link.Attrs().Name, nil
+	}
+	return "", fmt.Errorf("Cannot find ipv6 multicast device")
 }
 
 // expandDevices expands all wildcard device names to concrete devices.
