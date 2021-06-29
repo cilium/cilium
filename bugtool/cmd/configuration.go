@@ -66,6 +66,26 @@ func bpffsMountpoint() string {
 	return ""
 }
 
+func cgroup2fsMounts() []string {
+	var mounts []string
+	mnts, err := mountinfo.GetMountInfo()
+	if err != nil {
+		return mounts
+	}
+
+	// Cgroup2 fs can be mounted at multiple mount points. Ideally, we would
+	// like to read the mount point where Cilium attaches BPF cgroup programs
+	// (determined by cgroup-root config option). But since this is debug information,
+	// let's collect all the mount points.
+	for _, mnt := range mnts {
+		if mnt.FilesystemType == "cgroup2" {
+			mounts = append(mounts, mnt.MountPoint)
+		}
+	}
+
+	return mounts
+}
+
 func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	var commands []string
 	// Not expecting all of the commands to be available
@@ -171,6 +191,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_ct_any6_global", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_snat_v4_external", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_snat_v6_external", bpffsMountpoint),
+		}...)
+	}
+
+	cgroup2fsMounts := cgroup2fsMounts()
+	for i := range cgroup2fsMounts {
+		commands = append(commands, []string{
+			fmt.Sprintf("bpftool cgroup tree %s", cgroup2fsMounts[i]),
 		}...)
 	}
 
