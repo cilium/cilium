@@ -155,10 +155,10 @@ type redirectPolicyManager interface {
 }
 
 type bgpSpeakerManager interface {
-	OnUpdateService(svc *slim_corev1.Service)
-	OnDeleteService(svc *slim_corev1.Service)
+	OnUpdateService(svc *slim_corev1.Service) error
+	OnDeleteService(svc *slim_corev1.Service) error
 
-	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
+	OnUpdateEndpoints(eps *slim_corev1.Endpoints) error
 }
 type egressPolicyManager interface {
 	AddEgressPolicy(config egresspolicy.Config) (bool, error)

@@ -129,7 +129,7 @@ func (s *Speaker) shutDown() bool {
 }
 
 // OnUpdateService notifies the Speaker of an update to a service.
-func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
+func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) error {
 	svcID := k8s.ParseServiceID(svc)
 
 	eps := new(metallbspr.Endpoints)
@@ -143,17 +143,18 @@ func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
 	s.Unlock()
 
 	if s.shutDown() {
-		return
+		return ErrShutDown
 	}
 	s.queue.Add(epEvent{
 		id:  svcID,
 		svc: convertService(svc),
 		eps: eps,
 	})
+	return nil
 }
 
 // OnDeleteService notifies the Speaker of a delete of a service.
-func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
+func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) error {
 	svcID := k8s.ParseServiceID(svc)
 
 	s.Lock()
@@ -161,7 +162,7 @@ func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
 	s.Unlock()
 
 	if s.shutDown() {
-		return
+		return ErrShutDown
 	}
 	// Passing nil as the service will force the MetalLB speaker to withdraw
 	// the BGP announcement.
@@ -170,18 +171,19 @@ func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
 		svc: nil,
 		eps: nil,
 	})
+	return nil
 }
 
 // OnUpdateEndpoints notifies the Speaker of an update to the backends of a
 // service.
-func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
+func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 	svcID := k8s.ParseEndpointsID(eps)
 
 	s.Lock()
 	defer s.Unlock()
 
 	if s.shutDown() {
-		return
+		return ErrShutDown
 	}
 
 	if svc, ok := s.services[svcID]; ok {
@@ -191,6 +193,7 @@ func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
 			eps: convertEndpoints(eps),
 		})
 	}
+	return nil
 }
 
 // OnAddNode notifies the Speaker of a new node.
