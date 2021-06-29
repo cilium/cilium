@@ -19,6 +19,7 @@ package ipam
 import (
 	"github.com/cilium/cilium/pkg/defaults"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -37,9 +38,10 @@ func (ipam *IPAM) reserveLocalRoutes() {
 		return
 	}
 
+	ifindex := link.Attrs().Index
 	for _, r := range routes {
 		// ignore routes which point to defaults.HostDevice
-		if r.LinkIndex == link.Attrs().Index {
+		if r.LinkIndex == ifindex {
 			log.WithField("route", r).Debugf("Ignoring route: points to %s", defaults.HostDevice)
 			continue
 		}
@@ -55,7 +57,10 @@ func (ipam *IPAM) reserveLocalRoutes() {
 			continue
 		}
 
-		log.WithField("route", r.Dst).Info("Blacklisting local route as no-alloc")
+		log.WithFields(logrus.Fields{
+			"route":   r,
+			"ifindex": ifindex,
+		}).Info("Blacklisting local route as no-alloc")
 		ipam.BlacklistIPNet(*r.Dst, "local route: "+r.Dst.String())
 	}
 }
