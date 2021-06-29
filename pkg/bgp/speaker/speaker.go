@@ -129,7 +129,10 @@ func (s *Speaker) shutDown() bool {
 }
 
 // OnUpdateService notifies the Speaker of an update to a service.
-func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
+func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
 	svcID := k8s.ParseServiceID(svc)
 
 	eps := new(metallbspr.Endpoints)
@@ -142,27 +145,25 @@ func (s *Speaker) OnUpdateService(svc *slim_corev1.Service) {
 	s.services[svcID] = svc
 	s.Unlock()
 
-	if s.shutDown() {
-		return
-	}
 	s.queue.Add(epEvent{
 		id:  svcID,
 		svc: convertService(svc),
 		eps: eps,
 	})
+	return nil
 }
 
 // OnDeleteService notifies the Speaker of a delete of a service.
-func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
+func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
 	svcID := k8s.ParseServiceID(svc)
 
 	s.Lock()
 	delete(s.services, svcID)
 	s.Unlock()
 
-	if s.shutDown() {
-		return
-	}
 	// Passing nil as the service will force the MetalLB speaker to withdraw
 	// the BGP announcement.
 	s.queue.Add(svcEvent{
@@ -170,19 +171,20 @@ func (s *Speaker) OnDeleteService(svc *slim_corev1.Service) {
 		svc: nil,
 		eps: nil,
 	})
+	return nil
 }
 
 // OnUpdateEndpoints notifies the Speaker of an update to the backends of a
 // service.
-func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
+func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
 	svcID := k8s.ParseEndpointsID(eps)
 
 	s.Lock()
 	defer s.Unlock()
-
-	if s.shutDown() {
-		return
-	}
 
 	if svc, ok := s.services[svcID]; ok {
 		s.queue.Add(epEvent{
@@ -191,6 +193,7 @@ func (s *Speaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) {
 			eps: convertEndpoints(eps),
 		})
 	}
+	return nil
 }
 
 // OnAddNode notifies the Speaker of a new node.
@@ -206,14 +209,13 @@ func (s *Speaker) OnAddNode(node *slim_corev1.Node) error {
 
 // OnUpdateNode notifies the Speaker of an update to a node.
 func (s *Speaker) OnUpdateNode(oldNode, newNode *slim_corev1.Node) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
 	if newNode.GetName() != nodetypes.GetName() {
 		return nil // We don't care for other nodes.
 	}
 	log.Infof("chris Speaker OnUpdateNode %v", newNode.GetName())
-
-	if s.shutDown() {
-		return ErrShutDown
-	}
 
 	s.queue.Add(nodeEvent{
 		labels:   nodeLabels(newNode.Labels),
@@ -229,14 +231,15 @@ func (s *Speaker) OnUpdateNode(oldNode, newNode *slim_corev1.Node) error {
 // instructing it to withdrawal all previously advertised
 // routes.
 func (s *Speaker) OnDeleteNode(node *slim_corev1.Node) error {
+	if s.shutDown() {
+		return ErrShutDown
+	}
+
 	if node.GetName() != nodetypes.GetName() {
 		return nil // We don't care for other nodes.
 	}
 	log.Infof("chris Speaker OnDeleteNode %v", node.GetName())
 	t := true
-	if s.shutDown() {
-		return ErrShutDown
-	}
 	s.queue.Add(nodeEvent{
 		labels:   nodeLabels(node.Labels),
 		podCIDRs: podCIDRs(node),
