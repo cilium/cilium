@@ -101,7 +101,7 @@ func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
 // derives it from the user-given resource group and cluster name using
 // `az aks show`.
 func (k *K8sInstaller) azureRetrieveAKSNodeResourceGroup(ctx context.Context) error {
-	bytes, err := k.Exec("az", "aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
+	bytes, err := k.azExec("aks", "show", "--subscription", k.params.Azure.SubscriptionID, "--resource-group", k.params.Azure.ResourceGroupName, "--name", k.params.ClusterName)
 	if err != nil {
 		return err
 	}
