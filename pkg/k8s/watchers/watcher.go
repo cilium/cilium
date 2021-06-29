@@ -157,12 +157,12 @@ type redirectPolicyManager interface {
 }
 
 type bgpSpeakerManager interface {
-	OnUpdateService(svc *slim_corev1.Service)
-	OnDeleteService(svc *slim_corev1.Service)
+	OnUpdateService(svc *slim_corev1.Service) error
+	OnDeleteService(svc *slim_corev1.Service) error
 
-	OnUpdateEndpoints(eps *slim_corev1.Endpoints)
-	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice)
-	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice)
+	OnUpdateEndpoints(eps *slim_corev1.Endpoints) error
+	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) error
+	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) error
 }
 
 type egressPolicyManager interface {
