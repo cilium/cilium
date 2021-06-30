@@ -323,6 +323,12 @@ Removed Options
 * ``hubble-flow-buffer-size``: This option was deprecated in 1.10 in favor
   of ``hubble-event-buffer-capacity``. It is now removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* ``native-routing-cidr``: This option has been deprecated in favor of
+  ``ipv4-native-routing-cidr`` and will be removed in 1.12.
+
 .. _1.10_upgrade_notes:
 
 1.10 Upgrade Notes
@@ -435,8 +441,6 @@ Deprecated Options
   ``encryption.secretName`` and ``encryption.interface`` are now deprecated in
   favor of ``encryption.ipsec.keyFile``, ``encryption.ipsec.mountPath``,
   ``encryption.ipsec.secretName`` and ``encryption.ipsec.interface``.
-* ``native-routing-cidr``: This option has been deprecated in favor of
-  ``ipv4-native-routing-cidr`` and will be removed in 1.12.
 
 .. _1.9_upgrade_notes:
 
