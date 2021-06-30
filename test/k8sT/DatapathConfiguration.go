@@ -698,10 +698,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}, 600)
 	})
 
-	Context("Transparent encryption DirectRouting", func() {
-		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing", func() {
-			SkipIfIntegration(helpers.CIIntegrationGKE)
-
+	SkipContextIf(func() bool {
+		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy()
+	}, "Transparent encryption DirectRouting", func() {
+		It("Check connectivity with transparent encryption and direct routing", func() {
 			privateIface, err := kubectl.GetPrivateIface()
 			Expect(err).Should(BeNil(), "Unable to determine private iface")
 
@@ -722,8 +722,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		// loading on the native device, the source identity of packet on the
 		// destination node is resolved to WORLD and policy enforcement fails.
 		XIt("Check connectivity with transparent encryption and direct routing with bpf_host", func() {
-			SkipIfIntegration(helpers.CIIntegrationGKE)
-
 			privateIface, err := kubectl.GetPrivateIface()
 			Expect(err).Should(BeNil(), "Unable to determine the private interface")
 			defaultIface, err := kubectl.GetDefaultIface()
