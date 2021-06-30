@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  KIND_VERSION: v0.9.0
+  KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
@@ -38,7 +38,7 @@ jobs:
         run: sudo make install
 
       - name: Create kind cluster
-        uses: helm/kind-action@7a937c0fb648064a83b8b9354151e5e543d9fcec
+        uses: helm/kind-action@94729529f85113b88f4f819c17ce61382e6d8478
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
