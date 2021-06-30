@@ -24,13 +24,33 @@ on:
   ###
 
 concurrency:
-  # In case of PR comment, we can't simply append the comment to the group name
-  # as that is too long and results in an error. Instead we check if it's a
-  # trigger phrase and append a simple 'trigger-phrase'.
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - issue_comment: PR number
+  #   - pull_request: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing:
+  # - schedule: {name} schedule {SHA}
+  # - issue_comment: {name} issue_comment {PR number}
+  # - pull_request: {name} pull_request {PR number}
+  #
+  # Note: for `issue_comment` triggers, we additionally need to filter out based
+  # on comment content, otherwise any comment will interrupt workflow runs.
   group: |
-    "${{ github.workflow }} ${{ github.event.issue.pull_request.url || 'scheduled' }}
-     ${{ (startsWith(github.event.comment.body, 'ci-aks') ||
-          startsWith(github.event.comment.body, 'test-me-please')) && 'trigger-phrase' }}"
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'issue_comment' &&
+        (startsWith(github.event.comment.body, 'ci-aks') ||
+        startsWith(github.event.comment.body, 'test-me-please')) &&
+        github.event.issue.number) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
   cancel-in-progress: true
 
 env:
