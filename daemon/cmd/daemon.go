@@ -258,10 +258,11 @@ func restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		cidr = node.GetIPv6AllocRange()
 		fromFS = node.GetIPv6Router()
 	} else {
-		if ipam := option.Config.IPAMMode(); ipam == ipamOption.IPAMCRD || ipam == ipamOption.IPAMENI {
+		switch option.Config.IPAMMode() {
+		case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure:
 			// The native routing CIDR is the pod CIDR in these IPAM modes.
 			cidr = option.Config.IPv4NativeRoutingCIDR()
-		} else {
+		default:
 			cidr = node.GetIPv4AllocRange()
 		}
 		fromFS = node.GetInternalIPv4Router()
