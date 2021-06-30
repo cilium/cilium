@@ -286,35 +286,15 @@ transitions, ordered by version.
 The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
-case, consider staging the upgrade, for example upgrading from ``1.1.x`` to the
-latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
+case, consider performing incremental upgrades between versions (e.g. upgrade
+from ``1.7.x`` to ``1.8.y`` first, and to ``1.9.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3 impact               | L7 impact                 |
 +=======================+=======================+=========================+===========================+
-| ``1.0.x``             | ``1.1.y``             | N/A                     | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.1.x``             | ``1.2.y``             | Temporary disruption[2] | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.2.x``             | ``1.3.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.2.5``           | ``1.5.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.5.x``             | ``1.6.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.6.6``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.6.7``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.6.x``             | ``1.7.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.7.0``             | ``1.7.1``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.7.1``           | ``1.7.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.7.1``           | ``1.8.y``             | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.8.x``             | ``1.9.y``             | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.7.x``             | ``1.8.y``             | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -323,10 +303,6 @@ Annotations:
    because an L7 policy is in place) will be disrupted during upgrade.
    Endpoints communicating via the proxy must reconnect to re-establish
    connections.
-
-#. **Temporary disruption**: All traffic may be temporarily disrupted during
-   upgrade. Connections should successfully re-establish without requiring
-   clients to reconnect.
 
 .. _current_release_required_changes:
 
