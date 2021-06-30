@@ -444,6 +444,12 @@ connection are either managed by Cilium or use an IP belonging to a node in the
 cluster (including host networking pods). This traffic may be allowed using
 labels, services or entities -based policies as described above.
 
+When CIDR policies are applied, the identity generated is local to each node.
+In other words, the identity may not be the same for the same CIDR policy
+across two nodes. Additionally, CIDR identities are not included within the
+numerical identities range (256 - 2^16 -1), as it is stored separately inside
+the Agent.
+
 .. note::
 
    When running Cilium on Linux 4.10 or earlier, there are :ref:`cidr_limitations`.
