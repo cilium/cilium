@@ -258,12 +258,20 @@ jobs:
         if: ${{ failure() }}
         run: |
           cilium status --context ${{ steps.contexts.outputs.context1 }}
-          cilium clustermesh status --context ${{ steps.contexts.outputs.context1 }}
+          # FIXME: Use of timeout is a workaround for cilium/cilium-cli#384
+          timeout 5s cilium clustermesh status --context ${{ steps.contexts.outputs.context1 }}
           cilium status --context ${{ steps.contexts.outputs.context2 }}
-          cilium clustermesh status --context ${{ steps.contexts.outputs.context2 }}
-          kubectl get pods --all-namespaces -o wide
+          # FIXME: Use of timeout is a workaround for cilium/cilium-cli#384
+          timeout 5s cilium clustermesh status --context ${{ steps.contexts.outputs.context2 }}
+
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-          python cilium-sysdump.zip --output cilium-sysdump-out
+          kubectl config use-context ${{ steps.contexts.outputs.context1 }}
+          kubectl get pods --all-namespaces -o wide
+          python cilium-sysdump.zip --output cilium-sysdump-context1
+
+          kubectl config use-context ${{ steps.contexts.outputs.context2 }}
+          kubectl get pods --all-namespaces -o wide
+          python cilium-sysdump.zip --output cilium-sysdump-context2
         shell: bash {0}
 
       - name: Clean up GKE
@@ -278,7 +286,9 @@ jobs:
         uses: actions/upload-artifact@27121b0bdffd731efa15d66772be8dc71245d074
         with:
           name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          path: |
+            cilium-sysdump-context1.zip
+            cilium-sysdump-context2.zip
           retention-days: 5
 
       - name: Set commit status to success
