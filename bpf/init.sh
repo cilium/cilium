@@ -288,7 +288,7 @@ function bpf_load_cgroups()
 
 	cilium-map-migrate -s $OUT
 	set +e
-	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec $WHERE
+	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec "cgroup/$WHERE"
 	RETCODE=$?
 	set -e
 	cilium-map-migrate -e $OUT -r $RETCODE
