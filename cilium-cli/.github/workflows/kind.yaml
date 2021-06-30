@@ -45,13 +45,15 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cilium install --config monitor-aggregation=none
+          cilium install \
+            --wait=false \
+            --config monitor-aggregation=none
 
       - name: Enable Relay
         run: |
           cilium hubble enable --ui
 
-      - name: Status
+      - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait
 
