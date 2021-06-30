@@ -214,8 +214,8 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 			c, err := cidr.ParseCIDR(eni.VPC.PrimaryCIDR)
 			if err == nil {
 				result = c
+				return
 			}
-			return
 		}
 	}
 	// return AlibabaCloud vpc CIDR
@@ -223,6 +223,7 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 		c, err := cidr.ParseCIDR(node.Spec.AlibabaCloud.CIDRBlock)
 		if err == nil {
 			result = c
+			return
 		}
 	}
 	return
