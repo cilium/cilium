@@ -277,6 +277,10 @@ spec:
                                 type: string
                             type: object
                           type: array
+                        cidr:
+                          description: CIDR is the range that the interface belongs
+                            to.
+                          type: string
                         id:
                           description: ID is the identifier
                           type: string
