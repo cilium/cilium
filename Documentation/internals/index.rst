@@ -14,3 +14,4 @@ Internals
 
    hubble
    cilium_operator
+   security-identities
