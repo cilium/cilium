@@ -80,6 +80,9 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.GatewayIP != other.GatewayIP {
 		return false
 	}
+	if in.CIDR != other.CIDR {
+		return false
+	}
 	if in.VMSSName != other.VMSSName {
 		return false
 	}

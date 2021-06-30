@@ -218,6 +218,15 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 			}
 		}
 	}
+	if len(node.Status.Azure.Interfaces) > 0 {
+		for _, azif := range node.Status.Azure.Interfaces {
+			c, err := cidr.ParseCIDR(azif.CIDR)
+			if err == nil {
+				result = c
+				return
+			}
+		}
+	}
 	return
 }
 
@@ -253,7 +262,7 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 			minimumReached = true
 		}
 
-		if n.conf.IPAMMode() == ipamOption.IPAMENI {
+		if n.conf.IPAMMode() == ipamOption.IPAMENI || n.conf.IPAMMode() == ipamOption.IPAMAzure {
 			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
 				if nativeCIDR := n.conf.IPv4NativeRoutingCIDR(); nativeCIDR != nil {
 					logFields := logrus.Fields{
@@ -517,6 +526,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 			if iface.ID == ipInfo.Resource {
 				result.PrimaryMAC = iface.MAC
 				result.GatewayIP = iface.GatewayIP
+				result.CIDRs = append(result.CIDRs, iface.CIDR)
 				// For now, we can hardcode the interface number to a valid
 				// integer because it will not be used in the allocation result
 				// anyway. To elaborate, Azure IPAM mode automatically sets
