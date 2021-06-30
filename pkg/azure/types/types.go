@@ -122,6 +122,11 @@ type AzureInterface struct {
 	// +optional
 	Gateway string `json:"gateway"`
 
+	// CIDR is the range that the interface belongs to.
+	//
+	// +optional
+	CIDR string `json:"cidr,omitempty"`
+
 	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
 	vmssName string `json:"-"`

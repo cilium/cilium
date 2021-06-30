@@ -83,6 +83,9 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.Gateway != other.Gateway {
 		return false
 	}
+	if in.CIDR != other.CIDR {
+		return false
+	}
 	if in.vmssName != other.vmssName {
 		return false
 	}
