@@ -57,7 +57,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@v1.2.0
         with:
-          version: v0.8.1
+          version: v0.11.1
 
       - name: Load local images into kind cluster
         run: |
