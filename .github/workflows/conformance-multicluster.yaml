@@ -9,9 +9,9 @@ on:
   schedule:
     - cron:  '0 3/6 * * *'
   ### FOR TESTING PURPOSES
-  # pull_request:
-  #  types:
-  #    - "labeled"
+  pull_request:
+    types:
+      - "labeled"
   ###
 
 concurrency:
@@ -209,6 +209,7 @@ jobs:
 
       - name: Wait for cluster mesh status to be ready
         run: |
+          exit 1 # XXX: remove me, fail on purpose
           cilium clustermesh status --wait --context ${{ steps.contexts.outputs.context1 }}
           cilium clustermesh status --wait --context ${{ steps.contexts.outputs.context2 }}
 
