@@ -1221,9 +1221,11 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 		}
 	}
 
-	err = k.waitForDeployment(ctx)
-	if err != nil {
-		return nil, err
+	if k.params.Wait {
+		err = k.waitForDeployment(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	s.Connectivity, err = k.statusConnectivity(ctx)
