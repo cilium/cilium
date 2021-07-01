@@ -44,7 +44,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Run checkpatch.pl
-        uses: docker://quay.io/cilium/cilium-checkpatch:cc7e6b5811f46d7b040dedfe2f6b0010c2c51a12@sha256:9160b6ca58eb99a3ed5d567a494b2e2001325ebad32029c5bd17a8ae4df01044
+        uses: docker://quay.io/cilium/cilium-checkpatch:514a240252e61d47b8814a5e57843505c0325b77@sha256:f88bbc4dbd8ace809c84581fae8b2dbbbc89433d641f1edf0f892d92be996020
       - name: Send slack notification
         if: ${{ (cancelled() || failure()) && (github.event_name == 'schedule' || github.event_name == 'push') }}
         uses: 8398a7/action-slack@dcc8c8e9dd8802e21a712dc0c003db97b42efe43
