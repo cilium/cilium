@@ -30,7 +30,7 @@ var (
 	emptyAdverts = []*metallbbgp.Advertisement{}
 )
 
-func (s *Speaker) withDraw() error {
+func (s *MetalLBSpeaker) withDraw() error {
 	log.Infof("chris withDrawal of all BGP routes")
 	var wg sync.WaitGroup // waitgroup here since we don't care about errors
 	for _, session := range s.PeerSessions() {
@@ -49,7 +49,7 @@ func (s *Speaker) withDraw() error {
 	return nil
 }
 
-func (s *Speaker) announcePodCIDRs(cidrs []string) error {
+func (s *MetalLBSpeaker) announcePodCIDRs(cidrs []string) error {
 	log.Infof("chris announcePodCIDRs(%v)", cidrs)
 	var eg errgroup.Group
 	for _, session := range s.PeerSessions() {
@@ -67,7 +67,7 @@ func (s *Speaker) announcePodCIDRs(cidrs []string) error {
 	return eg.Wait()
 }
 
-func (s *Speaker) announce(session metallbspr.Session, cidrs []string) error {
+func (s *MetalLBSpeaker) announce(session metallbspr.Session, cidrs []string) error {
 	adverts := make([]*metallbbgp.Advertisement, 0, len(cidrs))
 	for _, c := range cidrs {
 		parsed, err := cidr.ParseCIDR(c)
