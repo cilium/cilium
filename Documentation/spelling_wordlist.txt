@@ -93,6 +93,7 @@ MiB
 Minikube
 Monnet
 Mythbusters
+NativeRoutingCIDR
 Netronome
 NewProto
 Nic
@@ -606,7 +607,6 @@ namespaced
 namespaces
 nat
 natMax
-nativeRoutingCIDR
 natively
 neighMax
 netdev
