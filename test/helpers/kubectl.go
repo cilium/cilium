@@ -3532,9 +3532,9 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 	kub.reportMapHost(ctx, testPath, reportCmds)
 
 	reportCmds = map[string]string{
-		"journalctl --no-pager -au kubelet": "kubelet.log",
-		"top -n 1 -b":                       "top.log",
-		"ps aux":                            "ps.log",
+		"journalctl -D /var/log/journal --no-pager -au kubelet": "kubelet.log",
+		"top -n 1 -b": "top.log",
+		"ps aux":      "ps.log",
 	}
 
 	kub.reportMapContext(ctx, testPath, reportCmds, LogGathererNamespace, logGathererSelector(false))
