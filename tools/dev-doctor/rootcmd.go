@@ -187,7 +187,8 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 				ifNotFound:    checkError,
 				versionArgs:   []string{"--version"},
 				versionRegexp: regexp.MustCompile(`hub\s+version\s+(\d+.\d+\.\d+)`),
-				minVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
+				minVersion:    &semver.Version{Major: 2, Minor: 14, Patch: 0},
+				hint:          `Download the latest version from https://github.com/github/hub/releases.`,
 			},
 			&envVarCheck{
 				name:            "GITHUB_TOKEN",
