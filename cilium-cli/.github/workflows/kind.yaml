@@ -60,7 +60,8 @@ jobs:
       - name: Relay Port Forward
         run: |
           cilium hubble port-forward&
-          sleep 5s
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Connectivity Test
         run: |
@@ -84,10 +85,11 @@ jobs:
 
       - name: Relay Port Forward
         run: |
-          pkill -f "cilium hubble port-forward|kubectl port-forward.*hubble-relay"
+          pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           sleep 1s
           cilium hubble port-forward&
-          sleep 5s
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Connectivity test
         run: |
