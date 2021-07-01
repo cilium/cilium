@@ -52,9 +52,11 @@ func CheckOrMountCgrpFS(mapRoot string) {
 		if mapRoot == "" {
 			mapRoot = cgroupRoot
 		}
-		err := cgrpCheckOrMountLocation(mapRoot)
-		// Failed cgroup2 mount is not a fatal error, sockmap will be disabled however
-		if err == nil {
+
+		if err := cgrpCheckOrMountLocation(mapRoot); err != nil {
+			log.WithError(err).
+				Warn("Failed to mount cgroupv2. Any functionality that needs cgroup (e.g.: socket-based LB) will not work.")
+		} else {
 			log.Infof("Mounted cgroupv2 filesystem at %s", mapRoot)
 		}
 	})
