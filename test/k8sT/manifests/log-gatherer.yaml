@@ -30,8 +30,8 @@ spec:
         - "10000"
         command:
         - sleep
-        image: docker.io/cilium/log-gatherer:v1.0
-        imagePullPolicy: Always
+        image: docker.io/cilium/log-gatherer:v1.1
+        imagePullPolicy: IfNotPresent
         name: log-gatherer
         securityContext:
           capabilities:
