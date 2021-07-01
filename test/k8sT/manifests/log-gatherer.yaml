@@ -31,7 +31,7 @@ spec:
         command:
         - sleep
         image: docker.io/cilium/log-gatherer:v1.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: log-gatherer
         securityContext:
           capabilities:
