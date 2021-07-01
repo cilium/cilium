@@ -333,7 +333,7 @@ Pull request review process for Janitors team
 Dedicated expectation time for each member of Janitors team: Follow the next
 steps 1 to 2 times per day. Works best if done first thing in the working day.
 
-#. Review all PRs requesting for review in `for you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_;
+#. Review all PRs requesting for review in `for you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Fjanitors+sort%3Aupdated-asc>`_;
 
 #. If this PR was opened by a non-committer (e.g. external contributor) please
    assign yourself to that PR and make sure to keep track the PR gets reviewed
