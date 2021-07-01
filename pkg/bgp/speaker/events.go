@@ -47,7 +47,7 @@ type nodeEvent struct {
 // loop is only stopped (implicitly) when the Agent is shutting down.
 //
 // Adapted from go.universe.tf/metallb/pkg/k8s/k8s.go.
-func (s *Speaker) run(ctx context.Context) {
+func (s *MetalLBSpeaker) run(ctx context.Context) {
 	for {
 		// only check ctx here, we'll allow any in-flight
 		// events to be processed completely.
@@ -80,7 +80,7 @@ func (s *Speaker) run(ctx context.Context) {
 // do performs the appropriate action depending on the event type. For example,
 // if it is a service event (svcEvent), then it will call into MetalLB's
 // SetService() to perform BGP announcements.
-func (s *Speaker) do(key interface{}) types.SyncState {
+func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 	defer s.queue.Done(key)
 
 	switch k := key.(type) {
@@ -96,7 +96,7 @@ func (s *Speaker) do(key interface{}) types.SyncState {
 	}
 }
 
-func (s *Speaker) handleNodeEvent(k nodeEvent) types.SyncState {
+func (s *MetalLBSpeaker) handleNodeEvent(k nodeEvent) types.SyncState {
 	var (
 		ret    types.SyncState
 		failed bool
