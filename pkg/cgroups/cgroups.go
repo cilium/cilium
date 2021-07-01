@@ -82,14 +82,11 @@ func cgrpCheckOrMountLocation(cgroupRoot string) error {
 
 	// If the custom location has no mount, let's mount there.
 	if !mounted {
-		if err := mountCgroup(); err != nil {
-			return err
-		}
-	}
-
-	if !cgroupInstance {
+		return mountCgroup()
+	} else if !cgroupInstance {
 		return fmt.Errorf("Mount in the custom directory %s has a different filesystem than cgroup2", cgroupRoot)
 	}
+
 	return nil
 }
 
@@ -103,9 +100,11 @@ func CheckOrMountCgrpFS(mapRoot string) {
 		if mapRoot == "" {
 			mapRoot = cgroupRoot
 		}
-		err := cgrpCheckOrMountLocation(mapRoot)
-		// Failed cgroup2 mount is not a fatal error, sockmap will be disabled however
-		if err == nil {
+
+		if err := cgrpCheckOrMountLocation(mapRoot); err != nil {
+			log.WithError(err).
+				Warn("Failed to mount cgroupv2. Any functionality that needs cgroup (e.g.: socket-based LB) will not work.")
+		} else {
 			log.Infof("Mounted cgroupv2 filesystem at %s", mapRoot)
 		}
 	})
