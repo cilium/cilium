@@ -24,3 +24,4 @@ understand the workflow of getting these changes reviewed and merged upstream.
    codeoverview
    debugging
    hubble
+   documentation

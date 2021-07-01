@@ -722,6 +722,7 @@ repos
 reproducibility
 requireIPv
 resourceQuotas
+reStructuredText
 retpoline
 retransmission
 retrigger
