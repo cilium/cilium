@@ -431,10 +431,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
-		d.bgpSpeaker = speaker.New(ctx, speaker.Opts{
+		d.bgpSpeaker, err = speaker.New(ctx, speaker.Opts{
 			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
 			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
 		})
+		if err != nil {
+			log.WithError(err).Error("Error creating new BGP speaker")
+			return nil, nil, err
+		}
 	}
 
 	d.egressPolicyManager = egresspolicy.NewEgressPolicyManager()
