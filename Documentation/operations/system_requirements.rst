@@ -362,7 +362,7 @@ In order to mount the eBPF filesystem, the following command must be run in the
 host mount namespace. The command must only be run once during the boot process
 of the machine.
 
-   code-block:: shell-session
+   .. code-block:: shell-session
 
 	# mount bpffs /sys/fs/bpf -t bpf
 
