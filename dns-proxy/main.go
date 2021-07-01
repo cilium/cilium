@@ -15,15 +15,24 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/miekg/dns"
 	"google.golang.org/grpc"
 
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
+
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 )
 
 var (
@@ -38,9 +47,10 @@ func main() {
 
 	go startSending(ctx, msgs)
 
-	_, err := StartDNSProxy("", 10001, false, 0, func(addr net.IP, fqdn string) {
-		msgs <- pb.FQDNMapping{IP: []byte(addr), FQDN: fqdn}
-	})
+	_, err := dnsproxy.StartDNSProxy("", 10001, false, 0, LookupEndpointIDByIP, LookupSecIDByIP, LookupIPsBySecID, NotifyOnDNSMsg)
+	//_, err := dnsproxy.StartDNSProxy("", 10001, false, 0, func(addr net.IP, fqdn string) {
+	//	msgs <- pb.FQDNMapping{IP: []byte(addr), FQDN: fqdn}
+	//})
 
 	if err != nil {
 		log.Fatalf("Failed to start dns proxy: %v", err)
@@ -49,6 +59,28 @@ func main() {
 	exitSignal := make(chan os.Signal)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-exitSignal
+}
+
+// LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
+func LookupEndpointIDByIP(ip net.IP) (endpoint *endpoint.Endpoint, err error) {
+	return nil, errors.New("not implemented")
+}
+
+// LookupSecIDByIP wraps logic to lookup an IP's security ID from the
+// ipcache.
+func LookupSecIDByIP(ip net.IP) (secID ipcache.Identity, exists bool) {
+	return ipcache.Identity{}, false
+}
+
+// LookupIPsBySecID wraps logic to lookup an IPs by security ID from the
+// ipcache.
+func LookupIPsBySecID(nid identity.NumericIdentity) []string {
+	return []string{}
+}
+
+// NotifyOnDNSMsghandles propagating DNS response data
+func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+	return errors.New("not implemented")
 }
 
 func startSending(ctx context.Context, msgs chan pb.FQDNMapping) {
