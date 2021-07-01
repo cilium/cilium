@@ -58,13 +58,10 @@ func cgrpCheckOrMountLocation(cgroupRoot string) error {
 
 	// If the custom location has no mount, let's mount there.
 	if !mounted {
-		if err := mountCgroup(); err != nil {
-			return err
-		}
-	}
-
-	if !cgroupInstance {
+		return mountCgroup()
+	} else if !cgroupInstance {
 		return fmt.Errorf("Mount in the custom directory %s has a different filesystem than cgroup2", cgroupRoot)
 	}
+
 	return nil
 }
