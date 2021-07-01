@@ -85,9 +85,9 @@ func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 
 	switch k := key.(type) {
 	case svcEvent:
-		return s.SetService(s.logger, k.id.String(), k.svc, k.eps)
+		return s.speaker.SetService(k.id.String(), k.svc, k.eps)
 	case epEvent:
-		return s.SetService(s.logger, k.id.String(), k.svc, k.eps)
+		return s.speaker.SetService(k.id.String(), k.svc, k.eps)
 	case nodeEvent:
 		return s.handleNodeEvent(k)
 	default:
@@ -114,7 +114,7 @@ func (s *MetalLBSpeaker) handleNodeEvent(k nodeEvent) types.SyncState {
 	}
 
 	if s.announceLBIP {
-		if r := s.SetNodeLabels(s.logger, *k.labels); r != types.SyncStateSuccess {
+		if r := s.speaker.SetNodeLabels(*k.labels); r != types.SyncStateSuccess {
 			failed = true
 			ret = r
 		}

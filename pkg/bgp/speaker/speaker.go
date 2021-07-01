@@ -19,11 +19,7 @@ package speaker
 import (
 	"context"
 	"errors"
-	"os"
 
-	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
-	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
-	bgplog "github.com/cilium/cilium/pkg/bgp/log"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -31,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 	v1 "k8s.io/api/core/v1"
@@ -47,37 +42,13 @@ var _ subscriber.Node = (*MetalLBSpeaker)(nil)
 
 // New creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
-func New(ctx context.Context, opts Opts) *MetalLBSpeaker {
-	logger := &bgplog.Logger{Entry: log}
-	client := bgpk8s.New(logger.Logger)
-
-	c, err := metallbspr.NewController(metallbspr.ControllerConfig{
-		MyNode:        nodetypes.GetName(),
-		Logger:        logger,
-		SList:         nil, // BGP speaker doesn't use speakerlist
-		DisableLayer2: true,
-	})
+func New(ctx context.Context, opts Opts) (*MetalLBSpeaker, error) {
+	ctrl, err := newMetalLBSpeaker(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to initialize BGP speaker controller")
+		return nil, err
 	}
-	c.Client = client
-
-	f, err := os.Open(option.Config.BGPConfigPath)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to open BGP config file")
-	}
-	defer f.Close()
-
-	config, err := bgpconfig.Parse(f)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to parse BGP configuration")
-	}
-	c.SetConfig(logger, config)
-
 	spkr := &MetalLBSpeaker{
-		Controller: c,
-
-		logger: logger,
+		speaker: ctrl,
 
 		announceLBIP:    opts.LoadBalancerIP,
 		announcePodCIDR: opts.PodCIDR,
@@ -91,7 +62,7 @@ func New(ctx context.Context, opts Opts) *MetalLBSpeaker {
 
 	log.Info("Started BGP speaker")
 
-	return spkr
+	return spkr, nil
 }
 
 // Opts represents what the Speaker can announce.
@@ -104,9 +75,7 @@ type Opts struct {
 // MetalLB's logic for making BGP announcements. It is responsible for
 // announcing BGP messages containing a loadbalancer IP address to peers.
 type MetalLBSpeaker struct {
-	*metallbspr.Controller
-
-	logger *bgplog.Logger
+	speaker Speaker
 
 	announceLBIP, announcePodCIDR bool
 
