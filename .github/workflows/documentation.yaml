@@ -30,7 +30,7 @@ jobs:
               - 'cilium-health/cmd/**'
               - 'daemon/cmd/**'
               - 'hubble-relay/cmd/**'
-              - 'install/kubernetes/**/'
+              - 'install/kubernetes/**'
               - 'operator/cmd/**'
 
   # Runs only if code under Documentation or */cmd/ is changed as the docs
