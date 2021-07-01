@@ -741,6 +741,10 @@
      - Whether to set the security context on the Hubble UI pods.
      - bool
      - ``true``
+   * - hubble.ui.tls.client
+     - base64 encoded PEM values used to connect to hubble-relay This keypair is presented to Hubble Relay instances for mTLS authentication and is required when hubble.relay.tls.server.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
+     - object
+     - ``{"cert":"","key":""}``
    * - hubble.ui.tolerations
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
@@ -838,7 +842,7 @@
      - object
      - ``{}``
    * - monitor
-     - Specify the CIDR for native routing (ie to avoid IP masquerade for). This value corresponds to the configured cluster-cidr. nativeRoutingCIDR:
+     - Specify the IPv4 CIDR for native routing (ie to avoid IP masquerade for). This value corresponds to the configured cluster-cidr. ipv4NativeRoutingCIDR:
      - object
      - ``{"enabled":false}``
    * - monitor.enabled
