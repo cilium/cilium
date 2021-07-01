@@ -33,7 +33,7 @@ var (
 func (s *MetalLBSpeaker) withDraw() error {
 	log.Infof("chris withDrawal of all BGP routes")
 	var wg sync.WaitGroup // waitgroup here since we don't care about errors
-	for _, session := range s.PeerSessions() {
+	for _, session := range s.speaker.PeerSessions() {
 		go func(sess metallbspr.Session) { // Need an outer closure to capture session.
 			wg.Add(1)
 			// providing an empty array or advertisements will
@@ -52,7 +52,7 @@ func (s *MetalLBSpeaker) withDraw() error {
 func (s *MetalLBSpeaker) announcePodCIDRs(cidrs []string) error {
 	log.Infof("chris announcePodCIDRs(%v)", cidrs)
 	var eg errgroup.Group
-	for _, session := range s.PeerSessions() {
+	for _, session := range s.speaker.PeerSessions() {
 		func(sess metallbspr.Session) { // Need an outer closure to capture session.
 			eg.Go(func() error {
 				err := s.announce(sess, cidrs)
