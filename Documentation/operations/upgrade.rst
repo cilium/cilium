@@ -283,15 +283,17 @@ transitions, ordered by version.
 The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
-case, consider staging the upgrade, for example upgrading from ``1.1.x`` to the
-latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
+case, consider performing incremental upgrades between versions (e.g. upgrade
+from ``1.8.x`` to ``1.9.y`` first, and to ``1.10.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3 impact               | L7 impact                 |
 +=======================+=======================+=========================+===========================+
-| ``>=1.7.1``           | ``1.8.y``             | Minimal to None         | Clients must reconnect[1] |
+| ``1.9.x``             | ``1.10.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.8.x``             | ``1.9.y``             | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.7.x``             | ``1.8.y``             | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
