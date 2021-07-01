@@ -144,7 +144,8 @@ jobs:
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
-          sleep 5s
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
