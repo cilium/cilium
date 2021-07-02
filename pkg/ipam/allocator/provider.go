@@ -26,7 +26,7 @@ import (
 // these are implemented by e.g. pkg/ipam/allocator/{aws,azure}.
 type AllocatorProvider interface {
 	Init(ctx context.Context) error
-	Start(getterUpdater ipam.CiliumNodeGetterUpdater) (NodeEventHandler, error)
+	Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (NodeEventHandler, error)
 }
 
 // NodeEventHandler should implement the behavior to handle CiliumNode
