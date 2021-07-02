@@ -414,7 +414,7 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	if operatorOption.Config.BGPAnnounceLBIP {
 		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartLBIPAllocator(option.Config)
+		operatorWatchers.StartLBIPAllocator(ctx, option.Config)
 	}
 
 	if kvstoreEnabled() {
