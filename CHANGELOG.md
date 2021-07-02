@@ -1,5 +1,62 @@
 # Changelog
 
+## v1.10.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Fixes connectivity issues when kube-proxy replacement is enabled, caused by
+  ineffective socket based load balancing (aka host reachable services) in the private
+  cgroup namespace mode of container runtimes (e.g., docker cgroupv2 configuration). (Backport PR #16671, Upstream PR #16259, @aditighag)
+
+**Bugfixes:**
+* bpf: fix iptables masquerading for node -> remote pod traffic (Backport PR #16654, Upstream PR #16136, @jibi)
+* bpf: fix hw_csum issue for icmp probe packets (Backport PR #16614, Upstream PR #16604, @borkmann)
+* daemon, node: Fix faulty router IP restoration logic (Backport PR #16675, Upstream PR #16672, @christarazi)
+* DNS proxy is now more available during Cilium restarts, including upgrades. (Backport PR #16686, Upstream PR #16391, @jrajahalme)
+* External Workloads service access is enabled again. (Backport PR #16686, Upstream PR #16662, @jrajahalme)
+* Fix issue where generating Hubble certs were broken (Backport PR #16614, Upstream PR #16509, @alex1989hu)
+* ipsec: Fix logging of SPI after key rotations (Backport PR #16614, Upstream PR #16557, @pchaigno)
+* lrp: Skip clusterIP service restore in service delete callback (Backport PR #16614, Upstream PR #16548, @aditighag)
+* Plumb Azure interface's VPC / primary CIDR and set it as native routing CIDR in Azure IPAM mode (Backport PR #16697, Upstream PR #16696, @christarazi)
+* Potential deadlock in pod identity updates has been fixed. (Backport PR #16614, Upstream PR #16529, @jrajahalme)
+* pkg/option: Fix default assignment of EnableWellKnownIdentities (Backport PR #16614, Upstream PR #16434, @mauriciovasquezbernal)
+
+**CI Changes:**
+* ci: Disable NFS locking (Backport PR #16686, Upstream PR #16554, @gandro)
+* cicd: skip codesql on forks (Backport PR #16686, Upstream PR #16560, @ldelossa)
+* node-neigh: Fix concurrent arping update unit test flake (Backport PR #16614, Upstream PR #16578, @brb)
+* Pick up cilium-cli v0.8.2 (Backport PR #16654, Upstream PR #16650, @michi-covalent)
+* tests: rework custom calls's `AfterEach`/`AfterAll` blocks to skip if needed (Backport PR #16686, Upstream PR #16651, @qmonnet)
+* vagrant: Bump all Vagrant box versions (Backport PR #16654, Upstream PR #16589, @pchaigno)
+* workflows: Skip jobs instead of workflows (Backport PR #16562, Upstream PR #16487, @pchaigno)
+
+**Misc Changes:**
+* build(deps): bump actions/download-artifact from 2.0.9 to 2.0.10 (#16574, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 2.2.3 to 2.2.4 (#16586, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 2.5.0 to 2.6.1 (#16742, @dependabot[bot])
+* build(deps): bump docker/login-action from 1.9.0 to 1.10.0 (#16641, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 1.3.0 to 1.4.1 (#16685, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.1.0 to 1.2.0 (#16709, @dependabot[bot])
+* CODEOWNERS: Give maintainer's code to github-sec team (Backport PR #16562, Upstream PR #16426, @pchaigno)
+* contrib: Identify upstream commits by author and date (Backport PR #16654, Upstream PR #16572, @pchaigno)
+* docs: fix check-crd-compat-table script (Backport PR #16614, Upstream PR #16545, @aanm)
+* docs: Fix typo in BGP GSG (Backport PR #16614, Upstream PR #16563, @christarazi)
+* docs: Hubble UI does not show HTTP endpoints anymore (Backport PR #16562, Upstream PR #16535, @gandro)
+* docs: run GitHub action when Charts are touched to check Helm values ref (Backport PR #16654, Upstream PR #16577, @qmonnet)
+* images/script: update the example hubble cli Deployment version (Backport PR #16562, Upstream PR #16537, @kaworu)
+* images: Remove trailing newlines before computing SHA256 (Backport PR #16654, Upstream PR #16621, @pchaigno)
+* k8s: Fix logging (Backport PR #16614, Upstream PR #16530, @jrajahalme)
+* Refactor logging package to split syslog functionality into separate file (Backport PR #16686, Upstream PR #16600, @tklauser)
+* vendor: Update go.universe.tf/metallb (Backport PR #16614, Upstream PR #16523, @christarazi)
+
+**Other Changes:**
+* .github: Rename maintainer's little helper's config file (#16457, @pchaigno)
+* docs: improve the helm chart documentation (#16653, @bmcustodio)
+* docs: update the version specific notes table (#16729, @bmcustodio)
+* install: Update image digests for v1.10.1 (#16546, @aanm)
+
 ## v1.10.1
 
 Summary of Changes
@@ -10,7 +67,8 @@ Summary of Changes
 * docs: Revert host firewall to beta for kube-proxy setups (Backport PR #16269, Upstream PR #16149, @pchaigno)
 * helm: add back 'wellKnownIdentities' (Backport PR #16269, Upstream PR #16142, @bmcustodio)
 * helm: Disable the bandwidth manager by default (Backport PR #16438, Upstream PR #16380, @pchaigno)
-* HTTP response access logs no longer contain the request headers, except for 'x-request-id', which is still included for request/response correlation purposes. (Backport PR #16384, Upstream PR #16211, @jrajahalme)
+* HTTP response access logs no longer contain the request headers, except for 'x-request-id',
+  which is still included for request/response correlation purposes. (Backport PR #16384, Upstream PR #16211, @jrajahalme)
 * Remove deprecated --update-ec2-apdater-limit-via-api option (Backport PR #16438, Upstream PR #16374, @twpayne)
 * Support non-default Azure clouds (Backport PR #16384, Upstream PR #16043, @ungureanuvladvictor)
 * Update k8s libraries to 1.21.1 (#16250, @nathanjsweet)
