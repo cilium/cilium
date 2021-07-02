@@ -10,7 +10,7 @@ MAJ_REGEX='[0-9]\+\.[0-9]\+'
 MIN_REGEX='[0-9]\+\.[0-9]\+\.[0-9]\+'
 REGEX_FILTER_DATE='s/^\([-0-9]\+\).*/\1/'
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
-ACTS_YAML=".github/cilium-actions.yml"
+ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
 for release in $(grep "General Announcement" README.rst \

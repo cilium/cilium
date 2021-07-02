@@ -7,7 +7,7 @@ source $DIR/lib/common.sh
 source $DIR/../backporting/common.sh
 
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
-ACTS_YAML=".github/cilium-actions.yml"
+ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
 usage() {
