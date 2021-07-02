@@ -26,6 +26,7 @@ import (
 
 	"github.com/miekg/dns"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
 
@@ -121,7 +122,31 @@ func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 
 // NotifyOnDNSMsghandles propagating DNS response data
 func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-	return errors.New("not implemented")
+	//TODO: retain stat somehow?
+
+	endpoint := &pb.Endpoint{
+		ID:        uint32(ep.ID),
+		Identity:  uint32(ep.SecurityIdentity.ID),
+		Namespace: ep.K8sNamespace,
+		PodName:   ep.K8sPodName,
+	}
+
+	dnsMsg, err := msg.Pack()
+	if err != nil {
+		log.Errorf("Could not pack dns msg: %s", err)
+		return err
+	}
+
+	_, err = client.NotifyOnDNSMessage(context.TODO(), &pb.DNSNotification{
+		Time:       timestamppb.New(lookupTime),
+		Endpoint:   endpoint,
+		EpIPPort:   epIPPort,
+		ServerAddr: serverAddr,
+		Msg:        dnsMsg,
+		Protocol:   protocol,
+		Allowed:    allowed,
+	})
+	return err
 }
 
 //func startSending(ctx context.Context, msgs chan pb.FQDNMapping) {
