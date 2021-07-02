@@ -24,6 +24,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
 
@@ -76,6 +77,21 @@ func (s *FQDNProxyAgentServer) LookupSecurityIdentityByIP(ctx context.Context, I
 	}, nil
 }
 
+func (s *FQDNProxyAgentServer) LookupIPsBySecurityIdentity(ctx context.Context, id *pb.Identity) (*pb.IPs, error) {
+	ips := s.dataSource.LookupIPsBySecID(identity.NumericIdentity(id.ID))
+
+	//TODO: should this not go to string and back to bytes for transfer?
+	ipsForTransfer := make([][]byte, 0, len(ips))
+
+	for i, ip := range ips {
+		ipsForTransfer[i] = []byte(net.ParseIP(ip))
+	}
+
+	return &pb.IPs{
+		IPs: ipsForTransfer,
+	}, nil
+}
+
 func newServer(lookupSrc DNSProxyDataSource) *FQDNProxyAgentServer {
 	s := &FQDNProxyAgentServer{dataSource: lookupSrc}
 	return s
@@ -95,4 +111,5 @@ func RunServer(port int, lookupSrc DNSProxyDataSource) {
 type DNSProxyDataSource interface {
 	LookupEPByIP(net.IP) (*endpoint.Endpoint, error)
 	LookupSecIDByIP(net.IP) (ipcache.Identity, bool)
+	LookupIPsBySecID(identity.NumericIdentity) []string
 }

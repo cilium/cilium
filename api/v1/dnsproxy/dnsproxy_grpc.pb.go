@@ -26,6 +26,7 @@ type FQDNProxyAgentClient interface {
 	LookupEndpointByIP(ctx context.Context, in *FQDN_IP, opts ...grpc.CallOption) (*flow.Endpoint, error)
 	// LookupEndpointByIP returns endpoint data based on IP
 	LookupSecurityIdentityByIP(ctx context.Context, in *FQDN_IP, opts ...grpc.CallOption) (*Identity, error)
+	LookupIPsBySecurityIdentity(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*IPs, error)
 }
 
 type fQDNProxyAgentClient struct {
@@ -88,6 +89,15 @@ func (c *fQDNProxyAgentClient) LookupSecurityIdentityByIP(ctx context.Context, i
 	return out, nil
 }
 
+func (c *fQDNProxyAgentClient) LookupIPsBySecurityIdentity(ctx context.Context, in *Identity, opts ...grpc.CallOption) (*IPs, error) {
+	out := new(IPs)
+	err := c.cc.Invoke(ctx, "/dnsproxy.FQDNProxyAgent/LookupIPsBySecurityIdentity", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FQDNProxyAgentServer is the server API for FQDNProxyAgent service.
 // All implementations should embed UnimplementedFQDNProxyAgentServer
 // for forward compatibility
@@ -100,6 +110,7 @@ type FQDNProxyAgentServer interface {
 	LookupEndpointByIP(context.Context, *FQDN_IP) (*flow.Endpoint, error)
 	// LookupEndpointByIP returns endpoint data based on IP
 	LookupSecurityIdentityByIP(context.Context, *FQDN_IP) (*Identity, error)
+	LookupIPsBySecurityIdentity(context.Context, *Identity) (*IPs, error)
 }
 
 // UnimplementedFQDNProxyAgentServer should be embedded to have forward compatible implementations.
@@ -114,6 +125,9 @@ func (*UnimplementedFQDNProxyAgentServer) LookupEndpointByIP(context.Context, *F
 }
 func (*UnimplementedFQDNProxyAgentServer) LookupSecurityIdentityByIP(context.Context, *FQDN_IP) (*Identity, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LookupSecurityIdentityByIP not implemented")
+}
+func (*UnimplementedFQDNProxyAgentServer) LookupIPsBySecurityIdentity(context.Context, *Identity) (*IPs, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupIPsBySecurityIdentity not implemented")
 }
 
 func RegisterFQDNProxyAgentServer(s *grpc.Server, srv FQDNProxyAgentServer) {
@@ -182,6 +196,24 @@ func _FQDNProxyAgent_LookupSecurityIdentityByIP_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FQDNProxyAgent_LookupIPsBySecurityIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Identity)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FQDNProxyAgentServer).LookupIPsBySecurityIdentity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dnsproxy.FQDNProxyAgent/LookupIPsBySecurityIdentity",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FQDNProxyAgentServer).LookupIPsBySecurityIdentity(ctx, req.(*Identity))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _FQDNProxyAgent_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "dnsproxy.FQDNProxyAgent",
 	HandlerType: (*FQDNProxyAgentServer)(nil),
@@ -193,6 +225,10 @@ var _FQDNProxyAgent_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LookupSecurityIdentityByIP",
 			Handler:    _FQDNProxyAgent_LookupSecurityIdentityByIP_Handler,
+		},
+		{
+			MethodName: "LookupIPsBySecurityIdentity",
+			Handler:    _FQDNProxyAgent_LookupIPsBySecurityIdentity_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

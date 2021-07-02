@@ -106,7 +106,17 @@ func LookupSecIDByIP(ip net.IP) (secID ipcache.Identity, exists bool) {
 // LookupIPsBySecID wraps logic to lookup an IPs by security ID from the
 // ipcache.
 func LookupIPsBySecID(nid identity.NumericIdentity) []string {
-	return []string{}
+	ips, err := client.LookupIPsBySecurityIdentity(context.TODO(), &pb.Identity{ID: uint32(nid)})
+	if err != nil {
+		log.Errorf("could not lookup ips for id %v: %v", nid, err)
+		return nil
+	}
+
+	result := make([]string, 0, len(ips.IPs))
+	for _, ip := range ips.IPs {
+		result = append(result, net.IP(ip).String())
+	}
+	return result
 }
 
 // NotifyOnDNSMsghandles propagating DNS response data
