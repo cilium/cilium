@@ -39,7 +39,7 @@ type AllocatorAzure struct{}
 func (*AllocatorAzure) Init(ctx context.Context) error { return nil }
 
 // Start kicks of the Azure IP allocation
-func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
 
 	var (
 		azMetrics azureAPI.MetricsAPI
@@ -51,7 +51,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (alloca
 	subscriptionID := operatorOption.Config.AzureSubscriptionID
 	if subscriptionID == "" {
 		log.Debug("SubscriptionID was not specified via CLI, retrieving it via Azure IMS")
-		subID, err := azureAPI.GetSubscriptionID(context.TODO())
+		subID, err := azureAPI.GetSubscriptionID(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Azure subscription ID was not specified via CLI and retrieving it from the Azure IMS was not possible: %w", err)
 		}
@@ -62,7 +62,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (alloca
 	resourceGroupName := operatorOption.Config.AzureResourceGroup
 	if resourceGroupName == "" {
 		log.Debug("ResourceGroupName was not specified via CLI, retrieving it via Azure IMS")
-		rgName, err := azureAPI.GetResourceGroupName(context.TODO())
+		rgName, err := azureAPI.GetResourceGroupName(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("Azure resource group name was not specified via CLI and retrieving it from the Azure IMS was not possible: %w", err)
 		}
@@ -88,7 +88,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (alloca
 		return nil, fmt.Errorf("unable to initialize Azure node manager: %w", err)
 	}
 
-	if err := nodeManager.Start(context.TODO()); err != nil {
+	if err := nodeManager.Start(ctx); err != nil {
 		return nil, err
 	}
 
