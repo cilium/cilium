@@ -28,6 +28,7 @@ func init() {
 
 	flags.String(operatorOption.AzureCloudName, "AzurePublicCloud", "Name of the Azure cloud being used")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureCloudName, "AZURE_CLOUD_NAME")
+	flags.MarkDeprecated(operatorOption.AzureCloudName, "This option will be removed in v1.11")
 
 	flags.String(operatorOption.AzureSubscriptionID, "", "Subscription ID to access Azure API")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")

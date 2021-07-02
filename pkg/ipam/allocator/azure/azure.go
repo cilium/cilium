@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
+	"github.com/cilium/cilium/operator/option"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
@@ -28,6 +29,7 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/spf13/viper"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-azure")
@@ -47,6 +49,18 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	)
 
 	log.Info("Starting Azure IP allocator...")
+
+	var azureCloudName string
+	if viper.IsSet(option.AzureCloudName) {
+		azureCloudName = operatorOption.Config.AzureCloudName
+	} else {
+		log.Debug("Azure cloud name was not specified via CLI, retrieving it via Azure IMS")
+		var err error
+		azureCloudName, err = azureAPI.GetAzureCloudName(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unsable to retrieve Azure cloud name: %w", err)
+		}
+	}
 
 	subscriptionID := operatorOption.Config.AzureSubscriptionID
 	if subscriptionID == "" {
@@ -78,7 +92,7 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	azureClient, err := azureAPI.NewClient(operatorOption.Config.AzureCloudName, subscriptionID, resourceGroupName, operatorOption.Config.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, operatorOption.Config.AzureUsePrimaryAddress)
+	azureClient, err := azureAPI.NewClient(azureCloudName, subscriptionID, resourceGroupName, operatorOption.Config.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, operatorOption.Config.AzureUsePrimaryAddress)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
