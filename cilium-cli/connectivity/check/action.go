@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -247,9 +246,8 @@ func (a *Action) printFlows(peer TestPeer) {
 		src, dst := printer.GetHostNames(f)
 
 		ts := "N/A"
-		flowTimestamp, err := ptypes.Timestamp(f.GetTime())
-		if err == nil {
-			ts = flowTimestamp.Format(time.StampMilli)
+		if t := f.GetTime(); t != nil && t.IsValid() {
+			ts = t.AsTime().Format(time.StampMilli)
 		}
 
 		flowPrefix := "❓"
@@ -289,9 +287,8 @@ func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, offs
 			// Update last match index and timestamp
 			if r.LastMatch < offset+index {
 				r.LastMatch = offset + index
-				flowTimestamp, err := ptypes.Timestamp(flow.Time)
-				if err == nil {
-					r.LastMatchTimestamp = flowTimestamp
+				if t := flow.GetTime(); t != nil && t.IsValid() {
+					r.LastMatchTimestamp = t.AsTime()
 				}
 			}
 		}

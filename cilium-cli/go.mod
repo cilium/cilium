@@ -24,8 +24,6 @@ require (
 	github.com/cilium/workerpool v1.0.0
 	github.com/cloudflare/cfssl v1.5.0
 	github.com/go-openapi/strfmt v0.19.11
-	github.com/golang/protobuf v1.4.3
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mholt/archiver/v3 v3.5.0
 	github.com/pkg/browser v0.0.0-20210606212950-a7b7a6107d32
