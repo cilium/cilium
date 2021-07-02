@@ -94,7 +94,7 @@ func (a *AllocatorOperator) Init(ctx context.Context) error {
 }
 
 // Start kicks of Operator allocation.
-func (a *AllocatorOperator) Start(updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
 	log.WithFields(logrus.Fields{
 		logfields.IPv4CIDRs: operatorOption.Config.ClusterPoolIPv4CIDR,
 		logfields.IPv6CIDRs: operatorOption.Config.ClusterPoolIPv6CIDR,

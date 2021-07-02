@@ -382,7 +382,7 @@ func onOperatorStartLeading(ctx context.Context) {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
-		nm, err := alloc.Start(&ciliumNodeUpdateImplementation{})
+		nm, err := alloc.Start(ctx, &ciliumNodeUpdateImplementation{})
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
 		}
