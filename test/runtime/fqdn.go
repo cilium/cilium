@@ -741,7 +741,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 	})
 
-	It(`Implements matchPattern: "*"`, func() {
+	It(`Implements matchPattern: *`, func() {
 		By(`Importing policy with matchPattern: "*" rule`)
 		fqdnPolicy := `
 [
