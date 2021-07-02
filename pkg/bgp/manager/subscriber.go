@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	mlbk8s "go.universe.tf/metallb/pkg/k8s"
 
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
@@ -135,7 +136,7 @@ func (m *Manager) process(event interface{}) types.SyncState {
 // reconcile calls down to the MetalLB controller to reconcile the service
 // object, which will allocate it an LB IP.
 func (m *Manager) reconcile(name string, svc *slim_corev1.Service) types.SyncState {
-	return m.SetBalancer(m.Logger(), name, toV1Service(svc), metallbk8s.EpsOrSlices{
+	return m.controller.SetBalancer(name, toV1Service(svc), mlbk8s.EpsOrSlices{
 		Type: metallbk8s.Eps,
 	})
 }
