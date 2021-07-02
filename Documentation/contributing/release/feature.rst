@@ -41,7 +41,7 @@ On Freeze date
 #. Create a new project named "X.Y.Z" to automatically track the backports
    for that particular release. `Direct Link: <https://github.com/cilium/cilium/projects/new>`_
 
-#. Copy the ``.github/cilium-actions.yml`` from the previous release ``vX.Y-1``
+#. Copy the ``.github/maintainers-little-helper.yaml`` from the previous release ``vX.Y-1``
    change the contents to be relevant for the release ``vX.Y`` and set the
    ``project:`` to be the generated link created by the previous step. The link
    should be something like: ``https://github.com/cilium/cilium/projects/NNN``
@@ -69,7 +69,7 @@ On Freeze date
    #. ``needs-backport/1.2``
 
 
-#. Checkout to master and update the ``.github/cilium-actions.yml`` to have
+#. Checkout to master and update the ``.github/maintainers-little-helper.yaml`` to have
    all the necessary configurations for the backport of the new ``vX.Y`` branch.
    Specifically, ensure that:
 
@@ -80,8 +80,8 @@ On Freeze date
    .. code-block:: shell-session
 
        $ git checkout -b pr/master-cilium-actions-update origin/master
-       $ # modify .github/cilium-actions.yml
-       $ git add .github/cilium-actions.yml
+       $ # modify .github/maintainers-little-helper.yaml
+       $ git add .github/maintainers-little-helper.yaml
        $ git commit
        $ git push
 
