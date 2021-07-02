@@ -38,20 +38,32 @@ Step 2: Install cilium-istioctl
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Download the `cilium enhanced istioctl version 1.9.6 <https://github.com/cilium/istio/releases/tag/1.9.6>`_:
+Download the `cilium enhanced istioctl version 1.10.3 <https://github.com/cilium/istio/releases/tag/1.10.3>`_:
 
 .. tabs::
-  .. group-tab:: Linux
+  .. group-tab:: Linux (amd64)
 
     .. code-block:: shell-session
 
-        curl -L https://github.com/cilium/istio/releases/download/1.9.6/cilium-istioctl-1.9.6-linux-amd64.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.10.3/cilium-istioctl-1.10.3-linux-amd64.tar.gz | tar xz
+
+  .. group-tab:: Linux (arm64)
+
+    .. code-block:: shell-session
+
+        curl -L https://github.com/cilium/istio/releases/download/1.10.3/cilium-istioctl-1.10.3-linux-arm64.tar.gz | tar xz
 
   .. group-tab:: OSX
 
     .. code-block:: shell-session
 
-        curl -L https://github.com/cilium/istio/releases/download/1.9.6/cilium-istioctl-1.9.6-osx.tar.gz | tar xz
+        curl -L https://github.com/cilium/istio/releases/download/1.10.3/cilium-istioctl-1.10.3-osx.tar.gz | tar xz
+
+  .. group-tab:: OSX (Apple Silicon)
+
+    .. code-block:: shell-session
+
+        curl -L https://github.com/cilium/istio/releases/download/1.10.3/cilium-istioctl-1.10.3-osx-arm64.tar.gz | tar xz
 
 .. note::
 
