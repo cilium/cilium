@@ -24,6 +24,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ipcache"
 )
 
 type FQDNProxyAgentServer struct {
@@ -53,7 +54,7 @@ func (s *FQDNProxyAgentServer) LookupEndpointByIP(ctx context.Context, IP *pb.FQ
 	ip := net.IP(IP.IP)
 	ep, err := s.dataSource.LookupEPByIP(ip)
 	if err != nil {
-		return nil, err
+		return &pb.Endpoint{}, err
 	}
 
 	return &pb.Endpoint{
@@ -61,6 +62,17 @@ func (s *FQDNProxyAgentServer) LookupEndpointByIP(ctx context.Context, IP *pb.FQ
 		Identity:  uint32(ep.SecurityIdentity.ID),
 		Namespace: ep.K8sNamespace,
 		PodName:   ep.K8sPodName,
+	}, nil
+}
+
+func (s *FQDNProxyAgentServer) LookupSecurityIdentityByIP(ctx context.Context, IP *pb.FQDN_IP) (*pb.Identity, error) {
+	ip := net.IP(IP.IP)
+	id, exists := s.dataSource.LookupSecIDByIP(ip)
+
+	return &pb.Identity{
+		ID:     uint32(id.ID),
+		Source: string(id.Source),
+		Exists: exists,
 	}, nil
 }
 
@@ -82,4 +94,5 @@ func RunServer(port int, lookupSrc DNSProxyDataSource) {
 
 type DNSProxyDataSource interface {
 	LookupEPByIP(net.IP) (*endpoint.Endpoint, error)
+	LookupSecIDByIP(net.IP) (ipcache.Identity, bool)
 }

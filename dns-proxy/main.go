@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -90,7 +91,16 @@ func LookupEndpointIDByIP(ip net.IP) (*endpoint.Endpoint, error) {
 // LookupSecIDByIP wraps logic to lookup an IP's security ID from the
 // ipcache.
 func LookupSecIDByIP(ip net.IP) (secID ipcache.Identity, exists bool) {
-	return ipcache.Identity{}, false
+	id, err := client.LookupSecurityIdentityByIP(context.TODO(), &pb.FQDN_IP{IP: ip})
+	if err != nil || id == nil {
+		log.Errorf("could not lookup security identity for ip %s: %v", ip, err)
+		return ipcache.Identity{}, false
+	}
+
+	return ipcache.Identity{
+		ID:     identity.NumericIdentity(id.ID),
+		Source: source.Source(id.Source),
+	}, id.Exists
 }
 
 // LookupIPsBySecID wraps logic to lookup an IPs by security ID from the

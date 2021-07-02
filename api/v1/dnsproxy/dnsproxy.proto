@@ -29,10 +29,19 @@ service FQDNProxyAgent {
 
   // LookupEndpointByIP returns endpoint data based on IP
   rpc LookupEndpointByIP(FQDN_IP) returns (flow.Endpoint){}
+
+  // LookupEndpointByIP returns endpoint data based on IP
+  rpc LookupSecurityIdentityByIP(FQDN_IP) returns (Identity){}
 }
 
 message FQDN_IP {
   bytes IP = 1;
+}
+
+message Identity{
+  uint32 ID = 1;
+  string Source = 2;
+  bool Exists = 3;
 }
 
 message FQDNMapping {
