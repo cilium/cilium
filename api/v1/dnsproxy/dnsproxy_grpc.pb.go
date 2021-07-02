@@ -4,6 +4,7 @@ package dnsproxy
 
 import (
 	context "context"
+	flow "github.com/cilium/cilium/api/v1/flow"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -13,48 +14,50 @@ import (
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
-// FQNDCollectorClient is the client API for FQNDCollector service.
+// FQDNProxyAgentClient is the client API for FQDNProxyAgent service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type FQNDCollectorClient interface {
+type FQDNProxyAgentClient interface {
 	// A client-to-server streaming RPC.
 	//
 	// Accepts a stream of FQDNMapping
-	ProvideMappings(ctx context.Context, opts ...grpc.CallOption) (FQNDCollector_ProvideMappingsClient, error)
+	ProvideMappings(ctx context.Context, opts ...grpc.CallOption) (FQDNProxyAgent_ProvideMappingsClient, error)
+	// LookupEndpointByIP returns endpoint data based on IP
+	LookupEndpointByIP(ctx context.Context, in *FQDN_IP, opts ...grpc.CallOption) (*flow.Endpoint, error)
 }
 
-type fQNDCollectorClient struct {
+type fQDNProxyAgentClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewFQNDCollectorClient(cc grpc.ClientConnInterface) FQNDCollectorClient {
-	return &fQNDCollectorClient{cc}
+func NewFQDNProxyAgentClient(cc grpc.ClientConnInterface) FQDNProxyAgentClient {
+	return &fQDNProxyAgentClient{cc}
 }
 
-func (c *fQNDCollectorClient) ProvideMappings(ctx context.Context, opts ...grpc.CallOption) (FQNDCollector_ProvideMappingsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_FQNDCollector_serviceDesc.Streams[0], "/dnsproxy.FQNDCollector/ProvideMappings", opts...)
+func (c *fQDNProxyAgentClient) ProvideMappings(ctx context.Context, opts ...grpc.CallOption) (FQDNProxyAgent_ProvideMappingsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_FQDNProxyAgent_serviceDesc.Streams[0], "/dnsproxy.FQDNProxyAgent/ProvideMappings", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &fQNDCollectorProvideMappingsClient{stream}
+	x := &fQDNProxyAgentProvideMappingsClient{stream}
 	return x, nil
 }
 
-type FQNDCollector_ProvideMappingsClient interface {
+type FQDNProxyAgent_ProvideMappingsClient interface {
 	Send(*FQDNMapping) error
 	CloseAndRecv() (*Success, error)
 	grpc.ClientStream
 }
 
-type fQNDCollectorProvideMappingsClient struct {
+type fQDNProxyAgentProvideMappingsClient struct {
 	grpc.ClientStream
 }
 
-func (x *fQNDCollectorProvideMappingsClient) Send(m *FQDNMapping) error {
+func (x *fQDNProxyAgentProvideMappingsClient) Send(m *FQDNMapping) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *fQNDCollectorProvideMappingsClient) CloseAndRecv() (*Success, error) {
+func (x *fQDNProxyAgentProvideMappingsClient) CloseAndRecv() (*Success, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
@@ -65,49 +68,61 @@ func (x *fQNDCollectorProvideMappingsClient) CloseAndRecv() (*Success, error) {
 	return m, nil
 }
 
-// FQNDCollectorServer is the server API for FQNDCollector service.
-// All implementations must embed UnimplementedFQNDCollectorServer
+func (c *fQDNProxyAgentClient) LookupEndpointByIP(ctx context.Context, in *FQDN_IP, opts ...grpc.CallOption) (*flow.Endpoint, error) {
+	out := new(flow.Endpoint)
+	err := c.cc.Invoke(ctx, "/dnsproxy.FQDNProxyAgent/LookupEndpointByIP", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FQDNProxyAgentServer is the server API for FQDNProxyAgent service.
+// All implementations should embed UnimplementedFQDNProxyAgentServer
 // for forward compatibility
-type FQNDCollectorServer interface {
+type FQDNProxyAgentServer interface {
 	// A client-to-server streaming RPC.
 	//
 	// Accepts a stream of FQDNMapping
-	ProvideMappings(FQNDCollector_ProvideMappingsServer) error
-	mustEmbedUnimplementedFQNDCollectorServer()
+	ProvideMappings(FQDNProxyAgent_ProvideMappingsServer) error
+	// LookupEndpointByIP returns endpoint data based on IP
+	LookupEndpointByIP(context.Context, *FQDN_IP) (*flow.Endpoint, error)
 }
 
-// UnimplementedFQNDCollectorServer must be embedded to have forward compatible implementations.
-type UnimplementedFQNDCollectorServer struct {
+// UnimplementedFQDNProxyAgentServer should be embedded to have forward compatible implementations.
+type UnimplementedFQDNProxyAgentServer struct {
 }
 
-func (*UnimplementedFQNDCollectorServer) ProvideMappings(FQNDCollector_ProvideMappingsServer) error {
+func (*UnimplementedFQDNProxyAgentServer) ProvideMappings(FQDNProxyAgent_ProvideMappingsServer) error {
 	return status.Errorf(codes.Unimplemented, "method ProvideMappings not implemented")
 }
-func (*UnimplementedFQNDCollectorServer) mustEmbedUnimplementedFQNDCollectorServer() {}
-
-func RegisterFQNDCollectorServer(s *grpc.Server, srv FQNDCollectorServer) {
-	s.RegisterService(&_FQNDCollector_serviceDesc, srv)
+func (*UnimplementedFQDNProxyAgentServer) LookupEndpointByIP(context.Context, *FQDN_IP) (*flow.Endpoint, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupEndpointByIP not implemented")
 }
 
-func _FQNDCollector_ProvideMappings_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FQNDCollectorServer).ProvideMappings(&fQNDCollectorProvideMappingsServer{stream})
+func RegisterFQDNProxyAgentServer(s *grpc.Server, srv FQDNProxyAgentServer) {
+	s.RegisterService(&_FQDNProxyAgent_serviceDesc, srv)
 }
 
-type FQNDCollector_ProvideMappingsServer interface {
+func _FQDNProxyAgent_ProvideMappings_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FQDNProxyAgentServer).ProvideMappings(&fQDNProxyAgentProvideMappingsServer{stream})
+}
+
+type FQDNProxyAgent_ProvideMappingsServer interface {
 	SendAndClose(*Success) error
 	Recv() (*FQDNMapping, error)
 	grpc.ServerStream
 }
 
-type fQNDCollectorProvideMappingsServer struct {
+type fQDNProxyAgentProvideMappingsServer struct {
 	grpc.ServerStream
 }
 
-func (x *fQNDCollectorProvideMappingsServer) SendAndClose(m *Success) error {
+func (x *fQDNProxyAgentProvideMappingsServer) SendAndClose(m *Success) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *fQNDCollectorProvideMappingsServer) Recv() (*FQDNMapping, error) {
+func (x *fQDNProxyAgentProvideMappingsServer) Recv() (*FQDNMapping, error) {
 	m := new(FQDNMapping)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -115,16 +130,39 @@ func (x *fQNDCollectorProvideMappingsServer) Recv() (*FQDNMapping, error) {
 	return m, nil
 }
 
-var _FQNDCollector_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "dnsproxy.FQNDCollector",
-	HandlerType: (*FQNDCollectorServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+func _FQDNProxyAgent_LookupEndpointByIP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FQDN_IP)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FQDNProxyAgentServer).LookupEndpointByIP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dnsproxy.FQDNProxyAgent/LookupEndpointByIP",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FQDNProxyAgentServer).LookupEndpointByIP(ctx, req.(*FQDN_IP))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _FQDNProxyAgent_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "dnsproxy.FQDNProxyAgent",
+	HandlerType: (*FQDNProxyAgentServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "LookupEndpointByIP",
+			Handler:    _FQDNProxyAgent_LookupEndpointByIP_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "ProvideMappings",
-			Handler:       _FQNDCollector_ProvideMappings_Handler,
+			Handler:       _FQDNProxyAgent_ProvideMappings_Handler,
 			ClientStreams: true,
 		},
 	},
-	Metadata: "dnsproxy.proto",
+	Metadata: "dnsproxy/dnsproxy.proto",
 }

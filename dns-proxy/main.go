@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -37,17 +38,25 @@ import (
 
 var (
 	serverAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
+	client     pb.FQDNProxyAgentClient
 )
 
 func main() {
 	flag.Parse()
-	ctx := context.TODO()
+	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	client = pb.NewFQDNProxyAgentClient(conn)
 
-	msgs := make(chan pb.FQDNMapping)
+	//ctx := context.TODO()
 
-	go startSending(ctx, msgs)
+	//msgs := make(chan pb.FQDNMapping)
 
-	_, err := dnsproxy.StartDNSProxy("", 10001, false, 0, LookupEndpointIDByIP, LookupSecIDByIP, LookupIPsBySecID, NotifyOnDNSMsg)
+	//go startSending(ctx, msgs)
+
+	_, err = dnsproxy.StartDNSProxy("", 10001, false, 0, LookupEndpointIDByIP, LookupSecIDByIP, LookupIPsBySecID, NotifyOnDNSMsg)
 	//_, err := dnsproxy.StartDNSProxy("", 10001, false, 0, func(addr net.IP, fqdn string) {
 	//	msgs <- pb.FQDNMapping{IP: []byte(addr), FQDN: fqdn}
 	//})
@@ -62,8 +71,20 @@ func main() {
 }
 
 // LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
-func LookupEndpointIDByIP(ip net.IP) (endpoint *endpoint.Endpoint, err error) {
-	return nil, errors.New("not implemented")
+func LookupEndpointIDByIP(ip net.IP) (*endpoint.Endpoint, error) {
+	ep, err := client.LookupEndpointByIP(context.TODO(), &pb.FQDN_IP{IP: ip})
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("could not lookup endpoint for ip %s: %v", ip, err))
+	}
+
+	return &endpoint.Endpoint{
+		ID: uint16(ep.ID),
+		SecurityIdentity: &identity.Identity{
+			ID: identity.NumericIdentity(ep.Identity),
+		},
+		K8sNamespace: ep.Namespace,
+		K8sPodName:   ep.PodName,
+	}, nil
 }
 
 // LookupSecIDByIP wraps logic to lookup an IP's security ID from the
@@ -83,26 +104,26 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	return errors.New("not implemented")
 }
 
-func startSending(ctx context.Context, msgs chan pb.FQDNMapping) {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-
-	opts = append(opts, grpc.WithBlock())
-
-	conn, err := grpc.Dial(*serverAddr, opts...)
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewFQNDCollectorClient(conn)
-
-	stream, err := client.ProvideMappings(ctx)
-	if err != nil {
-		log.Fatalf("failed to create stream: %v", err)
-	}
-	for {
-		msg := <-msgs
-		stream.Send(&msg)
-	}
-}
+//func startSending(ctx context.Context, msgs chan pb.FQDNMapping) {
+//	var opts []grpc.DialOption
+//	opts = append(opts, grpc.WithInsecure())
+//
+//	opts = append(opts, grpc.WithBlock())
+//
+//	conn, err := grpc.Dial(*serverAddr, opts...)
+//	if err != nil {
+//		log.Fatalf("fail to dial: %v", err)
+//	}
+//	defer conn.Close()
+//
+//	client := pb.NewFQNDProxyAgentClient(conn)
+//
+//	stream, err := client.ProvideMappings(ctx)
+//	if err != nil {
+//		log.Fatalf("failed to create stream: %v", err)
+//	}
+//	for {
+//		msg := <-msgs
+//		stream.Send(&msg)
+//	}
+//}

@@ -14,16 +14,25 @@
 
 syntax = "proto3";
 
+import public "flow/flow.proto";
+
 package dnsproxy;
 
 option go_package = "github.com/cilium/cilium/api/v1/dnsproxy";
 
-service FQNDCollector{
+service FQDNProxyAgent {
 
   // A client-to-server streaming RPC.
   //
   // Accepts a stream of FQDNMapping
   rpc ProvideMappings(stream FQDNMapping) returns (Success){}
+
+  // LookupEndpointByIP returns endpoint data based on IP
+  rpc LookupEndpointByIP(FQDN_IP) returns (flow.Endpoint){}
+}
+
+message FQDN_IP {
+  bytes IP = 1;
 }
 
 message FQDNMapping {

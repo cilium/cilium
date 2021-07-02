@@ -19,5 +19,5 @@ import (
 )
 
 func (d *Daemon) bootstrapFqdnCollector() {
-	go collector.RunServer(10000)
+	go collector.RunServer(10000, d)
 }

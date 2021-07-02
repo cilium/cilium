@@ -14,6 +14,7 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -21,13 +22,17 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
+
+	"github.com/cilium/cilium/pkg/endpoint"
 )
 
-type FQDNCollectorServer struct {
-	pb.UnimplementedFQNDCollectorServer
+type FQDNProxyAgentServer struct {
+	pb.UnimplementedFQDNProxyAgentServer
+
+	dataSource DNSProxyDataSource
 }
 
-func (s *FQDNCollectorServer) ProvideMappings(stream pb.FQNDCollector_ProvideMappingsServer) error {
+func (s *FQDNProxyAgentServer) ProvideMappings(stream pb.FQDNProxyAgent_ProvideMappingsServer) error {
 	for {
 		mapping, err := stream.Recv()
 		if err == io.EOF {
@@ -44,18 +49,37 @@ func (s *FQDNCollectorServer) ProvideMappings(stream pb.FQNDCollector_ProvideMap
 	}
 }
 
-func newServer() *FQDNCollectorServer {
-	s := &FQDNCollectorServer{}
+func (s *FQDNProxyAgentServer) LookupEndpointByIP(ctx context.Context, IP *pb.FQDN_IP) (*pb.Endpoint, error) {
+	ip := net.IP(IP.IP)
+	ep, err := s.dataSource.LookupEPByIP(ip)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.Endpoint{
+		ID:        uint32(ep.ID),
+		Identity:  uint32(ep.SecurityIdentity.ID),
+		Namespace: ep.K8sNamespace,
+		PodName:   ep.K8sPodName,
+	}, nil
+}
+
+func newServer(lookupSrc DNSProxyDataSource) *FQDNProxyAgentServer {
+	s := &FQDNProxyAgentServer{dataSource: lookupSrc}
 	return s
 }
 
-func RunServer(port int) {
+func RunServer(port int, lookupSrc DNSProxyDataSource) {
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterFQNDCollectorServer(grpcServer, newServer())
+	pb.RegisterFQDNProxyAgentServer(grpcServer, newServer(lookupSrc))
 	grpcServer.Serve(lis)
+}
+
+type DNSProxyDataSource interface {
+	LookupEPByIP(net.IP) (*endpoint.Endpoint, error)
 }
