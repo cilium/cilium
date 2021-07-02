@@ -879,14 +879,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
+							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 								helpers.KubectlApply, helpers.HelperTimeout)
 							Expect(err).Should(BeNil(),
 								"Policy %s cannot be applied", ccnpHostPolicy)
 						})
 
 						AfterAll(func() {
-							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
+							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 								helpers.KubectlDelete, helpers.HelperTimeout)
 							Expect(err).Should(BeNil(),
 								"Policy %s cannot be deleted", ccnpHostPolicy)
@@ -1011,14 +1011,14 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 							})
 
 							ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
+							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 								helpers.KubectlApply, helpers.HelperTimeout)
 							Expect(err).Should(BeNil(),
 								"Policy %s cannot be applied", ccnpHostPolicy)
 						})
 
 						AfterAll(func() {
-							_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, ccnpHostPolicy,
+							_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 								helpers.KubectlDelete, helpers.HelperTimeout)
 							Expect(err).Should(BeNil(),
 								"Policy %s cannot be deleted", ccnpHostPolicy)

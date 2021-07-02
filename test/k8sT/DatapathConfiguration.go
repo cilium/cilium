@@ -896,7 +896,7 @@ func testHostFirewall(kubectl *helpers.Kubectl) {
 
 	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
 	By(fmt.Sprintf("Applying policies %s", demoHostPolicies))
-	_, err := kubectl.CiliumPolicyAction(randomNs, demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
+	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
 
 	var wg sync.WaitGroup
