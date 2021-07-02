@@ -10,6 +10,42 @@ import (
 )
 
 // MarshalJSON implements json.Marshaler
+func (msg *Empty) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	err := (&jsonpb.Marshaler{
+		EnumsAsInts:  false,
+		EmitDefaults: false,
+		OrigName:     true,
+	}).Marshal(&buf, msg)
+	return buf.Bytes(), err
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (msg *Empty) UnmarshalJSON(b []byte) error {
+	return (&jsonpb.Unmarshaler{
+		AllowUnknownFields: false,
+	}).Unmarshal(bytes.NewReader(b), msg)
+}
+
+// MarshalJSON implements json.Marshaler
+func (msg *DNSNotification) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	err := (&jsonpb.Marshaler{
+		EnumsAsInts:  false,
+		EmitDefaults: false,
+		OrigName:     true,
+	}).Marshal(&buf, msg)
+	return buf.Bytes(), err
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (msg *DNSNotification) UnmarshalJSON(b []byte) error {
+	return (&jsonpb.Unmarshaler{
+		AllowUnknownFields: false,
+	}).Unmarshal(bytes.NewReader(b), msg)
+}
+
+// MarshalJSON implements json.Marshaler
 func (msg *IPs) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	err := (&jsonpb.Marshaler{

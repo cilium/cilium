@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import public "flow/flow.proto";
+import "google/protobuf/timestamp.proto";
 
 package dnsproxy;
 
@@ -33,7 +34,23 @@ service FQDNProxyAgent {
   // LookupEndpointByIP returns endpoint data based on IP
   rpc LookupSecurityIdentityByIP(FQDN_IP) returns (Identity){}
 
+  // LookupIPsBySecurityIdentity retrieves ips for endpoints with given security identity
   rpc LookupIPsBySecurityIdentity(Identity) returns(IPs){}
+
+  // NotifyOnDNSMessage notifies Agent of a DNS message
+  rpc NotifyOnDNSMessage(DNSNotification) returns(Empty) {}
+}
+
+message Empty {}
+
+message DNSNotification {
+  google.protobuf.Timestamp time = 1;
+  flow.Endpoint endpoint = 2;
+  string epIPPort = 3;
+  string serverAddr = 4;
+  bytes msg = 5;
+  string protocol = 6;
+  bool allowed = 7;
 }
 
 message IPs {

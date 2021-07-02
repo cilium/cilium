@@ -18,12 +18,15 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
+	"github.com/miekg/dns"
 	"google.golang.org/grpc"
 
 	pb "github.com/cilium/cilium/api/v1/dnsproxy"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
@@ -92,6 +95,37 @@ func (s *FQDNProxyAgentServer) LookupIPsBySecurityIdentity(ctx context.Context, 
 	}, nil
 }
 
+func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notification *pb.DNSNotification) (*pb.Empty, error) {
+	//TODO: this should probably be factored out into stream of DNS notifications instead of a rpc call per DNS msg
+
+	endpoint := &endpoint.Endpoint{
+		ID: uint16(notification.Endpoint.ID),
+		SecurityIdentity: &identity.Identity{
+			ID: identity.NumericIdentity(notification.Endpoint.Identity),
+		},
+		K8sNamespace: notification.Endpoint.Namespace,
+		K8sPodName:   notification.Endpoint.PodName,
+	}
+
+	dnsMsg := &dns.Msg{}
+	err := dnsMsg.Unpack(notification.Msg)
+
+	if err != nil {
+		log.Errorf("Failed to unpack DNS message: %s", err)
+		return &pb.Empty{}, err
+	}
+
+	return &pb.Empty{}, s.dataSource.NotifyOnDNSMsg(
+		notification.Time.AsTime(),
+		endpoint,
+		notification.EpIPPort,
+		notification.ServerAddr,
+		dnsMsg,
+		notification.Protocol,
+		notification.Allowed,
+		nil)
+}
+
 func newServer(lookupSrc DNSProxyDataSource) *FQDNProxyAgentServer {
 	s := &FQDNProxyAgentServer{dataSource: lookupSrc}
 	return s
@@ -112,4 +146,5 @@ type DNSProxyDataSource interface {
 	LookupEPByIP(net.IP) (*endpoint.Endpoint, error)
 	LookupSecIDByIP(net.IP) (ipcache.Identity, bool)
 	LookupIPsBySecID(identity.NumericIdentity) []string
+	NotifyOnDNSMsg(time.Time, *endpoint.Endpoint, string, string, *dns.Msg, string, bool, *dnsproxy.ProxyRequestContext) error
 }
