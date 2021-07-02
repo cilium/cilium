@@ -11,7 +11,6 @@ cilium-operator-azure [flags]
 ### Options
 
 ```
-      --azure-cloud-name string                   Name of the Azure cloud being used (default "AzurePublicCloud")
       --azure-resource-group string               Resource group to use for Azure IPAM
       --azure-subscription-id string              Subscription ID to access Azure API
       --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations (default true)
