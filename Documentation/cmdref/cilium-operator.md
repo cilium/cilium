@@ -14,7 +14,6 @@ cilium-operator [flags]
       --alibaba-cloud-vpc-id string               Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --aws-instance-limit-mapping map            Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --aws-release-excess-ips                    Enable releasing excess free IP addresses from AWS ENI.
-      --azure-cloud-name string                   Name of the Azure cloud being used (default "AzurePublicCloud")
       --azure-resource-group string               Resource group to use for Azure IPAM
       --azure-subscription-id string              Subscription ID to access Azure API
       --azure-use-primary-address                 Use Azure IP address from interface's primary IPConfigurations (default true)
