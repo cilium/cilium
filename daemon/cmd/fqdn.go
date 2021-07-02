@@ -360,7 +360,7 @@ func (d *Daemon) LookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 	return e, nil
 }
 
-func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
+func (d *Daemon) LookupIPsBySecID(nid identity.NumericIdentity) []string {
 	return ipcache.IPIdentityCache.LookupByIdentity(nid)
 }
 

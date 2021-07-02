@@ -32,6 +32,12 @@ service FQDNProxyAgent {
 
   // LookupEndpointByIP returns endpoint data based on IP
   rpc LookupSecurityIdentityByIP(FQDN_IP) returns (Identity){}
+
+  rpc LookupIPsBySecurityIdentity(Identity) returns(IPs){}
+}
+
+message IPs {
+  repeated bytes IPs = 1;
 }
 
 message FQDN_IP {
