@@ -222,6 +222,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.DebugCapturePoint = decodeDebugCapturePoint(dbg)
 	decoded.Interface = decodeNetworkInterface(tn, dbg)
 	decoded.ProxyPort = decodeProxyPort(dbg)
+	decoded.PacketSize = decodePacketSize(dn, tn, pvn, dbg)
 	decoded.Summary = summary
 
 	return nil
@@ -683,5 +684,24 @@ func decodeProxyPort(dbg *monitor.DebugCapture) uint32 {
 		}
 	}
 
+	return 0
+}
+
+func decodePacketSize(
+	dn *monitor.DropNotify,
+	tn *monitor.TraceNotify,
+	pvn *monitor.PolicyVerdictNotify,
+	dbg *monitor.DebugCapture,
+) uint32 {
+	switch {
+	case dn != nil:
+		return dn.OrigLen
+	case tn != nil:
+		return tn.OrigLen
+	case pvn != nil:
+		return pvn.OrigLen
+	case dbg != nil:
+		return dbg.OrigLen
+	}
 	return 0
 }
