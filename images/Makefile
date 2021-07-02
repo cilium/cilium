@@ -12,7 +12,7 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
-all-images: lint update-alpine-image update-golang-image runtime-image builder-image cilium-image operator-image hubble-relay-image
+all-images: lint update-alpine-image update-golang-image runtime-image builder-image cilium-image operator-image hubble-relay-image cilium-dnsproxy-image
 
 lint:
 	scripts/lint.sh
@@ -57,3 +57,6 @@ operator-image: .buildx_builder
 
 hubble-relay-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh hubble-relay-dev images/hubble-relay linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
+
+cilium-dnsproxy-image: .buildx_builder
+	ROOT_CONTEXT=true scripts/build-image.sh cilium-dnsproxy-image-dev images/cilium-dnsproxy linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
