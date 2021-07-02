@@ -1519,7 +1519,7 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 // Action performs the specified ResourceLifeCycleAction on the Kubernetes
 // manifest located at path filepath in the given namespace
 func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string, namespace ...string) *CmdRes {
-	if len(namespace) == 0 {
+	if len(namespace) == 0 || namespace[0] == "" {
 		kub.Logger().Debugf("performing '%v' on '%v'", action, filePath)
 		return kub.ExecShort(fmt.Sprintf("%s %s -f %s", KubectlCmd, action, filePath))
 	}
