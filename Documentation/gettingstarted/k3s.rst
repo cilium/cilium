@@ -21,11 +21,11 @@ Install a Master Node
 =====================
 
 The first step is to install a K3s master node making sure to disable support
-for the default CNI plugin:
+for the default CNI plugin and the built-in network policy enforcer:
 
 .. code-block:: shell-session
 
-    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none' sh -
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--flannel-backend=none --disable-network-policy' sh -
 
 Install Agent Nodes (Optional)
 ==============================
