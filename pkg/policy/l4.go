@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
-	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/sirupsen/logrus"
 )
@@ -426,8 +426,8 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 }
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
-// This call is made from a single goroutine in FIFO order to keep add
-// and delete events ordered properly. No locks are held.
+// This call is made while holding name manager and selector cache
+// locks, must beware of deadlocking!
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
