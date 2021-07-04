@@ -24,6 +24,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium completion](../cilium_completion)	 - Output shell completion code
 * [cilium config](../cilium_config)	 - Cilium configuration options
 * [cilium debuginfo](../cilium_debuginfo)	 - Request available debugging information from agent
+* [cilium encrypt](../cilium_encrypt)	 - Manage transparent encryption
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 * [cilium fqdn](../cilium_fqdn)	 - Manage fqdn proxy
 * [cilium identity](../cilium_identity)	 - Manage security identities
