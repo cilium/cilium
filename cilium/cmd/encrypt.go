@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 // encryptCmd represents the encrypt command
 var encryptCmd = &cobra.Command{
 	Use:   "encrypt",
-	Short: "Access to Ipsec state of node",
+	Short: "Manage transparent encryption",
 }
 
 func init() {
