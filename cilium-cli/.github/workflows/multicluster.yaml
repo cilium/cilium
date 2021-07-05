@@ -132,9 +132,15 @@ jobs:
         if: ${{ failure() }}
         run: |
           kubectl logs --timestamps -n kube-system job/cilium-cli
-          kubectl get pods --all-namespaces -o wide
+
           curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
-          python cilium-sysdump.zip --output cilium-sysdump-out
+          export KUBECONFIG=kubeconfig-cluster1
+          kubectl get pods --all-namespaces -o wide
+          python cilium-sysdump.zip --output cilium-sysdump-cluster1
+
+          export KUBECONFIG=kubeconfig-cluster2
+          kubectl get pods --all-namespaces -o wide
+          python cilium-sysdump.zip --output cilium-sysdump-cluster2
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
@@ -150,7 +156,9 @@ jobs:
         uses: actions/upload-artifact@ee69f02b3dfdecd58bb31b4d133da38ba6fe3700
         with:
           name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          path: |
+            cilium-sysdump-cluster1.zip
+            cilium-sysdump-cluster2.zip
           retention-days: 5
 
       - name: Send slack notification
