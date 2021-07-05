@@ -15,7 +15,7 @@
 package logging
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@ import (
 func init() {
 	flags := flag.NewFlagSet("init-debug", flag.ContinueOnError)
 	flags.Usage = func() {}
-	flags.SetOutput(ioutil.Discard)
+	flags.SetOutput(io.Discard)
 
 	debug := flags.Bool("debug", false, "")
 	flags.Parse(os.Args)

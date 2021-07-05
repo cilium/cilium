@@ -20,4 +20,5 @@ type RegenNotificationInfo interface {
 	GetOpLabels() []string
 	GetK8sPodName() string
 	GetK8sNamespace() string
+	GetID16() uint16
 }

@@ -163,11 +163,8 @@ func Hint(err error) error {
 func timeSince(since time.Time) string {
 	out := "never"
 	if !since.IsZero() {
-		// Poor man's implementtion of time.Truncate(). Can be refined
-		// when we rebase to go 1.9
 		t := time.Since(since)
-		t -= t % time.Second
-		out = t.String() + " ago"
+		out = t.Truncate(time.Second).String() + " ago"
 	}
 
 	return out
@@ -296,25 +293,26 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			sort.Strings(sr.Kubernetes.K8sAPIVersions)
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
-		if sr.KubeProxyReplacement != nil {
-			devices := ""
-			if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
-				for i, dev := range sr.KubeProxyReplacement.Devices {
-					kubeProxyDevices += dev
-					if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
-						kubeProxyDevices += " (Direct Routing)"
-					}
-					if i+1 != len(sr.KubeProxyReplacement.Devices) {
-						kubeProxyDevices += ", "
-					}
+
+	}
+	if sr.KubeProxyReplacement != nil {
+		devices := ""
+		if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
+			for i, dev := range sr.KubeProxyReplacement.DeviceList {
+				kubeProxyDevices += fmt.Sprintf("%s %s", dev.Name, strings.Join(dev.IP, " "))
+				if dev.Name == sr.KubeProxyReplacement.DirectRoutingDevice {
+					kubeProxyDevices += " (Direct Routing)"
 				}
-				if len(sr.KubeProxyReplacement.Devices) > 0 {
-					devices = "[" + kubeProxyDevices + "]"
+				if i+1 != len(sr.KubeProxyReplacement.Devices) {
+					kubeProxyDevices += ", "
 				}
 			}
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
-				sr.KubeProxyReplacement.Mode, devices)
+			if len(sr.KubeProxyReplacement.DeviceList) > 0 {
+				devices = "[" + kubeProxyDevices + "]"
+			}
 		}
+		fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
+			sr.KubeProxyReplacement.Mode, devices)
 	}
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s   %s\n", sr.Cilium.State, sr.Cilium.Msg)
@@ -399,22 +397,46 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 	if sr.Masquerading != nil {
 		var status string
-		if !sr.Masquerading.Enabled {
-			status = "Disabled"
-		} else if sr.Masquerading.Mode == models.MasqueradingModeBPF {
-			if sr.Masquerading.IPMasqAgent {
-				status = "BPF (ip-masq-agent)"
-			} else {
-				status = "BPF"
+
+		enabled := func(enabled bool) string {
+			if enabled {
+				return "Enabled"
 			}
-			if sr.KubeProxyReplacement != nil {
-				status += fmt.Sprintf("\t[%s]\t%s",
-					strings.Join(sr.KubeProxyReplacement.Devices, ", "),
-					sr.Masquerading.SnatExclusionCidr)
+			return "Disabled"
+		}
+
+		if sr.Masquerading.EnabledProtocols == nil {
+			status = enabled(sr.Masquerading.Enabled)
+		} else if !sr.Masquerading.EnabledProtocols.IPV4 && !sr.Masquerading.EnabledProtocols.IPV6 {
+			status = enabled(false)
+		} else {
+			if sr.Masquerading.Mode == models.MasqueradingModeBPF {
+				if sr.Masquerading.IPMasqAgent {
+					status = "BPF (ip-masq-agent)"
+				} else {
+					status = "BPF"
+				}
+				if sr.KubeProxyReplacement != nil {
+					// When BPF Masquerading is enabled we don't do any masquerading for IPv6
+					// traffic so no SNAT Exclusion IPv6 CIDR is listed in status output.
+					devStr := ""
+					for i, dev := range sr.KubeProxyReplacement.DeviceList {
+						devStr += dev.Name
+						if i+1 != len(sr.KubeProxyReplacement.DeviceList) {
+							devStr += ", "
+						}
+					}
+					status += fmt.Sprintf("\t[%s]\t%s",
+						devStr,
+						sr.Masquerading.SnatExclusionCidrV4)
+				}
+
+			} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
+				status = "IPTables"
 			}
 
-		} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
-			status = "IPTables"
+			status = fmt.Sprintf("%s [IPv4: %s, IPv6: %s]", status,
+				enabled(sr.Masquerading.EnabledProtocols.IPV4), enabled(sr.Masquerading.EnabledProtocols.IPV6))
 		}
 		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
 	}
@@ -559,7 +581,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 		if protocols != "" {
-			fmt.Fprintf(tab, "  Protocols:\t%s\n", protocols)
+			fmt.Fprintf(tab, "  Socket LB Protocols:\t%s\n", protocols)
 		}
 		if kubeProxyDevices != "" {
 			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)
@@ -596,5 +618,23 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			fmt.Fprintf(tab, "  %s\t%d\n", m.Name, m.Size)
 		}
 		tab.Flush()
+	}
+
+	if sr.Encryption != nil {
+		fields := []string{sr.Encryption.Mode}
+
+		if sr.Encryption.Msg != "" {
+			fields = append(fields, sr.Encryption.Msg)
+		} else if wg := sr.Encryption.Wireguard; wg != nil {
+			ifaces := make([]string, 0, len(wg.Interfaces))
+			for _, i := range wg.Interfaces {
+				iface := fmt.Sprintf("%s (Pubkey: %s, Port: %d, Peers: %d)",
+					i.Name, i.PublicKey, i.ListenPort, i.PeerCount)
+				ifaces = append(ifaces, iface)
+			}
+			fields = append(fields, fmt.Sprintf("[%s]", strings.Join(ifaces, ", ")))
+		}
+
+		fmt.Fprintf(w, "Encryption:\t%s\n", strings.Join(fields, "\t"))
 	}
 }

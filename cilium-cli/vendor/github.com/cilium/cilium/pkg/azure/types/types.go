@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -110,29 +110,32 @@ type AzureInterface struct {
 	// SecurityGroup is the security group associated with the interface
 	SecurityGroup string `json:"security-group,omitempty"`
 
-	// TODO: The following fields were exported to stop govet warnings. The
-	// govet warnings were because the CRD generation tool needs every struct
-	// field that's within a CRD, to have a json tag. JSON tags cannot be
-	// applied to unexported fields, hence this change. Refactor these fields
-	// out of this struct. GH issue:
-	// https://github.com/cilium/cilium/issues/12697. Once
-	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
-	// would no longer be required.
-
 	// GatewayIP is the interface's subnet's default route
+	//
+	// OBSOLETE: This field is obsolete, please use Gateway field instead.
 	//
 	// +optional
 	GatewayIP string `json:"GatewayIP"`
 
-	// VMSSName is the name of the virtual machine scale set. This field is
+	// Gateway is the interface's subnet's default route
+	//
+	// +optional
+	Gateway string `json:"gateway"`
+
+	// CIDR is the range that the interface belongs to.
+	//
+	// +optional
+	CIDR string `json:"cidr,omitempty"`
+
+	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
-	VMSSName string `json:"-"`
+	vmssName string `json:"-"`
 
-	// VMID is the ID of the virtual machine
-	VMID string `json:"-"`
+	// vmID is the ID of the virtual machine
+	vmID string `json:"-"`
 
-	// ResourceGroup is the resource group the interface belongs to
-	ResourceGroup string `json:"-"`
+	// resourceGroup is the resource group the interface belongs to
+	resourceGroup string `json:"-"`
 }
 
 // InterfaceID returns the identifier of the interface
@@ -147,46 +150,46 @@ func (a *AzureInterface) extractIDs() {
 	case strings.Contains(a.ID, "virtualMachineScaleSets"):
 		segs := strings.Split(a.ID, "/")
 		if len(segs) >= 5 {
-			a.ResourceGroup = segs[4]
+			a.resourceGroup = segs[4]
 		}
 		if len(segs) >= 9 {
-			a.VMSSName = segs[8]
+			a.vmssName = segs[8]
 		}
 		if len(segs) >= 11 {
-			a.VMID = segs[10]
+			a.vmID = segs[10]
 		}
 	// Interface from a standalone instance:
 	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Network/networkInterfaces/iii
 	case strings.Contains(a.ID, "/Microsoft.Network/"):
 		segs := strings.Split(a.ID, "/")
 		if len(segs) >= 5 {
-			a.ResourceGroup = segs[4]
+			a.resourceGroup = segs[4]
 		}
 	}
 }
 
 // GetResourceGroup returns the resource group the interface belongs to
 func (a *AzureInterface) GetResourceGroup() string {
-	if a.ResourceGroup == "" {
+	if a.resourceGroup == "" {
 		a.extractIDs()
 	}
-	return a.ResourceGroup
+	return a.resourceGroup
 }
 
 // GetVMScaleSetName returns the VM scale set name the interface belongs to
 func (a *AzureInterface) GetVMScaleSetName() string {
-	if a.VMSSName == "" {
+	if a.vmssName == "" {
 		a.extractIDs()
 	}
-	return a.VMSSName
+	return a.vmssName
 }
 
 // GetVMID returns the VM ID the interface belongs to
 func (a *AzureInterface) GetVMID() string {
-	if a.VMID == "" {
+	if a.vmID == "" {
 		a.extractIDs()
 	}
-	return a.VMID
+	return a.vmID
 }
 
 // ForeachAddress iterates over all addresses and calls fn

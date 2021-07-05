@@ -338,14 +338,20 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 }
 
 func (pr *PortRule) sanitize(ingress bool) error {
+	haveZeroPort := false
+
 	if len(pr.Ports) > maxPorts {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
 	for i := range pr.Ports {
-		if err := pr.Ports[i].Sanitize(); err != nil {
+		var isZero bool
+		var err error
+		if isZero, err = pr.Ports[i].sanitize(); err != nil {
 			return err
 		}
-
+		if isZero {
+			haveZeroPort = true
+		}
 		hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 		// DNS L7 rules can be TCP, UDP or ANY, all others are TCP only.
 		switch {
@@ -362,6 +368,10 @@ func (pr *PortRule) sanitize(ingress bool) error {
 
 	// Sanitize L7 rules
 	if !pr.Rules.IsEmpty() {
+		if haveZeroPort {
+			return fmt.Errorf("L7 rules can not be used when a port is 0")
+		}
+
 		if err := pr.Rules.sanitize(pr.Ports); err != nil {
 			return err
 		}
@@ -369,9 +379,9 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	return nil
 }
 
-func (pp *PortProtocol) Sanitize() error {
+func (pp *PortProtocol) sanitize() (isZero bool, err error) {
 	if pp.Port == "" {
-		return fmt.Errorf("Port must be specified")
+		return isZero, fmt.Errorf("Port must be specified")
 	}
 
 	// Port names are formatted as IANA Service Names.  This means that
@@ -382,20 +392,13 @@ func (pp *PortProtocol) Sanitize() error {
 	} else {
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
 		if err != nil {
-			return fmt.Errorf("Unable to parse port: %s", err)
+			return isZero, fmt.Errorf("Unable to parse port: %s", err)
 		}
-		if p == 0 {
-			return fmt.Errorf("Port cannot be 0")
-		}
+		isZero = p == 0
 	}
 
-	var err error
 	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return isZero, err
 }
 
 // sanitize the given CIDR. If successful, returns the prefixLength specified
