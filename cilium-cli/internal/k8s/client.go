@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -648,4 +649,20 @@ func (c *Client) GetLogs(ctx context.Context, namespace, name, container string,
 		return "", err
 	}
 	return b.String(), nil
+}
+
+func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
+	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	if err != nil {
+		return "", fmt.Errorf("unable to list cilium pods: %w", err)
+	}
+	if len(pods.Items) > 0 && len(pods.Items[0].Spec.Containers) > 0 {
+		image := pods.Items[0].Spec.Containers[0].Image
+		version := strings.SplitN(image, ":", 2)
+		if len(version) != 2 {
+			return "", errors.New("unable to extract cilium version from container image")
+		}
+		return version[1], nil
+	}
+	return "", errors.New("unable to obtain cilium version: no cilium pods found")
 }
