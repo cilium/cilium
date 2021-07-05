@@ -41,7 +41,26 @@ service FQDNProxyAgent {
   rpc NotifyOnDNSMessage(DNSNotification) returns(Empty) {}
 }
 
+service FQDNProxy {
+  rpc UpdateAllowed(FQDNRules) returns(Empty) {}
+}
+
 message Empty {}
+
+message FQDNRules{
+  uint64 endpointID = 1;
+  uint32 destPort = 2;
+  L7Rules rules = 3;
+}
+
+message L7Rules {
+  map<string, string> SelectorRegexMapping = 1;
+  map<string, IdentityList> SelectorIdentitiesMapping = 2;
+}
+
+message IdentityList {
+  repeated uint32 list = 1;
+}
 
 message DNSNotification {
   google.protobuf.Timestamp time = 1;

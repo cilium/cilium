@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 
@@ -35,37 +36,34 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
-	serverAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
-	client     pb.FQDNProxyAgentClient
+	agentAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
+	client    pb.FQDNProxyAgentClient
 )
 
 func main() {
 	flag.Parse()
-	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+	log.Info("started dns proxy")
+	conn, err := grpc.Dial(*agentAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 	client = pb.NewFQDNProxyAgentClient(conn)
+	log.Info("grpc client")
 
-	//ctx := context.TODO()
-
-	//msgs := make(chan pb.FQDNMapping)
-
-	//go startSending(ctx, msgs)
-
-	_, err = dnsproxy.StartDNSProxy("", 10001, false, 0, LookupEndpointIDByIP, LookupSecIDByIP, LookupIPsBySecID, NotifyOnDNSMsg)
-	//_, err := dnsproxy.StartDNSProxy("", 10001, false, 0, func(addr net.IP, fqdn string) {
-	//	msgs <- pb.FQDNMapping{IP: []byte(addr), FQDN: fqdn}
-	//})
+	proxy, err := dnsproxy.StartDNSProxy("", 10001, false, 0, LookupEndpointIDByIP, LookupSecIDByIP, LookupIPsBySecID, NotifyOnDNSMsg)
 
 	if err != nil {
 		log.Fatalf("Failed to start dns proxy: %v", err)
 	}
+	log.Info("started dns proxy")
+
+	go RunServer(10002, proxy)
 
 	exitSignal := make(chan os.Signal)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
@@ -121,7 +119,7 @@ func LookupIPsBySecID(nid identity.NumericIdentity) []string {
 }
 
 // NotifyOnDNSMsghandles propagating DNS response data
-func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, agentAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	//TODO: retain stat somehow?
 
 	endpoint := &pb.Endpoint{
@@ -141,7 +139,7 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 		Time:       timestamppb.New(lookupTime),
 		Endpoint:   endpoint,
 		EpIPPort:   epIPPort,
-		ServerAddr: serverAddr,
+		ServerAddr: agentAddr,
 		Msg:        dnsMsg,
 		Protocol:   protocol,
 		Allowed:    allowed,
@@ -149,26 +147,89 @@ func NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string
 	return err
 }
 
-//func startSending(ctx context.Context, msgs chan pb.FQDNMapping) {
-//	var opts []grpc.DialOption
-//	opts = append(opts, grpc.WithInsecure())
-//
-//	opts = append(opts, grpc.WithBlock())
-//
-//	conn, err := grpc.Dial(*serverAddr, opts...)
-//	if err != nil {
-//		log.Fatalf("fail to dial: %v", err)
-//	}
-//	defer conn.Close()
-//
-//	client := pb.NewFQNDProxyAgentClient(conn)
-//
-//	stream, err := client.ProvideMappings(ctx)
-//	if err != nil {
-//		log.Fatalf("failed to create stream: %v", err)
-//	}
-//	for {
-//		msg := <-msgs
-//		stream.Send(&msg)
-//	}
-//}
+type FQDNProxyServer struct {
+	pb.UnimplementedFQDNProxyServer
+
+	proxy *dnsproxy.DNSProxy
+}
+
+func (s *FQDNProxyServer) UpdateAllowed(ctx context.Context, rules *pb.FQDNRules) (*pb.Empty, error) {
+	//TODO: implement
+	cachedSelectorREEntry := make(dnsproxy.CachedSelectorREEntry)
+
+	for key, rule := range rules.Rules.SelectorRegexMapping {
+		regex, err := regexp.Compile(rule)
+		if err != nil {
+			return &pb.Empty{}, err
+		}
+
+		ids, ok := rules.Rules.SelectorIdentitiesMapping[key]
+		if !ok {
+			return &pb.Empty{}, errors.New(fmt.Sprintf("malformed message: key %s not found in identities mapping", key))
+		}
+
+		nids := make([]identity.NumericIdentity, len(ids.List))
+
+		for i, id := range ids.List {
+			nids[i] = identity.NumericIdentity(id)
+		}
+
+		selector := SimpleSelector{
+			identities: nids,
+			name:       key,
+		}
+
+		cachedSelectorREEntry[&selector] = regex
+	}
+
+	s.proxy.UpdateAllowedFromSelectorRegexes(rules.EndpointID, uint16(rules.DestPort), cachedSelectorREEntry)
+	return &pb.Empty{}, nil
+}
+
+func newServer(proxy *dnsproxy.DNSProxy) *FQDNProxyServer {
+	return &FQDNProxyServer{proxy: proxy}
+}
+
+func RunServer(port int, proxy *dnsproxy.DNSProxy) {
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	var opts []grpc.ServerOption
+	grpcServer := grpc.NewServer(opts...)
+	pb.RegisterFQDNProxyServer(grpcServer, newServer(proxy))
+	grpcServer.Serve(lis)
+}
+
+var _ policy.CachedSelector = &SimpleSelector{}
+
+//TODO: make this hashable
+type SimpleSelector struct {
+	identities []identity.NumericIdentity
+	name       string
+}
+
+func (s *SimpleSelector) GetSelections() []identity.NumericIdentity {
+	return s.identities
+}
+
+func (s *SimpleSelector) Selects(nid identity.NumericIdentity) bool {
+	for _, id := range s.identities {
+		if id == nid {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *SimpleSelector) IsWildcard() bool {
+	return false
+}
+
+func (s *SimpleSelector) IsNone() bool {
+	return len(s.identities) == 0
+}
+
+func (s *SimpleSelector) String() string {
+	return s.name
+}
