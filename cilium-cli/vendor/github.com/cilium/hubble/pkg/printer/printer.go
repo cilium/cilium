@@ -30,10 +30,9 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Printer for flows.
@@ -60,9 +59,10 @@ func (ew *errWriter) write(a ...interface{}) {
 func New(fopts ...Option) *Printer {
 	// default options
 	opts := Options{
-		output: TabOutput,
-		w:      os.Stdout,
-		werr:   os.Stderr,
+		output:     TabOutput,
+		w:          os.Stdout,
+		werr:       os.Stderr,
+		timeFormat: time.StampMilli,
 	}
 
 	// apply optional parameters
@@ -88,6 +88,7 @@ func New(fopts ...Option) *Printer {
 const (
 	tab     = "\t"
 	newline = "\n"
+	space   = " "
 
 	dictSeparator = "------------"
 
@@ -110,7 +111,7 @@ func (p *Printer) WriteErr(msg string) error {
 }
 
 // GetPorts returns source and destination port of a flow.
-func (p *Printer) GetPorts(f v1.Flow) (string, string) {
+func (p *Printer) GetPorts(f *pb.Flow) (string, string) {
 	l4 := f.GetL4()
 	if l4 == nil {
 		return "", ""
@@ -126,7 +127,7 @@ func (p *Printer) GetPorts(f v1.Flow) (string, string) {
 }
 
 // GetHostNames returns source and destination hostnames of a flow.
-func (p *Printer) GetHostNames(f v1.Flow) (string, string) {
+func (p *Printer) GetHostNames(f *pb.Flow) (string, string) {
 	var srcNamespace, dstNamespace, srcPodName, dstPodName, srcSvcName, dstSvcName string
 	if f == nil {
 		return "", ""
@@ -161,16 +162,15 @@ func (p *Printer) GetHostNames(f v1.Flow) (string, string) {
 	return src, dst
 }
 
-func fmtTimestamp(ts *timestamp.Timestamp) string {
-	t, err := ptypes.Timestamp(ts)
-	if err != nil || t.IsZero() {
+func fmtTimestamp(layout string, ts *timestamppb.Timestamp) string {
+	if !ts.IsValid() {
 		return "N/A"
 	}
-	return MaybeTime(&t)
+	return ts.AsTime().Format(layout)
 }
 
 // GetFlowType returns the type of a flow as a string.
-func GetFlowType(f v1.Flow) string {
+func GetFlowType(f *pb.Flow) string {
 	if l7 := f.GetL7(); l7 != nil {
 		l7Protocol := "l7"
 		l7Type := strings.ToLower(l7.Type.String())
@@ -197,6 +197,8 @@ func GetFlowType(f v1.Flow) string {
 		case pb.Verdict_DROPPED:
 			return api.DropReason(uint8(f.GetDropReason()))
 		}
+	case api.MessageTypeCapture:
+		return f.GetDebugCapturePoint().String()
 	}
 
 	return "UNKNOWN"
@@ -224,7 +226,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 				"SUMMARY", newline,
 			)
 		}
-		ew.write(fmtTimestamp(f.GetTime()), tab)
+		ew.write(fmtTimestamp(p.opts.timeFormat, f.GetTime()), tab)
 		if p.opts.nodeName {
 			ew.write(f.GetNodeName(), tab)
 		}
@@ -249,7 +251,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 
 		// this is a little crude, but will do for now. should probably find the
 		// longest header and auto-format the keys
-		ew.write("  TIMESTAMP: ", fmtTimestamp(f.GetTime()), newline)
+		ew.write("  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, f.GetTime()), newline)
 		if p.opts.nodeName {
 			ew.write("       NODE: ", f.GetNodeName(), newline)
 		}
@@ -270,11 +272,21 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 		if p.opts.nodeName {
 			node = fmt.Sprintf(" [%s]", f.GetNodeName())
 		}
+		arrow := "->"
+		if f.GetIsReply() == nil {
+			// direction is unknown.
+			arrow = "<>"
+		} else if f.GetIsReply().Value {
+			// flip the arrow and src/dst for reply packets.
+			src, dst = dst, src
+			arrow = "<-"
+		}
 		_, err := fmt.Fprintf(p.opts.w,
-			"%s%s: %s -> %s %s %s (%s)\n",
-			fmtTimestamp(f.GetTime()),
+			"%s%s: %s %s %s %s %s (%s)\n",
+			fmtTimestamp(p.opts.timeFormat, f.GetTime()),
 			node,
 			src,
+			arrow,
 			dst,
 			GetFlowType(f),
 			f.GetVerdict().String(),
@@ -354,7 +366,7 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 			message = strconv.Quote(m)
 		}
 		_, err := fmt.Fprint(p.opts.werr,
-			"  TIMESTAMP: ", fmtTimestamp(r.GetTime()), newline,
+			"  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, r.GetTime()), newline,
 			"      STATE: ", s.StateChange.String(), newline,
 			"      NODES: ", nodeNames, newline,
 			"    MESSAGE: ", message, newline,
@@ -365,7 +377,7 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 	case TabOutput, CompactOutput:
 		numNodes := len(s.NodeNames)
 		nodeNames := joinWithCutOff(s.NodeNames, ", ", nodeNamesCutOff)
-		prefix := fmt.Sprintf("%s [%s]", fmtTimestamp(r.GetTime()), r.GetNodeName())
+		prefix := fmt.Sprintf("%s [%s]", fmtTimestamp(p.opts.timeFormat, r.GetTime()), r.GetNodeName())
 		msg := fmt.Sprintf("%s: unknown node status event: %+v", prefix, s)
 		switch s.StateChange {
 		case relaypb.NodeState_NODE_CONNECTED:
@@ -384,13 +396,282 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 	return nil
 }
 
-// MaybeTime returns a Millisecond precision timestamp, or "N/A" if nil.
-func MaybeTime(t *time.Time) string {
-	if t != nil {
-		// TODO: support more date formats through options to `hubble observe`
-		return t.Format(time.StampMilli)
+func formatServiceAddr(a *pb.ServiceUpsertNotificationAddr) string {
+	return net.JoinHostPort(a.Ip, strconv.Itoa(int(a.Port)))
+}
+
+func getAgentEventDetails(e *pb.AgentEvent, timeLayout string) string {
+	switch e.GetType() {
+	case pb.AgentEventType_AGENT_EVENT_UNKNOWN:
+		if u := e.GetUnknown(); u != nil {
+			return fmt.Sprintf("type: %s, notification: %s", u.Type, u.Notification)
+		}
+	case pb.AgentEventType_AGENT_STARTED:
+		if a := e.GetAgentStart(); a != nil {
+			return fmt.Sprintf("start time: %s", fmtTimestamp(timeLayout, a.Time))
+		}
+	case pb.AgentEventType_POLICY_UPDATED, pb.AgentEventType_POLICY_DELETED:
+		if p := e.GetPolicyUpdate(); p != nil {
+			return fmt.Sprintf("labels: [%s], revision: %d, count: %d",
+				strings.Join(p.Labels, ","), p.Revision, p.RuleCount)
+		}
+	case pb.AgentEventType_ENDPOINT_REGENERATE_SUCCESS, pb.AgentEventType_ENDPOINT_REGENERATE_FAILURE:
+		if r := e.GetEndpointRegenerate(); r != nil {
+			var sb strings.Builder
+			fmt.Fprintf(&sb, "id: %d, labels: [%s]", r.Id, strings.Join(r.Labels, ","))
+			if re := r.Error; re != "" {
+				fmt.Fprintf(&sb, ", error: %s", re)
+			}
+			return sb.String()
+		}
+	case pb.AgentEventType_ENDPOINT_CREATED, pb.AgentEventType_ENDPOINT_DELETED:
+		if ep := e.GetEndpointUpdate(); ep != nil {
+			var sb strings.Builder
+			fmt.Fprintf(&sb, "id: %d", ep.Id)
+			if n := ep.Namespace; n != "" {
+				fmt.Fprintf(&sb, ", namespace: %s", n)
+			}
+			if n := ep.PodName; n != "" {
+				fmt.Fprintf(&sb, ", pod name: %s", n)
+			}
+			return sb.String()
+		}
+	case pb.AgentEventType_IPCACHE_UPSERTED, pb.AgentEventType_IPCACHE_DELETED:
+		if i := e.GetIpcacheUpdate(); i != nil {
+			var sb strings.Builder
+			fmt.Fprintf(&sb, "cidr: %s, identity: %d", i.Cidr, i.Identity)
+			if i.OldIdentity != nil {
+				fmt.Fprintf(&sb, ", old identity: %d", i.OldIdentity.Value)
+			}
+			if i.HostIp != "" {
+				fmt.Fprintf(&sb, ", host ip: %s", i.HostIp)
+			}
+			if i.OldHostIp != "" {
+				fmt.Fprintf(&sb, ", old host ip: %s", i.OldHostIp)
+			}
+			fmt.Fprintf(&sb, ", encrypt key: %d", i.EncryptKey)
+			return sb.String()
+		}
+	case pb.AgentEventType_SERVICE_UPSERTED:
+		if svc := e.GetServiceUpsert(); svc != nil {
+			var sb strings.Builder
+			fmt.Fprintf(&sb, "id: %d", svc.Id)
+			if fe := svc.FrontendAddress; fe != nil {
+				fmt.Fprintf(&sb, ", frontend: %s", formatServiceAddr(fe))
+			}
+			if bes := svc.BackendAddresses; len(bes) != 0 {
+				backends := make([]string, 0, len(bes))
+				for _, a := range bes {
+					backends = append(backends, formatServiceAddr(a))
+				}
+				fmt.Fprintf(&sb, ", backends: [%s]", strings.Join(backends, ","))
+			}
+			if t := svc.Type; t != "" {
+				fmt.Fprintf(&sb, ", type: %s", t)
+			}
+			if tp := svc.TrafficPolicy; tp != "" {
+				fmt.Fprintf(&sb, ", traffic policy: %s", tp)
+			}
+			if ns := svc.Namespace; ns != "" {
+				fmt.Fprintf(&sb, ", namespace: %s", ns)
+			}
+			if n := svc.Name; n != "" {
+				fmt.Fprintf(&sb, ", name: %s", n)
+			}
+			return sb.String()
+		}
+	case pb.AgentEventType_SERVICE_DELETED:
+		if s := e.GetServiceDelete(); s != nil {
+			return fmt.Sprintf("id: %d", s.Id)
+		}
 	}
-	return "N/A"
+	return "UNKNOWN"
+}
+
+// WriteProtoAgentEvent writes v1.AgentEvent into the output writer.
+func (p *Printer) WriteProtoAgentEvent(r *observerpb.GetAgentEventsResponse) error {
+	e := r.GetAgentEvent()
+	if e == nil {
+		return errors.New("not an agent event")
+	}
+
+	switch p.opts.output {
+	case JSONOutput:
+		return p.jsonEncoder.Encode(e)
+	case JSONPBOutput:
+		return p.jsonEncoder.Encode(r)
+	case DictOutput:
+		ew := &errWriter{w: p.opts.w}
+
+		if p.line != 0 {
+			ew.write(dictSeparator)
+		}
+
+		ew.write("  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, r.GetTime()), newline)
+		if p.opts.nodeName {
+			ew.write("       NODE: ", r.GetNodeName(), newline)
+		}
+		ew.write(
+			"       TYPE: ", e.GetType(), newline,
+			"    DETAILS: ", getAgentEventDetails(e, p.opts.timeFormat), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out agent event: %v", ew.err)
+		}
+	case TabOutput:
+		ew := &errWriter{w: p.tw}
+		if p.line == 0 {
+			ew.write("TIMESTAMP", tab)
+			if p.opts.nodeName {
+				ew.write("NODE", tab)
+			}
+			ew.write(
+				"TYPE", tab,
+				"DETAILS", newline,
+			)
+		}
+		ew.write(fmtTimestamp(p.opts.timeFormat, r.GetTime()), tab)
+		if p.opts.nodeName {
+			ew.write(r.GetNodeName(), tab)
+		}
+		ew.write(
+			e.GetType(), tab,
+			getAgentEventDetails(e, p.opts.timeFormat), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out agent event: %v", ew.err)
+		}
+	case CompactOutput:
+		var node string
+
+		if p.opts.nodeName {
+			node = fmt.Sprintf(" [%s]", r.GetNodeName())
+		}
+		_, err := fmt.Fprintf(p.opts.w,
+			"%s%s: %s (%s)\n",
+			fmtTimestamp(p.opts.timeFormat, r.GetTime()),
+			node,
+			e.GetType(),
+			getAgentEventDetails(e, p.opts.timeFormat))
+		if err != nil {
+			return fmt.Errorf("failed to write out agent event: %v", err)
+		}
+	}
+	p.line++
+	return nil
+}
+
+func fmtHexUint32(v *wrapperspb.UInt32Value) string {
+	if v == nil {
+		return "N/A"
+	}
+	return "0x" + strconv.FormatUint(uint64(v.GetValue()), 16)
+}
+
+func fmtCPU(cpu *wrapperspb.Int32Value) string {
+	if cpu == nil {
+		return "N/A"
+	}
+	return fmt.Sprintf("%02d", cpu.GetValue())
+}
+
+func fmtEndpointShort(ep *pb.Endpoint) string {
+	if ep == nil {
+		return "N/A"
+	}
+
+	str := fmt.Sprintf("ID: %d", ep.GetID())
+	if ns, pod := ep.GetNamespace(), ep.GetPodName(); ns != "" && pod != "" {
+		str = fmt.Sprintf("%s/%s (%s)", ns, pod, str)
+	} else if lbls := ep.GetLabels(); len(lbls) == 1 && strings.HasPrefix("reserved:", lbls[0]) {
+		str = fmt.Sprintf("%s (%s)", lbls[0], str)
+	}
+
+	return str
+}
+
+// WriteProtoDebugEvent writes a flowpb.DebugEvent into the output writer.
+func (p *Printer) WriteProtoDebugEvent(r *observerpb.GetDebugEventsResponse) error {
+	e := r.GetDebugEvent()
+	if e == nil {
+		return errors.New("not a debug event")
+	}
+
+	switch p.opts.output {
+	case JSONOutput:
+		return p.jsonEncoder.Encode(e)
+	case JSONPBOutput:
+		return p.jsonEncoder.Encode(r)
+	case DictOutput:
+		ew := &errWriter{w: p.opts.w}
+
+		if p.line != 0 {
+			ew.write(dictSeparator)
+		}
+
+		ew.write("  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, r.GetTime()), newline)
+		if p.opts.nodeName {
+			ew.write("       NODE: ", r.GetNodeName(), newline)
+		}
+		ew.write(
+			"",
+			"       TYPE: ", e.GetType(), newline,
+			"       FROM: ", fmtEndpointShort(e.GetSource()), newline,
+			"       MARK: ", fmtHexUint32(e.GetHash()), newline,
+			"        CPU: ", fmtCPU(e.GetCpu()), newline,
+			"    MESSAGE: ", e.GetMessage(), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out debug event: %v", ew.err)
+		}
+	case TabOutput:
+		ew := &errWriter{w: p.tw}
+		if p.line == 0 {
+			ew.write("TIMESTAMP", tab)
+			if p.opts.nodeName {
+				ew.write("NODE", tab)
+			}
+			ew.write(
+				"FROM", tab, tab,
+				"TYPE", tab,
+				"CPU/MARK", tab,
+				"MESSAGE", newline,
+			)
+		}
+		ew.write(fmtTimestamp(p.opts.timeFormat, r.GetTime()), tab)
+		if p.opts.nodeName {
+			ew.write(r.GetNodeName(), tab)
+		}
+		ew.write(
+			fmtEndpointShort(e.GetSource()), tab, tab,
+			e.GetType(), tab,
+			fmtCPU(e.GetCpu()), space, fmtHexUint32(e.GetHash()), tab,
+			e.GetMessage(), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out debug event: %v", ew.err)
+		}
+	case CompactOutput:
+		var node string
+		if p.opts.nodeName {
+			node = fmt.Sprintf(" [%s]", r.GetNodeName())
+		}
+		_, err := fmt.Fprintf(p.opts.w,
+			"%s%s: %s %s MARK: %s CPU: %s (%s)\n",
+			fmtTimestamp(p.opts.timeFormat, r.GetTime()),
+			node,
+			fmtEndpointShort(e.GetSource()),
+			e.GetType(),
+			fmtHexUint32(e.GetHash()),
+			fmtCPU(e.GetCpu()),
+			e.GetMessage(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to write out debug event: %v", err)
+		}
+	}
+	p.line++
+	return nil
 }
 
 // Hostname returns a "host:ip" formatted pair for the given ip and port. If

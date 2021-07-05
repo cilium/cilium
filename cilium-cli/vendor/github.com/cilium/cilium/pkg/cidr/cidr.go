@@ -60,15 +60,30 @@ func (n *CIDR) DeepCopy() *CIDR {
 	if n == nil {
 		return nil
 	}
-	out := &CIDR{
-		&net.IPNet{
-			IP:   make([]byte, len(n.IP)),
-			Mask: make([]byte, len(n.Mask)),
-		},
-	}
-	copy(out.IP, n.IP)
-	copy(out.Mask, n.Mask)
+	out := new(CIDR)
+	n.DeepCopyInto(out)
 	return out
+}
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *CIDR) DeepCopyInto(out *CIDR) {
+	*out = *in
+	if in.IPNet == nil {
+		return
+	}
+	out.IPNet = new(net.IPNet)
+	*out.IPNet = *in.IPNet
+	if in.IPNet.IP != nil {
+		in, out := &in.IPNet.IP, &out.IPNet.IP
+		*out = make(net.IP, len(*in))
+		copy(*out, *in)
+	}
+	if in.IPNet.Mask != nil {
+		in, out := &in.IPNet.Mask, &out.IPNet.Mask
+		*out = make(net.IPMask, len(*in))
+		copy(*out, *in)
+	}
+	return
 }
 
 // AvailableIPs returns the number of IPs available in a CIDR

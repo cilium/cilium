@@ -252,9 +252,9 @@ func (l *Label) matches(target *Label) bool {
 // Source:Key if Value is empty.
 func (l *Label) String() string {
 	if len(l.Value) != 0 {
-		return fmt.Sprintf("%s:%s=%s", l.Source, l.Key, l.Value)
+		return l.Source + ":" + l.Key + "=" + l.Value
 	}
-	return fmt.Sprintf("%s:%s", l.Source, l.Key)
+	return l.Source + ":" + l.Key
 }
 
 // IsValid returns true if Key != "".

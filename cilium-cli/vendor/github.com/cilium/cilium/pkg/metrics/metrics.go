@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -171,11 +172,6 @@ const (
 	// LabelOperation is the label for BPF maps operations
 	LabelOperation = "operation"
 
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// LabelMapNameDeprecated is the label for the BPF map name
-	// Deprecated: in favor of LabelMapName
-	LabelMapNameDeprecated = "mapName"
-
 	// LabelMapName is the label for the BPF map name
 	LabelMapName = "map_name"
 
@@ -199,18 +195,6 @@ var (
 	// It must be thread-safe.
 	Endpoint prometheus.GaugeFunc
 
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// EndpointCount is a function used to collect this metric.
-	// It must be thread-safe.
-	// Deprecated: in favor of Endpoint
-	EndpointCount prometheus.GaugeFunc
-
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// EndpointRegenerationCount is a count of the number of times any endpoint
-	// has been regenerated and success/fail outcome
-	// Deprecated: in favor of EndpointRegenerationTotal
-	EndpointRegenerationCount = NoOpCounterVec
-
 	// EndpointRegenerationTotal is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
 	EndpointRegenerationTotal = NoOpCounterVec
@@ -223,14 +207,8 @@ var (
 	EndpointRegenerationTimeStats = NoOpObserverVec
 
 	// Policy
-
 	// Policy is the number of policies loaded into the agent
 	Policy = NoOpGauge
-
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// PolicyCount is the number of policies loaded into the agent
-	// Deprecated: in favor of Policy
-	PolicyCount = NoOpGauge
 
 	// PolicyRegenerationCount is the total number of successful policy
 	// regenerations.
@@ -241,11 +219,6 @@ var (
 
 	// PolicyRevision is the current policy revision number for this agent
 	PolicyRevision = NoOpGauge
-
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// PolicyImportErrors is a count of failed policy imports
-	// Deprecated: in favor of PolicyImportErrorsTotal
-	PolicyImportErrors = NoOpCounter
 
 	// PolicyImportErrorsTotal is a count of failed policy imports
 	PolicyImportErrorsTotal = NoOpCounter
@@ -264,11 +237,6 @@ var (
 
 	// Identity is the number of identities currently in use on the node
 	Identity = NoOpGauge
-
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// IdentityCount is the number of identities currently in use on the node
-	// Deprecated: in favor of Identity
-	IdentityCount = NoOpGauge
 
 	// Events
 
@@ -336,10 +304,6 @@ var (
 
 	// Datapath statistics
 
-	// DatapathErrors is the number of errors managing datapath components
-	// such as BPF maps.
-	DatapathErrors = NoOpCounterVec
-
 	// ConntrackGCRuns is the number of times that the conntrack GC
 	// process was run.
 	ConntrackGCRuns = NoOpCounterVec
@@ -355,6 +319,9 @@ var (
 
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
+
+	// ConntrackDumpReset marks the count for conntrack dump resets
+	ConntrackDumpResets = NoOpCounterVec
 
 	// Signals
 
@@ -395,12 +362,6 @@ var (
 	// KubernetesAPIInteractions is the total time taken to process an API call made
 	// to the kube-apiserver
 	KubernetesAPIInteractions = NoOpObserverVec
-
-	// TODO(sayboras): Remove deprecated metric in 1.10
-	// KubernetesAPICalls is the counter for all API calls made to
-	// kube-apiserver.
-	// Deprecated: Use KubernetesAPICallsTotal instead
-	KubernetesAPICalls = NoOpCounterVec
 
 	// KubernetesAPICallsTotal is the counter for all API calls made to
 	// kube-apiserver.
@@ -515,11 +476,11 @@ type Configuration struct {
 	DropBytesEnabled                        bool
 	NoOpCounterVecEnabled                   bool
 	ForwardBytesEnabled                     bool
-	DatapathErrorsEnabled                   bool
 	ConntrackGCRunsEnabled                  bool
 	ConntrackGCKeyFallbacksEnabled          bool
 	ConntrackGCSizeEnabled                  bool
 	ConntrackGCDurationEnabled              bool
+	ConntrackDumpResetsEnabled              bool
 	SignalsHandledEnabled                   bool
 	ServicesCountEnabled                    bool
 	ErrorsWarningsEnabled                   bool
@@ -538,6 +499,7 @@ type Configuration struct {
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
+	BPFMapPressure                          bool
 	TriggerPolicyUpdateTotal                bool
 	TriggerPolicyUpdateFolds                bool
 	TriggerPolicyUpdateCallDuration         bool
@@ -555,21 +517,17 @@ type Configuration struct {
 func DefaultMetrics() map[string]struct{} {
 	return map[string]struct{}{
 		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":               {},
-		Namespace + "_endpoint_regenerations":                                        {}, //TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_endpoint_regenerations_total":                                  {},
 		Namespace + "_endpoint_state":                                                {},
 		Namespace + "_endpoint_regeneration_time_stats_seconds":                      {},
 		Namespace + "_policy":                                                        {},
-		Namespace + "_policy_count":                                                  {}, //TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_policy_regeneration_total":                                     {},
 		Namespace + "_policy_regeneration_time_stats_seconds":                        {},
 		Namespace + "_policy_max_revision":                                           {},
-		Namespace + "_policy_import_errors":                                          {}, //TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_policy_import_errors_total":                                    {},
 		Namespace + "_policy_endpoint_enforcement_status":                            {},
 		Namespace + "_policy_implementation_delay":                                   {},
 		Namespace + "_identity":                                                      {},
-		Namespace + "_identity_count":                                                {}, //TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_event_ts":                                                      {},
 		Namespace + "_proxy_redirects":                                               {},
 		Namespace + "_policy_l7_total":                                               {},
@@ -582,7 +540,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_drop_bytes_total":                                              {},
 		Namespace + "_forward_count_total":                                           {},
 		Namespace + "_forward_bytes_total":                                           {},
-		Namespace + "_" + SubsystemDatapath + "_errors_total":                        {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":         {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_entries":                {},
@@ -596,7 +554,6 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_kubernetes_events_total":                                       {},
 		Namespace + "_kubernetes_events_received_total":                              {},
 		Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":           {},
-		Namespace + "_" + SubsystemK8sClient + "_api_calls_counter":                  {}, //TODO(sayboras): Remove deprecated metric in 1.10
 		Namespace + "_" + SubsystemK8sClient + "_api_calls_total":                    {},
 		Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":            {},
 		Namespace + "_ipam_events_total":                                             {},
@@ -639,17 +596,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, APIInteractions)
 			c.APIInteractionsEnabled = true
-
-		case Namespace + "_endpoint_regenerations":
-			EndpointRegenerationCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Name:      "endpoint_regenerations",
-				Help: "Count of all endpoint regenerations that have completed, tagged by outcome" +
-					"(deprecated, use endpoint_regenerations_total instead)",
-			}, []string{"outcome"})
-
-			collectors = append(collectors, EndpointRegenerationCount)
-			c.EndpointRegenerationCountEnabled = true
 
 		case Namespace + "_endpoint_regenerations_total":
 			EndpointRegenerationTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -694,16 +640,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, Policy)
 			c.PolicyCountEnabled = true
 
-		case Namespace + "_policy_count":
-			PolicyCount = prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace: Namespace,
-				Name:      "policy_count",
-				Help:      "Number of policies currently loaded (deprecated, use policy instead)",
-			})
-
-			collectors = append(collectors, PolicyCount)
-			c.PolicyCountEnabled = true
-
 		case Namespace + "_policy_regeneration_total":
 			PolicyRegenerationCount = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -733,17 +669,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, PolicyRevision)
 			c.PolicyRegenerationTimeStatsEnabled = true
-
-		case Namespace + "_policy_import_errors":
-			PolicyImportErrors = prometheus.NewCounter(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Name:      "policy_import_errors",
-				Help: "Number of times a policy import has failed" +
-					"(deprecated, use policy_import_errors_total instead)",
-			})
-
-			collectors = append(collectors, PolicyImportErrors)
-			c.PolicyImportErrorsEnabled = true
 
 		case Namespace + "_policy_import_errors_total":
 			PolicyImportErrorsTotal = prometheus.NewCounter(prometheus.CounterOpts{
@@ -783,16 +708,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			})
 
 			collectors = append(collectors, Identity)
-			c.IdentityCountEnabled = true
-
-		case Namespace + "_identity_count":
-			IdentityCount = prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace: Namespace,
-				Name:      "identity_count",
-				Help:      "Number of identities currently allocated (deprecated, use identity instead)",
-			})
-
-			collectors = append(collectors, IdentityCount)
 			c.IdentityCountEnabled = true
 
 		case Namespace + "_event_ts":
@@ -950,17 +865,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, ForwardBytes)
 			c.ForwardBytesEnabled = true
 
-		case Namespace + "_" + SubsystemDatapath + "_errors_total":
-			DatapathErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemDatapath,
-				Name:      "errors_total",
-				Help:      "Number of errors that occurred in the datapath or datapath management",
-			}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
-
-			collectors = append(collectors, DatapathErrors)
-			c.DatapathErrorsEnabled = true
-
 		case Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":
 			ConntrackGCRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -1017,6 +921,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ConntrackGCDuration)
 			c.ConntrackGCDurationEnabled = true
+
+		case Namespace + "_" + SubsystemDatapath + "_conntrack_dump_resets_total":
+			ConntrackDumpResets = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemDatapath,
+				Name:      "conntrack_dump_resets_total",
+				Help:      "Number of conntrack dump resets. Happens when a BPF entry gets removed while dumping the map is in progress",
+			}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+			collectors = append(collectors, ConntrackDumpResets)
+			c.ConntrackDumpResetsEnabled = true
 
 		case Namespace + "_" + SubsystemDatapath + "_signals_handled_total":
 			SignalsHandled = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -1111,18 +1026,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KubernetesAPIInteractions)
 			c.KubernetesAPIInteractionsEnabled = true
 
-		case Namespace + "_" + SubsystemK8sClient + "_api_calls_counter":
-			KubernetesAPICalls = prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemK8sClient,
-				Name:      "api_calls_counter",
-				Help: "Number of API calls made to kube-apiserver labeled by host, method and return code." +
-					"(deprecated, use api_calls_total instead)",
-			}, []string{"host", LabelMethod, LabelAPIReturnCode})
-
-			collectors = append(collectors, KubernetesAPICalls)
-			c.KubernetesAPICallsEnabled = true
-
 		case Namespace + "_" + SubsystemK8sClient + "_api_calls_total":
 			KubernetesAPICallsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -1216,10 +1119,13 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem: SubsystemBPF,
 				Name:      "map_ops_total",
 				Help:      "Total operations on map, tagged by map name",
-			}, []string{LabelMapName, LabelMapNameDeprecated, LabelOperation, LabelOutcome})
+			}, []string{LabelMapName, LabelOperation, LabelOutcome})
 
 			collectors = append(collectors, BPFMapOps)
 			c.BPFMapOps = true
+
+		case Namespace + "_" + SubsystemBPF + "_map_pressure":
+			c.BPFMapPressure = true
 
 		case Namespace + "_" + SubsystemTriggers + "_policy_update_total":
 			TriggerPolicyUpdateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -1357,6 +1263,62 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 	}
 
 	return c, collectors
+}
+
+// GaugeWithThreshold is a prometheus gauge that registers itself with
+// prometheus if over a threshold value and unregisters when under.
+type GaugeWithThreshold struct {
+	gauge     prometheus.Gauge
+	threshold float64
+	active    bool
+}
+
+// Set the value of the GaugeWithThreshold.
+func (gwt *GaugeWithThreshold) Set(value float64) {
+	overThreshold := value > gwt.threshold
+	if gwt.active && !overThreshold {
+		gwt.active = !Unregister(gwt.gauge)
+		if gwt.active {
+			log.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+		}
+	} else if !gwt.active && overThreshold {
+		err := Register(gwt.gauge)
+		gwt.active = err == nil
+		if err != nil {
+			log.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+		}
+	}
+
+	gwt.gauge.Set(value)
+}
+
+// NewGaugeWithThreshold creates a new GaugeWithThreshold.
+func NewGaugeWithThreshold(name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
+	return &GaugeWithThreshold{
+		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace:   Namespace,
+			Subsystem:   subsystem,
+			Name:        name,
+			Help:        desc,
+			ConstLabels: labels,
+		}),
+		threshold: threshold,
+		active:    false,
+	}
+}
+
+// NewBPFMapPressureGauge creates a new GaugeWithThreshold for the
+// cilium_bpf_map_pressure metric with the map name as constant label.
+func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThreshold {
+	return NewGaugeWithThreshold(
+		"map_pressure",
+		SubsystemBPF,
+		"Fill percentage of map, tagged by map name",
+		map[string]string{
+			LabelMapName: mapname,
+		},
+		threshold,
+	)
 }
 
 func init() {
