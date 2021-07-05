@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   # 
-  # pull_request: {}
+  pull_request: {}
   ###
 
 concurrency:
@@ -221,9 +221,9 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Enable Relay
-        run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+      # - name: Enable Relay
+      #   run: |
+      #     cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -262,11 +262,11 @@ jobs:
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
             --command "ping -c 3 \$(cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
-      - name: Port forward Relay
-        run: |
-          cilium hubble port-forward&
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
+      # - name: Port forward Relay
+      #   run: |
+      #     cilium hubble port-forward&
+      #     sleep 10s
+      #     [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
