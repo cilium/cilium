@@ -1001,6 +1001,7 @@ type k8sInstallerImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	CheckDaemonSetStatus(ctx context.Context, namespace, daemonset string) error
+	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 }
 
 type K8sInstaller struct {
