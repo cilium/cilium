@@ -26,7 +26,7 @@ jobs:
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -LO "https://github.com/weaveworks/eksctl/releases/download/0.54.0/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
@@ -51,7 +51,7 @@ jobs:
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
           fi
-          
+
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
@@ -106,7 +106,7 @@ jobs:
       - name: Wait for test job
         run: |
           kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=10m
-      
+
       - name: Make sure the 'aws-node' DaemonSet exists but has no scheduled pods
         run: |
           [[ $(kubectl -n kube-system get ds/aws-node -o jsonpath='{.status.currentNumberScheduled}') == 0 ]]
