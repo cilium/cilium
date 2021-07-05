@@ -19,7 +19,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
 
 	"github.com/spf13/cobra"
@@ -62,8 +61,8 @@ func newCmdHubbleEnable() *cobra.Command {
 
 	cmd.Flags().StringVarP(&params.Namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.Flags().BoolVar(&params.Relay, "relay", true, "Deploy Hubble Relay")
-	cmd.Flags().StringVar(&params.RelayImage, "relay-image", defaults.RelayImage, "Image path to use for Relay")
-	cmd.Flags().StringVar(&params.RelayVersion, "relay-version", defaults.Version, "Version of Relay to deploy")
+	cmd.Flags().StringVar(&params.RelayImage, "relay-image", "", "Image path to use for Relay")
+	cmd.Flags().StringVar(&params.RelayVersion, "relay-version", "", "Version of Relay to deploy")
 	cmd.Flags().StringVar(&params.RelayServiceType, "relay-service-type", "ClusterIP", "Type of Kubernetes service to expose Hubble Relay")
 	cmd.Flags().BoolVar(&params.UI, "ui", false, "Enable Hubble UI")
 	cmd.Flags().BoolVar(&params.CreateCA, "create-ca", false, "Automatically create CA if needed")
