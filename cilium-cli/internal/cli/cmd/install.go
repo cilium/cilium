@@ -130,7 +130,7 @@ Examples:
 cilium upgrade
 
 # Upgrade Cilium to a specific version
-cilium upgrade --version v1.9.8
+cilium upgrade --version v1.10.2
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			installer, err := install.NewK8sInstaller(k8sClient, params)
