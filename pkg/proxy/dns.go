@@ -27,6 +27,7 @@ import (
 var (
 	// DefaultDNSProxy is the global, shared, DNS Proxy singleton.
 	DefaultDNSProxy *dnsproxy.DNSProxy
+	DNSProxyClient  *dnsproxy.DNSProxyClient
 )
 
 // dnsRedirect implements the Redirect interface for an l7 proxy

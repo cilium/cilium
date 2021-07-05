@@ -280,3 +280,77 @@ var _FQDNProxyAgent_serviceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "dnsproxy/dnsproxy.proto",
 }
+
+// FQDNProxyClient is the client API for FQDNProxy service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type FQDNProxyClient interface {
+	UpdateAllowed(ctx context.Context, in *FQDNRules, opts ...grpc.CallOption) (*Empty, error)
+}
+
+type fQDNProxyClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewFQDNProxyClient(cc grpc.ClientConnInterface) FQDNProxyClient {
+	return &fQDNProxyClient{cc}
+}
+
+func (c *fQDNProxyClient) UpdateAllowed(ctx context.Context, in *FQDNRules, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/dnsproxy.FQDNProxy/UpdateAllowed", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FQDNProxyServer is the server API for FQDNProxy service.
+// All implementations should embed UnimplementedFQDNProxyServer
+// for forward compatibility
+type FQDNProxyServer interface {
+	UpdateAllowed(context.Context, *FQDNRules) (*Empty, error)
+}
+
+// UnimplementedFQDNProxyServer should be embedded to have forward compatible implementations.
+type UnimplementedFQDNProxyServer struct {
+}
+
+func (*UnimplementedFQDNProxyServer) UpdateAllowed(context.Context, *FQDNRules) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAllowed not implemented")
+}
+
+func RegisterFQDNProxyServer(s *grpc.Server, srv FQDNProxyServer) {
+	s.RegisterService(&_FQDNProxy_serviceDesc, srv)
+}
+
+func _FQDNProxy_UpdateAllowed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FQDNRules)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FQDNProxyServer).UpdateAllowed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dnsproxy.FQDNProxy/UpdateAllowed",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FQDNProxyServer).UpdateAllowed(ctx, req.(*FQDNRules))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _FQDNProxy_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "dnsproxy.FQDNProxy",
+	HandlerType: (*FQDNProxyServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UpdateAllowed",
+			Handler:    _FQDNProxy_UpdateAllowed_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "dnsproxy/dnsproxy.proto",
+}
