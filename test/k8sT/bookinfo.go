@@ -49,6 +49,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sBookInfoDemoTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
+	AfterFailed(func() {
+		kubectl.CiliumReport("cilium endpoint list")
+	})
+
 	SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "Bookinfo Demo", func() {
 		var (
 			bookinfoV1YAML, bookinfoV2YAML string
