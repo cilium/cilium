@@ -55,12 +55,36 @@ jobs:
           echo ::set-output name=sha::${SHA}
           echo ::set-output name=owner::${OWNER}
 
-      - name: Create EKS cluster without nodegroup
+      - name: Create EKS cluster nodegroup
         run: |
-          eksctl create cluster \
-            --name ${{ env.clusterName }} \
-            --tags "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --without-nodegroup
+          cat <<EOF > eks-config.yaml
+          apiVersion: eksctl.io/v1alpha5
+          kind: ClusterConfig
+
+          metadata:
+            name: ${{ env.clusterName }}
+            region: ${{ env.region }}
+            tags:
+             usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+             owner: "${{ steps.vars.outputs.owner }}"
+
+          managedNodeGroups:
+          - name: ng-1
+            instanceTypes:
+             - t3.medium
+             - t3a.medium
+            desiredCapacity: 2
+            spot: true
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 10
+            taints:
+             - key: "node.cilium.io/agent-not-ready"
+               value: "true"
+               effect: "NoSchedule"
+          EOF
+
+          eksctl create cluster -f ./eks-config.yaml
 
       - name: Create kubeconfig and load it in configmap
         run: |
@@ -79,18 +103,6 @@ jobs:
             --set cluster_name=${{ env.clusterName }} \
             --set job_name=cilium-cli-install \
             --set test_script_cm=cilium-cli-test-script-install
-
-      - name: Add managed spot nodegroup
-        run: |
-          eksctl create nodegroup \
-            --cluster ${{ env.clusterName }} \
-            --nodes 2 \
-            --instance-types "t3.medium,t3a.medium" \
-            --node-volume-type gp3 \
-            --node-volume-size 10 \
-            --managed \
-            --spot \
-            --node-private-networking
 
       - name: Make sure the 'aws-node' DaemonSet exists but has no scheduled pods
         run: |
