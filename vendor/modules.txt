@@ -283,7 +283,7 @@ github.com/go-ole/go-ole/oleutil
 # github.com/go-openapi/analysis v0.19.16
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
-# github.com/go-openapi/errors v0.19.9
+# github.com/go-openapi/errors v0.20.0
 ## explicit
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.5
