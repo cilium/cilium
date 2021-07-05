@@ -426,6 +426,7 @@ type k8sClusterMeshImplementation interface {
 	GetCiliumExternalWorkload(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
+	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 }
 
 type K8sClusterMesh struct {
@@ -520,19 +521,6 @@ func (k *K8sClusterMesh) GetClusterConfig(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sClusterMesh) getRunningCiliumVersion(ctx context.Context) error {
-	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
-	if err != nil {
-		return fmt.Errorf("unable to list pods: %w", err)
-	}
-	for _, pod := range pods.Items {
-		image := pod.Spec.Containers[0].Image
-		version := strings.SplitN(image, ":", 2)
-		k.imageVersion = version[1]
-	}
-	return nil
-}
-
 func (k *K8sClusterMesh) Disable(ctx context.Context) error {
 	k.Log("🔥 Deleting clustermesh-apiserver...")
 	k.client.DeleteService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.DeleteOptions{})
@@ -576,7 +564,9 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 		return err
 	}
 
-	if err := k.getRunningCiliumVersion(ctx); err != nil {
+	var err error
+	k.imageVersion, err = k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+	if err != nil {
 		return err
 	}
 
