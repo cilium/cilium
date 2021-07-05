@@ -358,6 +358,7 @@ extraConfigmapMounts
 extraEnv
 extraHostPathMounts
 extraInitContainers
+failureThreshold
 fallback
 filename
 filenames
@@ -541,6 +542,7 @@ listenHost
 listenPort
 liveblog
 liveness
+livenessProbe
 llc
 llvm
 loadBalancer
@@ -653,6 +655,7 @@ parsers
 pc
 pcap
 perf
+periodSeconds
 pipelining
 playbook
 pluggable
@@ -788,6 +791,7 @@ stapbpf
 starfighter
 starfighters
 startup
+startupProbe
 stateful
 statsd
 structs
