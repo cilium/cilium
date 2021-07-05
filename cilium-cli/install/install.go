@@ -1253,8 +1253,6 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			// wait-bpf-mount makes init container wait until bpf filesystem is mounted
 			"wait-bpf-mount": "true",
 
-			// Deprecated. Remove once we stop supporting Cilium 1.10
-			"masquerade":            "true",
 			"enable-bpf-masquerade": "true",
 
 			"enable-xt-socket-fallback":           "true",
@@ -1293,6 +1291,20 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["cluster-pool-ipv4-mask-size"] = "24"
 	}
 
+	ersion := strings.TrimPrefix(k.params.Version, "v")
+	v, err := versioncheck.Version(ersion)
+	if err != nil {
+		k.Log("Unable to parse the provided version %q, assuming it's >= 1.10.0", k.params.Version)
+		v = versioncheck.MustVersion("1.10.0")
+	}
+
+	masqueradeOption := "enable-ipv4-masquerade"
+	if v.LT(versioncheck.MustVersion("1.10.0")) {
+		// Deprecated. Remove once we stop supporting Cilium 1.10
+		masqueradeOption = "masquerade"
+	}
+	m.Data[masqueradeOption] = "true"
+
 	switch k.params.DatapathMode {
 	case DatapathTunnel:
 		t := k.params.TunnelType
@@ -1319,19 +1331,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 		m.Data["auto-create-cilium-node-resource"] = "true"
 		m.Data["enable-local-node-route"] = "false"
 
-		ersion := strings.TrimPrefix(k.params.Version, "v")
-		v, err := versioncheck.Version(ersion)
-		if err != nil {
-			k.Log("Unable to parse the provided version %q, assuming it's >= 1.10.0", k.params.Version)
-			v = versioncheck.MustVersion("1.10.0")
-		}
-		if v.GTE(versioncheck.MustVersion("1.10.0")) {
-			delete(m.Data, "masquerade")
-			m.Data["enable-ipv4-masquerade"] = "false"
-		} else {
-			// Deprecated. Remove once we stop supporting Cilium 1.10
-			m.Data["masquerade"] = "false"
-		}
+		m.Data[masqueradeOption] = "false"
 		m.Data["enable-bpf-masquerade"] = "false"
 	}
 
