@@ -1253,6 +1253,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			// wait-bpf-mount makes init container wait until bpf filesystem is mounted
 			"wait-bpf-mount": "true",
 
+			// Deprecated. Remove once we stop supporting Cilium 1.10
 			"masquerade":            "true",
 			"enable-bpf-masquerade": "true",
 
@@ -1325,6 +1326,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			v = versioncheck.MustVersion("1.10.0")
 		}
 		if v.GTE(versioncheck.MustVersion("1.10.0")) {
+			delete(m.Data, "masquerade")
 			m.Data["enable-ipv4-masquerade"] = "false"
 		} else {
 			// Deprecated. Remove once we stop supporting Cilium 1.10
