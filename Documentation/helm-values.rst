@@ -817,6 +817,14 @@
      - Enable Layer 7 network policy.
      - bool
      - ``true``
+   * - livenessProbe.failureThreshold
+     - failure threshold of liveness probe
+     - int
+     - ``10``
+   * - livenessProbe.periodSeconds
+     - interval between checks of the liveness probe
+     - int
+     - ``30``
    * - localRedirectPolicy
      - Enable Local Redirect Policy.
      - bool
@@ -1145,6 +1153,14 @@
      - Enable creation of Resource-Based Access Control configuration.
      - bool
      - ``true``
+   * - readinessProbe.failureThreshold
+     - failure threshold of readiness probe
+     - int
+     - ``3``
+   * - readinessProbe.periodSeconds
+     - interval between checks of the readiness probe
+     - int
+     - ``30``
    * - remoteNodeIdentity
      - Enable use of the remote node identity. ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
      - bool
@@ -1185,6 +1201,14 @@
      - Configure BPF socket operations configuration
      - object
      - ``{"enabled":false}``
+   * - startupProbe.failureThreshold
+     - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+     - int
+     - ``105``
+   * - startupProbe.periodSeconds
+     - interval between checks of the startup probe
+     - int
+     - ``2``
    * - tls
      - Configure TLS configuration in the agent.
      - object
